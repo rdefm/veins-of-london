@@ -2048,12 +2048,13 @@ static func _resolve_action(cp: Dictionary, actor_idx: int, action: Dictionary, 
 				_stun(cp, actor_idx, target, move_id, m, rng, beats)
 		EFFECT_FLEE:
 			var chance := flee_chance(actor)
-			if float(actor["fleeBoost"]) > 0.0:
+			var boosted: bool = float(actor["fleeBoost"]) > 0.0
+			if boosted:
 				chance = float(actor["fleeBoost"])
 				actor["fleeBoost"] = 0.0
 			# Before its Rewind a scripted fight's Leg it never gets away.
 			if rng.randf() < chance and not (actor_idx == PLAYER_INDEX and _script_pre(cp)):
-				_beat(cp, beats, "fled", actor_idx, -1, move_id, {})
+				_beat(cp, beats, "fled", actor_idx, -1, move_id, { "boosted": boosted })
 				if actor_idx == PLAYER_INDEX:
 					cp["outcome"] = "fled"
 			else:

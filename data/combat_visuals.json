@@ -148,11 +148,25 @@
     "city": { "image": "res://assets/combat/backdrops/city.png" }
   },
   "effects": {
-    "timePearl": { "image": "", "frameCount": 4, "fps": 8.0 },
-    "blast": { "image": "", "frameCount": 6, "fps": 12.0 },
-    "shield": { "image": "", "frameCount": 4, "fps": 6.0 },
-    "healingBurst": { "image": "", "frameCount": 5, "fps": 8.0 },
-    "blackHole": { "image": "", "frameCount": 8, "fps": 10.0 }
+    "_note": "Per effect: image/frameCount/fps (the sheet), colour [r,g,b] (stand-in ring + travel spark; ore family, proposal §1), travelSeconds (spark flight before the land, 0 = none), landSeconds (stand-in ring life when image is empty), shakeScale (stage shake at land, x the hit's shake; 0 = none), hitStopSeconds (stage freeze at land, 0 = none). Seconds halve under quick pacing.",
+    "timePearl": { "image": "", "frameCount": 4, "fps": 8.0, "colour": [0.65, 0.92, 1.0], "travelSeconds": 0.0, "landSeconds": 0.5, "shakeScale": 0.0, "hitStopSeconds": 0.0 },
+    "blast": { "image": "", "frameCount": 6, "fps": 12.0, "colour": [1.0, 0.62, 0.2], "travelSeconds": 0.12, "landSeconds": 0.5, "shakeScale": 1.5, "hitStopSeconds": 0.05 },
+    "shield": { "image": "", "frameCount": 4, "fps": 6.0, "colour": [1.0, 0.62, 0.2], "travelSeconds": 0.0, "landSeconds": 0.67, "shakeScale": 0.0, "hitStopSeconds": 0.0 },
+    "healingBurst": { "image": "", "frameCount": 5, "fps": 8.0, "colour": [0.8, 0.92, 0.55], "travelSeconds": 0.0, "landSeconds": 0.63, "shakeScale": 0.0, "hitStopSeconds": 0.0 },
+    "blackHole": { "image": "", "frameCount": 8, "fps": 10.0, "colour": [1.0, 0.62, 0.2], "travelSeconds": 0.0, "landSeconds": 0.8, "shakeScale": 0.0, "hitStopSeconds": 0.0 }
+  },
+  "itemFx": {
+    "_note": "Shared item-effect pieces (CombatStage / StageSlot). spark*: travel projectile (sizePx square, trailCount ghosts spaced trailGapSeconds, arcPx peak lift). ring*: stand-in land ring, radii as fractions of the slot's width. guardFlickerSeconds: a target's guard marker blinks off this long when a Blast ignores it. disarm: generic weapon shape (sizePx) that spins degrees and rises risePx over seconds. legItStreak: orange streaks behind a boosted Leg it (count lines, lengthPx long, over seconds). Seconds halve under quick pacing; reduced motion drops shake, hit-stop, trails and streaks.",
+    "sparkSizePx": 4.0,
+    "trailCount": 2,
+    "trailGapSeconds": 0.03,
+    "arcPx": 14.0,
+    "ringStartFraction": 0.1,
+    "ringEndFraction": 0.6,
+    "ringWidthPx": 3.0,
+    "guardFlickerSeconds": 0.12,
+    "disarm": { "sizePx": 10.0, "seconds": 0.4, "degrees": 720.0, "risePx": 90.0, "colour": [0.85, 0.85, 0.85] },
+    "legItStreak": { "colour": [1.0, 0.62, 0.2], "count": 3, "lengthPx": 18.0, "seconds": 0.3 }
   },
   "territorialVariant": {
     "_note": "Shared pose spec for every discovered assets/combat/territorial<N>/ folder (GameData.TERRITORIAL_VARIANTS). Each file stem resolves to territorial<N>/territorial<N>_<stem>.png; a pose, or one attack variant, loads only when all its files exist. Attack 'variants' are alternative swings, one picked at random per attack: a 1-pose jab, or guard wind-up then cross. ko reuses the hurt pose under the ko fall+fade transform.",

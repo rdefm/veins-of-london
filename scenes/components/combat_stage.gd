@@ -85,6 +85,41 @@ const _PLACEHOLDER_PALETTE: Array[Color] = [
 	Color(0.33, 0.55, 0.50),
 ]
 
+
+# An item-fx seconds value, halved under quick pacing.
+static func fx_seconds(secs: float) -> float:
+	return secs * 0.5 if CombatPacing.pacing_mode() == "quick" else secs
+
+
+# data/combat_visuals.json itemFx.
+static func item_fx() -> Dictionary:
+	return GameData.COMBAT_VISUALS.get("itemFx", {})
+
+
+# data/combat_visuals.json effects.<key>.
+static func effect_data(effect_key: String) -> Dictionary:
+	return GameData.COMBAT_VISUALS.get("effects", {}).get(effect_key, {})
+
+
+# An [r, g, b] data array as an opaque Color.
+static func rgb(value: Array) -> Color:
+	return Color(float(value[0]), float(value[1]), float(value[2])) if value.size() >= 3 else Color.WHITE
+
+
+static func reduced_motion() -> bool:
+	return bool(GameState.state.get("meta", {}).get("reducedMotion", false))
+
+
+# The stand-in land effect: an expanding, fading ring.
+class RingFx extends Control:
+	var radius: float = 0.0
+	var colour: Color = Color.WHITE
+	var line_width: float = 3.0
+
+	func _draw() -> void:
+		draw_arc(size / 2.0, maxf(radius, 0.5), 0.0, TAU, 32, colour, line_width)
+
+
 class StageSlot extends Control:
 	var combatant_name: String = ""
 	var fill_color: Color = Color.WHITE
@@ -672,6 +707,88 @@ class StageSlot extends Control:
 			fx.texture = frames[index]
 		)
 		timer.start()
+	# The code-drawn land effect for a sheet-less effect: a ring growing out of
+	# the slot's centre in the effect's colour.
+	func play_stand_in(colour: Color, seconds: float) -> void:
+		if not is_inside_tree() or seconds <= 0.0:
+			return
+		var fx := CombatStage.item_fx()
+		var ring := CombatStage.RingFx.new()
+		ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		ring.z_index = 4
+		ring.colour = colour
+		ring.line_width = float(fx.get("ringWidthPx", 3.0))
+		ring.size = size
+		add_child(ring)
+		var grow := func(value: float) -> void:
+			ring.radius = value
+			ring.queue_redraw()
+		var tween := ring.create_tween()
+		tween.tween_method(grow, size.x * float(fx.get("ringStartFraction", 0.1)), size.x * float(fx.get("ringEndFraction", 0.6)), seconds)
+		tween.parallel().tween_property(ring, "modulate:a", 0.0, seconds)
+		tween.tween_callback(ring.queue_free)
+
+	var _guard_hidden: bool = false
+
+	# The guard marker blinks off for `seconds`: a Blast ignored it, didn't break it.
+	func flicker_guard_marker(seconds: float) -> void:
+		if guard_marker == "" or not is_inside_tree():
+			return
+		_guard_hidden = true
+		_overlay.queue_redraw()
+		var tween := create_tween()
+		tween.tween_interval(seconds)
+		tween.tween_callback(func():
+			_guard_hidden = false
+			_overlay.queue_redraw()
+		)
+
+	# A small generic weapon shape spins up and out of frame.
+	func spin_weapon_off() -> void:
+		if not is_inside_tree() or CombatStage.reduced_motion():
+			return
+		var cfg: Dictionary = CombatStage.item_fx().get("disarm", {})
+		var shape_size: float = float(cfg.get("sizePx", 10.0))
+		var secs: float = CombatStage.fx_seconds(float(cfg.get("seconds", 0.4)))
+		var shape := ColorRect.new()
+		shape.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		shape.z_index = 4
+		shape.color = CombatStage.rgb(cfg.get("colour", []))
+		shape.size = Vector2(shape_size, shape_size / 3.0)
+		shape.pivot_offset = shape.size / 2.0
+		shape.position = size / 2.0 - shape.size / 2.0
+		add_child(shape)
+		var tween := shape.create_tween().set_parallel(true)
+		tween.tween_property(shape, "rotation_degrees", float(cfg.get("degrees", 720.0)), secs)
+		tween.tween_property(shape, "position:y", shape.position.y - float(cfg.get("risePx", 90.0)), secs).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		tween.tween_property(shape, "modulate:a", 0.0, secs).set_delay(secs * 0.6)
+		tween.chain().tween_callback(shape.queue_free)
+
+	# Orange streaks at the feet, trailing a boosted Leg it as it runs off.
+	func play_leg_it_streak() -> void:
+		if not is_inside_tree() or CombatStage.reduced_motion():
+			return
+		var cfg: Dictionary = CombatStage.item_fx().get("legItStreak", {})
+		var path := _run_path()
+		var dir: float = path["dir"]
+		var length: float = float(cfg.get("lengthPx", 18.0))
+		var secs: float = _run_off_seconds("crouchSeconds") + _run_off_seconds("runSeconds")
+		var fade: float = CombatStage.fx_seconds(float(cfg.get("seconds", 0.3)))
+		var count: int = int(cfg.get("count", 3))
+		for i in range(count):
+			var streak := ColorRect.new()
+			streak.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			streak.z_index = -1
+			streak.color = CombatStage.rgb(cfg.get("colour", []))
+			streak.size = Vector2(length, 2.0)
+			streak.position = Vector2(size.x / 2.0 - (length if dir > 0.0 else 0.0), size.y - 4.0 - 4.0 * float(i))
+			add_child(streak)
+			_run_fx_nodes.append(streak)
+			var tween := streak.create_tween().set_parallel(true)
+			tween.tween_property(streak, "position:x", streak.position.x + dir * float(path["travel"]), secs).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+			tween.tween_property(streak, "modulate:a", 0.0, fade).set_delay(maxf(secs - fade, 0.0))
+			tween.chain().tween_callback(streak.queue_free)
+
 	var _shield_loop_rect: TextureRect
 	var _shield_loop_timer: Timer
 	var _shield_loop_frames: Array[Texture2D] = []
@@ -764,7 +881,7 @@ class StageSlot extends Control:
 		if _shield_crack_alpha > 0.0:
 			_overlay.draw_rect(rect, Color(0.4, 0.85, 1.0, _shield_crack_alpha * 0.55), true)
 			_overlay.draw_rect(rect.grow(-2.0), Color(0.85, 0.95, 1.0, _shield_crack_alpha), false, 2.0)
-		if guard_marker != "":
+		if guard_marker != "" and not _guard_hidden:
 			_draw_guard_marker()
 		if frozen_left > 0:
 			_draw_pause_icon()
@@ -1017,7 +1134,7 @@ func resolve_target_slot(target: Dictionary) -> StageSlot:
 # `strength` scales the hp-fraction magnitude (a chip's lighter shake, a
 # crit's heavier one).
 func shake(dmg: int, hp_max: int, strength: float = 1.0) -> void:
-	if _stage_shake_layer == null or not _stage_shake_layer.is_inside_tree():
+	if _stage_shake_layer == null or not _stage_shake_layer.is_inside_tree() or reduced_motion():
 		return
 	var magnitude: float = _shake_magnitude(dmg, hp_max) * strength
 	var base_pos: Vector2 = _stage_shake_layer.position
@@ -1063,14 +1180,64 @@ func spawn_damage_number(slot: StageSlot, dmg: int, size_scale: float = 1.0) -> 
 func play_effect(beat: Dictionary, effect_key: String, fallback_target: Dictionary = {}) -> void:
 	var entry: Dictionary = _effect_frames_by_key.get(effect_key, {})
 	var frames: Array[Texture2D] = entry.get("frames", _empty_idle_frames)
-	if frames.is_empty():
-		return
 	var target: Dictionary = _beat_target(beat)
 	if target["type"] == "":
 		target = fallback_target if not fallback_target.is_empty() else { "type": "player", "index": -1 }
 	var slot: StageSlot = resolve_target_slot(target)
-	if slot != null:
+	if slot == null:
+		return
+	if frames.is_empty():
+		var data := effect_data(effect_key)
+		slot.play_stand_in(rgb(data.get("colour", [])), fx_seconds(float(data.get("landSeconds", 0.0))))
+	else:
 		slot.play_effect_sheet(frames, entry.get("fps", 0.0))
+
+
+# A tinted pixel spark (and a short trail) arcs from one slot to another over
+# the effect's travelSeconds; returns that flight time (0 when it has none).
+func play_travel(from_slot: StageSlot, to_slot: StageSlot, effect_key: String) -> float:
+	var data := effect_data(effect_key)
+	var secs: float = fx_seconds(float(data.get("travelSeconds", 0.0)))
+	if secs <= 0.0 or from_slot == null or to_slot == null or _slot_layer == null or not _slot_layer.is_inside_tree():
+		return 0.0
+	var fx := item_fx()
+	var colour := rgb(data.get("colour", []))
+	var spark_size: float = float(fx.get("sparkSizePx", 4.0))
+	var start: Vector2 = from_slot.position + from_slot.size / 2.0
+	var end: Vector2 = to_slot.position + to_slot.size / 2.0
+	var arc: float = float(fx.get("arcPx", 14.0))
+	var ghosts: int = 0 if reduced_motion() else int(fx.get("trailCount", 0))
+	for i in range(ghosts + 1):
+		var rect := ColorRect.new()
+		rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		rect.z_index = 4
+		rect.color = colour
+		rect.size = Vector2.ONE * spark_size
+		rect.modulate.a = 1.0 if i == 0 else 0.5 / float(i)
+		rect.visible = i == 0
+		_slot_layer.add_child(rect)
+		var fly := func(t: float) -> void:
+			rect.position = start.lerp(end, t) + Vector2(0.0, -sin(t * PI) * arc) - rect.size / 2.0
+		fly.call(0.0)
+		var tween := rect.create_tween()
+		if i > 0:
+			tween.tween_interval(fx_seconds(float(fx.get("trailGapSeconds", 0.03))) * float(i))
+			tween.tween_callback(func(): rect.visible = true)
+		tween.tween_method(fly, 0.0, 1.0, secs)
+		tween.tween_callback(rect.queue_free)
+	return secs
+
+
+const _HIT_STOP_TIME_SCALE := 0.05
+
+
+# Freezes the stage (tweens, timers) for `seconds` of real time at a heavy land.
+func hit_stop(seconds: float) -> void:
+	seconds = fx_seconds(seconds)
+	if seconds <= 0.0 or reduced_motion() or not is_inside_tree():
+		return
+	Engine.time_scale = _HIT_STOP_TIME_SCALE
+	get_tree().create_timer(seconds, true, false, true).timeout.connect(func(): Engine.time_scale = 1.0)
 
 
 static func _beat_target(beat: Dictionary) -> Dictionary:
@@ -1219,7 +1386,8 @@ func _load_effect_animations() -> void:
 	_effect_frames_by_key = {}
 	var effects: Dictionary = GameData.COMBAT_VISUALS.get("effects", {})
 	for key in effects.keys():
-		_effect_frames_by_key[key] = _load_sheet_frames(effects[key])
+		if not str(key).begins_with("_"):
+			_effect_frames_by_key[key] = _load_sheet_frames(effects[key])
 
 
 # Vision §2.1 lookup: location plate -> context plate -> palette fill.

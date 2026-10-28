@@ -76,6 +76,32 @@ func run() -> void:
 		CombatPacing.set_pacing_mode(prior)
 	)
 
+	run_case("every_effect_carries_stand_in_data_and_blast_travels_with_a_crit_shake", func():
+		for key in ["timePearl", "blast", "shield", "healingBurst", "blackHole"]:
+			var data := CombatStage.effect_data(key)
+			for field in ["colour", "travelSeconds", "landSeconds", "shakeScale"]:
+				assert_true(data.has(field), "%s has %s" % [key, field])
+			assert_true(float(data["landSeconds"]) > 0.0, "%s stand-in lasts" % key)
+		var blast := CombatStage.effect_data("blast")
+		assert_true(float(blast["travelSeconds"]) > 0.0, "blast spark travels")
+		assert_almost_eq(float(blast["shakeScale"]), 1.5, 0.001, "crit-scale shake")
+		assert_almost_eq(CombatStage.fx_seconds(1.0), 1.0 if CombatPacing.pacing_mode() != "quick" else 0.5, 0.001, "fx seconds follow pacing")
+	)
+
+	run_case("sheetless_effect_draws_a_stand_in_ring_on_the_target", func():
+		var stage := CombatStage.new()
+		stage._build()
+		var slot := CombatStage.StageSlot.new()
+		slot.size = Vector2(100.0, 100.0)
+		stage.add_child(slot)
+		slot.play_stand_in(Color.WHITE, 0.4)
+		assert_true(not slot.get_children().any(func(n): return n is CombatStage.RingFx), "nothing drawn off-tree")
+		(Engine.get_main_loop() as SceneTree).root.add_child(stage)
+		slot.play_stand_in(Color.WHITE, 0.4)
+		assert_true(slot.get_children().any(func(n): return n is CombatStage.RingFx), "ring added")
+		stage.free()
+	)
+
 	run_case("shake_magnitude_scales_with_damage_as_a_fraction_of_hp_max_between_3_and_6px", func():
 		var stage := CombatStage.new()
 

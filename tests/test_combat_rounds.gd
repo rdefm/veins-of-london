@@ -2531,6 +2531,26 @@ func run() -> void:
 		rows.free()
 	)
 
+	run_case("beat_cues_blast_travels_lands_flickers_guard_and_shakes_at_crit_scale", func():
+		var cues: Array = CombatRoundsScreen.beat_cues({ "kind": "blast", "actor": 0, "target": 1, "dmg": 4 })
+		var calls: Array = cues.map(func(c): return c["call"])
+		assert_eq(calls, ["throw", "travel", "effect", "guardFlicker", "damage"], "blast cue order")
+		var damage: Dictionary = cues[4]
+		assert_almost_eq(float(damage["shake"]), 1.5, 0.001, "crit-scale shake")
+		assert_almost_eq(float(damage["scale"]), 1.0, 0.001, "number stays normal size")
+		var heal: Array = CombatRoundsScreen.beat_cues({ "kind": "heal", "actor": 0, "target": 1 })
+		assert_true(not heal.any(func(c): return c["call"] == "travel"), "no-travel effects skip the spark")
+	)
+
+	run_case("beat_cues_disarm_spins_a_weapon_off_the_target_and_boosted_leg_it_streaks", func():
+		var disarm: Array = CombatRoundsScreen.beat_cues({ "kind": "disarm", "actor": 0, "target": 2 })
+		assert_true(disarm.any(func(c): return c["call"] == "disarmSpin" and int(c["who"]) == 2), "weapon spins off the target")
+		var boosted: Array = CombatRoundsScreen.beat_cues({ "kind": "fled", "actor": 0, "target": -1, "boosted": true })
+		assert_true(boosted.any(func(c): return c["call"] == "legItStreak" and int(c["who"]) == 0), "boosted streak")
+		var plain: Array = CombatRoundsScreen.beat_cues({ "kind": "fled", "actor": 0, "target": -1 })
+		assert_true(not plain.any(func(c): return c["call"] == "legItStreak"), "plain Leg it has no streak")
+	)
+
 	run_case("beat_cues_run_off_for_fled_and_bolt_but_wormhole_folds", func():
 		for kind in ["fled", "bolt"]:
 			var cues: Array = CombatRoundsScreen.beat_cues({ "kind": kind, "actor": 1, "target": -1 })

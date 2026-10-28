@@ -1217,8 +1217,7 @@ func _on_beat_played(beat: Dictionary) -> void:
 		_strip.drain_ghost_to(key, int(beat["hpAfter"]), _director.beat_duration)
 		_shown_hp[int(beat["target"])] = int(beat["hpAfter"])
 		_sync_hp_label(cp)
-	for cue in beat_cues(beat):
-		_play_cue(cp, cue, false)
+	_play_cues(cp, beat_cues(beat), false)
 
 
 # A rewound beat: its transcript line goes, the strip's focus steps back, the
@@ -1236,8 +1235,7 @@ func _on_rewind_beat_played(beat: Dictionary) -> void:
 		_strip.set_shown_hp(key, int(beat["hpAfter"]) + int(beat["dmg"]) - int(beat.get("absorbed", 0)))
 		_shown_hp[int(beat["target"])] = int(beat["hpAfter"]) + int(beat["dmg"]) - int(beat.get("absorbed", 0))
 		_sync_hp_label(cp)
-	for cue in beat_cues(beat):
-		_play_cue(cp, cue, true)
+	_play_cues(cp, beat_cues(beat), true)
 
 
 # The stage calls a beat plays, in order, each { call, who (combatant
@@ -1251,6 +1249,8 @@ static func beat_cues(beat: Dictionary) -> Array:
 	var actor: int = int(beat["actor"])
 	var target: int = int(beat["target"])
 	var cues: Array = []
+	if kind == "disarm":
+		return [{ "call": "overlay", "who": actor }, { "call": "disarmSpin", "who": target }]
 	if _OVERLAY_KINDS.has(kind):
 		return [{ "call": "overlay", "who": actor }]
 	match kind:
@@ -1258,6 +1258,8 @@ static func beat_cues(beat: Dictionary) -> Array:
 			cues.append_array(_move_pose_cues(beat["move"], actor))
 		"fled", "bolt":
 			cues.append({ "call": "runOff", "who": actor })
+			if beat.get("boosted", false):
+				cues.append({ "call": "legItStreak", "who": actor })
 		"wormhole":
 			cues.append({ "call": "vanish", "who": actor })
 		"fleeFailed":
@@ -1276,7 +1278,11 @@ static func beat_cues(beat: Dictionary) -> Array:
 				cues.append({ "call": "effect", "who": int(affected), "effect": _ITEM_EFFECTS[kind] })
 		"blast", "heal", "healSelf", "shieldOther":
 			cues.append({ "call": "throw", "who": actor })
+			if float(CombatStage.effect_data(_ITEM_EFFECTS[kind]).get("travelSeconds", 0.0)) > 0.0:
+				cues.append({ "call": "travel", "who": actor, "to": target, "effect": _ITEM_EFFECTS[kind] })
 			cues.append({ "call": "effect", "who": target, "effect": _ITEM_EFFECTS[kind] })
+			if kind == "blast":
+				cues.append({ "call": "guardFlicker", "who": target })
 		"shield":
 			cues.append({ "call": "throw", "who": actor })
 			cues.append({ "call": "effect", "who": actor, "effect": _ITEM_EFFECTS[kind] })
@@ -1288,7 +1294,8 @@ static func beat_cues(beat: Dictionary) -> Array:
 			cues.append({ "call": "cast", "who": actor })
 	if CombatDirector.beat_is_damaging(beat):
 		var scale: float = _CRIT_SCALE if beat.get("crit", false) else (_CHIP_SCALE if kind == "chip" else 1.0)
-		cues.append({ "call": "damage", "who": target, "dmg": int(beat["dmg"]), "scale": scale })
+		var shake: float = maxf(scale, float(CombatStage.effect_data(_ITEM_EFFECTS.get(kind, "")).get("shakeScale", 0.0)))
+		cues.append({ "call": "damage", "who": target, "dmg": int(beat["dmg"]), "scale": scale, "shake": shake })
 		if int(beat.get("absorbed", 0)) > 0:
 			cues.append({ "call": "shieldCrack", "who": target })
 	if cues.is_empty():
@@ -1307,6 +1314,33 @@ static func _move_pose_cues(move_id: String, actor: int) -> Array:
 	if CombatRounds.item_ids().has(move_id):
 		return [{ "call": "throw", "who": actor }]
 	return []
+
+
+# Plays a beat's cues in order; a "travel" cue's flight time holds back the
+# cues after it (the land), except in a Rewind, which plays no flight.
+func _play_cues(cp: Dictionary, cues: Array, rewinding: bool) -> void:
+	var delay := 0.0
+	for cue in cues:
+		if cue["call"] == "travel":
+			if not rewinding:
+				delay = _play_travel(cp, cue)
+		elif delay > 0.0:
+			_play_cue_later(cp, cue, delay)
+		else:
+			_play_cue(cp, cue, rewinding)
+
+
+func _play_travel(cp: Dictionary, cue: Dictionary) -> float:
+	var roster := stage_roster(cp, -1)
+	var from_slot := _stage.resolve_target_slot(_stage_target(roster, int(cue["who"])))
+	var to_slot := _stage.resolve_target_slot(_stage_target(roster, int(cue["to"])))
+	return _stage.play_travel(from_slot, to_slot, cue["effect"])
+
+
+func _play_cue_later(cp: Dictionary, cue: Dictionary, delay: float) -> void:
+	await get_tree().create_timer(delay).timeout
+	if is_inside_tree():
+		_play_cue(cp, cue, false)
 
 
 # Plays one beat_cues() cue on the stage; `rewinding` undoes a vanish, run-off or KO
@@ -1342,6 +1376,16 @@ func _play_cue(cp: Dictionary, cue: Dictionary, rewinding: bool) -> void:
 			slot.play_hit()
 		"effect":
 			_stage.play_effect({}, cue["effect"], key)
+			if not rewinding:
+				_stage.hit_stop(float(CombatStage.effect_data(cue["effect"]).get("hitStopSeconds", 0.0)))
+		"guardFlicker":
+			slot.flicker_guard_marker(CombatStage.fx_seconds(float(CombatStage.item_fx().get("guardFlickerSeconds", 0.0))))
+		"disarmSpin":
+			if not rewinding:
+				slot.spin_weapon_off()
+		"legItStreak":
+			if not rewinding:
+				slot.play_leg_it_streak()
 		"shieldCrack":
 			slot.flash_shield_crack()
 		"ko":
@@ -1355,7 +1399,7 @@ func _play_cue(cp: Dictionary, cue: Dictionary, rewinding: bool) -> void:
 			if not rewinding:
 				_stage.spawn_damage_number(slot, int(cue["dmg"]), scale)
 			slot.play_hit()
-			_stage.shake(int(cue["dmg"]), int(cp["combatants"][who]["hpMax"]), scale)
+			_stage.shake(int(cue["dmg"]), int(cp["combatants"][who]["hpMax"]), float(cue.get("shake", scale)))
 
 
 # Each combatant's slot to its stage marks: guard marker, Shield loop, Time
