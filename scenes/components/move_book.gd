@@ -33,34 +33,40 @@ static func rows(owner: String, open_move: String, on_toggle: Callable) -> Contr
 
 
 static func _move_panel(row: Dictionary, is_open: bool, on_toggle: Callable) -> Control:
+	var head := head_row(str(row["name"]), str(row["badge"]), row["isMax"], MoveTrack.make(row, true), str(row["teaser"]), is_open, on_toggle.bind(row["id"]))
+	return row_panel(head, _body(row) if is_open else null)
+
+
+# Inset panel holding a row's header and, when open, its body.
+static func row_panel(head: Control, body: Control) -> Control:
 	var panel := PanelContainer.new()
 	panel.add_theme_stylebox_override("panel", MapCardStyle.inset_panel())
 	var column := UI.vbox(10)
 	panel.add_child(column)
-	column.add_child(_head(row, is_open, on_toggle))
-	if is_open:
-		column.add_child(_body(row))
+	column.add_child(head)
+	if body != null:
+		column.add_child(body)
 	return panel
 
 
 # The tappable header: ignoring labels over a flat TapButton so the whole
-# row taps (and still scrolls) like any card.
-static func _head(row: Dictionary, is_open: bool, on_toggle: Callable) -> Control:
+# row taps (and still scrolls) like any card. `track` sits right of the badge.
+static func head_row(title: String, badge_text: String, badge_outlined: bool, track: Control, teaser: String, is_open: bool, on_tap: Callable) -> Control:
 	var stack := MarginContainer.new()
 	var content := UI.vbox(4)
 	var top := UI.hbox(8)
-	top.add_child(MapCardStyle.label(str(row["name"]), 15, MapCardStyle.ink()))
-	top.add_child(_badge(str(row["badge"]), row["isMax"]))
+	top.add_child(MapCardStyle.label(title, 15, MapCardStyle.ink()))
+	top.add_child(_badge(badge_text, badge_outlined))
 	top.add_child(UI.expand_fill(Control.new()))
-	top.add_child(MoveTrack.make(row, true))
+	top.add_child(track)
 	top.add_child(MapCardStyle.label(HEAD_CHEVRON_OPEN if is_open else HEAD_CHEVRON, 12, MapCardStyle.muted()))
 	content.add_child(top)
-	content.add_child(UI.expand_fill(MapCardStyle.label(str(row["teaser"]), 12, MapCardStyle.dim())))
+	content.add_child(UI.expand_fill(MapCardStyle.label(teaser, 12, MapCardStyle.dim())))
 	_ignore_mouse(content)
 	stack.add_child(content)
 	var tap := TapButton.new()
 	tap.flat = true
-	tap.pressed.connect(on_toggle.bind(row["id"]))
+	tap.pressed.connect(on_tap)
 	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
 		tap.add_theme_stylebox_override(state, StyleBoxEmpty.new())
 	stack.add_child(tap)
@@ -92,7 +98,7 @@ static func _body(row: Dictionary) -> Control:
 		var words: Array = word_row["words"]
 		column.add_child(_stop_row(row["stops"], Callable(), func(stop): return str(words[int(stop["level"]) - 1])))
 	for unlock in row["unlocks"]:
-		column.add_child(_unlock_card(unlock))
+		column.add_child(unlock_card(unlock))
 	column.add_child(UI.expand_fill(MapCardStyle.section_label(str(row["xpLine"]), 12)))
 	return column
 
@@ -138,7 +144,7 @@ static func _centred(text: String, size: int, colour: Color) -> Label:
 
 
 # earned: ink outline; next: action-red outline and tint; locked: faded.
-static func _unlock_card(unlock: Dictionary) -> Control:
+static func unlock_card(unlock: Dictionary) -> Control:
 	var state := str(unlock["state"])
 	var edge := MapCardStyle.line()
 	var fill := Color(0, 0, 0, 0)
@@ -164,7 +170,8 @@ static func _unlock_card(unlock: Dictionary) -> Control:
 	card.add_child(column)
 	column.add_child(UI.expand_fill(MapCardStyle.label((TAG_GOT if state == "earned" else TAG_OTHER) + str(unlock["tag"]), 11, tag_colour)))
 	column.add_child(UI.expand_fill(MapCardStyle.label(str(unlock["what"]), 13, MapCardStyle.ink())))
-	column.add_child(UI.expand_fill(MapCardStyle.label(str(unlock["how"]), 11, MapCardStyle.dim())))
+	if str(unlock.get("how", "")) != "":
+		column.add_child(UI.expand_fill(MapCardStyle.label(str(unlock["how"]), 11, MapCardStyle.dim())))
 	if state == "locked":
 		card.modulate.a = LOCKED_ALPHA
 	return card

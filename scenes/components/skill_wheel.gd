@@ -3,20 +3,25 @@ extends VBoxContainer
 
 # Profile's Body / Mind / Soul wheel. Renders the SkillTree
 # projection only: a 3-segment circle, the selected segment rotated to the
-# bottom, and a details panel (sub-skills, XP, feats) that animates open
-# beneath it. Selection is view state, reported through `on_change`.
+# bottom, and the selected bucket's sub-skills as Move Book-style rows
+# (level badge, XP track, teaser; open: XP line + feat cards) that animate
+# open beneath it. Selection and the open row are view state, reported
+# through `on_change` / `on_sub`.
 
 const SEGMENT_STEPS := 24
+const MINI_TRACK_WIDTH := 64.0
 const FALLBACK_COLOUR := Color("#66767c")
 const TEXT_COLOUR := Color("#ededee")
 const OUTLINE_COLOUR := Color("#14120f")
 
 var selected_id := ""
 var expanded := false
+var open_sub := ""
 
 var _tree: Array = []
 var _config: Dictionary = {}
 var _on_change: Callable
+var _on_sub: Callable
 var _rotation := 0.0
 var _wheel: Control
 var _clip: Control
@@ -24,17 +29,20 @@ var _details: VBoxContainer
 var _tween: Tween
 
 
-# `selected`/`open` restore the view across a screen rebuild without animating.
-static func build(tree: Array, selected: String, open: bool, on_change: Callable = Callable(), config: Dictionary = {}) -> SkillWheel:
+# `selected`/`open`/`sub` restore the view across a screen rebuild without
+# animating; `on_sub` gets the open sub-skill id ("" = none).
+static func build(tree: Array, selected: String, open: bool, on_change: Callable = Callable(), config: Dictionary = {}, sub := "", on_sub: Callable = Callable()) -> SkillWheel:
 	var w := SkillWheel.new()
-	w._setup(tree, selected, open, on_change, config if not config.is_empty() else GameData.SKILL_FEATS.get("wheel", {}))
+	w._setup(tree, selected, open, on_change, config if not config.is_empty() else GameData.SKILL_FEATS.get("wheel", {}), sub, on_sub)
 	return w
 
 
-func _setup(tree: Array, selected: String, open: bool, on_change: Callable, config: Dictionary) -> void:
+func _setup(tree: Array, selected: String, open: bool, on_change: Callable, config: Dictionary, sub: String, on_sub: Callable) -> void:
 	_tree = tree
 	_config = config
 	_on_change = on_change
+	_on_sub = on_sub
+	open_sub = sub
 	add_theme_constant_override("separation", 8)
 	selected_id = selected if _index_of(selected) >= 0 else (str(tree[0]["id"]) if not tree.is_empty() else "")
 	expanded = open
@@ -203,22 +211,74 @@ func _fill_details() -> void:
 	if i < 0:
 		return
 	var bucket: Dictionary = _tree[i]
-	_details.add_child(_skill_block(bucket, true))
+	if _index_of_sub(bucket, open_sub) < 0:
+		open_sub = ""
 	for sub in bucket["subSkills"]:
-		_details.add_child(_skill_block(sub, false))
+		_details.add_child(_sub_row(sub, str(sub["id"]) == open_sub))
 
 
-func _skill_block(skill: Dictionary, is_bucket: bool) -> Control:
-	var c := UI.card()
-	var box: VBoxContainer = c["content"]
-	var title := UI.heading("%s — Lv%d" % [skill["label"], skill["level"]], 16 if is_bucket else 14)
-	box.add_child(title)
-	box.add_child(UI.muted_label(_xp_text(skill)))
-	box.add_child(UI.bar(float(skill["xp"] - skill["xpFloor"]) if not skill["isMax"] else 1.0, float(skill["xpNext"] - skill["xpFloor"]) if not skill["isMax"] else 1.0))
+# Deferred: the details' minimum size is only recomputed after the new rows land.
+func _fit_clip() -> void:
+	if expanded:
+		_clip.custom_minimum_size.y = _open_height()
+
+
+func _index_of_sub(bucket: Dictionary, id: String) -> int:
+	for i in bucket["subSkills"].size():
+		if str(bucket["subSkills"][i]["id"]) == id:
+			return i
+	return -1
+
+
+# Opens/closes a sub-skill row in place (no wheel animation) and reports it.
+func toggle_sub(id: String) -> void:
+	open_sub = "" if open_sub == id else id
+	_fill_details()
+	_fit_clip.call_deferred()
+	if _on_sub.is_valid():
+		_on_sub.call(open_sub)
+
+
+func _sub_row(skill: Dictionary, is_open: bool) -> Control:
+	var level_badge := "Lv%d" % int(skill["level"])
+	var head := MoveBook.head_row(str(skill["label"]), level_badge, bool(skill["isMax"]), _mini_track(skill), _teaser(skill), is_open, toggle_sub.bind(str(skill["id"])))
+	return MoveBook.row_panel(head, _sub_body(skill) if is_open else null)
+
+
+func _mini_track(skill: Dictionary) -> Control:
+	var track := UI.bar(_xp_into_level(skill), _xp_span(skill))
+	track.custom_minimum_size = Vector2(MINI_TRACK_WIDTH, 8)
+	track.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	track.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return track
+
+
+func _sub_body(skill: Dictionary) -> Control:
+	var column := UI.vbox(10)
+	column.add_child(UI.expand_fill(MapCardStyle.section_label(_xp_text(skill), 12)))
+	var next_found := false
 	for feat in skill["feats"]:
-		var line := "Lv%d: %s" % [feat["level"], feat["text"]]
-		box.add_child(UI.label(line) if feat["unlocked"] else UI.muted_label(line))
-	return c["panel"]
+		var state := "earned"
+		if not feat["unlocked"]:
+			state = "locked" if next_found else "next"
+			next_found = true
+		column.add_child(MoveBook.unlock_card({ "state": state, "tag": "LV%d" % int(feat["level"]), "what": feat["text"] }))
+	return column
+
+
+func _teaser(skill: Dictionary) -> String:
+	for feat in skill["feats"]:
+		if not feat["unlocked"]:
+			return str(_config.get("teaserNext", "")) % [int(feat["level"]), str(feat["text"])]
+	return str(_config.get("teaserDone", ""))
+
+
+func _xp_into_level(skill: Dictionary) -> float:
+	return 1.0 if skill["isMax"] else float(skill["xp"] - skill["xpFloor"])
+
+
+func _xp_span(skill: Dictionary) -> float:
+	return 1.0 if skill["isMax"] else float(skill["xpNext"] - skill["xpFloor"])
 
 
 func _xp_text(skill: Dictionary) -> String:

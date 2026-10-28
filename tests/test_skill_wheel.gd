@@ -39,6 +39,24 @@ func run() -> void:
 		wheel.free()
 	)
 
+	run_case("wheel_sub_skill_rows_toggle_open_and_report_view_state", func():
+		GameState.reset()
+		var seen: Array = []
+		var wheel := SkillWheel.build(SkillTree.project(), "mind", true, Callable(), {}, "", func(s): seen.append(s))
+		var sub_id := str(SkillTree.project()[1]["subSkills"][0]["id"])
+		wheel.toggle_sub(sub_id)
+		assert_eq(wheel.open_sub, sub_id, "row opens")
+		var cards := wheel._details.find_children("*", "PanelContainer", true, false)
+		assert_true(cards.size() > SkillTree.project()[1]["subSkills"].size(), "open row adds feat cards")
+		wheel.toggle_sub(sub_id)
+		assert_eq(wheel.open_sub, "", "tap again closes")
+		assert_eq(seen, [sub_id, ""], "on_sub reported each toggle")
+		var restored := SkillWheel.build(SkillTree.project(), "mind", true, Callable(), {}, sub_id)
+		assert_eq(restored.open_sub, sub_id, "open row restored from view state")
+		wheel.free()
+		restored.free()
+	)
+
 	run_case("wheel_segment_hit_test_follows_rotation", func():
 		GameState.reset()
 		var wheel := SkillWheel.build(SkillTree.project(), "body", false)

@@ -6,6 +6,7 @@ var _open_owner := ""
 var _open_move := ""
 var _wheel_bucket := "body"
 var _wheel_open := false
+var _wheel_sub := ""
 
 func card_chrome() -> bool:
 	return true
@@ -61,7 +62,7 @@ func _build_stats_card() -> Control:
 func _build_skills_card() -> Control:
 	var c := UI.card()
 	c["content"].add_child(UI.heading("Skills", 14))
-	c["content"].add_child(SkillWheel.build(SkillTree.project(), _wheel_bucket, _wheel_open, _on_wheel_change))
+	c["content"].add_child(SkillWheel.build(SkillTree.project(), _wheel_bucket, _wheel_open, _on_wheel_change, {}, _wheel_sub, _on_wheel_sub))
 	return c["panel"]
 
 
@@ -69,6 +70,10 @@ func _build_skills_card() -> Control:
 func _on_wheel_change(bucket: String, expanded: bool) -> void:
 	_wheel_bucket = bucket
 	_wheel_open = expanded
+
+
+func _on_wheel_sub(sub: String) -> void:
+	_wheel_sub = sub
 
 
 # The Move Book: owner tabs (You + each recruit), then one row per move.
