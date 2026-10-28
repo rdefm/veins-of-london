@@ -41,7 +41,7 @@ const _LEG_IT := "legIt"
 const _ITEM_EFFECTS := {
 	"timePearl": "timePearl", "blackHole": "blackHole", "blast": "blast", "shield": "shield",
 	"shieldOther": "shield", "heal": "healingBurst", "healSelf": "healingBurst",
-	"panic": "panic", "rapture": "rapture",
+	"panic": "panic", "rapture": "rapture", "anger": "anger", "fury": "fury",
 }
 # A damage cue's number and shake scale: lighter on a chip, heavier on a crit.
 const _CHIP_SCALE := 0.7
@@ -1268,7 +1268,7 @@ func _on_rewind_beat_played(beat: Dictionary) -> void:
 # "ladyGlint" (who's hit by a Lady Strike, "crit"); "effect" (who's data/combat_visuals.json effect
 # sheet "effect"); "damage" (who's hit, with "dmg" and a juice "scale");
 # "shieldAssemble" (who's Shield panels build to "level"); "shieldCrack";
-# "blackHole" (who's bead lifts to the middle of "affected"; holds back the cues after it); "healBurst" (motes + rim pulse on who), "healNumber" (green "+amount"), "healFizzle" (grey scatter); "cower" / "enraptured" (Panic's squash, Rapture's held lean on who); "raptureBloom" (soft bloom on who); "ko"; or "overlay" (nothing past the beat's marks). [] for
+# "blackHole" (who's bead lifts to the middle of "affected"; holds back the cues after it); "healBurst" (motes + rim pulse on who), "healNumber" (green "+amount"), "healFizzle" (grey scatter); "cower" / "enraptured" (Panic's squash, Rapture's held lean on who); "raptureBloom" (soft bloom on who); "angerLand" (Panger's double red flash on who); "furyLine" (magenta line from who to "to" before a friendly-fire swing); "ko"; or "overlay" (nothing past the beat's marks). [] for
 # a beat kind with no mapping.
 static func beat_cues(beat: Dictionary) -> Array:
 	var kind: String = beat["kind"]
@@ -1281,6 +1281,8 @@ static func beat_cues(beat: Dictionary) -> Array:
 		return [{ "call": "overlay", "who": actor }]
 	match kind:
 		"hit", "chip", "stun", "stunThrough", "block", "feint", "fizzle", "evade":
+			if beat.get("friendly", false):
+				cues.append({ "call": "furyLine", "who": actor, "to": target })
 			cues.append_array(_move_pose_cues(beat["move"], actor))
 			if kind == "fizzle" and beat["move"] == _ITEM_EFFECTS["heal"] and target >= 0:
 				cues.append({ "call": "healFizzle", "who": target })
@@ -1337,6 +1339,9 @@ static func beat_cues(beat: Dictionary) -> Array:
 			cues.append({ "call": "enraptured", "who": actor })
 		"anger", "fury":
 			cues.append({ "call": "throw", "who": actor })
+			if target >= 0:
+				cues.append({ "call": "travel", "who": actor, "to": target, "effect": _ITEM_EFFECTS[kind] })
+				cues.append({ "call": "angerLand", "who": target })
 		_:
 			if not _CAST_KINDS.has(kind):
 				return []
@@ -1439,7 +1444,7 @@ static func removal_lead(beat: Dictionary) -> float:
 			for key in ["liftSeconds", "hangSeconds", "warpSeconds", "popSeconds"]:
 				total += float(hole.get(key, 0.0))
 			return CombatStage.fx_seconds(total)
-		"panic", "rapture":
+		"panic", "rapture", "anger", "fury":
 			return CombatStage.fx_seconds(float(CombatStage.effect_data(_ITEM_EFFECTS[beat["kind"]]).get("travelSeconds", 0.0)))
 	return 0.0
 
@@ -1520,6 +1525,12 @@ func _play_cue(cp: Dictionary, cue: Dictionary, rewinding: bool) -> void:
 		"raptureBloom":
 			if not rewinding:
 				slot.play_rapture_bloom()
+		"angerLand":
+			if not rewinding:
+				slot.play_anger_land()
+		"furyLine":
+			if not rewinding:
+				_stage.play_fury_line(slot, _stage.resolve_target_slot(_stage_target(stage_roster(cp, -1), int(cue["to"]))))
 		"allyFailsafe":
 			_play_ally_failsafe(slot, rewinding)
 		"effect":
@@ -1650,6 +1661,7 @@ func _apply_marks(cp: Dictionary, marks: Array, animate: bool = false, held_shie
 		var alive: bool = not cp["combatants"][i]["koed"]
 		slot.set_panic_linger(alive and icon_ids.has("panic"))
 		slot.set_rapture_linger(alive and icon_ids.has("rapture"))
+		slot.set_anger_state(str(marks[i].get("angerPhase", "")), bool(marks[i].get("furious", false)), animate and alive)
 		slot.set_status_icons(marks[i].get("icons", []), animate and not cp["combatants"][i]["koed"])
 
 

@@ -116,6 +116,11 @@ static func pan_fx(which: String) -> Dictionary:
 	return item_fx().get("panFx", {}).get(which, {})
 
 
+# data/combat_visuals.json itemFx.angerFx.
+static func anger_fx() -> Dictionary:
+	return item_fx().get("angerFx", {})
+
+
 # data/combat_visuals.json itemFx.ladyFx.
 static func lady_fx() -> Dictionary:
 	return item_fx().get("ladyFx", {})
@@ -192,6 +197,7 @@ class StageSlot extends Control:
 	var _run_fx_nodes: Array = []
 
 	func _init() -> void:
+		set_process(false)
 		_figure_holder = Control.new()
 		_figure_holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		add_child(_figure_holder)
@@ -685,8 +691,172 @@ class StageSlot extends Control:
 	func clear_pan_state() -> void:
 		set_panic_linger(false)
 		set_rapture_linger(false)
+		set_anger_state("", false, false)
 		_kill_pan_tween(_pan_pose_tween)
 		_figure_holder.scale = Vector2.ONE
+
+	var _anger_phase: String = ""
+	var _anger_furious: bool = false
+	var _anger_rim: TextureRect
+	var _anger_pulse_tween: Tween
+	var _anger_scale_tween: Tween
+	var _anger_steam_tween: Tween
+	var _anger_slump: float = 0.0
+	var _anger_flash_alpha: float = 0.0
+
+	func _process(_delta: float) -> void:
+		if _anger_rim != null and _sprite_rect.texture != null:
+			_anger_rim.texture = _sprite_rect.texture
+			_anger_rim.position = _sprite_rect.position
+			_anger_rim.flip_h = _sprite_rect.flip_h
+
+	# Panger/Pandemonium's phase on the sprite: "hot" (red pulsing rim, scale up),
+	# "cold" (bruise-purple rim, scale down, a slump) or "" (calm). `animate` plays the
+	# flip squash and the calm fade; otherwise the look is set outright.
+	func set_anger_state(phase: String, furious: bool, animate: bool) -> void:
+		var was := _anger_phase
+		var flipped := was != "" and phase != "" and was != phase
+		_anger_furious = furious and phase != ""
+		_refresh_steam()
+		if phase == was:
+			return
+		_anger_phase = phase
+		_kill_pan_tween(_anger_pulse_tween)
+		_kill_pan_tween(_anger_scale_tween)
+		var fx := CombatStage.anger_fx()
+		var moving := not CombatStage.reduced_motion()
+		var animated := animate and is_inside_tree() and moving
+		if phase == "":
+			var calm := CombatStage.fx_seconds(float(fx.get("calmSeconds", 0.0)))
+			if animate and is_inside_tree() and calm > 0.0:
+				_fade_anger_rim(calm)
+			else:
+				_free_anger_rim()
+			_ease_anger_pose(1.0, 0.0, calm if animated else 0.0)
+			return
+		if _anger_rim == null:
+			_build_anger_rim()
+		_anger_rim.modulate = CombatStage.rgb(fx.get("hotRim" if phase == "hot" else "coldRim", []))
+		_anger_rim.modulate.a = float(fx.get("rimAlpha", 0.5))
+		var pct := float(fx.get("scalePct", 0.0)) / 100.0 if moving else 0.0
+		var target_scale := 1.0 + (pct if phase == "hot" else -pct)
+		var slump := float(fx.get("slumpPx", 0.0)) if phase == "cold" and moving else 0.0
+		if flipped and animated:
+			_play_anger_flip(target_scale, slump)
+		else:
+			_ease_anger_pose(target_scale, slump, 0.0)
+		if phase == "hot" and moving and is_inside_tree():
+			_start_anger_pulse()
+
+	func _build_anger_rim() -> void:
+		_anger_rim = _new_overlay_rect(5)
+		_anger_rim.texture = _sprite_rect.texture
+		_anger_rim.size = _figure_holder.size
+		_anger_rim.position = _sprite_rect.position
+		_anger_rim.flip_h = _sprite_rect.flip_h
+		_figure_holder.add_child(_anger_rim)
+		set_process(true)
+
+	func _free_anger_rim() -> void:
+		if _anger_rim != null:
+			_anger_rim.queue_free()
+			_anger_rim = null
+		set_process(false)
+
+	func _fade_anger_rim(seconds: float) -> void:
+		var rim := _anger_rim
+		_anger_rim = null
+		set_process(false)
+		if rim == null:
+			return
+		var tween := rim.create_tween()
+		tween.tween_property(rim, "modulate:a", 0.0, seconds)
+		tween.tween_callback(rim.queue_free)
+
+	func _start_anger_pulse() -> void:
+		var fx := CombatStage.anger_fx()
+		var peak := float(fx.get("rimAlpha", 0.5))
+		var low := peak * float(fx.get("pulseLowFraction", 0.5))
+		var rim := _anger_rim
+		_anger_pulse_tween = create_tween().set_loops()
+		_anger_pulse_tween.tween_method(func(t: float) -> void: rim.modulate.a = lerpf(low, peak, 0.5 + 0.5 * sin(t * TAU)), 0.0, 1.0, maxf(float(fx.get("pulseSeconds", 1.0)), 0.1))
+
+	# Scale about the feet and the slump offset, eased over `seconds` (0 = outright).
+	func _ease_anger_pose(target_scale: float, slump: float, seconds: float) -> void:
+		_figure_holder.pivot_offset = Vector2(_figure_holder.size.x / 2.0, _figure_holder.size.y)
+		var from_slump := _anger_slump
+		_anger_slump = slump
+		_figure_holder.position.y += slump - from_slump
+		if seconds <= 0.0:
+			_figure_holder.scale = Vector2.ONE * target_scale
+			return
+		var from_scale := _figure_holder.scale.y
+		_anger_scale_tween = create_tween()
+		_anger_scale_tween.tween_method(func(t: float) -> void: _figure_holder.scale = Vector2.ONE * lerpf(from_scale, target_scale, t), 0.0, 1.0, seconds)
+
+	# The phase flip: a one-frame squash as the rim colour swaps, then the new scale.
+	func _play_anger_flip(target_scale: float, slump: float) -> void:
+		var fx := CombatStage.anger_fx()
+		var squash := float(fx.get("flipSquashPct", 0.0)) / 100.0
+		var secs := CombatStage.fx_seconds(float(fx.get("flipSeconds", 0.0)))
+		_figure_holder.pivot_offset = Vector2(_figure_holder.size.x / 2.0, _figure_holder.size.y)
+		_figure_holder.position.y += slump - _anger_slump
+		_anger_slump = slump
+		_figure_holder.scale = Vector2(1.0 + squash, 1.0 - squash)
+		_anger_scale_tween = create_tween()
+		_anger_scale_tween.tween_interval(secs)
+		_anger_scale_tween.tween_callback(func(): _figure_holder.scale = Vector2.ONE * target_scale)
+
+	func _refresh_steam() -> void:
+		var wanted := _anger_furious and not CombatStage.reduced_motion() and is_inside_tree()
+		if not wanted:
+			_kill_pan_tween(_anger_steam_tween)
+			_anger_steam_tween = null
+			return
+		if _anger_steam_tween != null and _anger_steam_tween.is_valid():
+			return
+		var interval := maxf(CombatStage.fx_seconds(float(CombatStage.anger_fx().get("steamIntervalSeconds", 0.5))), 0.05)
+		_anger_steam_tween = create_tween().set_loops()
+		_anger_steam_tween.tween_callback(_spawn_steam_wisp)
+		_anger_steam_tween.tween_interval(interval)
+
+	# One wisp lifting from above the head, fading as it rises.
+	func _spawn_steam_wisp() -> void:
+		var fx := CombatStage.anger_fx()
+		var speck := float(fx.get("wispSizePx", 3.0))
+		var rise_secs := CombatStage.fx_seconds(float(fx.get("riseSeconds", 0.0)))
+		if rise_secs <= 0.0:
+			return
+		var wisp := ColorRect.new()
+		wisp.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		wisp.color = CombatStage.rgb(fx.get("steamColour", []))
+		wisp.size = Vector2.ONE * speck
+		wisp.z_index = 6
+		wisp.position = Vector2(size.x / 2.0 - speck / 2.0 + float(randi_range(-2, 2)), size.y * float(fx.get("headFraction", 0.1)))
+		add_child(wisp)
+		var tween := wisp.create_tween().set_parallel(true)
+		wisp.modulate.a = float(fx.get("steamAlpha", 0.6))
+		tween.tween_property(wisp, "position:y", wisp.position.y - float(fx.get("risePx", 0.0)), rise_secs)
+		tween.tween_property(wisp, "modulate:a", 0.0, rise_secs).set_ease(Tween.EASE_IN)
+		tween.finished.connect(wisp.queue_free)
+
+	# Panger/Pandemonium land: the sprite flashes deep red twice (none under reduced motion).
+	func play_anger_land() -> void:
+		var fx := CombatStage.anger_fx()
+		var flash := CombatStage.fx_seconds(float(fx.get("landFlashSeconds", 0.0)))
+		var gap := CombatStage.fx_seconds(float(fx.get("landGapSeconds", 0.0)))
+		if flash <= 0.0 or CombatStage.reduced_motion() or not is_inside_tree():
+			return
+		var peak := float(fx.get("landAlpha", 0.6))
+		var tween := create_tween()
+		for i in range(2):
+			tween.tween_method(_set_anger_flash, peak, 0.0, flash)
+			if i == 0:
+				tween.tween_interval(gap)
+
+	func _set_anger_flash(value: float) -> void:
+		_anger_flash_alpha = value
+		_overlay.queue_redraw()
 
 	# Panic's cower beat: squash squashPct down and shudder for cowerSeconds.
 	func play_cower() -> void:
@@ -1493,6 +1663,9 @@ class StageSlot extends Control:
 			_draw_selection_arrow()
 		if flash_alpha > 0.0:
 			_overlay.draw_rect(rect, Color(1.0, 1.0, 1.0, flash_alpha), true)
+		if _anger_flash_alpha > 0.0:
+			var red := CombatStage.rgb(CombatStage.anger_fx().get("landColour", []))
+			_overlay.draw_rect(rect, Color(red, _anger_flash_alpha), true)
 		if _shield_crack_alpha > 0.0:
 			_overlay.draw_rect(rect, Color(0.4, 0.85, 1.0, _shield_crack_alpha * 0.55), true)
 			_overlay.draw_rect(rect.grow(-2.0), Color(0.85, 0.95, 1.0, _shield_crack_alpha), false, 2.0)
@@ -1888,6 +2061,23 @@ func play_travel(from_slot: StageSlot, to_slot: StageSlot, effect_key: String) -
 		tween.tween_method(fly, 0.0, 1.0, secs)
 		tween.tween_callback(rect.queue_free)
 	return secs
+
+
+# A furious fighter's friendly-fire tell: a magenta line from `from_slot` to
+# `to_slot` for a couple of frames, just before the swing.
+func play_fury_line(from_slot: StageSlot, to_slot: StageSlot) -> void:
+	var fx := anger_fx()
+	var secs: float = fx_seconds(float(fx.get("lineSeconds", 0.0)))
+	if secs <= 0.0 or from_slot == null or to_slot == null or _slot_layer == null or not _slot_layer.is_inside_tree():
+		return
+	var line := Line2D.new()
+	line.width = float(fx.get("lineThicknessPx", 2.0))
+	line.default_color = rgb(fx.get("lineColour", []))
+	line.z_index = 4
+	line.add_point(from_slot.position + from_slot.size / 2.0)
+	line.add_point(to_slot.position + to_slot.size / 2.0)
+	_slot_layer.add_child(line)
+	line.create_tween().tween_callback(line.queue_free).set_delay(secs)
 
 
 # Where the last Black Hole hung (stage px), or Vector2.INF before one.

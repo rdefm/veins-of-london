@@ -180,7 +180,9 @@
     "healingBurst": { "image": "", "frameCount": 5, "fps": 8.0, "colour": [0.8, 0.92, 0.55], "travelSeconds": 0.12, "landSeconds": 0.63, "shakeScale": 0.0, "hitStopSeconds": 0.0 },
     "blackHole": { "image": "", "frameCount": 8, "fps": 10.0, "colour": [1.0, 0.62, 0.2], "travelSeconds": 0.0, "landSeconds": 0.8, "shakeScale": 0.0, "hitStopSeconds": 0.0 },
     "panic": { "image": "", "frameCount": 4, "fps": 12.0, "colour": [0.9, 0.2, 0.75], "landColour": [1.0, 0.55, 0.75], "travelSeconds": 0.1, "landSeconds": 0.3, "shakeScale": 0.0, "hitStopSeconds": 0.0 },
-    "rapture": { "image": "", "frameCount": 4, "fps": 6.0, "colour": [0.95, 0.7, 0.55], "landColour": [1.0, 0.78, 0.72], "travelSeconds": 0.3, "landSeconds": 0.9, "shakeScale": 0.0, "hitStopSeconds": 0.0 }
+    "rapture": { "image": "", "frameCount": 4, "fps": 6.0, "colour": [0.95, 0.7, 0.55], "landColour": [1.0, 0.78, 0.72], "travelSeconds": 0.3, "landSeconds": 0.9, "shakeScale": 0.0, "hitStopSeconds": 0.0 },
+    "anger": { "image": "", "frameCount": 4, "fps": 12.0, "colour": [1.0, 0.2, 0.15], "travelSeconds": 0.12, "landSeconds": 0.0, "shakeScale": 0.0, "hitStopSeconds": 0.0 },
+    "fury": { "image": "", "frameCount": 4, "fps": 12.0, "colour": [1.0, 0.2, 0.15], "travelSeconds": 0.12, "landSeconds": 0.0, "shakeScale": 0.0, "hitStopSeconds": 0.0 }
   },
   "itemFx": {
     "_note": "Shared item-effect pieces (CombatStage / StageSlot). spark*: travel projectile (sizePx square, trailCount ghosts spaced trailGapSeconds, arcPx peak lift). ring*: stand-in land ring, radii as fractions of the slot's width. guardFlickerSeconds: a target's guard marker blinks off this long when a Blast ignores it. disarm: generic weapon shape (sizePx) that spins degrees and rises risePx over seconds. legItStreak: orange streaks behind a boosted Leg it (count lines, lengthPx long, over seconds). Seconds halve under quick pacing; reduced motion drops shake, hit-stop, trails and streaks.",
@@ -258,6 +260,33 @@
         "bloomAlpha": 0.45, "bloomSeconds": 0.6, "holdSeconds": 0.5,
         "moteCount": 6, "moteSizePx": 3.0, "moteRisePx": 34.0, "moteRiseSeconds": 0.6, "moteSpreadPx": 7.0, "moteColours": [[1.0, 0.6, 0.7], [1.0, 0.82, 0.78]]
       }
+    },
+    "angerFx": {
+      "_note": "Panger and Pandemonium (StageSlot.set_anger_state / play_anger_land, CombatStage.play_fury_line). land: the sprite flashes landColour at landAlpha twice (landFlashSeconds each, landGapSeconds apart). Phase: a rim (a tinted sprite copy) in hotRim pulsing between pulseLowFraction and 1 of rimAlpha every pulseSeconds, scale +scalePct%; coldRim steady, scale -scalePct% and the sprite slumps slumpPx. flip: a squash of flipSquashPct for flipSeconds as the rim colour swaps. calm: the rim fades and scale eases home over calmSeconds. steam (fury only): wisps of wispSizePx rise risePx over riseSeconds every steamIntervalSeconds from headFraction of the slot height. furyLine: a lineThicknessPx line in lineColour for lineSeconds from attacker to its ally target. Seconds halve under quick pacing; reduced motion drops the land flash, pulse, scale, slump, squash and steam (rim colour stays).",
+      "landColour": [0.75, 0.05, 0.05],
+      "landAlpha": 0.6,
+      "landFlashSeconds": 0.08,
+      "landGapSeconds": 0.07,
+      "hotRim": [1.0, 0.25, 0.2],
+      "coldRim": [0.55, 0.3, 0.7],
+      "rimAlpha": 0.55,
+      "pulseLowFraction": 0.4,
+      "pulseSeconds": 1.0,
+      "scalePct": 4.0,
+      "slumpPx": 1.0,
+      "flipSeconds": 0.07,
+      "flipSquashPct": 8.0,
+      "calmSeconds": 0.3,
+      "steamColour": [0.9, 0.9, 0.9],
+      "steamAlpha": 0.6,
+      "wispSizePx": 3.0,
+      "risePx": 14.0,
+      "riseSeconds": 0.9,
+      "steamIntervalSeconds": 0.45,
+      "headFraction": 0.1,
+      "lineColour": [1.0, 0.2, 0.8],
+      "lineSeconds": 0.033,
+      "lineThicknessPx": 2.0
     },
     "ladyFx": {
       "_note": "Be a Lady (StageSlot.play_lady_sweep / play_lady_glint, CombatStage.spawn_damage_number). sweep*: the brass band rising up the sprite at launch. glint*: the one-frame clover-green cross at a landed Strike's impact (sizePx; critScale bigger on a crit, which adds critHitStopSeconds of hit-stop). numberColour: the brass damage number. Seconds halve under quick pacing; reduced motion drops the sweep and glints, keeps the brass number.",

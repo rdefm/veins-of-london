@@ -34,6 +34,8 @@ const MOVE_LEVEL_SEED_SALT := 0x30E1E7E1
 # An action whose first beat is one of these fizzled, for move XP: a Stun
 # on a Guarded target, an evaded Strike, a failed Leg it.
 const FIZZLE_KINDS: Array[String] = ["fizzle", "evade", "fleeFailed"]
+# Beats that, aimed at the actor's own side, are a furious actor's friendly fire.
+const FRIENDLY_FIRE_KINDS: Array[String] = ["hit", "chip", "stun", "stunThrough", "block", "fizzle", "evade"]
 
 const TARGET_SELF := "self"
 const TARGET_ENEMY := "enemy"
@@ -2194,8 +2196,18 @@ static func stage_marks(cp: Dictionary) -> Array:
 			"icons": status_icons(cp, i),
 			"powdered": not c["koed"] and is_powered(cp, c),
 			"openLeft": 0 if c["koed"] else int(c.get("openActions", 0)),
+			"angerPhase": anger_phase(c),
+			"furious": anger_phase(c) != "" and bool(c["fury"]),
 		})
 	return marks
+
+
+# "hot" (deals more, takes less), "cold" (the reverse) or "" for a combatant
+# under Panger/Pandemonium's anger, in anger_factor()'s phases.
+static func anger_phase(combatant: Dictionary) -> String:
+	if combatant["koed"] or int(combatant["angerActions"]) <= 0:
+		return ""
+	return "hot" if anger_factor(combatant, true) >= 1.0 else "cold"
 
 
 # The Shield pool left over the pool it was raised to, 0..1 (0 with none up).
@@ -2619,6 +2631,8 @@ static func _beat(cp: Dictionary, beats: Array, kind: String, actor: int, target
 		"turnActor": int(cp["cursor"]["actor"]), "turnIndex": int(cp["cursor"]["index"]),
 	}
 	beat.merge(extra)
+	if target >= 0 and target != actor and kind in FRIENDLY_FIRE_KINDS and combatants[actor]["side"] == combatants[target]["side"]:
+		beat["friendly"] = true
 	var note := _coach_note(cp, beats, "%s.%s" % [variant, kind])
 	if note != "":
 		beat["coachNote"] = note

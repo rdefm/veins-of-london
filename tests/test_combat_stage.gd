@@ -132,6 +132,41 @@ func run() -> void:
 		GameState.state["meta"]["reducedMotion"] = prior
 	)
 
+	run_case("anger_state_hot_cold_rims_scale_flip_and_ko_clear", func():
+		var slot := CombatStage.StageSlot.new()
+		var fx := CombatStage.anger_fx()
+		var pct := float(fx["scalePct"]) / 100.0
+		slot.set_anger_state("hot", false, false)
+		assert_true(slot._anger_rim != null, "rim up")
+		assert_true(slot._anger_rim.modulate.r > 0.9 and slot._anger_rim.modulate.b < 0.5, "hot rim is red")
+		assert_almost_eq(slot._figure_holder.scale.y, 1.0 + pct, 0.0001, "hot scales up")
+		slot.set_anger_state("cold", false, false)
+		assert_true(slot._anger_rim.modulate.b > 0.6, "cold rim is purple")
+		assert_almost_eq(slot._figure_holder.scale.y, 1.0 - pct, 0.0001, "cold scales down")
+		assert_almost_eq(slot._figure_holder.position.y, float(fx["slumpPx"]), 0.0001, "cold slumps")
+		slot.set_anger_state("cold", true, false)
+		assert_true(slot._anger_steam_tween == null, "no steam off-tree")
+		slot.set_anger_state("", false, false)
+		assert_true(slot._anger_rim == null, "calm drops the rim outright off-tree")
+		assert_almost_eq(slot._figure_holder.scale.y, 1.0, 0.0001, "scale home")
+		assert_almost_eq(slot._figure_holder.position.y, 0.0, 0.0001, "slump gone")
+		slot.set_anger_state("hot", false, false)
+		slot.play_ko()
+		assert_true(slot._anger_rim == null and absf(slot._figure_holder.scale.y - 1.0) < 0.0001, "KO clears instantly")
+		slot.free()
+	)
+
+	run_case("reduced_motion_keeps_the_anger_rim_colour_but_drops_scale", func():
+		var prior = GameState.state.get("meta", {}).get("reducedMotion", false)
+		GameState.state["meta"]["reducedMotion"] = true
+		var slot := CombatStage.StageSlot.new()
+		slot.set_anger_state("hot", false, false)
+		assert_true(slot._anger_rim != null, "rim colour stays")
+		assert_almost_eq(slot._figure_holder.scale.y, 1.0, 0.0001, "no scale")
+		slot.free()
+		GameState.state["meta"]["reducedMotion"] = prior
+	)
+
 	run_case("pan_fx_is_data_for_both_statuses_and_both_effects_carry_stand_in_data", func():
 		for which in ["panic", "rapture"]:
 			assert_true(not CombatStage.pan_fx(which).is_empty(), "%s panFx" % which)

@@ -2583,6 +2583,30 @@ func run() -> void:
 		assert_true(not other.any(func(c): return c["call"] == "healFizzle"), "only heals scatter")
 	)
 
+	run_case("beat_cues_panger_throws_travels_and_lands_red_and_friendly_fire_draws_a_line_first", func():
+		var cast: Array = CombatRoundsScreen.beat_cues({ "kind": "anger", "actor": 0, "target": 1 })
+		assert_eq(cast.map(func(c): return c["call"]), ["throw", "travel", "angerLand"])
+		var swing: Array = CombatRoundsScreen.beat_cues({ "kind": "hit", "move": "strike", "actor": 1, "target": 2, "dmg": 3, "friendly": true })
+		assert_eq(swing[0]["call"], "furyLine")
+		assert_eq(swing[0]["to"], 2)
+		var plain: Array = CombatRoundsScreen.beat_cues({ "kind": "hit", "move": "strike", "actor": 1, "target": 0, "dmg": 3 })
+		assert_true(not plain.any(func(c): return c["call"] == "furyLine"), "no line on a normal swing")
+		assert_true(CombatRoundsScreen.removal_lead({ "kind": "anger" }) > 0.0, "marks wait for the spark")
+	)
+
+	run_case("stage_marks_carry_the_anger_phase_and_fury", func():
+		var cp := { "combatants": [{ "koed": false, "angerActions": 0, "angerPct": 0, "fury": false }] }
+		assert_eq(CombatRounds.anger_phase(cp["combatants"][0]), "")
+		var c: Dictionary = cp["combatants"][0]
+		c["angerActions"] = 2 * int(GameData.COMBAT_ROUNDS["anger"]["phaseActions"])
+		c["angerPct"] = 25
+		assert_eq(CombatRounds.anger_phase(c), "hot")
+		c["angerActions"] = int(GameData.COMBAT_ROUNDS["anger"]["phaseActions"])
+		assert_eq(CombatRounds.anger_phase(c), "cold")
+		c["koed"] = true
+		assert_eq(CombatRounds.anger_phase(c), "")
+	)
+
 	run_case("beat_cues_an_allys_failsafe_is_a_silhouette_beat_not_a_cast", func():
 		var cues: Array = CombatRoundsScreen.beat_cues({ "kind": "failsafe", "actor": 1, "target": -1, "hpAfter": 1 })
 		assert_eq(cues.map(func(c): return c["call"]), ["allyFailsafe"])
