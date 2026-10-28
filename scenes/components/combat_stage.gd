@@ -101,6 +101,11 @@ static func powder_fx() -> Dictionary:
 	return item_fx().get("powderFx", {})
 
 
+# data/combat_visuals.json itemFx.removalFx.
+static func removal_fx() -> Dictionary:
+	return item_fx().get("removalFx", {})
+
+
 # data/combat_visuals.json itemFx.healFx.
 static func heal_fx() -> Dictionary:
 	return item_fx().get("healFx", {})
@@ -353,9 +358,32 @@ class StageSlot extends Control:
 
 	func _end_frozen_visual() -> void:
 		_reset_freeze_transition()
-		_sprite_rect.material = null
+		_sprite_rect.material = _stun_material if _is_stunned_visual else null
 		if _idle_frames.size() >= 2 and _idle_fps > 0.0 and _idle_timer.is_inside_tree():
 			_idle_timer.start()
+
+	var _stun_material: ShaderMaterial
+	var _is_stunned_visual: bool = false
+
+	# Lost actions that aren't a freeze: the head-bob. A frozen sprite keeps the
+	# VCR look; the bob takes over when the freeze ends.
+	func set_stunned_visual(value: bool) -> void:
+		if value == _is_stunned_visual:
+			return
+		_is_stunned_visual = value
+		if value and _stun_material == null:
+			_stun_material = _build_stun_material()
+		if _is_frozen_visual or (_frozen_shader_material != null and _sprite_rect.material == _frozen_shader_material):
+			return
+		_sprite_rect.material = _stun_material if value else null
+
+	static func _build_stun_material() -> ShaderMaterial:
+		var fx_data: Dictionary = CombatStage.removal_fx().get("stun", {})
+		var mat := ShaderMaterial.new()
+		mat.shader = load("res://shaders/stun_bob.gdshader")
+		mat.set_shader_parameter("shear_px", float(fx_data.get("shearPx", 3.0)))
+		mat.set_shader_parameter("period", maxf(CombatStage.fx_seconds(float(fx_data.get("bobSeconds", 0.8))), 0.05))
+		return mat
 
 	var _freeze_tween: Tween
 
@@ -461,6 +489,7 @@ class StageSlot extends Control:
 		]
 		_start_one_shot(steps, _hit_fps, false)
 	func play_ko() -> void:
+		set_stunned_visual(false)
 		clear_frozen_instant()
 		set_powder_linger(false)
 		_start_one_shot(_ko_fall_steps(), _ko_fps, true)
@@ -1373,6 +1402,8 @@ var _entering: Dictionary = {}
 var _figure_box_by_frame: Dictionary = {}  # first idle frame's instance id -> Rect2 (px)
 var _backdrop_texture: TextureRect
 var _backdrop_fill: ColorRect
+var _pinch_rect: ColorRect
+var _singularity := Vector2.INF
 var _default_attack_keyposes: Array[Texture2D] = []
 var _default_attack_fps: float = 12.0
 var _default_hit_keyposes: Array[Texture2D] = []
@@ -1601,7 +1632,7 @@ func _shake_magnitude(dmg: int, hp_max: int) -> float:
 
 
 # `size_scale` scales the number's font (a chip's smaller one, a crit's bigger).
-func spawn_damage_number(slot: StageSlot, dmg: int, size_scale: float = 1.0, brass: bool = false, heal: bool = false) -> void:
+func spawn_damage_number(slot: StageSlot, dmg: int, size_scale: float = 1.0, brass: bool = false, heal: bool = false, from_point: Vector2 = Vector2.INF) -> void:
 	var layer: Node = slot.get_parent()
 	if layer == null:
 		return
@@ -1623,7 +1654,13 @@ func spawn_damage_number(slot: StageSlot, dmg: int, size_scale: float = 1.0, bra
 	if not label.is_inside_tree():
 		return
 	var tween := label.create_tween()
-	tween.tween_property(label, "position:y", label.position.y - DAMAGE_NUMBER_RISE_PX, DAMAGE_NUMBER_DURATION)
+	var landing_y: float = label.position.y
+	if from_point != Vector2.INF:
+		# Spawns at the singularity and flies out to the target first.
+		var landing: Vector2 = label.position
+		label.position = from_point - Vector2(12.0, 10.0)
+		tween.tween_property(label, "position", landing, fx_seconds(float(removal_fx().get("blackHole", {}).get("numberFlySeconds", 0.0))))
+	tween.tween_property(label, "position:y", landing_y - DAMAGE_NUMBER_RISE_PX, DAMAGE_NUMBER_DURATION)
 	tween.parallel().tween_property(label, "modulate:a", 0.0, DAMAGE_NUMBER_DURATION)
 	tween.tween_callback(label.queue_free)
 
@@ -1681,6 +1718,108 @@ func play_travel(from_slot: StageSlot, to_slot: StageSlot, effect_key: String) -
 	return secs
 
 
+# Where the last Black Hole hung (stage px), or Vector2.INF before one.
+func singularity_point() -> Vector2:
+	return _singularity
+
+
+# Black Hole throw: a dark bead with an orange rim lifts from `from_slot` to
+# the middle of `targets` (enemy slots) and hangs; the warp then plays on its
+# own timeline (pinch, lean, flash, pop). Returns the seconds until the warp
+# lands, so the caller can hold back what follows (0 when nothing plays).
+func play_black_hole(from_slot: StageSlot, targets: Array) -> float:
+	var fx: Dictionary = removal_fx().get("blackHole", {})
+	if from_slot == null or targets.is_empty() or _slot_layer == null or not _slot_layer.is_inside_tree():
+		return 0.0
+	var lift: float = fx_seconds(float(fx.get("liftSeconds", 0.0)))
+	var hang: float = fx_seconds(float(fx.get("hangSeconds", 0.0)))
+	var warp: float = fx_seconds(float(fx.get("warpSeconds", 0.0)))
+	var start: Vector2 = from_slot.position + from_slot.size / 2.0
+	var centre := Vector2.ZERO
+	for slot in targets:
+		centre += slot.position + slot.size / 2.0
+	centre /= float(targets.size())
+	_singularity = centre
+	var bead_size: float = float(fx.get("beadSizePx", 10.0))
+	var bead_style := StyleBoxFlat.new()
+	bead_style.bg_color = rgb(fx.get("beadColour", []))
+	bead_style.border_color = rgb(fx.get("rimColour", []))
+	bead_style.set_border_width_all(2)
+	bead_style.set_corner_radius_all(roundi(bead_size / 2.0))
+	var bead := Panel.new()
+	bead.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bead.z_index = 4
+	bead.size = Vector2.ONE * bead_size
+	bead.add_theme_stylebox_override("panel", bead_style)
+	_slot_layer.add_child(bead)
+	var fly := func(t: float) -> void:
+		bead.position = start.lerp(centre, t) + Vector2(0.0, -sin(t * PI) * float(item_fx().get("arcPx", 14.0))) - bead.size / 2.0
+	fly.call(0.0)
+	var tween := bead.create_tween()
+	tween.tween_method(fly, 0.0, 1.0, lift)
+	tween.tween_interval(hang)
+	tween.tween_callback(_black_hole_warp.bind(targets, centre, warp, fx))
+	tween.tween_interval(warp)
+	tween.tween_callback(_black_hole_pop.bind(centre, fx))
+	tween.tween_callback(bead.queue_free)
+	return lift + hang
+
+
+# The inward warp: every target hit-flashes; the backdrop pinches toward the
+# centre and each target leans toward it and stretches (both drop under reduced
+# motion), then returns.
+func _black_hole_warp(targets: Array, centre: Vector2, warp: float, fx: Dictionary) -> void:
+	for slot in targets:
+		if is_instance_valid(slot):
+			slot.flash_hit()
+	if reduced_motion() or warp <= 0.0 or not is_inside_tree():
+		return
+	var mat := _pinch_rect.material as ShaderMaterial
+	var origin: Vector2 = get_global_transform_with_canvas().origin
+	var viewport_size: Vector2 = get_viewport_rect().size
+	mat.set_shader_parameter("centre", (origin + centre) / viewport_size)
+	mat.set_shader_parameter("aspect", Vector2(viewport_size.x / viewport_size.y, 1.0))
+	mat.set_shader_parameter("strength", 0.0)
+	_pinch_rect.size = size
+	_pinch_rect.visible = true
+	var pinch := create_tween()
+	pinch.tween_method(func(v: float): mat.set_shader_parameter("strength", v), 0.0, float(fx.get("pinchPct", 0.0)) / 100.0, warp * 0.5)
+	pinch.tween_method(func(v: float): mat.set_shader_parameter("strength", v), float(fx.get("pinchPct", 0.0)) / 100.0, 0.0, warp * 0.5)
+	pinch.tween_callback(func(): _pinch_rect.visible = false)
+	var lean: float = float(fx.get("leanDegrees", 0.0))
+	var stretch: float = 1.0 + float(fx.get("stretchPct", 0.0)) / 100.0
+	for slot in targets:
+		if not is_instance_valid(slot):
+			continue
+		var dir: float = signf(centre.x - (slot.position.x + slot.size.x * 0.5))
+		slot.pivot_offset = Vector2(slot.size.x * 0.5, slot.size.y)
+		var lean_tween: Tween = slot.create_tween()
+		lean_tween.tween_property(slot, "rotation_degrees", dir * lean, warp * 0.5)
+		lean_tween.parallel().tween_property(slot, "scale", Vector2(1.0, stretch), warp * 0.5)
+		lean_tween.tween_property(slot, "rotation_degrees", 0.0, warp * 0.5)
+		lean_tween.parallel().tween_property(slot, "scale", Vector2.ONE, warp * 0.5)
+
+
+# The outward pop that closes the warp: one ring bursts from the singularity
+# and the stage shakes.
+func _black_hole_pop(centre: Vector2, fx: Dictionary) -> void:
+	var secs: float = fx_seconds(float(fx.get("popSeconds", 0.0)))
+	if secs > 0.0 and _slot_layer != null and _slot_layer.is_inside_tree():
+		var ring := RingFx.new()
+		ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		ring.z_index = 4
+		ring.colour = rgb(fx.get("rimColour", []))
+		ring.line_width = float(item_fx().get("ringWidthPx", 3.0))
+		ring.size = Vector2.ONE * float(fx.get("popRadiusPx", 30.0)) * 2.0
+		ring.position = centre - ring.size / 2.0
+		ring.radius = ring.size.x / 2.0
+		_slot_layer.add_child(ring)
+		var tween := ring.create_tween()
+		tween.tween_property(ring, "modulate:a", 0.0, secs)
+		tween.tween_callback(ring.queue_free)
+	shake(0, 0, float(fx.get("shakeScale", 1.0)))
+
+
 const _HIT_STOP_TIME_SCALE := 0.05
 
 
@@ -1727,6 +1866,13 @@ func _build() -> void:
 	_backdrop_texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	_backdrop_texture.visible = false
 	_stage_shake_layer.add_child(_backdrop_texture)
+
+	_pinch_rect = ColorRect.new()
+	_pinch_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_pinch_rect.visible = false
+	_pinch_rect.material = ShaderMaterial.new()
+	(_pinch_rect.material as ShaderMaterial).shader = load("res://shaders/black_hole_pinch.gdshader")
+	_stage_shake_layer.add_child(_pinch_rect)
 
 	_slot_layer = Control.new()
 	_slot_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE

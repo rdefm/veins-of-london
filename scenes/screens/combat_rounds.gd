@@ -1223,7 +1223,11 @@ func _on_beat_played(beat: Dictionary) -> void:
 	_advance_strip(beat)
 	var cp: Dictionary = _cp()
 	if beat.has("marks"):
-		_apply_marks(cp, beat["marks"], true, shield_raised(beat))
+		var wait := _marks_wait(beat)
+		if wait > 0.0:
+			_apply_marks_later(beat["marks"], wait, shield_raised(beat))
+		else:
+			_apply_marks(cp, beat["marks"], true, shield_raised(beat))
 	if CombatDirector.beat_is_damaging(beat) and beat.has("hpAfter"):
 		var key := TurnOrderStrip.card_key_string(_stage_target(stage_roster(cp, -1), int(beat["target"])))
 		_strip.set_shown_hp(key, int(beat["hpAfter"]))
@@ -1263,7 +1267,7 @@ func _on_rewind_beat_played(beat: Dictionary) -> void:
 # "ladyGlint" (who's hit by a Lady Strike, "crit"); "effect" (who's data/combat_visuals.json effect
 # sheet "effect"); "damage" (who's hit, with "dmg" and a juice "scale");
 # "shieldAssemble" (who's Shield panels build to "level"); "shieldCrack";
-# "healBurst" (motes + rim pulse on who), "healNumber" (green "+amount"), "healFizzle" (grey scatter); "ko"; or "overlay" (nothing past the beat's marks). [] for
+# "blackHole" (who's bead lifts to the middle of "affected"; holds back the cues after it); "healBurst" (motes + rim pulse on who), "healNumber" (green "+amount"), "healFizzle" (grey scatter); "ko"; or "overlay" (nothing past the beat's marks). [] for
 # a beat kind with no mapping.
 static func beat_cues(beat: Dictionary) -> Array:
 	var kind: String = beat["kind"]
@@ -1299,6 +1303,8 @@ static func beat_cues(beat: Dictionary) -> Array:
 			pass
 		"timePearl", "blackHole":
 			cues.append({ "call": "throw", "who": actor })
+			if kind == "blackHole":
+				cues.append({ "call": "blackHole", "who": actor, "affected": beat.get("affected", []) })
 			for affected in beat.get("affected", []):
 				cues.append({ "call": "effect", "who": int(affected), "effect": _ITEM_EFFECTS[kind] })
 		"blast", "heal", "healSelf", "shieldOther":
@@ -1332,7 +1338,7 @@ static func beat_cues(beat: Dictionary) -> Array:
 		var scale: float = _CRIT_SCALE if beat.get("crit", false) else (_CHIP_SCALE if kind == "chip" else 1.0)
 		var shake: float = maxf(scale, float(CombatStage.effect_data(_ITEM_EFFECTS.get(kind, "")).get("shakeScale", 0.0)))
 		var lady: bool = bool(beat.get("lady", false)) and (kind == "hit" or kind == "chip")
-		cues.append({ "call": "damage", "who": target, "dmg": int(beat["dmg"]), "scale": scale, "shake": shake, "brass": lady })
+		cues.append({ "call": "damage", "who": target, "dmg": int(beat["dmg"]), "scale": scale, "shake": shake, "brass": lady, "fromCentre": kind == "pull" })
 		if lady:
 			cues.append({ "call": "ladyGlint", "who": target, "crit": bool(beat.get("crit", false)) })
 		if int(beat.get("absorbed", 0)) > 0:
@@ -1382,6 +1388,9 @@ func _play_cues(cp: Dictionary, cues: Array, rewinding: bool) -> void:
 		if cue["call"] == "travel":
 			if not rewinding:
 				delay = _play_travel(cp, cue)
+		elif cue["call"] == "blackHole":
+			if not rewinding:
+				delay = _play_black_hole(cp, cue)
 		elif delay > 0.0:
 			_play_cue_later(cp, cue, delay)
 		else:
@@ -1393,6 +1402,52 @@ func _play_travel(cp: Dictionary, cue: Dictionary) -> float:
 	var from_slot := _stage.resolve_target_slot(_stage_target(roster, int(cue["who"])))
 	var to_slot := _stage.resolve_target_slot(_stage_target(roster, int(cue["to"])))
 	return _stage.play_travel(from_slot, to_slot, cue["effect"])
+
+
+func _play_black_hole(cp: Dictionary, cue: Dictionary) -> float:
+	var roster := stage_roster(cp, -1)
+	var targets: Array = []
+	for affected in cue["affected"]:
+		var slot := _stage.resolve_target_slot(_stage_target(roster, int(affected)))
+		if slot != null:
+			targets.append(slot)
+	var from_slot := _stage.resolve_target_slot(_stage_target(roster, int(cue["who"])))
+	return _stage.play_black_hole(from_slot, targets)
+
+
+# Seconds a Time Pearl's ripple or a Black Hole's throw and warp play before
+# its marks (the freeze, the Stunned look) land; 0 for any other beat.
+static func removal_lead(beat: Dictionary) -> float:
+	var fx := CombatStage.removal_fx()
+	match beat["kind"]:
+		"timePearl":
+			return CombatStage.fx_seconds(float(fx.get("timePearlLeadSeconds", 0.0)))
+		"blackHole":
+			var hole: Dictionary = fx.get("blackHole", {})
+			var total := 0.0
+			for key in ["liftSeconds", "hangSeconds", "warpSeconds", "popSeconds"]:
+				total += float(hole.get(key, 0.0))
+			return CombatStage.fx_seconds(total)
+	return 0.0
+
+
+var _marks_hold_until_msec := 0
+
+
+# How long a beat's marks wait: its own removal lead (starting the hold), or
+# what's left of a Black Hole's hold for the pull beats that follow it.
+func _marks_wait(beat: Dictionary) -> float:
+	var lead := removal_lead(beat)
+	if lead > 0.0:
+		_marks_hold_until_msec = Time.get_ticks_msec() + roundi(lead * 1000.0)
+		return lead
+	return maxf(0.0, float(_marks_hold_until_msec - Time.get_ticks_msec()) / 1000.0)
+
+
+func _apply_marks_later(marks: Array, wait: float, held_shield: int) -> void:
+	await get_tree().create_timer(wait, true, false, true).timeout
+	if is_inside_tree():
+		_apply_marks(_cp(), marks, true, held_shield)
 
 
 func _play_cue_later(cp: Dictionary, cue: Dictionary, delay: float) -> void:
@@ -1478,7 +1533,8 @@ func _play_cue(cp: Dictionary, cue: Dictionary, rewinding: bool) -> void:
 			var scale: float = cue["scale"]
 			slot.flash_hit()
 			if not rewinding:
-				_stage.spawn_damage_number(slot, int(cue["dmg"]), scale, bool(cue.get("brass", false)))
+				var from_point := _stage.singularity_point() if cue.get("fromCentre", false) else Vector2.INF
+				_stage.spawn_damage_number(slot, int(cue["dmg"]), scale, bool(cue.get("brass", false)), false, from_point)
 			slot.play_hit()
 			_stage.shake(int(cue["dmg"]), int(cp["combatants"][who]["hpMax"]), float(cue.get("shake", scale)))
 
@@ -1565,6 +1621,7 @@ func _apply_marks(cp: Dictionary, marks: Array, animate: bool = false, held_shie
 		slot.set_guard_marker(marks[i]["guard"])
 		_stage.set_slot_frozen(slot, marks[i]["frozen"], animate)
 		slot.set_frozen_left(int(marks[i].get("frozenLeft", 0)))
+		slot.set_stunned_visual(not cp["combatants"][i]["koed"] and marks[i].get("icons", []).any(func(icon): return icon["id"] == "stunned"))
 		slot.set_open_left(int(marks[i].get("openLeft", 0)))
 		slot.set_powder_linger(bool(marks[i].get("powdered", false)), animate and not cp["combatants"][i]["koed"])
 		slot.set_status_icons(marks[i].get("icons", []), animate and not cp["combatants"][i]["koed"])

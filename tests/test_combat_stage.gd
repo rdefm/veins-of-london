@@ -66,6 +66,25 @@ func run() -> void:
 		slot.free()
 	)
 
+	run_case("stunned_bob_never_shows_on_a_frozen_sprite_and_ko_clears_it", func():
+		var slot := CombatStage.StageSlot.new()
+		slot.set_stunned_visual(true)
+		assert_true(slot._sprite_rect.material == slot._stun_material, "stunned installs the bob shader")
+		slot.set_frozen_visual(true)
+		assert_true(slot._sprite_rect.material == slot._frozen_shader_material, "freeze look wins")
+		slot.set_stunned_visual(false)
+		assert_true(slot._sprite_rect.material == slot._frozen_shader_material, "still frozen")
+		slot.set_stunned_visual(true)
+		slot.set_frozen_visual(false)
+		assert_true(slot._sprite_rect.material == slot._stun_material, "bob takes over when the freeze ends")
+		slot.set_stunned_visual(false)
+		assert_true(slot._sprite_rect.material == null, "clears when the last lost action passes")
+		slot.set_stunned_visual(true)
+		slot.play_ko()
+		assert_true(slot._sprite_rect.material == null, "KO clears the bob at once")
+		slot.free()
+	)
+
 	run_case("powder_linger_speeds_idle_and_clears_directly_on_ko", func():
 		var slot := CombatStage.StageSlot.new()
 		var frames: Array[Texture2D] = [PlaceholderTexture2D.new(), PlaceholderTexture2D.new()]

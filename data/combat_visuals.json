@@ -210,6 +210,26 @@
       "trailGapSeconds": 0.06,
       "trailFadeSeconds": 0.22
     },
+    "removalFx": {
+      "_note": "How a fighter loses actions (CombatStage / StageSlot). stun: head-bob on lost-action fighters (shaders/stun_bob.gdshader; bobSeconds loop, shearPx top sway). timePearlLeadSeconds: the landing ripple plays this long before the tape-stop. blackHole: bead (beadSizePx, beadColour rim) lifts liftSeconds to the enemy band's centre and hangs hangSeconds; the warp runs warpSeconds (backdrop pinchPct pull, enemies lean leanDegrees and stretch stretchPct, numbers fly numberFlySeconds from the centre), then a popSeconds outward ring and shake (shakeScale). Seconds halve under quick pacing; reduced motion drops pinch, lean and shake.",
+      "stun": { "bobSeconds": 0.8, "shearPx": 3.0 },
+      "timePearlLeadSeconds": 0.3,
+      "blackHole": {
+        "beadSizePx": 10.0,
+        "beadColour": [0.08, 0.05, 0.1],
+        "rimColour": [1.0, 0.62, 0.2],
+        "liftSeconds": 0.25,
+        "hangSeconds": 0.15,
+        "warpSeconds": 0.4,
+        "pinchPct": 8.0,
+        "leanDegrees": 10.0,
+        "stretchPct": 8.0,
+        "numberFlySeconds": 0.25,
+        "popSeconds": 0.12,
+        "popRadiusPx": 30.0,
+        "shakeScale": 1.5
+      }
+    },
     "healFx": {
       "_note": "Healing Burst (StageSlot.play_heal_burst / play_heal_fizzle, CombatStage.spawn_damage_number). mote*: specks rising from the feet (count, sizePx square, risePx over riseSeconds, spreadPx apart, colours cycle gold/cyan). rim*: one sine pulse of a tinted sprite copy (rimAlpha peak over rimSeconds). numberColour: the green +N. fizzle*: the motes rise riseFraction of the way, then fall fallPx and scatter scatterPx sideways in greyColour over fizzleSeconds. Seconds halve under quick pacing; reduced motion drops the rim pulse and the fizzle scatter (motes and number stay).",
       "moteCount": 8,

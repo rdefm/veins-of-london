@@ -2611,6 +2611,22 @@ func run() -> void:
 		assert_true(not plain.any(func(c): return c["call"] == "legItStreak"), "plain Leg it has no streak")
 	)
 
+	run_case("beat_cues_black_hole_throws_a_bead_and_pull_numbers_fly_from_the_centre", func():
+		var hole: Array = CombatRoundsScreen.beat_cues({ "kind": "blackHole", "actor": 0, "target": -1, "affected": [1, 2] })
+		assert_eq(hole[1]["call"], "blackHole", "bead follows the throw")
+		assert_eq(hole[1]["affected"], [1, 2], "aimed at the whole band")
+		var pull: Array = CombatRoundsScreen.beat_cues({ "kind": "pull", "actor": 0, "target": 1, "dmg": 6 })
+		assert_true(pull.any(func(c): return c["call"] == "damage" and c["fromCentre"]), "numbers spawn at the singularity")
+		var hit: Array = CombatRoundsScreen.beat_cues({ "kind": "hit", "actor": 0, "target": 1, "move": "strike", "dmg": 3 })
+		assert_true(not hit.any(func(c): return c.get("fromCentre", false)), "ordinary hits don't")
+	)
+
+	run_case("removal_lead_holds_marks_for_time_pearl_and_black_hole_only", func():
+		assert_true(CombatRoundsScreen.removal_lead({ "kind": "timePearl" }) > 0.0, "ripple before the tape-stop")
+		assert_true(CombatRoundsScreen.removal_lead({ "kind": "blackHole" }) > CombatRoundsScreen.removal_lead({ "kind": "timePearl" }), "the hole takes longer")
+		assert_eq(CombatRoundsScreen.removal_lead({ "kind": "hit" }), 0.0, "other beats apply marks at once")
+	)
+
 	run_case("beat_cues_powder_and_lady_launch_and_lady_strikes_glint_with_brass_numbers", func():
 		var powder: Array = CombatRoundsScreen.beat_cues({ "kind": "powder", "actor": 0, "target": -1 })
 		assert_true(powder.any(func(c): return c["call"] == "cast") and powder.any(func(c): return c["call"] == "powderLaunch"), "powder casts with a puff")
