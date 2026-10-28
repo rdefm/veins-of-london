@@ -65,6 +65,9 @@ func _build_room_view() -> void:
 	var study_button := MapCardStyle.chip_button("Study", func(): Modal.open("hq_study"))
 	study_button.position = Vector2(4.0, UI.top_bar_clearance() + 44.0)
 	add_child(study_button)
+	var meditate_button := MapCardStyle.chip_button("Meditate", func(): Modal.open("hq_meditate"))
+	meditate_button.position = Vector2(4.0, UI.top_bar_clearance() + 84.0)
+	add_child(meditate_button)
 func _security_lock_installed_plate(plate: Dictionary, home: Dictionary) -> Dictionary:
 	if not home["security"].has("lock"):
 		return plate

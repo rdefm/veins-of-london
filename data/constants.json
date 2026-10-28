@@ -3,6 +3,7 @@
   "archieOreGoal": 10,
   "bucketXpShare": 0.2,
   "study": { "xp": 10, "libraryXp": 30 },
+  "meditate": { "xp": 10, "gardenXp": 30 },
   "contacts": {
     "archie": { "startRelation": 10, "unlocked": true,  "recruitThreshold": 80, "recruitable": false,
                 "roomFreeRoles": true, "roleFlags": { "sales": "bizArchieSalesRole" },

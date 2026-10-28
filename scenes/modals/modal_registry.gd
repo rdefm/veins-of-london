@@ -28,6 +28,7 @@ static var REGISTRY: Dictionary = {
 	"hq_ore_readout": HqOreReadoutModal,
 	"hq_gym": HqGymModal,
 	"hq_study": HqStudyModal,
+	"hq_meditate": HqMeditateModal,
 	"gym_spar": GymSparModal,
 	"contract_cancel": ContractCancelModal,
 	"negotiation": NegotiationModal,

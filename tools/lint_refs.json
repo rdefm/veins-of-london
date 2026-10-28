@@ -2213,6 +2213,7 @@
 		"home.lastRaidDay",
 		"home.pendingRaid",
 		"home.roomSeats",
+		"home.roomSeats.garden",
 		"home.roomSeats.homeGym",
 		"home.roomSeats.lab",
 		"home.roomSeats.library",

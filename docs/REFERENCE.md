@@ -214,6 +214,7 @@ Tier descriptions: extract verbatim from HTML const `HOME_TIERS`.
 | workshop | Workshop | 800 | flat | crafting | 0.08 |
 | homeGym | Home Gym | 600 | flat | body | 10 |
 | library | Library | 1200 | townhouse | crafting | 0.08 |
+| garden | Garden | 1000 | townhouse | soul | 0 |
 | safeRoom | Safe Room | 2000 | townhouse | storage | 0.5 |
 | ops | Operations Room | 5000 | safehouse | faction | 1 |
 | veinStation | Vein Cultivation Station | 8000 | safehouse | passive | 1 |
@@ -224,6 +225,8 @@ Descriptions: extract verbatim from HTML consts `HOME_SECURITY` / `HOME_ROOMS` �
 **Room slots and floorplans:** a tier's `maxRooms` counts its selectable room slots; every property also has one fixed bedroom, which is never a slot. `state.home.rooms` is in slot order — `rooms[i]` occupies selectable slot `i` (on the Flat's plan, slot 0 is room 02); slots fill in order, so there are no gaps. `data/floorplans.json` maps a tier id to its plan asset, plan size, and each slot's label/rect in plan coordinates; tiers without an entry (currently every tier but `flat`) use the plain room list. Moving up a tier keeps `rooms` as-is (upgrades stay purchased and active); the new tier's extra slots start empty. Moving down keeps what the new tier allows, compacted into its first slots in slot order (§3.3 "Tier moves").
 
 **Library is dual-purpose:** keeps its `crafting` bonus and raises the XP of **Study**, the repeatable HQ Mind workout (`Mind.study()`): 1 time block, refused with "No time blocks left today." when the day is spent, awards Mind 10 XP (`constants.json study.xp`), or 30 with the Library built (`study.libraryXp`). Study is never a Mind action for the free-action perks.
+
+**Garden is a meditation room:** does nothing beyond raising the XP of **Meditate**, the repeatable HQ Soul workout (`Soul.meditate()`): 1 time block, refused with "No time blocks left today." when the day is spent, awards Soul 10 XP (`constants.json meditate.xp`), or 30 with the Garden built (`meditate.gardenXp`). Townhouse or better (unavailable in a flat). No soil/horticulture vocabulary.
 
 **Home Gym is dual-purpose (§3.7a):** beyond its existing one-time `+10 hpMax` build bonus above, it also raises the XP reward of the repeatable **Train** action on the HQ screen, which is available regardless of whether Home Gym is built — see §3.7a for cost/reward.
 
