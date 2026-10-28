@@ -1241,7 +1241,7 @@ func _on_rewind_beat_played(beat: Dictionary) -> void:
 
 
 # The stage calls a beat plays, in order, each { call, who (combatant
-# index), ... }: "attack", "afterimage", "throw", "cast", "vanish" or
+# index), ... }: "attack", "afterimage", "throw", "cast", "vanish" (fold out), "runOff" or
 # "recoil" (a pose on who); "effect" (who's data/combat_visuals.json effect
 # sheet "effect"); "damage" (who's hit, with "dmg" and a juice "scale");
 # "shieldCrack"; "ko"; or "overlay" (nothing past the beat's marks). [] for
@@ -1256,7 +1256,9 @@ static func beat_cues(beat: Dictionary) -> Array:
 	match kind:
 		"hit", "chip", "stun", "stunThrough", "block", "feint", "fizzle", "evade":
 			cues.append_array(_move_pose_cues(beat["move"], actor))
-		"fled", "wormhole", "bolt":
+		"fled", "bolt":
+			cues.append({ "call": "runOff", "who": actor })
+		"wormhole":
 			cues.append({ "call": "vanish", "who": actor })
 		"fleeFailed":
 			cues.append({ "call": "recoil", "who": actor })
@@ -1307,7 +1309,7 @@ static func _move_pose_cues(move_id: String, actor: int) -> Array:
 	return []
 
 
-# Plays one beat_cues() cue on the stage; `rewinding` undoes a vanish or KO
+# Plays one beat_cues() cue on the stage; `rewinding` undoes a vanish, run-off or KO
 # and skips the damage number.
 func _play_cue(cp: Dictionary, cue: Dictionary, rewinding: bool) -> void:
 	var who: int = int(cue["who"])
@@ -1331,6 +1333,11 @@ func _play_cue(cp: Dictionary, cue: Dictionary, rewinding: bool) -> void:
 				slot.restore_from_vanish()
 			else:
 				slot.play_wormhole_vanish()
+		"runOff":
+			if rewinding:
+				slot.play_run_in()
+			else:
+				slot.play_run_off()
 		"recoil":
 			slot.play_hit()
 		"effect":

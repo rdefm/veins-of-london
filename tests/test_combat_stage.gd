@@ -85,3 +85,23 @@ func run() -> void:
 		var mid: float = stage._shake_magnitude(5, 20)  # 25% of hpMax -- halfway to SHAKE_FULL_FRACTION
 		assert_true(mid > CombatStage.SHAKE_MIN_PX and mid < CombatStage.SHAKE_MAX_PX, "a hit for a quarter of hpMax should shake somewhere between the floor and the cap")
 	)
+
+	run_case("run_off_exits_by_the_nearest_edge_for_every_slot", func():
+		var fx: Dictionary = GameData.COMBAT_VISUALS["pacing"]["runOffFx"]
+		var margin: float = float(fx["edgeMarginPx"])
+		var left := CombatStage.StageSlot.run_off_path(60.0, 390.0, 40.0, margin)
+		assert_eq(left["dir"], -1.0, "a slot left of centre runs off the left edge")
+		assert_almost_eq(float(left["travel"]), 60.0 + 20.0 + margin, 0.01, "travel clears the figure past the edge")
+		var right := CombatStage.StageSlot.run_off_path(300.0, 390.0, 40.0, margin)
+		assert_eq(right["dir"], 1.0, "a slot right of centre runs off the right edge")
+		assert_almost_eq(float(right["travel"]), 90.0 + 20.0 + margin, 0.01, "travel measured to the right edge")
+	)
+
+	run_case("run_off_durations_are_data_driven_and_halve_when_quick", func():
+		var fx: Dictionary = GameData.COMBAT_VISUALS["pacing"]["runOffFx"]
+		assert_true(float(fx["runSeconds"]) > 0.0 and int(fx["afterimageCount"]) == 2, "run-off tuning lives in data")
+		var prev: String = CombatPacing.pacing_mode()
+		CombatPacing.set_pacing_mode("quick")
+		assert_almost_eq(CombatStage.StageSlot._run_off_seconds("runSeconds"), float(fx["runSeconds"]) * 0.5, 0.0001, "quick halves the run")
+		CombatPacing.set_pacing_mode(prev)
+	)

@@ -128,6 +128,8 @@ class StageSlot extends Control:
 	# figure (_figure_box, frame px) fills the slot bottom-centred.
 	var _figure_holder: Control
 	var _figure_box: Rect2 = Rect2()
+	var _run_tween: Tween
+	var _run_fx_nodes: Array = []
 
 	func _init() -> void:
 		_figure_holder = Control.new()
@@ -480,12 +482,119 @@ class StageSlot extends Control:
 		var tween := create_tween()
 		tween.tween_property(ghost, "modulate:a", 0.0, 0.22)
 		tween.tween_callback(ghost.queue_free)
-	# Undoes play_wormhole_vanish(), and any held or running pose.
+	# Undoes play_wormhole_vanish() or play_run_off(), and any held or running pose.
 	func restore_from_vanish() -> void:
 		_end_one_shot()
+		_kill_run_tween()
 		_sprite_rect.scale = Vector2.ONE
 		_sprite_rect.modulate.a = 1.0
 		_sprite_rect.visible = not _idle_frames.is_empty()
+		_apply_flip()
+
+	static func _run_off_fx() -> Dictionary:
+		return GameData.COMBAT_VISUALS.get("pacing", {}).get("runOffFx", {})
+
+	# A runOffFx duration, halved under quick pacing.
+	static func _run_off_seconds(key: String) -> float:
+		var secs: float = float(_run_off_fx().get(key, 0.0))
+		return secs * 0.5 if CombatPacing.pacing_mode() == "quick" else secs
+
+	static func _reduced_motion() -> bool:
+		return bool(GameState.state.get("meta", {}).get("reducedMotion", false))
+
+	# { dir: -1/+1 (the nearest edge), travel: px the figure slides to clear it }.
+	static func run_off_path(center_x: float, stage_width: float, figure_width: float, margin: float) -> Dictionary:
+		var left: bool = center_x < stage_width / 2.0
+		var to_edge: float = center_x if left else stage_width - center_x
+		return { "dir": -1.0 if left else 1.0, "travel": to_edge + figure_width / 2.0 + margin }
+
+	func _run_path() -> Dictionary:
+		var layer := get_parent() as Control
+		var width: float = layer.size.x if layer != null and layer.size.x > 0.0 else float(STAGE_WIDTH)
+		return run_off_path(position.x + size.x / 2.0, width, _figure_holder.size.x, float(_run_off_fx().get("edgeMarginPx", 0.0)))
+
+	func _kill_run_tween() -> void:
+		if _run_tween != null and _run_tween.is_valid():
+			_run_tween.kill()
+		_run_tween = null
+		for node in _run_fx_nodes:
+			if is_instance_valid(node):
+				node.queue_free()
+		_run_fx_nodes = []
+		layout_figure()
+
+	# Turns away, crouches a frame, then slides off the nearest edge.
+	func play_run_off() -> void:
+		if not is_inside_tree():
+			return
+		var path := _run_path()
+		var dir: float = path["dir"]
+		var fx := _run_off_fx()
+		_kill_run_tween()
+		_sprite_rect.flip_h = dir < 0.0
+		var home: Vector2 = _figure_holder.position
+		var crouch: float = _run_off_seconds("crouchSeconds")
+		var run: float = _run_off_seconds("runSeconds")
+		_run_tween = create_tween()
+		var delay: float = one_shot_remaining()
+		if delay > 0.0:
+			_run_tween.tween_interval(delay)
+		_run_tween.tween_property(_figure_holder, "position:y", home.y + float(fx.get("crouchPx", 0.0)), crouch)
+		_run_tween.tween_callback(_start_run_trail.bind(home, crouch + run))
+		_run_tween.tween_property(_figure_holder, "position:y", home.y, 0.0)
+		_run_tween.tween_property(_figure_holder, "position:x", home.x + dir * float(path["travel"]), run).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		_run_tween.tween_callback(func(): _sprite_rect.visible = false)
+
+	# The run reversed: slides back in from the edge it left by, then faces forward.
+	func play_run_in() -> void:
+		if not is_inside_tree():
+			return
+		var path := _run_path()
+		var dir: float = path["dir"]
+		_kill_run_tween()
+		var home: Vector2 = _figure_holder.position
+		var run: float = _run_off_seconds("runSeconds")
+		_sprite_rect.visible = not _idle_frames.is_empty()
+		_sprite_rect.modulate.a = 1.0
+		_sprite_rect.flip_h = dir > 0.0
+		_figure_holder.position.x = home.x + dir * float(path["travel"])
+		_run_tween = create_tween()
+		_run_tween.tween_property(_figure_holder, "position:x", home.x, run).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		_run_tween.tween_callback(_apply_flip)
+
+	# Afterimages along the run and a dust kick where the fighter started.
+	func _start_run_trail(home: Vector2, span: float) -> void:
+		if _reduced_motion():
+			return
+		var fx := _run_off_fx()
+		var count: int = int(fx.get("afterimageCount", 0))
+		var fade: float = _run_off_seconds("afterimageFadeSeconds")
+		for i in range(count):
+			var ghost := _new_overlay_rect(-1)
+			ghost.texture = _sprite_rect.texture
+			ghost.flip_h = _sprite_rect.flip_h
+			ghost.size = _figure_holder.size
+			ghost.position = Vector2(_figure_holder.position.x, home.y)
+			ghost.modulate = Color(1.0, 1.0, 1.0, float(fx.get("afterimageAlpha", 0.4)))
+			add_child(ghost)
+			_run_fx_nodes.append(ghost)
+			var tween := ghost.create_tween()
+			tween.tween_interval(span * float(i) / float(maxi(count, 1)) * 0.5)
+			tween.tween_property(ghost, "modulate:a", 0.0, fade)
+			tween.tween_callback(ghost.queue_free)
+		var puff_size: float = float(fx.get("dustSizePx", 0.0))
+		var dust_fade: float = _run_off_seconds("dustFadeSeconds")
+		var puff := ColorRect.new()
+		puff.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		puff.color = Color(0.82, 0.8, 0.74, 0.6)
+		puff.size = Vector2.ONE * puff_size
+		puff.position = Vector2(size.x / 2.0 - puff_size / 2.0, size.y - puff_size)
+		add_child(puff)
+		_run_fx_nodes.append(puff)
+		var dust := puff.create_tween().set_parallel(true)
+		dust.tween_property(puff, "position:y", puff.position.y - float(fx.get("dustRisePx", 0.0)), dust_fade)
+		dust.tween_property(puff, "modulate:a", 0.0, dust_fade)
+		dust.finished.connect(puff.queue_free)
 	func play_wormhole_vanish() -> void:
 		if not is_inside_tree():
 			return

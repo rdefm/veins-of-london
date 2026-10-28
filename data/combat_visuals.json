@@ -89,6 +89,19 @@
       "playSnapSeconds": 0.15,
       "playSnapJoltPx": 4.0
     },
+    "runOffFx": {
+      "_note": "Run-off exit for a successful Leg it / Panic bolt (CombatStage.StageSlot.play_run_off): fighter turns away, crouchSeconds crouch (crouchPx down), slides off the nearest stage edge in runSeconds (ease-in) leaving afterimageCount trail ghosts (fade afterimageFadeSeconds) and a dust kick (dustSizePx, rising dustRisePx over dustFadeSeconds). Rewind plays play_run_in, the same run reversed. Seconds halve under quick pacing; reduced motion drops dust and afterimages.",
+      "crouchSeconds": 0.06,
+      "crouchPx": 4.0,
+      "runSeconds": 0.3,
+      "edgeMarginPx": 8.0,
+      "afterimageCount": 2,
+      "afterimageAlpha": 0.4,
+      "afterimageFadeSeconds": 0.2,
+      "dustSizePx": 5.0,
+      "dustRisePx": 8.0,
+      "dustFadeSeconds": 0.3
+    },
     "menuPanel": { "enterSeconds": 0.44, "exitSeconds": 0.32 }
   },
   "statusIcons": {

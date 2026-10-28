@@ -2530,3 +2530,12 @@ func run() -> void:
 		assert_eq(rows.get_child_count(), 5, "one panel per move")
 		rows.free()
 	)
+
+	run_case("beat_cues_run_off_for_fled_and_bolt_but_wormhole_folds", func():
+		for kind in ["fled", "bolt"]:
+			var cues: Array = CombatRoundsScreen.beat_cues({ "kind": kind, "actor": 1, "target": -1 })
+			assert_true(cues.any(func(c): return c["call"] == "runOff" and int(c["who"]) == 1), "%s runs off" % kind)
+			assert_true(not cues.any(func(c): return c["call"] == "vanish"), "%s does not fold" % kind)
+		var fold: Array = CombatRoundsScreen.beat_cues({ "kind": "wormhole", "actor": 1, "target": -1 })
+		assert_true(fold.any(func(c): return c["call"] == "vanish"), "wormhole still folds")
+	)
