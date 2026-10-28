@@ -366,10 +366,15 @@ static func prune(vein_id: String, depth: int) -> Dictionary:
 	if not travel["ok"]:
 		return travel
 
+	if TimeSystem.is_time_exhausted():
+		return { "ok": false, "reason": "No time blocks left today." }
+
 	Contracts.note_player_tended_vein(vein_id)
 	Perks.note_player_tended(vein_id)
 	var lady := ActiveEffects.lady_active()
-	TimeSystem.advance_time_block()
+	var spend := FreeAction.spend("soul", vein["district"])
+	if spend["free"]:
+		Notify.push(spend["line"], Notify.CATEGORY_SUCCESS)
 
 	var amount: int = roll_prune_yield(vein, depth, lady)
 	var growth_before: int = vein["growth"]
@@ -385,8 +390,9 @@ static func prune(vein_id: String, depth: int) -> Dictionary:
 
 	Objectives.refresh()
 	EventBus.state_changed.emit()
-	Ambush.maybe_trigger(vein["district"])
-	return { "ok": true, "amount": amount, "oreType": ore_type, "veinId": vein_id, "growth": vein["growth"] }
+	if not spend["free"]:
+		Ambush.maybe_trigger(vein["district"])
+	return { "ok": true, "amount": amount, "oreType": ore_type, "veinId": vein_id, "growth": vein["growth"], "freeAction": spend }
 
 
 # Called from TimeSystem.daily_tick() step ④ (R§3.1). Order matters: drift, then

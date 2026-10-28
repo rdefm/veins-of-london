@@ -250,7 +250,11 @@ static func prospect(district_id: String) -> Dictionary:
 	if Raiding.maybe_prepare_defend(district_id):
 		return { "ok": true, "district": district_id, "site": null }
 
-	TimeSystem.advance_time_block()
+	var spend := FreeAction.spend("mind", district_id)
+	if not spend["ok"]:
+		return spend
+	if spend["free"]:
+		Notify.push(spend["line"], Notify.CATEGORY_SUCCESS)
 
 	# Counted per block spent prospecting, so it advances even when the reroll finds nothing.
 	var forced_ore := Collective.next_des_forced_ore_type()
@@ -264,9 +268,9 @@ static func prospect(district_id: String) -> Dictionary:
 	EventBus.state_changed.emit()
 	# The story beat is checked first -- it's Rng-free, so a genuine early return
 	# never touches the deck's own seeded roll. DistrictDeck.maybe_trigger() must stay the last thing either branch does.
-	if not Collective.maybe_trigger_weather_beat(site) and not Ambush.maybe_trigger(district_id):
+	if not Collective.maybe_trigger_weather_beat(site) and not (not spend["free"] and Ambush.maybe_trigger(district_id)):
 		DistrictDeck.maybe_trigger(district_id)
-	return { "ok": true, "district": district_id, "site": site }
+	return { "ok": true, "district": district_id, "site": site, "freeAction": spend }
 
 
 # Every truly-unclaimed site in the district (not player-claimed, no
@@ -414,7 +418,11 @@ static func attempt_seed(site_id: String) -> Dictionary:
 	if not travel["ok"]:
 		return travel
 
-	TimeSystem.advance_time_block()
+	var spend := FreeAction.spend("soul", site["district"])
+	if not spend["ok"]:
+		return spend
+	if spend["free"]:
+		Notify.push(spend["line"], Notify.CATEGORY_SUCCESS)
 	player["orichalchum"][ore_type] = have - GameData.SEED_ORE_COST
 
 	var skill: int = player["cultivatingSkill"]
@@ -447,13 +455,15 @@ static func attempt_seed(site_id: String) -> Dictionary:
 		Cultivating.award_xp(30)
 		BusinessQuest.maybe_trigger_proposition()
 		Modal.open("seed_result", { "success": true, "oreType": ore_type, "siteId": site_id })
-		Ambush.maybe_trigger(district)
-		return { "ok": true, "success": true, "siteId": site_id, "veinId": vein["id"], "naturalVeinId": natural_vein_id }
+		if not spend["free"]:
+			Ambush.maybe_trigger(district)
+		return { "ok": true, "success": true, "siteId": site_id, "veinId": vein["id"], "naturalVeinId": natural_vein_id, "freeAction": spend }
 	else:
 		Cultivating.award_xp(5)
 		Modal.open("seed_result", { "success": false, "oreType": ore_type, "siteId": site_id })
-		Ambush.maybe_trigger(site["district"])
-		return { "ok": true, "success": false, "siteId": site_id }
+		if not spend["free"]:
+			Ambush.maybe_trigger(site["district"])
+		return { "ok": true, "success": false, "siteId": site_id, "freeAction": spend }
 
 
 # ── NPC site-claiming (daily tick, M1-LONDON §D2, adr/0002) ─────────────
