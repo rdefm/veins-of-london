@@ -339,7 +339,7 @@ static func _stored(id: String) -> Dictionary:
 
 # Σmods for one ore of an observation, as [{label, delta}] (zero deltas dropped):
 # Sense, the observation's own mods, then the kit (seated Movement attunement,
-# Be A Lady, Prophet's Breath, held items' `observeBonus`).
+# Be A Lady, Prophet's Breath), then raid-factor mods.
 static func _mods(def: Dictionary, ore: String) -> Array:
 	var out: Array = []
 	var sense: float = float(GameData.OBSERVATION["sensePerLevel"]) * (int(GameState.state["player"]["senseSkill"]) - 1)
@@ -351,10 +351,6 @@ static func _mods(def: Dictionary, ore: String) -> Array:
 	_add_mod(out, GameData.EVENT_CHECKS["ladyLabel"], float(GameData.EVENT_CHECKS["ladyBonusPerLevel"]) * ActiveEffects.lady_level())
 	if ore == "time" and ActiveEffects.prophets_breath_active():
 		_add_mod(out, GameData.OBSERVATION["breathLabel"], float(GameData.OBSERVATION["breathBonus"]))
-	for key in GameData.RECIPES:
-		var bonus: Dictionary = GameData.RECIPES[key].get("observeBonus", {})
-		if not bonus.is_empty() and Crafting.inventory_qty(key) > 0:
-			_add_mod(out, GameData.RECIPES[key].get("name", key), float(bonus.get(ore, 0.0)) + float(bonus.get("all", 0.0)))
 	out.append_array(raid_mods())
 	return out
 

@@ -237,19 +237,16 @@ func run() -> void:
 			{ "item": ActiveEffects.LADY, "level": 2, "expiresAtBlock": 999 },
 			{ "item": ActiveEffects.PROPHETS_BREATH, "level": 1, "expiresAtBlock": 999 },
 		]
-		GameData.RECIPES["obs_charm"] = { "name": "Charm", "observeBonus": { "fate": 0.04, "all": 0.01 } }
-		Crafting.inventory_add("obs_charm", 1, 1)
 		var blocks := {}
 		for ore in ["life", "time", "fate"]:
 			blocks[ore] = { "tiers": [_tier("a", {}, 0.5)], "miss": "m" }
 		_install({ "o": { "blocks": blocks } }, [_card({ "observe": "o" })])
 		var by := _rows_by_ore(Observation.read())
 		var labels := func(row: Dictionary) -> Array: return row["mods"].map(func(m): return m["label"])
-		assert_eq(labels.call(by["life"]), ["Attunement", "Be A Lady", "Charm"], "life: attunement, Lady, item all")
-		assert_eq(labels.call(by["time"]), ["Be A Lady", "Prophet's Breath", "Charm"], "time: Breath only on time")
-		assert_almost_eq(Observation.mods_total(by["fate"]["mods"]), 0.10 + 0.05, 0.0001, "fate: Lady + item ore and all")
-		assert_almost_eq(Observation.mods_total(by["life"]["mods"]), float(GameData.DIAL_ATTUNEMENT_BONUS_BY_TIER[3]) + 0.10 + 0.01, 0.0001, "life total")
-		GameData.RECIPES.erase("obs_charm")
+		assert_eq(labels.call(by["life"]), ["Attunement", "Be A Lady"], "life: attunement, Lady")
+		assert_eq(labels.call(by["time"]), ["Be A Lady", "Prophet's Breath"], "time: Breath only on time")
+		assert_almost_eq(Observation.mods_total(by["fate"]["mods"]), 0.10, 0.0001, "fate: Lady only")
+		assert_almost_eq(Observation.mods_total(by["life"]["mods"]), float(GameData.DIAL_ATTUNEMENT_BONUS_BY_TIER[3]) + 0.10, 0.0001, "life total")
 		_cleanup()
 	)
 
