@@ -65,13 +65,13 @@ const CAST_RISE_PX := 6.0
 # StageSlot.guard_marker values (the round fight's guard overlay).
 const GUARD_MARKER_GUARDED := "guarded"
 const GUARD_MARKER_OPEN := "open"
-const GUARD_MARKER_SIZE := Vector2(12.0, 14.0)
+const GUARD_MARKER_SIZE := Vector2(24.0, 28.0)
 const GUARD_MARKER_INSET := 4.0
 const GUARD_MARKER_GUARDED_COLOUR := Color(0.4, 0.85, 1.0, 0.95)
 const GUARD_MARKER_OPEN_COLOUR := Color(0.9, 0.9, 0.9, 0.75)
 # The frozen fighter's pause icon: two bars and the actions-left count.
-const PAUSE_ICON_BAR := Vector2(3, 9)
-const PAUSE_ICON_GAP := 3.0
+const PAUSE_ICON_BAR := Vector2(6, 18)
+const PAUSE_ICON_GAP := 6.0
 const PAUSE_ICON_TOP := 2.0
 const PAUSE_ICON_FONT_SIZE := 10
 const PAUSE_ICON_COLOUR := Color(0.55, 0.9, 1.0, 0.95)

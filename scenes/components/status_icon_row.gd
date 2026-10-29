@@ -1,14 +1,16 @@
 class_name StatusIconRow
 extends Control
 ## A fighter's status icons in a centred row above its sprite
-## (CombatRounds.status_icons()): 9×9 glyphs on 11×11 chips, buffs rounded with a
+## (CombatRounds.status_icons()): 9×9 glyphs on 11×11 chips drawn at 2×, buffs rounded with a
 ## light rim, debuffs notched with a dark rim. Per-icon look is
 ## data/combat_visuals.json statusIcons; animations follow
 ## .scratch/combat-item-fx/proposal.md §4.3.
 
-const CHIP := 11.0
-const GAP := 2.0
-const ROW_TOP := 14.0
+const GLYPH_SCALE := 2.0
+const BASE_CHIP := 11.0
+const CHIP := BASE_CHIP * GLYPH_SCALE
+const GAP := 4.0
+const ROW_TOP := 24.0
 const GLYPH_CELLS := 9
 const SPINNER_DOTS: Array[Vector2] = [
 	Vector2(4, 1), Vector2(6, 2), Vector2(7, 4), Vector2(6, 6),
@@ -159,8 +161,8 @@ func _draw_chip(icon: Dictionary, origin: Vector2, scale: float, flash: bool, di
 		return
 	var cfg := _config(icon["id"])
 	var buff: bool = cfg.get("chip", "debuff") == "buff"
-	var centre := Vector2(CHIP, CHIP) / 2.0
-	draw_set_transform(origin + centre, 0.0, Vector2(scale, scale))
+	var centre := Vector2(BASE_CHIP, BASE_CHIP) / 2.0
+	draw_set_transform(origin + Vector2(CHIP, CHIP) / 2.0, 0.0, Vector2(scale, scale) * GLYPH_SCALE)
 	var outer: Array[Vector2] = BUFF_OUTER if buff else DEBUFF_OUTER
 	var inner: Array[Vector2] = BUFF_INNER if buff else DEBUFF_INNER
 	draw_colored_polygon(_shift(outer, -centre), BUFF_RIM if buff else DEBUFF_RIM)
@@ -173,10 +175,12 @@ func _draw_chip(icon: Dictionary, origin: Vector2, scale: float, flash: bool, di
 
 
 func _draw_overflow(origin: Vector2, extra: int) -> void:
-	draw_colored_polygon(_shift(BUFF_OUTER, origin), BUFF_RIM)
-	draw_colored_polygon(_shift(BUFF_INNER, origin), BUFF_FILL)
-	_draw_pixels(PLUS, origin + Vector2(2.0, 3.0), OVERFLOW_COLOUR)
-	_draw_pixels(DIGITS[mini(extra, 9)], origin + Vector2(6.0, 3.0), OVERFLOW_COLOUR)
+	draw_set_transform(origin, 0.0, Vector2(GLYPH_SCALE, GLYPH_SCALE))
+	draw_colored_polygon(_shift(BUFF_OUTER, Vector2.ZERO), BUFF_RIM)
+	draw_colored_polygon(_shift(BUFF_INNER, Vector2.ZERO), BUFF_FILL)
+	_draw_pixels(PLUS, Vector2(2.0, 3.0), OVERFLOW_COLOUR)
+	_draw_pixels(DIGITS[mini(extra, 9)], Vector2(6.0, 3.0), OVERFLOW_COLOUR)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
 # Shrinks to a dot and blinks out; a buff throws a 2-pixel sparkle as it goes.
@@ -187,10 +191,10 @@ func _draw_expiring(icon: Dictionary, origin: Vector2, t: float) -> void:
 	if t < 0.6:
 		_draw_chip(icon, origin, lerpf(1.0, 0.2, t / 0.6), false, 0.0)
 	else:
-		draw_rect(Rect2(centre - Vector2.ONE, Vector2(2, 2)), colour)
+		draw_rect(Rect2(centre - Vector2.ONE * GLYPH_SCALE, Vector2(2, 2) * GLYPH_SCALE), colour)
 	if cfg.get("chip", "debuff") == "buff":
-		var spread: float = 3.0 + t * 4.0
-		draw_rect(Rect2(centre + Vector2(spread, -spread), Vector2(2, 2)), colour)
+		var spread: float = (3.0 + t * 4.0) * GLYPH_SCALE
+		draw_rect(Rect2(centre + Vector2(spread, -spread), Vector2(2, 2) * GLYPH_SCALE), colour)
 
 
 func _draw_glyph(cfg: Dictionary, origin: Vector2, colour: Color) -> void:
