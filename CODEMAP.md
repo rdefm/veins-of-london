@@ -356,7 +356,7 @@ infrastructure, excluded from discovery.
 binary and the godot-ai MCP server; `soak.sh` repeats the playthrough test.
 `diagnose_115_timing.gd` is a hang-timing probe; `verify_map_camera_persistence.gd` is a
 live-tree check. `sim_combat_balance.gd` (+ `_impl.gd`) is the seeded live-`Combat` balance sim
-(fights via `Combat.start_debug_combat()`, naive vs reader policy over a matchup grid, fog on and off; not in run_tests.sh).
+(fights via `Combat.start_debug_combat()`, naive vs reader policy over a matchup grid, fog on and off; not in run_tests.sh). `sim_ai_guard.gd` (+ `_impl.gd`) is the seeded Archie-vs-archetype sim of per-side Strike/Guard/Feint share and ally guard reasons (not in run_tests.sh).
 
 ## tools/*.py, *.html, *.js — asset/content pipeline tooling
 
