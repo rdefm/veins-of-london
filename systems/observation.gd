@@ -271,6 +271,12 @@ static func explain_modal_lines(choice: Dictionary) -> Array:
 	return out
 
 
+# {obs, ore_name, at_least} for an unmet `observed` condition.
+static func unmet_entry(cond: Dictionary) -> Dictionary:
+	var e := _explainer("unlock", cond, 0.0)
+	return { "obs": e["obs"], "ore_name": e["ore_name"], "at_least": e["at_least"] }
+
+
 static func _explainer(kind: String, cond: Dictionary, add: float) -> Dictionary:
 	var ore := String(cond.get("ore", ""))
 	var id := String(cond.get("id", ""))

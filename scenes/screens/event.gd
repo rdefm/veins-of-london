@@ -657,7 +657,11 @@ func _restore_context_modal() -> void:
 	var content: VBoxContainer = panel["content"]
 	content.add_child(UI.heading(choice["label"], 16))
 	if locked:
-		content.add_child(UI.label(gate["reason"]))
+		var unmet: Array = Events.unmet_requirement_lines(_context_choice)
+		if unmet.is_empty():
+			unmet = [gate["reason"]]
+		for line in unmet:
+			content.add_child(UI.label(line))
 	else:
 		for line in why_lines:
 			content.add_child(UI.muted_label(line))

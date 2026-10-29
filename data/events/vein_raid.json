@@ -94,7 +94,7 @@
       "choices": [
         {
           "label": "Take the window",
-          "requires": { "observed": { "id": "raid", "ore": "physics", "atLeast": 1 } },
+          "requires": { "observed": { "id": "raid", "ore": "physics", "atLeast": 1 }, "display": "disable" },
           "check": {
             "base": 0.6,
             "mods": [
@@ -118,7 +118,7 @@
         },
         {
           "label": "Wait out the tired guard",
-          "requires": { "observed": { "id": "raid", "ore": "life", "atLeast": 1 } },
+          "requires": { "observed": { "id": "raid", "ore": "life", "atLeast": 1 }, "display": "disable" },
           "check": {
             "base": 0.6,
             "mods": [
@@ -146,7 +146,7 @@
         },
         {
           "label": "Rattle a guard",
-          "requires": { "observed": { "id": "raid", "ore": "emotion", "atLeast": 1 } },
+          "requires": { "observed": { "id": "raid", "ore": "emotion", "atLeast": 1 }, "display": "disable" },
           "check": {
             "base": 0.6,
             "mods": [
@@ -186,7 +186,7 @@
       "choices": [
         {
           "label": "Slip the patrol gap",
-          "requires": { "observed": { "id": "raid", "ore": "time", "atLeast": 1 } },
+          "requires": { "observed": { "id": "raid", "ore": "time", "atLeast": 1 }, "display": "disable" },
           "check": {
             "base": 0.6,
             "mods": [
@@ -210,7 +210,7 @@
         },
         {
           "label": "Move as he turns",
-          "requires": { "observed": { "id": "raid", "ore": "fate", "atLeast": 1 } },
+          "requires": { "observed": { "id": "raid", "ore": "fate", "atLeast": 1 }, "display": "disable" },
           "check": {
             "base": 0.6,
             "mods": [

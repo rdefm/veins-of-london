@@ -729,6 +729,11 @@
     "defaultMin": 0.05,
     "defaultMax": 0.95,
     "contextGlyph": "?",
+    "unmet": {
+      "observed": "Needs: %s, %s tier %d",
+      "item": "Needs: %s in your bag",
+      "itemOptional": "Needs: %s packed"
+    },
     "chanceFormat": "%d%% chance",
     "baseLabel": "Base odds",
     "rewoundLabel": "Second go, best of two",

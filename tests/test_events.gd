@@ -1206,6 +1206,28 @@ func run() -> void:
 		GameData.EVENTS = original_events
 	)
 
+	run_case("unmet_requirement_lines_list_only_the_unmet_parts", func():
+		GameState.reset()
+		var original_events := _install_gated_event()
+		var obs := { "id": "raid", "ore": "physics", "atLeast": 1 }
+		var def: Dictionary = GameData.EVENTS["test_gated_event"]
+		def["observations"] = { "raid": { "name": "The yard", "mods": [], "blocks": { "physics": { "tiers": [{ "base": 0.5, "text": "A latch." }] } } } }
+		var choices: Array = def["cards"][1]["choices"]
+		choices[0]["requires"] = { "observed": obs, "display": "disable" }
+		choices[1]["requires"] = { "item": "timePearl", "display": "disable" }
+		choices[2]["requires"] = { "all": [{ "observed": obs }, { "item": "timePearl" }], "display": "disable" }
+		Events.start_event("test_gated_event")
+		Events.advance()
+		assert_eq(Events.unmet_requirement_lines(0), ["Needs: The yard, Physics tier 1"], "observation only")
+		assert_eq(Events.unmet_requirement_lines(1), ["Needs: Time Pearl in your bag"], "item only")
+		assert_eq(Events.unmet_requirement_lines(2).size(), 2, "combined lists both")
+		Crafting.inventory_add("timePearl", 1, 1)
+		assert_eq(Events.unmet_requirement_lines(1), [], "met item: none")
+		assert_eq(Events.unmet_requirement_lines(2), ["Needs: The yard, Physics tier 1"], "only the unmet part")
+		assert_eq(Events.unmet_requirement_lines(3), [], "no requires: none")
+		GameData.EVENTS = original_events
+	)
+
 	run_case("a_plain_option_goto_jumps_forward_past_the_branch", func():
 		GameState.reset()
 		var original_events := _install_gated_event()

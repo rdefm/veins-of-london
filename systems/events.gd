@@ -550,9 +550,14 @@ static func _mod_delta(mod: Dictionary, toggled: Array = []) -> float:
 # toggled on (toggled = active_toggles()), {flag} truthy, {choice: {event,
 # card (key), option}} remembered, {path, atLeast}, {relation, atLeast},
 # {cash: {atLeast}}, {recipeRung: {recipe, rung}} owned (vague or exact),
-# {observed: {id, ore, atLeast}} read this run (R§3.9d).
-# Unknown shapes never hold.
+# {observed: {id, ore, atLeast}} read this run (R§3.9d), {all: [conditions]}
+# every part holds. Unknown shapes never hold.
 static func condition_met(condition: Dictionary, toggled: Array = []) -> bool:
+	if condition.has("all"):
+		for part in condition["all"]:
+			if not condition_met(part, toggled):
+				return false
+		return true
 	if condition.has("item"):
 		if condition.get("equipped", false):
 			return Loadout.find_slot(condition["item"]) >= 0
@@ -598,6 +603,37 @@ static func option_gate(choice_index: int) -> Dictionary:
 		return _pick_gate(choice, asked) if choice.has("pick") else { "display": "show", "reason": "", "asked": asked }
 	var display: String = requires.get("display", "hide")
 	return { "display": display if display == "disable" else "hide", "reason": String(requires.get("reason", "")), "asked": asked }
+
+
+# The ? modal's lines for a locked option: one per unmet part of its `requires`
+# (observation tier, item), then the authored `reason` if any. [] when it holds.
+static func unmet_requirement_lines(choice_index: int) -> Array:
+	var choice: Dictionary = current_card()["choices"][choice_index]
+	var requires: Variant = choice.get("requires")
+	if not requires is Dictionary or condition_met(requires):
+		return []
+	var out: Array = []
+	var parts: Array = requires["all"] if requires.has("all") else [requires]
+	for part in parts:
+		if not condition_met(part):
+			var line := _unmet_line(part)
+			if line != "":
+				out.append(line)
+	var reason := String(requires.get("reason", ""))
+	if reason != "":
+		out.append(reason)
+	return out
+
+
+static func _unmet_line(part: Dictionary) -> String:
+	var texts: Dictionary = GameData.EVENT_CHECKS["unmet"]
+	if part.has("observed"):
+		var entry: Dictionary = Observation.unmet_entry(part["observed"])
+		return texts["observed"] % [entry["obs"], entry["ore_name"], entry["at_least"]]
+	if part.has("item"):
+		var name: String = GameData.RECIPES.get(part["item"], {}).get("name", part["item"])
+		return texts["itemOptional" if part.get("optional", false) else "item"] % name
+	return ""
 
 
 # A pick option shows only while some ore qualifies; otherwise it's greyed with
