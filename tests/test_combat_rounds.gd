@@ -1271,6 +1271,21 @@ func run() -> void:
 			assert_eq([action["move"], int(action["target"])], ["strike", 2], "strikes the frozen mugger, no guard or feint")
 	)
 
+	run_case("ally_strikes_open_enemy_before_threat_guard_unless_hurt", func():
+		GameState.reset()
+		_recruit("archie")
+		var threat := [[{ "move": "strike", "target": 1 }, { "move": "strike", "target": 1 }]]
+		_start_with_allies([Contacts.build_combat_ally("archie")], threat)
+		var archie: Dictionary = GameState.state["combat"]["combatants"][1]
+		assert_eq(archie["plan"][1]["move"], "strike", "healthy: trades with the Open enemy that targets it")
+		GameState.reset()
+		_recruit("archie")
+		GameState.state["contacts"]["archie"]["combatHp"] = 1
+		_start_with_allies([Contacts.build_combat_ally("archie")], threat)
+		archie = GameState.state["combat"]["combatants"][1]
+		assert_eq(archie["plan"][1]["move"], "guard", "hurt: threat-guards")
+	)
+
 	run_case("turtle_patterns_never_all_guard", func():
 		for id in ["turtle", "turtleV2"]:
 			for pattern in GameData.COMBAT_ROUNDS["archetypes"][id]["patterns"]:

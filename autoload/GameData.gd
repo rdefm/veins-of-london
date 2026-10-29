@@ -1427,6 +1427,9 @@ func _validate_combat_rounds(cp: Dictionary, skill_curve: Array, recipes: Dictio
 	var chip_chance := float(cp.get("allyChipStrikeChance", -1.0))
 	if chip_chance < 0.0 or chip_chance > 1.0:
 		errors.append("combat_rounds.allyChipStrikeChance: must be in [0, 1]")
+	var guard_below := float(cp.get("allyGuardBelow", -1.0))
+	if guard_below < 0.0 or guard_below > 1.0:
+		errors.append("combat_rounds.allyGuardBelow: must be in [0, 1]")
 	var level_max := int(cp.get("levelMax", 0))
 	if level_max < 1 or level_max >= skill_curve.size():
 		errors.append("combat_rounds.levelMax: must be 1..%d (the Combat Skill curves' top level)" % (skill_curve.size() - 1))

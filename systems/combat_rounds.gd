@@ -1118,6 +1118,11 @@ static func _ally_heal_patient(cp: Dictionary, ally: int, item_id: String, patie
 static func _ally_action(cp: Dictionary, ally: int, index: int, count: int, feints: Array, rng: RandomNumberGenerator) -> Dictionary:
 	var combatants: Array = cp["combatants"]
 	var enemies := _living_opponents(cp, ally)
+	var healthy: bool = float(combatants[ally]["hp"]) >= float(combatants[ally]["hpMax"]) * float(_data()["allyGuardBelow"])
+	if healthy:
+		for e in enemies:
+			if _ally_sees_open(cp, e, ally, index, feints):
+				return { "move": MOVE_STRIKE, "target": e, "part": 0 }
 	for e in enemies:
 		var plan: Array = combatants[e]["plan"]
 		if index < plan.size() and not _action_lost(cp, e, index) and is_read(cp, e, index) and status_turn(cp, e, index) == "" and int(plan[index]["target"]) == ally and move(plan[index]["move"])["effect"] in [EFFECT_DAMAGE, EFFECT_STUN]:
