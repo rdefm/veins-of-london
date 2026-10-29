@@ -2648,6 +2648,19 @@ func run() -> void:
 		assert_true(not other.any(func(c): return c["call"] == "healFizzle"), "only heals scatter")
 	)
 
+	run_case("beat_cues_move_beats_each_play_a_distinct_cue", func():
+		var calls := func(beat: Dictionary) -> Array: return CombatRoundsScreen.beat_cues(beat).map(func(c): return c["call"])
+		assert_eq(calls.call({ "kind": "block", "move": "strike", "actor": 0, "target": 1, "dmg": 0 }), ["attack", "blockTink", "blockNumber"])
+		assert_eq(calls.call({ "kind": "autoguard", "actor": 1, "target": 0 }), ["afterimage", "guardSlide"])
+		assert_eq(calls.call({ "kind": "retaliate", "actor": 1, "target": 0 }), ["outlineFlash", "attack"])
+		assert_eq(calls.call({ "kind": "stunThrough", "move": "stun", "actor": 0, "target": 1 }), ["attack", "guardShatter"])
+		assert_eq(calls.call({ "kind": "fizzle", "move": "stun", "actor": 0, "target": 1 }), ["attack", "glanceSpark", "glanceRecoil"])
+		assert_eq(calls.call({ "kind": "evade", "move": "strike", "actor": 0, "target": 1 }), ["attack", "sidestep"])
+		assert_eq(calls.call({ "kind": "fleeFailed", "actor": 0, "target": -1 }), ["stumble"])
+		assert_eq(calls.call({ "kind": "levelUp", "actor": 0, "target": -1 }), ["levelPip"])
+		assert_eq(calls.call({ "kind": "enter", "actor": 2, "target": -1 }), ["slideIn"])
+	)
+
 	run_case("beat_cues_panger_throws_travels_and_lands_red_and_friendly_fire_draws_a_line_first", func():
 		var cast: Array = CombatRoundsScreen.beat_cues({ "kind": "anger", "actor": 0, "target": 1 })
 		assert_eq(cast.map(func(c): return c["call"]), ["throw", "travel", "angerLand"])

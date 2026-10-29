@@ -30,7 +30,7 @@ const STRIP_SIZE := 10
 # Beat kinds that play nothing past the guard overlay their marks set.
 # A frozen position's strip card text.
 const PAUSE_TEXT := "⏸"
-const _OVERLAY_KINDS: Array[String] = ["guard", "lost", "frozen", "calm", "disarm", "enter"]
+const _OVERLAY_KINDS: Array[String] = ["guard", "lost", "frozen", "calm", "disarm"]
 const _CAST_KINDS: Array[String] = ["powder", "sight", "sightGiven", "lady"]
 # The screen's own closing beat after a pick's beats (_play_beats()).
 const _SETTLE_KIND := "settle"
@@ -1394,7 +1394,7 @@ static func enemy_used(cp: Dictionary, beat: Dictionary) -> bool:
 # sheet "effect"); "damage" (who's hit, with "dmg" and a juice "scale");
 # "shieldAssemble" (who's Shield panels build to "level"); "shieldCrack";
 # "blackHole" (who's bead lifts to the middle of "affected"; holds back the cues after it); a cue's "lag" k holds it k × multi_stagger() more, "enemy" takes the steel palette, "quiet" skips an effect's hit-stop; "healBurst" (motes + rim pulse on who), "healNumber" (green "+amount"), "healFizzle" (grey scatter); "cower" / "enraptured" (Panic's squash, Rapture's held lean on who); "raptureBloom" (soft bloom on who); "angerLand" (Panger's double red flash on who); "furyLine" (magenta line from who to "to" before a friendly-fire swing); "ko"; or "overlay" (nothing past the beat's marks). [] for
-# a beat kind with no mapping.
+# a beat kind with no mapping. Move beats: "blockTink" / "blockNumber" (cyan spark + "0" on the guard), "glanceSpark" / "glanceRecoil" (a fizzled Stun), "guardSlide" / "guardShatter", "outlineFlash", "sidestep", "stumble", "levelPip", "slideIn" (an entrant; backwards in a Rewind).
 static func beat_cues(beat: Dictionary, enemy: bool = false) -> Array:
 	var kind: String = beat["kind"]
 	var actor: int = int(beat["actor"])
@@ -1411,6 +1411,16 @@ static func beat_cues(beat: Dictionary, enemy: bool = false) -> Array:
 			cues.append_array(_move_pose_cues(beat["move"], actor))
 			if kind == "fizzle" and beat["move"] == _ITEM_EFFECTS["heal"] and target >= 0:
 				cues.append({ "call": "healFizzle", "who": target })
+			elif kind == "fizzle" and beat["move"] == "stun" and target >= 0:
+				cues.append({ "call": "glanceSpark", "who": target })
+				cues.append({ "call": "glanceRecoil", "who": actor })
+			elif kind == "block" and target >= 0:
+				cues.append({ "call": "blockTink", "who": target })
+				cues.append({ "call": "blockNumber", "who": target })
+			elif kind == "stunThrough" and target >= 0:
+				cues.append({ "call": "guardShatter", "who": target })
+			elif kind == "evade" and target >= 0:
+				cues.append({ "call": "sidestep", "who": target })
 		"fled", "bolt":
 			cues.append({ "call": "runOff", "who": actor })
 			if beat.get("boosted", false):
@@ -1420,11 +1430,17 @@ static func beat_cues(beat: Dictionary, enemy: bool = false) -> Array:
 		"failsafe":
 			cues.append({ "call": "allyFailsafe", "who": actor })
 		"fleeFailed":
-			cues.append({ "call": "recoil", "who": actor })
+			cues.append({ "call": "stumble", "who": actor })
 		"autoguard":
 			cues.append({ "call": "afterimage", "who": actor })
+			cues.append({ "call": "guardSlide", "who": actor })
 		"retaliate":
-			pass
+			cues.append({ "call": "outlineFlash", "who": actor })
+			cues.append({ "call": "attack", "who": actor })
+		"levelUp":
+			cues.append({ "call": "levelPip", "who": actor })
+		"enter":
+			cues.append({ "call": "slideIn", "who": actor })
 		"ko":
 			cues.append({ "call": "ko", "who": target })
 		"pull":
@@ -1775,6 +1791,30 @@ func _play_cue(cp: Dictionary, cue: Dictionary, rewinding: bool) -> void:
 				slot.play_run_off()
 		"recoil":
 			slot.play_hit()
+		"blockTink":
+			slot.play_block_tink()
+		"blockNumber":
+			if not rewinding:
+				_stage.spawn_text_number(slot, "0", CombatStage.rgb(CombatStage.beat_fx().get("blockColour", [])))
+		"glanceSpark":
+			slot.play_glance_spark()
+		"glanceRecoil":
+			slot.play_glance_recoil()
+		"guardSlide":
+			slot.play_guard_slide()
+		"guardShatter":
+			slot.play_guard_shatter()
+		"outlineFlash":
+			slot.play_outline_flash()
+		"sidestep":
+			slot.play_sidestep()
+		"stumble":
+			slot.play_stumble()
+		"levelPip":
+			if not rewinding:
+				slot.play_level_pip()
+		"slideIn":
+			slot.play_slide_in(rewinding)
 		"cower":
 			if not rewinding:
 				slot.play_cower()

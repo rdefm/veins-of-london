@@ -96,6 +96,11 @@ static func item_fx() -> Dictionary:
 	return GameData.COMBAT_VISUALS.get("itemFx", {})
 
 
+# data/combat_visuals.json itemFx.beatFx.
+static func beat_fx() -> Dictionary:
+	return item_fx().get("beatFx", {})
+
+
 # data/combat_visuals.json itemFx.powderFx.
 static func powder_fx() -> Dictionary:
 	return item_fx().get("powderFx", {})
@@ -1444,6 +1449,210 @@ class StageSlot extends Control:
 		tween.tween_property(shape, "modulate:a", 0.0, secs).set_delay(secs * 0.6)
 		tween.chain().tween_callback(shape.queue_free)
 
+	var _guard_scale: float = 1.0
+	var _guard_dx: float = 0.0
+	var _guard_shatter: int = 0
+	var _outline_alpha: float = 0.0
+	var _beat_tween: Tween
+
+	static func _beat_secs(key: String) -> float:
+		return CombatStage.fx_seconds(float(CombatStage.beat_fx().get(key, 0.0)))
+
+	func _guard_points(o: Vector2, w: float, h: float) -> PackedVector2Array:
+		return PackedVector2Array([o, o + Vector2(w, 0.0), o + Vector2(w, h * 0.55), o + Vector2(w * 0.5, h), o + Vector2(0.0, h * 0.55)])
+
+	func _guard_origin() -> Vector2:
+		var w: float = CombatStage.GUARD_MARKER_SIZE.x
+		var x: float = CombatStage.GUARD_MARKER_INSET if side != "enemy" else size.x - w - CombatStage.GUARD_MARKER_INSET
+		return Vector2(x, CombatStage.GUARD_MARKER_INSET)
+
+	# The marker in two halves drifting apart, fainter each frame.
+	func _draw_guard_shatter() -> void:
+		var w: float = CombatStage.GUARD_MARKER_SIZE.x
+		var h: float = CombatStage.GUARD_MARKER_SIZE.y
+		var o := _guard_origin()
+		var gap := 2.5 * float(_guard_shatter)
+		var colour := CombatStage.GUARD_MARKER_GUARDED_COLOUR
+		colour.a *= 1.0 - 0.4 * float(_guard_shatter - 1)
+		var left := PackedVector2Array([o, o + Vector2(w * 0.5, 0.0), o + Vector2(w * 0.5, h), o + Vector2(0.0, h * 0.55)])
+		var right := PackedVector2Array([o + Vector2(w * 0.5, 0.0), o + Vector2(w, 0.0), o + Vector2(w, h * 0.55), o + Vector2(w * 0.5, h)])
+		for i in range(left.size()):
+			left[i] += Vector2(-gap, gap * 0.5)
+			right[i] += Vector2(gap, gap * 0.5)
+		_overlay.draw_colored_polygon(left, colour)
+		_overlay.draw_colored_polygon(right, colour)
+
+	func _set_guard_scale(value: float) -> void:
+		_guard_scale = value
+		_overlay.queue_redraw()
+
+	func _set_guard_dx(value: float) -> void:
+		_guard_dx = value
+		_overlay.queue_redraw()
+
+	func _set_outline_alpha(value: float) -> void:
+		_outline_alpha = value
+		_overlay.queue_redraw()
+
+	func _set_guard_shatter(value: int) -> void:
+		_guard_shatter = value
+		_overlay.queue_redraw()
+
+	# A short burst of `colour` specks from the sprite's middle.
+	func _spawn_sparks(colour: Color) -> void:
+		if not is_inside_tree():
+			return
+		var fx := CombatStage.beat_fx()
+		var secs := _beat_secs("sparkSeconds")
+		var count := int(fx.get("sparkCount", 0))
+		if secs <= 0.0 or count <= 0:
+			return
+		var speck := float(fx.get("sparkSizePx", 3.0))
+		var spread := float(fx.get("sparkSpreadPx", 14.0))
+		for i in range(count):
+			var rect := ColorRect.new()
+			rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			rect.z_index = 6
+			rect.color = colour
+			rect.size = Vector2(speck, speck)
+			rect.position = size * 0.5 - rect.size * 0.5
+			add_child(rect)
+			var dir := Vector2.from_angle(TAU * float(i) / float(count))
+			var tween := rect.create_tween().set_parallel(true)
+			tween.tween_property(rect, "position", rect.position + dir * spread, secs).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+			tween.tween_property(rect, "modulate:a", 0.0, secs)
+			tween.chain().tween_callback(rect.queue_free)
+
+	# Eases the guard marker's `_guard_scale` up and back (a pulse).
+	func _pulse_guard() -> void:
+		var secs := _beat_secs("guardPulseSeconds")
+		if secs <= 0.0 or guard_marker == "" or CombatStage.reduced_motion() or not is_inside_tree():
+			return
+		var peak := float(CombatStage.beat_fx().get("guardPulseScale", 1.0))
+		var tween := create_tween()
+		tween.tween_method(_set_guard_scale, 1.0, peak, secs * 0.5)
+		tween.tween_method(_set_guard_scale, peak, 1.0, secs * 0.5)
+
+	# A Strike blocked by a guard: a cyan tink at the contact point and the marker's pulse.
+	func play_block_tink() -> void:
+		_spawn_sparks(CombatStage.rgb(CombatStage.beat_fx().get("blockColour", [])))
+		_pulse_guard()
+
+	# A Stun glancing off a guard: grey sparks.
+	func play_glance_spark() -> void:
+		_spawn_sparks(CombatStage.rgb(CombatStage.beat_fx().get("glanceColour", [])))
+
+	# The guard marker slides in from beside its corner (an auto-guard).
+	func play_guard_slide() -> void:
+		var secs := _beat_secs("guardSlideSeconds")
+		if secs <= 0.0 or guard_marker == "" or CombatStage.reduced_motion() or not is_inside_tree():
+			return
+		var from := float(CombatStage.beat_fx().get("guardSlideFromPx", 0.0)) * (1.0 if side == "enemy" else -1.0)
+		var tween := create_tween()
+		tween.tween_method(_set_guard_dx, from, 0.0, secs).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+
+	# The guard marker splits across two frames and is gone (a Stun through a guard).
+	func play_guard_shatter() -> void:
+		var frame := _beat_secs("guardShatterFrameSeconds")
+		if frame <= 0.0 or not is_inside_tree():
+			return
+		_set_guard_shatter(1)
+		var tween := create_tween()
+		tween.tween_interval(frame)
+		tween.tween_callback(_set_guard_shatter.bind(2))
+		tween.tween_interval(frame)
+		tween.tween_callback(_set_guard_shatter.bind(0))
+
+	# A one-frame white outline flash (a retaliation's free swing).
+	func play_outline_flash() -> void:
+		var secs := _beat_secs("outlineSeconds")
+		if secs <= 0.0 or not is_inside_tree():
+			return
+		_set_outline_alpha(float(CombatStage.beat_fx().get("outlineAlpha", 1.0)))
+		var tween := create_tween()
+		tween.tween_interval(secs)
+		tween.tween_callback(_set_outline_alpha.bind(0.0))
+
+	# The figure shifts by `offset` / `degrees` and settles back over `secs`.
+	func _nudge_figure(offset: Vector2, degrees: float, secs: float) -> void:
+		if secs <= 0.0 or CombatStage.reduced_motion() or not is_inside_tree():
+			return
+		if _beat_tween != null and _beat_tween.is_valid():
+			_beat_tween.kill()
+		var home := _figure_holder.position
+		_figure_holder.pivot_offset = Vector2(_figure_holder.size.x / 2.0, _figure_holder.size.y)
+		_beat_tween = create_tween()
+		_beat_tween.tween_property(_figure_holder, "position", home + offset, secs * 0.4)
+		_beat_tween.parallel().tween_property(_figure_holder, "rotation_degrees", degrees, secs * 0.4)
+		_beat_tween.tween_property(_figure_holder, "position", home, secs * 0.6)
+		_beat_tween.parallel().tween_property(_figure_holder, "rotation_degrees", 0.0, secs * 0.6)
+
+	# A fizzled Stun's backward recoil on the attacker.
+	func play_glance_recoil() -> void:
+		var px := float(CombatStage.beat_fx().get("glanceRecoilPx", 0.0))
+		_nudge_figure(Vector2(-px * _forward_dir(), 0.0), 0.0, _beat_secs("glanceRecoilSeconds"))
+
+	# An evade: a sidestep and back, an afterimage staying at the original spot.
+	func play_sidestep() -> void:
+		if _sprite_rect.texture != null and is_inside_tree():
+			var ghost := _new_overlay_rect(-1)
+			ghost.texture = _sprite_rect.texture
+			ghost.size = _figure_holder.size
+			ghost.position = _figure_holder.position + _sprite_rect.position
+			ghost.flip_h = _sprite_rect.flip_h
+			ghost.modulate = Color(1.0, 1.0, 1.0, float(CombatStage.beat_fx().get("sidestepAfterimageAlpha", 0.45)))
+			add_child(ghost)
+			var tween := ghost.create_tween()
+			tween.tween_interval(_beat_secs("sidestepSeconds") * 0.4)
+			tween.tween_property(ghost, "modulate:a", 0.0, _beat_secs("sidestepSeconds") * 0.6)
+			tween.tween_callback(ghost.queue_free)
+		_nudge_figure(Vector2(0.0, -float(CombatStage.beat_fx().get("sidestepPx", 0.0))), 0.0, _beat_secs("sidestepSeconds"))
+
+	# A failed Leg it: a stumble forward and a tilt, then recover.
+	func play_stumble() -> void:
+		var fx := CombatStage.beat_fx()
+		var fwd := _forward_dir()
+		_nudge_figure(Vector2(float(fx.get("stumbleForwardPx", 0.0)) * fwd, 0.0), float(fx.get("stumbleDegrees", 0.0)) * fwd, _beat_secs("stumbleSeconds"))
+
+	# A brass pip rising off the sprite, with a sparkle.
+	func play_level_pip() -> void:
+		var fx := CombatStage.beat_fx()
+		var secs := _beat_secs("levelPipSeconds")
+		if secs <= 0.0 or not is_inside_tree():
+			return
+		var colour := CombatStage.rgb(fx.get("levelPipColour", []))
+		var pip := Label.new()
+		pip.text = str(fx.get("levelPipText", ""))
+		pip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		pip.z_index = 6
+		pip.add_theme_font_size_override("font_size", int(fx.get("levelPipFontSize", 14)))
+		pip.add_theme_color_override("font_color", colour)
+		pip.add_theme_color_override("font_outline_color", Color.BLACK)
+		pip.add_theme_constant_override("outline_size", 3)
+		add_child(pip)
+		pip.position = Vector2(size.x / 2.0 - 10.0, size.y * 0.3)
+		var tween := pip.create_tween().set_parallel(true)
+		tween.tween_property(pip, "position:y", pip.position.y - float(fx.get("levelPipRisePx", 0.0)), secs).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		tween.tween_property(pip, "modulate:a", 0.0, secs * 0.4).set_delay(secs * 0.6)
+		tween.chain().tween_callback(pip.queue_free)
+		_spawn_sparks(colour)
+
+	# A reinforcement slides in from beyond its band's edge (`out` plays it
+	# backwards, for a Rewind); none under reduced motion.
+	func play_slide_in(out: bool = false) -> void:
+		var secs := _beat_secs("slideInSeconds")
+		if secs <= 0.0 or CombatStage.reduced_motion() or not is_inside_tree():
+			return
+		var dir := 1.0 if side == "enemy" else -1.0
+		var edge := (CombatStage.STAGE_WIDTH - position.x) if side == "enemy" else (position.x + size.x)
+		var home := _figure_holder.position
+		var away := home + Vector2(dir * edge, 0.0)
+		if _beat_tween != null and _beat_tween.is_valid():
+			_beat_tween.kill()
+		_figure_holder.position = home if out else away
+		_beat_tween = create_tween()
+		_beat_tween.tween_property(_figure_holder, "position", away if out else home, secs).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+
 	# Orange streaks at the feet, trailing a boosted Leg it as it runs off.
 	func play_leg_it_streak() -> void:
 		if not is_inside_tree() or CombatStage.reduced_motion():
@@ -1720,8 +1929,12 @@ class StageSlot extends Control:
 			_overlay.draw_rect(rect, Color(0.4, 0.85, 1.0, _shield_crack_alpha * 0.55), true)
 			_overlay.draw_rect(rect.grow(-2.0), Color(0.85, 0.95, 1.0, _shield_crack_alpha), false, 2.0)
 		_draw_shield_panels()
-		if guard_marker != "" and not _guard_hidden:
+		if _guard_shatter > 0:
+			_draw_guard_shatter()
+		elif guard_marker != "" and not _guard_hidden:
 			_draw_guard_marker()
+		if _outline_alpha > 0.0:
+			_overlay.draw_rect(Rect2(Vector2.ZERO, size).grow(-1.0), Color(1.0, 1.0, 1.0, _outline_alpha), false, 2.0)
 		if frozen_left > 0:
 			_draw_pause_icon()
 
@@ -1752,10 +1965,12 @@ class StageSlot extends Control:
 		var w: float = CombatStage.GUARD_MARKER_SIZE.x
 		var h: float = CombatStage.GUARD_MARKER_SIZE.y
 		var x: float = CombatStage.GUARD_MARKER_INSET if side != "enemy" else size.x - w - CombatStage.GUARD_MARKER_INSET
-		var o := Vector2(x, CombatStage.GUARD_MARKER_INSET)
-		var points := PackedVector2Array([
-			o, o + Vector2(w, 0.0), o + Vector2(w, h * 0.55), o + Vector2(w * 0.5, h), o + Vector2(0.0, h * 0.55),
-		])
+		var o := Vector2(x + _guard_dx, CombatStage.GUARD_MARKER_INSET)
+		var points := _guard_points(o, w, h)
+		if _guard_scale != 1.0:
+			var centre := o + Vector2(w, h) * 0.5
+			for i in range(points.size()):
+				points[i] = centre + (points[i] - centre) * _guard_scale
 		var outline := points.duplicate()
 		outline.append(o)
 		match guard_marker:
@@ -2056,6 +2271,29 @@ func spawn_damage_number(slot: StageSlot, dmg: int, size_scale: float = 1.0, bra
 		label.position = from_point - Vector2(12.0, 10.0)
 		tween.tween_property(label, "position", landing, fx_seconds(float(removal_fx().get("blackHole", {}).get("numberFlySeconds", 0.0))))
 	tween.tween_property(label, "position:y", landing_y - DAMAGE_NUMBER_RISE_PX, DAMAGE_NUMBER_DURATION)
+	tween.parallel().tween_property(label, "modulate:a", 0.0, DAMAGE_NUMBER_DURATION)
+	tween.tween_callback(label.queue_free)
+
+
+# A bare `text` number rising off `slot` in `colour` (a blocked hit's "0").
+func spawn_text_number(slot: StageSlot, text: String, colour: Color) -> void:
+	var layer: Node = slot.get_parent()
+	if layer == null:
+		return
+	var label := Label.new()
+	label.text = text
+	label.add_theme_font_size_override("font_size", DAMAGE_NUMBER_FONT_SIZE)
+	label.add_theme_color_override("font_color", colour)
+	label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
+	label.add_theme_constant_override("outline_size", 2)
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.z_index = 5
+	layer.add_child(label)
+	label.position = slot.position + slot.size * 0.5 - Vector2(6.0, 10.0)
+	if not label.is_inside_tree():
+		return
+	var tween := label.create_tween()
+	tween.tween_property(label, "position:y", label.position.y - DAMAGE_NUMBER_RISE_PX, DAMAGE_NUMBER_DURATION)
 	tween.parallel().tween_property(label, "modulate:a", 0.0, DAMAGE_NUMBER_DURATION)
 	tween.tween_callback(label.queue_free)
 
