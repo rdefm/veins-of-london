@@ -1,11 +1,11 @@
 {
-  "id": "buyer",
+  "id": "prologue_buyer",
   "at": { "block": "evening", "advance": true },
   "on_complete": [
     { "op": "set_flag", "flag": "buyerEventSeen", "value": true },
     { "op": "set_stage", "value": "sms_archie" },
     { "op": "push_message", "contact": "archie", "text": "James says yes. SE1 4YA, storage unit beside the halal supermarket. He's always in." },
-    { "op": "queue_pending_message", "contact": "archie", "kind": "james_meeting", "text": "Fair warning: James is the best craftsman I know and also the worst person I know. Don't take it personally. He's like that with everyone." },
+    { "op": "queue_pending_message", "contact": "archie", "kind": "prologue_james_meeting", "text": "Fair warning: James is the best craftsman I know and also the worst person I know. Don't take it personally. He's like that with everyone." },
     { "op": "set_screen", "screen": "phone" }
   ],
   "cards": [
@@ -16,7 +16,7 @@
     { "key": "c11", "label": null, "type": "speaker", "text": "\"Some offence>\"", "speaker": "You" },
     { "key": "c12", "label": null, "type": "speaker", "text": "\"Fair enough,\" he says with a half smile.", "speaker": "Archie" },
     {
-      "key": "c5", "type": "choice", "label": null, "speaker": "Marcus", "text": "Fleece, Patagonia, very clean trainers. Marcus examines the calc with the careful enthusiasm of someone who has recently read about it online. He puts it down. \"Eighty.\"", "image": "res://assets/events/buyer/buyer_card7.jpg",
+      "key": "c5", "type": "choice", "label": null, "speaker": "Marcus", "text": "Fleece, Patagonia, very clean trainers. Marcus examines the calc with the careful enthusiasm of someone who has recently read about it online. He puts it down. \"Eighty.\"", "image": "res://assets/events/prologue_buyer/prologue_buyer_card7.jpg",
       "choices": [
         {
           "id": "takeIt",
@@ -55,12 +55,12 @@
       ]
     },
     {
-      "key": "c6", "type": "choice", "label": "Walking back — Shoreditch High Street", "speaker": null, "text": "Archie splits the eighty on the pavement outside a Pret. The city walks round you both.", "image": "res://assets/events/buyer/buyer_card9.jpg",
+      "key": "c6", "type": "choice", "label": "Walking back — Shoreditch High Street", "speaker": null, "text": "Archie splits the eighty on the pavement outside a Pret. The city walks round you both.", "image": "res://assets/events/prologue_buyer/prologue_buyer_card9.jpg",
       "choices": [
         {
           "id": "split",
           "label": "Pocket £40",
-          "requires": { "choice": { "event": "cold_open", "card": "c4", "option": "stand" } },
+          "requires": { "choice": { "event": "prologue_cold_open", "card": "c4", "option": "stand" } },
           "effects": [{ "op": "add", "path": "player.cash", "value": 40 }],
           "result_text": "Two twenties. Rent's still due Monday, but it's closer.",
           "goto": 10
@@ -68,7 +68,7 @@
         {
           "id": "splitAsked",
           "label": "Pocket £40",
-          "requires": { "choice": { "event": "cold_open", "card": "c4", "option": "askBuyers" } },
+          "requires": { "choice": { "event": "prologue_cold_open", "card": "c4", "option": "askBuyers" } },
           "effects": [{ "op": "add", "path": "player.cash", "value": 40 }],
           "result_text": "Two twenties. Rent's still due Monday, but it's closer.",
           "goto": 10
@@ -76,7 +76,7 @@
         {
           "id": "splitHalf",
           "label": "Pocket £48",
-          "requires": { "choice": { "event": "cold_open", "card": "c4", "option": "wantHalf" } },
+          "requires": { "choice": { "event": "prologue_cold_open", "card": "c4", "option": "wantHalf" } },
           "effects": [{ "op": "add", "path": "player.cash", "value": 48 }],
           "result_text": "He counts out forty-eight, slowly, so you can watch him do it. \"Sixty-forty. Your way. As agreed.\"",
           "goto": 10
@@ -84,12 +84,12 @@
       ]
     },
     {
-      "key": "c7", "type": "choice", "label": "Walking back — Shoreditch High Street", "speaker": null, "text": "Archie splits the hundred and twenty on the pavement outside a Pret. The city walks round you both.", "image": "res://assets/events/buyer/buyer_card9.jpg",
+      "key": "c7", "type": "choice", "label": "Walking back — Shoreditch High Street", "speaker": null, "text": "Archie splits the hundred and twenty on the pavement outside a Pret. The city walks round you both.", "image": "res://assets/events/prologue_buyer/prologue_buyer_card9.jpg",
       "choices": [
         {
           "id": "split",
           "label": "Pocket £60",
-          "requires": { "choice": { "event": "cold_open", "card": "c4", "option": "stand" } },
+          "requires": { "choice": { "event": "prologue_cold_open", "card": "c4", "option": "stand" } },
           "effects": [{ "op": "add", "path": "player.cash", "value": 60 }],
           "result_text": "Three twenties. Rent's still due Monday, but it's closer.",
           "goto": 10
@@ -97,7 +97,7 @@
         {
           "id": "splitAsked",
           "label": "Pocket £60",
-          "requires": { "choice": { "event": "cold_open", "card": "c4", "option": "askBuyers" } },
+          "requires": { "choice": { "event": "prologue_cold_open", "card": "c4", "option": "askBuyers" } },
           "effects": [{ "op": "add", "path": "player.cash", "value": 60 }],
           "result_text": "Three twenties. Rent's still due Monday, but it's closer.",
           "goto": 10
@@ -105,7 +105,7 @@
         {
           "id": "splitHalf",
           "label": "Pocket £72",
-          "requires": { "choice": { "event": "cold_open", "card": "c4", "option": "wantHalf" } },
+          "requires": { "choice": { "event": "prologue_cold_open", "card": "c4", "option": "wantHalf" } },
           "effects": [{ "op": "add", "path": "player.cash", "value": 72 }],
           "result_text": "He counts out seventy-two, slowly, so you can watch him do it. \"Sixty-forty. Your way. As agreed.\"",
           "goto": 10
@@ -113,26 +113,26 @@
       ]
     },
     {
-      "key": "c8", "type": "choice", "label": "Walking back — Shoreditch High Street", "speaker": null, "text": "Archie splits the cash on the pavement outside a Pret. The city walks round you both.", "image": "res://assets/events/buyer/buyer_card9.jpg",
+      "key": "c8", "type": "choice", "label": "Walking back — Shoreditch High Street", "speaker": null, "text": "Archie splits the cash on the pavement outside a Pret. The city walks round you both.", "image": "res://assets/events/prologue_buyer/prologue_buyer_card9.jpg",
       "choices": [
         {
           "id": "split",
           "label": "Pocket £30",
-          "requires": { "choice": { "event": "cold_open", "card": "c4", "option": "stand" } },
+          "requires": { "choice": { "event": "prologue_cold_open", "card": "c4", "option": "stand" } },
           "effects": [{ "op": "add", "path": "player.cash", "value": 30 }],
           "result_text": "A twenty and a ten. Rent's still due Monday."
         },
         {
           "id": "splitAsked",
           "label": "Pocket £30",
-          "requires": { "choice": { "event": "cold_open", "card": "c4", "option": "askBuyers" } },
+          "requires": { "choice": { "event": "prologue_cold_open", "card": "c4", "option": "askBuyers" } },
           "effects": [{ "op": "add", "path": "player.cash", "value": 30 }],
           "result_text": "A twenty and a ten. Rent's still due Monday."
         },
         {
           "id": "splitHalf",
           "label": "Pocket £36",
-          "requires": { "choice": { "event": "cold_open", "card": "c4", "option": "wantHalf" } },
+          "requires": { "choice": { "event": "prologue_cold_open", "card": "c4", "option": "wantHalf" } },
           "effects": [{ "op": "add", "path": "player.cash", "value": 36 }],
           "result_text": "He counts out thirty-six, slowly, so you can watch him do it. \"Sixty-forty. Your way. Of sixty.\""
         }

@@ -342,7 +342,7 @@ static func _apply_tutorial_day_triggers() -> void:
 			Messages.append("archie", "them", "Yeah give me a day or two. What type and how much?")
 			Messages.append("archie", "player", "Mixed. Maybe fifteen units.")
 			Messages.append("archie", "them", "Sorted. I'll bell you. Don't go anywhere daft in the meantime.")
-			Messages.queue_pending("archie", "buyer", "Actually — you free tonight? Got someone lined up already. Shoreditch. Easy job.")
+			Messages.queue_pending("archie", "prologue_buyer", "Actually — you free tonight? Got someone lined up already. Shoreditch. Easy job.")
 
 	# The Prologue ends once the first Monday bill is paid in full and the vein lesson is done.
 	if flags["rentGoal"] and flags["rentPaid"] and flags["cultivationTutorialSeen"] and not flags["prologueEndingQueued"]:

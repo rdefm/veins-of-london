@@ -61,7 +61,7 @@ func _check_beat(objective_id: String, label: String) -> void:
 func run() -> void:
 	run_case("pub_questions_hub_answers_in_any_order_and_exits_to_the_buyer_stage", func():
 		GameState.reset()
-		Events.start_event("pub")
+		Events.start_event("prologue_pub")
 		assert_true(Events.is_awaiting_choice(), "pub opens on the question hub")
 		assert_true(Events.hub_exit_available(), "advance anytime: the exit is open before any question")
 		EventPlay.choose_id("whereFrom")
@@ -82,45 +82,45 @@ func run() -> void:
 		_check_beat("pro_cold_open", "new game")
 
 		# 1-2. Cold open chains into the pub.
-		_play("cold_open")
+		_play("prologue_cold_open")
 		assert_true(GameState.state["flags"]["rentGoal"], "rent goal row on from the cold open")
 		assert_true(GameState.state["flags"]["metArchie"], "pub done")
 		_check_beat("pro_first_sale", "after the pub")
 
 		# 3. First sale: Archie's text arrives on day 2.
 		TimeSystem.do_rest()
-		assert_true(_has_pending("buyer"), "day 2: Archie's buyer text")
-		_play("buyer")
+		assert_true(_has_pending("prologue_buyer"), "day 2: Archie's buyer text")
+		_play("prologue_buyer")
 		assert_true(GameState.state["flags"]["buyerEventSeen"], "buyer done")
 		_check_beat("pro_first_craft", "after the first sale")
 
 		# 4. First craft.
-		assert_true(_has_pending("james_meeting"), "buyer queues james_meeting")
-		_play("james_meeting")
-		assert_true(Lab.is_known("timePearl"), "james_meeting grants timePearl")
+		assert_true(_has_pending("prologue_james_meeting"), "buyer queues prologue_james_meeting")
+		_play("prologue_james_meeting")
+		assert_true(Lab.is_known("timePearl"), "prologue_james_meeting grants timePearl")
 		_check_beat("pro_gym", "after the first craft")
 
 		# 5. Gym.
-		assert_true(_has_pending("gym"), "james_meeting queues the gym")
-		_play("gym")
+		assert_true(_has_pending("prologue_gym"), "prologue_james_meeting queues the gym")
+		_play("prologue_gym")
 		assert_true(GameState.state["flags"]["gymUnlocked"], "gym done")
 		_check_beat("pro_pearls_sold", "after the gym")
 
 		# 6. Archie sells your pearls.
-		assert_true(_has_pending("archie_sells_pearls"), "gym queues archie_sells_pearls")
-		_play("archie_sells_pearls")
+		assert_true(_has_pending("prologue_archie_sells_pearls"), "gym queues prologue_archie_sells_pearls")
+		_play("prologue_archie_sells_pearls")
 		assert_true(GameState.state["flags"]["homeRaidEventPending"], "the raid is pending")
 		_check_beat("pro_flat_raid", "after the pearl sale")
 
 		# 7. Flat raid, won.
-		_play("home_raid_debrief_win")
+		_play("prologue_home_raid_debrief_win")
 		assert_true(GameState.state["flags"]["homeRaidEventSeen"], "raid done")
 		assert_eq(GameState.state["flags"]["depositGoalTier"], "studio", "the raid debrief sets the deposit goal")
 		assert_eq(GameState.state["player"]["veins"].size(), 1, "the raid debrief hands over the first vein")
 		_check_beat("pro_first_vein", "after the flat raid")
 
 		# 8. First vein.
-		_play("archie_cultivation")
+		_play("prologue_archie_cultivation")
 		assert_true(GameState.state["flags"]["cultivationTutorialSeen"], "vein lesson done")
 		assert_true(GameState.state["flags"]["rentGoal"], "rent goal row still on")
 		_check_beat("pro_pay_rent", "after the first vein")
@@ -149,8 +149,8 @@ func run() -> void:
 	run_case("home_raid_cant_be_won_without_the_pearl", func():
 		GameState.reset()
 		Events.apply_effects([{ "op": "add_item", "item": "timePearl", "qty": 2, "equip": true }])
-		Events.start_event("home_raid_intro")
-		for i in range(GameData.EVENTS["home_raid_intro"]["cards"].size()):
+		Events.start_event("prologue_home_raid_intro")
+		for i in range(GameData.EVENTS["prologue_home_raid_intro"]["cards"].size()):
 			Events.advance()
 		assert_true(CombatPrep.commit()["ok"], "the raid starts")
 		var combat: Dictionary = GameState.state["combat"]
@@ -186,8 +186,8 @@ func run() -> void:
 	run_case("home_raid_timeline_keeps_the_raider_first_before_and_after_picks", func():
 		GameState.reset()
 		Events.apply_effects([{ "op": "add_item", "item": "timePearl", "qty": 2, "equip": true }])
-		Events.start_event("home_raid_intro")
-		for i in range(GameData.EVENTS["home_raid_intro"]["cards"].size()):
+		Events.start_event("prologue_home_raid_intro")
+		for i in range(GameData.EVENTS["prologue_home_raid_intro"]["cards"].size()):
 			Events.advance()
 		assert_true(CombatPrep.commit()["ok"], "the raid starts")
 		var combat: Dictionary = GameState.state["combat"]
@@ -205,8 +205,8 @@ func run() -> void:
 	run_case("home_raid_raider_counters_every_pick", func():
 		GameState.reset()
 		Events.apply_effects([{ "op": "add_item", "item": "timePearl", "qty": 2, "equip": true }])
-		Events.start_event("home_raid_intro")
-		for i in range(GameData.EVENTS["home_raid_intro"]["cards"].size()):
+		Events.start_event("prologue_home_raid_intro")
+		for i in range(GameData.EVENTS["prologue_home_raid_intro"]["cards"].size()):
 			Events.advance()
 		assert_true(CombatPrep.commit()["ok"], "the raid starts")
 		var combat: Dictionary = GameState.state["combat"]

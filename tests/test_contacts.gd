@@ -406,7 +406,7 @@ func run() -> void:
 
 	run_case("home_raid_debrief_recruits_archie", func():
 		GameState.reset()
-		for event_id in ["home_raid_debrief_win", "home_raid_debrief_loss"]:
+		for event_id in ["prologue_home_raid_debrief_win", "prologue_home_raid_debrief_loss"]:
 			GameState.reset()
 			var recruit_ops: Array = GameData.EVENTS[event_id]["on_complete"].filter(func(e): return e["op"] == "recruit_contact")
 			Events.apply_effects(recruit_ops)

@@ -1,5 +1,5 @@
 {
-  "id": "home_raid_debrief_loss",
+  "id": "prologue_home_raid_debrief_loss",
   "cards": [
     { "key": "c1", "type": "tension", "label": "Later", "speaker": null, "text": "You come round on the floor. Your ore is gone. The window is open. The rest of the place looks ransacked, though in hindsight it isn't too dissimilar to how it was before; you should probably tidy up a bit more often." },
     { "key": "c2", "type": "narration", "label": null, "speaker": null, "text": "Archie arrives at seven in the morning. He takes one look at you and puts the coffees down without saying anything for a moment." },

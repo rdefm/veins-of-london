@@ -13,8 +13,8 @@ const EventContentLint := preload("res://tests/support/event_content_lint.gd")
 # The opening chain (spec "opening-choices"); its content tickets rewrite
 # these events and shrink KNOWN_OPENING as they go.
 const OPENING_EVENTS := [
-	"cold_open", "pub", "buyer", "james_meeting", "gym", "archie_sells_pearls", "archie_cultivation", "prologue_ending",
-	"home_raid_intro", "home_raid_debrief_win", "home_raid_debrief_loss",
+	"prologue_cold_open", "prologue_pub", "prologue_buyer", "prologue_james_meeting", "prologue_gym", "prologue_archie_sells_pearls", "prologue_archie_cultivation", "prologue_ending",
+	"prologue_home_raid_intro", "prologue_home_raid_debrief_win", "prologue_home_raid_debrief_loss",
 ]
 
 # Exact violations the opening content tickets are expected to clear. Not an

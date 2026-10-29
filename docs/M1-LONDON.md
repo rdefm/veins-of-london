@@ -147,7 +147,7 @@ Author these 15 (ids fixed; prose DRAFTED per tone bible, PROSE-REVIEW all):
 
 ## D6 — Cultivating tutorial event
 
-New event `archie_cultivation` slots into the tutorial right after the home-raid debrief (trigger: first visit to the Map tab after `archiePartnerSeen`). Archie walks the player through cultivating his transferred Whitechapel time vein: 6–9 cards teaching growth/drift → Cultivate → Prune (light/hard) → the collapse risk of leaving a spent vein alone, ending with effects: force one free successful cultivate on that vein (growth up by `cultivate_gain`, no block cost — special effect op `tutorial_cultivate`, vein-growth-state ticket 10), archie relation +2, flag `cultivationTutorialSeen`. Prose: DRAFT, PROSE-REVIEW; Archie voice per tone bible.
+New event `prologue_archie_cultivation` slots into the tutorial right after the home-raid debrief (trigger: first visit to the Map tab after `archiePartnerSeen`). Archie walks the player through cultivating his transferred Whitechapel time vein: 6–9 cards teaching growth/drift → Cultivate → Prune (light/hard) → the collapse risk of leaving a spent vein alone, ending with effects: force one free successful cultivate on that vein (growth up by `cultivate_gain`, no block cost — special effect op `tutorial_cultivate`, vein-growth-state ticket 10), archie relation +2, flag `cultivationTutorialSeen`. Prose: DRAFT, PROSE-REVIEW; Archie voice per tone bible.
 
 ## D7 — Tutorial migration cleanup + M0 tutorial gating (light)
 

@@ -14,13 +14,13 @@ Extract card arrays and SMS scripts from `reference/london-orichalchum.html` by 
 |---|---|
 | intro | INTRO_CARDS |
 | buyer | BUYER_CARDS |
-| james_meeting | JAMES_CARDS |
+| prologue_james_meeting | JAMES_CARDS |
 | archie_craft_chat | ARCHIE_CRAFT_CHAT_CARDS |
 | archie_motion | ARCHIE_MOTION_CARDS |
 | james_experiment | JAMES_MOTION_CARDS (opening exchange only, trimmed; the rest is new prose) |
-| home_raid_intro | HOME_RAID_INTRO_CARDS |
-| home_raid_debrief_win | HOME_RAID_WIN_CARDS |
-| home_raid_debrief_loss | HOME_RAID_LOSS_CARDS |
+| prologue_home_raid_intro | HOME_RAID_INTRO_CARDS |
+| prologue_home_raid_debrief_win | HOME_RAID_WIN_CARDS |
+| prologue_home_raid_debrief_loss | HOME_RAID_LOSS_CARDS |
 | SMS thread 1 | ARCHIE_SMS_1 |
 | SMS thread 2 | ARCHIE_SMS_2 |
 

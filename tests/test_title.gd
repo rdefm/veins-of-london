@@ -167,7 +167,7 @@ func run() -> void:
 		NodeQuery.find_button(title, "Select").pressed.emit()
 
 		assert_eq(GameState.state["player"]["model"], picked, "Select sets player.model to the shown variant")
-		assert_eq(GameState.state["event"]["eventId"], "cold_open", "the intro event starts as before")
+		assert_eq(GameState.state["event"]["eventId"], "prologue_cold_open", "the intro event starts as before")
 		assert_eq(GameState.state["currentScreen"], "event", "the game navigates into the intro")
 
 		title.free()

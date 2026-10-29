@@ -26,14 +26,14 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["player"]["inventory"]["rewind"] = { "1": 2 }
 		_load_dial_rewind(3)
-		Events.start_event("cold_open")
+		Events.start_event("prologue_cold_open")
 		assert_eq(_ids(), [], "no snapshot yet -- nothing to rewind to")
 		assert_true(not EventItems.has_usable())
 	)
 
 	run_case("nothing_usable_with_a_snapshot_but_no_stock_or_charge", func():
 		GameState.reset()
-		Events.start_event("cold_open")
+		Events.start_event("prologue_cold_open")
 		Events.advance()
 		assert_true(not EventItems.has_usable())
 		_load_dial_rewind(0)
@@ -44,7 +44,7 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["player"]["inventory"]["rewind"] = { "1": 2 }
 		_load_dial_rewind(3)
-		Events.start_event("cold_open")
+		Events.start_event("prologue_cold_open")
 		Events.advance()
 		var entries: Array = EventItems.usable_entries()
 		assert_eq(entries.size(), 2)
@@ -58,7 +58,7 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["player"]["inventory"]["rewind"] = { "1": 2 }
 		_load_dial_rewind(3)
-		Events.start_event("cold_open")
+		Events.start_event("prologue_cold_open")
 		Events.advance()
 		assert_true(EventItems.use("rewind")["ok"])
 		assert_eq(GameState.state["event"]["cardIndex"], 0)
@@ -70,7 +70,7 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["player"]["inventory"]["rewind"] = { "1": 2 }
 		_load_dial_rewind(3)
-		Events.start_event("cold_open")
+		Events.start_event("prologue_cold_open")
 		Events.advance()
 		assert_true(EventItems.use("dialRewind")["ok"])
 		assert_eq(GameState.state["event"]["cardIndex"], 0)
@@ -80,7 +80,7 @@ func run() -> void:
 
 	run_case("use_refuses_an_entry_that_isnt_usable", func():
 		GameState.reset()
-		Events.start_event("cold_open")
+		Events.start_event("prologue_cold_open")
 		Events.advance()
 		assert_true(not EventItems.use("rewind")["ok"], "no stock")
 		assert_true(not EventItems.use("dialRewind")["ok"], "no Dial")

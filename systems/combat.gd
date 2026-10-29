@@ -1720,7 +1720,7 @@ static func _route_phone_home() -> void:
 # matching debrief event (R§3.8).
 static func resolve_home_raid(outcome) -> Dictionary:
 	_apply_home_raid_outcome(outcome)
-	var debrief_id: String = "home_raid_debrief_win" if outcome == "win" else "home_raid_debrief_loss"
+	var debrief_id: String = "prologue_home_raid_debrief_win" if outcome == "win" else "prologue_home_raid_debrief_loss"
 	Events.start_event(debrief_id)
 	return { "nextScreen": "event" }
 

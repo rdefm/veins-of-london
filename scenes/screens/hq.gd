@@ -8,7 +8,7 @@ func _ready() -> void:
 	UI.anchor_full_rect(self)
 	var flags: Dictionary = GameState.state["flags"]
 	if flags["homeRaidEventPending"] and not flags["homeRaidEventSeen"]:
-		Events.start_event("home_raid_intro")
+		Events.start_event("prologue_home_raid_intro")
 		return
 
 	EventBus.state_changed.connect(_refresh)

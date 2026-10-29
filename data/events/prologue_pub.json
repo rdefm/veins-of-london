@@ -1,5 +1,5 @@
 {
-  "id": "pub",
+  "id": "prologue_pub",
   "on_complete": [
     { "op": "set_flag", "flag": "metArchie", "value": true },
     { "op": "set_stage", "value": "buyer_event" },

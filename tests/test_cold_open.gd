@@ -9,7 +9,7 @@ const EventPlay := preload("res://tests/support/event_play.gd")
 
 func _reach_fight() -> void:
 	GameState.reset()
-	Events.start_event("cold_open")
+	Events.start_event("prologue_cold_open")
 	for step in range(60):
 		if GameState.state["combat"]["active"]:
 			return
@@ -118,9 +118,9 @@ func run() -> void:
 		assert_eq(combat["outcome"], "fled")
 		Combat.exit_combat()
 		for step in range(10):
-			if GameState.state["event"] == null or GameState.state["event"]["eventId"] != "cold_open":
+			if GameState.state["event"] == null or GameState.state["event"]["eventId"] != "prologue_cold_open":
 				break
 			Events.advance()
 		assert_true(GameState.state["flags"]["coldOpenSeen"])
-		assert_eq(GameState.state["event"]["eventId"], "pub", "hands off to the pub")
+		assert_eq(GameState.state["event"]["eventId"], "prologue_pub", "hands off to the pub")
 	)

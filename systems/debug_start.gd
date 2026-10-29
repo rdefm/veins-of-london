@@ -119,8 +119,8 @@ static func apply(model: String = "") -> void:
 	flags["homeRaidEventSeen"] = false  # see the comment at the top of this file
 	flags["homeRaidEventPending"] = true
 	flags["rentGoal"] = false  # the Prologue's rent goal row is off after the ending
-	# buyer's last cards gate every option on cold_open's card-3 pick.
-	flags["choices"]["cold_open"] = { "c4": { "id": "stand" } }
+	# buyer's last cards gate every option on prologue_cold_open's card-3 pick.
+	flags["choices"]["prologue_cold_open"] = { "c4": { "id": "stand" } }
 	_queue_collective_intro()
 
 	var home: Dictionary = state["home"]
@@ -149,7 +149,7 @@ static func apply(model: String = "") -> void:
 	EventBus.state_changed.emit()
 
 
-# The flag loop marks the cultivating tutorial seen, so archie_cultivation
+# The flag loop marks the cultivating tutorial seen, so prologue_archie_cultivation
 # never plays and the ending never queues col_a1_intro's Archie text. Replays just that
 # queue_pending_message op from the event's own data so the collective
 # questline's first beat arrives the normal way.

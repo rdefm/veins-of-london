@@ -96,15 +96,15 @@ func run() -> void:
 	)
 
 	run_case("flat_raid_objective_completes_with_the_real_debrief_event_not_stale", func():
-		# Drives the real home_raid_debrief_win event, with no test-side
+		# Drives the real prologue_home_raid_debrief_win event, with no test-side
 		# refresh() call, to prove the real event path leaves nothing stale.
 		GameState.reset()
 		for f in ["coldOpenSeen", "metArchie", "buyerEventSeen", "gymUnlocked", "archieSoldPearls"]:
 			GameState.state["flags"][f] = true
 		Lab.grant_recipe("timePearl")
 		Objectives.refresh()
-		Events.start_event("home_raid_debrief_win")
-		for i in range(GameData.EVENTS["home_raid_debrief_win"]["cards"].size()):
+		Events.start_event("prologue_home_raid_debrief_win")
+		for i in range(GameData.EVENTS["prologue_home_raid_debrief_win"]["cards"].size()):
 			Events.advance()
 
 		assert_true(GameState.state["objectives"]["pro_flat_raid"]["complete"], "complete flips true in the same on_complete call that sets homeRaidEventSeen -- no stale window")

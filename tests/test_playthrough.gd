@@ -13,7 +13,7 @@ const Fixtures := preload("res://tests/support/fixtures.gd")
 #
 # M1-LONDON-T08 (ticket 11) extends this file with the M1 loop itself —
 # prospect -> seed -> cultivate -> harvest -> sell via systems/sites.gd,
-# across >=3 districts, gated behind the same archie_cultivation tutorial
+# across >=3 districts, gated behind the same prologue_archie_cultivation tutorial
 # beat real play routes through — plus a 20-seed soak proving siteCap/
 # NPC-claim (adr/0002) plus faction-vein growth-collapse (bugfixes-40
 # removed the old separate NPC-abandonment roll; adr/0004) never
@@ -77,13 +77,13 @@ func _force_win_active_combat() -> void:
 
 
 # Shared by every case below: new game through the fixed tutorial beats
-# (as T13) plus M1-LONDON D6's archie_cultivation, which is what actually
+# (as T13) plus M1-LONDON D6's prologue_archie_cultivation, which is what actually
 # flips cultivationTutorialSeen — real play triggers it by tapping the
 # Whitechapel contact pin on the Network map (M1.5 T13, systems/map_pins.gd);
 # driving it card-by-card here is the same idiom every other tutorial event
 # in this file already uses.
 func _play_through_tutorial_and_unlock_prospecting() -> void:
-	for event_id in ["cold_open", "pub", "buyer", "james_meeting", "gym", "archie_sells_pearls"]:
+	for event_id in ["prologue_cold_open", "prologue_pub", "prologue_buyer", "prologue_james_meeting", "prologue_gym", "prologue_archie_sells_pearls"]:
 		Events.start_event(event_id)
 		for i in range(GameData.EVENTS[event_id]["cards"].size() + 2):
 			if GameState.state["event"] == null:
@@ -99,34 +99,34 @@ func _play_through_tutorial_and_unlock_prospecting() -> void:
 			if GameState.state["event"] != null:
 				Events.advance()
 		_assert_invariants("post-%s" % event_id)
-		if event_id == "pub":
+		if event_id == "prologue_pub":
 			TimeSystem.do_rest()  # the cold open runs in the Evening; real play rests to the next morning
-		# 83-contacts-archie-james-sms-port: buyer.json/james_meeting.json's
+		# 83-contacts-archie-james-sms-port: buyer.json/prologue_james_meeting.json's
 		# on_complete each queue the next beat as a real pendingMessages
 		# entry for archie (ARCHIE_SMS_1's Continue, then the
 		# gym trigger) -- real play resolves it via the card's
 		# own Continue tap before the next event starts; mirror that here so
-		# it doesn't sit unresolved and shadow archie_cultivation's own S1
+		# it doesn't sit unresolved and shadow prologue_archie_cultivation's own S1
 		# entry below.
 		for entry in Messages.pending_for("archie"):
 			Messages.resolve_pending(entry["id"])
 
-	Events.start_event("home_raid_intro")
-	for i in range(GameData.EVENTS["home_raid_intro"]["cards"].size()):
+	Events.start_event("prologue_home_raid_intro")
+	for i in range(GameData.EVENTS["prologue_home_raid_intro"]["cards"].size()):
 		Events.advance()
 	CombatPrep.commit()
-	assert_true(GameState.state["combat"]["active"], "home_raid_intro should start combat")
+	assert_true(GameState.state["combat"]["active"], "prologue_home_raid_intro should start combat")
 	_force_win_active_combat()
-	for i in range(GameData.EVENTS["home_raid_debrief_win"]["cards"].size()):
+	for i in range(GameData.EVENTS["prologue_home_raid_debrief_win"]["cards"].size()):
 		Events.advance()
 	_assert_invariants("post-home-raid")
 	assert_true(GameState.state["flags"]["homeRaidEventSeen"], "the raid debrief should have played")
 	assert_true(GameState.state["flags"]["archiePartnerSeen"], "home-raid debrief should have set archiePartnerSeen")
 
-	Events.start_event("archie_cultivation")
-	for i in range(GameData.EVENTS["archie_cultivation"]["cards"].size()):
+	Events.start_event("prologue_archie_cultivation")
+	for i in range(GameData.EVENTS["prologue_archie_cultivation"]["cards"].size()):
 		Events.advance()
-	assert_true(GameState.state["flags"]["cultivationTutorialSeen"], "archie_cultivation should unlock prospecting (D7 gating)")
+	assert_true(GameState.state["flags"]["cultivationTutorialSeen"], "prologue_archie_cultivation should unlock prospecting (D7 gating)")
 	_assert_invariants("post-archie-cultivation")
 
 	Events.start_event("prologue_ending")
@@ -458,7 +458,7 @@ func run() -> void:
 		GameState.reset()
 		_assert_invariants("new game")
 
-		# --- Tutorial (as T13), through M1's archie_cultivation ---
+		# --- Tutorial (as T13), through M1's prologue_archie_cultivation ---
 		_play_through_tutorial_and_unlock_prospecting()
 
 		# --- Prospect + seed a vein via Sites.attempt_seed(), cultivate to Lv2, harvest ---
@@ -575,7 +575,7 @@ func run() -> void:
 	# (greenwich/camden/hampstead — not the district the tutorial already
 	# leaves you in/near, unlike shoreditch/whitechapel; D3: acting there
 	# costs no more than acting at home, faction-resource-economy ticket 05),
-	# gated behind archie_cultivation exactly as real play
+	# gated behind prologue_archie_cultivation exactly as real play
 	# routes through it. This drives systems/sites.gd's D2 actions directly
 	# rather than through scenes/screens/map.gd — matching every other test
 	# in this suite (none drive the scene tree; UI wiring is this project's

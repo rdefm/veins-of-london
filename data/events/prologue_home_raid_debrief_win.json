@@ -1,5 +1,5 @@
 {
-  "id": "home_raid_debrief_win",
+  "id": "prologue_home_raid_debrief_win",
   "cards": [
     { "key": "c1", "type": "resolution", "label": "Forty minutes later", "speaker": null, "text": "The police were called by a neighbour and left without much interest. You gave a statement that was technically accurate in every detail that didn't matter. The raider is gone. Your ore is still here." },
     { "key": "c2", "type": "narration", "label": null, "speaker": null, "text": "Archie arrives at seven in the morning with two coffees and the air of a man who expected this." },

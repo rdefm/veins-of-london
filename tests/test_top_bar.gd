@@ -37,7 +37,7 @@ func run() -> void:
 		var bar := TopBar.new()
 		bar._ready()
 		assert_eq(bar._board.target_text(), "☀ TUE 1 APR MORNING")
-		Events.start_event("cold_open")  # at: evening, advance
+		Events.start_event("prologue_cold_open")  # at: evening, advance
 		assert_eq(bar._board.target_text(), "☾ TUE 1 APR EVENING")
 		bar.free()
 	)

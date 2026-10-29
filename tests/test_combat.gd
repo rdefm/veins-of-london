@@ -286,7 +286,7 @@ func run() -> void:
 
 		assert_eq(result["nextScreen"], "event", "home_raid should route to the generic event screen")
 		assert_eq(GameState.state["currentScreen"], "event", "exit_combat should navigate directly for home_raid, same as it already does for raid/other")
-		assert_eq(GameState.state["event"]["eventId"], "home_raid_debrief_loss", "a loss should chain into the loss debrief event")
+		assert_eq(GameState.state["event"]["eventId"], "prologue_home_raid_debrief_loss", "a loss should chain into the loss debrief event")
 		assert_eq(GameState.state["player"]["orichalchum"]["time"], 5, "floor(10*0.5) = 5 lost, 5 remain")
 		assert_eq(GameState.state["player"]["orichalchum"]["physics"], 4, "floor(7*0.5) = 3 lost, 4 remain")
 		assert_eq(GameState.state["player"]["orichalchum"]["life"], 10, "floor(20*0.5) = 10 lost, 10 remain")
@@ -304,7 +304,7 @@ func run() -> void:
 		}
 		Combat.exit_combat()
 		assert_eq(GameState.state["player"]["orichalchum"]["time"], 10, "a win should not halve carried ore")
-		assert_eq(GameState.state["event"]["eventId"], "home_raid_debrief_win", "a win should chain into the win debrief event")
+		assert_eq(GameState.state["event"]["eventId"], "prologue_home_raid_debrief_win", "a win should chain into the win debrief event")
 	)
 
 	run_case("home_raid_win_double_exit_keeps_debrief_and_unlocks_progression", func():
@@ -318,8 +318,8 @@ func run() -> void:
 		Combat.exit_combat()
 		Combat.exit_combat()  # a double tap on the outcome button
 		assert_eq(GameState.state["currentScreen"], "event", "a repeat exit should not route home over the debrief")
-		assert_eq(GameState.state["event"]["eventId"], "home_raid_debrief_win", "debrief should still be live")
-		for i in range(GameData.EVENTS["home_raid_debrief_win"]["cards"].size()):
+		assert_eq(GameState.state["event"]["eventId"], "prologue_home_raid_debrief_win", "debrief should still be live")
+		for i in range(GameData.EVENTS["prologue_home_raid_debrief_win"]["cards"].size()):
 			Events.advance()
 		assert_eq(GameState.state["flags"]["archiePartnerSeen"], true, "finishing the debrief should set archiePartnerSeen")
 	)
@@ -367,7 +367,7 @@ func run() -> void:
 		Events.apply_effects([{ "op": "resolve_home_raid", "outcome": "win" }])
 		assert_true(not GameState.state["combat"]["active"], "no fight")
 		assert_eq(GameState.state["currentScreen"], "event")
-		assert_eq(GameState.state["event"]["eventId"], "home_raid_debrief_win")
+		assert_eq(GameState.state["event"]["eventId"], "prologue_home_raid_debrief_win")
 		assert_true(GameState.state["flags"]["homeRaidWon"])
 		assert_true(GameState.state["flags"]["homeRaidEventSeen"])
 		assert_eq(GameState.state["player"]["orichalchum"]["time"], 10, "a win keeps the ore")
@@ -378,7 +378,7 @@ func run() -> void:
 		GameState.state["player"]["orichalchum"] = { "time": 10, "physics": 7 }
 		Events.apply_effects([{ "op": "resolve_home_raid", "outcome": "loss" }])
 		assert_true(not GameState.state["combat"]["active"], "no fight")
-		assert_eq(GameState.state["event"]["eventId"], "home_raid_debrief_loss")
+		assert_eq(GameState.state["event"]["eventId"], "prologue_home_raid_debrief_loss")
 		assert_true(not GameState.state["flags"]["homeRaidWon"])
 		assert_true(GameState.state["flags"]["homeRaidEventSeen"])
 		assert_eq(GameState.state["player"]["orichalchum"]["time"], 5)
@@ -429,7 +429,7 @@ func run() -> void:
 
 	run_case("exit_combat_event_raid_win_resumes_the_still_active_event", func():
 		GameState.reset()
-		Events.start_event("cold_open")
+		Events.start_event("prologue_cold_open")
 		GameState.state["combat"]["context"] = Combat.CONTEXT_EVENT_RAID
 		GameState.state["combat"]["outcome"] = "win"
 		Combat.exit_combat()
@@ -439,7 +439,7 @@ func run() -> void:
 
 	run_case("exit_combat_event_raid_loss_ends_the_event_and_goes_home", func():
 		GameState.reset()
-		Events.start_event("cold_open")
+		Events.start_event("prologue_cold_open")
 		GameState.state["combat"]["active"] = true
 		GameState.state["combat"]["context"] = Combat.CONTEXT_EVENT_RAID
 		GameState.state["combat"]["outcome"] = "loss"

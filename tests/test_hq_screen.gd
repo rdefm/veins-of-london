@@ -28,7 +28,7 @@ func run() -> void:
 		hq._ready()
 
 		assert_eq(GameState.state["currentScreen"], "event", "a qualifying HQ visit must start the event, same as the old home screen")
-		assert_eq(GameState.state["event"]["eventId"], "home_raid_intro")
+		assert_eq(GameState.state["event"]["eventId"], "prologue_home_raid_intro")
 		assert_eq(hq.get_child_count(), 0, "the check must run before any room UI is ever added -- starting the event navigates away and this node is about to be freed")
 
 		hq.free()

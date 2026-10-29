@@ -4,7 +4,7 @@
   "on_complete": [
     { "op": "set_flag", "flag": "coldOpenSeen", "value": true },
     { "op": "set_flag", "flag": "rentGoal", "value": true },
-    { "op": "start_event", "event": "pub" }
+    { "op": "start_event", "event": "prologue_pub" }
   ],
   "cards": [
     { "key": "c1", "type": "narration", "label": "{today} — Whitechapel", "speaker": null, "text": "Rent's due Monday. You have £40, and this morning's interviewer has promised to keep your details on file. Archie, an old mate, said he might have work. So: Tuesday night, behind a chicken shop on Mile End Road.", "image": "res://assets/events/intro/intro_card1.png" },

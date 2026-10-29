@@ -1,5 +1,5 @@
 {
-  "id": "archie_sells_pearls",
+  "id": "prologue_archie_sells_pearls",
   "on_complete": [
     { "op": "add_item", "item": "timePearl", "qty": -1 },
     { "op": "add", "path": "player.cash", "value": 120 },

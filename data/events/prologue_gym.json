@@ -1,8 +1,8 @@
 {
-  "id": "gym",
+  "id": "prologue_gym",
   "on_complete": [
     { "op": "set_flag", "flag": "gymUnlocked", "value": true },
-    { "op": "queue_pending_message", "contact": "archie", "kind": "archie_sells_pearls", "text": "Pearls are sorted. Come by when you're free." },
+    { "op": "queue_pending_message", "contact": "archie", "kind": "prologue_archie_sells_pearls", "text": "Pearls are sorted. Come by when you're free." },
     { "op": "set_screen", "screen": "phone" }
   ],
   "cards": [

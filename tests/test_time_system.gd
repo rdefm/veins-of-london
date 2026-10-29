@@ -441,7 +441,7 @@ func run() -> void:
 		TimeSystem.daily_tick()
 		assert_eq(GameState.state["messages"]["archie"].size(), 5, "all 5 of ARCHIE_SMS_2's lines land in the thread (4 push_message + the pending entry's own text)")
 		assert_eq(Messages.pending_for("archie").size(), 1, "the 5th (final) line also becomes the pending Continue entry")
-		assert_eq(Messages.pending_for("archie")[0]["kind"], "buyer", "the pending entry starts the buyer event")
+		assert_eq(Messages.pending_for("archie")[0]["kind"], "prologue_buyer", "the pending entry starts the buyer event")
 		assert_true(GameState.state["flags"]["archieBuyerSmsQueued"], "idempotency guard is set")
 
 		# Another day tick under the same still-unresolved condition (player

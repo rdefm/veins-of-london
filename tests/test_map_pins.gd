@@ -1,7 +1,7 @@
 extends "res://tests/test_base.gd"
 
 # MapPins.active_contact_pins() (M1.5 N2 contact pin). Exercised against
-# the real archie_cultivation event data (the only pin-bearing event as of
+# the real prologue_archie_cultivation event data (the only pin-bearing event as of
 # T13) rather than a synthetic fixture, since GameData.EVENTS is loaded
 # once at boot and isn't swappable per-test.
 
@@ -13,7 +13,7 @@ func run() -> void:
 		var ids: Array = []
 		for pin in pins:
 			ids.append(pin["eventId"])
-		assert_true(not ids.has("archie_cultivation"), "flag gate not met yet -- pin shouldn't show")
+		assert_true(not ids.has("prologue_archie_cultivation"), "flag gate not met yet -- pin shouldn't show")
 		GameState.reset()
 	)
 
@@ -25,7 +25,7 @@ func run() -> void:
 		var pins := MapPins.active_contact_pins()
 		var found: Variant = null
 		for pin in pins:
-			if pin["eventId"] == "archie_cultivation":
+			if pin["eventId"] == "prologue_archie_cultivation":
 				found = pin
 		assert_true(found != null, "archiePartnerSeen true + cultivationTutorialSeen false -- pin should show")
 		assert_eq(found["district"], "whitechapel", "pin district comes from the event's own pin data")
@@ -41,7 +41,7 @@ func run() -> void:
 		var ids: Array = []
 		for pin in pins:
 			ids.append(pin["eventId"])
-		assert_true(not ids.has("archie_cultivation"), "showWhenFlagsFalse should hide the pin once the flag flips true")
+		assert_true(not ids.has("prologue_archie_cultivation"), "showWhenFlagsFalse should hide the pin once the flag flips true")
 		GameState.reset()
 	)
 

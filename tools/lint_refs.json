@@ -24,15 +24,7 @@
 		"wren"
 	],
 	"events": {
-		"archie_cultivation": {
-			"choiceCards": {},
-			"observations": {}
-		},
 		"archie_motion": {
-			"choiceCards": {},
-			"observations": {}
-		},
-		"archie_sells_pearls": {
 			"choiceCards": {},
 			"observations": {}
 		},
@@ -73,31 +65,6 @@
 				"c3": [
 					"",
 					""
-				]
-			},
-			"observations": {}
-		},
-		"buyer": {
-			"choiceCards": {
-				"c5": [
-					"takeIt",
-					"pushMore",
-					"archieTalks"
-				],
-				"c6": [
-					"split",
-					"splitAsked",
-					"splitHalf"
-				],
-				"c7": [
-					"split",
-					"splitAsked",
-					"splitHalf"
-				],
-				"c8": [
-					"split",
-					"splitAsked",
-					"splitHalf"
 				]
 			},
 			"observations": {}
@@ -319,39 +286,6 @@
 			"choiceCards": {},
 			"observations": {}
 		},
-		"cold_open": {
-			"choiceCards": {
-				"c20": [
-					"probablyFine",
-					"mention"
-				],
-				"c4": [
-					"stand",
-					"askBuyers",
-					"wantHalf"
-				],
-				"c5": [
-					"takeRewind"
-				],
-				"c9": [
-					"brace"
-				]
-			},
-			"observations": {
-				"cold_into_observation1": {
-					"emotion": 2,
-					"fate": 2,
-					"life": 2,
-					"physics": 2,
-					"time": 2
-				},
-				"cold_intro_observation_c6": {
-					"emotion": 2,
-					"fate": 2,
-					"physics": 2
-				}
-			}
-		},
 		"cold_open_legacy": {
 			"choiceCards": {
 				"c4": [
@@ -391,17 +325,6 @@
 		},
 		"foxes": {
 			"choiceCards": {},
-			"observations": {}
-		},
-		"gym": {
-			"choiceCards": {
-				"c5": [
-					"watch"
-				],
-				"c8": [
-					"glovesOn"
-				]
-			},
 			"observations": {}
 		},
 		"harass_placeholder": {
@@ -450,18 +373,6 @@
 			"observations": {}
 		},
 		"heath_dogwalker": {
-			"choiceCards": {},
-			"observations": {}
-		},
-		"home_raid_debrief_loss": {
-			"choiceCards": {},
-			"observations": {}
-		},
-		"home_raid_debrief_win": {
-			"choiceCards": {},
-			"observations": {}
-		},
-		"home_raid_intro": {
 			"choiceCards": {},
 			"observations": {}
 		},
@@ -542,22 +453,6 @@
 			},
 			"observations": {}
 		},
-		"james_meeting": {
-			"choiceCards": {
-				"c15": [
-					"tell",
-					"sayNothing"
-				],
-				"c20": [
-					"seal"
-				],
-				"c22": [
-					"leaveTold",
-					"leaveHid"
-				]
-			},
-			"observations": {}
-		},
 		"james_meeting_observation": {
 			"choiceCards": {
 				"c15": [
@@ -633,11 +528,116 @@
 			"choiceCards": {},
 			"observations": {}
 		},
+		"prologue_archie_cultivation": {
+			"choiceCards": {},
+			"observations": {}
+		},
+		"prologue_archie_sells_pearls": {
+			"choiceCards": {},
+			"observations": {}
+		},
+		"prologue_buyer": {
+			"choiceCards": {
+				"c5": [
+					"takeIt",
+					"pushMore",
+					"archieTalks"
+				],
+				"c6": [
+					"split",
+					"splitAsked",
+					"splitHalf"
+				],
+				"c7": [
+					"split",
+					"splitAsked",
+					"splitHalf"
+				],
+				"c8": [
+					"split",
+					"splitAsked",
+					"splitHalf"
+				]
+			},
+			"observations": {}
+		},
+		"prologue_cold_open": {
+			"choiceCards": {
+				"c20": [
+					"probablyFine",
+					"mention"
+				],
+				"c4": [
+					"stand",
+					"askBuyers",
+					"wantHalf"
+				],
+				"c5": [
+					"takeRewind"
+				],
+				"c9": [
+					"brace"
+				]
+			},
+			"observations": {
+				"cold_into_observation1": {
+					"emotion": 2,
+					"fate": 2,
+					"life": 2,
+					"physics": 2,
+					"time": 2
+				},
+				"cold_intro_observation_c6": {
+					"emotion": 2,
+					"fate": 2,
+					"physics": 2
+				}
+			}
+		},
 		"prologue_ending": {
 			"choiceCards": {},
 			"observations": {}
 		},
-		"pub": {
+		"prologue_gym": {
+			"choiceCards": {
+				"c5": [
+					"watch"
+				],
+				"c8": [
+					"glovesOn"
+				]
+			},
+			"observations": {}
+		},
+		"prologue_home_raid_debrief_loss": {
+			"choiceCards": {},
+			"observations": {}
+		},
+		"prologue_home_raid_debrief_win": {
+			"choiceCards": {},
+			"observations": {}
+		},
+		"prologue_home_raid_intro": {
+			"choiceCards": {},
+			"observations": {}
+		},
+		"prologue_james_meeting": {
+			"choiceCards": {
+				"c15": [
+					"tell",
+					"sayNothing"
+				],
+				"c20": [
+					"seal"
+				],
+				"c22": [
+					"leaveTold",
+					"leaveHid"
+				]
+			},
+			"observations": {}
+		},
+		"prologue_pub": {
 			"choiceCards": {
 				"c1": [
 					"whatIsIt",

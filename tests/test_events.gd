@@ -290,7 +290,7 @@ func run() -> void:
 		GameData.EVENTS["test_chains_on"] = {
 			"id": "test_chains_on",
 			"cards": [{ "key": "c1", "type": "narration", "label": null, "speaker": null, "text": "Card 1" }],
-			"on_complete": [{ "op": "start_event", "event": "cold_open" }],
+			"on_complete": [{ "op": "start_event", "event": "prologue_cold_open" }],
 		}
 
 		var errors := GameData.validate_tables(GameData.snapshot())
@@ -302,8 +302,8 @@ func run() -> void:
 
 	run_case("start_event_sets_state_and_screen", func():
 		GameState.reset()
-		Events.start_event("cold_open")
-		assert_eq(GameState.state["event"]["eventId"], "cold_open")
+		Events.start_event("prologue_cold_open")
+		assert_eq(GameState.state["event"]["eventId"], "prologue_cold_open")
 		assert_eq(GameState.state["event"]["cardIndex"], 0)
 		assert_eq(GameState.state["event"]["snapshots"], [])
 		assert_eq(GameState.state["currentScreen"], "event")
@@ -311,7 +311,7 @@ func run() -> void:
 
 	run_case("advance_reveals_next_card_and_pushes_a_snapshot", func():
 		GameState.reset()
-		Events.start_event("cold_open")
+		Events.start_event("prologue_cold_open")
 		Events.advance()
 		assert_eq(GameState.state["event"]["cardIndex"], 1, "should advance to card 1")
 		assert_eq(GameState.state["event"]["snapshots"].size(), 1, "should push one snapshot")
@@ -319,7 +319,7 @@ func run() -> void:
 
 	run_case("revealed_cards_grows_with_cardIndex", func():
 		GameState.reset()
-		Events.start_event("cold_open")
+		Events.start_event("prologue_cold_open")
 		assert_eq(Events.revealed_cards().size(), 1, "only card 0 revealed at the start")
 		Events.advance()
 		assert_eq(Events.revealed_cards().size(), 2, "advancing reveals one more card")
@@ -631,12 +631,12 @@ func run() -> void:
 		GameState.reset()
 		var original_events: Dictionary = GameData.EVENTS
 		GameData.EVENTS = GameData.EVENTS.duplicate()
-		var cold: Dictionary = GameData.EVENTS["cold_open"].duplicate(true)
+		var cold: Dictionary = GameData.EVENTS["prologue_cold_open"].duplicate(true)
 		cold["cards"].insert(1, { "key": "inserted", "type": "narration", "label": null, "speaker": null, "text": "New." })
-		GameData.EVENTS["cold_open"] = cold
-		GameState.state["flags"]["choices"]["cold_open"] = { "c4": { "id": "askBuyers" } }
+		GameData.EVENTS["prologue_cold_open"] = cold
+		GameState.state["flags"]["choices"]["prologue_cold_open"] = { "c4": { "id": "askBuyers" } }
 		var met := 0
-		for option in GameData.EVENTS["buyer"]["cards"][_card_index("buyer", "c6")]["choices"]:
+		for option in GameData.EVENTS["prologue_buyer"]["cards"][_card_index("prologue_buyer", "c6")]["choices"]:
 			if Events.condition_met(option["requires"]):
 				met += 1
 				assert_eq(option["id"], "splitAsked", "askBuyers pick opens its own option")
@@ -1356,7 +1356,7 @@ func run() -> void:
 
 	run_case("pub_finished_conversation_returns_to_the_choice_options_and_exit_still_works", func():
 		GameState.reset()
-		Events.start_event("pub")
+		Events.start_event("prologue_pub")
 		Events.advance()  # prompt -> options
 		Events.choose(0)
 		Events.advance()  # answer card -> back to hub
@@ -1673,7 +1673,7 @@ func run() -> void:
 		GameData.EVENTS = original_events
 	)
 
-	# event-images ticket 01: the pilot content wiring on the real "cold_open"
+	# event-images ticket 01: the pilot content wiring on the real "prologue_cold_open"
 	# event -- real cards each
 	# set a different res://assets/events/intro/<n>.png, proving both the
 	# static-image path and the sticky-until-next-entry swap against real
@@ -1681,7 +1681,7 @@ func run() -> void:
 	# exist on disk (docs/adr/0005-event-image-asset-contract.md).
 	run_case("intro_pilot_images_swap_at_their_wired_cards_and_resolve_to_real_files", func():
 		GameState.reset()
-		Events.start_event("cold_open")
+		Events.start_event("prologue_cold_open")
 		var expected: Variant = "res://assets/events/intro/intro_card1.png"
 		assert_eq(Events.current_image_path(), expected, "opening card discovers intro_card1.png")
 
@@ -1708,17 +1708,17 @@ func run() -> void:
 
 	run_case("event_card_images_are_discovered_by_event_id_and_one_based_card_index", func():
 		GameState.reset()
-		Events.start_event("buyer")
+		Events.start_event("prologue_buyer")
 
 		var wired_at := {
-			0: "res://assets/events/buyer/buyer_card1.jpg",
-			6: "res://assets/events/buyer/buyer_card7.jpg",
-			8: "res://assets/events/buyer/buyer_card9.jpg",
+			0: "res://assets/events/prologue_buyer/prologue_buyer_card1.jpg",
+			6: "res://assets/events/prologue_buyer/prologue_buyer_card7.jpg",
+			8: "res://assets/events/prologue_buyer/prologue_buyer_card9.jpg",
 		}
 		var expected: String = wired_at[0]
 		assert_eq(Events.current_image_path(), expected, "card 1 should discover buyer_card1.jpg")
 
-		var card_count: int = GameData.EVENTS["buyer"]["cards"].size()
+		var card_count: int = GameData.EVENTS["prologue_buyer"]["cards"].size()
 		for i in range(card_count - 1):
 			Events.advance()
 			var card_index: int = GameState.state["event"]["cardIndex"]
@@ -1855,8 +1855,8 @@ func run() -> void:
 
 	run_case("start_home_raid_combat_op_launches_home_raid_combat", func():
 		GameState.reset()
-		Events.start_event("home_raid_intro")
-		for i in range(GameData.EVENTS["home_raid_intro"]["cards"].size()):
+		Events.start_event("prologue_home_raid_intro")
+		for i in range(GameData.EVENTS["prologue_home_raid_intro"]["cards"].size()):
 			Events.advance()
 		assert_true(CombatPrep.commit()["ok"])
 		assert_eq(GameState.state["event"], null, "event should clear")
@@ -1866,8 +1866,8 @@ func run() -> void:
 
 	run_case("home_raid_debrief_loss_unlocks_hq_and_fires_workbench_notification", func():
 		GameState.reset()
-		Events.start_event("home_raid_debrief_loss")
-		for i in range(GameData.EVENTS["home_raid_debrief_loss"]["cards"].size()):
+		Events.start_event("prologue_home_raid_debrief_loss")
+		for i in range(GameData.EVENTS["prologue_home_raid_debrief_loss"]["cards"].size()):
 			Events.advance()
 		assert_true(GameState.state["flags"]["homeUnlocked"], "debrief_loss: homeUnlocked")
 		assert_true(Fixtures.has_notification("HQ's workbench is open now."), "debrief_loss: HQ nudge notification")
@@ -1876,7 +1876,7 @@ func run() -> void:
 	run_case("rewind_restores_full_state_without_corruption", func():
 		GameState.reset()
 		GameState.state["player"]["inventory"]["rewind"] = { "1": 1 }
-		Events.start_event("cold_open")
+		Events.start_event("prologue_cold_open")
 		var snapshot_before: Dictionary = GameState.deep_copy(GameState.state)
 		Events.advance()
 		assert_eq(GameState.state["event"]["cardIndex"], 1, "sanity: advanced to card 1")
@@ -1898,7 +1898,7 @@ func run() -> void:
 	run_case("rewind_pops_one_frame_at_a_time", func():
 		GameState.reset()
 		GameState.state["player"]["inventory"]["rewind"] = { "1": 2 }
-		Events.start_event("cold_open")
+		Events.start_event("prologue_cold_open")
 		Events.advance()  # -> card 1
 		Events.advance()  # -> card 2
 		assert_eq(GameState.state["event"]["cardIndex"], 2)
@@ -1912,7 +1912,7 @@ func run() -> void:
 
 	run_case("rewind_blocked_with_no_snapshots_or_no_resource", func():
 		GameState.reset()
-		Events.start_event("cold_open")
+		Events.start_event("prologue_cold_open")
 		var no_snapshots := Events.rewind()
 		assert_true(not no_snapshots["ok"], "no snapshots yet -> nothing to rewind")
 
@@ -1925,21 +1925,21 @@ func run() -> void:
 		GameState.reset()
 
 		# 1. Cold open chains into the pub (first option at every choice; a hub's exit when it has one)
-		Events.start_event("cold_open")
+		Events.start_event("prologue_cold_open")
 		for step in range(100):
 			if GameState.state["event"] == null:
 				break
 			if Events.is_awaiting_choice():
 				Events.choose(maxi(Events.hub_exit_index(), 0))
 			Events.advance()
-		assert_true(GameState.state["flags"]["rentGoal"], "cold_open: rent goal row on")
+		assert_true(GameState.state["flags"]["rentGoal"], "prologue_cold_open: rent goal row on")
 		assert_true(GameState.state["flags"]["metArchie"], "pub: metArchie")
 		assert_eq(GameState.state["flags"]["tutorialStage"], "buyer_event", "pub: stage")
 		assert_eq(GameState.state["currentScreen"], "phone", "pub: -> phone home")
 
 		# 2. Buyer event
 		var cash_before: int = GameState.state["player"]["cash"]
-		Events.start_event("buyer")
+		Events.start_event("prologue_buyer")
 		for step in range(100):
 			if GameState.state["event"] == null:
 				break
@@ -1951,16 +1951,16 @@ func run() -> void:
 		assert_eq(GameState.state["flags"]["tutorialStage"], "sms_archie", "buyer: stage")
 		# 83-contacts-archie-james-sms-port: ARCHIE_SMS_1's content now lands
 		# in the generic message thread, ending in a pendingMessages entry
-		# that starts james_meeting on Continue.
+		# that starts prologue_james_meeting on Continue.
 		var archie_thread_after_buyer: Array = GameState.state["messages"]["archie"]
 		assert_eq(archie_thread_after_buyer.size(), 2, "buyer: ARCHIE_SMS_1 lines pushed (1 push_message + the pending entry's own text)")
 		assert_eq(Messages.pending_for("archie").size(), 1, "buyer: one pending entry queued")
-		assert_eq(Messages.pending_for("archie")[0]["kind"], "james_meeting", "buyer: pending entry starts james_meeting")
+		assert_eq(Messages.pending_for("archie")[0]["kind"], "prologue_james_meeting", "buyer: pending entry starts prologue_james_meeting")
 
 		# 3. James meeting (SMS thread 1 has no state effects of its own)
 		# First option at every choice: tell James about the jar (+5), bench lesson (1 pearl).
 		var james_relation_before_meeting: int = GameState.state["contacts"]["james"]["relation"]
-		Events.start_event("james_meeting")
+		Events.start_event("prologue_james_meeting")
 		for step in range(100):
 			if GameState.state["event"] == null:
 				break
@@ -1974,19 +1974,19 @@ func run() -> void:
 					LessonSession.resume()
 			Events.advance()
 		var pearls: int = Crafting.inventory_qty("timePearl")
-		assert_eq(pearls, 1, "james_meeting: the guided first craft yields a timePearl")
-		assert_true(GameState.state["flags"]["metJames"], "james_meeting: metJames")
-		assert_true(Lab.is_known("timePearl"), "james_meeting: grants timePearl")
-		assert_true(GameState.state["flags"]["craftingUnlocked"], "james_meeting: knowing timePearl completes the crafting checkpoint")
-		assert_true(GameState.state["contacts"]["james"]["unlocked"], "james_meeting: james unlocked")
-		assert_eq(GameState.state["contacts"]["james"]["relation"], james_relation_before_meeting + 15, "james_meeting: james relation +5 (told) +10 (on_complete)")
-		assert_eq(GameState.state["currentScreen"], "phone", "james_meeting: -> phone home, no longer hq")
-		assert_true(not Fixtures.has_notification("Crafting unlocked. Try the workbench in HQ."), "james_meeting: no longer fires the HQ notification")
+		assert_eq(pearls, 1, "prologue_james_meeting: the guided first craft yields a timePearl")
+		assert_true(GameState.state["flags"]["metJames"], "prologue_james_meeting: metJames")
+		assert_true(Lab.is_known("timePearl"), "prologue_james_meeting: grants timePearl")
+		assert_true(GameState.state["flags"]["craftingUnlocked"], "prologue_james_meeting: knowing timePearl completes the crafting checkpoint")
+		assert_true(GameState.state["contacts"]["james"]["unlocked"], "prologue_james_meeting: james unlocked")
+		assert_eq(GameState.state["contacts"]["james"]["relation"], james_relation_before_meeting + 15, "prologue_james_meeting: james relation +5 (told) +10 (on_complete)")
+		assert_eq(GameState.state["currentScreen"], "phone", "prologue_james_meeting: -> phone home, no longer hq")
+		assert_true(not Fixtures.has_notification("Crafting unlocked. Try the workbench in HQ."), "prologue_james_meeting: no longer fires the HQ notification")
 		var gym_pending := Messages.pending_for("archie")
-		assert_true(gym_pending.size() > 0 and gym_pending.back()["kind"] == "gym", "james_meeting: queues the gym pending entry")
+		assert_true(gym_pending.size() > 0 and gym_pending.back()["kind"] == "prologue_gym", "prologue_james_meeting: queues the gym pending entry")
 
 		# 4. Gym
-		Events.start_event("gym")
+		Events.start_event("prologue_gym")
 		for i in range(30):
 			if GameState.state["combat"]["active"]:
 				var gym_fight: Dictionary = GameState.state["combat"]
@@ -2005,31 +2005,31 @@ func run() -> void:
 			else:
 				Events.advance()
 		assert_true(GameState.state["flags"]["gymUnlocked"], "gym: gymUnlocked")
-		assert_eq(Messages.pending_for("archie").back()["kind"], "archie_sells_pearls", "gym: queues archie_sells_pearls")
+		assert_eq(Messages.pending_for("archie").back()["kind"], "prologue_archie_sells_pearls", "gym: queues prologue_archie_sells_pearls")
 
 		# 5. Archie sells your pearls
 		var ore_before: int = GameState.state["player"]["orichalchum"].get("time", 0)
 		var archie_relation_before: int = GameState.state["contacts"]["archie"]["relation"]
 		var sale_cash_before: int = GameState.state["player"]["cash"]
-		Events.start_event("archie_sells_pearls")
-		for i in range(GameData.EVENTS["archie_sells_pearls"]["cards"].size()):
+		Events.start_event("prologue_archie_sells_pearls")
+		for i in range(GameData.EVENTS["prologue_archie_sells_pearls"]["cards"].size()):
 			Events.advance()
-		assert_eq(GameState.state["player"]["cash"], sale_cash_before + 120, "archie_sells_pearls: cash up")
-		assert_true(Loadout.find_slot("timePearl") >= 0, "archie_sells_pearls: kept pearls in loadout")
-		assert_true(GameState.state["flags"]["archieSoldPearls"], "archie_sells_pearls: seen")
-		assert_true(GameState.state["flags"]["canSellConsumables"], "archie_sells_pearls: canSellConsumables")
-		assert_eq(GameState.state["contacts"]["archie"]["relation"], archie_relation_before + 5, "archie_sells_pearls: archie relation +5")
-		assert_eq(GameState.state["player"]["orichalchum"]["time"], ore_before + 20, "archie_sells_pearls: +20 time ore")
-		assert_true(GameState.state["flags"]["homeRaidEventPending"], "archie_sells_pearls: homeRaidEventPending")
+		assert_eq(GameState.state["player"]["cash"], sale_cash_before + 120, "prologue_archie_sells_pearls: cash up")
+		assert_true(Loadout.find_slot("timePearl") >= 0, "prologue_archie_sells_pearls: kept pearls in loadout")
+		assert_true(GameState.state["flags"]["archieSoldPearls"], "prologue_archie_sells_pearls: seen")
+		assert_true(GameState.state["flags"]["canSellConsumables"], "prologue_archie_sells_pearls: canSellConsumables")
+		assert_eq(GameState.state["contacts"]["archie"]["relation"], archie_relation_before + 5, "prologue_archie_sells_pearls: archie relation +5")
+		assert_eq(GameState.state["player"]["orichalchum"]["time"], ore_before + 20, "prologue_archie_sells_pearls: +20 time ore")
+		assert_true(GameState.state["flags"]["homeRaidEventPending"], "prologue_archie_sells_pearls: homeRaidEventPending")
 
 		# 6. Home raid chain (R§3.8) — home.gd's _ready() fires this on next
 		# visit; drive it the same way here since this test has no screen tree.
 		assert_true(GameState.state["flags"]["homeRaidEventPending"] and not GameState.state["flags"]["homeRaidEventSeen"])
-		Events.start_event("home_raid_intro")
-		for i in range(GameData.EVENTS["home_raid_intro"]["cards"].size()):
+		Events.start_event("prologue_home_raid_intro")
+		for i in range(GameData.EVENTS["prologue_home_raid_intro"]["cards"].size()):
 			Events.advance()
 		assert_true(CombatPrep.commit()["ok"])
-		assert_true(GameState.state["combat"]["active"], "home_raid_intro: combat started")
+		assert_true(GameState.state["combat"]["active"], "prologue_home_raid_intro: combat started")
 		assert_eq(GameState.state["combat"]["context"], Combat.CONTEXT_HOME_RAID)
 
 		# Force a deterministic win.
@@ -2037,7 +2037,7 @@ func run() -> void:
 		you["attackMin"] = 999
 		you["attackMax"] = 999
 		# The prologue raid needs its pearl thrown before it can be won.
-		assert_true(Combat.choose_item(Loadout.find_slot("timePearl"))["ok"], "home_raid_intro: pearl thrown")
+		assert_true(Combat.choose_item(Loadout.find_slot("timePearl"))["ok"], "prologue_home_raid_intro: pearl thrown")
 		# Strikes until it lands, whatever the rolled enemy plans guard or dodge.
 		for i in range(10):
 			if GameState.state["combat"]["outcome"] != null:
@@ -2047,9 +2047,9 @@ func run() -> void:
 
 		var veins_before: int = GameState.state["player"]["veins"].size()
 		Combat.exit_combat()
-		assert_eq(GameState.state["event"]["eventId"], "home_raid_debrief_win", "win should chain into the win debrief")
+		assert_eq(GameState.state["event"]["eventId"], "prologue_home_raid_debrief_win", "win should chain into the win debrief")
 
-		for i in range(GameData.EVENTS["home_raid_debrief_win"]["cards"].size()):
+		for i in range(GameData.EVENTS["prologue_home_raid_debrief_win"]["cards"].size()):
 			Events.advance()
 		assert_true(GameState.state["flags"]["homeRaidEventSeen"], "debrief: homeRaidEventSeen")
 		assert_true(GameState.state["flags"]["homeRaidWon"], "debrief: homeRaidWon")
@@ -2085,15 +2085,15 @@ func run() -> void:
 		var skill: int = GameState.state["player"]["cultivatingSkill"]
 		var min_gain: int = Cultivating.cultivate_min_gain(skill)
 		var max_gain: int = Cultivating.cultivate_max_gain(skill)
-		Events.start_event("archie_cultivation")
-		for i in range(GameData.EVENTS["archie_cultivation"]["cards"].size()):
+		Events.start_event("prologue_archie_cultivation")
+		for i in range(GameData.EVENTS["prologue_archie_cultivation"]["cards"].size()):
 			Events.advance()
-		assert_true(GameState.state["flags"]["cultivationTutorialSeen"], "archie_cultivation: cultivationTutorialSeen")
-		assert_eq(GameState.state["contacts"]["archie"]["relation"], archie_relation_before_cultivation + 2, "archie_cultivation: archie relation +2")
+		assert_true(GameState.state["flags"]["cultivationTutorialSeen"], "prologue_archie_cultivation: cultivationTutorialSeen")
+		assert_eq(GameState.state["contacts"]["archie"]["relation"], archie_relation_before_cultivation + 2, "prologue_archie_cultivation: archie relation +2")
 		# cultivation-refining ticket 03: cultivate_gain is a random uniform roll,
 		# so this checks the skill-dependent range rather than an exact value.
-		assert_true(granted["growth"] >= growth_before + min_gain and granted["growth"] <= growth_before + max_gain, "archie_cultivation: tutorial_cultivate added a cultivate_gain-range growth")
-		assert_eq(GameState.state["currentScreen"], "map", "archie_cultivation: -> map")
+		assert_true(granted["growth"] >= growth_before + min_gain and granted["growth"] <= growth_before + max_gain, "prologue_archie_cultivation: tutorial_cultivate added a cultivate_gain-range growth")
+		assert_eq(GameState.state["currentScreen"], "map", "prologue_archie_cultivation: -> map")
 
 		# 6. Post-tutorial motion events
 		Events.start_event("archie_motion")
@@ -2162,7 +2162,7 @@ func run() -> void:
 
 	run_case("new_game_intro_runs_in_the_evening_of_tuesday_day_one", func():
 		GameState.reset()
-		Events.start_event("cold_open")
+		Events.start_event("prologue_cold_open")
 		assert_eq(GameState.state["world"]["day"], 1)
 		assert_eq(GameState.state["world"]["timeBlock"], 2, "intro runs in Evening")
 		assert_eq(Calendar.format_day(1).substr(0, 3), "TUE")

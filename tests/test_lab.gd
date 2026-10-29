@@ -139,7 +139,7 @@ func run() -> void:
 		Objectives.refresh()
 		assert_true(not GameState.state["objectives"]["pro_first_craft"]["complete"], "not complete before the grant")
 		assert_true(not GameState.state["objectives"]["pro_gym"]["active"], "the gym objective waits for the recipe")
-		Events.apply_effects(GameData.EVENTS["james_meeting"]["on_complete"].filter(func(e): return e["op"] == "grant_recipe"))
+		Events.apply_effects(GameData.EVENTS["prologue_james_meeting"]["on_complete"].filter(func(e): return e["op"] == "grant_recipe"))
 		assert_true(Lab.is_known("timePearl"), "timePearl known")
 		assert_eq(Lab.known_recipes(), ["timePearl"], "only timePearl")
 		assert_true(GameState.state["objectives"]["pro_first_craft"]["complete"], "knowing timePearl completes the checkpoint")

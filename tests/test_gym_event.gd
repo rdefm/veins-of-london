@@ -17,7 +17,7 @@ func _advance_to_choice() -> void:
 # The intro cards read, then the watch-only demo opened.
 func _demo() -> Dictionary:
 	GameState.reset()
-	Events.start_event("gym")
+	Events.start_event("prologue_gym")
 	_advance_to_choice()
 	EventPlay.choose_id("watch")
 	var combat: Dictionary = GameState.state["combat"]
@@ -145,7 +145,7 @@ func run() -> void:
 		var box: Control = screen.find_child("DemoVoiceover", true, false)
 		var button: Button = screen.find_child("DemoContinue", true, false)
 		assert_true(box.visible and button.visible and not button.disabled, "voiceover box and Continue stand in for the dock")
-		var intro: Array = EventPlay.card_by_key("gym", "c5")["choices"][0]["effects"][0]["script"]["intro"]
+		var intro: Array = EventPlay.card_by_key("prologue_gym", "c5")["choices"][0]["effects"][0]["script"]["intro"]
 		assert_eq(screen._voiceover_label.text, intro[0], "the intro before the first beat")
 		for i in range(3):
 			screen._refresh()
@@ -190,7 +190,7 @@ func run() -> void:
 	)
 
 	run_case("prose_has_no_firm_hints", func():
-		var text := JSON.stringify(GameData.EVENTS["gym"]).to_lower()
+		var text := JSON.stringify(GameData.EVENTS["prologue_gym"]).to_lower()
 		for banned in ["nick", "reginald", "firm"]:
 			assert_true(not text.contains(banned), "no '%s'" % banned)
 	)
