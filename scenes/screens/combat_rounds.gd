@@ -1097,7 +1097,7 @@ func _resolve(choose: Callable, pick: Dictionary) -> void:
 		_transcript_held = false
 		_refresh()
 		return
-	begin_strip_playback(before, round_no, result["beats"], sighted)
+	begin_strip_playback(before, round_no, result["beats"], sighted, result.get("roundStarts", []))
 	await _play_beats(result["beats"], result.get("savedBy", {}))
 
 
@@ -1146,13 +1146,17 @@ func _play_from(before: Dictionary, beats: Array) -> void:
 # the pick's round `round_no` stood), each damaged combatant's cards showing
 # its hp before its first hit and a ghost to drain from there. `sighted`
 # (sight_preview()) is what a sight beat in `beats` flips the `?` cards to.
-func begin_strip_playback(before: Array, round_no: int, beats: Array, sighted: Dictionary = {}) -> void:
+func begin_strip_playback(before: Array, round_no: int, beats: Array, sighted: Dictionary = {}, round_starts: Array = []) -> void:
 	var cp: Dictionary = _cp()
 	var first_id := "" if beats.is_empty() else "%d:%d:%d" % [beats[0]["round"], beats[0]["turnActor"], beats[0]["turnIndex"]]
 	var shown := carousel_entries(before, maxi(0, before.find_custom(func(e): return e["occurrenceId"] == first_id)))
 	_strip_playback = { "entries": before, "round": round_no, "after": strip_entries(cp), "front": shown[0]["occurrenceId"] if not shown.is_empty() else "", "sighted": sighted }
 	for entry in _strip_playback["after"]:
 		entry["focused"] = false
+	for start in round_starts:
+		var key := _round_list_key(int(start["round"]))
+		if int(start["round"]) != round_no and int(start["round"]) != int(cp["round"]):
+			_strip_playback[key] = strip_entries(start)
 	_strip.reset_scroll()
 	# The card about to play keeps the expansion the decision gave it.
 	for i in range(shown.size()):
@@ -1206,6 +1210,8 @@ func _advance_strip(beat: Dictionary, patch: bool = true) -> void:
 		return
 	var playing_id := "%d:%d:%d" % [beat["round"], beat["turnActor"], beat["turnIndex"]]
 	var list_key := "entries" if int(beat["round"]) == int(_strip_playback["round"]) else "after"
+	if _strip_playback.has(_round_list_key(int(beat["round"]))):
+		list_key = _round_list_key(int(beat["round"]))
 	var playing: int = _strip_playback[list_key].find_custom(func(e): return e["occurrenceId"] == playing_id)
 	if playing < 0:
 		list_key = "after" if list_key == "entries" else "entries"
@@ -1218,6 +1224,10 @@ func _advance_strip(beat: Dictionary, patch: bool = true) -> void:
 	if patch:
 		_patch_strip_entry(entries, playing, beat)
 	_roll_strip(list_key, playing, not patch)
+
+
+static func _round_list_key(round_no: int) -> String:
+	return "round%d" % round_no
 
 
 # After a pick's last beat: the carousel turns past every resolved

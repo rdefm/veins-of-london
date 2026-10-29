@@ -1107,7 +1107,9 @@ static func _play_round_pick(combat: Dictionary, action: Dictionary) -> Dictiona
 	if saved != "":
 		result = { "ok": true, "beats": result["beats"], "outcome": combat["outcome"], "saved": saved, "savedBy": saved_by }
 	else:
-		result["beats"].append_array(CombatRounds.continue_after_ko(combat))
+		var round_starts: Array = []
+		result["beats"].append_array(CombatRounds.continue_after_ko(combat, round_starts))
+		result["roundStarts"] = round_starts
 		result["outcome"] = combat["outcome"]
 		_settle_round_dials(combat)
 		_keep_round_frame(combat)

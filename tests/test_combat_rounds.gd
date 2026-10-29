@@ -2354,6 +2354,28 @@ func run() -> void:
 		assert_true(combat["allies"].all(func(a): return a["koed"]), "every friendly down before the loss")
 	)
 
+	run_case("a_player_ko_play_on_hands_back_cards_for_every_round_it_crosses", func():
+		GameState.reset()
+		GameState.state["player"]["hp"] = 1
+		var guards: Array = range(3).map(func(_i): return Combat.build_guard_ally())
+		var guarding: Array = guards.map(func(_g): return [["guard", "guard"]])
+		Combat._start_round_combat(Combat.CONTEXT_EVENT_MUGGING, null, [_slow_mugger(200)], [], "", guards, null,
+			{ "seed": 1, "fog": false, "enemyPlans": [_strikes_at_player()], "allyPlans": guarding })
+		var combat: Dictionary = GameState.state["combat"]
+		var result := Combat.choose_move("guard")
+		var rounds_played: Array = []
+		for b in result["beats"]:
+			if not rounds_played.has(int(b["round"])):
+				rounds_played.append(int(b["round"]))
+		assert_true(rounds_played.size() >= 2, "the play-on crosses a round")
+		var starts: Array = result["roundStarts"]
+		assert_eq(starts.size(), int(combat["round"]) - int(rounds_played[0]), "a copy per round crossed")
+		for start in starts:
+			var cards: Array = CombatRoundsScreen.strip_entries(start)
+			assert_true(cards.any(func(e): return not e["nextRound"] and e["actor"] != CombatRounds.PLAYER_INDEX), "round %d has cards" % int(start["round"]))
+			assert_true(not cards.any(func(e): return e["actor"] == CombatRounds.PLAYER_INDEX), "none are the player's")
+	)
+
 	run_case("a_player_ko_with_no_friendly_left_is_a_loss", func():
 		GameState.reset()
 		var combat := _start_lethal([null, null])

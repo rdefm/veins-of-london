@@ -1849,7 +1849,7 @@ static func _planned_guard(cp: Dictionary, actor: int, index: int, action: Dicti
 # the round after's are rolled, and resolution carries on into it. A player
 # KO the fight survives (friendlies still standing) stops resolution there
 # until continue_after_ko(), so a Failsafe can undo it first.
-static func _advance(cp: Dictionary, rng: RandomNumberGenerator, beats: Array) -> void:
+static func _advance(cp: Dictionary, rng: RandomNumberGenerator, beats: Array, round_starts: Array = []) -> void:
 	var combatants: Array = cp["combatants"]
 	var cursor: Dictionary = cp["cursor"]
 	while cp["outcome"] == null:
@@ -1863,6 +1863,8 @@ static func _advance(cp: Dictionary, rng: RandomNumberGenerator, beats: Array) -
 		if entry.is_empty() or _awaiting_enemy_reserves(cp):
 			_end_round(cp, rng, beats)
 			cursor = cp["cursor"]
+			if cp.get("playerKoed", false):
+				round_starts.append(_round_start_copy(cp))
 			continue
 		var actor: int = entry["actor"]
 		var combatant: Dictionary = combatants[actor]
@@ -2001,17 +2003,28 @@ static func _standing(cp: Dictionary, side: String) -> int:
 # KO, the fight plays on without them -- their actions gone from the
 # timeline, never paused for -- to its end. Returns the beats that resolved
 # ([] when the player isn't newly down or the KO already ended the fight).
-static func continue_after_ko(cp: Dictionary) -> Array:
+# `round_starts` collects a copy of the fight at the start of each round it
+# crosses, for a playback to build that round's cards from.
+static func continue_after_ko(cp: Dictionary, round_starts: Array = []) -> Array:
 	var beats: Array = []
 	if not cp["combatants"][PLAYER_INDEX]["koed"] or cp.get("playerKoed", false) or cp["outcome"] != null:
 		return beats
 	cp["playerKoed"] = true
 	var rng := RandomNumberGenerator.new()
 	rng.state = cp["rngState"]
-	_advance(cp, rng, beats)
+	_advance(cp, rng, beats, round_starts)
 	_record(cp, beats)
 	cp["rngState"] = rng.state
 	return beats
+
+
+static func _round_start_copy(cp: Dictionary) -> Dictionary:
+	var copy := {}
+	for key in cp.keys():
+		if key != "snapshots" and key != "roundFrames" and key != "log":
+			copy[key] = cp[key]
+	copy["log"] = []
+	return GameState.deep_copy(copy)
 
 
 # Applies the move's effect (fury_move()'s), then its effect on the actor's guard state;
