@@ -82,6 +82,18 @@ func _install_item_check_event(p: float, consume: bool) -> Dictionary:
 	return original_events
 
 
+# The check event with an Enhancement Powder `bonus` effect (+0.15, lasting
+# for later "physical" entry checks) on its check option.
+func _install_powder_event(p: float) -> Dictionary:
+	var original_events := _install_check_event(p)
+	var check: Dictionary = GameData.EVENTS["test_check_event"]["cards"][1]["choices"][0]["check"]
+	check["entry"] = "physical"
+	check["mods"] = [
+		{ "item": "enhancementPowder", "optional": true, "label": "Powder", "effect": { "kind": "bonus", "add": 0.15, "entry": "physical", "label": "Powder" } },
+	]
+	return original_events
+
+
 # The check event with a multi-attempt check: each success adds one Time
 # Pearl, result text keyed by success count for 0 and 2 (others fall back).
 func _install_attempts_check_event(p: float, attempts: int) -> Dictionary:
@@ -964,6 +976,52 @@ func run() -> void:
 		assert_eq(Events.active_toggles(0), ["prophetsBreath"], "Rewind keeps the preparation")
 		Events.choose(0)
 		assert_eq(Crafting.inventory_qty("prophetsBreath"), 0, "spent on commit")
+		GameData.EVENTS = original_events
+	)
+
+	run_case("powder_bonus_is_spent_on_a_failed_roll_and_not_when_merely_held", func():
+		GameState.reset()
+		Crafting.inventory_add("enhancementPowder", 1, 2)
+		var original_events := _install_powder_event(0.4)
+		Events.start_event("test_check_event")
+		Events.advance()
+		assert_almost_eq(Events.check_odds(0)["probability"], 0.4, 0.0001, "held but not toggled: no bonus")
+		Events.toggle_item(0, "enhancementPowder")
+		assert_almost_eq(Events.check_odds(0)["probability"], 0.55, 0.0001, "toggled: bonus in the breakdown")
+		assert_eq(Events.check_odds(0)["mods"][0]["label"], "Powder")
+		GameData.EVENTS["test_check_event"]["cards"][1]["choices"][0]["check"]["max"] = 0.0
+		Events.choose(0)
+		assert_eq(GameState.state["event"]["choiceResults"]["1"]["outcome"], "fail")
+		assert_eq(Crafting.inventory_qty("enhancementPowder"), 1, "spent though the roll failed")
+		GameData.EVENTS = original_events
+	)
+
+	run_case("powder_bonus_persists_to_later_entry_checks_in_the_event_only", func():
+		GameState.reset()
+		Crafting.inventory_add("enhancementPowder", 1, 1)
+		var original_events := _install_powder_event(0.4)
+		Events.start_event("test_check_event")
+		Events.advance()
+		Events.toggle_item(0, "enhancementPowder")
+		Events.choose(0)
+		var later := { "base": 0.3, "entry": "physical", "mods": [] }
+		assert_almost_eq(Events.odds_for(later)["probability"], 0.45, 0.0001, "bonus carries to a later physical entry")
+		assert_almost_eq(Events.odds_for({ "base": 0.3, "mods": [] })["probability"], 0.3, 0.0001, "untagged check unaffected")
+		Events.start_event("test_check_event")
+		assert_almost_eq(Events.odds_for(later)["probability"], 0.3, 0.0001, "gone in the next event")
+		GameData.EVENTS = original_events
+	)
+
+	run_case("powder_can_be_used_again_in_the_same_event_when_held", func():
+		GameState.reset()
+		Crafting.inventory_add("enhancementPowder", 1, 2)
+		var original_events := _install_powder_event(0.4)
+		Events.start_event("test_check_event")
+		Events.advance()
+		Events.toggle_item(0, "enhancementPowder")
+		Events.choose(0)
+		assert_eq(Crafting.inventory_qty("enhancementPowder"), 1)
+		assert_true(Events.item_toggles(0)[0]["held"], "second one still offered")
 		GameData.EVENTS = original_events
 	)
 

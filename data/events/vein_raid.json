@@ -97,8 +97,10 @@
           "requires": { "observed": { "id": "raid", "ore": "physics", "atLeast": 1 }, "display": "disable" },
           "check": {
             "base": 0.6,
+            "entry": "physical",
             "mods": [
-              { "observed": { "id": "raid", "ore": "physics", "atLeast": 2 }, "add": 0.15, "label": "A sharp read" }
+              { "observed": { "id": "raid", "ore": "physics", "atLeast": 2 }, "add": 0.15, "label": "A sharp read" },
+              { "item": "enhancementPowder", "optional": true, "label": "Enhancement Powder", "effect": { "kind": "bonus", "add": 0.15, "entry": "physical", "label": "Enhancement Powder" } }
             ]
           },
           "success": {

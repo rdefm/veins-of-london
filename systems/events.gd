@@ -401,7 +401,12 @@ static func choose(choice_index: int, pick_ore: String = "") -> void:
 		# A toggled consumable is spent only here, on committing its own option.
 		var spent: Array = []
 		for mod in choice["check"].get("mods", []):
-			if mod.get("optional", false) and mod.get("consume", false) and toggled.has(mod["item"]) and not spent.has(mod["item"]):
+			if not (mod.get("optional", false) and toggled.has(mod["item"])) or spent.has(mod["item"]):
+				continue
+			if mod.has("effect"):
+				spent.append(mod["item"])
+				apply_item_effect(mod["item"], mod["effect"], ITEM_SOURCE_INVENTORY)
+			elif mod.get("consume", false):
 				spent.append(mod["item"])
 				Crafting.inventory_remove(mod["item"], 1)
 
@@ -521,6 +526,9 @@ static func odds_for(check: Dictionary, toggled: Array = []) -> Dictionary:
 		if delta != 0.0:
 			probability += delta
 			applied.append({ "label": mod.get("label", ""), "delta": delta })
+	for lasting in _lasting_bonuses(check, toggled):
+		probability += float(lasting["delta"])
+		applied.append(lasting)
 	if check.get("raidFactors", false):
 		for factor in Observation.raid_mods():
 			probability += float(factor["delta"])
@@ -539,6 +547,11 @@ static func odds_for(check: Dictionary, toggled: Array = []) -> Dictionary:
 # A modifier's signed delta: a {path, perPoint} mod scales with the value;
 # every other mod adds its "add" when condition_met() holds right now.
 static func _mod_delta(mod: Dictionary, toggled: Array = []) -> float:
+	if mod.has("effect"):
+		var effect: Dictionary = mod["effect"]
+		if effect.get("kind") == "bonus" and toggled.has(mod.get("item", "")):
+			return float(effect.get("add", 0.0))
+		return 0.0
 	if mod.has("path") and mod.has("perPoint"):
 		var value: float = float(GameState.read_path(mod["path"], 0))
 		return float(mod["perPoint"]) * maxf(0.0, value - float(mod.get("above", 0)))
@@ -775,6 +788,52 @@ static func check_roll(choice_index: int, attempt_index: int = 0) -> float:
 	return roll
 
 
+# ── item effects (R§3.9a Item effects) ──
+
+const ITEM_SOURCE_INVENTORY := "inventory"
+
+
+# Pays for an item effect from `source`; true when paid. Only the inventory
+# source exists so far.
+static func _pay_item(item: String, source: String) -> bool:
+	if source == ITEM_SOURCE_INVENTORY:
+		return not Crafting.inventory_remove(item, 1).is_empty()
+	return false
+
+
+# The one resolver for a toggled item's `effect` on commit: pays from `source`,
+# then applies by kind. Items never fail; the payment is spent whatever the roll
+# does. `bonus` with an `entry` tag also persists in event.lasting for the rest
+# of the event (pure data, gone when the event ends).
+static func apply_item_effect(item: String, effect: Dictionary, source: String) -> void:
+	_pay_item(item, source)
+	match effect.get("kind", ""):
+		"bonus":
+			if effect.has("entry"):
+				var event_state: Dictionary = GameState.state["event"]
+				if not event_state.has("lasting"):
+					event_state["lasting"] = []
+				event_state["lasting"].append({
+					"item": item,
+					"entry": effect["entry"],
+					"add": float(effect.get("add", 0.0)),
+					"label": effect.get("label", ""),
+				})
+
+
+# Persisted bonuses that apply to `check` (its `entry` tag matches), skipping
+# an item that is toggled on this very check (already counted by its own mod).
+static func _lasting_bonuses(check: Dictionary, toggled: Array) -> Array:
+	var out: Array = []
+	var event_state: Variant = GameState.state.get("event")
+	if not (event_state is Dictionary) or not check.has("entry"):
+		return out
+	for entry in event_state.get("lasting", []):
+		if entry["entry"] == check["entry"] and not toggled.has(entry["item"]):
+			out.append({ "label": entry["label"], "delta": entry["add"] })
+	return out
+
+
 # ── optional item toggles (spec "Item toggle in state") ──
 
 # The optional item mods on the current card's option, for the screen:
@@ -789,7 +848,7 @@ static func item_toggles(choice_index: int) -> Array:
 		out.append({
 			"item": item,
 			"name": GameData.RECIPES.get(item, {}).get("name", item),
-			"delta": float(mod.get("add", 0.0)),
+			"delta": float(mod["effect"].get("add", 0.0)) if mod.has("effect") else float(mod.get("add", 0.0)),
 			"on": held and stored.has(item),
 			"held": held,
 		})
