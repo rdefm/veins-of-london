@@ -235,22 +235,11 @@
           }
         },
         {
-          "label": "Just go in",
-          "check": { "base": 0.15, "raidFactors": true, "mods": [] },
-          "success": {
-            "result_text": "You walk in like you belong. Tonight, nobody asks for a pass.",
-            "effects": [{ "op": "set_flag", "flag": "raidCaught", "value": false }],
-            "goto": 4
-          },
-          "fail": {
-            "result_text": "You walk in. Someone asks for a pass.",
-            "effects": [
-              { "op": "set_flag", "flag": "raidCaught", "value": true },
-              { "op": "notify", "text": "Something moves that shouldn't. You've been seen." },
-              { "op": "start_raid_combat", "guards": "vein", "template": "veinGuard", "situational": [{ "if": { "observed": { "id": "raid", "ore": "physics", "atLeast": 1 } }, "fleeBoost": 0.25 }, { "if": { "observed": { "id": "raid", "ore": "life", "atLeast": 1 } }, "oneAtATime": true }, { "if": { "observed": { "id": "raid", "ore": "time", "atLeast": 1 } }, "sight": 2 }, { "if": { "observed": { "id": "raid", "ore": "fate", "atLeast": 1 } }, "firstStrike": true }] }
-            ],
-            "goto": 4
-          }
+          "label": "Look further",
+          "reselectable": true,
+          "effects": [],
+          "result_text": null,
+          "goto": 5
         },
         {
           "label": "Go in loud",
@@ -275,6 +264,75 @@
           "label": "Loot and leave",
           "effects": [{ "op": "loot_raid_vein" }],
           "result_text": "You take what you can carry and leave the rest where it stands. Someone else's problem, still."
+        }
+      ]
+    }
+    ,{
+      "key": "c6", "type": "choice", "label": null, "speaker": null, "text": "Things you brought, if you brought them.",
+      "choices": [
+        {
+          "label": "Open a Wormhole",
+          "requires": { "all": [{ "observed": { "id": "raid", "ore": "physics", "atLeast": 2 } }, { "item": "wormhole", "optional": true }], "display": "disable" },
+          "check": {
+            "base": 0.85,
+            "mods": [
+              { "item": "wormhole", "optional": true, "label": "Wormhole", "effect": { "kind": "unlock" } }
+            ]
+          },
+          "success": {
+            "result_text": "The yard folds. You step through it and out into the guards' own corridor. Nobody looks up.",
+            "effects": [{ "op": "set_flag", "flag": "raidCaught", "value": false }],
+            "goto": 4
+          },
+          "fail": {
+            "result_text": "The fold lands short. Every guard is already turned your way.",
+            "effects": [
+              { "op": "set_flag", "flag": "raidCaught", "value": true },
+              { "op": "notify", "text": "Something moves that shouldn't. You've been seen." },
+              { "op": "start_raid_combat", "guards": "vein", "template": "veinGuard", "situational": [{ "if": { "observed": { "id": "raid", "ore": "physics", "atLeast": 1 } }, "fleeBoost": 0.25 }, { "if": { "observed": { "id": "raid", "ore": "life", "atLeast": 1 } }, "oneAtATime": true }, { "if": { "observed": { "id": "raid", "ore": "time", "atLeast": 1 } }, "sight": 2 }, { "if": { "observed": { "id": "raid", "ore": "fate", "atLeast": 1 } }, "firstStrike": true }, { "if": { "cash": { "atLeast": 0 } }, "enemyFirstStrike": true }] }
+            ],
+            "goto": 4
+          }
+        },
+        {
+          "label": "Pan's Rapture",
+          "requires": { "item": "pansRapture", "optional": true, "display": "disable" },
+          "check": {
+            "base": 0.85,
+            "mods": [
+              { "item": "pansRapture", "optional": true, "label": "Pan's Rapture", "effect": { "kind": "unlock" } }
+            ]
+          },
+          "success": {
+            "result_text": "The guards smile at nothing. You nod to each of them and walk in.",
+            "effects": [{ "op": "set_flag", "flag": "raidCaught", "value": false }],
+            "goto": 4
+          },
+          "fail": {
+            "result_text": "One guard shrugs it off and shouts. The others catch on.",
+            "effects": [
+              { "op": "set_flag", "flag": "raidCaught", "value": true },
+              { "op": "notify", "text": "Something moves that shouldn't. You've been seen." },
+              { "op": "start_raid_combat", "guards": "vein", "template": "veinGuard", "situational": [{ "if": { "observed": { "id": "raid", "ore": "physics", "atLeast": 1 } }, "fleeBoost": 0.25 }, { "if": { "observed": { "id": "raid", "ore": "life", "atLeast": 1 } }, "oneAtATime": true }, { "if": { "observed": { "id": "raid", "ore": "time", "atLeast": 1 } }, "sight": 2 }, { "if": { "observed": { "id": "raid", "ore": "fate", "atLeast": 1 } }, "firstStrike": true }, { "if": { "cash": { "atLeast": 0 } }, "enemyFirstStrike": true }] }
+            ],
+            "goto": 4
+          }
+        },
+        {
+          "label": "Back",
+          "reselectable": true,
+          "effects": [],
+          "result_text": null,
+          "goto": 3
+        },
+        {
+          "label": "Go in loud",
+          "effects": [
+            { "op": "set_flag", "flag": "raidCaught", "value": true },
+            { "op": "start_raid_combat", "guards": "vein", "template": "veinGuard", "situational": [{ "if": { "observed": { "id": "raid", "ore": "physics", "atLeast": 1 } }, "fleeBoost": 0.25 }, { "if": { "observed": { "id": "raid", "ore": "life", "atLeast": 1 } }, "oneAtATime": true }, { "if": { "observed": { "id": "raid", "ore": "time", "atLeast": 1 } }, "sight": 2 }, { "if": { "observed": { "id": "raid", "ore": "fate", "atLeast": 1 } }, "firstStrike": true }] }
+          ],
+          "result_text": "No point creeping. You hit the gate with your shoulder and go in hard.",
+          "goto": 4
         }
       ]
     }

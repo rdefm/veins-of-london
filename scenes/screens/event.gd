@@ -577,6 +577,8 @@ func _build_item_toggle(choice_index: int, toggle: Dictionary) -> Button:
 static func item_toggle_label(toggle: Dictionary) -> String:
 	if not toggle["held"]:
 		return GameData.EVENT_CHECKS["itemToggleNoneHeld"] % toggle["name"]
+	if is_zero_approx(toggle["delta"]):
+		return GameData.EVENT_CHECKS["itemTogglePlainFormat"] % toggle["name"]
 	return GameData.EVENT_CHECKS["itemToggleFormat"] % [toggle["name"], roundi(toggle["delta"] * 100.0)]
 
 # A multi-attempt check's resolution reads "N of M came off"; a single check
@@ -668,8 +670,8 @@ func _restore_context_modal() -> void:
 	if not locked and not odds.is_empty():
 		for line in check_context_lines(odds):
 			content.add_child(UI.label(line))
-		for toggle in Events.item_toggles(_context_choice):
-			content.add_child(_build_item_toggle(_context_choice, toggle))
+	for toggle in Events.item_toggles(_context_choice):
+		content.add_child(_build_item_toggle(_context_choice, toggle))
 	var close := UI.button("Close", _close_context_modal)
 	_style_action_button(close)
 	content.add_child(close)

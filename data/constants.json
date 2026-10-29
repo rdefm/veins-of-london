@@ -741,6 +741,7 @@
     "ladyBonusPerLevel": 0.05,
     "noModifiers": "Nothing tipping it either way.",
     "itemToggleFormat": "Use %s · %+d%%",
+    "itemTogglePlainFormat": "Use %s",
     "itemToggleNoneHeld": "%s · none on you",
     "outcomeMarkers": { "success": "✓ Came off", "fail": "✗ Didn't come off" },
     "attemptsFormat": "%d tries",

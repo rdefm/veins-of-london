@@ -50,6 +50,7 @@ const SITUATIONAL_MODS := {
 	"oneAtATime": { "line": "The tired ones hang back. They come at you one at a time." },
 	"firstStrike": { "line": "The door was already open. You get the first move." },
 	"sight": { "line": "You know their rounds. You see each swing coming." },
+	"enemyFirstStrike": { "line": "They were waiting. The guards get the first move." },
 }
 
 # R§2 combat.locationKey for the two home contexts -- home isn't a district.
@@ -784,6 +785,8 @@ static func _start_round_combat(context: String, vein_id, enemies: Array, log_li
 	combat.merge(live, true)
 	if mods.has("firstStrike"):
 		combat["enemyFirst"] = not bool(mods["firstStrike"])
+	if bool(mods.get("enemyFirstStrike", false)):
+		combat["enemyFirst"] = true
 	for mod_key in SITUATIONAL_MODS:
 		if mods.has(mod_key):
 			combat["transcript"].append(str(SITUATIONAL_MODS[mod_key]["line"]))

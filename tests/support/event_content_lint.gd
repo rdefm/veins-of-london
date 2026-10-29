@@ -262,6 +262,11 @@ static func _lint_goto(where: String, goto: Variant, i: int, cards: Array, requi
 
 # Mirrors Events.condition_met()'s vocabulary (R§3.9a "Mods"/"Requires").
 static func _lint_condition(where: String, c: Dictionary, refs: Dictionary) -> Array:
+	if c.has("all"):
+		var out: Array = []
+		for part in c["all"]:
+			out.append_array(_lint_condition(where, part, refs))
+		return out
 	if c.has("item"):
 		return [] if refs["items"].has(c["item"]) else ["%s: unknown item %s" % [where, c["item"]]]
 	if c.has("flag"):
@@ -322,7 +327,7 @@ static func _lint_situational_list(id: String, list: Variant, refs: Dictionary) 
 				out.append("%s: fleeBoost must be a chance in (0, 1]" % at)
 			elif key == "sight" and not (typeof(entry[key]) in [TYPE_INT, TYPE_FLOAT] and int(entry[key]) >= 1):
 				out.append("%s: sight must be rounds >= 1" % at)
-			elif key in ["oneAtATime", "firstStrike"] and not entry[key] is bool:
+			elif key in ["oneAtATime", "firstStrike", "enemyFirstStrike"] and not entry[key] is bool:
 				out.append("%s: %s must be a bool" % [at, key])
 		if mod_count == 0:
 			out.append("%s has no mod" % at)

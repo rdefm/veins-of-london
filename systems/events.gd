@@ -612,7 +612,8 @@ static func option_gate(choice_index: int) -> Dictionary:
 		return { "display": "hide", "reason": "", "asked": true }
 	var asked := _picked_here().has(choice_index)
 	var requires: Variant = choice.get("requires")
-	if not requires is Dictionary or condition_met(requires):
+	var toggled := active_toggles(choice_index)
+	if not requires is Dictionary or condition_met(requires, toggled):
 		return _pick_gate(choice, asked) if choice.has("pick") else { "display": "show", "reason": "", "asked": asked }
 	var display: String = requires.get("display", "hide")
 	return { "display": display if display == "disable" else "hide", "reason": String(requires.get("reason", "")), "asked": asked }
@@ -623,12 +624,13 @@ static func option_gate(choice_index: int) -> Dictionary:
 static func unmet_requirement_lines(choice_index: int) -> Array:
 	var choice: Dictionary = current_card()["choices"][choice_index]
 	var requires: Variant = choice.get("requires")
-	if not requires is Dictionary or condition_met(requires):
+	var toggled := active_toggles(choice_index)
+	if not requires is Dictionary or condition_met(requires, toggled):
 		return []
 	var out: Array = []
 	var parts: Array = requires["all"] if requires.has("all") else [requires]
 	for part in parts:
-		if not condition_met(part):
+		if not condition_met(part, toggled):
 			var line := _unmet_line(part)
 			if line != "":
 				out.append(line)
