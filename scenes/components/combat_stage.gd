@@ -126,6 +126,11 @@ static func lady_fx() -> Dictionary:
 	return item_fx().get("ladyFx", {})
 
 
+# data/combat_visuals.json itemFx.sightFx.
+static func sight_fx() -> Dictionary:
+	return item_fx().get("sightFx", {})
+
+
 # data/combat_visuals.json effects.<key>.
 static func effect_data(effect_key: String) -> Dictionary:
 	return GameData.COMBAT_VISUALS.get("effects", {}).get(effect_key, {})
@@ -1088,6 +1093,32 @@ class StageSlot extends Control:
 			rect.position = centre - bar / 2.0
 			add_child(rect)
 			get_tree().create_timer(secs).timeout.connect(rect.queue_free)
+
+	# Prophet's Breath land: a cyan outline sweeps down the slot, top to bottom.
+	func play_sight_outline() -> void:
+		var fx := CombatStage.sight_fx()
+		var secs := CombatStage.fx_seconds(float(fx.get("outlineSeconds", 0.0)))
+		if secs <= 0.0 or CombatStage.reduced_motion() or not is_inside_tree():
+			return
+		var reveal := Control.new()
+		reveal.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		reveal.clip_contents = true
+		reveal.z_index = 6
+		reveal.size = Vector2(size.x, 0.0)
+		var outline := Panel.new()
+		outline.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var style := StyleBoxFlat.new()
+		style.bg_color = Color(0.0, 0.0, 0.0, 0.0)
+		style.border_color = CombatStage.rgb(fx.get("outlineColour", []))
+		style.set_border_width_all(roundi(float(fx.get("outlineThicknessPx", 2.0))))
+		outline.add_theme_stylebox_override("panel", style)
+		outline.size = size
+		reveal.add_child(outline)
+		add_child(reveal)
+		var tween := reveal.create_tween()
+		tween.tween_property(reveal, "size:y", size.y, secs)
+		tween.tween_property(reveal, "modulate:a", 0.0, secs * 0.5)
+		tween.tween_callback(reveal.queue_free)
 	# Undoes play_wormhole_vanish() or play_run_off(), and any held or running pose.
 	func restore_from_vanish() -> void:
 		_end_one_shot()
@@ -2061,6 +2092,47 @@ func play_travel(from_slot: StageSlot, to_slot: StageSlot, effect_key: String) -
 		tween.tween_method(fly, 0.0, 1.0, secs)
 		tween.tween_callback(rect.queue_free)
 	return secs
+
+
+# Prophet's Breath launch: a wobbling 1px cyan ribbon drifts from `from_slot`
+# through each stop in `stops` in turn (an ally's gift stops at the player,
+# then the enemy band's centre). Returns the seconds until it lands (0 when
+# nothing plays).
+func play_sight_ribbon(from_slot: StageSlot, stops: Array[Vector2]) -> float:
+	var fx := sight_fx()
+	var leg: float = fx_seconds(float(fx.get("legSeconds", 0.0)))
+	if leg <= 0.0 or from_slot == null or stops.is_empty() or reduced_motion() or _slot_layer == null or not _slot_layer.is_inside_tree():
+		return 0.0
+	var path: Array[Vector2] = [from_slot.position + from_slot.size / 2.0]
+	path.append_array(stops)
+	var line := Line2D.new()
+	line.width = float(fx.get("ribbonThicknessPx", 1.0))
+	line.default_color = rgb(fx.get("ribbonColour", []))
+	line.z_index = 4
+	_slot_layer.add_child(line)
+	var legs := path.size() - 1
+	var tween := line.create_tween()
+	tween.tween_method(_draw_sight_ribbon.bind(line, path, fx), 0.0, float(legs), leg * legs)
+	tween.tween_callback(line.queue_free)
+	return leg * legs
+
+
+# One frame of the ribbon: its head `progress` legs along `path`, the tail a
+# ribbonTailFraction of a leg behind, each point offset by a sine wobble.
+func _draw_sight_ribbon(progress: float, line: Line2D, path: Array[Vector2], fx: Dictionary) -> void:
+	var count := maxi(2, int(fx.get("ribbonPoints", 12)))
+	var tail := maxf(0.0, progress - float(fx.get("ribbonTailFraction", 0.5)))
+	var wobble: float = float(fx.get("wobblePx", 0.0))
+	var cycles: float = float(fx.get("wobbleCycles", 1.0))
+	line.clear_points()
+	for i in range(count):
+		var along := lerpf(tail, progress, float(i) / float(count - 1))
+		var leg := mini(int(along), path.size() - 2)
+		var a: Vector2 = path[leg]
+		var b: Vector2 = path[leg + 1]
+		var dir := (b - a).normalized()
+		var point := a.lerp(b, along - float(leg))
+		line.add_point(point + Vector2(-dir.y, dir.x) * sin(along * TAU * cycles) * wobble)
 
 
 # A furious fighter's friendly-fire tell: a magenta line from `from_slot` to

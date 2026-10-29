@@ -214,6 +214,22 @@
       "trailGapSeconds": 0.06,
       "trailFadeSeconds": 0.22
     },
+    "sightFx": {
+      "_note": "Prophet's Breath (CombatStage.play_sight_ribbon / StageSlot.play_sight_outline, TurnOrderStrip flap flip). ribbon*: a 1px line of ribbonPoints drifting legSeconds per leg (actor to enemy band; an ally's gift goes ally to player first), wobbling wobblePx over wobbleCycles. outline*: the 2px sweep down a read enemy's slot over outlineSeconds. flip*: each ? card's flap takes flipSeconds, flipStaggerSeconds apart, starting flipLeadSeconds after the ribbon lands. Seconds halve under quick pacing; reduced motion drops the ribbon, outline and flap (cards change at once).",
+      "ribbonColour": [0.6, 0.92, 1.0],
+      "ribbonThicknessPx": 1.0,
+      "ribbonPoints": 14,
+      "ribbonTailFraction": 0.45,
+      "wobblePx": 4.0,
+      "wobbleCycles": 2.0,
+      "legSeconds": 0.3,
+      "outlineColour": [0.6, 0.92, 1.0],
+      "outlineThicknessPx": 2.0,
+      "outlineSeconds": 0.2,
+      "flipLeadSeconds": 0.0,
+      "flipSeconds": 0.16,
+      "flipStaggerSeconds": 0.04
+    },
     "removalFx": {
       "_note": "How a fighter loses actions (CombatStage / StageSlot). stun: head-bob on lost-action fighters (shaders/stun_bob.gdshader; bobSeconds loop, shearPx top sway). timePearlLeadSeconds: the landing ripple plays this long before the tape-stop. blackHole: bead (beadSizePx, beadColour rim) lifts liftSeconds to the enemy band's centre and hangs hangSeconds; the warp runs warpSeconds (backdrop pinchPct pull, enemies lean leanDegrees and stretch stretchPct, numbers fly numberFlySeconds from the centre), then a popSeconds outward ring and shake (shakeScale). Seconds halve under quick pacing; reduced motion drops pinch, lean and shake.",
       "stun": { "bobSeconds": 0.8, "shearPx": 3.0 },

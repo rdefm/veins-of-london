@@ -58,6 +58,9 @@ class NameplateCard extends Control:
 	var extra_action: bool = false  # the action an Enhancement Powder adds: green "+1" corner tab
 	var guard_badge: String = ""
 	var status_badge: String = ""
+	var flip: Dictionary = {}  # { from, delay, stagger, seconds }: a sight reveal's flap from "from"
+	var action_label: Label = null
+	var badge_label: Label = null
 	var is_pulsing: bool = false
 	var damage_tier: int = 0  # 0 clean, 1 cracked, 2 ruined -- §2.4's decal tiers
 
@@ -109,7 +112,9 @@ class NameplateCard extends Control:
 # identity) are deliberately separate fields -- plus optional "actionText"
 # (the card's action, String), "actionUnread" (bool, styles it as an unread intent),
 # "guardBadge" (String) and "statusBadge" (String, running statuses), shown
-# on every card; and "focused" (bool), which when present decides that
+# on every card; "flip" ({ from, delay, stagger, seconds }), flapping the
+# card's action and guard badge from `from` to their text, the flipped cards
+# staggered in row order; and "focused" (bool), which when present decides that
 # card's expansion in place of the selected key, playback included.
 
 
@@ -443,6 +448,68 @@ func _rebuild(available_width: float) -> void:
 		_row.add_child(card)
 
 	add_child(_row)
+	_start_flips()
+
+
+# Flaps every flip card's labels, one stagger apart in row order.
+func _start_flips() -> void:
+	var order := 0
+	for card: NameplateCard in _row.get_children():
+		if card.flip.is_empty():
+			continue
+		_flip_card(card, order)
+		order += 1
+
+
+# The card shows its `from` text, then after its lead and stagger the labels
+# fold edge-on, swap to the real text and unfold, like a departure-board flap.
+# Off-tree (nothing to tween) it just shows the real text.
+func _flip_card(card: NameplateCard, order: int) -> void:
+	var labels: Array[Label] = []
+	for label in [card.action_label, card.badge_label]:
+		if label != null:
+			labels.append(label)
+	var real: Array[String] = []
+	var real_look: Array[Dictionary] = []
+	for label in labels:
+		real.append(label.text)
+		real_look.append(_label_look(label))
+	if not is_inside_tree() or labels.is_empty():
+		return
+	var half: float = float(card.flip.get("seconds", 0.0)) * 0.5
+	var from: String = card.flip.get("from", "")
+	for label in labels:
+		label.text = from
+	if card.action_label != null:
+		_apply_look(card.action_label, { "size": UNREAD_FONT_SIZE, "colour": _palette_colour(SIGN_STATUS_ID) })
+	var tween := card.create_tween()
+	tween.tween_interval(float(card.flip.get("delay", 0.0)) + float(card.flip.get("stagger", 0.0)) * order)
+	tween.tween_callback(func() -> void:
+		for label in labels:
+			label.pivot_offset = label.size * 0.5
+	)
+	tween.tween_method(func(t: float) -> void:
+		for label in labels:
+			label.scale.y = t
+	, 1.0, 0.0, half)
+	tween.tween_callback(func() -> void:
+		for i in range(labels.size()):
+			labels[i].text = real[i]
+			_apply_look(labels[i], real_look[i])
+	)
+	tween.tween_method(func(t: float) -> void:
+		for label in labels:
+			label.scale.y = t
+	, 0.0, 1.0, half)
+
+
+func _label_look(label: Label) -> Dictionary:
+	return { "size": label.get_theme_font_size("font_size"), "colour": label.get_theme_color("font_color") }
+
+
+func _apply_look(label: Label, look: Dictionary) -> void:
+	label.add_theme_font_size_override("font_size", look["size"])
+	label.add_theme_color_override("font_color", look["colour"])
 
 
 func _build_card(entry: Dictionary, is_focused: bool, card_size: Vector2) -> NameplateCard:
@@ -469,6 +536,7 @@ func _build_card(entry: Dictionary, is_focused: bool, card_size: Vector2) -> Nam
 	card.extra_action = entry.get("extraAction", false)
 	card.guard_badge = entry.get("guardBadge", "")
 	card.status_badge = entry.get("statusBadge", "")
+	card.flip = entry.get("flip", {})
 
 	var frac: float = clampf(float(shown_hp) / float(maxi(1, entry["hpMax"])), 0.0, 1.0)
 	card.is_pulsing = frac < PULSE_HP_FRACTION
@@ -579,6 +647,7 @@ func _build_card_content(card: NameplateCard) -> void:
 		if card.action_frozen:
 			action.modulate.a = FROZEN_DIM_ALPHA
 		box.add_child(action)
+		card.action_label = action
 		if card.action_flicker and card.is_inside_tree():
 			var flicker := action.create_tween()
 			flicker.tween_property(action, "modulate:a", 1.0, 0.08)

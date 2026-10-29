@@ -59,6 +59,8 @@ var _frozen_roster: Dictionary = {}
 # the pick ("entries", patched as beats play), that round ("round"), and the
 # cards after it ("after") for beats past a round's end. {} otherwise.
 var _strip_playback: Dictionary = {}
+# Enemy combatant indices whose plans the sight beat now playing just read.
+var _sight_revealed: Array = []
 # The stage marks (CombatRounds.stage_marks()) the overlay holds while a
 # playback runs, as the fight stood before it; [] otherwise.
 var _held_marks: Array = []
@@ -174,11 +176,66 @@ func _deal_strip(cfg: Dictionary, time_scale: float) -> void:
 	var flick_path: String = cfg.get("dealSfx", "")
 	if not flick_path.is_empty() and ResourceLoader.exists(flick_path):
 		flick = load(flick_path)
+	var carry := _carry_in_sight()
+	if not carry.is_empty():
+		_configure_strip(_cp(), carry["hidden"])
 	_strip.prepare_deal()
 	_strip.get_parent().modulate.a = 1.0
 	_strip.deal_in(float(cfg["dealFly"]) * time_scale, float(cfg["dealStagger"]) * time_scale, Vector2(float(deck[0]), float(deck[1])), flick)
 	if _strip.is_dealing():
 		await _strip.deal_finished
+	if not carry.is_empty() and not _intro_skipped and is_instance_valid(_strip):
+		_configure_strip(_cp(), carry["revealed"])
+
+
+# A fight that opens under carried-in sight: the strip's entries with the
+# enemy plans still unread ("hidden", dealt in), and as sight reads them
+# ("revealed", flapping from the `?`); {} otherwise or under reduced motion.
+func _carry_in_sight() -> Dictionary:
+	var cp: Dictionary = _cp()
+	if CombatStage.reduced_motion() or int(cp["round"]) != 1 or not cp["log"].is_empty():
+		return {}
+	if int(cp["combatants"][CombatRounds.PLAYER_INDEX]["sightUntil"]) < CombatRounds.WHOLE_FIGHT:
+		return {}
+	var hidden := strip_entries(_without_sight(cp))
+	var unread: Dictionary = {}
+	for entry in hidden:
+		if entry.get("actionUnread", false):
+			unread[entry["occurrenceId"]] = true
+	if unread.is_empty():
+		return {}
+	var revealed := strip_entries(cp)
+	for entry in revealed:
+		if unread.has(entry["occurrenceId"]) and not entry.get("actionUnread", false):
+			entry["flip"] = _flip_spec(0.0)
+	return { "hidden": hidden, "revealed": revealed }
+
+
+# `cp` with the player's sight set to `until` (none by default); copies only
+# the path it changes.
+static func _with_sight(cp: Dictionary, until: int) -> Dictionary:
+	var changed := cp.duplicate(false)
+	var combatants: Array = cp["combatants"].duplicate(false)
+	var seer: Dictionary = combatants[CombatRounds.PLAYER_INDEX].duplicate(false)
+	seer["sightUntil"] = until
+	combatants[CombatRounds.PLAYER_INDEX] = seer
+	changed["combatants"] = combatants
+	return changed
+
+
+static func _without_sight(cp: Dictionary) -> Dictionary:
+	return _with_sight(cp, 0)
+
+
+# A TurnOrderStrip entry's "flip" starting `lead` seconds from now.
+static func _flip_spec(lead: float) -> Dictionary:
+	var fx := CombatStage.sight_fx()
+	return {
+		"from": UNREAD_TEXT,
+		"delay": lead + CombatStage.fx_seconds(float(fx.get("flipLeadSeconds", 0.0))),
+		"stagger": CombatStage.fx_seconds(float(fx.get("flipStaggerSeconds", 0.0))),
+		"seconds": CombatStage.fx_seconds(float(fx.get("flipSeconds", 0.0))),
+	}
 
 
 # Jumps whichever intro phase is running to its end; _play_intro resumes
@@ -347,10 +404,7 @@ func _sync_fight(cp: Dictionary) -> void:
 		_apply_marks(cp, _held_marks if not _held_marks.is_empty() else CombatRounds.stage_marks(cp))
 	_strip.visible = cp["outcome"] == null or _busy()
 	if _strip_playback.is_empty():
-		var all_entries := strip_entries(cp)
-		var entries := carousel_entries(all_entries, resolved_count(cp, all_entries))
-		var focus: int = entries.find_custom(func(e): return e["focused"])
-		_strip.configure(entries, maxi(0, focus), CombatStage.STAGE_WIDTH - _STRIP_SIDE_INSET * 2.0, _on_strip_selection_changed)
+		_configure_strip(cp, strip_entries(cp))
 
 	for child in _footer_holder.get_children():
 		child.queue_free()
@@ -375,6 +429,14 @@ func _sync_fight(cp: Dictionary) -> void:
 		_continue_button.disabled = _director.is_playing()
 	else:
 		_dock.configure(moves, items, _move_row(cp, _LEG_IT), dial, _busy(), _pick_cast)
+
+
+# Shows the carousel of `all_entries` (strip_entries() of `cp`) from the
+# first unresolved position.
+func _configure_strip(cp: Dictionary, all_entries: Array) -> void:
+	var entries := carousel_entries(all_entries, resolved_count(cp, all_entries))
+	var focus: int = entries.find_custom(func(e): return e["focused"])
+	_strip.configure(entries, maxi(0, focus), CombatStage.STAGE_WIDTH - _STRIP_SIDE_INSET * 2.0, _on_strip_selection_changed)
 
 
 # Every action the system knows of, in resolution order: one card per
@@ -1026,6 +1088,7 @@ func _resolve(choose: Callable, pick: Dictionary) -> void:
 	_hold_view(cp)
 	var round_no: int = cp["round"]
 	var before: Array = [] if CombatRounds.move(pick["move"]).is_empty() else strip_entries(cp, pick)
+	var sighted := sight_preview(cp)
 	var result: Dictionary = choose.call()
 	if not result["ok"]:
 		_refusal = str(result["reason"])
@@ -1034,7 +1097,7 @@ func _resolve(choose: Callable, pick: Dictionary) -> void:
 		_transcript_held = false
 		_refresh()
 		return
-	begin_strip_playback(before, round_no, result["beats"])
+	begin_strip_playback(before, round_no, result["beats"], sighted)
 	await _play_beats(result["beats"], result.get("savedBy", {}))
 
 
@@ -1074,19 +1137,20 @@ func _play_opening() -> void:
 func _play_from(before: Dictionary, beats: Array) -> void:
 	_hold_view(before)
 	_transcript.set_lines(before["transcript"])
-	begin_strip_playback(strip_entries(before), int(before["round"]), beats)
+	begin_strip_playback(strip_entries(before), int(before["round"]), beats, sight_preview(before))
 	_refresh()
 	await _play_beats(beats)
 
 
 # Arms the strip to step through `beats` from `before` (strip_entries() as
 # the pick's round `round_no` stood), each damaged combatant's cards showing
-# its hp before its first hit and a ghost to drain from there.
-func begin_strip_playback(before: Array, round_no: int, beats: Array) -> void:
+# its hp before its first hit and a ghost to drain from there. `sighted`
+# (sight_preview()) is what a sight beat in `beats` flips the `?` cards to.
+func begin_strip_playback(before: Array, round_no: int, beats: Array, sighted: Dictionary = {}) -> void:
 	var cp: Dictionary = _cp()
 	var first_id := "" if beats.is_empty() else "%d:%d:%d" % [beats[0]["round"], beats[0]["turnActor"], beats[0]["turnIndex"]]
 	var shown := carousel_entries(before, maxi(0, before.find_custom(func(e): return e["occurrenceId"] == first_id)))
-	_strip_playback = { "entries": before, "round": round_no, "after": strip_entries(cp), "front": shown[0]["occurrenceId"] if not shown.is_empty() else "" }
+	_strip_playback = { "entries": before, "round": round_no, "after": strip_entries(cp), "front": shown[0]["occurrenceId"] if not shown.is_empty() else "", "sighted": sighted }
 	for entry in _strip_playback["after"]:
 		entry["focused"] = false
 	_strip.reset_scroll()
@@ -1185,6 +1249,57 @@ func _roll_strip(list_key: String, front: int, backward: bool = false) -> void:
 	_strip.advance_to(shown, _director.beat_duration, anchor)
 
 
+# What each enemy card reads as under whole-fight sight, by occurrenceId
+# ({ actionText, guardBadge }); {} when the player already has sight.
+static func sight_preview(cp: Dictionary) -> Dictionary:
+	if CombatRounds.has_sight(cp):
+		return {}
+	var preview: Dictionary = {}
+	for entry in strip_entries(_with_sight(cp, CombatRounds.WHOLE_FIGHT)):
+		if entry["isEnemy"] and not entry.get("actionUnread", false):
+			preview[entry["occurrenceId"]] = { "actionText": entry["actionText"], "guardBadge": entry.get("guardBadge", "") }
+	return preview
+
+
+# Seconds a sight beat's ribbon drifts before it lands (0 under reduced motion).
+static func sight_ribbon_seconds(beat: Dictionary) -> float:
+	if CombatStage.reduced_motion():
+		return 0.0
+	var leg := CombatStage.fx_seconds(float(CombatStage.sight_fx().get("legSeconds", 0.0)))
+	return leg * (2.0 if beat["kind"] == "sightGiven" else 1.0)
+
+
+# A sight beat reads every `?` card the sight covers to its real intent, each
+# flagged to flap once the ribbon lands (an instant change under reduced
+# motion), and notes which enemies those cards belong to.
+func _reveal_sight(beat: Dictionary) -> void:
+	_sight_revealed = []
+	var preview: Dictionary = _strip_playback.get("sighted", {})
+	if preview.is_empty():
+		return
+	var until := int(_cp()["combatants"][CombatRounds.PLAYER_INDEX]["sightUntil"])
+	var round_no := int(_strip_playback["round"])
+	var flip := _flip_spec(sight_ribbon_seconds(beat))
+	for entry in _strip_playback["entries"]:
+		var seen: Dictionary = preview.get(entry["occurrenceId"], {})
+		if seen.is_empty() or not entry.get("actionUnread", false) or (entry["nextRound"] and round_no + 1 > until):
+			continue
+		entry["actionText"] = seen["actionText"]
+		entry["guardBadge"] = seen["guardBadge"]
+		entry["actionUnread"] = false
+		if not CombatStage.reduced_motion():
+			entry["flip"] = flip
+		if not _sight_revealed.has(entry["actor"]):
+			_sight_revealed.append(entry["actor"])
+
+
+# A flap plays once, as its card is built.
+func _clear_flips() -> void:
+	for list_key in ["entries", "after"]:
+		for entry in _strip_playback.get(list_key, []):
+			entry.erase("flip")
+
+
 func _patch_strip_entry(entries: Array, playing: int, beat: Dictionary) -> void:
 	var entry: Dictionary = entries[playing]
 	for other in entries:
@@ -1221,7 +1336,10 @@ func _on_beat_played(beat: Dictionary) -> void:
 	_transcript.append_line(beat["text"])
 	if beat.has("coachNote"):
 		_transcript.append_line(beat["coachNote"])
+	if beat["kind"] == "sight" or beat["kind"] == "sightGiven":
+		_reveal_sight(beat)
 	_advance_strip(beat)
+	_clear_flips()
 	var cp: Dictionary = _cp()
 	if beat.has("marks"):
 		var wait := _marks_wait(beat)
@@ -1265,7 +1383,8 @@ func _on_rewind_beat_played(beat: Dictionary) -> void:
 # The stage calls a beat plays, in order, each { call, who (combatant
 # index), ... }: "attack", "afterimage", "throw", "cast", "vanish" (fold out), "runOff" or
 # "recoil" (a pose on who); "powderLaunch" / "ladySweep" (the self-buff launch on who);
-# "ladyGlint" (who's hit by a Lady Strike, "crit"); "effect" (who's data/combat_visuals.json effect
+# "ladyGlint" (who's hit by a Lady Strike, "crit"); "sightRibbon" (from who, "gift" via the
+# player; holds back the cues after it) and "sightLand" (the read enemies' outline sweep); "effect" (who's data/combat_visuals.json effect
 # sheet "effect"); "damage" (who's hit, with "dmg" and a juice "scale");
 # "shieldAssemble" (who's Shield panels build to "level"); "shieldCrack";
 # "blackHole" (who's bead lifts to the middle of "affected"; holds back the cues after it); "healBurst" (motes + rim pulse on who), "healNumber" (green "+amount"), "healFizzle" (grey scatter); "cower" / "enraptured" (Panic's squash, Rapture's held lean on who); "raptureBloom" (soft bloom on who); "angerLand" (Panger's double red flash on who); "furyLine" (magenta line from who to "to" before a friendly-fire swing); "ko"; or "overlay" (nothing past the beat's marks). [] for
@@ -1350,6 +1469,9 @@ static func beat_cues(beat: Dictionary) -> Array:
 				cues.append({ "call": "powderLaunch", "who": actor })
 			elif kind == "lady":
 				cues.append({ "call": "ladySweep", "who": actor })
+			elif kind == "sight" or kind == "sightGiven":
+				cues.append({ "call": "sightRibbon", "who": actor, "gift": kind == "sightGiven" })
+				cues.append({ "call": "sightLand", "who": actor })
 	if CombatDirector.beat_is_damaging(beat):
 		var scale: float = _CRIT_SCALE if beat.get("crit", false) else (_CHIP_SCALE if kind == "chip" else 1.0)
 		var shake: float = maxf(scale, float(CombatStage.effect_data(_ITEM_EFFECTS.get(kind, "")).get("shakeScale", 0.0)))
@@ -1407,6 +1529,12 @@ func _play_cues(cp: Dictionary, cues: Array, rewinding: bool) -> void:
 		elif cue["call"] == "blackHole":
 			if not rewinding:
 				delay = _play_black_hole(cp, cue)
+		elif cue["call"] == "sightRibbon":
+			if not rewinding:
+				delay = _play_sight_ribbon(cp, cue)
+		elif cue["call"] == "sightLand":
+			if not rewinding:
+				_play_sight_land(cp, delay)
 		elif delay > 0.0:
 			_play_cue_later(cp, cue, delay)
 		else:
@@ -1418,6 +1546,46 @@ func _play_travel(cp: Dictionary, cue: Dictionary) -> float:
 	var from_slot := _stage.resolve_target_slot(_stage_target(roster, int(cue["who"])))
 	var to_slot := _stage.resolve_target_slot(_stage_target(roster, int(cue["to"])))
 	return _stage.play_travel(from_slot, to_slot, cue["effect"])
+
+
+# The ribbon from the breather (via the player for an ally's gift) to the
+# enemy band's centre; returns its flight time.
+func _play_sight_ribbon(cp: Dictionary, cue: Dictionary) -> float:
+	var roster := stage_roster(cp, -1)
+	var from_slot := _stage.resolve_target_slot(_stage_target(roster, int(cue["who"])))
+	var stops: Array[Vector2] = []
+	if cue["gift"]:
+		var player := _stage.resolve_target_slot(_stage_target(roster, CombatRounds.PLAYER_INDEX))
+		if player != null:
+			stops.append(player.position + player.size / 2.0)
+	var centre := Vector2.ZERO
+	var count := 0
+	for i in range(cp["combatants"].size()):
+		if cp["combatants"][i]["side"] != CombatRounds.SIDE_ENEMY:
+			continue
+		var slot := _stage.resolve_target_slot(_stage_target(roster, i))
+		if slot != null:
+			centre += slot.position + slot.size / 2.0
+			count += 1
+	if count == 0:
+		return 0.0
+	stops.append(centre / float(count))
+	return _stage.play_sight_ribbon(from_slot, stops)
+
+
+# The outline sweep on each enemy the beat's sight just read, `delay` after
+# the beat starts.
+func _play_sight_land(cp: Dictionary, delay: float) -> void:
+	var revealed := _sight_revealed.duplicate()
+	if delay > 0.0 and is_inside_tree():
+		await get_tree().create_timer(delay).timeout
+	if not is_inside_tree():
+		return
+	var roster := stage_roster(cp, -1)
+	for who in revealed:
+		var slot := _stage.resolve_target_slot(_stage_target(roster, int(who)))
+		if slot != null:
+			slot.play_sight_outline()
 
 
 func _play_black_hole(cp: Dictionary, cue: Dictionary) -> float:

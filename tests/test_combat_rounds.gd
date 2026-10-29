@@ -2679,6 +2679,27 @@ func run() -> void:
 		assert_true(not CombatRounds.stage_marks(combat)[0]["powdered"], "KO clears it")
 	)
 
+	run_case("beat_cues_sight_ribbons_then_lands_and_a_gift_goes_via_the_player", func():
+		var own: Array = CombatRoundsScreen.beat_cues({ "kind": "sight", "actor": 0, "target": -1 })
+		assert_eq(own.map(func(c): return c["call"]), ["cast", "sightRibbon", "sightLand"], "cast, ribbon, outline")
+		assert_true(not own[1]["gift"], "own breath goes straight out")
+		var gift: Array = CombatRoundsScreen.beat_cues({ "kind": "sightGiven", "actor": 1, "target": -1 })
+		assert_true(gift[1]["gift"] and int(gift[1]["who"]) == 1, "an ally's ribbon runs ally to player first")
+		assert_eq(CombatRoundsScreen.sight_ribbon_seconds({ "kind": "sightGiven" }), CombatRoundsScreen.sight_ribbon_seconds({ "kind": "sight" }) * 2.0, "two legs for a gift")
+	)
+
+	run_case("sight_preview_reads_unread_enemy_cards_and_is_empty_under_sight", func():
+		GameState.reset()
+		var combat := _start_vs([_slow_mugger()], [[["strike", "strike"]]], [], 1, [[[true, true]]])
+		var unread := CombatRoundsScreen.strip_entries(combat).filter(func(e): return e["isEnemy"] and e["actionUnread"])
+		assert_true(not unread.is_empty(), "fog hides the plan")
+		var preview := CombatRoundsScreen.sight_preview(combat)
+		for entry in unread:
+			assert_true(preview.has(entry["occurrenceId"]) and preview[entry["occurrenceId"]]["actionText"] != "?", "every hidden card has a real intent")
+		combat["combatants"][0]["sightUntil"] = int(combat["round"])
+		assert_true(CombatRoundsScreen.sight_preview(combat).is_empty(), "nothing to read once sighted")
+	)
+
 	run_case("beat_cues_panic_and_rapture_throw_travel_land_and_their_turn_beats_play_poses", func():
 		var panic: Array = CombatRoundsScreen.beat_cues({ "kind": "panic", "actor": 0, "target": 1 })
 		assert_eq(panic.map(func(c): return c["call"]), ["throw", "travel", "effect", "recoil"], "panic: vial, flinch without a flash")

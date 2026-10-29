@@ -45,6 +45,23 @@ func run() -> void:
 		strip.free()
 	)
 
+	run_case("a_flip_entry_off_tree_shows_its_real_text_at_once", func():
+		GameState.reset()
+		var entries: Array = [
+			{ "key": { "type": "enemy", "index": 0 }, "occurrenceId": "1:0", "name": "Proto Guard", "level": null,
+				"hp": 9, "hpMax": 30, "factionName": "", "factionColour": TurnOrderStrip.NEUTRAL_COLOUR, "isEnemy": true,
+				"actionText": "Lunge → You", "guardBadge": "Guard",
+				"flip": { "from": "?", "delay": 0.3, "stagger": 0.04, "seconds": 0.16 } },
+		]
+		var strip := TurnOrderStrip.new()
+		strip.configure(entries, 0, 300.0, Callable())
+		var guard := _card_named(strip, "Proto Guard")
+		assert_eq(guard.flip["from"], "?", "the card keeps its flip spec")
+		assert_eq(guard.action_label.text, "Lunge → You", "no tree, no flap: the real intent shows")
+		assert_eq(guard.badge_label.text, "Guard", "and the real badge")
+		strip.free()
+	)
+
 	run_case("street_sign_colours_are_palette_backed_and_faction_colour_is_content_only", func():
 		GameState.reset()
 		for id in [
