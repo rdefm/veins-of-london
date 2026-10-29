@@ -447,6 +447,73 @@ func run() -> void:
 		assert_eq(Crafting.inventory_qty("pansRapture"), 0, "stays spent")
 	)
 
+	run_case("raid_event_panic_removes_a_guard_and_leaves_the_rest_afraid", func():
+		GameState.reset()
+		var vein := _faction_vein_of_growth(10, "time", "guarded", "firm")
+		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", vein)]
+		Events.start_event(Raiding.RAID_EVENT_ID, { "site_id": "s1" })
+		Crafting.inventory_add("panic", 1, 1)
+		Events.advance()
+		Events.choose(_option_index("Weigh the quiet ways in"))
+		Events.choose(_option_index("Look further"))
+		Events.choose(_option_index("Look further"))
+		var panic := _option_index("Panic")
+		Events.toggle_item(panic, "panic")
+		var restore := _force_raid_checks(1.0)
+		Events.choose(panic)
+		restore.call()
+		assert_eq(Crafting.inventory_qty("panic"), 0, "spent")
+		var guards := Cultivating.vein_guard_count(vein)
+		var combat: Dictionary = GameState.state["combat"]
+		if guards <= 1:
+			assert_true(not combat["active"], "every guard fled: no fight")
+			return
+		var foes: Array = combat["combatants"].filter(func(c): return c["side"] == CombatRounds.SIDE_ENEMY)
+		assert_true(foes.size() >= 1)
+		assert_eq(foes[0]["panicActions"], 2)
+		assert_eq(combat["enemies"].size() + combat["enemyQueue"].size(), guards - 1, "one guard fled")
+	)
+
+	run_case("raid_event_pandemonium_turns_guards_on_each_other_and_hurts_them", func():
+		GameState.reset()
+		var vein := _faction_vein_of_growth(10, "time", "guarded", "firm")
+		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", vein)]
+		Events.start_event(Raiding.RAID_EVENT_ID, { "site_id": "s1" })
+		Crafting.inventory_add("pandemonium", 1, 1)
+		Events.advance()
+		Events.choose(_option_index("Weigh the quiet ways in"))
+		Events.choose(_option_index("Look further"))
+		Events.choose(_option_index("Look further"))
+		var pande := _option_index("Pandemonium")
+		Events.toggle_item(pande, "pandemonium")
+		var restore := _force_raid_checks(1.0)
+		Events.choose(pande)
+		restore.call()
+		var combat: Dictionary = GameState.state["combat"]
+		assert_true(combat["active"])
+		var foe: Dictionary = combat["combatants"].filter(func(c): return c["side"] == CombatRounds.SIDE_ENEMY)[0]
+		assert_true(foe["angerActions"] > 0 and foe["fury"], "anger/fury badge set")
+		assert_true(foe["hp"] < foe["hpMax"] and foe["hp"] >= 1, "starts hurt, never dead")
+	)
+
+	run_case("fight_start_mods_floor_hp_and_absent_payload_changes_nothing", func():
+		var enemy := { "hp": 2, "hpMax": 2, "panicActions": 0, "raptureActions": 0, "angerActions": 0, "angerPct": 0, "fury": false }
+		Combat._apply_fight_start(enemy, {})
+		assert_eq([enemy["hp"], enemy["panicActions"], enemy["angerActions"]], [2, 0, 0])
+		Combat._apply_fight_start(enemy, { "enemyStartsHurt": 0.99, "enemyRapture": 3 })
+		assert_eq([enemy["hp"], enemy["raptureActions"]], [1, 3], "hp floors at 1")
+	)
+
+	run_case("reduce_raid_guards_to_zero_skips_the_fight", func():
+		GameState.reset()
+		var vein := _faction_vein_of_growth(10, "time", "guarded", "firm")
+		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", vein)]
+		Events.start_event(Raiding.RAID_EVENT_ID, { "site_id": "s1" })
+		Events._reduce_raid_guards({ "count": 99 })
+		Events._start_raid_combat({ "guards": "vein", "template": "veinGuard" })
+		assert_true(not GameState.state["combat"]["active"])
+	)
+
 	run_case("raid_event_go_in_loud_is_always_available_and_fights_with_no_mods_unread", func():
 		GameState.reset()
 		var vein := _faction_vein_of_growth(10, "time", "guarded", "firm")

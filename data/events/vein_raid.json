@@ -319,20 +319,85 @@
           }
         },
         {
+          "label": "Something to throw",
+          "reselectable": true,
+          "effects": [],
+          "result_text": null,
+          "goto": 6
+        },
+        {
           "label": "Back",
           "reselectable": true,
           "effects": [],
           "result_text": null,
           "goto": 3
+        }
+      ]
+    }
+    ,{
+      "key": "c7", "type": "choice", "label": null, "speaker": null, "text": "Things that make a yard lose its head.",
+      "choices": [
+        {
+          "label": "Panic",
+          "requires": { "item": "panic", "optional": true, "display": "disable" },
+          "check": {
+            "base": 0.85,
+            "mods": [
+              { "item": "panic", "optional": true, "label": "Panic", "effect": { "kind": "unlock" } }
+            ]
+          },
+          "success": {
+            "result_text": "One guard drops his radio and runs. The rest stand about as steady as wet paper.",
+            "effects": [
+              { "op": "set_flag", "flag": "raidCaught", "value": true },
+              { "op": "reduce_raid_guards", "count": 1 },
+              { "op": "start_raid_combat", "guards": "vein", "template": "veinGuard", "situational": [{ "if": { "observed": { "id": "raid", "ore": "physics", "atLeast": 1 } }, "fleeBoost": 0.25 }, { "if": { "observed": { "id": "raid", "ore": "life", "atLeast": 1 } }, "oneAtATime": true }, { "if": { "observed": { "id": "raid", "ore": "time", "atLeast": 1 } }, "sight": 2 }, { "if": { "observed": { "id": "raid", "ore": "fate", "atLeast": 1 } }, "firstStrike": true }, { "if": { "cash": { "atLeast": 0 } }, "enemyPanic": 2 }] }
+            ],
+            "goto": 4
+          },
+          "fail": {
+            "result_text": "The panic goes off in your hand, a second late. They turn on you together.",
+            "effects": [
+              { "op": "set_flag", "flag": "raidCaught", "value": true },
+              { "op": "notify", "text": "Something moves that shouldn't. You've been seen." },
+              { "op": "start_raid_combat", "guards": "vein", "template": "veinGuard", "situational": [{ "if": { "observed": { "id": "raid", "ore": "physics", "atLeast": 1 } }, "fleeBoost": 0.25 }, { "if": { "observed": { "id": "raid", "ore": "life", "atLeast": 1 } }, "oneAtATime": true }, { "if": { "observed": { "id": "raid", "ore": "time", "atLeast": 1 } }, "sight": 2 }, { "if": { "observed": { "id": "raid", "ore": "fate", "atLeast": 1 } }, "firstStrike": true }, { "if": { "cash": { "atLeast": 0 } }, "enemyFirstStrike": true }] }
+            ],
+            "goto": 4
+          }
         },
         {
-          "label": "Go in loud",
-          "effects": [
-            { "op": "set_flag", "flag": "raidCaught", "value": true },
-            { "op": "start_raid_combat", "guards": "vein", "template": "veinGuard", "situational": [{ "if": { "observed": { "id": "raid", "ore": "physics", "atLeast": 1 } }, "fleeBoost": 0.25 }, { "if": { "observed": { "id": "raid", "ore": "life", "atLeast": 1 } }, "oneAtATime": true }, { "if": { "observed": { "id": "raid", "ore": "time", "atLeast": 1 } }, "sight": 2 }, { "if": { "observed": { "id": "raid", "ore": "fate", "atLeast": 1 } }, "firstStrike": true }] }
-          ],
-          "result_text": "No point creeping. You hit the gate with your shoulder and go in hard.",
-          "goto": 4
+          "label": "Pandemonium",
+          "requires": { "item": "pandemonium", "optional": true, "display": "disable" },
+          "check": {
+            "base": 0.85,
+            "mods": [
+              { "item": "pandemonium", "optional": true, "label": "Pandemonium", "effect": { "kind": "unlock" } }
+            ]
+          },
+          "success": {
+            "result_text": "A word in the wrong ear. By the time you're through the gate they are already shoving each other.",
+            "effects": [
+              { "op": "set_flag", "flag": "raidCaught", "value": true },
+              { "op": "start_raid_combat", "guards": "vein", "template": "veinGuard", "situational": [{ "if": { "observed": { "id": "raid", "ore": "physics", "atLeast": 1 } }, "fleeBoost": 0.25 }, { "if": { "observed": { "id": "raid", "ore": "life", "atLeast": 1 } }, "oneAtATime": true }, { "if": { "observed": { "id": "raid", "ore": "time", "atLeast": 1 } }, "sight": 2 }, { "if": { "observed": { "id": "raid", "ore": "fate", "atLeast": 1 } }, "firstStrike": true }, { "if": { "cash": { "atLeast": 0 } }, "enemyAnger": { "tier": 1, "fury": true }, "enemyStartsHurt": 0.25 }] }
+            ],
+            "goto": 4
+          },
+          "fail": {
+            "result_text": "The word lands on the wrong ear. Nobody turns on anybody. They turn on you.",
+            "effects": [
+              { "op": "set_flag", "flag": "raidCaught", "value": true },
+              { "op": "notify", "text": "Something moves that shouldn't. You've been seen." },
+              { "op": "start_raid_combat", "guards": "vein", "template": "veinGuard", "situational": [{ "if": { "observed": { "id": "raid", "ore": "physics", "atLeast": 1 } }, "fleeBoost": 0.25 }, { "if": { "observed": { "id": "raid", "ore": "life", "atLeast": 1 } }, "oneAtATime": true }, { "if": { "observed": { "id": "raid", "ore": "time", "atLeast": 1 } }, "sight": 2 }, { "if": { "observed": { "id": "raid", "ore": "fate", "atLeast": 1 } }, "firstStrike": true }, { "if": { "cash": { "atLeast": 0 } }, "enemyFirstStrike": true }] }
+            ],
+            "goto": 4
+          }
+        },
+        {
+          "label": "Back",
+          "reselectable": true,
+          "effects": [],
+          "result_text": null,
+          "goto": 5
         }
       ]
     }

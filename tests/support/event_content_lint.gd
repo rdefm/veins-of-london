@@ -327,6 +327,12 @@ static func _lint_situational_list(id: String, list: Variant, refs: Dictionary) 
 				out.append("%s: fleeBoost must be a chance in (0, 1]" % at)
 			elif key == "sight" and not (typeof(entry[key]) in [TYPE_INT, TYPE_FLOAT] and int(entry[key]) >= 1):
 				out.append("%s: sight must be rounds >= 1" % at)
+			elif key in ["enemyPanic", "enemyRapture"] and not (typeof(entry[key]) in [TYPE_INT, TYPE_FLOAT] and int(entry[key]) >= 1):
+				out.append("%s: %s must be actions >= 1" % [at, key])
+			elif key == "enemyAnger" and not (entry[key] is Dictionary and int(entry[key].get("tier", 1)) >= 1):
+				out.append("%s: enemyAnger must be { tier >= 1, fury? }" % at)
+			elif key == "enemyStartsHurt" and not (typeof(entry[key]) in [TYPE_INT, TYPE_FLOAT] and float(entry[key]) > 0.0 and float(entry[key]) < 1.0):
+				out.append("%s: enemyStartsHurt must be a fraction in (0, 1)" % at)
 			elif key in ["oneAtATime", "firstStrike", "enemyFirstStrike"] and not entry[key] is bool:
 				out.append("%s: %s must be a bool" % [at, key])
 		if mod_count == 0:

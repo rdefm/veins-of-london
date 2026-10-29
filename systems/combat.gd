@@ -51,6 +51,10 @@ const SITUATIONAL_MODS := {
 	"firstStrike": { "line": "The door was already open. You get the first move." },
 	"sight": { "line": "You know their rounds. You see each swing coming." },
 	"enemyFirstStrike": { "line": "They were waiting. The guards get the first move." },
+	"enemyPanic": { "line": "The guards are already rattled. They don't know where to look." },
+	"enemyRapture": { "line": "The guards are smiling at nothing. Nobody's quite here." },
+	"enemyAnger": { "line": "The guards are at each other's throats before you're through the door." },
+	"enemyStartsHurt": { "line": "Somebody's already bleeding. It wasn't you." },
 }
 
 # R§2 combat.locationKey for the two home contexts -- home isn't a district.
@@ -833,6 +837,7 @@ static func _start_round_combat(context: String, vein_id, enemies: Array, log_li
 		foes[i]["rid"] = i
 		var enemy := _round_enemy_combatant(foes[i])
 		enemy["rid"] = i
+		_apply_fight_start(enemy, mods)
 		if names.count(names[i]) > 1:
 			enemy["name"] = "%s %s" % [names[i], char(65 + names.slice(0, i).count(names[i]))]
 		enemy["planOverride"] = plans[i] if i < plans.size() else null
@@ -844,6 +849,25 @@ static func _start_round_combat(context: String, vein_id, enemies: Array, log_li
 	_sync_round_outcome(combat)
 	TimingLog.begin(TimingLog.KIND_FIGHT, context)
 	_enter_combat_screen()
+
+
+# The fight-start situational mods (R§3.7b Situational mods) on one enemy:
+# Panic / Pan's Rapture actions, anger (`enemyAnger` { tier, fury }) and an
+# `enemyStartsHurt` fraction of its max HP lost, never below 1 HP.
+static func _apply_fight_start(enemy: Dictionary, mods: Dictionary) -> void:
+	if mods.has("enemyPanic"):
+		enemy["panicActions"] = int(mods["enemyPanic"])
+	if mods.has("enemyRapture"):
+		enemy["raptureActions"] = int(mods["enemyRapture"])
+	if mods.has("enemyAnger"):
+		var anger: Dictionary = GameData.COMBAT_ROUNDS["anger"]
+		var spec: Dictionary = mods["enemyAnger"]
+		enemy["angerActions"] = 2 * int(anger["phaseActions"])
+		enemy["angerPct"] = int(anger["pctPerTier"]) * int(spec.get("tier", 1))
+		enemy["fury"] = bool(spec.get("fury", false))
+	if mods.has("enemyStartsHurt"):
+		var lost := int(floor(float(enemy["hpMax"]) * float(mods["enemyStartsHurt"])))
+		enemy["hp"] = maxi(1, int(enemy["hp"]) - lost)
 
 
 # An active fighter joins the combatants; a queued one waits in its queue
