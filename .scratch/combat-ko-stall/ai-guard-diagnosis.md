@@ -31,3 +31,7 @@ Passive (always-Guard) player: 2 muggers + Archie L3 stalls up to the 61-round c
 - **C. Raise `allyChipStrikeChance`.** Data-only (0.30 -> ~0.6); REFERENCE.md line ~857 and data/combat_rounds.json line 9. Cuts 1-2 enemy guard share ~6-15 pts, does nothing for 3+ enemies / post-KO.
 
 Recommendation: A (optionally with C). Human picks before ticket 04.
+
+## Decision
+
+Human picked **Option A** (Strike an Open enemy before the threat-guard check, HP-gated).
