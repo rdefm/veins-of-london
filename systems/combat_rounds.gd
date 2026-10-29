@@ -108,6 +108,9 @@ const MAX_ALLIES := 2
 # Active fighters per side, the player counting on theirs (R§3.7a
 # Reinforcements).
 const SQUAD_SIZE := MAX_ALLIES + 1
+# Timeline steps (an action or a round end) _advance() resolves in one go
+# before it calls the fight a loss.
+const MAX_ADVANCE_STEPS := 5000
 const QUEUE_KEYS := { SIDE_ALLY: "allyQueue", SIDE_ENEMY: "enemyQueue" }
 # The live roster an entrant's queue entry joins, where the fight keeps one.
 const ROSTER_KEYS := { SIDE_ALLY: "allies", SIDE_ENEMY: "enemies" }
@@ -1852,8 +1855,13 @@ static func _planned_guard(cp: Dictionary, actor: int, index: int, action: Dicti
 static func _advance(cp: Dictionary, rng: RandomNumberGenerator, beats: Array, round_starts: Array = []) -> void:
 	var combatants: Array = cp["combatants"]
 	var cursor: Dictionary = cp["cursor"]
+	var steps := 0
 	while cp["outcome"] == null:
 		if combatants[PLAYER_INDEX]["koed"] and not cp.get("playerKoed", false):
+			break
+		steps += 1
+		if steps > MAX_ADVANCE_STEPS:
+			cp["outcome"] = "loss"
 			break
 		# A demo fight resolves a round at a time (_demo_fill()).
 		if is_demo(cp) and int(cp["round"]) > int(cp["demo"]["upTo"]):

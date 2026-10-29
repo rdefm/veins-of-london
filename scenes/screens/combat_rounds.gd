@@ -380,6 +380,16 @@ func _busy() -> bool:
 	return _intro_playing or _director.is_playing() or not _frozen_roster.is_empty()
 
 
+# Skip shows while a fight the KO'd player's allies play on is being played
+# back (the fight itself is already resolved, CombatRounds.continue_after_ko()).
+static func skip_available(cp: Dictionary, playing: bool) -> bool:
+	return playing and cp.get("playerKoed", false)
+
+
+func _on_skip_pressed() -> void:
+	_director.skip_to_end()
+
+
 func _sync_fight(cp: Dictionary) -> void:
 	if not _is_target_valid(cp, _target):
 		_target = _default_target(cp)
@@ -421,6 +431,9 @@ func _sync_fight(cp: Dictionary) -> void:
 	if cp["outcome"] != null and not _busy():
 		_footer_holder.add_child(_build_outcome_card(cp["outcome"]))
 		_dock.hide_deck()
+	elif skip_available(cp, _director.is_playing()):
+		_footer_holder.add_child(UI.button("Skip", _on_skip_pressed))
+		_dock.configure(moves, items, _move_row(cp, _LEG_IT), dial, _busy(), _pick_cast)
 	elif CombatRounds.is_demo(cp):
 		_dock.hide_deck()
 		_voiceover.offset_top = -dock_height

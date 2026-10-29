@@ -2376,6 +2376,43 @@ func run() -> void:
 			assert_true(not cards.any(func(e): return e["actor"] == CombatRounds.PLAYER_INDEX), "none are the player's")
 	)
 
+	run_case("skip_shows_only_while_a_post_ko_play_on_plays_back", func():
+		GameState.reset()
+		GameState.state["player"]["hp"] = 1
+		Combat._start_round_combat(Combat.CONTEXT_EVENT_MUGGING, null, [_slow_mugger(12)], [], "", [Combat.build_guard_ally()], null,
+			{ "seed": 1, "fog": false, "enemyPlans": [_strikes_at_player()], "allyPlans": [[["strike", "strike"]]] })
+		var combat: Dictionary = GameState.state["combat"]
+		assert_true(not CombatRoundsScreen.skip_available(combat, true), "player still up")
+		Combat.choose_move("guard")
+		assert_true(CombatRoundsScreen.skip_available(combat, true), "KO'd, ally played on, playing back")
+		assert_true(not CombatRoundsScreen.skip_available(combat, false), "nothing playing")
+	)
+
+	run_case("skip_resolves_to_the_same_outcome_as_playing_the_beats_out", func():
+		var outcomes: Array = []
+		for _i in range(2):
+			GameState.reset()
+			GameState.state["player"]["hp"] = 1
+			Combat._start_round_combat(Combat.CONTEXT_EVENT_MUGGING, null, [_slow_mugger(12)], [], "", [Combat.build_guard_ally()], null,
+				{ "seed": 7, "fog": false, "enemyPlans": [_strikes_at_player()], "allyPlans": [[["strike", "strike"]]] })
+			var combat: Dictionary = GameState.state["combat"]
+			Combat.choose_move("guard")
+			outcomes.append([combat["outcome"], combat["rngState"], combat["round"]])
+		assert_eq(outcomes[0], outcomes[1], "the fight is resolved before playback, so skipping changes nothing")
+	)
+
+	run_case("a_post_ko_play_on_that_never_ends_still_terminates", func():
+		GameState.reset()
+		var guards: Array = range(2).map(func(_i): return Combat.build_guard_ally())
+		Combat._start_round_combat(Combat.CONTEXT_EVENT_MUGGING, null, [_slow_mugger(100000)], [], "", guards, null,
+			{ "seed": 1, "fog": false, "enemyPlans": [[["guard", "guard"]]], "allyPlans": guards.map(func(_g): return [["guard", "guard"]]) })
+		var combat: Dictionary = GameState.state["combat"]
+		combat["combatants"][CombatRounds.PLAYER_INDEX]["koed"] = true
+		combat["combatants"][CombatRounds.PLAYER_INDEX]["hp"] = 0
+		CombatRounds.continue_after_ko(combat)
+		assert_true(combat["outcome"] != null, "the cap resolves it")
+	)
+
 	run_case("a_player_ko_with_no_friendly_left_is_a_loss", func():
 		GameState.reset()
 		var combat := _start_lethal([null, null])
