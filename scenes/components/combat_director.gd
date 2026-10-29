@@ -32,8 +32,9 @@ func is_playing() -> bool:
 
 
 # `speed` divides every beat's hold (rewind_speed() for a Rewind's reverse
-# playback).
-func play(beats: Array, on_beat: Callable, speed: float = 1.0) -> void:
+# playback). `hold`, when valid, is called (beats, i) -> seconds: a value
+# >= 0 replaces beat i's whole hold (hit-stop and turn pause included).
+func play(beats: Array, on_beat: Callable, speed: float = 1.0, hold: Callable = Callable()) -> void:
 	if beats.is_empty():
 		return
 	_playing = true
@@ -46,11 +47,15 @@ func play(beats: Array, on_beat: Callable, speed: float = 1.0) -> void:
 		if not _skip_requested:
 			var tween := create_tween()
 			_active_tween = tween
-			if beat_is_damaging(beat):
-				tween.tween_interval(HIT_STOP_DURATION / speed)
-			tween.tween_interval(beat_duration / speed)
-			if is_turn_boundary(beats, i):
-				tween.tween_interval(turn_pause / speed)
+			var override: float = float(hold.call(beats, i)) if hold.is_valid() else -1.0
+			if override >= 0.0:
+				tween.tween_interval(maxf(override, 0.001) / speed)
+			else:
+				if beat_is_damaging(beat):
+					tween.tween_interval(HIT_STOP_DURATION / speed)
+				tween.tween_interval(beat_duration / speed)
+				if is_turn_boundary(beats, i):
+					tween.tween_interval(turn_pause / speed)
 			await tween.finished
 	_active_tween = null
 	_playing = false

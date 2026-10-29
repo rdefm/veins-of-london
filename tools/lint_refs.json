@@ -558,6 +558,56 @@
 			},
 			"observations": {}
 		},
+		"james_meeting_observation": {
+			"choiceCards": {
+				"c15": [
+					"tell",
+					"sayNothing"
+				],
+				"c20": [
+					"seal"
+				],
+				"c22": [
+					"leaveTold",
+					"leaveHid"
+				]
+			},
+			"observations": {
+				"james_obs_bench": {
+					"emotion": 2,
+					"physics": 2,
+					"time": 2
+				},
+				"james_obs_door": {
+					"emotion": 2,
+					"physics": 2,
+					"time": 2
+				},
+				"james_obs_errand": {
+					"emotion": 2,
+					"fate": 2
+				},
+				"james_obs_jars": {
+					"emotion": 2,
+					"life": 2,
+					"physics": 2
+				},
+				"james_obs_kit": {
+					"emotion": 2,
+					"physics": 2
+				},
+				"james_obs_noticed": {
+					"emotion": 2,
+					"fate": 2,
+					"physics": 2
+				},
+				"james_obs_outside": {
+					"emotion": 2,
+					"life": 2,
+					"physics": 2
+				}
+			}
+		},
 		"kensington_exhibit": {
 			"choiceCards": {},
 			"observations": {}

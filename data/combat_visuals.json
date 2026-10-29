@@ -185,7 +185,7 @@
     "fury": { "image": "", "frameCount": 4, "fps": 12.0, "colour": [1.0, 0.2, 0.15], "travelSeconds": 0.12, "landSeconds": 0.0, "shakeScale": 0.0, "hitStopSeconds": 0.0 }
   },
   "itemFx": {
-    "_note": "Shared item-effect pieces (CombatStage / StageSlot). spark*: travel projectile (sizePx square, trailCount ghosts spaced trailGapSeconds, arcPx peak lift). ring*: stand-in land ring, radii as fractions of the slot's width. guardFlickerSeconds: a target's guard marker blinks off this long when a Blast ignores it. disarm: generic weapon shape (sizePx) that spins degrees and rises risePx over seconds. legItStreak: orange streaks behind a boosted Leg it (count lines, lengthPx long, over seconds). Seconds halve under quick pacing; reduced motion drops shake, hit-stop, trails and streaks.",
+    "_note": "Shared item-effect pieces (CombatStage / StageSlot). spark*: travel projectile (sizePx square, trailCount ghosts spaced trailGapSeconds, arcPx peak lift). ring*: stand-in land ring, radii as fractions of the slot's width. guardFlickerSeconds: a target's guard marker blinks off this long when a Blast ignores it. disarm: generic weapon shape (sizePx) that spins degrees and rises risePx over seconds. legItStreak: orange streaks behind a boosted Leg it (count lines, lengthPx long, over seconds). multiStaggerSeconds: a multi-target unit's lands, one per target this far apart (its split sparks arrive on the same rhythm); multiSplitFraction: how far along the flight (time and distance, toward the targets' centre) its one spark splits into one per target. enemyPalette: an enemy-used item's colours lerp `shift` toward steelColour (spark, ring, sheet tint, heal motes and rim, Shield panels and shimmer). Seconds halve under quick pacing; reduced motion drops shake, hit-stop, trails and streaks.",
     "sparkSizePx": 4.0,
     "trailCount": 2,
     "trailGapSeconds": 0.03,
@@ -196,6 +196,9 @@
     "guardFlickerSeconds": 0.12,
     "disarm": { "sizePx": 10.0, "seconds": 0.4, "degrees": 720.0, "risePx": 90.0, "colour": [0.85, 0.85, 0.85] },
     "legItStreak": { "colour": [1.0, 0.62, 0.2], "count": 3, "lengthPx": 18.0, "seconds": 0.3 },
+    "multiStaggerSeconds": 0.06,
+    "multiSplitFraction": 0.4,
+    "enemyPalette": { "steelColour": [0.55, 0.6, 0.66], "shift": 0.2 },
     "powderFx": {
       "_note": "Enhancement Powder (StageSlot.play_powder_launch / set_powder_linger). puff*: green-gold specks at headFraction of the slot height (count at launch, exitCount at exit; sizePx square, rise px over seconds, spread px apart, colours cycle). idleSpeed: idle fps multiplier while it holds; exitSeconds: the ease back. trail*: ghosts left behind each lunge/throw (count, alpha, gapSeconds apart, fadeSeconds). Seconds halve under quick pacing; reduced motion drops puffs and trails and sets the idle speed outright.",
       "idleSpeed": 1.6,

@@ -1,0 +1,248 @@
+{
+  "id": "james_meeting_observation",
+  "on_complete": [
+    { "op": "set_flag", "flag": "metJames", "value": true },
+    { "op": "grant_recipe", "recipe": "timePearl" },
+    { "op": "add", "path": "contacts.james.unlocked", "value": true },
+    { "op": "relation", "contact": "james", "value": 10 },
+    { "op": "queue_pending_message", "contact": "archie", "kind": "gym", "text": "Oi — how'd it go with James? Come to the gym. Just in case, you should see what a pearl's up against." },
+    { "op": "set_screen", "screen": "phone" }
+  ],
+  "cards": [
+    { "key": "c1", "type": "narration", "label": "{today} — Bermondsey", "speaker": null, "text": "The storage unit 2 doors down from the halal supermarket. Archie is already there, which has never happened before. He used his last pearl in Whitechapel, and since then he checks the street every time a car slows.", "image": "res://assets/events/james_meeting/james_meeting_main_2.png", "observe": "james_obs_outside" },
+    { "key": "c2", "type": "speaker", "label": null, "speaker": "Archie", "text": "\"James makes pearls. I need pearls. Next time someone gets a knife out, I'd like more than a carrier bag to wave at them. So be polite, touch nothing, and let me do the talking.\"", "image": "res://assets/events/james_meeting/james_meeting_main_3.png" },
+    { "key": "c3", "type": "narration", "label": null, "speaker": null, "text": "The door opens. James is in his sixties: glasses with one bent arm, a waistcoat with the slightest stain on it. He looks at Archie, then at you, like a parcel left on the wrong doorstep.", "image": "res://assets/events/james_meeting/james_meeting_main_4.png", "observe": "james_obs_door" },
+    { "key": "c4", "type": "speaker", "label": null, "speaker": "James", "text": "\"You're early. That's new. Come in. Touch nothing.\"" },
+    { "key": "c5", "type": "narration", "label": null, "speaker": null, "text": "Shelves of jars run to the ceiling, each labelled in biro. It smells of copper and bleach. Archie stays by the door and rubs his eyes.", "image": "res://assets/events/james_meeting/james_meeting_main_5.png", "observe": "james_obs_jars" },
+    { "key": "c6", "type": "narration", "label": null, "speaker": null, "text": "You pass a jar marked TIME. The calc inside shifts. It moves to the side of the glass nearest your hand, as if it noticed you." },
+    { "key": "c7", "type": "narration", "label": null, "speaker": null, "text": "You glance up. James is watching you. His expression doesn't change, exactly. But something in it does.", "image": "res://assets/events/james_meeting/james_meeting_main_7.png", "observe": "james_obs_noticed" },
+    { "key": "c8", "type": "speaker", "label": null, "speaker": "Archie", "text": "\"James is the best craftsman I know. Everything I carry is his.\"", "image": "res://assets/events/james_meeting/james_meeting_main_8.png" },
+    { "key": "c9", "type": "speaker", "label": null, "speaker": "James", "text": "\"I'm the only craftsman you know. There's a difference.\" He turns to Archie. \"Forty units of life calc, collected from Stratford within the hour. Do it and your next batch of pearls is at cost.\"" },
+    { "key": "c10", "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Who's the seller? Anyone I need to worry about?\"" },
+    { "key": "c11", "type": "speaker", "label": null, "speaker": "James", "text": "\"Nobody who's ever shortchanged me. The address will be on your phone by the time you reach the station.\" He doesn't look at you. \"I need your friend's assistance with something in the meantime.\"", "observe": "james_obs_errand" },
+    { "key": "c12", "type": "speaker", "label": null, "speaker": "Archie", "text": "He looks at you, not James. \"Your call. Stay here, or come to Stratford and carry a bag.\"", "image": "res://assets/events/james_meeting/james_meeting_main_12.png" },
+    { "key": "c13", "type": "speaker", "label": null, "speaker": "You", "text": "You think about the pearl that stopped the knife, and about rent. \"I'll stay.\"" },
+    { "key": "c14", "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Lovely. Ring me if he's more horrible than usual.\" He's gone before James can answer." },
+    {
+      "key": "c15", "type": "choice", "label": null, "speaker": "James", "text": "He takes down the jar marked TIME and sets it on the bench. \"My assistant is indisposed and I have an order for time pearls. You'll do. Gloves.\" Inside the jar, the calc drifts to the side nearest you again. James is looking at the jar, not at you.",
+      "choices": [
+        {
+          "id": "tell",
+          "label": "\"It's doing it again.\"",
+          "effects": [
+            { "op": "relation", "contact": "james", "value": 5 },
+            { "op": "set_flag", "flag": "toldJamesJar", "value": true }
+          ],
+          "result_text": "\"Yes. It did it when you walked in.\" He writes something in the ledger. \"Calc does that for perhaps one person in a few thousand. I have met two.\" A pause. \"Don't mention it to anyone. Not even Archie. Trust me.\""
+        },
+        {
+          "id": "sayNothing",
+          "label": "Say nothing",
+          "effects": [{ "op": "set_flag", "flag": "hidJar", "value": true }],
+          "result_text": "You say nothing. James says nothing either. He moves the jar six inches to the left, out of your reach, and writes something in the ledger."
+        }
+      ],
+      "image": "res://assets/events/james_meeting/james_meeting_main_16.png"
+    },
+    { "key": "c16", "type": "speaker", "label": null, "speaker": "James", "text": "\"That hourglass Archie broke in Mile End. That was one of mine.\" He says it to the jar. \"It did what it was made for. Now you.\"", "observe": "james_obs_bench" },
+    { "key": "c17", "type": "speaker", "label": null, "speaker": "James", "text": "\"I assume you've never made one.\" You haven't. \"Then I'll explain it once. A pearl that seals is worth a hundred and twenty pounds to someone frightened. A pearl that doesn't is my calc on the floor. Do try not to fuck it up.\"" },
+    { "key": "c18", "type": "speaker", "label": null, "speaker": "James", "text": "He measures out the calc. \"Plato wrote about orichalchum in the Critias. Second only to gold, in Atlantis.\" He glances at you. \"You have no idea what the Critias is, do you.\"", "image": "res://assets/events/james_meeting/james_meeting_main_17.png" },
+    { "key": "c19", "type": "speaker", "label": null, "speaker": "James", "text": "You don't answer. \"Two and a half thousand years ago, people knew exactly what this was worth. Today Archie is collecting it outside a Poundland in Stratford. Make of that what you will about humanity.\"" },
+    {
+      "key": "c20", "type": "choice", "label": "Crafting: Time Pearl", "speaker": null, "text": "James sets a glass sphere in front of you and a measure of his own calc beside it. \"My calc, so you can stop counting it. Press, then heat. Don't leave until it seals.\"",
+      "choices": [
+        {
+          "id": "seal",
+          "label": "Take the press",
+          "effects": [
+            { "op": "start_lesson_session", "recipe": "timePearl", "rank": 2, "lines": { "hintExact": "James: \"Press to seventy on the gauge. Then heat, twenty-five. Nothing clever.\"", "talkThrough": "James: \"Stop. Watch my hands. Every number, once. I'm not doing this twice.\"" } }
+          ],
+          "result_text": "The sphere seals around the calc with a small click. A pearl, faintly heavier than it should be. James looks at it for slightly longer than necessary. \"Adequate,\" he says, and logs it."
+        }
+      ]
+    },
+    { "key": "c21", "type": "resolution", "label": "Two hours later", "speaker": null, "text": "James wipes the bench down, caps the jar and puts it back on its shelf. Then he places a battered crafting kit on the table.", "image": "res://assets/events/james_meeting/james_meeting_b21_1.png", "observe": "james_obs_kit" },
+    {
+      "key": "c22", "type": "choice", "label": null, "speaker": "James", "text": "\"The kit is payment, along with a sample of the pearls you made today.\" A pause. \"Keep practising and you may yet make more than a living out of this.\"",
+      "choices": [
+        {
+          "id": "leaveTold",
+          "label": "Leave",
+          "requires": { "flag": "toldJamesJar" },
+          "effects": [],
+          "result_text": "The shutter comes down behind you. A battered kit, a pocket that clinks a little, and somewhere in James's ledger, a line about you. Archie will want to know how it went."
+        },
+        {
+          "id": "leaveHid",
+          "label": "Leave",
+          "requires": { "flag": "hidJar" },
+          "effects": [],
+          "result_text": "At the shutter James says, without looking up, \"Next time a jar moves for you, mention it.\" Then the shutter comes down behind you. Archie will want to know how it went."
+        }
+      ]
+    }
+  ],
+  "observations": {
+    "james_obs_outside": {
+      "blocks": {
+        "physics": {
+          "tiers": [
+            { "base": 0.25, "text": "Proper shutter, two locks, and a camera over the door that's actually plugged in. Whoever's inside spends real money on not being robbed." },
+            { "base": 0.55, "text": "Heavy shutter, new padlock. Nicer than the other units on the row." }
+          ],
+          "miss": "The shutter has a sign on it: NO BALL GAMES. You weren't planning on any, but now you sort of want to."
+        },
+        "life": {
+          "tiers": [
+            { "base": 0.25, "text": "The lad stacking crates outside the supermarket gives the unit a wide berth. He isn't being rude about it. It looks like a habit, like someone told him to once." },
+            { "base": 0.55, "text": "Busy street. Lots of people about, none of them looking at the unit." }
+          ],
+          "miss": "Mangoes on offer next door. Six for two quid. You make a mental note."
+        },
+        "emotion": {
+          "tiers": [
+            { "base": 0.25, "text": "Archie isn't early because he's keen. He just didn't want to be out on the street any longer than he had to be. Every time a car slows his hand goes to the pocket the pearl used to be in. It's empty, and he keeps forgetting." },
+            { "base": 0.55, "text": "Archie keeps checking his phone, then the road, then his phone again. He's more wound up than he's letting on." }
+          ],
+          "miss": "Archie's early. Maybe he's turned over a new leaf. Maybe he's got a new watch."
+        }
+      }
+    },
+    "james_obs_door": {
+      "blocks": {
+        "physics": {
+          "tiers": [
+            { "base": 0.25, "text": "The bent arm on his glasses has been fixed with fuse wire, and done neatly. The stain on the waistcoat is an old one that's been scrubbed at. He mends things instead of replacing them, and he's good at it." },
+            { "base": 0.55, "text": "Glasses held together with wire. Whatever he spends his money on, it isn't himself." }
+          ],
+          "miss": "Nice waistcoat. Very Peaky Blinders. You decide not to say so."
+        },
+        "emotion": {
+          "tiers": [
+            { "base": 0.25, "text": "He looks at Archie the way you'd look at a regular who's always late paying but always pays. He looks at you like he's working out what you are, not who." },
+            { "base": 0.55, "text": "He doesn't look pleased to see either of you. He doesn't look surprised, either." }
+          ],
+          "miss": "Grumpy old man. Harmless, though."
+        },
+        "time": {
+          "tiers": [
+            { "base": 0.25, "text": "\"That's new.\" He knows Archie's habits well. These two go back years, not months." },
+            { "base": 0.55, "text": "He knew exactly what time you were meant to turn up." }
+          ],
+          "miss": "Is he early or are you? You check your phone. 3%."
+        }
+      }
+    },
+    "james_obs_jars": {
+      "blocks": {
+        "physics": {
+          "tiers": [
+            { "base": 0.25, "text": "The jars aren't in alphabetical order. They're in groups, and some groups are kept well apart, like they don't get on. He isn't just tidy. He's careful." },
+            { "base": 0.55, "text": "Every jar is labelled and dated, and nothing is lower than eye level. Nothing on the floor." }
+          ],
+          "miss": "That's a lot of jam."
+        },
+        "life": {
+          "tiers": [
+            { "base": 0.25, "text": "There's a second stool at the bench, and a second mug washed and upside down on the drainer. Someone else works here. Not today, though." },
+            { "base": 0.55, "text": "Two stools at the bench. He doesn't usually work alone." }
+          ],
+          "miss": "The plant on the windowsill is dead. It's the most normal thing in here."
+        },
+        "emotion": {
+          "tiers": [
+            { "base": 0.25, "text": "Archie won't come past the door, and he's rubbing his eyes. He did the same in the launderette after Mile End. Whatever that hourglass did to him, it isn't finished." },
+            { "base": 0.55, "text": "Archie's rubbing his eyes again. He's been doing that a lot." }
+          ],
+          "miss": "Archie's rubbing his eyes. Probably hay fever. In a storage unit."
+        }
+      }
+    },
+    "james_obs_noticed": {
+      "blocks": {
+        "physics": {
+          "tiers": [
+            { "base": 0.25, "text": "It moved before your hand got anywhere near it. Nothing knocked the shelf. Nobody touched it." },
+            { "base": 0.55, "text": "Nothing touched that shelf. You're fairly sure." }
+          ],
+          "miss": "Must have been a lorry going past. Things move when lorries go past."
+        },
+        "emotion": {
+          "tiers": [
+            { "base": 0.25, "text": "He saw the calc move. He isn't surprised, and that's worse. He was waiting to see if it would." },
+            { "base": 0.55, "text": "He's looking at you differently now. Like you've gone up in price." }
+          ],
+          "miss": "He's annoyed you got so close to his jar. You step back and put your hands in your pockets."
+        },
+        "fate": {
+          "tiers": [
+            { "base": 0.25, "text": "Your gut says the pearls just stopped being the reason you're here." },
+            { "base": 0.55, "text": "Something just changed and you don't know what. You get the feeling you'll find out." }
+          ],
+          "miss": "You get the feeling you've left the hob on. You check your pockets, for some reason."
+        }
+      }
+    },
+    "james_obs_errand": {
+      "blocks": {
+        "emotion": {
+          "tiers": [
+            { "base": 0.25, "text": "Archie meant knives. James heard money. The worst thing a seller can do to James is try to stiff him on price. Same city, same trade, and they're living in different worlds." },
+            { "base": 0.55, "text": "James doesn't think there's anything to worry about. Archie doesn't look any less worried." }
+          ],
+          "miss": "Sounds like an easy job. Archie'll be back in an hour."
+        },
+        "fate": {
+          "tiers": [
+            { "base": 0.25, "text": "\"Within the hour\" is long enough to get Archie out of the room and too short for him to argue. James wants you on your own." },
+            { "base": 0.55, "text": "Funny how this errand came up straight after the jar moved." }
+          ],
+          "miss": "Stratford. You could get Archie to bring you a Nando's back from Westfield."
+        }
+      }
+    },
+    "james_obs_bench": {
+      "blocks": {
+        "physics": {
+          "tiers": [
+            { "base": 0.25, "text": "The gauge on the press has a worn patch just past seventy, where the needle's stopped a thousand times. The heat dial's the same around twenty-five. That's where he always stops." },
+            { "base": 0.55, "text": "The paint's worn off the gauge in one spot. He always stops in the same place." }
+          ],
+          "miss": "The sticker on the press says PAT TESTED 2009. Probably fine."
+        },
+        "emotion": {
+          "tiers": [
+            { "base": 0.25, "text": "He isn't angry. He's giving his calc to a stranger, and being rude about it is easier than admitting it bothers him." },
+            { "base": 0.55, "text": "He's harsher than he needs to be. This matters to him." }
+          ],
+          "miss": "He's quite rude. Maybe he's just hungry."
+        },
+        "time": {
+          "tiers": [
+            { "base": 0.25, "text": "He made the hourglass that got you out of Mile End. He probably knows what happened that night better than you do." },
+            { "base": 0.55, "text": "He knew about Mile End before you got here." }
+          ],
+          "miss": "You still don't know what that hourglass actually did. Best not ask. He looks like the type to make you take notes."
+        }
+      }
+    },
+    "james_obs_kit": {
+      "blocks": {
+        "physics": {
+          "tiers": [
+            { "base": 0.25, "text": "The kit's old, but every tool in it is clean and oiled. Someone looked after this for years. A name has been scratched off the lid." },
+            { "base": 0.55, "text": "It's battered, but someone's looked after it." }
+          ],
+          "miss": "Bit scruffy. You could probably get a nicer one off eBay."
+        },
+        "emotion": {
+          "tiers": [
+            { "base": 0.25, "text": "He wiped the bench down twice. He's pleased with how today went and doesn't want you to see it." },
+            { "base": 0.55, "text": "He's not as sharp with you as he was this morning." }
+          ],
+          "miss": "He can't wait to get rid of you."
+        }
+      }
+    }
+  }
+}

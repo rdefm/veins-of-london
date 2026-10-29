@@ -141,6 +141,22 @@ static func rgb(value: Array) -> Color:
 	return Color(float(value[0]), float(value[1]), float(value[2])) if value.size() >= 3 else Color.WHITE
 
 
+# Seconds between a multi-target unit's lands (halved under quick pacing).
+static func multi_stagger() -> float:
+	return fx_seconds(float(item_fx().get("multiStaggerSeconds", 0.0)))
+
+
+# `colour` shifted toward itemFx.enemyPalette's grey-steel when `enemy`: an
+# enemy-used item's palette (proposal §3.18).
+static func steel(colour: Color, enemy: bool) -> Color:
+	if not enemy:
+		return colour
+	var palette: Dictionary = item_fx().get("enemyPalette", {})
+	var shifted := colour.lerp(rgb(palette.get("steelColour", [])), float(palette.get("shift", 0.0)))
+	shifted.a = colour.a
+	return shifted
+
+
 static func reduced_motion() -> bool:
 	return bool(GameState.state.get("meta", {}).get("reducedMotion", false))
 
@@ -986,11 +1002,12 @@ class StageSlot extends Control:
 			tween.tween_callback(spawn_afterimage.bind(alpha, fade))
 
 	# Healing Burst land: gold and cyan motes rise from the feet and a gold rim
-	# pulses once on the sprite (the pulse drops under reduced motion).
-	func play_heal_burst() -> void:
+	# pulses once on the sprite (the pulse drops under reduced motion); an
+	# `enemy`-used one takes the steel-shifted palette.
+	func play_heal_burst(enemy: bool = false) -> void:
 		if not is_inside_tree():
 			return
-		_spawn_heal_motes(false)
+		_spawn_heal_motes(false, enemy)
 		var fx := CombatStage.heal_fx()
 		var secs := CombatStage.fx_seconds(float(fx.get("rimSeconds", 0.0)))
 		if secs <= 0.0 or CombatStage.reduced_motion() or _sprite_rect.texture == null:
@@ -1000,7 +1017,7 @@ class StageSlot extends Control:
 		rim.size = _figure_holder.size
 		rim.position = _sprite_rect.position
 		rim.flip_h = _sprite_rect.flip_h
-		var tint := CombatStage.rgb(fx.get("rimColour", []))
+		var tint := CombatStage.steel(CombatStage.rgb(fx.get("rimColour", [])), enemy)
 		tint.a = 0.0
 		rim.modulate = tint
 		_figure_holder.add_child(rim)
@@ -1015,7 +1032,7 @@ class StageSlot extends Control:
 			return
 		_spawn_heal_motes(true)
 
-	func _spawn_heal_motes(fizzle: bool) -> void:
+	func _spawn_heal_motes(fizzle: bool, enemy: bool = false) -> void:
 		var fx := CombatStage.heal_fx()
 		var count: int = int(fx.get("moteCount", 0))
 		var speck: float = float(fx.get("moteSizePx", 3.0))
@@ -1029,7 +1046,7 @@ class StageSlot extends Control:
 		for i in range(count):
 			var mote := ColorRect.new()
 			mote.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			mote.color = CombatStage.rgb(colours[i % colours.size()])
+			mote.color = CombatStage.steel(CombatStage.rgb(colours[i % colours.size()]), enemy)
 			mote.size = Vector2.ONE * speck
 			mote.z_index = 6
 			var offset: float = (float(i) - float(count - 1) / 2.0) * float(fx.get("moteSpreadPx", 0.0))
@@ -1346,13 +1363,14 @@ class StageSlot extends Control:
 	func _set_shield_crack_alpha(value: float) -> void:
 		_shield_crack_alpha = value
 		_overlay.queue_redraw()
-	func play_effect_sheet(frames: Array[Texture2D], fps: float) -> void:
+	func play_effect_sheet(frames: Array[Texture2D], fps: float, tint: Color = Color.WHITE) -> void:
 		if frames.is_empty() or fps <= 0.0 or not is_inside_tree():
 			return
 		var fx := _new_overlay_rect(4)
 		fx.anchor_right = 1.0
 		fx.anchor_bottom = 1.0
 		fx.texture = frames[0]
+		fx.self_modulate = tint
 		add_child(fx)
 		var timer := Timer.new()
 		timer.one_shot = false
@@ -1469,6 +1487,7 @@ class StageSlot extends Control:
 			add_child(_shield_loop_timer)
 
 		_shield_loop_frames = frames
+		_shield_loop_rect.self_modulate = CombatStage.steel(Color.WHITE, side == "enemy")
 		var should_show: bool = active and not frames.is_empty() and fps > 0.0
 		_shield_loop_rect.visible = should_show
 		if should_show:
@@ -1623,7 +1642,7 @@ class StageSlot extends Control:
 		var base := lerpf(float(cfg.get("sparseAlpha", 0.2)), float(cfg.get("fullAlpha", 0.65)), _shield_fraction)
 		var cell := Vector2(size.x / float(cols), size.y / float(rows))
 		var radius := minf(cell.x, cell.y) * 0.55
-		var colour := CombatStage.rgb(CombatStage.effect_data("shield").get("colour", []))
+		var colour := CombatStage.steel(CombatStage.rgb(CombatStage.effect_data("shield").get("colour", [])), side == "enemy")
 		for i in range(cols * rows):
 			var a := _shield_alpha[i]
 			if a <= 0.001:
@@ -2042,8 +2061,9 @@ func spawn_damage_number(slot: StageSlot, dmg: int, size_scale: float = 1.0, bra
 
 
 # A beat with no target lands on `fallback_target` (caller-supplied, e.g.
-# Time Pearl's selected enemy), or the player when that's empty too.
-func play_effect(beat: Dictionary, effect_key: String, fallback_target: Dictionary = {}) -> void:
+# Time Pearl's selected enemy), or the player when that's empty too. An
+# `enemy`-used item's land takes the steel-shifted palette (steel()).
+func play_effect(beat: Dictionary, effect_key: String, fallback_target: Dictionary = {}, enemy: bool = false) -> void:
 	var entry: Dictionary = _effect_frames_by_key.get(effect_key, {})
 	var frames: Array[Texture2D] = entry.get("frames", _empty_idle_frames)
 	var target: Dictionary = _beat_target(beat)
@@ -2054,24 +2074,64 @@ func play_effect(beat: Dictionary, effect_key: String, fallback_target: Dictiona
 		return
 	if frames.is_empty():
 		var data := effect_data(effect_key)
-		slot.play_stand_in(rgb(data.get("landColour", data.get("colour", []))), fx_seconds(float(data.get("landSeconds", 0.0))))
+		slot.play_stand_in(steel(rgb(data.get("landColour", data.get("colour", []))), enemy), fx_seconds(float(data.get("landSeconds", 0.0))))
 	else:
-		slot.play_effect_sheet(frames, entry.get("fps", 0.0))
+		slot.play_effect_sheet(frames, entry.get("fps", 0.0), steel(Color.WHITE, enemy))
 
 
 # A tinted pixel spark (and a short trail) arcs from one slot to another over
 # the effect's travelSeconds; returns that flight time (0 when it has none).
-func play_travel(from_slot: StageSlot, to_slot: StageSlot, effect_key: String) -> float:
+func play_travel(from_slot: StageSlot, to_slot: StageSlot, effect_key: String, enemy: bool = false) -> float:
 	var data := effect_data(effect_key)
 	var secs: float = fx_seconds(float(data.get("travelSeconds", 0.0)))
 	if secs <= 0.0 or from_slot == null or to_slot == null or _slot_layer == null or not _slot_layer.is_inside_tree():
 		return 0.0
+	_fly_spark(_slot_centre(from_slot), _slot_centre(to_slot), secs, steel(rgb(data.get("colour", [])), enemy), float(item_fx().get("arcPx", 14.0)))
+	return secs
+
+
+# A multi-target unit's travel (proposal §3.17): one spark flies the first
+# multiSplitFraction of the way toward the targets' centre, then splits into
+# one spark per slot in `to_slots`, the k-th arriving multi_stagger() × k
+# after the first so each lands on its own beat. Returns the first's flight
+# time (the effect's travelSeconds; 0 when it has none).
+func play_split_travel(from_slot: StageSlot, to_slots: Array, effect_key: String, enemy: bool = false) -> float:
+	var data := effect_data(effect_key)
+	var secs: float = fx_seconds(float(data.get("travelSeconds", 0.0)))
+	if secs <= 0.0 or from_slot == null or _slot_layer == null or not _slot_layer.is_inside_tree():
+		return 0.0
+	var ends: Array[Vector2] = []
+	for slot in to_slots:
+		if slot != null and slot != from_slot:
+			ends.append(_slot_centre(slot))
+	if ends.is_empty():
+		return secs
 	var fx := item_fx()
-	var colour := rgb(data.get("colour", []))
-	var spark_size: float = float(fx.get("sparkSizePx", 4.0))
-	var start: Vector2 = from_slot.position + from_slot.size / 2.0
-	var end: Vector2 = to_slot.position + to_slot.size / 2.0
+	var colour := steel(rgb(data.get("colour", [])), enemy)
 	var arc: float = float(fx.get("arcPx", 14.0))
+	var split: float = clampf(float(fx.get("multiSplitFraction", 0.4)), 0.0, 1.0)
+	var start := _slot_centre(from_slot)
+	var centre := Vector2.ZERO
+	for end in ends:
+		centre += end
+	var fork := start.lerp(centre / float(ends.size()), split)
+	var lead: float = secs * split
+	if lead > 0.0:
+		_fly_spark(start, fork, lead, colour, arc * split)
+	for k in range(ends.size()):
+		_fly_spark(fork, ends[k], secs - lead + multi_stagger() * float(k), colour, arc * (1.0 - split), lead)
+	return secs
+
+
+func _slot_centre(slot: StageSlot) -> Vector2:
+	return slot.position + slot.size / 2.0
+
+
+# One spark (and its trail) arcing `arc` px high from `start` to `end` over
+# `secs`, after `delay`.
+func _fly_spark(start: Vector2, end: Vector2, secs: float, colour: Color, arc: float, delay: float = 0.0) -> void:
+	var fx := item_fx()
+	var spark_size: float = float(fx.get("sparkSizePx", 4.0))
 	var ghosts: int = 0 if reduced_motion() else int(fx.get("trailCount", 0))
 	for i in range(ghosts + 1):
 		var rect := ColorRect.new()
@@ -2080,18 +2140,18 @@ func play_travel(from_slot: StageSlot, to_slot: StageSlot, effect_key: String) -
 		rect.color = colour
 		rect.size = Vector2.ONE * spark_size
 		rect.modulate.a = 1.0 if i == 0 else 0.5 / float(i)
-		rect.visible = i == 0
+		rect.visible = i == 0 and delay <= 0.0
 		_slot_layer.add_child(rect)
 		var fly := func(t: float) -> void:
 			rect.position = start.lerp(end, t) + Vector2(0.0, -sin(t * PI) * arc) - rect.size / 2.0
 		fly.call(0.0)
 		var tween := rect.create_tween()
-		if i > 0:
-			tween.tween_interval(fx_seconds(float(fx.get("trailGapSeconds", 0.03))) * float(i))
+		var wait: float = delay + (fx_seconds(float(fx.get("trailGapSeconds", 0.03))) * float(i) if i > 0 else 0.0)
+		if wait > 0.0:
+			tween.tween_interval(wait)
 			tween.tween_callback(func(): rect.visible = true)
 		tween.tween_method(fly, 0.0, 1.0, secs)
 		tween.tween_callback(rect.queue_free)
-	return secs
 
 
 # Prophet's Breath launch: a wobbling 1px cyan ribbon drifts from `from_slot`

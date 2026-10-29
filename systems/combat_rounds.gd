@@ -2471,7 +2471,7 @@ static func _use_item(cp: Dictionary, actor_idx: int, action: Dictionary, m: Dic
 			var targets: Array = _living_opponents(cp, actor_idx) if multi else [_retarget(cp, actor_idx, int(action["target"]))]
 			for target in targets:
 				if target >= 0 and not combatants[target]["koed"]:
-					_deal_damage(cp, actor_idx, target, power, "blast", move_id, beats, {})
+					_deal_damage(cp, actor_idx, target, power, "blast", move_id, beats, _multi_fields(multi, targets))
 					if cp["outcome"] != null:
 						return
 					_maybe_disarm(cp, actor_idx, target, move_id, m["params"], rng, beats)
@@ -2481,18 +2481,21 @@ static func _use_item(cp: Dictionary, actor_idx: int, action: Dictionary, m: Dic
 				combatants[target]["shield"] = maxi(combatants[target]["shield"], power)
 				combatants[target]["shieldMax"] = combatants[target]["shield"]
 			if shielded == actor_idx:
-				_beat(cp, beats, "shield", actor_idx, -1, move_id, {})
+				_beat(cp, beats, "shield", actor_idx, -1, move_id, _multi_fields(multi, _team(cp, actor_idx)))
 			else:
 				_beat(cp, beats, "shieldOther", actor_idx, shielded, move_id, {})
 		ITEM_HEAL:
-			for target in (_team(cp, actor_idx) if multi else [int(action["target"])]):
+			var patients: Array = _team(cp, actor_idx) if multi else [int(action["target"])]
+			for target in patients:
 				var patient: Dictionary = combatants[target]
 				if patient["koed"]:
-					_beat(cp, beats, "fizzle", actor_idx, target, move_id, {})
+					_beat(cp, beats, "fizzle", actor_idx, target, move_id, _multi_fields(multi, patients))
 					continue
 				var healed: int = mini(power, patient["hpMax"] - patient["hp"])
 				patient["hp"] += healed
-				_beat(cp, beats, "healSelf" if target == actor_idx else "heal", actor_idx, target, move_id, { "amount": healed, "hpAfter": patient["hp"] })
+				var fields := { "amount": healed, "hpAfter": patient["hp"] }
+				fields.merge(_multi_fields(multi, patients))
+				_beat(cp, beats, "healSelf" if target == actor_idx else "heal", actor_idx, target, move_id, fields)
 		ITEM_POWDER:
 			# +1 action from this round on: longRounds rounds at power >=
 			# longPowerMin, else rounds. A second Powder extends, never stacks.
@@ -2526,12 +2529,18 @@ static func _use_item(cp: Dictionary, actor_idx: int, action: Dictionary, m: Dic
 				_beat(cp, beats, "fizzle", actor_idx, int(action["target"]), move_id, {})
 			for target in targets:
 				_apply_pan_status(combatants[target], m["effect"], slot)
-				_beat(cp, beats, m["effect"], actor_idx, target, move_id, {})
+				_beat(cp, beats, m["effect"], actor_idx, target, move_id, _multi_fields(multi, targets))
 		ITEM_WORMHOLE:
 			# Player only: the fight ends fled, no roll, no parting shot.
 			_beat(cp, beats, "wormhole", actor_idx, -1, move_id, {})
 			if actor_idx == PLAYER_INDEX:
 				cp["outcome"] = "fled"
+
+
+# A multi-target unit's beat fields: multi, and affected (every combatant
+# the unit covers, in the order its beats land); {} for a single-target one.
+static func _multi_fields(multi: bool, affected: Array) -> Dictionary:
+	return { "multi": true, "affected": affected.duplicate() } if multi else {}
 
 
 # Whether the item `action` lands on nobody: a single-target heal or Shield

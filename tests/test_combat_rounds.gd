@@ -957,8 +957,9 @@ func run() -> void:
 		var other: Array = CombatRoundsScreen.beat_cues({ "kind": "shieldOther", "actor": 0, "target": 1, "marks": marks })
 		assert_true(other.any(func(q): return q["call"] == "shieldAssemble" and q["who"] == 1), "ally")
 		assert_eq(other.map(func(q): return q["call"]).find("travel") < other.map(func(q): return q["call"]).find("shieldAssemble"), true, "after the flight")
-		assert_eq(CombatRoundsScreen.shield_raised({ "kind": "shieldOther", "actor": 0, "target": 1 }), 1, "ally slot held for the cue")
-		assert_eq(CombatRoundsScreen.shield_raised({ "kind": "hit", "actor": 0, "target": 1 }), -1, "other beats hold nothing")
+		assert_eq(CombatRoundsScreen.shield_raised({ "kind": "shieldOther", "actor": 0, "target": 1 }), [1], "ally slot held for the cue")
+		assert_eq(CombatRoundsScreen.shield_raised({ "kind": "shield", "actor": 0, "target": -1, "multi": true, "affected": [0, 1] }), [0, 1], "a multi unit holds the team")
+		assert_eq(CombatRoundsScreen.shield_raised({ "kind": "hit", "actor": 0, "target": 1 }), [], "other beats hold nothing")
 	)
 
 	run_case("enhancement_powder_adds_an_action_this_round", func():
@@ -1074,6 +1075,70 @@ func run() -> void:
 		assert_true(result["ok"], "no target pick needed")
 		var hits: Array = result["beats"].filter(func(b): return b["kind"] == "blast")
 		assert_eq(hits.map(func(b): return [b["target"], b["dmg"]]), [[1, 8], [2, 8]], "full power on each")
+		assert_true(hits.all(func(b): return b.get("multi", false) and b["affected"] == [1, 2]), "each beat names the unit's targets in landing order")
+		assert_eq(hits.map(func(b): return CombatRoundsScreen.multi_index(b)), [0, 1], "first lands first")
+	)
+
+	run_case("single_target_item_beats_carry_no_multi_fields", func():
+		GameState.reset()
+		GameState.state["player"]["loadout"]["slots"][0] = { "recipe": "blast", "tier": 3 }
+		Combat._start_round_combat(Combat.CONTEXT_EVENT_MUGGING, null, [_mugger(), _mugger()], [], "", [], null,
+			{ "seed": 1, "fog": false, "enemyPlans": [[["guard", "guard"]], [["guard", "guard"]]] })
+		var result := Combat.choose_item(0, 1)
+		var hit: Dictionary = result["beats"].filter(func(b): return b["kind"] == "blast")[0]
+		assert_true(not hit.has("multi") and not hit.has("affected"), "single blast")
+		assert_eq(CombatRoundsScreen.multi_index(hit), -1)
+	)
+
+	run_case("multi_unit_cues_launch_once_split_and_share_one_shake", func():
+		var lead: Array = CombatRoundsScreen.beat_cues({ "kind": "blast", "actor": 0, "target": 1, "dmg": 4, "multi": true, "affected": [1, 2] })
+		assert_eq(lead.map(func(c): return c["call"]), ["throw", "travel", "effect", "guardFlicker", "damage"], "the first beat launches")
+		assert_eq(lead[1]["to"], [1, 2], "its travel splits to every target")
+		assert_true(float(lead[4]["shake"]) > 0.0, "the one shake")
+		var later: Array = CombatRoundsScreen.beat_cues({ "kind": "blast", "actor": 0, "target": 2, "dmg": 4, "multi": true, "affected": [1, 2] })
+		assert_eq(later.map(func(c): return c["call"]), ["effect", "guardFlicker", "damage"], "no second launch or flight")
+		assert_true(later[0].get("quiet", false), "no second hit-stop")
+		assert_eq(float(later[2]["shake"]), 0.0, "no second shake")
+		var heal: Array = CombatRoundsScreen.beat_cues({ "kind": "healSelf", "actor": 0, "target": 0, "amount": 3, "multi": true, "affected": [0, 1] })
+		assert_eq(heal.map(func(c): return c["call"]).slice(0, 2), ["throw", "travel"], "a team heal throws out to the team")
+		var shield: Array = CombatRoundsScreen.beat_cues({ "kind": "shield", "actor": 0, "target": -1, "multi": true, "affected": [0, 1], "marks": [{ "shieldFraction": 1.0 }, { "shieldFraction": 1.0 }] })
+		assert_eq(shield.map(func(c): return [c["call"], int(c.get("lag", 0))]), [["throw", 0], ["travel", 0], ["effect", 0], ["shieldAssemble", 0], ["effect", 1], ["shieldAssemble", 1]], "a team Shield lands on each in turn")
+		var pan: Array = CombatRoundsScreen.beat_cues({ "kind": "panic", "actor": 0, "target": 2, "multi": true, "affected": [1, 2] })
+		assert_eq(pan.map(func(c): return c["call"]), ["effect", "recoil"], "Pan items split too")
+		assert_eq(CombatRoundsScreen.removal_lead({ "kind": "panic", "actor": 0, "target": 2, "multi": true, "affected": [1, 2] }), 0.0, "a later land's marks don't wait on a flight")
+	)
+
+	run_case("multi_hold_staggers_the_lands_and_halves_when_quick", func():
+		var prior: String = CombatPacing.pacing_mode()
+		CombatPacing.set_pacing_mode("normal")
+		var turn := { "round": 1, "turnActor": 0, "turnIndex": 0, "move": "blast", "actor": 0, "multi": true, "affected": [1, 2, 3] }
+		var beats: Array = []
+		for t in [1, 2, 3]:
+			var b: Dictionary = turn.duplicate()
+			b.merge({ "kind": "blast", "target": t, "dmg": 4 })
+			beats.append(b)
+		beats.insert(2, { "kind": "ko", "round": 1, "turnActor": 0, "turnIndex": 0, "move": "blast", "actor": 0, "target": 2 })
+		var stagger := float(CombatStage.item_fx()["multiStaggerSeconds"])
+		var flight := float(CombatStage.effect_data("blast")["travelSeconds"])
+		assert_almost_eq(CombatRoundsScreen.multi_hold(beats, 0), flight + stagger, 0.0001, "the first holds its flight, then a stagger")
+		assert_eq(CombatRoundsScreen.multi_hold(beats, 1), -1.0, "a KO between lands keeps its full beat")
+		assert_eq(CombatRoundsScreen.multi_hold(beats, 3), -1.0, "the last land keeps its full beat")
+		assert_almost_eq(CombatRoundsScreen.multi_hold([beats[1], beats[3]], 0), stagger, 0.0001, "a later land holds one stagger")
+		CombatPacing.set_pacing_mode("quick")
+		assert_almost_eq(CombatRoundsScreen.multi_hold([beats[1], beats[3]], 0), stagger * 0.5, 0.0001, "quick halves the stagger")
+		CombatPacing.set_pacing_mode(prior)
+		assert_eq(CombatRoundsScreen.multi_hold([{ "kind": "blast", "actor": 0, "target": 1, "move": "blast" }, { "kind": "blast", "actor": 0, "target": 2, "move": "blast" }], 0), -1.0, "single-target beats keep the director's hold")
+	)
+
+	run_case("enemy_used_item_cues_carry_the_steel_flag", func():
+		var cues: Array = CombatRoundsScreen.beat_cues({ "kind": "blast", "actor": 1, "target": 0, "dmg": 4 }, true)
+		assert_true(cues.filter(func(c): return c["call"] in ["travel", "effect"]).all(func(c): return c.get("enemy", false)), "spark and land shift")
+		var heal: Array = CombatRoundsScreen.beat_cues({ "kind": "heal", "actor": 1, "target": 2, "amount": 3 }, true)
+		assert_true(heal.filter(func(c): return c["call"] == "healBurst")[0].get("enemy", false), "heal motes shift")
+		var own: Array = CombatRoundsScreen.beat_cues({ "kind": "blast", "actor": 0, "target": 1, "dmg": 4 })
+		assert_true(not own.any(func(c): return c.has("enemy")), "the player's stay as they are")
+		var cp := { "combatants": [{ "side": CombatRounds.SIDE_PLAYER }, { "side": CombatRounds.SIDE_ENEMY }] }
+		assert_true(CombatRoundsScreen.enemy_used(cp, { "actor": 1 }) and not CombatRoundsScreen.enemy_used(cp, { "actor": 0 }), "side of the actor")
 	)
 
 	run_case("carry_in_sight_and_lady_apply_from_round_1", func():

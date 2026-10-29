@@ -230,6 +230,56 @@ func run() -> void:
 		stage.free()
 	)
 
+	run_case("multi_split_travel_flies_one_spark_then_one_per_target", func():
+		var prior: String = CombatPacing.pacing_mode()
+		CombatPacing.set_pacing_mode("normal")
+		var stage := CombatStage.new()
+		stage._build()
+		(Engine.get_main_loop() as SceneTree).root.add_child(stage)
+		var slots: Array = []
+		for x in [0.0, 200.0, 260.0]:
+			var slot := CombatStage.StageSlot.new()
+			slot.size = Vector2(40.0, 80.0)
+			slot.position = Vector2(x, 100.0)
+			stage._slot_layer.add_child(slot)
+			slots.append(slot)
+		var before: int = stage._slot_layer.get_child_count()
+		var secs := stage.play_split_travel(slots[0], slots, "blast")
+		assert_almost_eq(secs, float(CombatStage.effect_data("blast")["travelSeconds"]), 0.0001, "the first lands on the flight time")
+		var per_spark: int = 1 + int(CombatStage.item_fx()["trailCount"])
+		assert_eq(stage._slot_layer.get_child_count() - before, per_spark * 3, "one spark to the fork, one per target (the thrower's own slot skipped)")
+		stage.free()
+		CombatPacing.set_pacing_mode(prior)
+	)
+
+	run_case("multi_stagger_is_data_and_halves_when_quick", func():
+		var prior: String = CombatPacing.pacing_mode()
+		var stagger := float(CombatStage.item_fx()["multiStaggerSeconds"])
+		assert_true(stagger > 0.0, "stagger lives in data")
+		CombatPacing.set_pacing_mode("normal")
+		assert_almost_eq(CombatStage.multi_stagger(), stagger, 0.0001)
+		CombatPacing.set_pacing_mode("quick")
+		assert_almost_eq(CombatStage.multi_stagger(), stagger * 0.5, 0.0001, "quick halves the stagger")
+		CombatPacing.set_pacing_mode(prior)
+	)
+
+	run_case("enemy_items_shift_their_palette_toward_steel", func():
+		var palette: Dictionary = CombatStage.item_fx()["enemyPalette"]
+		var orange := Color(1.0, 0.62, 0.2)
+		assert_eq(CombatStage.steel(orange, false), orange, "a friendly's stays")
+		var shifted := CombatStage.steel(orange, true)
+		assert_true(shifted.is_equal_approx(orange.lerp(CombatStage.rgb(palette["steelColour"]), float(palette["shift"]))), "an enemy's lerps toward steel")
+		assert_almost_eq(float(palette["shift"]), 0.2, 0.0001, "~20%")
+		var stage := CombatStage.new()
+		stage._build()
+		var raider := CombatStage.StageSlot.new()
+		raider.side = "enemy"
+		stage.add_child(raider)
+		raider.set_shield_loop([] as Array[Texture2D], 0.0, false)
+		assert_true(raider._shield_loop_rect.self_modulate.is_equal_approx(CombatStage.steel(Color.WHITE, true)), "an enemy's Shield shimmer is steel-tinted")
+		stage.free()
+	)
+
 	run_case("sheetless_effect_draws_a_stand_in_ring_on_the_target", func():
 		var stage := CombatStage.new()
 		stage._build()

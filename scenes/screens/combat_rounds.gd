@@ -1177,7 +1177,7 @@ func begin_strip_playback(before: Array, round_no: int, beats: Array, sighted: D
 # settle beat slides the final acted card off the strip.
 func _play_beats(beats: Array, saved_by: Dictionary = {}) -> void:
 	if not beats.is_empty() and is_inside_tree():
-		await _director.play(beats + [{ "kind": _SETTLE_KIND }], _on_beat_played)
+		await _director.play(beats + [{ "kind": _SETTLE_KIND }], _on_beat_played, 1.0, func(list: Array, i: int) -> float: return multi_hold(list, i))
 		if beats.any(func(b): return b["kind"] == "wormhole"):
 			await _wait(float(GameData.COMBAT_VISUALS.get("pacing", {}).get("wormholeFx", {}).get("holdSeconds", 0.0)))
 		await _play_save(saved_by, beats)
@@ -1359,7 +1359,7 @@ func _on_beat_played(beat: Dictionary) -> void:
 		_strip.drain_ghost_to(held_key, int(beat["hpAfter"]), _director.beat_duration)
 		_shown_hp[int(beat["actor"])] = int(beat["hpAfter"])
 		_sync_hp_label(cp)
-	_play_cues(cp, beat_cues(beat), false)
+	_play_cues(cp, beat_cues(beat, enemy_used(cp, beat)), false)
 
 
 # A rewound beat: its transcript line goes, the strip's focus steps back, the
@@ -1377,19 +1377,25 @@ func _on_rewind_beat_played(beat: Dictionary) -> void:
 		_strip.set_shown_hp(key, int(beat["hpAfter"]) + int(beat["dmg"]) - int(beat.get("absorbed", 0)))
 		_shown_hp[int(beat["target"])] = int(beat["hpAfter"]) + int(beat["dmg"]) - int(beat.get("absorbed", 0))
 		_sync_hp_label(cp)
-	_play_cues(cp, beat_cues(beat), true)
+	_play_cues(cp, beat_cues(beat, enemy_used(cp, beat)), true)
+
+
+# Whether an enemy acts the beat (its item cues take the steel palette).
+static func enemy_used(cp: Dictionary, beat: Dictionary) -> bool:
+	var actor := int(beat.get("actor", -1))
+	return actor >= 0 and actor < cp["combatants"].size() and cp["combatants"][actor]["side"] == CombatRounds.SIDE_ENEMY
 
 
 # The stage calls a beat plays, in order, each { call, who (combatant
 # index), ... }: "attack", "afterimage", "throw", "cast", "vanish" (fold out), "runOff" or
-# "recoil" (a pose on who); "powderLaunch" / "ladySweep" (the self-buff launch on who);
+# "recoil" (a pose on who); "travel" (a spark from who to "to", an array for a multi unit's split); "powderLaunch" / "ladySweep" (the self-buff launch on who);
 # "ladyGlint" (who's hit by a Lady Strike, "crit"); "sightRibbon" (from who, "gift" via the
 # player; holds back the cues after it) and "sightLand" (the read enemies' outline sweep); "effect" (who's data/combat_visuals.json effect
 # sheet "effect"); "damage" (who's hit, with "dmg" and a juice "scale");
 # "shieldAssemble" (who's Shield panels build to "level"); "shieldCrack";
-# "blackHole" (who's bead lifts to the middle of "affected"; holds back the cues after it); "healBurst" (motes + rim pulse on who), "healNumber" (green "+amount"), "healFizzle" (grey scatter); "cower" / "enraptured" (Panic's squash, Rapture's held lean on who); "raptureBloom" (soft bloom on who); "angerLand" (Panger's double red flash on who); "furyLine" (magenta line from who to "to" before a friendly-fire swing); "ko"; or "overlay" (nothing past the beat's marks). [] for
+# "blackHole" (who's bead lifts to the middle of "affected"; holds back the cues after it); a cue's "lag" k holds it k × multi_stagger() more, "enemy" takes the steel palette, "quiet" skips an effect's hit-stop; "healBurst" (motes + rim pulse on who), "healNumber" (green "+amount"), "healFizzle" (grey scatter); "cower" / "enraptured" (Panic's squash, Rapture's held lean on who); "raptureBloom" (soft bloom on who); "angerLand" (Panger's double red flash on who); "furyLine" (magenta line from who to "to" before a friendly-fire swing); "ko"; or "overlay" (nothing past the beat's marks). [] for
 # a beat kind with no mapping.
-static func beat_cues(beat: Dictionary) -> Array:
+static func beat_cues(beat: Dictionary, enemy: bool = false) -> Array:
 	var kind: String = beat["kind"]
 	var actor: int = int(beat["actor"])
 	var target: int = int(beat["target"])
@@ -1428,39 +1434,46 @@ static func beat_cues(beat: Dictionary) -> Array:
 			if kind == "blackHole":
 				cues.append({ "call": "blackHole", "who": actor, "affected": beat.get("affected", []) })
 			for affected in beat.get("affected", []):
-				cues.append({ "call": "effect", "who": int(affected), "effect": _ITEM_EFFECTS[kind] })
+				cues.append(_land_cue(beat, int(affected), enemy))
 		"blast", "heal", "healSelf", "shieldOther":
-			cues.append({ "call": "cast" if kind == "healSelf" else "throw", "who": actor })
-			if kind != "healSelf" and float(CombatStage.effect_data(_ITEM_EFFECTS[kind]).get("travelSeconds", 0.0)) > 0.0:
-				cues.append({ "call": "travel", "who": actor, "to": target, "effect": _ITEM_EFFECTS[kind] })
-			cues.append({ "call": "effect", "who": target, "effect": _ITEM_EFFECTS[kind] })
+			cues.append_array(_launch_cues(beat, "cast" if kind == "healSelf" and not beat.get("multi", false) else "throw", enemy))
+			cues.append(_land_cue(beat, target, enemy))
 			if kind == "blast":
 				cues.append({ "call": "guardFlicker", "who": target })
 			elif kind == "shieldOther":
 				cues.append(_shield_assemble_cue(beat, target))
 			elif kind == "heal" or kind == "healSelf":
-				cues.append({ "call": "healBurst", "who": target })
+				cues.append(_tagged({ "call": "healBurst", "who": target }, enemy))
 				if int(beat.get("amount", 0)) > 0:
 					cues.append({ "call": "healNumber", "who": target, "amount": int(beat["amount"]) })
 		"shield":
-			cues.append({ "call": "throw", "who": actor })
-			cues.append({ "call": "effect", "who": actor, "effect": _ITEM_EFFECTS[kind] })
-			cues.append(_shield_assemble_cue(beat, actor))
+			# A multi unit's one beat raises every teammate's, staggered.
+			cues.append_array(_launch_cues(beat, "throw", enemy))
+			var shielded: Array = beat.get("affected", [actor])
+			for k in range(shielded.size()):
+				var land := _land_cue(beat, int(shielded[k]), enemy)
+				var assemble := _shield_assemble_cue(beat, int(shielded[k]))
+				if k > 0:
+					land["lag"] = k
+					assemble["lag"] = k
+				cues.append_array([land, assemble])
 		"panic", "rapture":
-			cues.append({ "call": "throw", "who": actor })
 			if target >= 0:
-				cues.append({ "call": "travel", "who": actor, "to": target, "effect": _ITEM_EFFECTS[kind] })
-				cues.append({ "call": "effect", "who": target, "effect": _ITEM_EFFECTS[kind] })
+				cues.append_array(_launch_cues(beat, "throw", enemy))
+				cues.append(_land_cue(beat, target, enemy))
 				cues.append({ "call": "recoil" if kind == "panic" else "raptureBloom", "who": target })
+			else:
+				cues.append({ "call": "throw", "who": actor })
 		"cower":
 			cues.append({ "call": "cower", "who": actor })
 		"enraptured":
 			cues.append({ "call": "enraptured", "who": actor })
 		"anger", "fury":
-			cues.append({ "call": "throw", "who": actor })
 			if target >= 0:
-				cues.append({ "call": "travel", "who": actor, "to": target, "effect": _ITEM_EFFECTS[kind] })
+				cues.append_array(_launch_cues(beat, "throw", enemy))
 				cues.append({ "call": "angerLand", "who": target })
+			else:
+				cues.append({ "call": "throw", "who": actor })
 		_:
 			if not _CAST_KINDS.has(kind):
 				return []
@@ -1476,6 +1489,8 @@ static func beat_cues(beat: Dictionary) -> Array:
 		var scale: float = _CRIT_SCALE if beat.get("crit", false) else (_CHIP_SCALE if kind == "chip" else 1.0)
 		var shake: float = maxf(scale, float(CombatStage.effect_data(_ITEM_EFFECTS.get(kind, "")).get("shakeScale", 0.0)))
 		var lady: bool = bool(beat.get("lady", false)) and (kind == "hit" or kind == "chip")
+		if multi_index(beat) > 0:
+			shake = 0.0
 		cues.append({ "call": "damage", "who": target, "dmg": int(beat["dmg"]), "scale": scale, "shake": shake, "brass": lady, "fromCentre": kind == "pull" })
 		if lady:
 			cues.append({ "call": "ladyGlint", "who": target, "crit": bool(beat.get("crit", false)) })
@@ -1486,6 +1501,70 @@ static func beat_cues(beat: Dictionary) -> Array:
 	return cues
 
 
+# An item beat's launch: the actor's `pose` and, for an effect with a flight,
+# the travel to its target. A multi-target unit (proposal §3.17) launches
+# once, on its first beat, its travel splitting to every one it covers
+# ("to" an array); its later beats launch nothing.
+static func _launch_cues(beat: Dictionary, pose: String, enemy: bool) -> Array:
+	var actor := int(beat["actor"])
+	var target := int(beat["target"])
+	var index := multi_index(beat)
+	if index > 0:
+		return []
+	var cues: Array = [{ "call": pose, "who": actor }]
+	var effect: String = _ITEM_EFFECTS[beat["kind"]]
+	if float(CombatStage.effect_data(effect).get("travelSeconds", 0.0)) <= 0.0:
+		return cues
+	if index == 0:
+		cues.append(_tagged({ "call": "travel", "who": actor, "to": beat["affected"].duplicate(), "effect": effect }, enemy))
+	elif target >= 0 and target != actor:
+		cues.append(_tagged({ "call": "travel", "who": actor, "to": target, "effect": effect }, enemy))
+	return cues
+
+
+# The item beat's effect sheet landing on `who`; a multi unit's later lands
+# skip the hit-stop ("quiet": its first land holds the one stop).
+static func _land_cue(beat: Dictionary, who: int, enemy: bool) -> Dictionary:
+	var cue := { "call": "effect", "who": who, "effect": _ITEM_EFFECTS[beat["kind"]] }
+	if multi_index(beat) > 0:
+		cue["quiet"] = true
+	return _tagged(cue, enemy)
+
+
+# `cue` flagged "enemy" (an enemy-used item's steel palette, proposal §3.18)
+# when `enemy`.
+static func _tagged(cue: Dictionary, enemy: bool) -> Dictionary:
+	if enemy:
+		cue["enemy"] = true
+	return cue
+
+
+# A multi-target unit's beat's place in its landing order: 0 for the first
+# (the one beat of a multi Shield), -1 for a single-target beat.
+static func multi_index(beat: Dictionary) -> int:
+	if not beat.get("multi", false):
+		return -1
+	if beat["kind"] == "shield":
+		return 0
+	return beat.get("affected", []).find(int(beat["target"]))
+
+
+# Beat i's hold when the next beat is the next land of the same multi-target
+# unit (CombatDirector.play's `hold`): its first beat holds its flight plus
+# multi_stagger(), each later one multi_stagger(), so the lands stagger in
+# order; -1 (the director's own hold) for any other beat.
+static func multi_hold(beats: Array, i: int) -> float:
+	if i + 1 >= beats.size() or not beats[i + 1].has("kind"):
+		return -1.0
+	var index := multi_index(beats[i])
+	if index < 0 or multi_index(beats[i + 1]) != index + 1 or beats[i + 1]["move"] != beats[i]["move"] or CombatDirector.is_turn_boundary(beats, i):
+		return -1.0
+	var hold := CombatStage.multi_stagger()
+	if index == 0:
+		hold += CombatStage.fx_seconds(float(CombatStage.effect_data(_ITEM_EFFECTS[beats[i]["kind"]]).get("travelSeconds", 0.0)))
+	return hold
+
+
 # The cue that assembles `who`'s Shield panels to the pool the beat leaves.
 static func _shield_assemble_cue(beat: Dictionary, who: int) -> Dictionary:
 	var level := 1.0
@@ -1494,15 +1573,15 @@ static func _shield_assemble_cue(beat: Dictionary, who: int) -> Dictionary:
 	return { "call": "shieldAssemble", "who": who, "level": level }
 
 
-# The combatant whose Shield a beat raises (its panels assemble on the cue,
-# not with the beat's marks), or -1.
-static func shield_raised(beat: Dictionary) -> int:
+# The combatants whose Shields a beat raises (their panels assemble on the
+# cues, not with the beat's marks): a multi unit's whole team.
+static func shield_raised(beat: Dictionary) -> Array:
 	match beat["kind"]:
 		"shield":
-			return int(beat["actor"])
+			return beat.get("affected", [int(beat["actor"])]).duplicate()
 		"shieldOther":
-			return int(beat["target"])
-	return -1
+			return [int(beat["target"])]
+	return []
 
 
 # The actor's pose for a move-driven beat: Strike and Stun swing, a Feint
@@ -1535,17 +1614,26 @@ func _play_cues(cp: Dictionary, cues: Array, rewinding: bool) -> void:
 		elif cue["call"] == "sightLand":
 			if not rewinding:
 				_play_sight_land(cp, delay)
-		elif delay > 0.0:
-			_play_cue_later(cp, cue, delay)
 		else:
-			_play_cue(cp, cue, rewinding)
+			var wait := delay
+			if not rewinding:
+				wait += CombatStage.multi_stagger() * float(cue.get("lag", 0))
+			if wait > 0.0:
+				_play_cue_later(cp, cue, wait)
+			else:
+				_play_cue(cp, cue, rewinding)
 
 
+# A travel cue's flight; "to" an array is a multi unit's split.
 func _play_travel(cp: Dictionary, cue: Dictionary) -> float:
 	var roster := stage_roster(cp, -1)
 	var from_slot := _stage.resolve_target_slot(_stage_target(roster, int(cue["who"])))
+	var enemy := bool(cue.get("enemy", false))
+	if cue["to"] is Array:
+		var to_slots: Array = cue["to"].map(func(who): return _stage.resolve_target_slot(_stage_target(roster, int(who))))
+		return _stage.play_split_travel(from_slot, to_slots, cue["effect"], enemy)
 	var to_slot := _stage.resolve_target_slot(_stage_target(roster, int(cue["to"])))
-	return _stage.play_travel(from_slot, to_slot, cue["effect"])
+	return _stage.play_travel(from_slot, to_slot, cue["effect"], enemy)
 
 
 # The ribbon from the breather (via the player for an ally's gift) to the
@@ -1613,6 +1701,9 @@ static func removal_lead(beat: Dictionary) -> float:
 				total += float(hole.get(key, 0.0))
 			return CombatStage.fx_seconds(total)
 		"panic", "rapture", "anger", "fury":
+			# A multi unit's later lands come in on their own beat, no flight left.
+			if multi_index(beat) > 0:
+				return 0.0
 			return CombatStage.fx_seconds(float(CombatStage.effect_data(_ITEM_EFFECTS[beat["kind"]]).get("travelSeconds", 0.0)))
 	return 0.0
 
@@ -1630,10 +1721,10 @@ func _marks_wait(beat: Dictionary) -> float:
 	return maxf(0.0, float(_marks_hold_until_msec - Time.get_ticks_msec()) / 1000.0)
 
 
-func _apply_marks_later(marks: Array, wait: float, held_shield: int) -> void:
+func _apply_marks_later(marks: Array, wait: float, held_shields: Array) -> void:
 	await get_tree().create_timer(wait, true, false, true).timeout
 	if is_inside_tree():
-		_apply_marks(_cp(), marks, true, held_shield)
+		_apply_marks(_cp(), marks, true, held_shields)
 
 
 func _play_cue_later(cp: Dictionary, cue: Dictionary, delay: float) -> void:
@@ -1702,8 +1793,8 @@ func _play_cue(cp: Dictionary, cue: Dictionary, rewinding: bool) -> void:
 		"allyFailsafe":
 			_play_ally_failsafe(slot, rewinding)
 		"effect":
-			_stage.play_effect({}, cue["effect"], key)
-			if not rewinding:
+			_stage.play_effect({}, cue["effect"], key, bool(cue.get("enemy", false)))
+			if not rewinding and not cue.get("quiet", false):
 				_stage.hit_stop(float(CombatStage.effect_data(cue["effect"]).get("hitStopSeconds", 0.0)))
 		"guardFlicker":
 			slot.flicker_guard_marker(CombatStage.fx_seconds(float(CombatStage.item_fx().get("guardFlickerSeconds", 0.0))))
@@ -1719,7 +1810,7 @@ func _play_cue(cp: Dictionary, cue: Dictionary, rewinding: bool) -> void:
 		"shieldCrack":
 			slot.flash_shield_crack()
 		"healBurst":
-			slot.play_heal_burst()
+			slot.play_heal_burst(bool(cue.get("enemy", false)))
 		"healFizzle":
 			slot.play_heal_fizzle()
 		"healNumber":
@@ -1808,15 +1899,15 @@ func _play_save(by: Dictionary, beats: Array) -> void:
 
 # Each combatant's slot to its stage marks: guard marker, Shield loop, Time
 # Pearl freeze and status icons. `animate` plays Shield assemble / shed / burst
-# (a KO'd slot clears outright); `held_shield` is the slot whose Shield a cue
-# raises, left as it stands.
-func _apply_marks(cp: Dictionary, marks: Array, animate: bool = false, held_shield: int = -1) -> void:
+# (a KO'd slot clears outright); `held_shields` are the slots whose Shields
+# cues raise, left as they stand.
+func _apply_marks(cp: Dictionary, marks: Array, animate: bool = false, held_shields: Array = []) -> void:
 	var roster := stage_roster(cp, -1)
 	for i in range(mini(marks.size(), cp["combatants"].size())):
 		var slot := _stage.resolve_target_slot(_stage_target(roster, i))
 		if slot == null:
 			continue
-		if i != held_shield:
+		if not held_shields.has(i):
 			var fraction: float = float(marks[i].get("shieldFraction", 1.0 if marks[i]["shielded"] else 0.0))
 			_stage.set_slot_shield(slot, fraction, animate and marks[i]["guard"] != "")
 		slot.set_guard_marker(marks[i]["guard"])
@@ -1875,7 +1966,7 @@ func _on_demo_continue() -> void:
 		begin_strip_playback(before, round_no, result["beats"] + CombatRounds.demo_queue(cp))
 	var round_done := CombatRounds.demo_queue(cp).is_empty()
 	if is_inside_tree():
-		await _director.play(result["beats"] + ([{ "kind": _SETTLE_KIND }] if round_done else []), _on_beat_played)
+		await _director.play(result["beats"] + ([{ "kind": _SETTLE_KIND }] if round_done else []), _on_beat_played, 1.0, func(list: Array, i: int) -> float: return multi_hold(list, i))
 	if round_done:
 		_end_playback()
 	else:
