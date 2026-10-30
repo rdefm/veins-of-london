@@ -6,7 +6,9 @@
 
 **Relevant files:** `data/events/vein_raid.json`, `systems/combat.gd` (`SITUATIONAL_MODS` lines), `docs/writing-guide.md`, `docs/CONTENT-GUIDE.md`, `reference/london-orichalchum.html` (prose quarry only).
 
-**Status:** ready-for-agent
+**Status:** deprecated
+
+> **DEPRECATED (2026-10-30):** The one-shot item approach rows this prose targets are replaced by the stage-tree rebuild (19). Prose lands as per-beat tickets written after 08's proposal is approved. Do not implement.
 
 - [ ] Every placeholder line from 03–06 replaced
 - [ ] Self-audit against the writing guide's audit checklist

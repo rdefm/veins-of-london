@@ -8,7 +8,9 @@ Numbers are placeholders. Placeholder prose; real prose lands in ticket 07.
 
 **Relevant files:** `systems/events.gd` (item effect resolver, check mods), `systems/observation.gd` (`observed()`), `data/events/vein_raid.json`, `tests/test_raiding.gd`, `tests/test_event_items.gd`, `docs/REFERENCE.md` §3.9a, §3.9d.
 
-**Status:** ready-for-agent
+**Status:** deprecated
+
+> **DEPRECATED (2026-10-30):** Raids are moving to multi-stage approaches (stage trees). Time Pearl's raid uses (e.g. freeze guards to rush past, take out the line guard) are decided in 08's grilling/proposal and built in 10/11/19. Do not implement.
 
 - [ ] Sneak approach greyed without time observation or Time Pearl; `?` lists what is missing
 - [ ] Sneak skips the patrol fight; the later entry check shows the penalty in its odds breakdown
