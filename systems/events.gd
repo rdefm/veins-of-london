@@ -630,6 +630,8 @@ static func condition_met(condition: Dictionary, toggled: Array = []) -> bool:
 		return level >= int(a.get("atLeast", 0)) and level <= int(a.get("atMost", level))
 	if condition.has("security"):
 		return _security_met(condition["security"])
+	if condition.has("wardTriggered"):
+		return ward_triggered_here() == bool(condition["wardTriggered"])
 	return false
 
 
@@ -942,17 +944,77 @@ static func check_roll(choice_index: int, attempt_index: int = 0) -> float:
 	return roll
 
 
+# ── wards (R§3.12 "Wards") ──
+
+# The live raid's ward type (wards.json types[securityProfile.wardType]); {} with no ward.
+static func live_ward() -> Dictionary:
+	var ward_type := String(security_profile().get("wardType", ""))
+	return GameData.WARDS["types"].get(ward_type, {}) if ward_type != "" else {}
+
+
+# True when the live event's ward triggered on the current card.
+static func ward_triggered_here() -> bool:
+	return _marked_here("wardTrigger")
+
+
+static func _marked_here(key: String) -> bool:
+	var event_state: Variant = GameState.state.get("event")
+	return event_state != null and event_state.has(key) and int(event_state[key]) == int(event_state["cardIndex"])
+
+
+# The `ward_trigger` op: the live raid's ward bites at most once per card, and
+# not on a card an item slipped it (wardPass). Marks the card, so a
+# start_raid_combat later on it gets the type's fightStart, then runs the
+# type's onTrigger effects. No-op with no ward.
+static func trigger_ward() -> void:
+	var ward := live_ward()
+	if ward.is_empty() or ward_triggered_here() or _marked_here("wardPassed"):
+		return
+	var event_state: Dictionary = GameState.state["event"]
+	event_state["wardTrigger"] = int(event_state["cardIndex"])
+	for effect in ward["onTrigger"]:
+		_apply_one(effect)
+
+
+# The triggered ward's fightStart as one situational entry gated on
+# `wardTriggered`, or [] when it didn't trigger here or starts nothing.
+static func _ward_fight_start() -> Array:
+	var fight_start: Dictionary = live_ward().get("fightStart", {})
+	if fight_start.is_empty() or not ward_triggered_here():
+		return []
+	var entry := { "if": { "wardTriggered": true } }
+	entry.merge(fight_start)
+	return [entry]
+
+
+# `wardPass` at a ward with the powerVsFreeze counter: the item's effectPower
+# at the tier spent against the ward's freezeRounds. At or above, it's through:
+# the ward can't trigger on this card and true is returned. Below, the ward
+# triggers now. Any other ward (or none) is left alone.
+static func _ward_pass(item: String, tier: int) -> bool:
+	var ward := live_ward()
+	if not ward.get("counters", []).has("powerVsFreeze"):
+		return false
+	if float(Crafting.effect_power(item, tier)) >= float(ward["freezeRounds"]):
+		var event_state: Dictionary = GameState.state["event"]
+		event_state["wardPassed"] = int(event_state["cardIndex"])
+		return true
+	trigger_ward()
+	return false
+
+
 # ── item effects (R§3.9a Item effects) ──
 
 const ITEM_SOURCE_INVENTORY := "inventory"
 
 
-# Pays for an item effect from `source`; true when paid. Only the inventory
-# source exists so far.
-static func _pay_item(item: String, source: String) -> bool:
+# Pays for an item effect from `source`; the tier paid, 0 when nothing was.
+# Only the inventory source exists so far (lowest tier first).
+static func _pay_item(item: String, source: String) -> int:
 	if source == ITEM_SOURCE_INVENTORY:
-		return not Crafting.inventory_remove(item, 1).is_empty()
-	return false
+		var taken: Array = Crafting.inventory_remove(item, 1)
+		return int(taken[0]["tier"]) if not taken.is_empty() else 0
+	return 0
 
 
 # The one resolver for a toggled item's `effect` on commit: pays from `source`,
@@ -960,10 +1022,16 @@ static func _pay_item(item: String, source: String) -> bool:
 # does. `bonus` with an `entry` tag also persists in event.lasting for the rest
 # of the event (pure data, gone when the event ends). Any kind may carry
 # `nextCheck: {add, label?}`: a lasting entry for the next check rolled in this
-# event only, labelled with the item's name unless given one.
+# event only, labelled with the item's name unless given one. `wardPass` that
+# gets through a ward skips its nextCheck.
 static func apply_item_effect(item: String, effect: Dictionary, source: String) -> void:
-	_pay_item(item, source)
+	var tier := _pay_item(item, source)
 	match effect.get("kind", ""):
+		"wardPass":
+			if _ward_pass(item, maxi(tier, 1)):
+				return
+		"revealWard":
+			Observation.mark_ward_revealed()
 		"bonus":
 			if effect.has("entry"):
 				_lasting(GameState.state["event"]).append({
@@ -1129,6 +1197,7 @@ static func rewind(source: String = "") -> Dictionary:
 	var live_meta: Dictionary = GameState.state["meta"].duplicate()
 	var live_rolled: Dictionary = _rolled(event_state)
 	var live_observations: Variant = event_state.get("observations")
+	var snapped_observations: Dictionary = snap["event"].get("observations", {}) if snap.get("event") is Dictionary else {}
 	var block_start: Variant = GameState.state.get("blockStart")
 	GameState.state = snap
 	GameState.state["blockStart"] = block_start
@@ -1142,6 +1211,7 @@ static func rewind(source: String = "") -> Dictionary:
 	# Reads survive the Rewind; each read observation is re-armed for one more roll.
 	if live_observations != null:
 		GameState.state["event"]["observations"] = live_observations
+		Observation.drop_refunded_reveals(snapped_observations)
 	var rearmed := Observation.rearm_read()
 
 	if has_consumable:
@@ -1243,6 +1313,8 @@ static func _apply_one(effect: Dictionary, context: Dictionary = {}) -> void:
 			_reduce_raid_guards(effect)
 		"alert":
 			_apply_alert(effect)
+		"ward_trigger":
+			trigger_ward()
 		"claim_raid_vein":
 			Raiding.claim_vein(_event_site_id(effect))
 		"loot_raid_vein":
@@ -1616,7 +1688,8 @@ static func _start_raid_combat(effect: Dictionary) -> void:
 	guards -= int(_live_event_context().get("guardsDown", 0))
 	if guards <= 0:
 		return
-	Combat.start_raid(vein["id"], Cultivating.combined_magnitude(vein), guards, fight.get("template", ""), Combat.CONTEXT_EVENT_RAID, _event_ally_ids(effect), fight.get("situational", []), int(fight.get("waves", 0)))
+	var situational: Array = fight.get("situational", []) + _ward_fight_start()
+	Combat.start_raid(vein["id"], Cultivating.combined_magnitude(vein), guards, fight.get("template", ""), Combat.CONTEXT_EVENT_RAID, _event_ally_ids(effect), situational, int(fight.get("waves", 0)))
 
 
 # A raid fight op's setup (R§3.7b Fight presets): its `preset` from `presets`

@@ -307,6 +307,8 @@ var STOCKPILE_RAID: Dictionary = {}
 var VEIN_RAID_EVENTS: Dictionary = {}
 # Faction vein features roll, seeded site details and `{security}` feature names, R§3.12 "Security profile".
 var RAID_SECURITY: Dictionary = {}
+# Ward types {fallback, types: {id: {name, effect, freezeRounds?, onTrigger, fightStart, counters}}}, R§3.12 "Wards".
+var WARDS: Dictionary = {}
 
 # The Network handler's intel menu: product prices, relation gates,
 # durations, handler lines and plan labels, R§3.1 "Network intel menu".
@@ -586,6 +588,9 @@ const MANIFEST: Array[Dictionary] = [
 		{"field": "HIRING_MARKET", "key": "market", "type": TYPE_DICTIONARY},
 		{"field": "HIRING_TRAITS", "key": "traits", "type": TYPE_DICTIONARY},
 	]},
+	{"table": "wards", "file": "res://data/wards.json", "fields": [
+		{"field": "WARDS", "key": "", "type": TYPE_DICTIONARY},
+	]},
 	{"table": "lodedinnit", "file": "res://data/lodedinnit.json", "fields": [
 		{"field": "LODEDINNIT_FEED", "key": "feed", "type": TYPE_DICTIONARY},
 		{"field": "LODEDINNIT_VOICES", "key": "voices", "type": TYPE_DICTIONARY},
@@ -735,8 +740,35 @@ func validate_tables(t: Dictionary) -> Array[String]:
 	_validate_phone_home(t.get("phone_home", {}), errors)
 	_validate_daily_brief(t.get("daily_brief", {}), errors)
 	_validate_map_palette(t.get("map_palette", {}), t.get("factions", {}), t.get("ore_types", {}), errors)
+	_validate_wards(t.get("wards", {}), errors)
 
 	return errors
+
+
+const WARD_COUNTERS: Array[String] = ["powerVsFreeze"]
+
+
+# Every ward type has a name, effect line, valid onTrigger ops and known
+# fightStart mods; the fallback names a type (R§3.12 "Wards").
+func _validate_wards(wards: Dictionary, errors: Array[String]) -> void:
+	var types: Dictionary = wards.get("types", {})
+	if not types.has(str(wards.get("fallback", ""))):
+		errors.append("wards: fallback '%s' is not a ward type" % str(wards.get("fallback", "")))
+	for id in types:
+		var ward: Dictionary = types[id]
+		var where := "wards.types.%s" % id
+		_require_keys(ward, ["name", "effect", "onTrigger", "fightStart", "counters"], where, errors)
+		for effect in ward.get("onTrigger", []):
+			if not VALID_EFFECT_OPS.has(str(effect.get("op", ""))):
+				errors.append("%s.onTrigger: unknown op '%s'" % [where, str(effect.get("op", ""))])
+		for key in ward.get("fightStart", {}):
+			if not Combat.SITUATIONAL_MODS.has(key):
+				errors.append("%s.fightStart: unknown fight mod '%s'" % [where, key])
+		for counter in ward.get("counters", []):
+			if not WARD_COUNTERS.has(counter):
+				errors.append("%s.counters: unknown counter '%s'" % [where, counter])
+		if ward.get("counters", []).has("powerVsFreeze") and int(ward.get("freezeRounds", 0)) < 1:
+			errors.append("%s: powerVsFreeze needs freezeRounds >= 1" % where)
 
 
 # The drawer toggle's label is set; every token is a valid colour string and light/dark carry identical keys;
@@ -2165,6 +2197,8 @@ const VALID_EFFECT_OPS: Array[String] = [
 	"start_raid_combat", "reduce_raid_guards", "claim_raid_vein", "loot_raid_vein",
 	# alert shifts the live event's alert level (Events._apply_alert(), R§3.9a "Alert").
 	"alert",
+	# ward_trigger sets off the live raid's ward (Events.trigger_ward(), R§3.12 "Wards").
+	"ward_trigger",
 	"start_stockpile_raid_combat", "loot_stockpile", "start_faction_ambush_combat",
 	# start_scripted_fight opens an event's scripted fight (Combat.start_scripted_fight()).
 	"start_scripted_fight", "start_demo_fight",

@@ -100,8 +100,30 @@ static func create_faction_vein(faction_id: String, site: Dictionary, growth: in
 	vein["factionId"] = faction_id
 	vein["security"] = roll_security_tier(faction_id, site["oreType"])
 	vein["features"] = roll_vein_features(faction_id, site["oreType"], site["id"])
+	sync_ward(vein)
 	vein["kit"] = {}
 	return vein
+
+
+# The ward type a faction lays (R§3.12 "Wards"): its primaryOre when wards.json
+# defines that type, else the fallback type.
+static func ward_type_for(faction_id: String) -> String:
+	var primary := String(GameData.FACTIONS.get(faction_id, {}).get("primaryOre", ""))
+	return primary if GameData.WARDS["types"].has(primary) else String(GameData.WARDS["fallback"])
+
+
+# Keeps a faction vein's features.ward in step with its tier: warded and above
+# carry the owner's ward type (an existing one is kept), below that none.
+static func sync_ward(vein: Dictionary) -> void:
+	var order: Array[String] = Cultivating.VEIN_SECURITY_ORDER
+	if order.find(String(vein.get("security", ""))) < order.find(Cultivating.WARDED_TIER_ID):
+		if vein.get("features") is Dictionary:
+			vein["features"].erase("ward")
+		return
+	var features: Dictionary = vein.get("features", {})
+	if String(features.get("ward", "")) == "":
+		features["ward"] = ward_type_for(String(vein["factionId"]))
+	vein["features"] = features
 
 
 # Security-tier roll from three signed tilts on SECURITY_BASE_WEIGHTS -- faction
@@ -245,6 +267,7 @@ static func _apply_tier_upgrade(faction_id: String, veins: Array) -> bool:
 	faction_state["resources"] -= Cultivating.security_tier_cost(next_id)
 	FactionAI.note_spend(faction_id, float(Cultivating.security_tier_cost(next_id)))
 	vein["security"] = next_id
+	sync_ward(vein)
 	return true
 
 

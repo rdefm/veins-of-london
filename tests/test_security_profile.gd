@@ -109,7 +109,9 @@ func run() -> void:
 		var f: Dictionary = vein["features"]
 		assert_true(f["cameras"] is int and f["cameras"] >= 0 and f["cameras"] <= int(GameData.RAID_SECURITY["features"]["maxCameras"]), "cameras in range")
 		assert_true(f["alarm"] is bool, "alarm is a bool")
-		assert_eq(Factions.roll_vein_features("firm", "time", "s9"), f, "the roll is a stable hash of game, day, site and faction")
+		var rolled := f.duplicate()
+		rolled.erase("ward")
+		assert_eq(Factions.roll_vein_features("firm", "time", "s9"), rolled, "the roll is a stable hash of game, day, site and faction")
 	)
 
 	run_case("opulence_tilts_the_features_roll", func():

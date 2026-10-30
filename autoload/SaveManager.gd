@@ -638,12 +638,15 @@ func _backfill_vein_guard_kits(result: Dictionary) -> void:
 
 
 # Every faction vein carries features (R§3.12 "Security profile"); a save
-# without them rolls them as a claim would, against the save's own state.
+# without them rolls them as a claim would, against the save's own state. A
+# warded vein without a ward type gets its owner's (R§3.12 "Wards").
 func _backfill_faction_vein_features(result: Dictionary) -> void:
 	for site in result["world"].get("sites", []):
 		var vein: Variant = site.get("factionVein")
 		if vein is Dictionary and not (vein.get("features") is Dictionary):
 			vein["features"] = Factions.roll_vein_features(vein["factionId"], vein["oreType"], site["id"], result)
+		if vein is Dictionary:
+			Factions.sync_ward(vein)
 
 
 # A guardUpkeep key added after the save was made (e.g. pendingShortfall)

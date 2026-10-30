@@ -1,0 +1,20 @@
+{
+  "fallback": "generic",
+  "types": {
+    "time": {
+      "name": "Time ward",
+      "effect": "Whoever crosses it stands still for a moment, and the house hears about it.",
+      "freezeRounds": 2,
+      "onTrigger": [{ "op": "alert", "atLeast": 1 }],
+      "fightStart": { "playerFrozen": 2 },
+      "counters": ["powerVsFreeze"]
+    },
+    "generic": {
+      "name": "Ward",
+      "effect": "Crossing it tells someone inside that you're here.",
+      "onTrigger": [{ "op": "alert", "atLeast": 1 }],
+      "fightStart": {},
+      "counters": []
+    }
+  }
+}

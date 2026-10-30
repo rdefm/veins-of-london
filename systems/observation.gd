@@ -36,8 +36,88 @@ static func read() -> Array:
 	if id == "":
 		return []
 	if not _stored(id).has("results") or is_armed():
+		var buy_reveal := not reveal_toggle().is_empty() and bool(reveal_toggle()["on"])
 		_roll_all(id)
+		if buy_reveal:
+			Events.apply_item_effect(String(GameData.OBSERVATION["wardRevealItem"]), { "kind": "revealWard" }, Events.ITEM_SOURCE_INVENTORY)
+		GameState.state["event"].get("toggles", {}).erase(_reveal_key(id))
 	return rows(id)
+
+
+# ── ward line (R§3.9d "Ward line") ──
+
+# What the read in effect says about the live raid's ward: {name, effect, text}
+# once a read reached the def's `ward` block (ore at atLeast) or a reveal item
+# was spent on it; {} otherwise, or with no ward / no `ward` block.
+static func ward_line(id: String) -> Dictionary:
+	var spec: Dictionary = _def(id).get("ward", {})
+	var ward := Events.live_ward()
+	var stored := _stored(id)
+	if spec.is_empty() or ward.is_empty() or not stored.has("results"):
+		return {}
+	var level := int(stored["results"].get(String(spec.get("ore", "")), {}).get("level", 0))
+	if not bool(stored.get("wardRevealed", false)) and level < int(spec.get("atLeast", 1)):
+		return {}
+	return {
+		"name": String(ward["name"]),
+		"effect": String(ward["effect"]),
+		"text": String(GameData.OBSERVATION["wardLine"]) % [ward["name"], ward["effect"]],
+	}
+
+
+# The reveal item's toggle for the read in effect, for the screen: {item, name,
+# on, held}, or {} when the read can't take one (no `ward` block, no live ward,
+# nothing to roll, or the ward is already revealed).
+static func reveal_toggle() -> Dictionary:
+	var id := in_effect()
+	if id == "" or _def(id).get("ward", {}).is_empty() or Events.live_ward().is_empty():
+		return {}
+	if not (is_unread() or is_armed()) or bool(_stored(id).get("wardRevealed", false)):
+		return {}
+	var item := String(GameData.OBSERVATION["wardRevealItem"])
+	var held := Crafting.inventory_qty(item) > 0
+	var stored: Array = GameState.state["event"].get("toggles", {}).get(_reveal_key(id), [])
+	return { "item": item, "name": String(GameData.RECIPES.get(item, {}).get("name", item)), "on": held and stored.has(item), "held": held }
+
+
+# Flips the reveal item on or off for the next read. Kept in
+# state.event.toggles["obs|<id>"], so save and Rewind capture it; spends nothing.
+static func toggle_reveal() -> Dictionary:
+	var toggle := reveal_toggle()
+	if toggle.is_empty():
+		return { "ok": false, "reason": "Nothing to reveal here." }
+	var event_state: Dictionary = GameState.state["event"]
+	if not event_state.has("toggles"):
+		event_state["toggles"] = {}
+	var key := _reveal_key(in_effect())
+	if toggle["on"]:
+		event_state["toggles"][key] = []
+	elif not toggle["held"]:
+		return { "ok": false, "reason": "None on you." }
+	else:
+		event_state["toggles"][key] = [toggle["item"]]
+	EventBus.state_changed.emit()
+	return { "ok": true }
+
+
+# The `revealWard` item effect: the read in effect shows its ward line whatever the roll.
+static func mark_ward_revealed() -> void:
+	var id := in_effect()
+	if id != "" and GameState.state["event"].get("observations", {}).has(id):
+		GameState.state["event"]["observations"][id]["wardRevealed"] = true
+
+
+# After a Rewind carries the live reads over the snapshot: a reveal bought after
+# the snapshot was refunded with the item, so it goes too.
+static func drop_refunded_reveals(snapped: Dictionary) -> void:
+	var observations: Dictionary = GameState.state["event"].get("observations", {})
+	for id in observations:
+		if not bool(snapped.get(id, {}).get("wardRevealed", false)):
+			observations[id].erase("wardRevealed")
+
+
+static func _reveal_key(id: String) -> String:
+	return "obs|" + id
 
 
 # True when the observation in effect was read and an event Rewind re-armed it.
@@ -445,6 +525,8 @@ static func _roll_all(id: String) -> void:
 				results[ore]["improved"] = true
 		xp += int(GameData.OBSERVATION["xpPerBlock"]) + int(GameData.OBSERVATION["xpPerTier"]) * level
 	event_state["observations"][id] = { "rollCount": roll_count + 1, "results": results }
+	if previous.get("wardRevealed", false):
+		event_state["observations"][id]["wardRevealed"] = true
 	Sense.award_xp(xp)
 	Events.apply_effects(tier_effects)
 

@@ -260,6 +260,9 @@ func _toggle_item_menu(anchor: Button) -> void:
 		if observe_pulsing():
 			_apply_pulse(observe)
 		list.add_child(observe)
+		var reveal := Observation.reveal_toggle()
+		if not reveal.is_empty() and reveal["held"]:
+			list.add_child(_build_reveal_toggle(reveal))
 	for entry in EventItems.usable_entries():
 		var id: String = entry["id"]
 		var b := UI.button(item_entry_label(entry), func(): _on_item_picked(id))
@@ -364,6 +367,12 @@ func _open_observation_sheet(rows: Array) -> void:
 		if _pick_choice >= 0:
 			_style_pick_row(row_node, row["ore"], pick_ores.has(row["ore"]))
 		content.add_child(row_node)
+	var ward := Observation.ward_line(obs_id)
+	if not ward.is_empty():
+		var ward_label := UI.label(ward["text"])
+		ward_label.name = "WardLine"
+		ward_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		content.add_child(ward_label)
 	var close := UI.button("Close", _close_observation_sheet)
 	_style_action_button(close)
 	content.add_child(close)
@@ -560,6 +569,18 @@ func _build_context_button(choice_index: int) -> Button:
 		style.set_corner_radius_all(int(CONTEXT_BUTTON_SIZE / 2.0))
 		style.set_content_margin_all(0.0)
 	return q
+
+# The reveal item's toggle under Observe (R§3.9d "Ward line"): spent by the next read.
+func _build_reveal_toggle(toggle: Dictionary) -> Button:
+	var t := UI.button(GameData.OBSERVATION["wardRevealToggle"] % toggle["name"], func(): Observation.toggle_reveal())
+	t.name = "RevealToggle"
+	t.toggle_mode = true
+	t.set_pressed_no_signal(toggle["on"])
+	t.icon = ItemIcons.texture(toggle["item"])
+	t.expand_icon = true
+	_style_action_button(t)
+	t.add_theme_stylebox_override("hover_pressed", _action_button_style(UI.action_colour(), 0.30, 1.0))
+	return t
 
 func _build_item_toggle(choice_index: int, toggle: Dictionary) -> Button:
 	var item: String = toggle["item"]

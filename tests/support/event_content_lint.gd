@@ -309,6 +309,8 @@ static func _lint_condition(where: String, c: Dictionary, refs: Dictionary) -> A
 		if not s is Dictionary or not (GameData.RAID_SECURITY["featureNames"] as Dictionary).has(s.get("feature", "")):
 			return ["%s: unknown security feature %s" % [where, JSON.stringify(s)]]
 		return []
+	if c.has("wardTriggered"):
+		return [] if c["wardTriggered"] is bool else ["%s: wardTriggered must be a bool" % where]
 	if c.has("alertByTier"):
 		return [] if c["alertByTier"] is Array and (c["alertByTier"] as Array).size() == tiers else ["%s: alertByTier needs %d entries" % [where, tiers]]
 	return ["%s: unknown condition %s" % [where, JSON.stringify(c)]]
@@ -398,6 +400,12 @@ static func _lint_observations(id: String, def: Dictionary, refs: Dictionary) ->
 		var blocks: Dictionary = obs.get("blocks", {})
 		if blocks.is_empty():
 			out.append("%s has no blocks" % where)
+		if obs.has("ward"):
+			var ward: Variant = obs["ward"]
+			if not ward is Dictionary or not blocks.has(ward.get("ore", "")):
+				out.append("%s: ward needs the ore of one of its blocks" % where)
+			elif int(ward.get("atLeast", 1)) < 1 or int(ward.get("atLeast", 1)) > (blocks[ward["ore"]].get("tiers", []) as Array).size():
+				out.append("%s: ward atLeast outside its block's tiers" % where)
 		for ore in blocks:
 			var block_where := "%s %s" % [where, ore]
 			var block: Dictionary = blocks[ore]

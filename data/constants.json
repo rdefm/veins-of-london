@@ -569,6 +569,7 @@
       "tier": { "name": "security tier", "absent": "no security" },
       "locks": { "name": "locks", "absent": "no locks" },
       "ward": { "name": "a ward", "absent": "no ward" },
+      "wardType": { "name": "the ward", "absent": "no ward" },
       "guards": { "name": "guards", "absent": "no guards" },
       "cameras": { "name": "cameras", "absent": "no cameras" },
       "alarm": { "name": "an alarm line", "absent": "no alarm line" },
@@ -735,6 +736,9 @@
     "attunementLabel": "Attunement",
     "breathLabel": "Prophet's Breath",
     "breathBonus": 0.1,
+    "wardRevealItem": "prophetsBreath",
+    "wardLine": "%s. %s",
+    "wardRevealToggle": "Use %s: see the ward clearly",
     "raidLabels": {
       "security": "Security",
       "value": "Value",

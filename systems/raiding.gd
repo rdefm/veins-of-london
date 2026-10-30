@@ -166,16 +166,24 @@ static func begin_raid(vein: Dictionary, ally_ids: Array = [], muscle: bool = fa
 
 # A vein raid's security profile (R§3.12 "Security profile"): pure data from
 # the vein's tier (locks from basic, a ward from warded, guards = its guard
-# count), its features (cameras, alarm) and its site's seeded details. Carried
-# in the event context as `securityProfile`, read by `{security}` conditions.
+# count), its features (cameras, alarm, ward type) and its site's seeded
+# details. Carried in the event context as `securityProfile`, read by
+# `{security}` conditions.
 static func security_profile(vein: Dictionary) -> Dictionary:
 	var order: Array[String] = Cultivating.VEIN_SECURITY_ORDER
 	var rank := order.find(String(vein.get("security", "")))
 	var features: Dictionary = vein.get("features", {})
+	var warded := rank >= order.find(Cultivating.WARDED_TIER_ID)
+	var ward_type := ""
+	if warded:
+		ward_type = String(features.get("ward", ""))
+		if ward_type == "" and vein.has("factionId"):
+			ward_type = Factions.ward_type_for(String(vein["factionId"]))
 	var profile := {
 		"tier": String(vein.get("security", "")),
 		"locks": rank >= order.find(Cultivating.BASIC_TIER_ID),
-		"ward": rank >= order.find(Cultivating.WARDED_TIER_ID),
+		"ward": warded,
+		"wardType": ward_type,
 		"guards": Cultivating.vein_guard_count(vein),
 		"cameras": int(features.get("cameras", 0)),
 		"alarm": bool(features.get("alarm", false)),
@@ -656,6 +664,7 @@ static func transfer_player_vein_to_faction(vein: Dictionary, site: Dictionary, 
 	faction_vein.erase("guardKit")
 	faction_vein["factionId"] = faction_id
 	faction_vein["features"] = Factions.roll_vein_features(faction_id, vein["oreType"], site["id"])
+	Factions.sync_ward(faction_vein)
 	site["factionVein"] = faction_vein
 	site["claimed"] = false
 
