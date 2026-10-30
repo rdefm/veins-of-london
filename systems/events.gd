@@ -40,7 +40,7 @@ static func start_event(event_id: String, context: Dictionary = {}) -> void:
 		return
 	_apply_timing(GameData.EVENTS[event_id].get("at", {}))
 	TimingLog.begin(TimingLog.KIND_EVENT, event_id)
-	GameState.state["event"] = { "eventId": event_id, "cardIndex": 0, "snapshots": [], "choiceResults": {}, "jumps": {}, "rolled": {}, "toggles": {}, "context": context }
+	GameState.state["event"] = { "eventId": event_id, "cardIndex": 0, "snapshots": [], "choiceResults": {}, "jumps": {}, "rolled": {}, "toggles": {}, "context": context, "alert": _clamp_alert(int(context.get("startAlert", 0))) }
 	Observation.restore_site_memory()
 	Nav.go_to("event")
 
@@ -544,7 +544,8 @@ static func odds_for(check: Dictionary, toggled: Array = []) -> Dictionary:
 		var delta: float = _mod_delta(mod, toggled)
 		if delta != 0.0:
 			probability += delta
-			applied.append({ "label": mod.get("label", ""), "delta": delta })
+			var label: String = GameData.EVENT_CHECKS["alert"]["modFormat"] % alert_tier_name(alert_level()) if mod.has("alertByTier") else mod.get("label", "")
+			applied.append({ "label": label, "delta": delta })
 	for lasting in _lasting_bonuses(check, toggled):
 		probability += float(lasting["delta"])
 		applied.append(lasting)
@@ -574,6 +575,10 @@ static func _mod_delta(mod: Dictionary, toggled: Array = []) -> float:
 	if mod.has("path") and mod.has("perPoint"):
 		var value: float = float(GameState.read_path(mod["path"], 0))
 		return float(mod["perPoint"]) * maxf(0.0, value - float(mod.get("above", 0)))
+	if mod.has("alertByTier"):
+		var by_tier: Array = mod["alertByTier"]
+		var level := alert_level()
+		return float(by_tier[level]) if level < by_tier.size() else 0.0
 	return float(mod.get("add", 0.0)) if condition_met(mod, toggled) else 0.0
 
 
@@ -582,8 +587,9 @@ static func _mod_delta(mod: Dictionary, toggled: Array = []) -> float:
 # toggled on (toggled = active_toggles()), {flag} truthy, {choice: {event,
 # card (key), option}} remembered, {path, atLeast}, {relation, atLeast},
 # {cash: {atLeast}}, {recipeRung: {recipe, rung}} owned (vague or exact),
-# {observed: {id, ore, atLeast}} read this run (R§3.9d), {all: [conditions]}
-# every part holds. Unknown shapes never hold.
+# {observed: {id, ore, atLeast}} read this run (R§3.9d), {alert: {atLeast?,
+# atMost?}} the live event's alert level, {all: [conditions]} every part
+# holds. Unknown shapes never hold.
 static func condition_met(condition: Dictionary, toggled: Array = []) -> bool:
 	if condition.has("all"):
 		for part in condition["all"]:
@@ -616,7 +622,44 @@ static func condition_met(condition: Dictionary, toggled: Array = []) -> bool:
 		return RecipeKnowledge.owns_rung(r["recipe"], r["rung"])
 	if condition.has("observed"):
 		return Observation.observed(condition["observed"])
+	if condition.has("alert"):
+		var a: Dictionary = condition["alert"]
+		var level := alert_level()
+		return level >= int(a.get("atLeast", 0)) and level <= int(a.get("atMost", level))
 	return false
+
+
+# ── alert level (R§3.9a "Alert") ──
+
+# The live event's alert tier (0 = eventChecks.alert.tiers[0]); 0 with no event.
+static func alert_level() -> int:
+	var event_state: Variant = GameState.state.get("event")
+	return int(event_state.get("alert", 0)) if event_state != null else 0
+
+
+static func alert_tier_name(level: int) -> String:
+	return String(GameData.EVENT_CHECKS["alert"]["tiers"][_clamp_alert(level)])
+
+
+static func _clamp_alert(level: int) -> int:
+	return clampi(level, 0, (GameData.EVENT_CHECKS["alert"]["tiers"] as Array).size() - 1)
+
+
+# Caught = the live event's alert at or above eventChecks.alert.caughtAtLeast.
+static func alert_caught() -> bool:
+	return alert_level() >= int(GameData.EVENT_CHECKS["alert"]["caughtAtLeast"])
+
+
+# The `alert` op: `add` shifts the level (signed), `atLeast` raises it to that
+# tier if lower; clamped to the tier range. No-op outside a live event.
+static func _apply_alert(effect: Dictionary) -> void:
+	var event_state: Variant = GameState.state.get("event")
+	if event_state == null:
+		return
+	var level := alert_level() + int(effect.get("add", 0))
+	if effect.has("atLeast"):
+		level = maxi(level, int(effect["atLeast"]))
+	event_state["alert"] = _clamp_alert(level)
 
 
 # ── option gating (R§3.9a "Requires") ──
@@ -667,6 +710,11 @@ static func _unmet_line(part: Dictionary) -> String:
 	if part.has("item"):
 		var name: String = GameData.RECIPES.get(part["item"], {}).get("name", part["item"])
 		return texts["itemOptional" if part.get("optional", false) else "item"] % name
+	if part.has("alert"):
+		var a: Dictionary = part["alert"]
+		if a.has("atLeast") and alert_level() < int(a["atLeast"]):
+			return texts["alertAtLeast"] % alert_tier_name(int(a["atLeast"]))
+		return texts["alertAtMost"] % alert_tier_name(int(a.get("atMost", 0)))
 	return ""
 
 
@@ -1109,6 +1157,8 @@ static func _apply_one(effect: Dictionary, context: Dictionary = {}) -> void:
 			_start_raid_combat(effect)
 		"reduce_raid_guards":
 			_reduce_raid_guards(effect)
+		"alert":
+			_apply_alert(effect)
 		"claim_raid_vein":
 			Raiding.claim_vein(_event_site_id(effect))
 		"loot_raid_vein":
@@ -1424,13 +1474,13 @@ static func _event_ally_ids(effect: Dictionary) -> Array:
 	return event_state.get("context", {}).get("ally_ids", [])
 
 
-# "caught" drives loot_raid_vein's relation hit. A clean entry and
-# caught-then-combat-win both resume at the same shared claim/loot card, so
-# flags.raidCaught is what tells it which path got here.
+# "caught" drives loot_raid_vein's relation hit: derived from the live alert
+# level (alert_caught()), or vein_raid's hand-set flags.raidCaught, whose clean
+# and caught paths share one claim/loot card.
 static func _event_caught(effect: Dictionary) -> bool:
 	if effect.has("caught"):
 		return effect["caught"]
-	return GameState.state["flags"].get("raidCaught", false)
+	return alert_caught() or GameState.state["flags"].get("raidCaught", false)
 
 
 # A stockpile raid's faction id, from the effect or the live event context.

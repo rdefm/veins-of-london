@@ -295,6 +295,17 @@ static func _lint_condition(where: String, c: Dictionary, refs: Dictionary) -> A
 		return _lint_choice_ref(where, c["choice"])
 	if c.has("observed"):
 		return _lint_observed_ref(where, c["observed"], refs.get("event", {}))
+	var tiers: int = (GameData.EVENT_CHECKS["alert"]["tiers"] as Array).size()
+	if c.has("alert"):
+		var a: Variant = c["alert"]
+		if not a is Dictionary or not (a.has("atLeast") or a.has("atMost")):
+			return ["%s: alert needs atLeast or atMost" % where]
+		for key in ["atLeast", "atMost"]:
+			if a.has(key) and (int(a[key]) < 0 or int(a[key]) >= tiers):
+				return ["%s: alert %s %s outside 0..%d" % [where, key, str(a[key]), tiers - 1]]
+		return []
+	if c.has("alertByTier"):
+		return [] if c["alertByTier"] is Array and (c["alertByTier"] as Array).size() == tiers else ["%s: alertByTier needs %d entries" % [where, tiers]]
 	return ["%s: unknown condition %s" % [where, JSON.stringify(c)]]
 
 

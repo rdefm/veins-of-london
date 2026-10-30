@@ -211,6 +211,33 @@ func _install_routed_event() -> Dictionary:
 	return original_events
 
 
+# An alert fixture: card 1 raises/lowers alert; card 2 holds an Unseen-only
+# option, a Suspicious-or-worse option, an alertByTier check and a loot option.
+func _install_alert_event() -> Dictionary:
+	var original_events: Dictionary = GameData.EVENTS
+	GameData.EVENTS = GameData.EVENTS.duplicate()
+	GameData.EVENTS["test_alert_event"] = {
+		"id": "test_alert_event",
+		"cards": [
+			{ "type": "narration", "label": null, "speaker": null, "text": "Setup" },
+			{ "type": "choice", "key": "noise", "label": null, "speaker": null, "text": "Noise?", "choices": [
+				{ "label": "Kick it", "effects": [{ "op": "alert", "add": 1 }], "result_text": "Bang." },
+				{ "label": "Blast it", "effects": [{ "op": "alert", "atLeast": 2 }], "result_text": "BANG." },
+				{ "label": "Wait", "effects": [], "result_text": "Quiet." },
+			] },
+			{ "type": "choice", "key": "gate", "label": null, "speaker": null, "text": "Gate", "choices": [
+				{ "label": "Sneak", "requires": { "alert": { "atMost": 0 }, "display": "disable" }, "effects": [], "result_text": "In." },
+				{ "label": "Calm them", "requires": { "alert": { "atLeast": 1 }, "display": "disable" }, "effects": [], "result_text": "Calm." },
+				{ "label": "Creep", "check": { "base": 0.5, "mods": [{ "alertByTier": [0.0, -0.10, -0.25] }], "min": 0.0, "max": 1.0 },
+					"success": { "result_text": "s", "effects": [] }, "fail": { "result_text": "f", "effects": [] } },
+				{ "label": "Loot", "effects": [{ "op": "loot_raid_vein" }], "result_text": "Pockets full." },
+			] },
+		],
+		"on_complete": [{ "op": "set_screen", "screen": "phone" }],
+	}
+	return original_events
+
+
 func _install_image_choice_event() -> Dictionary:
 	var original_events: Dictionary = GameData.EVENTS
 	GameData.EVENTS = GameData.EVENTS.duplicate()
@@ -2403,6 +2430,118 @@ func run() -> void:
 		assert_eq(GameState.state["world"]["day"], 1)
 		assert_eq(GameState.state["world"]["timeBlock"], 2, "intro runs in Evening")
 		assert_eq(Calendar.format_day(1).substr(0, 3), "TUE")
+	)
+
+	# ── alert level (R§3.9a "Alert") ──
+
+	run_case("alert_op_raises_and_lowers_within_the_tier_range", func():
+		GameState.reset()
+		var original_events := _install_alert_event()
+		Events.start_event("test_alert_event")
+		assert_eq(Events.alert_level(), 0, "starts Unseen")
+		Events.apply_effects([{ "op": "alert", "add": 5 }])
+		assert_eq(Events.alert_level(), 2, "raise clamps to Alarm")
+		Events.apply_effects([{ "op": "alert", "atLeast": 1 }])
+		assert_eq(Events.alert_level(), 2, "atLeast never lowers")
+		Events.apply_effects([{ "op": "alert", "add": -9 }])
+		assert_eq(Events.alert_level(), 0, "lower clamps to Unseen")
+		Events.apply_effects([{ "op": "alert", "atLeast": 1 }])
+		assert_eq(Events.alert_level(), 1, "atLeast raises to that tier")
+		GameData.EVENTS = original_events
+		GameState.state["event"] = null
+	)
+
+	run_case("alert_condition_gates_options_and_names_the_unmet_tier", func():
+		GameState.reset()
+		var original_events := _install_alert_event()
+		Events.start_event("test_alert_event")
+		Events.advance()
+		Events.choose(2)
+		Events.advance()
+		var unmet: Dictionary = GameData.EVENT_CHECKS["unmet"]
+		assert_eq(Events.option_gate(0)["display"], "show", "Unseen-only option shows at Unseen")
+		assert_eq(Events.option_gate(1)["display"], "disable", "Suspicious option greyed at Unseen")
+		assert_eq(Events.unmet_requirement_lines(1), [unmet["alertAtLeast"] % "Suspicious"])
+		GameState.state["event"]["alert"] = 2
+		assert_eq(Events.option_gate(0)["display"], "disable", "Unseen-only option greyed at Alarm")
+		assert_eq(Events.unmet_requirement_lines(0), [unmet["alertAtMost"] % "Unseen"])
+		assert_eq(Events.option_gate(1)["display"], "show")
+		GameData.EVENTS = original_events
+		GameState.state["event"] = null
+	)
+
+	run_case("alert_mod_shows_in_the_odds_breakdown_with_its_tier_name", func():
+		GameState.reset()
+		var original_events := _install_alert_event()
+		Events.start_event("test_alert_event")
+		Events.advance()
+		Events.choose(2)
+		Events.advance()
+		assert_eq(Events.check_odds(2)["mods"], [], "no alert mod at Unseen")
+		GameState.state["event"]["alert"] = 1
+		var odds := Events.check_odds(2)
+		assert_eq(odds["mods"], [{ "label": GameData.EVENT_CHECKS["alert"]["modFormat"] % "Suspicious", "delta": -0.10 }])
+		assert_almost_eq(odds["probability"], 0.40, 0.0001)
+		GameState.state["event"]["alert"] = 2
+		assert_almost_eq(Events.check_odds(2)["probability"], 0.25, 0.0001)
+		GameData.EVENTS = original_events
+		GameState.state["event"] = null
+	)
+
+	run_case("alert_clears_at_event_end_and_does_not_leak", func():
+		GameState.reset()
+		var original_events := _install_alert_event()
+		Events.start_event("test_alert_event")
+		Events.advance()
+		Events.choose(1)
+		assert_eq(Events.alert_level(), 2)
+		Events.advance()
+		Events.choose(3)
+		Events.advance()
+		assert_eq(GameState.state["event"], null, "event ended")
+		assert_eq(Events.alert_level(), 0, "no event, no alert")
+		Events.start_event("test_alert_event")
+		assert_eq(Events.alert_level(), 0, "the next run starts Unseen")
+		GameData.EVENTS = original_events
+		GameState.state["event"] = null
+	)
+
+	run_case("rewind_restores_the_earlier_alert_level", func():
+		GameState.reset()
+		var original_events := _install_alert_event()
+		GameState.state["player"]["inventory"]["rewind"] = { "1": 1 }
+		Events.start_event("test_alert_event")
+		Events.advance()
+		Events.choose(0)
+		assert_eq(Events.alert_level(), 1)
+		assert_true(Events.rewind()["ok"])
+		assert_eq(Events.alert_level(), 0, "Rewind's snapshot holds the earlier level")
+		GameData.EVENTS = original_events
+		GameState.state["event"] = null
+	)
+
+	run_case("start_alert_from_context_applies_from_the_first_card", func():
+		GameState.reset()
+		var original_events := _install_alert_event()
+		Events.start_event("test_alert_event", { "startAlert": 1 })
+		assert_eq(Events.alert_level(), 1, "Suspicious on card 0")
+		Events.start_event("test_alert_event", { "startAlert": 9 })
+		assert_eq(Events.alert_level(), 2, "start clamps to the tier range")
+		GameData.EVENTS = original_events
+		GameState.state["event"] = null
+	)
+
+	run_case("loot_relation_hit_derives_from_alert", func():
+		for case in [[0, 0], [1, Raiding.LOOT_RELATION_HIT], [2, Raiding.LOOT_RELATION_HIT]]:
+			GameState.reset()
+			var original_events := _install_alert_event()
+			GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", _faction_vein_of_level(1, "life"))]
+			var before: int = int(GameState.state["factions"]["collective"]["relation"])
+			Events.start_event("test_alert_event", { "site_id": "s1", "startAlert": case[0] })
+			Events.apply_effects([{ "op": "loot_raid_vein" }])
+			assert_eq(int(GameState.state["factions"]["collective"]["relation"]) - before, case[1], "alert %d -> relation %d" % case)
+			GameData.EVENTS = original_events
+			GameState.state["event"] = null
 	)
 
 

@@ -106,6 +106,23 @@ func run() -> void:
 			assert_true(found.any(func(v): return String(v).contains(fragment)), "expected a violation containing '%s' in %s" % [fragment, found])
 	)
 
+	run_case("lint_checks_alert_conditions_and_mods", func():
+		GameState.reset()
+		var def := { "id": "alert_probe", "cards": [
+			{ "type": "choice", "key": "c1", "label": null, "text": "", "choices": [
+				{ "label": "ok", "result_text": "x", "requires": { "alert": { "atLeast": 1, "atMost": 2 } } },
+				{ "label": "empty", "result_text": "x", "requires": { "alert": {} } },
+				{ "label": "high", "result_text": "x", "requires": { "alert": { "atMost": 3 } } },
+				{ "label": "chk", "check": { "base": 0.5, "mods": [{ "alertByTier": [0.0, -0.1, -0.25] }, { "alertByTier": [0.0] }] },
+					"success": { "result_text": "s", "effects": [] }, "fail": { "result_text": "f", "effects": [] } },
+			] },
+		] }
+		var found := EventContentLint.lint_event("alert_probe", def, EventContentLint.known_refs())
+		for fragment in ["option 1 requires: alert needs atLeast or atMost", "option 2 requires: alert atMost 3 outside 0..2", "option 3 mod: alertByTier needs 3 entries"]:
+			assert_true(found.any(func(v): return String(v).contains(fragment)), "expected a violation containing '%s' in %s" % [fragment, found])
+		assert_eq(found.size(), 3, "valid alert refs add no violations: %s" % [found])
+	)
+
 	run_case("lint_flags_malformed_observations", func():
 		GameState.reset()
 		var def := { "id": "obs_probe", "observations": {

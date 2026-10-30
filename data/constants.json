@@ -733,7 +733,14 @@
     "unmet": {
       "observed": "Needs: %s, %s tier %d",
       "item": "Needs: %s in your bag",
-      "itemOptional": "Needs: %s packed"
+      "itemOptional": "Needs: %s packed",
+      "alertAtLeast": "Needs: alert at %s or worse",
+      "alertAtMost": "Needs: alert no worse than %s"
+    },
+    "alert": {
+      "tiers": ["Unseen", "Suspicious", "Alarm"],
+      "caughtAtLeast": 1,
+      "modFormat": "Alert: %s"
     },
     "chanceFormat": "%d%% chance",
     "baseLabel": "Base odds",

@@ -2160,6 +2160,8 @@ const VALID_EFFECT_OPS: Array[String] = [
 	# forces one free successful cultivate.
 	"grant_vein_with_site", "tutorial_cultivate",
 	"start_raid_combat", "reduce_raid_guards", "claim_raid_vein", "loot_raid_vein",
+	# alert shifts the live event's alert level (Events._apply_alert(), R§3.9a "Alert").
+	"alert",
 	"start_stockpile_raid_combat", "loot_stockpile", "start_faction_ambush_combat",
 	# start_scripted_fight opens an event's scripted fight (Combat.start_scripted_fight()).
 	"start_scripted_fight", "start_demo_fight",
