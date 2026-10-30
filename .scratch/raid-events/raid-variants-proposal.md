@@ -1,8 +1,8 @@
 # Vein raids as stage trees — proposal
 
-Status: **awaiting human approval**
+Status: **approved**
 
-Approval: _(human: record "Approved <date>" here, with any changes)_
+Approval: Approved 2026-10-30 by the human, with the ticket changes in §6.
 
 Scope: the rebuilt `vein_raid` (the Yard) and two new vein-raid events (the Arches, the Shop). No event JSON or prose here. Option labels below are working labels only; real prose comes from the per-beat prose tickets after approval. All numbers are placeholders until playtest.
 
