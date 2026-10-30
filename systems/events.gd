@@ -427,7 +427,7 @@ static func choose(choice_index: int, pick_ore: String = "") -> void:
 			apply_item_effect(mod["item"], mod["effect"], ITEM_SOURCE_INVENTORY)
 		elif mod.get("consume", false):
 			spent.append(mod["item"])
-			Crafting.inventory_remove(mod["item"], 1)
+			_pay_item(mod["item"], ITEM_SOURCE_INVENTORY)
 
 	var resolution: Dictionary = { "text": source["result_text"] }
 	if source.has("image"):
@@ -537,17 +537,23 @@ static func _roll_key(choice_index: int) -> String:
 # base + every matching modifier's signed delta, clamped to [min, max].
 # toggled: the optional items switched on for this option (active_toggles()).
 # lasting: false leaves out state.event.lasting bonuses (an alert cover).
+# A check boosted by an item (a toggled item effect, or a lasting bonus)
+# defaults its max to eventChecks.itemBoostedMax instead of defaultMax.
 static func odds_for(check: Dictionary, toggled: Array = [], lasting: bool = true) -> Dictionary:
 	var base: float = float(check.get("base", 0.0))
 	var probability := base
 	var applied: Array = []
+	var boosted := false
 	for mod in check.get("mods", []):
-		var delta: float = _mod_delta(mod, toggled)
+		var item_effect: bool = mod.has("effect") and toggled.has(mod.get("item", ""))
+		boosted = boosted or item_effect
+		var delta: float = _bypass_gain(base, mod["item"]) if item_effect and mod["effect"].get("kind") == "unlock" else _mod_delta(mod, toggled)
 		if delta != 0.0:
 			probability += delta
 			var label: String = GameData.EVENT_CHECKS["alert"]["modFormat"] % alert_tier_name(alert_level()) if mod.has("alertByTier") else mod.get("label", "")
 			applied.append({ "label": label, "delta": delta })
 	for bonus in (_lasting_bonuses(check, toggled) if lasting else []):
+		boosted = true
 		probability += float(bonus["delta"])
 		applied.append(bonus)
 	if check.get("raidFactors", false):
@@ -560,18 +566,19 @@ static func odds_for(check: Dictionary, toggled: Array = [], lasting: bool = tru
 			probability += lady_delta
 			applied.append({ "label": GameData.EVENT_CHECKS["ladyLabel"], "delta": lady_delta })
 	var lo: float = float(check.get("min", GameData.EVENT_CHECKS["defaultMin"]))
-	var hi: float = float(check.get("max", GameData.EVENT_CHECKS["defaultMax"]))
+	var hi: float = float(check.get("max", GameData.EVENT_CHECKS["itemBoostedMax" if boosted else "defaultMax"]))
 	probability = clampf(probability, lo, hi)
 	return { "probability": probability, "base": base, "mods": applied }
 
 
 # A modifier's signed delta: a {path, perPoint} mod scales with the value;
+# a toggled `bonus` item effect adds its "add" scaled by item_tier_scale();
 # every other mod adds its "add" when condition_met() holds right now.
 static func _mod_delta(mod: Dictionary, toggled: Array = []) -> float:
 	if mod.has("effect"):
 		var effect: Dictionary = mod["effect"]
 		if effect.get("kind") == "bonus" and toggled.has(mod.get("item", "")):
-			return float(effect.get("add", 0.0))
+			return float(effect.get("add", 0.0)) * item_tier_scale(mod["item"])
 		return 0.0
 	if mod.has("path") and mod.has("perPoint"):
 		var value: float = float(GameState.read_path(mod["path"], 0))
@@ -1009,12 +1016,31 @@ const ITEM_SOURCE_INVENTORY := "inventory"
 
 
 # Pays for an item effect from `source`; the tier paid, 0 when nothing was.
-# Only the inventory source exists so far (lowest tier first).
+# Only the inventory source exists so far (highest tier held, so the odds
+# shown before commit are the odds rolled).
 static func _pay_item(item: String, source: String) -> int:
 	if source == ITEM_SOURCE_INVENTORY:
-		var taken: Array = Crafting.inventory_remove(item, 1)
-		return int(taken[0]["tier"]) if not taken.is_empty() else 0
+		var tier := Crafting.highest_tier(item)
+		if tier > 0:
+			Crafting.inventory_remove_from_tier(item, tier, 1)
+		return tier
 	return 0
+
+
+# A rolled item effect's strength multiplier at `tier` (eventChecks.itemTierScale,
+# tier 1 first); tier -1 reads the highest tier held, the one a commit spends.
+# 1.0 with none held.
+static func item_tier_scale(item: String, tier: int = -1) -> float:
+	if tier < 0:
+		tier = Crafting.highest_tier(item)
+	var scale: Array = GameData.EVENT_CHECKS["itemTierScale"]
+	return float(scale[clampi(tier, 1, scale.size()) - 1]) if tier > 0 else 1.0
+
+
+# A bypass (an `unlock` item on a check option) scales the check's base by
+# shrinking its miss chance: 1 − (1 − base) / scale. Returns the gain over base.
+static func _bypass_gain(base: float, item: String) -> float:
+	return (1.0 - base) * (1.0 - 1.0 / item_tier_scale(item))
 
 
 # The one resolver for a toggled item's `effect` on commit: pays from `source`,
@@ -1037,7 +1063,7 @@ static func apply_item_effect(item: String, effect: Dictionary, source: String) 
 				_lasting(GameState.state["event"]).append({
 					"item": item,
 					"entry": effect["entry"],
-					"add": float(effect.get("add", 0.0)),
+					"add": float(effect.get("add", 0.0)) * item_tier_scale(item, tier),
 					"label": effect.get("label", ""),
 				})
 	if effect.has("nextCheck"):
@@ -1090,7 +1116,7 @@ static func item_toggles(choice_index: int) -> Array:
 		out.append({
 			"item": item,
 			"name": GameData.RECIPES.get(item, {}).get("name", item),
-			"delta": float(mod["effect"].get("add", 0.0)) if mod.has("effect") else float(mod.get("add", 0.0)),
+			"delta": _mod_delta(mod, [item]) if mod.has("effect") else float(mod.get("add", 0.0)),
 			"on": held and stored.has(item),
 			"held": held,
 		})

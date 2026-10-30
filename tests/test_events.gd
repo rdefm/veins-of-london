@@ -1090,6 +1090,74 @@ func run() -> void:
 		GameData.EVENTS = original_events
 	)
 
+	run_case("holding_t1_and_t3_powder_spends_t3_and_applies_the_t3_bonus", func():
+		GameState.reset()
+		Crafting.inventory_add("enhancementPowder", 1, 1)
+		Crafting.inventory_add("enhancementPowder", 3, 1)
+		var original_events := _install_powder_event(0.4)
+		Events.start_event("test_check_event")
+		Events.advance()
+		Events.toggle_item(0, "enhancementPowder")
+		var t3_add: float = 0.15 * float(GameData.EVENT_CHECKS["itemTierScale"][2])
+		assert_almost_eq(Events.check_odds(0)["mods"][0]["delta"], t3_add, 0.0001, "breakdown shows the T3 value")
+		assert_almost_eq(Events.item_toggles(0)[0]["delta"], t3_add, 0.0001, "toggle shows the T3 value")
+		Events.choose(0)
+		assert_eq(GameState.state["player"]["inventory"]["enhancementPowder"], { "1": 1 }, "the T3 unit was spent")
+		var later := { "base": 0.3, "entry": "physical", "mods": [], "max": 1.0 }
+		assert_almost_eq(Events.odds_for(later)["probability"], 0.3 + t3_add, 0.0001, "lasting entry carries the T3 value")
+		GameData.EVENTS = original_events
+	)
+
+	run_case("a_bypass_base_shrinks_its_miss_chance_by_the_tier_scale", func():
+		GameState.reset()
+		var original_events := _install_check_event(0.85)
+		var check: Dictionary = GameData.EVENTS["test_check_event"]["cards"][1]["choices"][0]["check"]
+		check["mods"] = [{ "item": "wormhole", "optional": true, "label": "Wormhole", "effect": { "kind": "unlock" } }]
+		Crafting.inventory_add("wormhole", 1, 1)
+		Events.start_event("test_check_event")
+		Events.advance()
+		Events.toggle_item(0, "wormhole")
+		assert_almost_eq(Events.check_odds(0)["probability"], 0.85, 0.0001, "T1: base as authored")
+		assert_eq(Events.check_odds(0)["mods"], [], "no gain line at T1")
+		Crafting.inventory_add("wormhole", 5, 1)
+		var scale: float = float(GameData.EVENT_CHECKS["itemTierScale"][4])
+		var odds := Events.check_odds(0)
+		assert_almost_eq(odds["probability"], 1.0 - 0.15 / scale, 0.0001, "T5: miss chance ÷ scale")
+		assert_eq(odds["mods"][0]["label"], "Wormhole", "gain shown under the item")
+		GameData.EVENTS = original_events
+	)
+
+	run_case("no_roll_item_effects_are_identical_at_every_tier", func():
+		var seen: Array = []
+		for tier in [1, 5]:
+			GameState.reset()
+			Crafting.inventory_add("blast", tier, 1)
+			var original_events := _install_no_roll_item_event()
+			Events.start_event("test_no_roll_item")
+			Events.advance()
+			Events.toggle_item(0, "blast")
+			Events.choose(0)
+			seen.append([GameState.state["flags"].get("windowBlown", false), GameState.state["event"]["lasting"][0]["add"]])
+			GameData.EVENTS = original_events
+		assert_eq(seen[0], seen[1])
+		assert_almost_eq(float(seen[0][1]), -0.15, 0.0001, "next-check mod unscaled")
+	)
+
+	run_case("an_item_boosted_check_clamps_at_0_97_a_plain_check_at_0_95", func():
+		GameState.reset()
+		Crafting.inventory_add("enhancementPowder", 5, 1)
+		var original_events := _install_powder_event(0.9)
+		var check: Dictionary = GameData.EVENTS["test_check_event"]["cards"][1]["choices"][0]["check"]
+		check.erase("max")
+		Events.start_event("test_check_event")
+		Events.advance()
+		assert_almost_eq(Events.check_odds(0)["probability"], 0.9, 0.0001)
+		Events.toggle_item(0, "enhancementPowder")
+		assert_almost_eq(Events.check_odds(0)["probability"], float(GameData.EVENT_CHECKS["itemBoostedMax"]), 0.0001, "boosted: 0.97")
+		assert_almost_eq(Events.odds_for({ "base": 1.5, "mods": [] })["probability"], float(GameData.EVENT_CHECKS["defaultMax"]), 0.0001, "plain: 0.95")
+		GameData.EVENTS = original_events
+	)
+
 	run_case("a_no_roll_item_option_is_locked_naming_the_item_until_toggled", func():
 		GameState.reset()
 		var original_events := _install_no_roll_item_event()

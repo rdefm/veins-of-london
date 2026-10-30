@@ -96,6 +96,15 @@ static func inventory_qty(recipe_key: String, min_tier: int = 0) -> int:
 	return total
 
 
+# The highest tier with stock, 0 when none is held.
+static func highest_tier(recipe_key: String) -> int:
+	var best := 0
+	for tier_key in GameState.state["player"]["inventory"].get(recipe_key, {}):
+		if int(GameState.state["player"]["inventory"][recipe_key][tier_key]) > 0:
+			best = maxi(best, int(tier_key))
+	return best
+
+
 static func inventory_add(recipe_key: String, tier: int, qty: int = 1) -> void:
 	var inventory: Dictionary = GameState.state["player"]["inventory"]
 	if not (inventory.get(recipe_key) is Dictionary):
