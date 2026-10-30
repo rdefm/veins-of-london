@@ -648,6 +648,212 @@
 			},
 			"observations": {}
 		},
+		"raid_arches": {
+			"choiceCards": {
+				"a_alarm": [
+					"",
+					"",
+					"",
+					""
+				],
+				"a_alarm2": [
+					"",
+					""
+				],
+				"a_bench": [
+					"",
+					"",
+					""
+				],
+				"a_bench2": [
+					"",
+					"",
+					"",
+					""
+				],
+				"a_cam": [
+					"",
+					"",
+					"",
+					""
+				],
+				"a_cam2": [
+					"",
+					"",
+					""
+				],
+				"a_claim": [
+					"",
+					""
+				],
+				"a_claim_a": [
+					"",
+					""
+				],
+				"a_crawl": [
+					"",
+					"",
+					"",
+					""
+				],
+				"a_crawl2": [
+					"",
+					""
+				],
+				"a_final": [
+					""
+				],
+				"a_front": [
+					"",
+					"",
+					"",
+					""
+				],
+				"a_front2": [
+					"",
+					"",
+					""
+				],
+				"a_front3": [
+					"",
+					"",
+					"",
+					""
+				],
+				"a_garage": [
+					"",
+					"",
+					"",
+					""
+				],
+				"a_getaway": [
+					"",
+					"",
+					""
+				],
+				"a_partition": [
+					"",
+					"",
+					""
+				],
+				"a_partition2": [
+					"",
+					"",
+					"",
+					""
+				],
+				"a_reinf": [
+					""
+				],
+				"a_retreat": [
+					"",
+					"",
+					"",
+					""
+				],
+				"a_room": [
+					"",
+					"",
+					"",
+					""
+				],
+				"a_tracks": [
+					"",
+					"",
+					""
+				],
+				"a_tracks2": [
+					"",
+					""
+				],
+				"a_vent": [
+					"",
+					"",
+					"",
+					""
+				],
+				"a_wall": [
+					"",
+					"",
+					""
+				],
+				"a_ward": [
+					"",
+					"",
+					"",
+					""
+				],
+				"a_ward2": [
+					"",
+					"",
+					"",
+					""
+				],
+				"a_ward3": [
+					"",
+					""
+				],
+				"a_win_cam": [
+					"",
+					"",
+					"",
+					""
+				],
+				"a_win_in": [
+					"",
+					"",
+					"",
+					""
+				],
+				"a_win_in2": [
+					"",
+					"",
+					""
+				],
+				"a_win_out": [
+					"",
+					"",
+					"",
+					""
+				],
+				"a_win_out2": [
+					"",
+					"",
+					""
+				],
+				"a_win_wit": [
+					"",
+					"",
+					""
+				],
+				"post": [
+					"",
+					"",
+					""
+				],
+				"post2": [
+					"",
+					"",
+					"",
+					""
+				],
+				"post3": [
+					"",
+					"",
+					"",
+					""
+				]
+			},
+			"observations": {
+				"raid": {
+					"emotion": 2,
+					"fate": 2,
+					"life": 2,
+					"physics": 2,
+					"time": 2
+				}
+			}
+		},
 		"rain": {
 			"choiceCards": {},
 			"observations": {}
@@ -961,6 +1167,16 @@
 		}
 	},
 	"flags": [
+		"aAt_bench",
+		"aAt_crawl",
+		"aAt_garage",
+		"aAt_inside",
+		"aAt_partition",
+		"aAt_room",
+		"aAt_tracks",
+		"aAt_vent",
+		"aAt_wall",
+		"aReinfOpen",
 		"archieBuyerSmsQueued",
 		"archieDealActive",
 		"archieMotionEventSeen",

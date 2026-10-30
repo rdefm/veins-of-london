@@ -331,7 +331,9 @@ loaded, keyed by filename; no id-list const to keep in sync. Each is the cards/o
 
 The Prologue chain (`cold_open_legacy` is the retired pre-observation intro, unreferenced) is `prologue_cold_open` → `pub` → `buyer` → `prologue_james_meeting` → `gym` → `prologue_archie_sells_pearls` → `prologue_home_raid_intro` + debriefs → `prologue_archie_cultivation` → `prologue_ending`, linked by `start_event` / queued Archie texts; its ToDo objectives are `pro_*` in `data/objectives.json`. `gym`, `prologue_archie_sells_pearls` and `prologue_ending` are one-card placeholders. `james_meeting_observation` is an unreferenced copy of `prologue_james_meeting` with observations wired in, under review.
 
-`vein_raid.json` is the Yard vein raid: a ~50-card stage tree (gate, front/back/roof routes, window, search, guard-post, camera, ward, vein-room, claim/loot, getaway cards) on route flags `yAt_*`, with placeholder prose for ticket 26. Tests: `tests/test_vein_raid_yard.gd`.
+`vein_raid.json` is the Yard vein raid: a ~50-card stage tree (gate, front/back/roof routes, window, search, guard-post, camera, ward, vein-room, claim/loot, getaway cards) on route flags `yAt_*`. Tests: `tests/test_vein_raid_yard.gd`.
+
+`raid_arches.json` is the Arches vein raid (railway-arch veins): a ~48-card stage tree (shutter, neighbour-arch and trackside routes, witness/guard windows, search, bench guard-post in waves of 2, camera, ward, vein-room, claim/loot, getaway cards) on route flags `aAt_*`, with train-timed cover on loud options. Prose is placeholder. Tests: `tests/test_raid_arches.gd`.
 
 `data/events/_to_be_coded/col_hakim_intel_*.json` holds five unregistered Hakim intel
 prose variants generated with the quest editor builder. Implementation briefs are in
