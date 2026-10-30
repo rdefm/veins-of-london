@@ -1,6 +1,9 @@
 {
   "id": "vein_raid",
   "repeatable": true,
+  "fightPresets": {
+    "veinGuards": { "guards": "vein", "template": "veinGuard", "situational": [{ "if": { "observed": { "id": "raid", "ore": "physics", "atLeast": 1 } }, "fleeBoost": 0.25 }, { "if": { "observed": { "id": "raid", "ore": "life", "atLeast": 1 } }, "oneAtATime": true }, { "if": { "observed": { "id": "raid", "ore": "time", "atLeast": 1 } }, "sight": 2 }, { "if": { "observed": { "id": "raid", "ore": "fate", "atLeast": 1 } }, "firstStrike": true }] }
+  },
   "observations": {
     "raid": {
       "mods": [],
@@ -61,7 +64,7 @@
             "effects": [
               { "op": "set_flag", "flag": "raidCaught", "value": true },
               { "op": "notify", "text": "Something moves that shouldn't. You've been seen." },
-              { "op": "start_raid_combat", "guards": "vein", "template": "veinGuard", "situational": [{ "if": { "observed": { "id": "raid", "ore": "physics", "atLeast": 1 } }, "fleeBoost": 0.25 }, { "if": { "observed": { "id": "raid", "ore": "life", "atLeast": 1 } }, "oneAtATime": true }, { "if": { "observed": { "id": "raid", "ore": "time", "atLeast": 1 } }, "sight": 2 }, { "if": { "observed": { "id": "raid", "ore": "fate", "atLeast": 1 } }, "firstStrike": true }] }
+              { "op": "start_raid_combat", "preset": "veinGuards" }
             ],
             "goto": 4
           }
@@ -70,7 +73,7 @@
           "label": "Go in loud",
           "effects": [
             { "op": "set_flag", "flag": "raidCaught", "value": true },
-            { "op": "start_raid_combat", "guards": "vein", "template": "veinGuard", "situational": [{ "if": { "observed": { "id": "raid", "ore": "physics", "atLeast": 1 } }, "fleeBoost": 0.25 }, { "if": { "observed": { "id": "raid", "ore": "life", "atLeast": 1 } }, "oneAtATime": true }, { "if": { "observed": { "id": "raid", "ore": "time", "atLeast": 1 } }, "sight": 2 }, { "if": { "observed": { "id": "raid", "ore": "fate", "atLeast": 1 } }, "firstStrike": true }] }
+            { "op": "start_raid_combat", "preset": "veinGuards" }
           ],
           "result_text": "No point creeping. You hit the gate with your shoulder and go in hard.",
           "goto": 4
@@ -113,7 +116,7 @@
             "effects": [
               { "op": "set_flag", "flag": "raidCaught", "value": true },
               { "op": "notify", "text": "Something moves that shouldn't. You've been seen." },
-              { "op": "start_raid_combat", "guards": "vein", "template": "veinGuard", "situational": [{ "if": { "observed": { "id": "raid", "ore": "physics", "atLeast": 1 } }, "fleeBoost": 0.25 }, { "if": { "observed": { "id": "raid", "ore": "life", "atLeast": 1 } }, "oneAtATime": true }, { "if": { "observed": { "id": "raid", "ore": "time", "atLeast": 1 } }, "sight": 2 }, { "if": { "observed": { "id": "raid", "ore": "fate", "atLeast": 1 } }, "firstStrike": true }] }
+              { "op": "start_raid_combat", "preset": "veinGuards" }
             ],
             "goto": 4
           }
@@ -132,7 +135,7 @@
             "effects": [
               { "op": "set_flag", "flag": "raidCaught", "value": false },
               { "op": "reduce_raid_guards", "count": 1 },
-              { "op": "start_raid_combat", "guards": "vein", "template": "veinGuard", "situational": [{ "if": { "observed": { "id": "raid", "ore": "physics", "atLeast": 1 } }, "fleeBoost": 0.25 }, { "if": { "observed": { "id": "raid", "ore": "life", "atLeast": 1 } }, "oneAtATime": true }, { "if": { "observed": { "id": "raid", "ore": "time", "atLeast": 1 } }, "sight": 2 }, { "if": { "observed": { "id": "raid", "ore": "fate", "atLeast": 1 } }, "firstStrike": true }] }
+              { "op": "start_raid_combat", "preset": "veinGuards" }
             ],
             "goto": 4
           },
@@ -141,7 +144,7 @@
             "effects": [
               { "op": "set_flag", "flag": "raidCaught", "value": true },
               { "op": "notify", "text": "Something moves that shouldn't. You've been seen." },
-              { "op": "start_raid_combat", "guards": "vein", "template": "veinGuard", "situational": [{ "if": { "observed": { "id": "raid", "ore": "physics", "atLeast": 1 } }, "fleeBoost": 0.25 }, { "if": { "observed": { "id": "raid", "ore": "life", "atLeast": 1 } }, "oneAtATime": true }, { "if": { "observed": { "id": "raid", "ore": "time", "atLeast": 1 } }, "sight": 2 }, { "if": { "observed": { "id": "raid", "ore": "fate", "atLeast": 1 } }, "firstStrike": true }] }
+              { "op": "start_raid_combat", "preset": "veinGuards" }
             ],
             "goto": 4
           }
@@ -160,7 +163,7 @@
             "effects": [
               { "op": "set_flag", "flag": "raidCaught", "value": false },
               { "op": "reduce_raid_guards", "count": 1 },
-              { "op": "start_raid_combat", "guards": "vein", "template": "veinGuard", "situational": [{ "if": { "observed": { "id": "raid", "ore": "physics", "atLeast": 1 } }, "fleeBoost": 0.25 }, { "if": { "observed": { "id": "raid", "ore": "life", "atLeast": 1 } }, "oneAtATime": true }, { "if": { "observed": { "id": "raid", "ore": "time", "atLeast": 1 } }, "sight": 2 }, { "if": { "observed": { "id": "raid", "ore": "fate", "atLeast": 1 } }, "firstStrike": true }] }
+              { "op": "start_raid_combat", "preset": "veinGuards" }
             ],
             "goto": 4
           },
@@ -169,7 +172,7 @@
             "effects": [
               { "op": "set_flag", "flag": "raidCaught", "value": true },
               { "op": "notify", "text": "Something moves that shouldn't. You've been seen." },
-              { "op": "start_raid_combat", "guards": "vein", "template": "veinGuard", "situational": [{ "if": { "observed": { "id": "raid", "ore": "physics", "atLeast": 1 } }, "fleeBoost": 0.25 }, { "if": { "observed": { "id": "raid", "ore": "life", "atLeast": 1 } }, "oneAtATime": true }, { "if": { "observed": { "id": "raid", "ore": "time", "atLeast": 1 } }, "sight": 2 }, { "if": { "observed": { "id": "raid", "ore": "fate", "atLeast": 1 } }, "firstStrike": true }] }
+              { "op": "start_raid_combat", "preset": "veinGuards" }
             ],
             "goto": 4
           }
@@ -205,7 +208,7 @@
             "effects": [
               { "op": "set_flag", "flag": "raidCaught", "value": true },
               { "op": "notify", "text": "Something moves that shouldn't. You've been seen." },
-              { "op": "start_raid_combat", "guards": "vein", "template": "veinGuard", "situational": [{ "if": { "observed": { "id": "raid", "ore": "physics", "atLeast": 1 } }, "fleeBoost": 0.25 }, { "if": { "observed": { "id": "raid", "ore": "life", "atLeast": 1 } }, "oneAtATime": true }, { "if": { "observed": { "id": "raid", "ore": "time", "atLeast": 1 } }, "sight": 2 }, { "if": { "observed": { "id": "raid", "ore": "fate", "atLeast": 1 } }, "firstStrike": true }] }
+              { "op": "start_raid_combat", "preset": "veinGuards" }
             ],
             "goto": 4
           }
@@ -229,7 +232,7 @@
             "effects": [
               { "op": "set_flag", "flag": "raidCaught", "value": true },
               { "op": "notify", "text": "Something moves that shouldn't. You've been seen." },
-              { "op": "start_raid_combat", "guards": "vein", "template": "veinGuard", "situational": [{ "if": { "observed": { "id": "raid", "ore": "physics", "atLeast": 1 } }, "fleeBoost": 0.25 }, { "if": { "observed": { "id": "raid", "ore": "life", "atLeast": 1 } }, "oneAtATime": true }, { "if": { "observed": { "id": "raid", "ore": "time", "atLeast": 1 } }, "sight": 2 }, { "if": { "observed": { "id": "raid", "ore": "fate", "atLeast": 1 } }, "firstStrike": true }] }
+              { "op": "start_raid_combat", "preset": "veinGuards" }
             ],
             "goto": 4
           }
@@ -245,7 +248,7 @@
           "label": "Go in loud",
           "effects": [
             { "op": "set_flag", "flag": "raidCaught", "value": true },
-            { "op": "start_raid_combat", "guards": "vein", "template": "veinGuard", "situational": [{ "if": { "observed": { "id": "raid", "ore": "physics", "atLeast": 1 } }, "fleeBoost": 0.25 }, { "if": { "observed": { "id": "raid", "ore": "life", "atLeast": 1 } }, "oneAtATime": true }, { "if": { "observed": { "id": "raid", "ore": "time", "atLeast": 1 } }, "sight": 2 }, { "if": { "observed": { "id": "raid", "ore": "fate", "atLeast": 1 } }, "firstStrike": true }] }
+            { "op": "start_raid_combat", "preset": "veinGuards" }
           ],
           "result_text": "No point creeping. You hit the gate with your shoulder and go in hard.",
           "goto": 4
@@ -289,7 +292,7 @@
             "effects": [
               { "op": "set_flag", "flag": "raidCaught", "value": true },
               { "op": "notify", "text": "Something moves that shouldn't. You've been seen." },
-              { "op": "start_raid_combat", "guards": "vein", "template": "veinGuard", "situational": [{ "if": { "observed": { "id": "raid", "ore": "physics", "atLeast": 1 } }, "fleeBoost": 0.25 }, { "if": { "observed": { "id": "raid", "ore": "life", "atLeast": 1 } }, "oneAtATime": true }, { "if": { "observed": { "id": "raid", "ore": "time", "atLeast": 1 } }, "sight": 2 }, { "if": { "observed": { "id": "raid", "ore": "fate", "atLeast": 1 } }, "firstStrike": true }, { "if": { "cash": { "atLeast": 0 } }, "enemyFirstStrike": true }] }
+              { "op": "start_raid_combat", "preset": "veinGuards", "situational": [{ "if": { "cash": { "atLeast": 0 } }, "enemyFirstStrike": true }] }
             ],
             "goto": 4
           }
@@ -313,7 +316,7 @@
             "effects": [
               { "op": "set_flag", "flag": "raidCaught", "value": true },
               { "op": "notify", "text": "Something moves that shouldn't. You've been seen." },
-              { "op": "start_raid_combat", "guards": "vein", "template": "veinGuard", "situational": [{ "if": { "observed": { "id": "raid", "ore": "physics", "atLeast": 1 } }, "fleeBoost": 0.25 }, { "if": { "observed": { "id": "raid", "ore": "life", "atLeast": 1 } }, "oneAtATime": true }, { "if": { "observed": { "id": "raid", "ore": "time", "atLeast": 1 } }, "sight": 2 }, { "if": { "observed": { "id": "raid", "ore": "fate", "atLeast": 1 } }, "firstStrike": true }, { "if": { "cash": { "atLeast": 0 } }, "enemyFirstStrike": true }] }
+              { "op": "start_raid_combat", "preset": "veinGuards", "situational": [{ "if": { "cash": { "atLeast": 0 } }, "enemyFirstStrike": true }] }
             ],
             "goto": 4
           }
@@ -351,7 +354,7 @@
             "effects": [
               { "op": "set_flag", "flag": "raidCaught", "value": true },
               { "op": "reduce_raid_guards", "count": 1 },
-              { "op": "start_raid_combat", "guards": "vein", "template": "veinGuard", "situational": [{ "if": { "observed": { "id": "raid", "ore": "physics", "atLeast": 1 } }, "fleeBoost": 0.25 }, { "if": { "observed": { "id": "raid", "ore": "life", "atLeast": 1 } }, "oneAtATime": true }, { "if": { "observed": { "id": "raid", "ore": "time", "atLeast": 1 } }, "sight": 2 }, { "if": { "observed": { "id": "raid", "ore": "fate", "atLeast": 1 } }, "firstStrike": true }, { "if": { "cash": { "atLeast": 0 } }, "enemyPanic": 2 }] }
+              { "op": "start_raid_combat", "preset": "veinGuards", "situational": [{ "if": { "cash": { "atLeast": 0 } }, "enemyPanic": 2 }] }
             ],
             "goto": 4
           },
@@ -360,7 +363,7 @@
             "effects": [
               { "op": "set_flag", "flag": "raidCaught", "value": true },
               { "op": "notify", "text": "Something moves that shouldn't. You've been seen." },
-              { "op": "start_raid_combat", "guards": "vein", "template": "veinGuard", "situational": [{ "if": { "observed": { "id": "raid", "ore": "physics", "atLeast": 1 } }, "fleeBoost": 0.25 }, { "if": { "observed": { "id": "raid", "ore": "life", "atLeast": 1 } }, "oneAtATime": true }, { "if": { "observed": { "id": "raid", "ore": "time", "atLeast": 1 } }, "sight": 2 }, { "if": { "observed": { "id": "raid", "ore": "fate", "atLeast": 1 } }, "firstStrike": true }, { "if": { "cash": { "atLeast": 0 } }, "enemyFirstStrike": true }] }
+              { "op": "start_raid_combat", "preset": "veinGuards", "situational": [{ "if": { "cash": { "atLeast": 0 } }, "enemyFirstStrike": true }] }
             ],
             "goto": 4
           }
@@ -378,7 +381,7 @@
             "result_text": "A word in the wrong ear. By the time you're through the gate they are already shoving each other.",
             "effects": [
               { "op": "set_flag", "flag": "raidCaught", "value": true },
-              { "op": "start_raid_combat", "guards": "vein", "template": "veinGuard", "situational": [{ "if": { "observed": { "id": "raid", "ore": "physics", "atLeast": 1 } }, "fleeBoost": 0.25 }, { "if": { "observed": { "id": "raid", "ore": "life", "atLeast": 1 } }, "oneAtATime": true }, { "if": { "observed": { "id": "raid", "ore": "time", "atLeast": 1 } }, "sight": 2 }, { "if": { "observed": { "id": "raid", "ore": "fate", "atLeast": 1 } }, "firstStrike": true }, { "if": { "cash": { "atLeast": 0 } }, "enemyAnger": { "tier": 1, "fury": true }, "enemyStartsHurt": 0.25 }] }
+              { "op": "start_raid_combat", "preset": "veinGuards", "situational": [{ "if": { "cash": { "atLeast": 0 } }, "enemyAnger": { "tier": 1, "fury": true }, "enemyStartsHurt": 0.25 }] }
             ],
             "goto": 4
           },
@@ -387,7 +390,7 @@
             "effects": [
               { "op": "set_flag", "flag": "raidCaught", "value": true },
               { "op": "notify", "text": "Something moves that shouldn't. You've been seen." },
-              { "op": "start_raid_combat", "guards": "vein", "template": "veinGuard", "situational": [{ "if": { "observed": { "id": "raid", "ore": "physics", "atLeast": 1 } }, "fleeBoost": 0.25 }, { "if": { "observed": { "id": "raid", "ore": "life", "atLeast": 1 } }, "oneAtATime": true }, { "if": { "observed": { "id": "raid", "ore": "time", "atLeast": 1 } }, "sight": 2 }, { "if": { "observed": { "id": "raid", "ore": "fate", "atLeast": 1 } }, "firstStrike": true }, { "if": { "cash": { "atLeast": 0 } }, "enemyFirstStrike": true }] }
+              { "op": "start_raid_combat", "preset": "veinGuards", "situational": [{ "if": { "cash": { "atLeast": 0 } }, "enemyFirstStrike": true }] }
             ],
             "goto": 4
           }

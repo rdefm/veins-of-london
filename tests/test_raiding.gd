@@ -571,6 +571,68 @@ func run() -> void:
 		assert_true(not GameState.state["combat"]["active"])
 	)
 
+	run_case("a_preset_only_fight_equals_its_inline_equivalent", func():
+		var preset: Dictionary = GameData.EVENTS[Raiding.RAID_EVENT_ID]["fightPresets"]["veinGuards"]
+		var fights: Array = []
+		for effect in [{ "preset": "veinGuards" }, preset.duplicate(true)]:
+			GameState.reset()
+			var vein := _faction_vein_of_growth(10, "time", "guarded", "firm")
+			GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", vein)]
+			Events.start_event(Raiding.RAID_EVENT_ID, { "site_id": "s1" })
+			_seed_read("physics", 2)
+			_seed_read("fate", 1)
+			Rng.set_seed(1234)
+			Events._start_raid_combat(effect)
+			var combat: Dictionary = GameState.state["combat"]
+			fights.append([combat["enemies"], combat["enemyQueue"], combat["situational"], combat.get("enemyFirst"), combat["transcript"]])
+		assert_eq(fights[0], fights[1])
+		assert_true(fights[0][2].has("fleeBoost") and fights[0][2].has("firstStrike"), "the preset's situational is live")
+	)
+
+	run_case("a_preset_fight_takes_the_ops_guard_count_and_appends_its_conditions", func():
+		GameState.reset()
+		var vein := _faction_vein_of_growth(10, "time", "guarded", "firm")
+		vein["extraGuards"] = 3
+		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", vein)]
+		Events.start_event(Raiding.RAID_EVENT_ID, { "site_id": "s1" })
+		_seed_read("fate", 1)
+		Events._start_raid_combat({ "preset": "veinGuards", "guards": 1, "situational": [{ "if": { "cash": { "atLeast": 0 } }, "enemyFirstStrike": true }] })
+		var combat: Dictionary = GameState.state["combat"]
+		assert_eq(combat["enemies"].size() + combat["enemyQueue"].size(), 1, "only the line guard")
+		assert_eq([combat["situational"].get("firstStrike"), combat["situational"].get("enemyFirstStrike")], [true, true], "preset's then the op's")
+		assert_true(combat.get("enemyFirst", false), "the appended condition comes after the preset's, so it wins")
+	)
+
+	run_case("waves_of_2_against_4_guards_field_2_and_step_the_rest_in_as_guards_drop", func():
+		GameState.reset()
+		var vein := _faction_vein_of_growth(10, "time", "guarded", "firm")
+		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", vein)]
+		Events.start_event(Raiding.RAID_EVENT_ID, { "site_id": "s1" })
+		Events._start_raid_combat({ "preset": "veinGuards", "guards": 4, "waves": 2 })
+		var cp: Dictionary = GameState.state["combat"]
+		assert_eq([cp["enemies"].size(), cp["enemyQueue"].size()], [2, 2])
+		var rng := RandomNumberGenerator.new()
+		for step in [[2, 1], [2, 0]]:
+			for c in cp["combatants"]:
+				if c["side"] == CombatRounds.SIDE_ENEMY and not c["koed"]:
+					c["koed"] = true
+					break
+			var entrants := CombatRounds._admit_reserves(cp, rng, rng, [])
+			assert_eq([entrants.size(), CombatRounds._standing(cp, CombatRounds.SIDE_ENEMY), cp["enemyQueue"].size()], [1, step[0], step[1]], "one guard steps in per guard down")
+	)
+
+	run_case("a_player_frozen_condition_starts_the_player_frozen_for_n_actions", func():
+		GameState.reset()
+		var vein := _faction_vein_of_growth(10, "time", "guarded", "firm")
+		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", vein)]
+		Events.start_event(Raiding.RAID_EVENT_ID, { "site_id": "s1" })
+		Events._start_raid_combat({ "preset": "veinGuards", "situational": [{ "if": { "cash": { "atLeast": 0 } }, "playerFrozen": 2 }] })
+		var cp: Dictionary = GameState.state["combat"]
+		var frozen: Array = cp["log"].filter(func(b): return b["kind"] == "frozen" and b["actor"] == CombatRounds.PLAYER_INDEX)
+		assert_eq(frozen.size(), 2, "the player's first two actions pass frozen")
+		assert_true(cp["transcript"].has(Combat.SITUATIONAL_MODS["playerFrozen"]["line"]))
+	)
+
 	run_case("raid_event_go_in_loud_is_always_available_and_fights_with_no_mods_unread", func():
 		GameState.reset()
 		var vein := _faction_vein_of_growth(10, "time", "guarded", "firm")

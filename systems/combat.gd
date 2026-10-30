@@ -55,6 +55,7 @@ const SITUATIONAL_MODS := {
 	"enemyRapture": { "line": "The guards are smiling at nothing. Nobody's quite here." },
 	"enemyAnger": { "line": "The guards are at each other's throats before you're through the door." },
 	"enemyStartsHurt": { "line": "Somebody's already bleeding. It wasn't you." },
+	"playerFrozen": { "line": "The ward still has you. Your hands arrive late." },
 }
 
 # R§2 combat.locationKey for the two home contexts -- home isn't a district.
@@ -543,13 +544,14 @@ static func _home_raider_enemy(level: int, hp_mult: float = 1.0) -> Dictionary:
 
 # Debug-only in M0 (see generate_raid_enemy). Also called by events.gd's
 # "start_raid_combat" op with context "event_raid", so exit_combat() below
-# resumes the still-active event on a win instead of routing home.
-static func start_raid(vein_id: String, value_tier: int, guards: int = 1, template_key: String = "", context: String = CONTEXT_RAID, ally_ids: Array = [], situational: Array = []) -> void:
+# resumes the still-active event on a win instead of routing home. `waves`
+# > 0 caps the guards on the field at once (R§3.7b Fight presets).
+static func start_raid(vein_id: String, value_tier: int, guards: int = 1, template_key: String = "", context: String = CONTEXT_RAID, ally_ids: Array = [], situational: Array = [], waves: int = 0) -> void:
 	var enemies := generate_raid_enemy(vein_id, value_tier, guards, template_key)
 	var log_lines := ["%s steps out to meet you." % _guard_group_name(enemies)]
 	var allies := _gather_raid_allies(ally_ids, log_lines)
 	_add_hired_muscle(allies, log_lines)
-	_start_combat(context, vein_id, enemies, log_lines, "raidWon", allies, null, {}, {}, { "situational": situational_active(situational) })
+	_start_combat(context, vein_id, enemies, log_lines, "raidWon", allies, null, {}, {}, { "situational": situational_active(situational), "enemyWaves": waves })
 
 
 # A caught stockpile raid (events.gd "start_stockpile_raid_combat"): one
@@ -770,6 +772,8 @@ static func _start_round_combat(context: String, vein_id, enemies: Array, log_li
 	var combat := CombatRounds.new_state()
 	var mods: Dictionary = live.get("situational", {})
 	var enemy_cap: int = 1 if bool(mods.get("oneAtATime", false)) else SQUAD_MAX
+	if int(live.get("enemyWaves", 0)) > 0:
+		enemy_cap = mini(enemy_cap, int(live["enemyWaves"]))
 	combat.merge({
 		"context": context, "veinId": vein_id,
 		"enemies": enemies.slice(0, enemy_cap), "enemyQueue": enemies.slice(enemy_cap),
@@ -813,6 +817,10 @@ static func _start_round_combat(context: String, vein_id, enemies: Array, log_li
 		fighter["sightUntil"] = maxi(int(fighter["sightUntil"]), int(mods["sight"]))
 	if mods.has("fleeBoost"):
 		fighter["fleeBoost"] = float(mods["fleeBoost"])
+	# Held like a Time Pearl's freeze: its first N actions lost, Open meanwhile.
+	if mods.has("playerFrozen"):
+		fighter["actionsLost"] += int(mods["playerFrozen"])
+		fighter["frozenActions"] = fighter["actionsLost"]
 	# A demo fight's player is a spectator, down from the start.
 	if combat["demo"] is Dictionary:
 		fighter["koed"] = true

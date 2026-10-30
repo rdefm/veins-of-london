@@ -123,6 +123,7 @@ static func lint_event(id: String, def: Dictionary, refs: Dictionary) -> Array:
 	refs["event"] = def
 	out.append_array(_lint_observations(id, def, refs))
 	out.append_array(_lint_situational(id, def, refs))
+	out.append_array(_lint_fight_presets(id, def, def))
 	for i in cards.size():
 		var card: Dictionary = cards[i]
 		if card.has("observe") and card["observe"] != null and not def.get("observations", {}).has(card["observe"]):
@@ -297,6 +298,23 @@ static func _lint_condition(where: String, c: Dictionary, refs: Dictionary) -> A
 	return ["%s: unknown condition %s" % [where, JSON.stringify(c)]]
 
 
+# Every raid fight op's `preset` names one of the event's fightPresets, and
+# every `waves` (preset or op) is a count >= 1 (R§3.7b Fight presets).
+static func _lint_fight_presets(id: String, value: Variant, def: Dictionary) -> Array:
+	var out: Array = []
+	if value is Array:
+		for v in value:
+			out.append_array(_lint_fight_presets(id, v, def))
+	elif value is Dictionary:
+		if value.has("preset") and not (def.get("fightPresets", {}) as Dictionary).has(value["preset"]):
+			out.append("%s: unknown fight preset %s" % [id, str(value["preset"])])
+		if value.has("waves") and not (typeof(value["waves"]) in [TYPE_INT, TYPE_FLOAT] and int(value["waves"]) >= 1):
+			out.append("%s: waves must be a count >= 1" % id)
+		for key in value:
+			out.append_array(_lint_fight_presets(id, value[key], def))
+	return out
+
+
 # Every `situational` list on a start_scripted_fight / start_raid_combat op
 # (op-level, or inside a scripted fight's script): entries are {if: known
 # condition, plus at least one known mod}, mod values well typed (R§3.7b).
@@ -337,7 +355,7 @@ static func _lint_situational_list(id: String, list: Variant, refs: Dictionary) 
 				out.append("%s: fleeBoost must be a chance in (0, 1]" % at)
 			elif key == "sight" and not (typeof(entry[key]) in [TYPE_INT, TYPE_FLOAT] and int(entry[key]) >= 1):
 				out.append("%s: sight must be rounds >= 1" % at)
-			elif key in ["enemyPanic", "enemyRapture"] and not (typeof(entry[key]) in [TYPE_INT, TYPE_FLOAT] and int(entry[key]) >= 1):
+			elif key in ["enemyPanic", "enemyRapture", "playerFrozen"] and not (typeof(entry[key]) in [TYPE_INT, TYPE_FLOAT] and int(entry[key]) >= 1):
 				out.append("%s: %s must be actions >= 1" % [at, key])
 			elif key == "enemyAnger" and not (entry[key] is Dictionary and int(entry[key].get("tier", 1)) >= 1):
 				out.append("%s: enemyAnger must be { tier >= 1, fury? }" % at)

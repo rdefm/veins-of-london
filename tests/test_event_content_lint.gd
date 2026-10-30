@@ -153,6 +153,18 @@ func run() -> void:
 		assert_eq(out.size(), 5, str(out))
 	)
 
+	run_case("lint_fight_presets", func():
+		GameState.reset()
+		var refs := EventContentLint.known_refs()
+		var def := { "fightPresets": { "guards": { "guards": "vein", "waves": 2 } }, "cards": [{ "effects": [
+			{ "op": "start_raid_combat", "preset": "guards", "guards": 1 },
+			{ "op": "start_raid_combat", "preset": "noSuchPreset" },
+			{ "op": "start_raid_combat", "preset": "guards", "waves": 0 },
+		] }] }
+		var out := EventContentLint.lint_event("t", def, refs)
+		assert_eq(out, ["t: unknown fight preset noSuchPreset", "t: waves must be a count >= 1"])
+	)
+
 	run_case("event_content_lint", func():
 		GameState.reset()
 		var refs := EventContentLint.known_refs()

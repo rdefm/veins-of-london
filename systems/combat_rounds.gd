@@ -174,6 +174,9 @@ static func new_state() -> Dictionary:
 		# Reinforcements waiting per side (R§3.7b): entries each carrying its
 		# prebuilt combatant under "fighter" (_admit_reserves()).
 		"enemyQueue": [], "allyQueue": [],
+		# Most enemies standing at once while enemyQueue waits (R§3.7b Fight
+		# presets waves); 0 = SQUAD_SIZE.
+		"enemyWaves": 0,
 		# Set once the player's KO stands and the fight plays on without them
 		# (continue_after_ko()).
 		"playerKoed": false,
@@ -1969,7 +1972,8 @@ static func _end_round(cp: Dictionary, rng: RandomNumberGenerator, beats: Array)
 	cp["playerPlan"] = _empty_player_plan(cp)
 
 
-# R§3.7b Reinforcements: while a side has fewer than SQUAD_SIZE standing,
+# R§3.7b Reinforcements: while a side has fewer than SQUAD_SIZE (enemies:
+# enemyWaves, when set) standing,
 # the next entry of its queue joins: its prebuilt "fighter" becomes a new
 # combatant at the end of the order, the entry itself joins the fight's
 # live roster (ROSTER_KEYS) where it keeps one. An enemy entrant's plan for
@@ -1981,7 +1985,10 @@ static func _admit_reserves(cp: Dictionary, rng: RandomNumberGenerator, fog_rng:
 	var entrants: Array = []
 	for side in [SIDE_ALLY, SIDE_ENEMY]:
 		var queue: Array = cp.get(QUEUE_KEYS[side], [])
-		while not queue.is_empty() and _standing(cp, side) < SQUAD_SIZE:
+		var cap: int = SQUAD_SIZE
+		if side == SIDE_ENEMY and int(cp.get("enemyWaves", 0)) > 0:
+			cap = mini(cap, int(cp["enemyWaves"]))
+		while not queue.is_empty() and _standing(cp, side) < cap:
 			var entry: Dictionary = queue.pop_front()
 			var fighter: Dictionary = entry["fighter"]
 			entry.erase("fighter")

@@ -23,6 +23,9 @@ const Preferences := preload("res://systems/preferences.gd")
 
 # start_raid_combat's "guards" value meaning "one per guard on the raided vein".
 const RAID_GUARDS_FROM_VEIN := "vein"
+# Fight-setup keys a raid fight op's own value replaces its preset's with
+# (fight_setup(); situational appends instead).
+const FIGHT_OVERRIDE_KEYS: Array[String] = ["guards", "template", "waves"]
 
 # The fixed text box fits this many option buttons; the content lint enforces it.
 const MAX_OPTIONS := 4
@@ -1449,12 +1452,34 @@ static func _start_raid_combat(effect: Dictionary) -> void:
 		return
 
 	var vein: Dictionary = site["factionVein"]
-	var guards_spec: Variant = effect.get("guards", 1)
+	var fight := fight_setup(effect, _running_fight_presets())
+	var guards_spec: Variant = fight.get("guards", 1)
 	var guards: int = Cultivating.vein_guard_count(vein) if guards_spec is String and guards_spec == RAID_GUARDS_FROM_VEIN else int(guards_spec)
 	guards -= int(_live_event_context().get("guardsDown", 0))
 	if guards <= 0:
 		return
-	Combat.start_raid(vein["id"], Cultivating.combined_magnitude(vein), guards, effect.get("template", ""), Combat.CONTEXT_EVENT_RAID, _event_ally_ids(effect), effect.get("situational", []))
+	Combat.start_raid(vein["id"], Cultivating.combined_magnitude(vein), guards, fight.get("template", ""), Combat.CONTEXT_EVENT_RAID, _event_ally_ids(effect), fight.get("situational", []), int(fight.get("waves", 0)))
+
+
+# A raid fight op's setup (R§3.7b Fight presets): its `preset` from `presets`
+# (the event's fightPresets), with the op's guards / template / waves
+# replacing the preset's and its situational appended after the preset's.
+# An op with no preset is its own setup.
+static func fight_setup(effect: Dictionary, presets: Dictionary) -> Dictionary:
+	if not effect.has("preset"):
+		return effect
+	var fight: Dictionary = presets.get(effect["preset"], {}).duplicate(true)
+	for key in FIGHT_OVERRIDE_KEYS:
+		if effect.has(key):
+			fight[key] = effect[key]
+	fight["situational"] = fight.get("situational", []) + effect.get("situational", [])
+	return fight
+
+
+static func _running_fight_presets() -> Dictionary:
+	if GameState.state.get("event") == null:
+		return {}
+	return _event_def().get("fightPresets", {})
 
 
 # Takes `count` (default 1) guards out of the live raid event's later

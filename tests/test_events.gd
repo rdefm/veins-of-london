@@ -1972,7 +1972,7 @@ func run() -> void:
 				for outcome in [choice, choice.get("fail", {}), choice.get("success", {})]:
 					for op in outcome.get("effects", []):
 						if op["op"] == "start_raid_combat":
-							fights.append(op)
+							fights.append(Events.fight_setup(op, GameData.EVENTS["vein_raid"].get("fightPresets", {})))
 		assert_true(fights.size() >= 7, "loud, just-go-in fail, and each route's fail / incapacitate success")
 		assert_true(fights.all(func(op): return op["guards"] == Events.RAID_GUARDS_FROM_VEIN), "vein_raid sizes its squad to the vein's guards")
 	)
