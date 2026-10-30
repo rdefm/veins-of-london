@@ -55,7 +55,7 @@ Scope: the rebuilt `vein_raid` (the Yard) and two new vein-raid events (the Arch
 - At **3 ticks**, **+2 guards** join the remaining pool for every later fight, and the next card shows an arrival line. It fires **once** per raid.
 - **In a fight:** if Alarm is up and the clock hasn't fired, the 2 arrive at **round 3** as the existing queued wave (`combat_rounds.gd` reinforcements). Once they've arrived either way, they're simply in the pool, so they never arrive twice.
 - They're **extra bodies** from the owner's crew. They're not drawn from vein guard slots, cost the faction nothing and carry no guard kit. Template `veinGuard`.
-- A future muscle system (ticket M, §6) will draw them from a faction's muscle pool instead.
+- A future muscle system (ticket 29) will draw them from a faction's muscle pool instead.
 - Loot-and-run can beat the clock. Claiming while they arrive forces a final fight.
 
 ### 1.4 Odds and calibration
@@ -124,7 +124,7 @@ Each raid builds a **security profile** (pure data in the event context) from th
 | `warded` | + **ward** on the vein room threshold (§1.7) | ward obstacle appears; quiet −0.05 |
 | `guarded` (+extras) | + guard posts; guard count = `vein_guard_count` | guard-post cards appear; bluff −0.05 per extra guard (cap −0.15) |
 
-- **Cameras and alarm line** come from a new mutable variable on NPC veins: `factionVein.security.features = {cameras: int, alarm: bool}`. It's rolled at claim from faction flavour and vein value, like the tier roll. A later faction-upgrade tick may change it.
+- **Cameras and alarm line** come from a new mutable variable on NPC veins: `factionVein.features = {cameras: int, alarm: bool}` (next to the existing `security` tier string). It's rolled at claim from faction flavour and vein value, like the tier roll. A later faction-upgrade tick may change it.
   - `cameras > 0`: camera cards appear on the routes that pass them.
   - `alarm`: Alarm starts the reinforcement clock. With no alarm line, Alarm has no clock (nobody to call).
 - **Seeded per-site details** (from `siteId`, stable across visits) decide which route forks exist:
@@ -133,16 +133,16 @@ Each raid builds a **security profile** (pure data in the event context) from th
   - neighbour arch connected (Arches)
   - cellar flap rotten (Shop)
   - which zone the camera covers
-  - Observations **reveal** them: the read text varies by profile (ticket 26, observation text variants).
+  - Observations **reveal** them: the read text varies by profile (ticket 25, observation text variants).
 - New condition `{security: {feature, atLeast?}}` for `requires`, mods and conditional `goto`.
 - `guardKit` is untouched here.
 
 ### 1.7 Wards (ticket 21)
-- **Ward type = the owning faction's primary ore** (Collective life, Firm physics, **Guild time**, Network emotion, Conclave fate). Stored on the vein: `factionVein.security.ward`. Only `warded`+ veins have one.
+- **Ward type = the owning faction's primary ore** (Collective life, Firm physics, **Guild time**, Network emotion, Conclave fate). Stored on the vein: `factionVein.features.ward`. Only `warded`+ veins have one.
 - Wards are defined in data: `data/wards.json` `{type: {name, freezeRounds?, onTrigger: [effects], fightStart: {...}, counters: [...]}}`, using existing effect ops and fight conditions. A new ward type = data + at most one new fight condition.
 - **Implemented now:**
   - **Time ward:** freeze **2 rounds**.
-  - **Generic ward:** every other faction until the ward-types ticket. Trigger → alert Suspicious, nothing else.
+  - **Generic ward:** every other faction until the ward-types ticket (30). Trigger → alert Suspicious, nothing else.
 - **Detecting a ward:** fate reads spot it. A ward-matching read helps (a **time** read sees the stillness around a time ward). **Prophet's Breath** on the ward read guarantees type and effect are revealed.
 - **Triggering a time ward** (unread crossing or a failed check): you're frozen. Alert → **Suspicious** and the reinforcement clock **+1 tick** (or it starts). If a fight follows on that card, the **player starts frozen** for the freeze rounds (new player-side fight condition).
 - **Time ward counters:**
@@ -183,7 +183,7 @@ Each raid builds a **security profile** (pure data in the event context) from th
 Each event has:
 - **3 routes**, ~22–26 choice cards, ~70–90 result lines.
 - **Shared cards**, keyed and reachable from any route: window (outside), window (inside), alarm / searching, guard post, reinforcements arrive, ward, camera, vein room, claim/loot, getaway.
-- **7 prose beats**, one ticket each: (1) intro + observations, (2) perimeter, (3–5) one per route, (6) detection (windows, alarm, reinforcements, guard post), (7) security set pieces (ward, camera) + vein room, claim/loot, getaway.
+- **7 prose beats**, as sections of one prose ticket per event: (1) intro + observations, (2) perimeter, (3–5) one per route, (6) detection (windows, alarm, reinforcements, guard post), (7) security set pieces (ward, camera) + vein room, claim/loot, getaway.
 
 ---
 
@@ -222,7 +222,7 @@ Each event has:
 **What makes it distinct.** Open sightlines. Guards see a long way, so time and life reads (patrol gaps, who's watching) matter most. The loud route is cheapest here: there's no one around to hear it but the guards. The only event with a roof route.
 
 ### Observations (`raid`, all five ores, 2 tiers each)
-Current texts kept where they fit. Extra security-profile variants in *italics* (ticket 26).
+Current texts kept where they fit. Extra security-profile variants in *italics* (ticket 25).
 
 | Ore | Tier 1 (lower) reveals | Tier 2 (best) reveals |
 |---|---|---|
@@ -482,27 +482,34 @@ Exists only on seeded `fireEscape` sites.
 
 ---
 
-## 6. Tickets this proposal creates (written after approval)
+## 6. Tickets (written 2026-10-30, in `issues/`)
 
-**Engine** (new, blocking the events alongside 13–18):
-- **20:** Site security profile: tier → profile, `factionVein.security.features {cameras, alarm}` (rolled at claim, mutable), seeded per-site details, `{security}` condition.
-- **21:** Wards: `data/wards.json`, ward type from the faction's primary ore, time ward (freeze 2) + generic ward, trigger effects, player-frozen fight start, counters.
-- **22:** Item tier scaling for event effects + item-boosted clamp 0.97.
-- **23:** Reinforcement clock: card-counted, +2 extra guards once, in-fight round 3, per-event clock length (Shop 2).
-- **24:** Item-on-observe: Prophet's Breath guarantees the ward read.
-- **25:** `siteWary`: Suspicious back-out → next raid on that site starts Suspicious for N days; relation −5.
-- **26:** Observation text variants by security profile / site details.
-- **27:** Alert-derived `raidCaught` (Unseen at the end = clean loot), and the window-card return to Unseen.
-- **09 amended:** event pick by location suffix, stable per site; fallback `vein_raid`.
-- **Fight preset override:** guard-post waves of 2 (Arches), folded into 14 if still open.
+**Amended:**
+- 09: event by location suffix
+- 10: the Arches
+- 11: the Shop
+- 12: Dial pays tier-scaled effects; blockers loosened to 15 + 22
+- 14: waves override + player-side start condition
+- 15: next-check-only lasting mod
+- 16: starting level from context + caught derived from alert
+- 19: the Yard
 
-**Build:** 19 (`vein_raid`), 10 (Arches), 11 (Shop), now also blocked by 20–27.
+**Deleted:** 06, 07 (superseded).
 
-**Prose:** 21 tickets, 7 beats × 3 events (§1.11). Each references `docs/writing-guide.md`, is flagged `PROSE-REVIEW:`, and is blocked by its event's build ticket.
+**New engine** (blocking 10, 11, 19):
+- **20:** Site security profile (`factionVein.features`, seeded site details, `{security}` condition)
+- **21:** Wards: time ward + generic, Powder vs freeze, Prophet's Breath on observe
+- **22:** Item tier scaling + 0.97 clamp
+- **23:** Reinforcement clock
+- **24:** `siteWary`
+- **25:** Observation text variants
 
-**End of the work** (after everything above is built and tested):
-- **M:** Muscle grilling: hire and manage people as guards/soldiers, allocate them to veins, HQ or reserve (answering alarm calls), train and equip them. Raid reinforcements then draw from a faction's muscle pool.
-- **W:** Ward types grilling: life / physics / emotion / fate wards (e.g. a blast ward that damages intruders), replacing the generic ward.
-- **L:** More raid events for additional location types.
+**Prose:** one ticket per event, with the 7 beats (§1.11) as sections. Each references `docs/writing-guide.md` and is flagged `PROSE-REVIEW:`.
+- 26: the Yard, blocked by 19
+- 27: the Arches, blocked by 10
+- 28: the Shop, blocked by 11
 
-Tickets 06 and 07 stay deprecated (folded into this design).
+**End of the work:**
+- **29:** Muscle grilling (after 10, 11, 19, 26–28)
+- **30:** Ward types grilling (after 21, independent of 29)
+- **31:** More raid locations grilling (after 10, 11, 19, 26–28)
