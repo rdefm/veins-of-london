@@ -2199,6 +2199,7 @@ const VALID_EFFECT_OPS: Array[String] = [
 	"alert",
 	# ward_trigger sets off the live raid's ward (Events.trigger_ward(), R§3.12 "Wards").
 	"ward_trigger",
+	"back_out",
 	"start_stockpile_raid_combat", "loot_stockpile", "start_faction_ambush_combat",
 	# start_scripted_fight opens an event's scripted fight (Combat.start_scripted_fight()).
 	"start_scripted_fight", "start_demo_fight",

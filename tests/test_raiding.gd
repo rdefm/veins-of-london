@@ -58,6 +58,13 @@ static func _seed_read(ore: String, level: int) -> void:
 	GameState.state["event"]["observations"] = obs
 
 
+# Walks the Yard's gate menus out through Back out.
+static func _leave_raid() -> void:
+	for label in ["Read the gaps…", "Louder, or stranger…", "Back out…", "Back out"]:
+		Events.choose(_option_index(label))
+	Events.advance()
+
+
 # Index of the option labelled `label` on the current card.
 static func _option_index(label: String) -> int:
 	var choices: Array = Events.current_card()["choices"]
@@ -250,9 +257,10 @@ func run() -> void:
 		Observation.read()
 		assert_eq(GameState.state["world"]["timeBlocksDone"].size(), 1, "Observe adds no block beyond the raid's entry block")
 		Events.advance()
-		var leave := (Events.current_card()["choices"] as Array).find_custom(func(c: Dictionary) -> bool: return c["label"] == "Leave it")
-		assert_true(leave >= 0, "Leave is offered after Observe")
-		Events.choose(leave)
+		for label in ["Read the gaps…", "Louder, or stranger…", "Back out…", "Back out"]:
+			var step := _option_index(label)
+			assert_true(step >= 0, "%s is offered after Observe" % label)
+			Events.choose(step)
 		Events.advance()
 
 		assert_eq(GameState.state["event"], null, "Leave ends the event")
@@ -324,8 +332,7 @@ func run() -> void:
 		Raiding.begin_raid(site["factionVein"])
 		var first := Observation.read()
 		Events.advance()
-		Events.choose(3)
-		Events.advance()
+		_leave_raid()
 
 		Raiding.begin_raid(site["factionVein"])
 		assert_true(not Observation.is_unread(), "the stored read is already in place")
@@ -342,8 +349,7 @@ func run() -> void:
 			Raiding.begin_raid(s["factionVein"])
 			Observation.read()
 			Events.advance()
-			Events.choose(3)
-			Events.advance()
+			_leave_raid()
 
 		site["factionVein"]["extraGuards"] = int(site["factionVein"].get("extraGuards", 0)) + 1
 		assert_true(Observation.site_memory("s1").is_empty(), "a guard change clears the read")
@@ -375,7 +381,10 @@ func run() -> void:
 		Events.advance()
 		_seed_read("physics", 1)
 
-		Events.choose(_option_index("Leave it"))
+		Events.choose(_option_index("Read the gaps…"))
+		Events.choose(_option_index("Louder, or stranger…"))
+		Events.choose(_option_index("Back out…"))
+		Events.choose(_option_index("Back out"))
 		Events.advance()
 
 		assert_eq(GameState.state["event"], null, "leaving finishes the event")
@@ -464,166 +473,6 @@ func run() -> void:
 	# 2/3 quiet routes, 4 claim/loot. Reads are seeded straight into
 	# event.observations; check odds are forced with _force_raid_checks().
 
-	run_case("raid_event_unlocked_route_success_reaches_claim_loot_without_a_fight", func():
-		GameState.reset()
-		var vein := _faction_vein_of_growth(10, "time", "none", "firm")
-		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", vein)]
-		var restore := _force_raid_checks(1.0)
-		var relation_before: int = GameState.state["factions"]["firm"]["relation"]
-
-		Events.start_event(Raiding.RAID_EVENT_ID, { "site_id": "s1" })
-		_seed_read("physics", 2)
-		Events.advance()  # -> route hub
-		Events.choose(_option_index("Weigh the quiet ways in"))  # -> quiet routes
-		Events.choose(_option_index("Take the window"))
-		restore.call()
-
-		assert_true(not GameState.state["combat"]["active"], "a successful quiet route never launches combat")
-		assert_eq(GameState.state["flags"]["raidCaught"], false)
-		Events.advance()
-		assert_eq(Events.current_card()["key"], "c5", "lands on the claim/loot choice")
-		Events.choose(1)  # "Loot and leave"
-		assert_eq(GameState.state["factions"]["firm"]["relation"], relation_before, "a clean loot leaves relation alone")
-	)
-
-	run_case("raid_event_failed_route_starts_combat_with_the_situational_mods_from_reads", func():
-		GameState.reset()
-		var vein := _faction_vein_of_growth(10, "time", "guarded", "firm")
-		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", vein)]
-		var restore := _force_raid_checks(0.0)
-
-		Events.start_event(Raiding.RAID_EVENT_ID, { "site_id": "s1" })
-		_seed_read("physics", 2)
-		_seed_read("fate", 1)
-		Events.advance()
-		Events.choose(_option_index("Weigh the quiet ways in"))
-		Events.choose(_option_index("Take the window"))
-		restore.call()
-
-		assert_true(GameState.state["combat"]["active"], "a failed route launches combat")
-		assert_eq(GameState.state["combat"]["context"], "event_raid")
-		assert_eq(GameState.state["flags"]["raidCaught"], true)
-		var mods: Dictionary = GameState.state["combat"]["situational"]
-		assert_true(mods.has("fleeBoost"), "physics read gives the Leg It boost")
-		assert_true(mods.has("firstStrike"), "fate read gives the first strike")
-		assert_true(not mods.has("oneAtATime"), "unread life gives nothing")
-	)
-
-	run_case("raid_event_wormhole_locked_reasons_list_both_missing_parts", func():
-		GameState.reset()
-		var vein := _faction_vein_of_growth(10, "time", "guarded", "firm")
-		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", vein)]
-		Events.start_event(Raiding.RAID_EVENT_ID, { "site_id": "s1" })
-		Events.advance()
-		Events.choose(_option_index("Weigh the quiet ways in"))
-		Events.choose(_option_index("Look further"))
-		Events.choose(_option_index("Look further"))
-		var wormhole := _option_index("Open a Wormhole")
-		assert_eq(Events.option_gate(wormhole)["display"], "disable")
-		assert_eq(Events.unmet_requirement_lines(wormhole).size(), 2, "observation tier and item")
-		_seed_read("physics", 2)
-		Crafting.inventory_add("wormhole", 1, 1)
-		assert_eq(Events.option_gate(wormhole)["display"], "disable", "held but not toggled")
-		Events.toggle_item(wormhole, "wormhole")
-		assert_eq(Events.option_gate(wormhole)["display"], "show")
-		assert_eq(Events.unmet_requirement_lines(wormhole), [])
-	)
-
-	run_case("raid_event_wormhole_bypass_success_skips_the_fight_and_spends_the_item", func():
-		GameState.reset()
-		var vein := _faction_vein_of_growth(10, "time", "guarded", "firm")
-		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", vein)]
-		Events.start_event(Raiding.RAID_EVENT_ID, { "site_id": "s1" })
-		_seed_read("physics", 2)
-		Crafting.inventory_add("wormhole", 1, 1)
-		Events.advance()
-		Events.choose(_option_index("Weigh the quiet ways in"))
-		Events.choose(_option_index("Look further"))
-		Events.choose(_option_index("Look further"))
-		var wormhole := _option_index("Open a Wormhole")
-		Events.toggle_item(wormhole, "wormhole")
-		var restore := _force_raid_checks(1.0)
-		Events.choose(wormhole)
-		restore.call()
-		assert_true(not GameState.state["combat"]["active"], "a bypass that lands never fights")
-		assert_eq(GameState.state["flags"]["raidCaught"], false)
-		assert_eq(Crafting.inventory_qty("wormhole"), 0, "spent")
-	)
-
-	run_case("raid_event_pans_rapture_bypass_failure_fights_with_the_guards_first", func():
-		GameState.reset()
-		var vein := _faction_vein_of_growth(10, "time", "guarded", "firm")
-		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", vein)]
-		Events.start_event(Raiding.RAID_EVENT_ID, { "site_id": "s1" })
-		Crafting.inventory_add("pansRapture", 1, 1)
-		Events.advance()
-		Events.choose(_option_index("Weigh the quiet ways in"))
-		Events.choose(_option_index("Look further"))
-		Events.choose(_option_index("Look further"))
-		var rapture := _option_index("Pan's Rapture")
-		assert_eq(Events.option_gate(rapture)["display"], "disable", "locked until packed")
-		Events.toggle_item(rapture, "pansRapture")
-		var restore := _force_raid_checks(0.0)
-		Events.choose(rapture)
-		restore.call()
-		var combat: Dictionary = GameState.state["combat"]
-		assert_true(combat["active"], "a failed bypass starts the fight")
-		assert_eq(combat["enemyFirst"], true, "the guards are alerted")
-		assert_true(combat["situational"].has("enemyFirstStrike"))
-		assert_eq(Crafting.inventory_qty("pansRapture"), 0, "stays spent")
-	)
-
-	run_case("raid_event_panic_removes_a_guard_and_leaves_the_rest_afraid", func():
-		GameState.reset()
-		var vein := _faction_vein_of_growth(10, "time", "guarded", "firm")
-		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", vein)]
-		Events.start_event(Raiding.RAID_EVENT_ID, { "site_id": "s1" })
-		Crafting.inventory_add("panic", 1, 1)
-		Events.advance()
-		Events.choose(_option_index("Weigh the quiet ways in"))
-		Events.choose(_option_index("Look further"))
-		Events.choose(_option_index("Look further"))
-		Events.choose(_option_index("Something to throw"))
-		var panic := _option_index("Panic")
-		Events.toggle_item(panic, "panic")
-		var restore := _force_raid_checks(1.0)
-		Events.choose(panic)
-		restore.call()
-		assert_eq(Crafting.inventory_qty("panic"), 0, "spent")
-		var guards := Cultivating.vein_guard_count(vein)
-		var combat: Dictionary = GameState.state["combat"]
-		if guards <= 1:
-			assert_true(not combat["active"], "every guard fled: no fight")
-			return
-		var foes: Array = combat["combatants"].filter(func(c): return c["side"] == CombatRounds.SIDE_ENEMY)
-		assert_true(foes.size() >= 1)
-		assert_eq(foes[0]["panicActions"], 2)
-		assert_eq(combat["enemies"].size() + combat["enemyQueue"].size(), guards - 1, "one guard fled")
-	)
-
-	run_case("raid_event_pandemonium_turns_guards_on_each_other_and_hurts_them", func():
-		GameState.reset()
-		var vein := _faction_vein_of_growth(10, "time", "guarded", "firm")
-		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", vein)]
-		Events.start_event(Raiding.RAID_EVENT_ID, { "site_id": "s1" })
-		Crafting.inventory_add("pandemonium", 1, 1)
-		Events.advance()
-		Events.choose(_option_index("Weigh the quiet ways in"))
-		Events.choose(_option_index("Look further"))
-		Events.choose(_option_index("Look further"))
-		Events.choose(_option_index("Something to throw"))
-		var pande := _option_index("Pandemonium")
-		Events.toggle_item(pande, "pandemonium")
-		var restore := _force_raid_checks(1.0)
-		Events.choose(pande)
-		restore.call()
-		var combat: Dictionary = GameState.state["combat"]
-		assert_true(combat["active"])
-		var foe: Dictionary = combat["combatants"].filter(func(c): return c["side"] == CombatRounds.SIDE_ENEMY)[0]
-		assert_true(foe["angerActions"] > 0 and foe["fury"], "anger/fury badge set")
-		assert_true(foe["hp"] < foe["hpMax"] and foe["hp"] >= 1, "starts hurt, never dead")
-	)
-
 	run_case("fight_start_mods_floor_hp_and_absent_payload_changes_nothing", func():
 		var enemy := { "hp": 2, "hpMax": 2, "panicActions": 0, "raptureActions": 0, "angerActions": 0, "angerPct": 0, "fury": false }
 		Combat._apply_fight_start(enemy, {})
@@ -704,77 +553,6 @@ func run() -> void:
 		assert_true(cp["transcript"].has(Combat.SITUATIONAL_MODS["playerFrozen"]["line"]))
 	)
 
-	run_case("raid_event_go_in_loud_is_always_available_and_fights_with_no_mods_unread", func():
-		GameState.reset()
-		var vein := _faction_vein_of_growth(10, "time", "guarded", "firm")
-		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", vein)]
-
-		Events.start_event(Raiding.RAID_EVENT_ID, { "site_id": "s1" })
-		Events.advance()  # no read at all
-		var labels: Array = []
-		for i in Events.current_card()["choices"].size():
-			if Events.option_gate(i)["display"] == "show":
-				labels.append(Events.current_card()["choices"][i]["label"])
-		assert_true(labels.has("Just go in") and labels.has("Go in loud"), "always-on options show with nothing read")
-		assert_true(not labels.has("Go slow") and not labels.has("Go fast"), "old routes are gone")
-		assert_eq(GameState.state["event"].get("observations", {}).size(), 0, "never reading never rolls or detects")
-		Events.choose(_option_index("Go in loud"))
-
-		assert_true(GameState.state["combat"]["active"])
-		assert_eq(GameState.state["combat"]["situational"], {}, "nothing read, no situational mods")
-	)
-
-	run_case("raid_event_loud_then_combat_win_reaches_claim_loot_and_loot_applies_the_caught_hit", func():
-		GameState.reset()
-		var vein := _faction_vein_of_growth(90, "fate", "guarded", "firm")
-		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", vein)]
-		GameState.state["factions"]["firm"]["relation"] = 50
-
-		Events.start_event(Raiding.RAID_EVENT_ID, { "site_id": "s1" })
-		Events.advance()
-		Events.choose(_option_index("Go in loud"))
-		GameState.state["combat"]["outcome"] = "win"
-		Combat.exit_combat()
-		assert_true(GameState.state["event"] != null, "a combat win resumes the raid event")
-		Events.advance()
-		assert_eq(Events.current_card()["key"], "c5")
-		Events.choose(1)  # "Loot and leave"
-
-		assert_eq(GameState.state["factions"]["firm"]["relation"], 50 + Raiding.LOOT_RELATION_HIT)
-		assert_true(GameState.state["world"]["sites"][0]["factionVein"] != null)
-	)
-
-	run_case("raid_event_loud_with_archie_brought_along_joins_him_in_the_combat", func():
-		GameState.reset()
-		var vein := _faction_vein_of_growth(90, "fate", "guarded", "firm")
-		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", vein)]
-		GameState.state["contacts"]["archie"]["recruited"] = true
-
-		Events.start_event(Raiding.RAID_EVENT_ID, { "site_id": "s1", "ally_ids": ["archie"] })
-		Events.advance()
-		Events.choose(_option_index("Go in loud"))
-
-		var allies: Array = GameState.state["combat"]["allies"]
-		assert_eq(allies.size(), 1)
-		assert_eq(allies[0]["contactId"], "archie")
-	)
-
-	run_case("raid_event_combat_loss_fails_the_raid_with_no_claim_loot_offered", func():
-		GameState.reset()
-		var vein := _faction_vein_of_growth(90, "fate", "guarded", "firm")
-		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", vein)]
-
-		Events.start_event(Raiding.RAID_EVENT_ID, { "site_id": "s1" })
-		Events.advance()
-		Events.choose(_option_index("Go in loud"))
-		GameState.state["combat"]["outcome"] = "loss"
-		Combat.exit_combat()
-
-		assert_eq(GameState.state["event"], null)
-		assert_eq(GameState.state["currentScreen"], "phone")
-		assert_true(GameState.state["world"]["sites"][0]["factionVein"] != null, "the vein stays with the faction")
-	)
-
 	run_case("a_won_one_guard_fight_takes_that_guard_out_of_the_next_full_fight", func():
 		var vein := _carry_over_raid(3)
 		var guards := Cultivating.vein_guard_count(vein)
@@ -811,45 +589,6 @@ func run() -> void:
 		Combat.exit_combat()
 		assert_eq(GameState.state["event"], null)
 		assert_eq(GameState.state["currentScreen"], "phone")
-	)
-
-	run_case("raid_event_incapacitate_route_reduces_guards_and_all_down_skips_the_fight", func():
-		GameState.reset()
-		var vein := _faction_vein_of_growth(10, "time", "none", "firm")
-		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", vein)]
-		var guards := Cultivating.vein_guard_count(vein)
-		var restore := _force_raid_checks(1.0)
-
-		Events.start_event(Raiding.RAID_EVENT_ID, { "site_id": "s1" })
-		_seed_read("life", 2)
-		Events.advance()
-		Events.choose(_option_index("Weigh the quiet ways in"))
-		Events.choose(_option_index("Wait out the tired guard"))
-		restore.call()
-
-		assert_eq(GameState.state["event"]["context"]["guardsDown"], 1)
-		if guards <= 1:
-			assert_true(not GameState.state["combat"]["active"], "every guard down skips the fight")
-		else:
-			assert_eq(GameState.state["combat"]["enemies"].size(), guards - 1, "one guard fewer in the fight")
-	)
-
-	run_case("raid_event_claim_transfers_ownership_via_the_event's_site_id_context", func():
-		GameState.reset()
-		var vein := _faction_vein_of_growth(10, "time", "none", "guild")
-		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", vein)]
-		var restore := _force_raid_checks(1.0)
-
-		Events.start_event(Raiding.RAID_EVENT_ID, { "site_id": "s1" })
-		Events.advance()
-		Events.choose(_option_index("Just go in"))
-		restore.call()
-		Events.advance()
-		Events.choose(0)  # "Claim it"
-
-		var site: Dictionary = GameState.state["world"]["sites"][0]
-		assert_eq(site["factionVein"], null, "claim should transfer ownership")
-		assert_eq(GameState.state["player"]["veins"].size(), 1)
 	)
 
 	# ── Direction B: raid_success_chance (ticket 06) ──────────────────────

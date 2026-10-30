@@ -742,35 +742,200 @@
 		},
 		"vein_raid": {
 			"choiceCards": {
-				"c2": [
+				"post": [
+					"",
+					"",
+					""
+				],
+				"post2": [
 					"",
 					"",
 					"",
 					""
 				],
-				"c3": [
+				"post3": [
 					"",
 					"",
 					"",
 					""
 				],
-				"c4": [
+				"y_alarm": [
 					"",
 					"",
 					"",
 					""
 				],
-				"c5": [
+				"y_alarm2": [
 					"",
 					""
 				],
-				"c6": [
+				"y_cam": [
 					"",
 					"",
 					"",
 					""
 				],
-				"c7": [
+				"y_cam2": [
+					"",
+					"",
+					""
+				],
+				"y_claim": [
+					"",
+					""
+				],
+				"y_claim_a": [
+					"",
+					""
+				],
+				"y_climb": [
+					"",
+					"",
+					""
+				],
+				"y_corridor": [
+					"",
+					"",
+					"",
+					""
+				],
+				"y_corridor2": [
+					"",
+					"",
+					"",
+					""
+				],
+				"y_door": [
+					"",
+					"",
+					"",
+					""
+				],
+				"y_door2": [
+					"",
+					"",
+					"",
+					""
+				],
+				"y_drop": [
+					"",
+					"",
+					"",
+					""
+				],
+				"y_drop2": [
+					"",
+					""
+				],
+				"y_final": [
+					""
+				],
+				"y_gate": [
+					"",
+					"",
+					"",
+					""
+				],
+				"y_gate2": [
+					"",
+					"",
+					"",
+					""
+				],
+				"y_gate3": [
+					"",
+					"",
+					"",
+					""
+				],
+				"y_getaway": [
+					"",
+					""
+				],
+				"y_reinf": [
+					""
+				],
+				"y_retreat": [
+					"",
+					"",
+					"",
+					""
+				],
+				"y_room": [
+					"",
+					"",
+					"",
+					""
+				],
+				"y_skylight": [
+					"",
+					"",
+					"",
+					""
+				],
+				"y_ward": [
+					"",
+					"",
+					"",
+					""
+				],
+				"y_ward2": [
+					"",
+					"",
+					"",
+					""
+				],
+				"y_ward3": [
+					"",
+					""
+				],
+				"y_win_cam": [
+					"",
+					"",
+					"",
+					""
+				],
+				"y_win_in": [
+					"",
+					"",
+					"",
+					""
+				],
+				"y_win_in2": [
+					"",
+					"",
+					""
+				],
+				"y_win_out": [
+					"",
+					"",
+					"",
+					""
+				],
+				"y_win_out2": [
+					"",
+					"",
+					""
+				],
+				"y_window": [
+					"",
+					"",
+					"",
+					""
+				],
+				"y_window2": [
+					"",
+					"",
+					""
+				],
+				"y_yard": [
+					"",
+					"",
+					"",
+					""
+				],
+				"y_yard2": [
+					"",
 					"",
 					"",
 					""
@@ -910,7 +1075,18 @@
 		"wrenIntroQueued",
 		"wrenIntroductionSeen",
 		"wrenMetBeforeIntro",
-		"wrenRecipesUnlocked"
+		"wrenRecipesUnlocked",
+		"yAt_climb",
+		"yAt_corridor",
+		"yAt_door",
+		"yAt_drop",
+		"yAt_inb",
+		"yAt_inf",
+		"yAt_room",
+		"yAt_skylight",
+		"yAt_window",
+		"yAt_yard",
+		"yReinfOpen"
 	],
 	"items": [
 		"beALady",

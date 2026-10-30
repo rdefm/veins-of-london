@@ -1,3 +1,5 @@
+> RETIRED: this storyboard draft predates the stage-tree rebuild (.scratch/raid-events/raid-variants-proposal.md §3); data/events/vein_raid.json is now the source.
+
 # vein_raid — imported from data/events/vein_raid.json
 
 ```json

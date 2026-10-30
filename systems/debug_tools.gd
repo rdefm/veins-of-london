@@ -72,7 +72,11 @@ static func prepare_event(event_id: String) -> Dictionary:
 	var context: Dictionary = {}
 	for effect in effects:
 		if effect["op"] in RAID_CONTEXT_OPS:
-			context = { "site_id": _enemy_vein_site_id(), "ally_ids": [] }
+			var site_id := _enemy_vein_site_id()
+			context = { "site_id": site_id, "ally_ids": [] }
+			var raid_site: Variant = Sites.find_site(site_id)
+			if raid_site != null and raid_site["factionVein"] != null:
+				context["securityProfile"] = Raiding.security_profile(raid_site["factionVein"])
 			break
 		if effect["op"] == "network_reveal_vulnerable_vein":
 			context = { "site_id": _enemy_vein_site_id(effect["effect"]) }

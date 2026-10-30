@@ -311,6 +311,8 @@ static func _lint_condition(where: String, c: Dictionary, refs: Dictionary) -> A
 		return []
 	if c.has("wardTriggered"):
 		return [] if c["wardTriggered"] is bool else ["%s: wardTriggered must be a bool" % where]
+	if c.has("reinforcements"):
+		return [] if c["reinforcements"] is bool else ["%s: reinforcements must be a bool" % where]
 	if c.has("alertByTier"):
 		return [] if c["alertByTier"] is Array and (c["alertByTier"] as Array).size() == tiers else ["%s: alertByTier needs %d entries" % [where, tiers]]
 	return ["%s: unknown condition %s" % [where, JSON.stringify(c)]]

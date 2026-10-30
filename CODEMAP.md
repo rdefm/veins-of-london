@@ -46,7 +46,7 @@ Data file per system: see `data/*.json` below.
 | cultivating.gd | Vein growth / cultivate / prune (player rolls max under Be a Lady; `player_*_text` previews); security tiers (lock/ward prices, guard tiers hired via GuardUpkeep) + raid resist; shared vein `value_order`; vein guard count + `drop_vein_guard` |
 | debug_start.gd | Maximal-unlock debug state; `apply(model)` keeps a picked `player.model` through its reset |
 | timing_log.gd | Debug-build-only log of real seconds + in-game day/block per event and fight (begin/end hooks in events.gd, combat.gd); static vars outside state; CSV export to `user://prologue_timing.csv` |
-| debug_tools.gd | Debug phone-app state adjusters; `learn_recipe()`/`learn_all_recipes()` grant rungs exact via RecipeKnowledge; `fire_event()` preps any event (state-path veins/sites, addressed contacts, raid/reveal site context) then starts it |
+| debug_tools.gd | Debug phone-app state adjusters; `learn_recipe()`/`learn_all_recipes()` grant rungs exact via RecipeKnowledge; `fire_event()` preps any event (state-path veins/sites, addressed contacts, raid/reveal site context, raid security profile) then starts it |
 | dial.gd | Per-owner Dial mechanic (`dial_of(owner_id)`: player or contact): Movements, charge economy, Complications (single or multi-target variant), casts/XP; `build_granted_dial`/`grant_contact_dial` for contact grants |
 | diplomacy.gd | Diplomacy (R§3.10 "Favours", "Gifts"): faction favour requests as key-member pending messages; accept (goods favours sign a contract via Offers; `event` favours start their `eventId`, settled by `favour_kept`/`favour_failed` ops), decline, guard/sit-out watches; cash/item gifts to key members; `ask_aid`/`aid_chance` call-for-aid (R§3.1e) + owed-favour debt |
 | partners.gd | Partners (R§3.10 "Partners"): partner trouble asks (sell/contract/buy/send) as pending messages; partner-faction discounted trades; warnings of planned moves; faction raid warned-odds cut; intel leaks |
@@ -330,6 +330,8 @@ loaded, keyed by filename; no id-list const to keep in sync. Each is the cards/o
 (`systems/district_deck.gd`, a `deck` sub-object).
 
 The Prologue chain (`cold_open_legacy` is the retired pre-observation intro, unreferenced) is `prologue_cold_open` → `pub` → `buyer` → `prologue_james_meeting` → `gym` → `prologue_archie_sells_pearls` → `prologue_home_raid_intro` + debriefs → `prologue_archie_cultivation` → `prologue_ending`, linked by `start_event` / queued Archie texts; its ToDo objectives are `pro_*` in `data/objectives.json`. `gym`, `prologue_archie_sells_pearls` and `prologue_ending` are one-card placeholders. `james_meeting_observation` is an unreferenced copy of `prologue_james_meeting` with observations wired in, under review.
+
+`vein_raid.json` is the Yard vein raid: a ~50-card stage tree (gate, front/back/roof routes, window, search, guard-post, camera, ward, vein-room, claim/loot, getaway cards) on route flags `yAt_*`, with placeholder prose for ticket 26. Tests: `tests/test_vein_raid_yard.gd`.
 
 `data/events/_to_be_coded/col_hakim_intel_*.json` holds five unregistered Hakim intel
 prose variants generated with the quest editor builder. Implementation briefs are in
