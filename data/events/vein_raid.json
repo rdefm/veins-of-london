@@ -230,7 +230,7 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: You say the right nothing and the gate opens.",
+            "result_text": "You nod like someone expected. The guard checks his clipboard, finds no one, and lifts the barrier anyway.",
             "effects": [
               {
                 "op": "set_flag",
@@ -286,7 +286,7 @@
             "goto": "y_yard"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: The guard wants a name.",
+            "result_text": "The guard wants a name, and a company. You offer neither, and he reaches for the radio.",
             "effects": [
               {
                 "op": "alert",
@@ -409,7 +409,7 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: Over, down, and into the dark behind the depot.",
+            "result_text": "Over, down, and into the dark behind the depot. The tarmac is cracked and nobody is standing on it.",
             "effects": [
               {
                 "op": "set_flag",
@@ -465,7 +465,7 @@
             "goto": "y_window"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: The wire sings as you land.",
+            "result_text": "The wire sings as you land, one long thin note across the whole yard.",
             "effects": [
               {
                 "op": "alert",
@@ -601,7 +601,7 @@
               "value": false
             }
           ],
-          "result_text": "PLACEHOLDER: The rungs are loose. You go up anyway.",
+          "result_text": "The bottom rung comes away in your hand. You go up on the others.",
           "goto": "y_climb"
         },
         {
@@ -669,7 +669,7 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: You mention his radio. He goes to check it.",
+            "result_text": "You mention that his radio has been cutting out. He goes into the hut to check it, and the gate goes unwatched.",
             "effects": [
               {
                 "op": "set_flag",
@@ -725,7 +725,7 @@
             "goto": "y_yard"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: He doesn't scare. He does look at you.",
+            "result_text": "He doesn't flinch. He does start looking at you properly.",
             "effects": [
               {
                 "op": "alert",
@@ -836,7 +836,7 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: The panel lifts. You're through without a sound.",
+            "result_text": "The wired-on panel lifts like a lid. You set it down behind you.",
             "effects": [
               {
                 "op": "set_flag",
@@ -892,7 +892,7 @@
             "goto": "y_window"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: The wire catches your sleeve and rings.",
+            "result_text": "The wire catches your sleeve and rings along the whole fence.",
             "effects": [
               {
                 "op": "alert",
@@ -983,7 +983,7 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: It was never latched.",
+            "result_text": "It was never latched. Someone has been meaning to fix that since spring.",
             "effects": [
               {
                 "op": "set_flag",
@@ -1039,7 +1039,7 @@
             "goto": "y_yard"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: It was latched.",
+            "result_text": "It was latched. The clang carries.",
             "effects": [
               {
                 "op": "alert",
@@ -1136,7 +1136,7 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: You hit the gate with your shoulder and go in.",
+            "result_text": "You hit the gate with your shoulder and go in. It hurts more than it should.",
             "effects": [
               {
                 "op": "alert",
@@ -1205,7 +1205,7 @@
             "goto": "post"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: The gate holds, then doesn't.",
+            "result_text": "The gate holds, then doesn't, and drops open with the sound of a bin lid on tarmac.",
             "effects": [
               {
                 "op": "alert",
@@ -1342,7 +1342,7 @@
               "value": false
             }
           ],
-          "result_text": "PLACEHOLDER: The gate leaves its hinges.",
+          "result_text": "The gate leaves its hinges in one piece and lands flat. Every head in the hut turns.",
           "goto": "post",
           "items": [
             {
@@ -1387,7 +1387,7 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: The yard folds. You step out in the vein room.",
+            "result_text": "The yard folds, and you step out in the vein room before anyone has finished looking at the gate.",
             "effects": [
               {
                 "op": "set_flag",
@@ -1443,7 +1443,7 @@
             "goto": "y_room"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: The fold lands you inside, and not unseen.",
+            "result_text": "The fold lands you inside, and not unseen. There is a hole in the air behind you.",
             "effects": [
               {
                 "op": "alert",
@@ -1565,7 +1565,7 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: Across, unremarked.",
+            "result_text": "You count the gap and cross it. Forty seconds, and you use thirty-five.",
             "effects": [
               {
                 "op": "set_flag",
@@ -1621,7 +1621,7 @@
             "goto": "y_door"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: The round comes early.",
+            "result_text": "The round comes early. You were counting; he wasn't.",
             "effects": [
               {
                 "op": "alert",
@@ -1727,7 +1727,7 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: Across, unremarked.",
+            "result_text": "The tired guard's chin drops. You cross while he's somewhere else.",
             "effects": [
               {
                 "op": "set_flag",
@@ -1783,7 +1783,7 @@
             "goto": "y_door"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: He looks up.",
+            "result_text": "He looks up, just as your shadow crosses the hut window.",
             "effects": [
               {
                 "op": "alert",
@@ -1887,7 +1887,7 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: Across, unremarked.",
+            "result_text": "You cross the yard with the purpose of a lanyard. Nobody asks what it's for.",
             "effects": [
               {
                 "op": "set_flag",
@@ -1943,7 +1943,7 @@
             "goto": "y_door"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: Someone asks for a pass.",
+            "result_text": "Someone asks for a pass. It turns out the walk doesn't count.",
             "effects": [
               {
                 "op": "alert",
@@ -2050,7 +2050,7 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: Across, unremarked.",
+            "result_text": "He looks away at the right moment. You cross.",
             "effects": [
               {
                 "op": "set_flag",
@@ -2106,7 +2106,7 @@
             "goto": "y_door"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: He doesn't.",
+            "result_text": "He doesn't look away. He's still looking when you notice.",
             "effects": [
               {
                 "op": "alert",
@@ -2230,7 +2230,7 @@
               "value": false
             }
           ],
-          "result_text": "PLACEHOLDER: You know the second. You use it.",
+          "result_text": "You know the second he turns. You use it.",
           "goto": "y_door",
           "items": [
             {
@@ -2302,7 +2302,7 @@
               "value": false
             }
           ],
-          "result_text": "PLACEHOLDER: The yard stops. You don't.",
+          "result_text": "The yard stops. You don't.",
           "goto": "y_door",
           "items": [
             {
@@ -2387,7 +2387,7 @@
             "entry": "physical"
           },
           "success": {
-            "result_text": "PLACEHOLDER: The lock gives without a sound.",
+            "result_text": "The lock turns over without a sound.",
             "effects": [
               {
                 "op": "set_flag",
@@ -2443,7 +2443,7 @@
             "goto": "y_inside_f"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: The pick snaps. Someone hears.",
+            "result_text": "The pick snaps in the lock. The sound is small and carries anyway.",
             "effects": [
               {
                 "op": "alert",
@@ -2549,7 +2549,7 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: The sleeping guard keeps sleeping.",
+            "result_text": "The keys come off the hook one at a time. The guard asleep in the chair keeps sleeping.",
             "effects": [
               {
                 "op": "set_flag",
@@ -2605,7 +2605,7 @@
             "goto": "y_inside_f"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: The keys jingle.",
+            "result_text": "The keys jingle. The man in the chair opens one eye.",
             "effects": [
               {
                 "op": "alert",
@@ -2696,7 +2696,7 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: It isn't.",
+            "result_text": "It isn't locked. Whoever was last out has gone home.",
             "effects": [
               {
                 "op": "set_flag",
@@ -2752,7 +2752,7 @@
             "goto": "y_inside_f"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: It is.",
+            "result_text": "It is. The handle rattles under your hand.",
             "effects": [
               {
                 "op": "alert",
@@ -2894,7 +2894,7 @@
               "value": false
             }
           ],
-          "result_text": "PLACEHOLDER: No lock. You let yourself in.",
+          "result_text": "No lock. You let yourself in like a man with a delivery.",
           "goto": "y_inside_f"
         },
         {
@@ -2919,7 +2919,7 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: The door gives.",
+            "result_text": "The door gives under your weight.",
             "effects": [
               {
                 "op": "alert",
@@ -2988,7 +2988,7 @@
             "goto": "y_inside_f"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: The door gives, loudly.",
+            "result_text": "The door gives, loudly, and bangs the wall behind it.",
             "effects": [
               {
                 "op": "alert",
@@ -3134,7 +3134,7 @@
               "value": false
             }
           ],
-          "result_text": "PLACEHOLDER: The door is a hole now.",
+          "result_text": "The door is a hole now, and the handle is somewhere in the yard.",
           "goto": "y_inside_f",
           "items": [
             {
@@ -3205,7 +3205,7 @@
             "entry": "physical"
           },
           "success": {
-            "result_text": "PLACEHOLDER: The latch lifts.",
+            "result_text": "The blade finds the latch and lifts it. The window slides up an inch, then more.",
             "effects": [
               {
                 "op": "set_flag",
@@ -3261,7 +3261,7 @@
             "goto": "y_corridor"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: The window shrieks.",
+            "result_text": "The window shrieks in its frame, rotten wood on rusted runners.",
             "effects": [
               {
                 "op": "alert",
@@ -3376,7 +3376,7 @@
             "entry": "physical"
           },
           "success": {
-            "result_text": "PLACEHOLDER: It gives, a little at a time.",
+            "result_text": "It gives a little at a time, and you let it.",
             "effects": [
               {
                 "op": "set_flag",
@@ -3432,7 +3432,7 @@
             "goto": "y_corridor"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: It sticks, then shrieks.",
+            "result_text": "It sticks, then gives all at once, shrieking.",
             "effects": [
               {
                 "op": "alert",
@@ -3523,7 +3523,7 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: Something backfires. So do you.",
+            "result_text": "A car backfires in the road. So does the window, underneath it.",
             "effects": [
               {
                 "op": "set_flag",
@@ -3579,7 +3579,7 @@
             "goto": "y_corridor"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: Nothing does.",
+            "result_text": "No car comes. The window is loud in a street that has gone quiet.",
             "effects": [
               {
                 "op": "alert",
@@ -3676,7 +3676,7 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: Glass everywhere.",
+            "result_text": "Glass everywhere, mostly on the inside.",
             "effects": [
               {
                 "op": "alert",
@@ -3745,7 +3745,7 @@
             "goto": "y_corridor"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: Glass everywhere, and a shout.",
+            "result_text": "Glass everywhere, and a shout from the yard.",
             "effects": [
               {
                 "op": "alert",
@@ -3882,7 +3882,7 @@
               "value": false
             }
           ],
-          "result_text": "PLACEHOLDER: The window is a different shape now.",
+          "result_text": "The window is a different shape now, and so is the quiet.",
           "goto": "y_corridor",
           "items": [
             {
@@ -3952,7 +3952,7 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: He passes. You don't.",
+            "result_text": "He passes. You don't move until his footsteps are gone.",
             "effects": [
               {
                 "op": "set_flag",
@@ -4008,7 +4008,7 @@
             "goto": "y_inside_b"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: He turns the corner early.",
+            "result_text": "He turns the corner early, and you are in the middle of the corridor.",
             "effects": [
               {
                 "op": "alert",
@@ -4114,7 +4114,7 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: He drifts.",
+            "result_text": "He drifts past, half asleep on his feet, and you slip in behind him.",
             "effects": [
               {
                 "op": "set_flag",
@@ -4170,7 +4170,7 @@
             "goto": "y_inside_b"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: He wasn't as tired as he looked.",
+            "result_text": "He wasn't as tired as he looked. He stops walking.",
             "effects": [
               {
                 "op": "alert",
@@ -4261,7 +4261,7 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: He is.",
+            "result_text": "He's late. You're through before he arrives.",
             "effects": [
               {
                 "op": "set_flag",
@@ -4317,7 +4317,7 @@
             "goto": "y_inside_b"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: He isn't.",
+            "result_text": "He isn't late. He's exactly on time.",
             "effects": [
               {
                 "op": "alert",
@@ -4457,7 +4457,7 @@
               "value": false
             }
           ],
-          "result_text": "PLACEHOLDER: You step aside a breath before he arrives.",
+          "result_text": "You step aside a breath before he arrives. He walks through the space you were in.",
           "goto": "y_inside_b",
           "items": [
             {
@@ -4529,7 +4529,7 @@
               "value": false
             }
           ],
-          "result_text": "PLACEHOLDER: He stops mid-step. You don't.",
+          "result_text": "He stops mid-step with a foot in the air. You walk round it.",
           "goto": "y_inside_b",
           "items": [
             {
@@ -4610,7 +4610,7 @@
               "value": false
             }
           ],
-          "result_text": "PLACEHOLDER: No more creeping.",
+          "result_text": "No more creeping. You step into his way.",
           "goto": "y_inside_b"
         },
         {
@@ -4681,7 +4681,7 @@
             "entry": "physical"
           },
           "success": {
-            "result_text": "PLACEHOLDER: Up, rung by rung.",
+            "result_text": "Up, rung by rung, weight on the bolts and not the rails.",
             "effects": [
               {
                 "op": "set_flag",
@@ -4737,7 +4737,7 @@
             "goto": "y_skylight"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: A rung gives. Someone looks up.",
+            "result_text": "A rung gives with a crack. Someone in the yard looks up.",
             "effects": [
               {
                 "op": "alert",
@@ -4828,7 +4828,7 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: It holds.",
+            "result_text": "The rung holds. So does the one above it.",
             "effects": [
               {
                 "op": "set_flag",
@@ -4884,7 +4884,7 @@
             "goto": "y_skylight"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: It doesn't.",
+            "result_text": "It doesn't. You catch the rail and the whole stair rings.",
             "effects": [
               {
                 "op": "alert",
@@ -5017,7 +5017,7 @@
             "entry": "physical"
           },
           "success": {
-            "result_text": "PLACEHOLDER: The catch lets go.",
+            "result_text": "The catch lets go with a small flake of rust.",
             "effects": [
               {
                 "op": "set_flag",
@@ -5073,7 +5073,7 @@
             "goto": "y_drop"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: The catch screams.",
+            "result_text": "The catch screams, rust on rust, and the sound is all yours.",
             "effects": [
               {
                 "op": "alert",
@@ -5164,7 +5164,7 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: It lets go.",
+            "result_text": "It lets go on the first push.",
             "effects": [
               {
                 "op": "set_flag",
@@ -5220,7 +5220,7 @@
             "goto": "y_drop"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: It doesn't.",
+            "result_text": "It doesn't. It does make a noise about it.",
             "effects": [
               {
                 "op": "alert",
@@ -5357,7 +5357,7 @@
               "value": false
             }
           ],
-          "result_text": "PLACEHOLDER: The skylight is not a skylight any more.",
+          "result_text": "The skylight is not a skylight any more, only a frame with some glass left in it.",
           "goto": "y_drop",
           "items": [
             {
@@ -5427,7 +5427,7 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: He turns. You drop.",
+            "result_text": "He turns to the door. You drop.",
             "effects": [
               {
                 "op": "set_flag",
@@ -5483,7 +5483,7 @@
             "goto": "y_room"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: He doesn't turn.",
+            "result_text": "He doesn't turn. You hang there, and the time for waiting runs out.",
             "effects": [
               {
                 "op": "alert",
@@ -5574,7 +5574,7 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: He does.",
+            "result_text": "He does. You drop.",
             "effects": [
               {
                 "op": "set_flag",
@@ -5630,7 +5630,7 @@
             "goto": "y_room"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: He doesn't.",
+            "result_text": "He doesn't, and you run out of reasons to wait.",
             "effects": [
               {
                 "op": "alert",
@@ -5754,7 +5754,7 @@
               "value": true
             }
           ],
-          "result_text": "PLACEHOLDER: You drop on the exact breath.",
+          "result_text": "You drop on the exact breath he turns.",
           "goto": "y_room",
           "items": [
             {
@@ -5842,7 +5842,7 @@
               "value": true
             }
           ],
-          "result_text": "PLACEHOLDER: He stops. You drop.",
+          "result_text": "He stops mid-turn. You drop beside him.",
           "goto": "y_room",
           "items": [
             {
@@ -5912,7 +5912,7 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: You run, and nobody catches you.",
+            "result_text": "You run, and nobody catches you.",
             "effects": [
               {
                 "op": "back_out"
@@ -5921,7 +5921,7 @@
             "goto": "y_out"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: They cut you off.",
+            "result_text": "They cut you off at the gate.",
             "effects": [
               {
                 "op": "start_raid_combat",
@@ -5968,7 +5968,7 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: The fold takes you somewhere else.",
+            "result_text": "The fold takes you out and sets you down on a pavement a street away.",
             "effects": [
               {
                 "op": "back_out"
@@ -5977,7 +5977,7 @@
             "goto": "y_out"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: The fold lands short.",
+            "result_text": "The fold lands short, in the yard, in front of the hut.",
             "effects": [
               {
                 "op": "start_raid_combat",
@@ -6011,7 +6011,7 @@
       "type": "tension",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: Someone has seen you.",
+      "text": "A shape in the hut window, turning towards you.",
       "goto": [
         {
           "if": {
@@ -6031,7 +6031,7 @@
       "type": "tension",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: Someone has seen you.",
+      "text": "Footsteps on the tarmac behind you, and a torch that finds your coat.",
       "goto": [
         {
           "if": {
@@ -6051,7 +6051,7 @@
       "type": "tension",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: Someone has seen you.",
+      "text": "A door opens down the corridor and the light behind it falls on you.",
       "goto": [
         {
           "if": {
@@ -6089,7 +6089,7 @@
       "type": "choice",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: Someone in the yard has seen you.",
+      "text": "A guard across the yard has seen you. He reaches for his radio slowly, like a man who would rather not.",
       "choices": [
         {
           "label": "Take him down",
@@ -6100,7 +6100,7 @@
               "waves": 1
             }
           ],
-          "result_text": "PLACEHOLDER: Quick, and not quiet.",
+          "result_text": "Quick, and not quiet. He's down before the radio is up.",
           "goto": "y_resume"
         },
         {
@@ -6163,7 +6163,7 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: He goes back to his post, none the wiser.",
+            "result_text": "He goes back to his post, none the wiser.",
             "effects": [
               {
                 "op": "alert",
@@ -6173,7 +6173,7 @@
             "goto": "y_resume"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: He shouts.",
+            "result_text": "He doesn't buy it. He shouts.",
             "effects": [
               {
                 "op": "alert",
@@ -6232,7 +6232,7 @@
             "entry": "physical"
           },
           "success": {
-            "result_text": "PLACEHOLDER: You're gone before he looks.",
+            "result_text": "You're gone before he looks.",
             "effects": [
               {
                 "op": "alert",
@@ -6242,7 +6242,7 @@
             "goto": "y_resume"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: He sees where you went.",
+            "result_text": "He sees where you went.",
             "effects": [
               {
                 "op": "alert",
@@ -6290,7 +6290,7 @@
               "count": 1
             }
           ],
-          "result_text": "PLACEHOLDER: He smiles at nothing and wanders off.",
+          "result_text": "He smiles at nothing and wanders off.",
           "goto": "y_resume",
           "items": [
             {
@@ -6336,7 +6336,7 @@
               ]
             }
           ],
-          "result_text": "PLACEHOLDER: One bang. He doesn't get up fast.",
+          "result_text": "One bang. He doesn't get up fast.",
           "goto": "y_resume",
           "items": [
             {
@@ -6363,7 +6363,7 @@
       "type": "choice",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: Someone inside has seen you.",
+      "text": "A guard inside has seen you. He's put his tea down, which is how you know he means it.",
       "choices": [
         {
           "label": "Take him down",
@@ -6374,7 +6374,7 @@
               "waves": 1
             }
           ],
-          "result_text": "PLACEHOLDER: Quick, and not quiet.",
+          "result_text": "Quick, and not quiet. The wall helps him less than it helps you.",
           "goto": "y_resume"
         },
         {
@@ -6437,7 +6437,7 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: He goes back to his post, none the wiser.",
+            "result_text": "He goes back to his rounds, none the wiser.",
             "effects": [
               {
                 "op": "alert",
@@ -6447,7 +6447,7 @@
             "goto": "y_resume"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: He shouts.",
+            "result_text": "He doesn't buy it. He shouts, and the corridor carries it.",
             "effects": [
               {
                 "op": "alert",
@@ -6506,7 +6506,7 @@
             "entry": "physical"
           },
           "success": {
-            "result_text": "PLACEHOLDER: You're gone before he looks.",
+            "result_text": "You're gone before the torch finds you.",
             "effects": [
               {
                 "op": "alert",
@@ -6516,7 +6516,7 @@
             "goto": "y_resume"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: He sees where you went.",
+            "result_text": "He sees where you went.",
             "effects": [
               {
                 "op": "alert",
@@ -6564,7 +6564,7 @@
               "count": 1
             }
           ],
-          "result_text": "PLACEHOLDER: He smiles at nothing and wanders off.",
+          "result_text": "He smiles at nothing and wanders off down the corridor.",
           "goto": "y_resume",
           "items": [
             {
@@ -6610,7 +6610,7 @@
               ]
             }
           ],
-          "result_text": "PLACEHOLDER: One bang. He doesn't get up fast.",
+          "result_text": "One bang, indoors. He doesn't get up fast.",
           "goto": "y_resume",
           "items": [
             {
@@ -6637,7 +6637,7 @@
       "type": "choice",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: The place is awake and looking.",
+      "text": "The place is awake and looking: torches in the yard, doors banging, voices that aren't bothering to whisper.",
       "choices": [
         {
           "label": "Hide",
@@ -6672,12 +6672,12 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: They pass your hiding place.",
+            "result_text": "They pass your hiding place, close enough to smell the tea.",
             "effects": [],
             "goto": "y_resume"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: They find you.",
+            "result_text": "They find you.",
             "effects": [
               {
                 "op": "start_raid_combat",
@@ -6704,12 +6704,12 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: They half believe you. Half is enough.",
+            "result_text": "They half believe you. Half is enough.",
             "effects": [],
             "goto": "y_resume"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: They don't.",
+            "result_text": "They don't.",
             "effects": [
               {
                 "op": "start_raid_combat",
@@ -6736,7 +6736,7 @@
               "count": 9
             }
           ],
-          "result_text": "PLACEHOLDER: They smile at nothing and let the search go.",
+          "result_text": "They smile at nothing and let the search go.",
           "goto": "y_resume",
           "items": [
             {
@@ -6791,7 +6791,7 @@
               "value": true
             }
           ],
-          "result_text": "PLACEHOLDER: Two of them run.",
+          "result_text": "Two of them run. The rest don't know why.",
           "goto": "y_resume",
           "items": [
             {
@@ -6818,7 +6818,7 @@
       "type": "choice",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: The guards stand between you and the way on.",
+      "text": "The guards in the hut stand between you and the way on.",
       "choices": [
         {
           "label": "Fight",
@@ -6828,7 +6828,7 @@
               "preset": "veinGuards"
             }
           ],
-          "result_text": "PLACEHOLDER: No more subtlety.",
+          "result_text": "No more subtlety. They come out of the hut together.",
           "goto": "y_resume"
         },
         {
@@ -6871,12 +6871,12 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: They let you by.",
+            "result_text": "They let you by. Nobody wants to be the one who stopped the wrong person.",
             "effects": [],
             "goto": "y_resume"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: They don't.",
+            "result_text": "They don't.",
             "effects": [
               {
                 "op": "alert",
@@ -6970,7 +6970,7 @@
               "value": true
             }
           ],
-          "result_text": "PLACEHOLDER: You know where each of them will be.",
+          "result_text": "You know where each of them will be, and you aren't there.",
           "goto": "y_resume",
           "items": [
             {
@@ -7042,7 +7042,7 @@
               "value": true
             }
           ],
-          "result_text": "PLACEHOLDER: They freeze. You don't.",
+          "result_text": "They freeze. You don't.",
           "goto": "y_resume",
           "items": [
             {
@@ -7083,7 +7083,7 @@
               ]
             }
           ],
-          "result_text": "PLACEHOLDER: One of them stops. The fight is shorter.",
+          "result_text": "One of them stops. The fight is shorter.",
           "goto": "y_resume",
           "items": [
             {
@@ -7158,7 +7158,7 @@
               ]
             }
           ],
-          "result_text": "PLACEHOLDER: A word in the wrong ear.",
+          "result_text": "A word in the wrong ear, and the post turns on itself.",
           "goto": "y_resume",
           "items": [
             {
@@ -7197,7 +7197,7 @@
               "value": true
             }
           ],
-          "result_text": "PLACEHOLDER: Two of them run.",
+          "result_text": "Two of them run.",
           "goto": "y_resume",
           "items": [
             {
@@ -7236,7 +7236,7 @@
               "count": 9
             }
           ],
-          "result_text": "PLACEHOLDER: They go docile.",
+          "result_text": "They go docile, and stay that way.",
           "goto": "y_resume",
           "items": [
             {
@@ -7263,7 +7263,7 @@
       "type": "choice",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: More of them arrive.",
+      "text": "More of them arrive from the road, in coats, already out of breath.",
       "choices": [
         {
           "label": "Keep moving",
@@ -7284,7 +7284,7 @@
       "type": "tension",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: You carry on.",
+      "text": "The raid goes on.",
       "goto": [
         {
           "if": {
@@ -7309,7 +7309,7 @@
       "type": "tension",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: You carry on.",
+      "text": "You keep moving.",
       "goto": [
         {
           "if": {
@@ -7375,7 +7375,7 @@
       "type": "tension",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: The depot floor.",
+      "text": "The depot floor: pallets, strip lights, a smell of diesel and old tea.",
       "goto": [
         {
           "if": {
@@ -7406,7 +7406,7 @@
       "type": "tension",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: The back of the depot.",
+      "text": "The back of the depot: shelving, a long corridor, a door at the far end.",
       "goto": [
         {
           "if": {
@@ -7437,7 +7437,7 @@
       "type": "choice",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: A camera over the door, sweeping.",
+      "text": "A camera over the door, sweeping slowly. The red light never goes out.",
       "choices": [
         {
           "label": "Time the sweep",
@@ -7480,7 +7480,7 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: Under it, between sweeps.",
+            "result_text": "You go under it between sweeps.",
             "effects": [
               {
                 "op": "set_flag",
@@ -7536,7 +7536,7 @@
             "goto": "y_threshold"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: The camera has you.",
+            "result_text": "The camera has you. Somewhere a small light changes colour.",
             "effects": [
               {
                 "op": "alert",
@@ -7642,7 +7642,7 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: The blind spot is where you are.",
+            "result_text": "The blind spot is where you are.",
             "effects": [
               {
                 "op": "set_flag",
@@ -7698,7 +7698,7 @@
             "goto": "y_threshold"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: It isn't blind enough.",
+            "result_text": "It isn't blind enough.",
             "effects": [
               {
                 "op": "alert",
@@ -7789,7 +7789,7 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: It is.",
+            "result_text": "It's on the blink. The lens flickers and goes dark for just long enough.",
             "effects": [
               {
                 "op": "set_flag",
@@ -7845,7 +7845,7 @@
             "goto": "y_threshold"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: It isn't.",
+            "result_text": "It isn't. The red light never wavers.",
             "effects": [
               {
                 "op": "alert",
@@ -7985,7 +7985,7 @@
               "value": true
             }
           ],
-          "result_text": "PLACEHOLDER: The camera stops. So does the light in it.",
+          "result_text": "The camera stops. So does the light in it.",
           "goto": "y_threshold",
           "items": [
             {
@@ -8070,7 +8070,7 @@
               "value": true
             }
           ],
-          "result_text": "PLACEHOLDER: The camera is no longer a camera.",
+          "result_text": "The camera is no longer a camera. It is a lot of small parts on the floor.",
           "goto": "y_threshold",
           "items": [
             {
@@ -8097,7 +8097,7 @@
       "type": "choice",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: They'll be coming to look at the screen.",
+      "text": "Someone will be looking at the screen by now, and walking this way.",
       "choices": [
         {
           "label": "Take him down",
@@ -8158,7 +8158,7 @@
               "value": true
             }
           ],
-          "result_text": "PLACEHOLDER: He arrives. You're ready.",
+          "result_text": "He arrives. You're ready.",
           "goto": "y_threshold"
         },
         {
@@ -8205,7 +8205,7 @@
             "entry": "physical"
           },
           "success": {
-            "result_text": "PLACEHOLDER: Gone by the time he arrives.",
+            "result_text": "Gone by the time he arrives.",
             "effects": [
               {
                 "op": "alert",
@@ -8265,7 +8265,7 @@
             "goto": "y_threshold"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: He arrives early.",
+            "result_text": "He arrives early.",
             "effects": [
               {
                 "op": "alert",
@@ -8413,7 +8413,7 @@
               "value": true
             }
           ],
-          "result_text": "PLACEHOLDER: One bang.",
+          "result_text": "One bang.",
           "goto": "y_threshold",
           "items": [
             {
@@ -8440,7 +8440,7 @@
       "type": "tension",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: The vein-room door.",
+      "text": "The vein-room door, at the end of the corridor.",
       "goto": [
         {
           "if": {
@@ -8461,7 +8461,7 @@
       "type": "choice",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: A ward on the threshold.",
+      "text": "A ward on the threshold, faint as a draught.",
       "choices": [
         {
           "label": "Step through",
@@ -8470,7 +8470,7 @@
               "op": "ward_trigger"
             }
           ],
-          "result_text": "PLACEHOLDER: You step through.",
+          "result_text": "You step through. The air rings once.",
           "goto": "y_room"
         },
         {
@@ -8507,12 +8507,12 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: Through the gap in it.",
+            "result_text": "Through the gap in it.",
             "effects": [],
             "goto": "y_room"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: It notices.",
+            "result_text": "It notices.",
             "effects": [
               {
                 "op": "ward_trigger"
@@ -8528,12 +8528,12 @@
             "mods": []
           },
           "success": {
-            "result_text": "PLACEHOLDER: It spends itself on the decoy. You wait.",
+            "result_text": "It spends itself on the decoy. You wait, then go.",
             "effects": [],
             "goto": "y_room"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: It ignores the decoy and takes you.",
+            "result_text": "It ignores the decoy and takes you.",
             "effects": [
               {
                 "op": "ward_trigger"
@@ -8602,7 +8602,7 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: He steps through it. You step round him.",
+            "result_text": "He steps through it. You step round him.",
             "effects": [
               {
                 "op": "reduce_raid_guards",
@@ -8612,7 +8612,7 @@
             "goto": "y_room"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: He doesn't fall for it. The ward falls for you.",
+            "result_text": "He doesn't fall for it. The ward falls for you.",
             "effects": [
               {
                 "op": "ward_trigger"
@@ -8633,7 +8633,7 @@
               "op": "ward_trigger"
             }
           ],
-          "result_text": "PLACEHOLDER: Faster than it can notice.",
+          "result_text": "Faster than it can notice.",
           "goto": "y_room",
           "items": [
             {
@@ -8682,12 +8682,12 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: The ward is on the other side of you.",
+            "result_text": "The ward is on the other side of you.",
             "effects": [],
             "goto": "y_room"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: The fold lands short.",
+            "result_text": "The fold lands short.",
             "effects": [
               {
                 "op": "ward_trigger"
@@ -8771,7 +8771,7 @@
               "value": true
             }
           ],
-          "result_text": "PLACEHOLDER: The ward stops. You don't.",
+          "result_text": "The ward stops. You don't.",
           "goto": "y_room",
           "items": [
             {
@@ -8798,7 +8798,7 @@
       "type": "choice",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: The vein room.",
+      "text": "The vein room: low light, a hum in the floor, and guards standing on the vein.",
       "choices": [
         {
           "label": "Fight for the room",
@@ -8815,7 +8815,7 @@
               "preset": "veinGuards"
             }
           ],
-          "result_text": "PLACEHOLDER: They don't give it up.",
+          "result_text": "They don't give it up.",
           "goto": "y_claim_route"
         },
         {
@@ -8828,7 +8828,7 @@
             "display": "hide"
           },
           "effects": [],
-          "result_text": "PLACEHOLDER: Nobody stops you.",
+          "result_text": "Nobody stops you.",
           "goto": "y_claim_route"
         },
         {
@@ -8878,12 +8878,12 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: They let you by.",
+            "result_text": "They let you by.",
             "effects": [],
             "goto": "y_claim_route"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: They don't.",
+            "result_text": "They don't.",
             "effects": [
               {
                 "op": "alert",
@@ -8961,7 +8961,7 @@
               "value": true
             }
           ],
-          "result_text": "PLACEHOLDER: You know where each of them will be.",
+          "result_text": "You know where each of them will be.",
           "goto": "y_claim_route",
           "items": [
             {
@@ -8981,7 +8981,7 @@
       "type": "tension",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: The vein.",
+      "text": "The vein runs under the floor here, warm through your shoes.",
       "goto": [
         {
           "if": {
@@ -9022,7 +9022,7 @@
       "type": "choice",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: They're nearly here.",
+      "text": "Boots in the corridor. They're nearly here.",
       "choices": [
         {
           "label": "Reach for the vein",
@@ -9032,7 +9032,7 @@
               "preset": "veinGuards"
             }
           ],
-          "result_text": "PLACEHOLDER: Once more.",
+          "result_text": "You reach for the vein with the footsteps getting louder.",
           "goto": "y_claim_a"
         }
       ]
@@ -9099,7 +9099,7 @@
       "type": "choice",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: The way out is not the way you came.",
+      "text": "The way out is not the way you came. It's the yard, and the yard is awake.",
       "end": true,
       "choices": [
         {
@@ -9121,11 +9121,11 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: You run. Nobody catches you.",
+            "result_text": "You run. Nobody catches you.",
             "effects": []
           },
           "fail": {
-            "result_text": "PLACEHOLDER: They catch you at the gate.",
+            "result_text": "They catch you at the gate.",
             "effects": [
               {
                 "op": "start_raid_combat",
@@ -9166,11 +9166,11 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: The fold takes you out.",
+            "result_text": "The fold takes you out.",
             "effects": []
           },
           "fail": {
-            "result_text": "PLACEHOLDER: The fold lands short.",
+            "result_text": "The fold lands short.",
             "effects": [
               {
                 "op": "start_raid_combat",
