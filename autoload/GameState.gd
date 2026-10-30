@@ -258,6 +258,9 @@ func new_game_state() -> Dictionary:
 		# A raid site's stored read ({ siteId: { security, observations } },
 		# R§3.9d "Site memory").
 		"siteObservations": {},
+		# Raid sites spooked by a noticed retreat ({ siteId: expiry day },
+		# R§3.12 "Wary sites").
+		"siteWary": {},
 		# Accepted favours and last-issued day per faction (Diplomacy.new_state()).
 		"favours": Diplomacy.new_state(),
 		# Last gift day and recent-gift count per key member contact id

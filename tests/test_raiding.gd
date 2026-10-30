@@ -261,6 +261,62 @@ func run() -> void:
 		assert_true(Observation.site_memory("s2").is_empty(), "other sites are unaffected")
 	)
 
+	# ── wary sites ───────────────────────────────────────────────────────
+
+	var back_out_at := func(site: Dictionary, alert: int) -> void:
+		Raiding.begin_raid(site["factionVein"])
+		GameState.state["event"]["alert"] = alert
+		Events.apply_effects([{ "op": "back_out" }])
+
+	run_case("backing_out_unseen_is_clean_but_suspicious_costs_relation_and_marks_the_site_wary", func():
+		GameState.reset()
+		var site: Dictionary = raid_site.call("s1")
+		var other: Dictionary = raid_site.call("s2")
+		GameState.state["world"]["sites"] = [site, other]
+		var before: int = GameState.state["factions"]["firm"]["relation"]
+
+		back_out_at.call(site, 0)
+		assert_true(not Raiding.is_wary("s1"), "Unseen leaves no wary")
+		assert_eq(GameState.state["factions"]["firm"]["relation"], before, "Unseen costs no relation")
+
+		back_out_at.call(site, 1)
+		assert_true(Raiding.is_wary("s1"), "Suspicious marks the site wary")
+		assert_eq(GameState.state["factions"]["firm"]["relation"], before - 5, "Suspicious costs 5 relation")
+		assert_true(not Raiding.is_wary("s2"), "another site is unaffected")
+	)
+
+	run_case("a_wary_sites_next_raid_starts_suspicious_and_a_completed_raid_clears_it", func():
+		GameState.reset()
+		var site: Dictionary = raid_site.call("s1")
+		var other: Dictionary = raid_site.call("s2")
+		GameState.state["world"]["sites"] = [site, other]
+		back_out_at.call(site, 1)
+
+		Raiding.begin_raid(other["factionVein"])
+		assert_eq(Events.alert_level(), 0, "another site starts Unseen")
+		Raiding.begin_raid(site["factionVein"])
+		assert_eq(Events.alert_level(), 1, "the wary site starts Suspicious")
+
+		Raiding.loot_vein("s1", false)
+		assert_true(not Raiding.is_wary("s1"), "a completed raid clears wary")
+	)
+
+	run_case("wary_expires_after_three_days_and_survives_a_save_round_trip", func():
+		GameState.reset()
+		var site: Dictionary = raid_site.call("s1")
+		GameState.state["world"]["sites"] = [site]
+		GameState.state["world"]["day"] = 5
+		back_out_at.call(site, 2)
+		assert_true(SaveManager.import_string(SaveManager.export_string())["ok"])
+		assert_true(Raiding.is_wary("s1"), "wary is saved")
+		assert_eq(typeof(GameState.state["siteWary"]["s1"]), TYPE_INT, "expiry stays an int")
+
+		GameState.state["world"]["day"] = 7
+		assert_true(Raiding.is_wary("s1"), "still wary on day + 2")
+		GameState.state["world"]["day"] = 8
+		assert_true(not Raiding.is_wary("s1"), "expired on day + 3")
+	)
+
 	run_case("raiding_a_site_again_reuses_its_stored_read_without_rerolling", func():
 		GameState.reset()
 		var site: Dictionary = raid_site.call("s1")

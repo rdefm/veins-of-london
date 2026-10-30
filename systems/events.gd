@@ -1388,6 +1388,8 @@ static func _apply_one(effect: Dictionary, context: Dictionary = {}) -> void:
 			_apply_alert(effect)
 		"ward_trigger":
 			trigger_ward()
+		"back_out":
+			Raiding.back_out(_event_site_id(effect), alert_level())
 		"claim_raid_vein":
 			Raiding.claim_vein(_event_site_id(effect))
 		"loot_raid_vein":

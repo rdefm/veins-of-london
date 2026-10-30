@@ -81,6 +81,7 @@ static func claim_vein(site_id: String) -> void:
 	var faction_id: String = faction_vein["factionId"]
 	var vein_id: String = faction_vein["id"]
 	var district: String = site["district"]
+	clear_wary(site_id)
 
 	var player_vein: Dictionary = GameState.deep_copy(faction_vein)
 	player_vein.erase("factionId")
@@ -113,6 +114,7 @@ static func loot_vein(site_id: String, caught: bool) -> void:
 		return
 
 	var vein: Dictionary = site["factionVein"]
+	clear_wary(site_id)
 	var ore: Dictionary = GameState.state["player"]["orichalchum"]
 	ore[vein["oreType"]] = ore.get(vein["oreType"], 0) + LOOT_ORE_QTY
 	Intel.gain(Shares.PLAYER, vein["factionId"], Intel.SOURCE_RAID)
@@ -147,6 +149,39 @@ static func raid_event_id(vein: Dictionary) -> String:
 	return RAID_EVENT_ID
 
 
+# ── wary sites (R§3.12 "Wary sites") ─────────────────────────────────────
+
+# A site is wary until its stored expiry day; a stale entry is dropped here.
+static func is_wary(site_id: String) -> bool:
+	var wary: Dictionary = GameState.state.get("siteWary", {})
+	if not wary.has(site_id):
+		return false
+	if int(wary[site_id]) <= int(GameState.state["world"]["day"]):
+		wary.erase(site_id)
+		return false
+	return true
+
+
+static func clear_wary(site_id: String) -> void:
+	GameState.state.get("siteWary", {}).erase(site_id)
+
+
+# The `back_out` op: leaving a vein raid at alert level `alert`. Unseen is
+# clean; Suspicious costs the owning faction's relation and marks the site wary;
+# Alarm only marks it wary (the caught hit is the escape card's own).
+static func back_out(site_id: String, alert: int) -> void:
+	if alert <= 0:
+		return
+	var cfg: Dictionary = GameData.RAID_SECURITY["wary"]
+	var site: Variant = Sites.find_site(site_id)
+	if alert == 1 and site != null and site["factionVein"] != null:
+		Factions.adjust_player_relation(String(site["factionVein"]["factionId"]), -int(cfg["relationHit"]))
+	var wary: Dictionary = GameState.state.get("siteWary", {})
+	wary[site_id] = int(GameState.state["world"]["day"]) + int(cfg["days"])
+	GameState.state["siteWary"] = wary
+	EventBus.state_changed.emit()
+
+
 # Standard travel/time-block gating, then hands off to the event engine.
 # ally_ids carries the raid-initiation UI's chosen allies into the event
 # context for Combat.start_raid() to gather later.
@@ -160,6 +195,8 @@ static func begin_raid(vein: Dictionary, ally_ids: Array = [], muscle: bool = fa
 
 	TimeSystem.advance_time_block()
 	var context := { "site_id": vein["siteId"], "ally_ids": ally_ids, "securityProfile": security_profile(vein) }
+	if is_wary(String(vein["siteId"])):
+		context["startAlert"] = int(GameData.RAID_SECURITY["wary"]["startAlert"])
 	Events.start_event(raid_event_id(vein), _with_muscle(context, muscle))
 	return { "ok": true }
 
