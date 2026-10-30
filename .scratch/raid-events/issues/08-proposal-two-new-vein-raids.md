@@ -39,8 +39,8 @@ After approval, write the per-beat prose tickets in this folder: one per beat pe
 
 **Status:** ready-for-human
 
-- [ ] Grilling session held; decisions recorded at the top of the proposal
-- [ ] Proposal covers `vein_raid` (rebuilt) and both new events with the fields above
+- [x] Grilling session held; decisions recorded at the top of the proposal
+- [x] Proposal covers `vein_raid` (rebuilt) and both new events with the fields above
 - [ ] Human approval recorded in the doc
 - [ ] Per-beat prose tickets written after approval
 - [ ] Not marked `_COMPLETED` before approval
