@@ -163,7 +163,7 @@ static func rows(id: String) -> Array:
 			"needed": int(result["needed"]),
 			"level": level,
 			"tiers": tiers.size(),
-			"text": String(tiers[tiers.size() - level]["text"]) if level > 0 else String(block["miss"]),
+			"text": tier_text(tiers[tiers.size() - level]) if level > 0 else String(block["miss"]),
 			"hit": level > 0,
 			"mods": result["mods"],
 			"rerolled": result.has("last"),
@@ -171,6 +171,15 @@ static func rows(id: String) -> Array:
 			"improved": bool(result.get("improved", false)),
 		})
 	return out
+
+
+# A tier's shown text: the first of its `variants` whose `when` condition holds
+# (R§3.9d), else the plain `text`.
+static func tier_text(tier: Dictionary) -> String:
+	for variant in tier.get("variants", []):
+		if Events.condition_met(variant["when"]):
+			return String(variant["text"])
+	return String(tier["text"])
 
 
 # The security of a faction vein as one string: guard count and guard kit. Add
@@ -379,7 +388,7 @@ static func _explainer(kind: String, cond: Dictionary, add: float) -> Dictionary
 		"level": level,
 		"tiers": tiers.size(),
 		"at_least": int(cond.get("atLeast", 1)),
-		"tier_text": String(tiers[tiers.size() - level]["text"]) if level > 0 and level <= tiers.size() else "",
+		"tier_text": tier_text(tiers[tiers.size() - level]) if level > 0 and level <= tiers.size() else "",
 		"add": add,
 	}
 

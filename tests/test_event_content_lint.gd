@@ -145,6 +145,21 @@ func run() -> void:
 		assert_eq(found.size(), 6, "valid refs add no violations: %s" % [found])
 	)
 
+	run_case("lint_flags_unknown_observation_variant_condition", func():
+		GameState.reset()
+		var def := { "id": "var_probe", "observations": { "o": { "blocks": { "time": { "miss": "m", "tiers": [
+			{ "base": 0.5, "text": "a", "variants": [
+				{ "when": { "security": { "feature": "alarm" } }, "text": "ok" },
+				{ "when": { "bogus": 1 }, "text": "bad" },
+				{ "text": "no when" },
+			] },
+		] } } } }, "cards": [{ "type": "text", "label": null, "text": "", "observe": "o" }] }
+		var found := EventContentLint.lint_event("var_probe", def, EventContentLint.known_refs())
+		for fragment in ["variant: unknown condition", "variant needs when and text"]:
+			assert_true(found.any(func(v): return String(v).contains(fragment)), "expected '%s' in %s" % [fragment, found])
+		assert_eq(found.size(), 2, "valid variant adds nothing: %s" % [found])
+	)
+
 	run_case("lint_refs_file_is_fresh", func():
 		GameState.reset()
 		var file := FileAccess.open(EventContentLint.REFS_PATH, FileAccess.READ)

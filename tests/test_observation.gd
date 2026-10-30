@@ -439,3 +439,34 @@ func run() -> void:
 		assert_eq(GameState.state["combat"], null, "zero guards left starts no fight")
 		_cleanup()
 	)
+
+	run_case("observation_tier_variant_first_match_wins_else_plain_text", func():
+		GameState.reset()
+		var tier := _tier("plain", ALWAYS)
+		tier["variants"] = [
+			{ "when": { "security": { "feature": "alarm" } }, "text": "alarm box" },
+			{ "when": { "security": { "feature": "alarm" } }, "text": "second" },
+		]
+		_install({ "o": { "blocks": { "time": { "tiers": [tier], "miss": "m" } } } }, [_card({ "observe": "o" })])
+		GameState.state["event"]["context"]["securityProfile"] = { "alarm": true }
+		var rows := Observation.read()
+		assert_eq(rows[0]["text"], "alarm box", "first matching variant shown")
+		GameState.state["event"]["context"]["securityProfile"] = { "alarm": false }
+		assert_eq(Observation.rows("o")[0]["text"], "plain", "no match falls back to plain text")
+		_cleanup()
+	)
+
+	run_case("observation_variants_leave_roll_and_level_unchanged", func():
+		GameState.reset()
+		var tier := _tier("plain", ALWAYS)
+		tier["variants"] = [{ "when": { "security": { "feature": "alarm" } }, "text": "alarm box" }]
+		_install({ "o": { "blocks": { "time": { "tiers": [tier], "miss": "m" } } } }, [_card({ "observe": "o" })])
+		GameState.state["event"]["context"]["securityProfile"] = { "alarm": true }
+		var with_variant: Dictionary = Observation.read()[0]
+		GameState.state["event"]["context"]["securityProfile"] = {}
+		var plain: Dictionary = Observation.rows("o")[0]
+		assert_eq([with_variant["text"], plain["text"]], ["alarm box", "plain"], "only the text differs")
+		for key in ["roll", "needed", "level", "tiers", "hit"]:
+			assert_eq(with_variant[key], plain[key], "%s identical across variants" % key)
+		_cleanup()
+	)

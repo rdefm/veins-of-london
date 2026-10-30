@@ -421,6 +421,11 @@ static func _lint_observations(id: String, def: Dictionary, refs: Dictionary) ->
 					out.append("%s: tier %d needs base and text" % [block_where, k])
 				elif k > 0 and tiers[k - 1].has("base") and float(tiers[k]["base"]) <= float(tiers[k - 1]["base"]):
 					out.append("%s: tiers not best-first (base must ascend)" % block_where)
+				for v in tiers[k].get("variants", []):
+					if not v is Dictionary or not v.get("when") is Dictionary or not v.get("text") is String:
+						out.append("%s: tier %d variant needs when and text" % [block_where, k])
+					else:
+						out.append_array(_lint_condition("%s tier %d variant" % [block_where, k], v["when"], refs))
 	return out
 
 
