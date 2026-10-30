@@ -333,6 +333,61 @@ func run() -> void:
 		assert_eq(GameState.state["event"]["context"]["ally_ids"], [], "no ally chosen -- empty by default")
 	)
 
+	# ── raid event by location (R§3.12 "Raid event by location") ─────────
+
+	run_case("raid_event_id_falls_back_to_vein_raid_for_unmapped_suffix_or_missing_event", func():
+		GameState.reset()
+		var saved: Dictionary = GameData.VEIN_RAID_EVENTS
+		GameData.VEIN_RAID_EVENTS = { "in the car park": "vein_raid", "under the railway arch": "raid_test_missing" }
+		var vein := _faction_vein_of_growth(30, "physics")
+		vein["location"] = "Old St, under the railway arch"
+		assert_eq(Raiding.raid_event_id(vein), Raiding.RAID_EVENT_ID, "mapped event not authored -> vein_raid")
+		vein["location"] = "Old St, nowhere"
+		assert_eq(Raiding.raid_event_id(vein), Raiding.RAID_EVENT_ID, "unmapped suffix -> vein_raid")
+		vein["location"] = "Old St, in the car park"
+		assert_eq(Raiding.raid_event_id(vein), "vein_raid")
+		GameData.VEIN_RAID_EVENTS = saved
+	)
+
+	run_case("veins_with_different_suffixes_raid_as_their_own_events_and_keep_raid_mods_and_site_memory", func():
+		GameState.reset()
+		var saved: Dictionary = GameData.VEIN_RAID_EVENTS
+		GameData.VEIN_RAID_EVENTS = { "under the railway arch": "raid_test_a", "beside the bookies": "raid_test_b" }
+		for id in ["raid_test_a", "raid_test_b"]:
+			GameData.EVENTS[id] = { "id": id, "on_complete": [],
+				"cards": [{ "type": "text", "label": null, "speaker": null, "text": "t" }],
+				"observations": { "raid": { "blocks": { "time": { "tiers": [{ "base": 0.5, "min": 1.0, "max": 1.0, "text": "a", "effects": [] }], "miss": "m" } } } } }
+		var arch := _faction_vein_of_growth(30, "physics", "warded", "firm")
+		arch["location"] = "Old St, under the railway arch"
+		arch["siteId"] = "s_arch"
+		var shop := _faction_vein_of_growth(30, "physics", "warded", "firm")
+		shop["id"] = "fv_shop"
+		shop["location"] = "Old St, beside the bookies"
+		shop["siteId"] = "s_shop"
+		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s_arch", arch), Fixtures.site_with_vein("s_shop", shop)]
+
+		Raiding.begin_raid(arch)
+		assert_eq(GameState.state["event"]["eventId"], "raid_test_a")
+		assert_true(not Observation.raid_mods().is_empty(), "raid mods apply to a mapped event")
+		_seed_read("time", 1)
+		Observation.record_memory()
+		GameState.state["event"] = null
+
+		Raiding.begin_raid(shop)
+		assert_eq(GameState.state["event"]["eventId"], "raid_test_b", "a different suffix starts a different event")
+		GameState.state["event"] = null
+
+		GameState.state["world"]["timeBlocksDone"] = []
+		Raiding.begin_raid(arch)
+		assert_eq(GameState.state["event"]["eventId"], "raid_test_a", "the same site starts the same event every raid")
+		assert_eq(int(GameState.state["event"]["observations"]["raid"]["results"]["time"]["level"]), 1, "site memory restores the stored read")
+
+		GameState.state["event"] = null
+		GameData.EVENTS.erase("raid_test_a")
+		GameData.EVENTS.erase("raid_test_b")
+		GameData.VEIN_RAID_EVENTS = saved
+	)
+
 	# ── vein_raid: the observation raid, driven for real through
 	# Events.start_event/advance/choose. Card indexes: 0 approach, 1 route hub,
 	# 2/3 quiet routes, 4 claim/loot. Reads are seeded straight into

@@ -128,11 +128,22 @@ static func loot_vein(site_id: String, caught: bool) -> void:
 
 # ── raid entry point ─────────────────────────────────────────────────────
 
-# The one raid event card authored so far (a tracer bullet, not a full
-# content pass). Targets whichever real site's Raid button was pressed
-# (events.gd's _event_site_id()), so this single card works against any
-# real faction-owned vein; prose is deliberately faction/district-neutral.
+# The fallback vein raid event (the Yard). Targets whichever real site's Raid
+# button was pressed (events.gd's _event_site_id()); prose is
+# faction/district-neutral.
 const RAID_EVENT_ID := "vein_raid"
+
+
+# The raid event for a vein, picked by its location's place suffix
+# (R§3.12 "Raid event by location"); stable per site, so site observation
+# memory stays valid. Unmapped suffix or unauthored event → RAID_EVENT_ID.
+static func raid_event_id(vein: Dictionary) -> String:
+	var location := String(vein.get("location", ""))
+	for suffix in GameData.VEIN_RAID_EVENTS:
+		if location.ends_with(suffix):
+			var event_id := String(GameData.VEIN_RAID_EVENTS[suffix])
+			return event_id if GameData.EVENTS.has(event_id) else RAID_EVENT_ID
+	return RAID_EVENT_ID
 
 
 # Standard travel/time-block gating, then hands off to the event engine.
@@ -147,7 +158,7 @@ static func begin_raid(vein: Dictionary, ally_ids: Array = [], muscle: bool = fa
 		return travel
 
 	TimeSystem.advance_time_block()
-	Events.start_event(RAID_EVENT_ID, _with_muscle({ "site_id": vein["siteId"], "ally_ids": ally_ids }, muscle))
+	Events.start_event(raid_event_id(vein), _with_muscle({ "site_id": vein["siteId"], "ally_ids": ally_ids }, muscle))
 	return { "ok": true }
 
 
