@@ -85,6 +85,7 @@ static func claim_vein(site_id: String) -> void:
 	var player_vein: Dictionary = GameState.deep_copy(faction_vein)
 	player_vein.erase("factionId")
 	player_vein.erase("kit")
+	player_vein.erase("features")
 	player_vein["guardKit"] = {}
 	GameState.state["player"]["veins"].append(player_vein)
 
@@ -158,8 +159,44 @@ static func begin_raid(vein: Dictionary, ally_ids: Array = [], muscle: bool = fa
 		return travel
 
 	TimeSystem.advance_time_block()
-	Events.start_event(raid_event_id(vein), _with_muscle({ "site_id": vein["siteId"], "ally_ids": ally_ids }, muscle))
+	var context := { "site_id": vein["siteId"], "ally_ids": ally_ids, "securityProfile": security_profile(vein) }
+	Events.start_event(raid_event_id(vein), _with_muscle(context, muscle))
 	return { "ok": true }
+
+
+# A vein raid's security profile (R§3.12 "Security profile"): pure data from
+# the vein's tier (locks from basic, a ward from warded, guards = its guard
+# count), its features (cameras, alarm) and its site's seeded details. Carried
+# in the event context as `securityProfile`, read by `{security}` conditions.
+static func security_profile(vein: Dictionary) -> Dictionary:
+	var order: Array[String] = Cultivating.VEIN_SECURITY_ORDER
+	var rank := order.find(String(vein.get("security", "")))
+	var features: Dictionary = vein.get("features", {})
+	var profile := {
+		"tier": String(vein.get("security", "")),
+		"locks": rank >= order.find(Cultivating.BASIC_TIER_ID),
+		"ward": rank >= order.find(Cultivating.WARDED_TIER_ID),
+		"guards": Cultivating.vein_guard_count(vein),
+		"cameras": int(features.get("cameras", 0)),
+		"alarm": bool(features.get("alarm", false)),
+	}
+	profile.merge(site_details(String(vein["siteId"])))
+	return profile
+
+
+# A site's seeded raid details (constants.json raidSecurity.siteDetails): each
+# detail true when a stable hash of rollSeed, site id and detail name falls under
+# its chance, plus the cameraZone the site's camera covers. Same site, same
+# details on every visit; never draws from the global stream.
+static func site_details(site_id: String) -> Dictionary:
+	var cfg: Dictionary = GameData.RAID_SECURITY["siteDetails"]
+	var key := "%d|%s|siteDetail" % [int(GameState.state["world"]["rollSeed"]), site_id]
+	var out := {}
+	for detail in cfg["chances"]:
+		out[detail] = Rng.stable_unit("%s|%s" % [key, detail]) < float(cfg["chances"][detail])
+	var zones: Array = cfg["cameraZones"]
+	out["cameraZone"] = zones[mini(int(Rng.stable_unit(key + "|cameraZone") * zones.size()), zones.size() - 1)]
+	return out
 
 
 # Adds the hired-muscle flag to a raid event context when the hire is valid.
@@ -618,6 +655,7 @@ static func transfer_player_vein_to_faction(vein: Dictionary, site: Dictionary, 
 	var faction_vein: Dictionary = GameState.deep_copy(vein)
 	faction_vein.erase("guardKit")
 	faction_vein["factionId"] = faction_id
+	faction_vein["features"] = Factions.roll_vein_features(faction_id, vein["oreType"], site["id"])
 	site["factionVein"] = faction_vein
 	site["claimed"] = false
 

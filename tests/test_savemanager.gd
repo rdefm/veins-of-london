@@ -469,7 +469,7 @@ func run() -> void:
 		GameState.state["world"]["sites"].append({
 			"id": "s1", "district": "hampstead", "tier": "rich", "oreType": "life",
 			"bonuses": ["yield"], "discoveredDay": 3, "claimed": false,
-			"factionVein": { "id": "fv1", "factionId": "collective", "oreType": "life", "growth": 20, "rampantDays": 0, "security": "none", "claimedOnDay": 5, "kit": { "healingSalve": 1 } },
+			"factionVein": { "id": "fv1", "factionId": "collective", "oreType": "life", "growth": 20, "rampantDays": 0, "security": "none", "claimedOnDay": 5, "kit": { "healingSalve": 1 }, "features": { "cameras": 1, "alarm": true } },
 			"hasNaturalVein": false,
 		})
 		var original: Dictionary = GameState.deep_copy(GameState.state)
@@ -484,6 +484,7 @@ func run() -> void:
 		var site: Dictionary = GameState.state["world"]["sites"][0]
 		assert_eq(typeof(site["discoveredDay"]), TYPE_INT, "discoveredDay should be restored as int, not float")
 		assert_eq(typeof(site["factionVein"]["claimedOnDay"]), TYPE_INT, "factionVein.claimedOnDay should be restored as int, not float")
+		assert_eq(typeof(site["factionVein"]["features"]["cameras"]), TYPE_INT, "factionVein.features.cameras should be restored as int, not float")
 		assert_eq(GameState.state, original, "the full state tree (including sites) should deep-equal what was saved")
 
 		SaveManager.delete_slot(TEST_SLOT)

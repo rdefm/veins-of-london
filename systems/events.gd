@@ -589,8 +589,9 @@ static func _mod_delta(mod: Dictionary, toggled: Array = []) -> float:
 # card (key), option}} remembered, {path, atLeast}, {relation, atLeast},
 # {cash: {atLeast}}, {recipeRung: {recipe, rung}} owned (vague or exact),
 # {observed: {id, ore, atLeast}} read this run (R§3.9d), {alert: {atLeast?,
-# atMost?}} the live event's alert level, {all: [conditions]} every part
-# holds. Unknown shapes never hold.
+# atMost?}} the live event's alert level, {security: {feature, atLeast?,
+# atMost?, is?}} the live raid's security profile, {all: [conditions]} every
+# part holds. Unknown shapes never hold.
 static func condition_met(condition: Dictionary, toggled: Array = []) -> bool:
 	if condition.has("all"):
 		for part in condition["all"]:
@@ -627,7 +628,34 @@ static func condition_met(condition: Dictionary, toggled: Array = []) -> bool:
 		var a: Dictionary = condition["alert"]
 		var level := alert_level()
 		return level >= int(a.get("atLeast", 0)) and level <= int(a.get("atMost", level))
+	if condition.has("security"):
+		return _security_met(condition["security"])
 	return false
+
+
+# ── security profile (R§3.12 "Security profile") ──
+
+# The live event's security profile (context.securityProfile); {} with none.
+static func security_profile() -> Dictionary:
+	var event_state: Variant = GameState.state.get("event")
+	return event_state.get("context", {}).get("securityProfile", {}) if event_state != null else {}
+
+
+# {feature, atLeast?, atMost?, is?}: `is` matches a string feature exactly;
+# otherwise the feature as a count (true = 1, absent = 0) lies in
+# [atLeast, atMost], atLeast defaulting to 1 (0 when only atMost is given).
+static func _security_met(s: Dictionary) -> bool:
+	var value: Variant = security_profile().get(String(s.get("feature", "")))
+	if s.has("is"):
+		return value != null and str(value) == str(s["is"])
+	var n := _security_count(value)
+	return n >= int(s.get("atLeast", 0 if s.has("atMost") else 1)) and n <= int(s.get("atMost", n))
+
+
+static func _security_count(value: Variant) -> int:
+	if value is bool:
+		return 1 if value else 0
+	return int(value) if typeof(value) in [TYPE_INT, TYPE_FLOAT] else 0
 
 
 # ── alert level (R§3.9a "Alert") ──
@@ -753,7 +781,25 @@ static func _unmet_line(part: Dictionary) -> String:
 		if a.has("atLeast") and alert_level() < int(a["atLeast"]):
 			return texts["alertAtLeast"] % alert_tier_name(int(a["atLeast"]))
 		return texts["alertAtMost"] % alert_tier_name(int(a.get("atMost", 0)))
+	if part.has("security"):
+		return _security_unmet_line(part["security"], texts)
 	return ""
+
+
+# Names the missing feature (raidSecurity.featureNames): its `absent` text
+# for atMost 0, its name with the bound for a count, its name alone otherwise.
+static func _security_unmet_line(s: Dictionary, texts: Dictionary) -> String:
+	var feature := String(s.get("feature", ""))
+	var names: Dictionary = GameData.RAID_SECURITY["featureNames"].get(feature, { "name": feature, "absent": feature })
+	if s.has("is"):
+		return texts["securityIs"] % [names["name"], str(s["is"])]
+	if s.has("atMost") and int(s["atMost"]) == 0:
+		return texts["security"] % names["absent"]
+	var n := _security_count(security_profile().get(feature))
+	if s.has("atMost") and n > int(s["atMost"]):
+		return texts["securityAtMost"] % [names["name"], int(s["atMost"])]
+	var at_least := int(s.get("atLeast", 1))
+	return texts["securityAtLeast"] % [names["name"], at_least] if at_least > 1 else texts["security"] % names["name"]
 
 
 # A pick option shows only while some ore qualifies; otherwise it's greyed with

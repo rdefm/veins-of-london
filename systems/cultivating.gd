@@ -7,6 +7,7 @@ extends RefCounted
 # data/vein_security.json's upgrade ladder (R§1.6), pinned explicitly rather
 # than relying on the table's JSON key order.
 const VEIN_SECURITY_ORDER: Array[String] = ["none", "basic", "warded", "guarded"]
+const BASIC_TIER_ID := "basic"
 const WARDED_TIER_ID := "warded"
 const GUARDED_TIER_ID := "guarded"
 

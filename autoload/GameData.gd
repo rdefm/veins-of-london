@@ -305,6 +305,8 @@ var STOCKPILE_RAID: Dictionary = {}
 
 # Vein location suffix → raid event id, R§3.12 "Raid event by location".
 var VEIN_RAID_EVENTS: Dictionary = {}
+# Faction vein features roll, seeded site details and `{security}` feature names, R§3.12 "Security profile".
+var RAID_SECURITY: Dictionary = {}
 
 # The Network handler's intel menu: product prices, relation gates,
 # durations, handler lines and plan labels, R§3.1 "Network intel menu".
@@ -548,6 +550,7 @@ const MANIFEST: Array[Dictionary] = [
 		{"field": "INTEL", "key": "intel", "type": TYPE_DICTIONARY},
 		{"field": "STOCKPILE_RAID", "key": "stockpileRaid", "type": TYPE_DICTIONARY},
 		{"field": "VEIN_RAID_EVENTS", "key": "veinRaidEvents", "type": TYPE_DICTIONARY},
+		{"field": "RAID_SECURITY", "key": "raidSecurity", "type": TYPE_DICTIONARY},
 		{"field": "NETWORK_MENU", "key": "networkMenu", "type": TYPE_DICTIONARY},
 		{"field": "FACTION_FAVOURS", "key": "factionFavours", "type": TYPE_DICTIONARY},
 		{"field": "FACTION_GIFTS", "key": "factionGifts", "type": TYPE_DICTIONARY},

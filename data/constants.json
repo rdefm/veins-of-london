@@ -559,6 +559,27 @@
     }
   },
   "veinRaidEvents": { "in the car park": "vein_raid", "by the bus stop": "vein_raid", "under the railway arch": "raid_arches", "near the off-licence": "raid_shop", "behind the Tesco Metro": "raid_shop", "beside the bookies": "raid_shop" },
+  "raidSecurity": {
+    "features": { "maxCameras": 2, "cameraChance": 0.3, "cameraPerOpulence": 0.06, "alarmChance": 0.35, "alarmPerOpulence": 0.08 },
+    "siteDetails": {
+      "chances": { "weakWindow": 0.5, "softPanel": 0.5, "fireEscape": 0.5, "neighbourArch": 0.5, "cellarFlap": 0.5 },
+      "cameraZones": ["front", "back"]
+    },
+    "featureNames": {
+      "tier": { "name": "security tier", "absent": "no security" },
+      "locks": { "name": "locks", "absent": "no locks" },
+      "ward": { "name": "a ward", "absent": "no ward" },
+      "guards": { "name": "guards", "absent": "no guards" },
+      "cameras": { "name": "cameras", "absent": "no cameras" },
+      "alarm": { "name": "an alarm line", "absent": "no alarm line" },
+      "weakWindow": { "name": "a weak window", "absent": "no weak window" },
+      "softPanel": { "name": "a soft fence panel", "absent": "no soft fence panel" },
+      "fireEscape": { "name": "a fire escape", "absent": "no fire escape" },
+      "neighbourArch": { "name": "a way through next door", "absent": "no way through next door" },
+      "cellarFlap": { "name": "a rotten cellar flap", "absent": "no rotten cellar flap" },
+      "cameraZone": { "name": "the camera", "absent": "no camera" }
+    }
+  },
   "stockpileRaid": { "lootShare": 0.75, "stashLootShare": 1.0, "relationHit": -60, "pairRelationHit": -5, "headlineValue": 2000, "raidResistPerGuard": 20, "valueTier": 2, "guardTemplate": "veinGuard" },
   "networkMenu": {
     "relationPriceMod": 0.002,
@@ -735,7 +756,11 @@
       "item": "Needs: %s in your bag",
       "itemOptional": "Needs: %s packed",
       "alertAtLeast": "Needs: alert at %s or worse",
-      "alertAtMost": "Needs: alert no worse than %s"
+      "alertAtMost": "Needs: alert no worse than %s",
+      "security": "Needs: %s",
+      "securityAtLeast": "Needs: %s, at least %d",
+      "securityAtMost": "Needs: %s, at most %d",
+      "securityIs": "Needs: %s: %s"
     },
     "alert": {
       "tiers": ["Unseen", "Suspicious", "Alarm"],

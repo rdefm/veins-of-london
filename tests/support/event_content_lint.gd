@@ -304,6 +304,11 @@ static func _lint_condition(where: String, c: Dictionary, refs: Dictionary) -> A
 			if a.has(key) and (int(a[key]) < 0 or int(a[key]) >= tiers):
 				return ["%s: alert %s %s outside 0..%d" % [where, key, str(a[key]), tiers - 1]]
 		return []
+	if c.has("security"):
+		var s: Variant = c["security"]
+		if not s is Dictionary or not (GameData.RAID_SECURITY["featureNames"] as Dictionary).has(s.get("feature", "")):
+			return ["%s: unknown security feature %s" % [where, JSON.stringify(s)]]
+		return []
 	if c.has("alertByTier"):
 		return [] if c["alertByTier"] is Array and (c["alertByTier"] as Array).size() == tiers else ["%s: alertByTier needs %d entries" % [where, tiers]]
 	return ["%s: unknown condition %s" % [where, JSON.stringify(c)]]

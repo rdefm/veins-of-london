@@ -92,12 +92,14 @@ static func pick_claimant(district_id: String, ore_type: String) -> String:
 
 
 # Instant vein for a claiming faction: oreType/district/hospitability come from the
-# site, growth is the caller's choice, security is rolled fresh (roll_security_tier()).
+# site, growth is the caller's choice, security tier and features are rolled
+# fresh (roll_security_tier(), roll_vein_features()).
 static func create_faction_vein(faction_id: String, site: Dictionary, growth: int) -> Dictionary:
 	var hospitability := { "tier": site["tier"], "bonuses": site["bonuses"] }
 	var vein := Cultivating.make_vein(site["oreType"], growth, site["district"], site["id"], hospitability)
 	vein["factionId"] = faction_id
 	vein["security"] = roll_security_tier(faction_id, site["oreType"])
+	vein["features"] = roll_vein_features(faction_id, site["oreType"], site["id"])
 	vein["kit"] = {}
 	return vein
 
@@ -106,7 +108,7 @@ static func create_faction_vein(faction_id: String, site: Dictionary, growth: in
 # flavour bias, vein value (basePrice), faction resource balance -- toward warded/guarded.
 static func roll_security_tier(faction_id: String, ore_type: String) -> String:
 	var weights: Dictionary = SECURITY_BASE_WEIGHTS.duplicate()
-	var opulence := _security_opulence(faction_id, ore_type)
+	var opulence := _security_opulence(faction_id, ore_type, float(GameState.state["factions"][faction_id]["resources"]))
 
 	weights["guarded"] = maxf(0.0, weights["guarded"] + opulence * 4.0)
 	weights["warded"] = maxf(0.0, weights["warded"] + opulence * 2.0)
@@ -114,6 +116,27 @@ static func roll_security_tier(faction_id: String, ore_type: String) -> String:
 	weights["none"] = maxf(0.0, weights["none"] - opulence * 4.0)
 
 	return _weighted_security_roll(weights)
+
+
+# A faction vein's mutable security extras {cameras: int, alarm: bool}
+# (R§3.12 "Security profile"), tilted by the same opulence as the tier roll:
+# each of maxCameras rolls cameraChance + opulence × cameraPerOpulence, the
+# alarm line alarmChance + opulence × alarmPerOpulence. Rolls are stable
+# hashes of rollSeed, day, site and faction, so they never shift the global
+# stream. state defaults to the live state; a save backfill passes the save.
+static func roll_vein_features(faction_id: String, ore_type: String, site_id: String, state: Dictionary = {}) -> Dictionary:
+	var s: Dictionary = state if not state.is_empty() else GameState.state
+	var cfg: Dictionary = GameData.RAID_SECURITY["features"]
+	var balance := float(s.get("factions", {}).get(faction_id, {}).get("resources", RESOURCE_OPULENCE_BASELINE))
+	var opulence := _security_opulence(faction_id, ore_type, balance)
+	var key := "%d|%d|%s|%s|features" % [int(s["world"]["rollSeed"]), int(s["world"]["day"]), site_id, faction_id]
+	var camera_p := float(cfg["cameraChance"]) + opulence * float(cfg["cameraPerOpulence"])
+	var cameras := 0
+	for i in int(cfg["maxCameras"]):
+		if Rng.stable_unit("%s|camera|%d" % [key, i]) < camera_p:
+			cameras += 1
+	var alarm_p := float(cfg["alarmChance"]) + opulence * float(cfg["alarmPerOpulence"])
+	return { "cameras": cameras, "alarm": Rng.stable_unit(key + "|alarm") < alarm_p }
 
 
 # ore basePrice (R§1.1, per 10-unit lot) centres on the roster's ~90 midpoint, so an average-value
@@ -128,10 +151,9 @@ const ORE_VALUE_MIDPOINT := 90.0
 const ORE_VALUE_SPREAD := 18.75
 
 
-static func _security_opulence(faction_id: String, ore_type: String) -> float:
+static func _security_opulence(faction_id: String, ore_type: String, balance: float) -> float:
 	var faction: Dictionary = GameData.FACTIONS[faction_id]
 	var flavour_bias: float = faction.get("securityBias", 0.0)
-	var balance: float = GameState.state["factions"][faction_id]["resources"]
 	var resource_tilt: float = (balance - RESOURCE_OPULENCE_BASELINE) / RESOURCE_OPULENCE_DIVISOR
 	var ore_value: float = GameData.ORE_TYPES.get(ore_type, {}).get("basePrice", ORE_VALUE_MIDPOINT)
 	var value_tilt: float = (ore_value - ORE_VALUE_MIDPOINT) / ORE_VALUE_SPREAD

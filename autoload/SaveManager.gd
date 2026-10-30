@@ -592,6 +592,7 @@ func backfill_defaults(save: Dictionary) -> Dictionary:
 	_backfill_new_faction_war_keys(result, defaults)
 	_backfill_new_faction_conclave_keys(result, defaults)
 	_backfill_vein_guard_kits(result)
+	_backfill_faction_vein_features(result)
 	_backfill_expense_kinds(result)
 	FactionAI.migrate_save(result, had_stances)
 	if not save.has("turf"):
@@ -634,6 +635,15 @@ func _backfill_vein_guard_kits(result: Dictionary) -> void:
 	for vein in result["player"].get("veins", []):
 		if not (vein.get("guardKit") is Dictionary):
 			vein["guardKit"] = {}
+
+
+# Every faction vein carries features (R§3.12 "Security profile"); a save
+# without them rolls them as a claim would, against the save's own state.
+func _backfill_faction_vein_features(result: Dictionary) -> void:
+	for site in result["world"].get("sites", []):
+		var vein: Variant = site.get("factionVein")
+		if vein is Dictionary and not (vein.get("features") is Dictionary):
+			vein["features"] = Factions.roll_vein_features(vein["factionId"], vein["oreType"], site["id"], result)
 
 
 # A guardUpkeep key added after the save was made (e.g. pendingShortfall)
@@ -1135,6 +1145,8 @@ func _restore_int_types(state: Dictionary) -> void:
 				for key in ["growth", "rampantDays", "claimedOnDay", "extraGuards", "level", "developmentStreak"]:
 					_int_key(faction_vein, key)
 				_int_dict_values(faction_vein.get("kit", {}))
+				if faction_vein.get("features") is Dictionary:
+					_int_key(faction_vein["features"], "cameras")
 		for recent in world.get("recentEvents", []):
 			_int_key(recent, "day")
 		_int_dict_values(world.get("mapSlotCounters", {}))
