@@ -73,12 +73,18 @@ static func haft_name(dial: Dictionary) -> String:
 # Used by combat.gd's round_rewind() and events.gd's rewind() as a fallback when
 # no rewind consumable is available (R§3.9). Returns -1 if none loaded with charge.
 static func find_loaded_rewind_complication_index() -> int:
+	return find_loaded_complication_index("rewind")
+
+
+# Index of the player's first loaded Complication of `recipe_key` while the Dial
+# has charge to cast it; -1 if none.
+static func find_loaded_complication_index(recipe_key: String) -> int:
 	var dial: Variant = GameState.state["player"]["dial"]
 	if dial == null or dial["currentCharge"] < 1:
 		return -1
 	var loaded: Array = dial["loadedComplications"]
 	for i in range(loaded.size()):
-		if loaded[i]["recipeKey"] == "rewind":
+		if loaded[i]["recipeKey"] == recipe_key:
 			return i
 	return -1
 

@@ -425,10 +425,10 @@ static func choose(choice_index: int, pick_ore: String = "") -> void:
 			continue
 		if mod.has("effect"):
 			spent.append(mod["item"])
-			apply_item_effect(mod["item"], mod["effect"], ITEM_SOURCE_INVENTORY)
+			apply_item_effect(mod["item"], mod["effect"], item_source(mod["item"]))
 		elif mod.get("consume", false):
 			spent.append(mod["item"])
-			_pay_item(mod["item"], ITEM_SOURCE_INVENTORY)
+			_pay_item(mod["item"], item_source(mod["item"]))
 
 	var resolution: Dictionary = { "text": source["result_text"] }
 	if source.has("image"):
@@ -1060,26 +1060,57 @@ static func _ward_pass(item: String, tier: int) -> bool:
 # ── item effects (R§3.9a Item effects) ──
 
 const ITEM_SOURCE_INVENTORY := "inventory"
+const ITEM_SOURCE_DIAL := "dial"
+
+
+# Where an item effect would be paid from now: inventory first, then a loaded
+# Dial Complication of that recipe with charge to cast it; "" when neither.
+static func item_source(item: String) -> String:
+	if Crafting.inventory_qty(item) > 0:
+		return ITEM_SOURCE_INVENTORY
+	if Dial.find_loaded_complication_index(item) >= 0:
+		return ITEM_SOURCE_DIAL
+	return ""
+
+
+# The tier a commit would spend: highest held in inventory, else the loaded
+# Complication's stored tier; 0 with neither.
+static func _source_tier(item: String) -> int:
+	match item_source(item):
+		ITEM_SOURCE_INVENTORY:
+			return Crafting.highest_tier(item)
+		ITEM_SOURCE_DIAL:
+			var dial: Dictionary = GameState.state["player"]["dial"]
+			return int(dial["loadedComplications"][Dial.find_loaded_complication_index(item)]["tier"])
+	return 0
 
 
 # Pays for an item effect from `source`; the tier paid, 0 when nothing was.
-# Only the inventory source exists so far (highest tier held, so the odds
-# shown before commit are the odds rolled).
+# Inventory spends the highest tier held, a Dial cast spends the loaded
+# Complication's charge at its stored tier, so the odds shown before commit
+# are the odds rolled.
 static func _pay_item(item: String, source: String) -> int:
-	if source == ITEM_SOURCE_INVENTORY:
-		var tier := Crafting.highest_tier(item)
-		if tier > 0:
-			Crafting.inventory_remove_from_tier(item, tier, 1)
+	var tier := _source_tier(item)
+	if tier <= 0:
+		return 0
+	if source == ITEM_SOURCE_INVENTORY and Crafting.inventory_qty(item) > 0:
+		Crafting.inventory_remove_from_tier(item, tier, 1)
 		return tier
+	if source == ITEM_SOURCE_DIAL:
+		var index := Dial.find_loaded_complication_index(item)
+		if index >= 0:
+			tier = int(GameState.state["player"]["dial"]["loadedComplications"][index]["tier"])
+			Dial.cast_complication(index)
+			return tier
 	return 0
 
 
 # A rolled item effect's strength multiplier at `tier` (eventChecks.itemTierScale,
-# tier 1 first); tier -1 reads the highest tier held, the one a commit spends.
+# tier 1 first); tier -1 reads the tier a commit spends (_source_tier()).
 # 1.0 with none held.
 static func item_tier_scale(item: String, tier: int = -1) -> float:
 	if tier < 0:
-		tier = Crafting.highest_tier(item)
+		tier = _source_tier(item)
 	var scale: Array = GameData.EVENT_CHECKS["itemTierScale"]
 	return float(scale[clampi(tier, 1, scale.size()) - 1]) if tier > 0 else 1.0
 
@@ -1159,9 +1190,11 @@ static func item_toggles(choice_index: int) -> Array:
 	var stored: Array = _stored_toggles(choice_index)
 	for mod in _optional_mods(choice_index):
 		var item: String = mod["item"]
-		var held: bool = Crafting.inventory_qty(item) > 0
+		var source := item_source(item)
+		var held: bool = source != ""
 		out.append({
 			"item": item,
+			"source": source,
 			"name": GameData.RECIPES.get(item, {}).get("name", item),
 			"delta": _mod_delta(mod, [item]) if mod.has("effect") else float(mod.get("add", 0.0)),
 			"on": held and stored.has(item),
@@ -1185,7 +1218,7 @@ static func toggle_item(choice_index: int, item: String) -> Dictionary:
 	var stored: Array = event_state["toggles"].get(key, []).duplicate()
 	if stored.has(item):
 		stored.erase(item)
-	elif Crafting.inventory_qty(item) < 1:
+	elif item_source(item) == "":
 		return { "ok": false, "reason": "None on you." }
 	else:
 		stored.append(item)
@@ -1202,7 +1235,7 @@ static func active_toggles(choice_index: int) -> Array:
 	var out: Array = []
 	for mod in _optional_mods(choice_index):
 		var item: String = mod["item"]
-		if stored.has(item) and not out.has(item) and Crafting.inventory_qty(item) > 0:
+		if stored.has(item) and not out.has(item) and item_source(item) != "":
 			out.append(item)
 	out.sort()
 	return out

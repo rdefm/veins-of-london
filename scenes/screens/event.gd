@@ -598,9 +598,10 @@ func _build_item_toggle(choice_index: int, toggle: Dictionary) -> Button:
 static func item_toggle_label(toggle: Dictionary) -> String:
 	if not toggle["held"]:
 		return GameData.EVENT_CHECKS["itemToggleNoneHeld"] % toggle["name"]
+	var suffix: String = GameData.EVENT_CHECKS["itemToggleDialSuffix"] if toggle.get("source", "") == Events.ITEM_SOURCE_DIAL else ""
 	if is_zero_approx(toggle["delta"]):
-		return GameData.EVENT_CHECKS["itemTogglePlainFormat"] % toggle["name"]
-	return GameData.EVENT_CHECKS["itemToggleFormat"] % [toggle["name"], roundi(toggle["delta"] * 100.0)]
+		return GameData.EVENT_CHECKS["itemTogglePlainFormat"] % toggle["name"] + suffix
+	return GameData.EVENT_CHECKS["itemToggleFormat"] % [toggle["name"], roundi(toggle["delta"] * 100.0)] + suffix
 
 # A multi-attempt check's resolution reads "N of M came off"; a single check
 # uses the success/fail marker.

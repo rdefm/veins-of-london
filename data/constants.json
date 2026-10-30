@@ -784,6 +784,7 @@
     "itemToggleFormat": "Use %s · %+d%%",
     "itemTogglePlainFormat": "Use %s",
     "itemToggleNoneHeld": "%s · none on you",
+    "itemToggleDialSuffix": " · from your Dial",
     "outcomeMarkers": { "success": "✓ Came off", "fail": "✗ Didn't come off" },
     "attemptsFormat": "%d tries",
     "attemptsMarkerFormat": "%d of %d came off",

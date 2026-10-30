@@ -82,6 +82,14 @@ func _install_item_check_event(p: float, consume: bool) -> Dictionary:
 	return original_events
 
 
+func _load_dial_complication(recipe: String, tier: int, charge: int) -> void:
+	var dial: Dictionary = Dial.new_dial("test_haft")
+	dial["currentCharge"] = charge
+	dial["maxCharge"] = charge
+	dial["loadedComplications"] = [{ "recipeKey": recipe, "tier": tier, "detent": 0 }]
+	GameState.state["player"]["dial"] = dial
+
+
 # The check event with an Enhancement Powder `bonus` effect (+0.15, lasting
 # for later "physical" entry checks) on its check option.
 func _install_powder_event(p: float) -> Dictionary:
@@ -1105,6 +1113,83 @@ func run() -> void:
 		assert_eq(GameState.state["player"]["inventory"]["enhancementPowder"], { "1": 1 }, "the T3 unit was spent")
 		var later := { "base": 0.3, "entry": "physical", "mods": [], "max": 1.0 }
 		assert_almost_eq(Events.odds_for(later)["probability"], 0.3 + t3_add, 0.0001, "lasting entry carries the T3 value")
+		GameData.EVENTS = original_events
+	)
+
+	run_case("a_toggle_with_the_item_only_on_the_dial_pays_from_the_dial", func():
+		GameState.reset()
+		_load_dial_complication("enhancementPowder", 1, 3)
+		var original_events := _install_powder_event(0.4)
+		Events.start_event("test_check_event")
+		Events.advance()
+		var toggle: Dictionary = Events.item_toggles(0)[0]
+		assert_true(toggle["held"], "offered from the Dial alone")
+		assert_eq(toggle["source"], Events.ITEM_SOURCE_DIAL)
+		Events.toggle_item(0, "enhancementPowder")
+		assert_almost_eq(Events.check_odds(0)["mods"][0]["delta"], 0.15, 0.0001, "same bonus as an inventory unit")
+		GameData.EVENTS["test_check_event"]["cards"][1]["choices"][0]["check"]["max"] = 0.0
+		Events.choose(0)
+		assert_eq(GameState.state["event"]["choiceResults"]["1"]["outcome"], "fail")
+		assert_eq(GameState.state["player"]["dial"]["currentCharge"], 2, "the cast was spent on a failed roll")
+		GameData.EVENTS = original_events
+	)
+
+	run_case("inventory_is_preferred_to_the_dial_when_both_are_held", func():
+		GameState.reset()
+		Crafting.inventory_add("enhancementPowder", 1, 1)
+		_load_dial_complication("enhancementPowder", 1, 3)
+		var original_events := _install_powder_event(0.4)
+		Events.start_event("test_check_event")
+		Events.advance()
+		assert_eq(Events.item_toggles(0)[0]["source"], Events.ITEM_SOURCE_INVENTORY)
+		Events.toggle_item(0, "enhancementPowder")
+		Events.choose(0)
+		assert_eq(Crafting.inventory_qty("enhancementPowder"), 0)
+		assert_eq(GameState.state["player"]["dial"]["currentCharge"], 3, "Dial untouched")
+		GameData.EVENTS = original_events
+	)
+
+	run_case("a_dial_paid_bonus_uses_the_loaded_complications_stored_tier", func():
+		GameState.reset()
+		_load_dial_complication("enhancementPowder", 3, 3)
+		var original_events := _install_powder_event(0.4)
+		Events.start_event("test_check_event")
+		Events.advance()
+		Events.toggle_item(0, "enhancementPowder")
+		var t3_add: float = 0.15 * float(GameData.EVENT_CHECKS["itemTierScale"][2])
+		assert_almost_eq(Events.check_odds(0)["mods"][0]["delta"], t3_add, 0.0001)
+		Events.choose(0)
+		var later := { "base": 0.3, "entry": "physical", "mods": [], "max": 1.0 }
+		assert_almost_eq(Events.odds_for(later)["probability"], 0.3 + t3_add, 0.0001, "lasting entry carries the stored tier")
+		GameData.EVENTS = original_events
+	)
+
+	run_case("rewind_restores_a_dial_cast_item", func():
+		GameState.reset()
+		_load_dial_complication("enhancementPowder", 1, 3)
+		Crafting.inventory_add("rewind", 1, 1)
+		var original_events := _install_powder_event(0.4)
+		Events.start_event("test_check_event")
+		Events.advance()
+		Events.toggle_item(0, "enhancementPowder")
+		Events.choose(0)
+		assert_eq(GameState.state["player"]["dial"]["currentCharge"], 2)
+		assert_true(Events.rewind("consumable")["ok"])
+		assert_eq(GameState.state["player"]["dial"]["currentCharge"], 3, "the cast came back with the snapshot")
+		GameData.EVENTS = original_events
+	)
+
+	run_case("a_no_roll_option_pays_from_the_dial", func():
+		GameState.reset()
+		_load_dial_complication("blast", 1, 3)
+		var original_events := _install_no_roll_item_event()
+		Events.start_event("test_no_roll_item")
+		Events.advance()
+		assert_true(Events.item_toggles(0)[0]["held"])
+		Events.toggle_item(0, "blast")
+		Events.choose(0)
+		assert_true(GameState.state["flags"].get("windowBlown", false))
+		assert_eq(GameState.state["player"]["dial"]["currentCharge"], 2)
 		GameData.EVENTS = original_events
 	)
 
