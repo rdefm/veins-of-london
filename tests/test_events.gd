@@ -1590,7 +1590,70 @@ func run() -> void:
 		GameData.EVENTS = original_events
 	)
 
+	run_case("a_key_goto_jumps_forward_like_its_index", func():
+		GameState.reset()
+		var original_events := _install_gated_event()
+		var cards: Array = GameData.EVENTS["test_gated_event"]["cards"]
+		cards[3]["key"] = "rejoin"
+		cards[1]["choices"][0]["goto"] = "rejoin"
+		GameState.state["player"]["cash"] = 60
+		Events.start_event("test_gated_event")
+		Events.advance()
+		Events.choose(0)
+		assert_eq(GameState.state["event"]["choiceResults"]["1"]["goto"], 3, "recorded as the card's index")
+		Events.advance()
+		assert_eq(_texts(Events.revealed_cards()), ["Setup", "Pick one", "Paid.", "Rejoin"])
+		GameData.EVENTS = original_events
+	)
+
+	run_case("a_key_goto_back_to_a_choice_card_loops_to_the_hub", func():
+		GameState.reset()
+		var original_events := _install_gated_event()
+		var cards: Array = GameData.EVENTS["test_gated_event"]["cards"]
+		cards[1]["choices"][2]["goto"] = "pick"
+		cards[1]["choices"][2]["reselectable"] = true
+		Events.start_event("test_gated_event")
+		Events.advance()
+		Events.choose(2)
+		Events.advance()
+		assert_eq(GameState.state["event"]["cardIndex"], 1, "cursor back on the hub")
+		assert_true(Events.is_awaiting_choice(), "hub is selectable again")
+		GameData.EVENTS = original_events
+	)
+
+	run_case("an_illegal_or_unknown_key_goto_is_rejected", func():
+		var original_events := _install_gated_event()
+		GameData.EVENTS["test_gated_event"]["cards"][0]["key"] = "setup"
+		for bad in ["setup", "nowhere"]:
+			GameState.reset()
+			GameState.state["player"]["cash"] = 60
+			GameData.EVENTS["test_gated_event"]["cards"][1]["choices"][0]["goto"] = bad
+			Events.start_event("test_gated_event")
+			Events.advance()
+			Events.choose(0)
+			assert_true(not GameState.state["event"]["choiceResults"]["1"].has("goto"), "goto %s not recorded" % bad)
+			Events.advance()
+			assert_eq(GameState.state["event"]["cardIndex"], 2, "goto %s falls through to the next card" % bad)
+		GameData.EVENTS = original_events
+	)
+
 	# ── card-level goto and end (R§3.9a "Goto") ─────────────────────────
+
+	run_case("a_card_key_goto_and_a_conditional_key_entry_jump_on_continue", func():
+		GameState.reset()
+		var original_events := _install_routed_event()
+		var cards: Array = GameData.EVENTS["test_routed_event"]["cards"]
+		cards[3]["key"] = "flagged"
+		cards[5]["key"] = "finale"
+		cards[0]["goto"] = [{ "if": { "flag": "routeFlag" }, "card": "flagged" }, { "card": 2 }]
+		cards[3]["goto"] = "finale"
+		GameState.state["flags"]["routeFlag"] = true
+		Events.start_event("test_routed_event")
+		Events.advance()
+		Events.advance()
+		assert_eq(_texts(Events.revealed_cards()), ["Setup", "Flagged", "Finale"])
+		GameData.EVENTS = original_events
+	)
 
 	run_case("a_card_goto_and_a_matching_conditional_entry_jump_on_continue", func():
 		GameState.reset()

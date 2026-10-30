@@ -245,6 +245,33 @@ test("flat loop event -> draft -> flat is lossless", () => {
   assert.deepStrictEqual(promoteDraft(legacyToDraft(JSON.parse(JSON.stringify(flat)))).event, flat);
 });
 
+test("flat event with key links -> draft -> flat keeps its key links", () => {
+  const flat = { id: "keys", cards: [
+    { key: "open", type: "text", text: "a", goto: "hub" },
+    { key: "skip", type: "text", text: "b" },
+    { key: "hub", type: "choice", text: "c", choices: [
+      { label: "loop", result_text: "x", goto: "hub", reselectable: true },
+      { label: "out", result_text: "y", goto: "fin", exit: true },
+      { label: "left", result_text: "z" },
+    ] },
+    { key: "mid", type: "text", text: "d", goto: [{ if: { flag: "f" }, card: "fin" }, { card: "skip2" }] },
+    { key: "skip2", type: "text", text: "e", end: true },
+    { key: "fin", type: "text", text: "f" },
+  ] };
+  const draft = legacyToDraft(JSON.parse(JSON.stringify(flat)));
+  assert.strictEqual(draft._keyLinks, true);
+  const { event } = promoteDraft(draft);
+  assert.ok(!("_keyLinks" in event));
+  const gotos = (ev) => ev.cards.flatMap((c) => [c.goto, ...(c.choices || []).map((o) => o.goto)]).filter((g) => g != null);
+  assert.ok(gotos(event).flat().every((g) => typeof g === "string" || typeof g.card === "string"), JSON.stringify(gotos(event)));
+  assert.deepStrictEqual(promoteDraft(legacyToDraft(JSON.parse(JSON.stringify(event)))).event, event, "stable on a second round trip");
+  assert.strictEqual(promoteDraft(legacyToDraft(JSON.parse(fs.readFileSync(path.join(__dirname, "..", "tests", "fixtures", "demo_hub_questions.json"), "utf-8")))).event.cards.some((c) => typeof c.goto === "string"), false, "an index-link event stays index-linked");
+});
+
+test("legacy conversion rejects an unknown key link", () => {
+  assert.throws(() => legacyToDraft({ id: "x", cards: [{ text: "a", goto: "nope" }, { text: "b" }] }), /neither a later card nor a choice card/);
+});
+
 test("setReselectable writes true, clears on untick", () => {
   const d = hubDraft();
   setReselectable(d, "h", 0, true);
@@ -1827,6 +1854,17 @@ test("JS content lint flags each rule family the way the GDScript probe does", (
   const own = JSON.parse(JSON.stringify(def));
   own.cards[0].effects = [{ op: "set_flag", flag: "noSuchFlag" }];
   assert(!lintEvent("probe", own, lintRefs).some((v) => v.includes("unknown flag noSuchFlag")), "a flag the event itself sets is known");
+});
+
+test("JS content lint checks key links like the GDScript lint", () => {
+  const def = { id: "keys", cards: [
+    { type: "text", key: "open", label: null, text: "", goto: "hub" },
+    { type: "choice", key: "hub", label: null, text: "", choices: [
+      { label: "a", result_text: "x", goto: "hub" }, { label: "b", result_text: "x", goto: "open" }, { label: "c", result_text: "x", goto: "nowhere" },
+    ] },
+  ] };
+  const found = lintEvent("keys", def, lintRefs).filter((v) => v.includes("goto"));
+  assert.deepStrictEqual(found, ["keys: card 1 option 1 goto open is not a later card", "keys: card 1 option 2 goto 'nowhere' names no card key"]);
 });
 
 test("lintDraft lints the promoted draft, and is null without refs or when the draft can't promote", () => {

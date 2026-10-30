@@ -64,7 +64,7 @@ node tools/promote_storyboard.js resolve <proposal.md> <id> [<id>...]
 node tools/promote_storyboard.js promote <proposal.md>
 ```
 
-Writes `data/events/<id>.json` (house formatting), refusing while open comments remain. It lays branches out in topological order (start first, every jump forward except hub back-edges, which become backward gotos), maps `{branch, card}` to card indexes, turns card gotos / branch `then`s into card `goto` / conditional `goto` / `end: true`, and strips keys, `checkNote`s, branch titles and `_comments`. It prints any cards no path reaches — they're left out; tell the user which.
+Writes `data/events/<id>.json` (house formatting), refusing while open comments remain. It lays branches out in topological order (start first, every jump forward except hub back-edges, which become backward gotos), maps `{branch, card}` to card indexes (or to card `key`s when the draft carries `"_keyLinks": true`, set on import of a live event that already uses key links), turns card gotos / branch `then`s into card `goto` / conditional `goto` / `end: true`, and strips keys, `checkNote`s, branch titles and `_comments`. It prints any cards no path reaches — they're left out; tell the user which.
 
 If it refuses:
 

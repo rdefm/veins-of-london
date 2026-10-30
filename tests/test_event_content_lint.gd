@@ -4,7 +4,7 @@ const EventContentLint := preload("res://tests/support/event_content_lint.gd")
 
 # Card label tokens (R§3.9c) and the event content lint: a data test over
 # every event definition. Rules: card-label time words agree with the
-# event's `at`; every `goto` targets a later card in the same event; a card's
+# event's `at`; every `goto` (index or card key) targets a later card, or an earlier choice card, in the same event; a card's
 # conditional goto list is well formed; `end` is `true` and never sits beside
 # a card goto; every check mod, `requires` and goto `if` names a known flag, item, contact, state path or
 # remembered choice; no option carries both a fixed result_text and a check;
@@ -83,6 +83,26 @@ func run() -> void:
 		var found := EventContentLint.lint_event("lint_probe", def, EventContentLint.known_refs())
 		GameData.EVENTS.erase("lint_probe")
 		for fragment in ["unknown token {bogus}", "'tonight' contradicts at.block morning", "hard-codes a day", "goto 0", "result_text and a check", "unknown flag noSuchFlag", "unknown item noSuchItem", "unknown contact nobody", "unknown path player.nope", "unknown option zzz", "card must be a card key string", "goto 9", "card 3 end must be true", "card 3 has both end and goto", "entry 0 has no if but is not last", "entry 1 if: unknown flag noRouteFlag", "entry 1 goto 3", "entry 2 is not an object", "entry 3 if is not a condition", "card 5 goto entry 0 goto <null>", "card 7 has 5 options (max 4)"]:
+			assert_true(found.any(func(v): return String(v).contains(fragment)), "expected a violation containing '%s' in %s" % [fragment, found])
+	)
+
+	run_case("lint_checks_key_links_like_index_links", func():
+		GameState.reset()
+		var def := { "id": "key_probe", "cards": [
+			{ "type": "text", "key": "open", "label": null, "text": "", "goto": "hub" },
+			{ "type": "text", "key": "skipped", "label": null, "text": "" },
+			{ "type": "choice", "key": "hub", "label": null, "text": "", "choices": [
+				{ "label": "a", "result_text": "x", "effects": [], "goto": "hub" },
+				{ "label": "b", "result_text": "x", "effects": [], "goto": "out" },
+				{ "label": "c", "result_text": "x", "effects": [], "goto": "open" },
+				{ "label": "d", "result_text": "x", "effects": [], "goto": "nowhere" },
+			] },
+			{ "type": "text", "key": "out", "label": null, "text": "", "goto": [{ "if": { "flag": "noRouteFlag" }, "card": "nope" }, { "card": "skipped" }] },
+		] }
+		var found := EventContentLint.lint_event("key_probe", def, EventContentLint.known_refs())
+		var gotos := found.filter(func(v): return String(v).contains("is not a later card") or String(v).contains("names no card key"))
+		assert_eq(gotos.size(), 4, "only the bad key links flagged: %s" % [gotos])
+		for fragment in ["card 2 option 2 goto open is not a later card", "card 2 option 3 goto 'nowhere' names no card key", "card 3 goto entry 0 goto 'nope' names no card key", "card 3 goto entry 1 goto skipped is not a later card"]:
 			assert_true(found.any(func(v): return String(v).contains(fragment)), "expected a violation containing '%s' in %s" % [fragment, found])
 	)
 

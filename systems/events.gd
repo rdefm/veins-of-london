@@ -5,8 +5,8 @@ extends RefCounted
 # text}; a "choice" card adds {choices:[{id?, label, effects, result_text}]};
 # a check option swaps result_text for {check, success, fail} (R§3.9a).
 # An option may carry `requires` (option_gate()); it or its outcome may carry
-# `goto`, a later card (or earlier choice card) index Continue jumps to. Any card may carry `goto` (an
-# index, or a conditional list [{if, card}, ..., {card}]) or `end: true`
+# `goto`, a later card (or earlier choice card) Continue jumps to, by index or card `key`. Any card may carry `goto` (an
+# index or key, or a conditional list [{if, card}, ..., {card}]) or `end: true`
 # (R§3.9a "Goto"); an option/outcome goto takes precedence over both.
 # Events: {id, cards, on_complete:[effect]}. state.event holds runtime
 # progress: {eventId, cardIndex, snapshots, choiceResults, jumps, rolled, toggles,
@@ -321,13 +321,27 @@ static func _goto_target(goto: Variant) -> int:
 		return -1
 	var here: int = int(GameState.state["event"]["cardIndex"])
 	var cards: Array = _event_def()["cards"]
-	if typeof(goto) == TYPE_INT or typeof(goto) == TYPE_FLOAT:
-		var target := int(goto)
-		if target > here and target < cards.size():
-			return target
-		if target >= 0 and target <= here and cards[target]["type"] == "choice":
-			return target
+	var target := _goto_index(goto, cards)
+	if goto is String and target < 0:
+		push_error("Events: goto '%s' from card %d of '%s' names no card key" % [goto, here, GameState.state["event"]["eventId"]])
+		return -1
+	if target > here and target < cards.size():
+		return target
+	if target >= 0 and target <= here and cards[target]["type"] == "choice":
+		return target
 	push_error("Events: goto %s from card %d of '%s' is not a later card or an earlier choice card" % [str(goto), here, GameState.state["event"]["eventId"]])
+	return -1
+
+
+# A goto value as a card index: a number as-is, or a card `key` string looked
+# up in `cards` (R§3.9a "Goto"). -1 for an unknown key or any other value.
+static func _goto_index(goto: Variant, cards: Array) -> int:
+	if typeof(goto) == TYPE_INT or typeof(goto) == TYPE_FLOAT:
+		return int(goto)
+	if goto is String:
+		for i in cards.size():
+			if cards[i].get("key") == goto:
+				return i
 	return -1
 
 
@@ -736,12 +750,13 @@ static func _spent_one_shot(choice_index: int) -> bool:
 # earlier one (a hub loop).
 static func _is_back_edge(choice: Dictionary) -> bool:
 	var here: int = int(GameState.state["event"]["cardIndex"])
+	var cards: Array = _event_def()["cards"]
 	var sources: Array = [choice, choice.get("success"), choice.get("fail")]
 	sources.append_array(choice.get("bySuccesses", {}).values())
 	for source in sources:
 		if source is Dictionary:
-			var goto: Variant = source.get("goto")
-			if (typeof(goto) == TYPE_INT or typeof(goto) == TYPE_FLOAT) and int(goto) <= here:
+			var target := _goto_index(source.get("goto"), cards)
+			if target >= 0 and target <= here:
 				return true
 	return false
 

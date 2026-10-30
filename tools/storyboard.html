@@ -1159,12 +1159,20 @@ function checkOddsBlock(opt, changed, restructure) {
   // Flat event (goto = later card index, or an earlier choice card: a hub loop) → draft. Every goto target starts a new branch; a branch falls through
   // to the next one via `then`, the last ends. A card's index goto becomes a card goto; a card with a conditional
   // goto list or `end: true` closes its branch, which takes that routing as its `then` (no match = next card).
-  // Card N (1-based) gets key cN.
+  // Card N (1-based) gets key cN. A goto may name its card by `key` instead of index; a draft imported from an
+  // event with any key link is marked `_keyLinks`, so promote writes key links back.
   function legacyToDraft(ev) {
     const { cards, ...rest } = ev;
     const starts = new Set([0]);
-    const later = (i, t) => {
-      if (!Number.isInteger(t) || t < 0 || t >= cards.length || (t <= i && !cards[t].choices)) throw new Error(`card ${i}: goto ${JSON.stringify(t)} is neither a later card nor a choice card`);
+    let keyLinks = false;
+    const at = (t) => {
+      if (typeof t !== "string") return t;
+      keyLinks = true;
+      return cards.findIndex((c) => c.key === t);
+    };
+    const later = (i, g) => {
+      const t = at(g);
+      if (!Number.isInteger(t) || t < 0 || t >= cards.length || (t <= i && !cards[t].choices)) throw new Error(`card ${i}: goto ${JSON.stringify(g)} is neither a later card nor a choice card`);
       starts.add(t);
     };
     cards.forEach((c, i) => {
@@ -1174,12 +1182,12 @@ function checkOddsBlock(opt, changed, restructure) {
       if ((Array.isArray(c.goto) || c.end) && i + 1 < cards.length) starts.add(i + 1);
     });
     const order = [...starts].sort((a, b) => a - b);
-    const nameAt = (i) => (i === 0 ? "main" : "b" + (i + 1));
+    const nameAt = (g) => { const i = at(g); return i === 0 ? "main" : "b" + (i + 1); };
     const copy = JSON.parse(JSON.stringify(cards));
     copy.forEach((c, i) => {
       if (!c.key) c.key = "c" + (i + 1);
       (c.choices || []).forEach((o) => optionOutcomes(o).forEach((x) => { if (x.goto != null) x.goto = { branch: nameAt(x.goto) }; }));
-      if (Number.isInteger(c.goto)) c.goto = { branch: nameAt(c.goto) };
+      if (c.goto != null && !Array.isArray(c.goto)) c.goto = { branch: nameAt(c.goto) };
     });
     const branches = {};
     order.forEach((s, k) => {
@@ -1197,6 +1205,7 @@ function checkOddsBlock(opt, changed, restructure) {
     });
     const draft = ensureKeys({ ...rest, start: "main", branches });
     draft._keyOrder = { top: Object.keys(ev), cards: Object.fromEntries(copy.map((c, i) => [c.key, Object.keys(cards[i])])) };
+    if (keyLinks) draft._keyLinks = true;
     return draft;
   }
   // obj's keys reordered to follow `order`; keys it doesn't name keep their current order after the named ones.
@@ -2454,6 +2463,8 @@ function checkOddsBlock(opt, changed, restructure) {
       if (!exits) throw new Error(`${p.branch} · ${hub}: hub has no forward exit (every option loops back or is hidden after use)`);
     }
     const index = new Map(order.map((k, i) => [k, i])), cardOrder = (draft._keyOrder || {}).cards || {};
+    // A flat link: the target card's index, or its key when the draft keeps key links.
+    const link = (n) => (draft._keyLinks ? order[n] : n);
     const cards = order.map((k, i) => {
       const p = reach.get(k), src = branchCards(draft, p.branch)[p.idx], at = `${p.branch} · ${k}`;
       const flat = (t) => {
@@ -2464,11 +2475,11 @@ function checkOddsBlock(opt, changed, restructure) {
       const { goto, end, ...rest } = deepClone(src), card = { key: src.key, ...rest };
       (card.choices || []).forEach((o) => {
         delete o.checkNote;
-        optionOutcomes(o).forEach((x) => { if (x.goto) x.goto = flat(x.goto); });
+        optionOutcomes(o).forEach((x) => { if (x.goto) x.goto = link(flat(x.goto)); });
       });
       if (!cardExits(src).onward) return inKeyOrder(card, cardOrder[k]);
       const c = continuation(p), last = i === order.length - 1;
-      if (c.to) { const n = flat({ branch: c.to.branch, card: keyAt(c.to) }); if (n !== i + 1) card.goto = n; }
+      if (c.to) { const n = flat({ branch: c.to.branch, card: keyAt(c.to) }); if (n !== i + 1) card.goto = link(n); }
       else if (c.end) { if (!last) card.end = true; }
       else {
         // The engine's conditional goto falls through to the next card on no match and has no "end" entry.
@@ -2476,6 +2487,7 @@ function checkOddsBlock(opt, changed, restructure) {
           throw new Error(`${p.branch} · then: a conditional then that can end the event (an entry without a branch, or no else) has no flat form; route every entry, else included, to a branch`);
         const list = c.cond.map((e) => ({ ...(e.if != null ? { if: e.if } : {}), card: flat(e) }));
         if (list.at(-1).card === i + 1) list.pop(); // an else onto the next card is what no-match does anyway
+        list.forEach((e) => { e.card = link(e.card); });
         if (list.length === 1 && list[0].if == null) card.goto = list[0].card;
         else if (list.length) card.goto = list;
       }
@@ -2484,7 +2496,7 @@ function checkOddsBlock(opt, changed, restructure) {
     let event = {};
     for (const [k, v] of Object.entries(draft)) {
       if (k === "branches") event.cards = cards;
-      else if (k !== "start" && k !== "_comments" && k !== "_layout" && k !== "_keyOrder" && k !== "_liveSource" && k !== "_liveHash") event[k] = deepClone(v);
+      else if (k !== "start" && k !== "_comments" && k !== "_layout" && k !== "_keyOrder" && k !== "_keyLinks" && k !== "_liveSource" && k !== "_liveHash") event[k] = deepClone(v);
     }
     event = inKeyOrder(event, (draft._keyOrder || {}).top);
     return { event, dropped: flatCards(draft).map((f) => f.card.key).filter((k) => !reach.has(k)) };
@@ -2734,8 +2746,13 @@ function checkOddsBlock(opt, changed, restructure) {
   function lintGoto(where, goto, i, cards, required = false) {
     if ((goto === null || goto === undefined) && !required) return [];
     const bad = [`${where} goto ${gdStr(goto)} is not a later card`];
-    if (typeof goto !== "number" || Math.trunc(goto) < 0 || Math.trunc(goto) >= cards.length) return bad;
-    if (Math.trunc(goto) <= i && cards[Math.trunc(goto)].type !== "choice") return bad;
+    let t = typeof goto === "number" ? Math.trunc(goto) : -1;
+    if (typeof goto === "string") {
+      t = cards.findIndex((c) => lintIsObj(c) && c.key === goto);
+      if (t < 0) return [`${where} goto '${goto}' names no card key`];
+    }
+    if (t < 0 || t >= cards.length) return bad;
+    if (t <= i && cards[t].type !== "choice") return bad;
     return [];
   }
   function lintCondition(where, c, ctx) {

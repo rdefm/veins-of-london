@@ -248,14 +248,24 @@ static func _lint_card_route(id: String, i: int, card: Dictionary, cards: Array,
 	return out
 
 
-# A goto value must be null (none), a later card index in the same event, or an earlier-or-same "choice" card (a hub).
+# A goto value must be null (none), or a later card in the same event, or an earlier-or-same "choice" card (a hub),
+# by index or card `key`.
 static func _lint_goto(where: String, goto: Variant, i: int, cards: Array, required: bool = false) -> Array:
 	if goto == null and not required:
 		return []
-	var is_num: bool = typeof(goto) == TYPE_INT or typeof(goto) == TYPE_FLOAT
-	if not is_num or int(goto) < 0 or int(goto) >= cards.size():
+	var target := -1
+	if typeof(goto) == TYPE_INT or typeof(goto) == TYPE_FLOAT:
+		target = int(goto)
+	elif goto is String:
+		for k in cards.size():
+			if cards[k].get("key") == goto:
+				target = k
+				break
+		if target < 0:
+			return ["%s goto '%s' names no card key" % [where, goto]]
+	if target < 0 or target >= cards.size():
 		return ["%s goto %s is not a later card" % [where, str(goto)]]
-	if int(goto) <= i and cards[int(goto)].get("type") != "choice":
+	if target <= i and cards[target].get("type") != "choice":
 		return ["%s goto %s is not a later card" % [where, str(goto)]]
 	return []
 
