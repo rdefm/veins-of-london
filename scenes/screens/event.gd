@@ -517,7 +517,7 @@ func _build_choice_button(label: String, choice_index: int) -> Control:
 		line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		col.add_child(line)
 		left = col
-	if Events.check_odds(choice_index).is_empty() and why == "":
+	if Events.check_odds(choice_index).is_empty() and why == "" and Events.item_toggles(choice_index).is_empty():
 		return b
 	return _option_row(left, choice_index)
 

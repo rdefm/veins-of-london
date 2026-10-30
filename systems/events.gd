@@ -401,8 +401,8 @@ static func choose(choice_index: int, pick_ore: String = "") -> void:
 	var successes := 0
 	var shown_roll := 0
 	var shown_needed := 0
+	var toggled := active_toggles(choice_index)
 	if choice.has("check"):
-		var toggled := active_toggles(choice_index)
 		var p: float = odds_for(choice["check"], toggled)["probability"]
 		attempts = check_attempts(choice)
 		for attempt in range(attempts):
@@ -415,17 +415,19 @@ static func choose(choice_index: int, pick_ore: String = "") -> void:
 		outcome = "success" if successes > 0 else "fail"
 		source = choice.get("bySuccesses", {}).get(str(successes), choice[outcome])
 		_rolled(event_state)[_roll_key(choice_index)] = prior_rolls(choice_index) + 1
-		# A toggled consumable is spent only here, on committing its own option.
-		var spent: Array = []
-		for mod in choice["check"].get("mods", []):
-			if not (mod.get("optional", false) and toggled.has(mod["item"])) or spent.has(mod["item"]):
-				continue
-			if mod.has("effect"):
-				spent.append(mod["item"])
-				apply_item_effect(mod["item"], mod["effect"], ITEM_SOURCE_INVENTORY)
-			elif mod.get("consume", false):
-				spent.append(mod["item"])
-				Crafting.inventory_remove(mod["item"], 1)
+		_clear_next_check_bonuses(event_state)
+	# A toggled consumable is spent only here, on committing its own option,
+	# rolled or not.
+	var spent: Array = []
+	for mod in _optional_mods(choice_index):
+		if not toggled.has(mod["item"]) or spent.has(mod["item"]):
+			continue
+		if mod.has("effect"):
+			spent.append(mod["item"])
+			apply_item_effect(mod["item"], mod["effect"], ITEM_SOURCE_INVENTORY)
+		elif mod.get("consume", false):
+			spent.append(mod["item"])
+			Crafting.inventory_remove(mod["item"], 1)
 
 	var resolution: Dictionary = { "text": source["result_text"] }
 	if source.has("image"):
@@ -824,32 +826,52 @@ static func _pay_item(item: String, source: String) -> bool:
 # The one resolver for a toggled item's `effect` on commit: pays from `source`,
 # then applies by kind. Items never fail; the payment is spent whatever the roll
 # does. `bonus` with an `entry` tag also persists in event.lasting for the rest
-# of the event (pure data, gone when the event ends).
+# of the event (pure data, gone when the event ends). Any kind may carry
+# `nextCheck: {add, label?}`: a lasting entry for the next check rolled in this
+# event only, labelled with the item's name unless given one.
 static func apply_item_effect(item: String, effect: Dictionary, source: String) -> void:
 	_pay_item(item, source)
 	match effect.get("kind", ""):
 		"bonus":
 			if effect.has("entry"):
-				var event_state: Dictionary = GameState.state["event"]
-				if not event_state.has("lasting"):
-					event_state["lasting"] = []
-				event_state["lasting"].append({
+				_lasting(GameState.state["event"]).append({
 					"item": item,
 					"entry": effect["entry"],
 					"add": float(effect.get("add", 0.0)),
 					"label": effect.get("label", ""),
 				})
+	if effect.has("nextCheck"):
+		var next: Dictionary = effect["nextCheck"]
+		_lasting(GameState.state["event"]).append({
+			"item": item,
+			"next": true,
+			"add": float(next.get("add", 0.0)),
+			"label": next.get("label", GameData.RECIPES.get(item, {}).get("name", item)),
+		})
 
 
-# Persisted bonuses that apply to `check` (its `entry` tag matches), skipping
-# an item that is toggled on this very check (already counted by its own mod).
+static func _lasting(event_state: Dictionary) -> Array:
+	if not event_state.has("lasting"):
+		event_state["lasting"] = []
+	return event_state["lasting"]
+
+
+# Drops the next-check-only entries once a check has rolled, pass or fail.
+static func _clear_next_check_bonuses(event_state: Dictionary) -> void:
+	if event_state.has("lasting"):
+		event_state["lasting"] = event_state["lasting"].filter(func(e: Dictionary) -> bool: return not e.get("next", false))
+
+
+# Persisted bonuses that apply to `check`: every next-check-only entry, plus
+# each `entry` bonus whose tag matches, skipping an item that is toggled on
+# this very check (already counted by its own mod).
 static func _lasting_bonuses(check: Dictionary, toggled: Array) -> Array:
 	var out: Array = []
 	var event_state: Variant = GameState.state.get("event")
-	if not (event_state is Dictionary) or not check.has("entry"):
+	if not (event_state is Dictionary):
 		return out
 	for entry in event_state.get("lasting", []):
-		if entry["entry"] == check["entry"] and not toggled.has(entry["item"]):
+		if entry.get("next", false) or (check.has("entry") and entry["entry"] == check["entry"] and not toggled.has(entry["item"])):
 			out.append({ "label": entry["label"], "delta": entry["add"] })
 	return out
 
@@ -917,9 +939,11 @@ static func _stored_toggles(choice_index: int) -> Array:
 	return GameState.state["event"].get("toggles", {}).get(_roll_key(choice_index), [])
 
 
+# A check option's optional item mods, or a no-roll option's `items` (same shape).
 static func _optional_mods(choice_index: int) -> Array:
 	var choice: Dictionary = current_card()["choices"][choice_index]
-	return choice.get("check", {}).get("mods", []).filter(func(m: Dictionary) -> bool: return m.has("item") and m.get("optional", false))
+	var mods: Array = choice["check"].get("mods", []) if choice.has("check") else choice.get("items", [])
+	return mods.filter(func(m: Dictionary) -> bool: return m.has("item") and m.get("optional", false))
 
 
 # The committed choice at an event's card, or {} if none was made.

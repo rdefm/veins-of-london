@@ -94,6 +94,39 @@ func _install_powder_event(p: float) -> Dictionary:
 	return original_events
 
 
+# A no-roll item option: card 1's option 0 needs a toggled Blast (unlock, plus
+# a −0.15 next-check-only mod); card 2 and card 3 are plain checks.
+func _install_no_roll_item_event() -> Dictionary:
+	var original_events: Dictionary = GameData.EVENTS
+	GameData.EVENTS = GameData.EVENTS.duplicate()
+	var second_check := _check_choice_card(0.5)
+	second_check["key"] = "push2"
+	GameData.EVENTS["test_no_roll_item"] = {
+		"id": "test_no_roll_item",
+		"cards": [
+			{ "type": "narration", "key": "c1", "label": null, "speaker": null, "text": "Setup" },
+			{
+				"type": "choice", "key": "window", "label": null, "speaker": null, "text": "The window.",
+				"choices": [
+					{
+						"id": "blast", "label": "Blow it in",
+						"requires": { "item": "blast", "optional": true, "display": "disable" },
+						"items": [{ "item": "blast", "optional": true, "label": "Blast", "effect": { "kind": "unlock", "nextCheck": { "add": -0.15 } } }],
+						"effects": [{ "op": "set_flag", "flag": "windowBlown", "value": true }],
+						"result_text": "Glass everywhere.",
+					},
+					{ "id": "walk", "label": "Walk", "effects": [], "result_text": "Walked." },
+				],
+			},
+			_check_choice_card(0.5),
+			second_check,
+			{ "type": "narration", "key": "c5", "label": null, "speaker": null, "text": "Aftermath" },
+		],
+		"on_complete": [],
+	}
+	return original_events
+
+
 # The check event with a multi-attempt check: each success adds one Time
 # Pearl, result text keyed by success count for 0 and 2 (others fall back).
 func _install_attempts_check_event(p: float, attempts: int) -> Dictionary:
@@ -1022,6 +1055,67 @@ func run() -> void:
 		Events.choose(0)
 		assert_eq(Crafting.inventory_qty("enhancementPowder"), 1)
 		assert_true(Events.item_toggles(0)[0]["held"], "second one still offered")
+		GameData.EVENTS = original_events
+	)
+
+	run_case("a_no_roll_item_option_is_locked_naming_the_item_until_toggled", func():
+		GameState.reset()
+		var original_events := _install_no_roll_item_event()
+		Events.start_event("test_no_roll_item")
+		Events.advance()
+		var blast_name: String = GameData.RECIPES["blast"]["name"]
+		assert_eq(Events.option_gate(0)["display"], "disable")
+		assert_eq(Events.unmet_requirement_lines(0), [GameData.EVENT_CHECKS["unmet"]["itemOptional"] % blast_name], "locked reason names the item")
+		assert_eq(Events.item_toggles(0)[0]["held"], false)
+		Events.choose(0)
+		assert_true(Events.is_awaiting_choice(), "locked option can't commit")
+		Crafting.inventory_add("blast", 1, 1)
+		assert_true(Events.toggle_item(0, "blast")["ok"])
+		assert_eq(Events.option_gate(0)["display"], "show", "toggle unlocks it")
+		assert_eq(Crafting.inventory_qty("blast"), 1, "viewing and toggling spend nothing")
+		GameData.EVENTS = original_events
+	)
+
+	run_case("a_no_roll_item_option_spends_on_commit_applies_effects_and_rewind_refunds", func():
+		GameState.reset()
+		GameState.state["player"]["inventory"]["rewind"] = { "1": 2 }
+		Crafting.inventory_add("blast", 1, 1)
+		var original_events := _install_no_roll_item_event()
+		Events.start_event("test_no_roll_item")
+		Events.advance()
+		Events.toggle_item(0, "blast")
+		Events.choose(1)
+		assert_eq(Crafting.inventory_qty("blast"), 1, "the other option spends nothing")
+		assert_true(Events.rewind()["ok"])
+		Events.choose(0)
+		assert_eq(Crafting.inventory_qty("blast"), 0, "spent on commit with no roll")
+		assert_true(GameState.state["flags"].get("windowBlown", false), "option effects applied")
+		assert_eq(GameState.state["event"]["lasting"].size(), 1, "next-check mod recorded")
+		assert_true(Events.rewind()["ok"])
+		assert_eq(Crafting.inventory_qty("blast"), 1, "Rewind refunds it")
+		assert_eq(GameState.state["event"].get("lasting", []), [], "and drops its lasting mod")
+		GameData.EVENTS = original_events
+	)
+
+	run_case("a_next_check_only_mod_applies_to_the_next_check_only", func():
+		GameState.reset()
+		Crafting.inventory_add("blast", 1, 1)
+		var original_events := _install_no_roll_item_event()
+		Events.start_event("test_no_roll_item")
+		Events.advance()
+		Events.toggle_item(0, "blast")
+		Events.choose(0)
+		Events.advance()
+		assert_eq(int(GameState.state["event"]["cardIndex"]), 2)
+		var odds := Events.check_odds(0)
+		assert_almost_eq(odds["probability"], 0.35, 0.0001, "next check takes −0.15")
+		assert_true(odds["mods"].any(func(m: Dictionary) -> bool: return m["label"] == GameData.RECIPES["blast"]["name"] and is_equal_approx(m["delta"], -0.15)), "shown under the item's name")
+		GameData.EVENTS["test_no_roll_item"]["cards"][2]["choices"][0]["check"]["max"] = 0.0
+		Events.choose(0)
+		assert_eq(GameState.state["event"]["choiceResults"]["2"]["outcome"], "fail")
+		Events.advance()
+		assert_eq(int(GameState.state["event"]["cardIndex"]), 3)
+		assert_almost_eq(Events.check_odds(0)["probability"], 0.5, 0.0001, "gone after one check, though it failed")
 		GameData.EVENTS = original_events
 	)
 
