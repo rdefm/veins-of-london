@@ -546,8 +546,15 @@ static func _home_raider_enemy(level: int, hp_mult: float = 1.0) -> Dictionary:
 # "start_raid_combat" op with context "event_raid", so exit_combat() below
 # resumes the still-active event on a win instead of routing home. `waves`
 # > 0 caps the guards on the field at once (R§3.7b Fight presets).
-static func start_raid(vein_id: String, value_tier: int, guards: int = 1, template_key: String = "", context: String = CONTEXT_RAID, ally_ids: Array = [], situational: Array = [], waves: int = 0) -> void:
+# `reinforcements` > 0 appends that many extra guards queued to arrive at
+# round raidSecurity.reinforcement.arriveRound (R§3.12 "Reinforcements").
+static func start_raid(vein_id: String, value_tier: int, guards: int = 1, template_key: String = "", context: String = CONTEXT_RAID, ally_ids: Array = [], situational: Array = [], waves: int = 0, reinforcements: int = 0) -> void:
 	var enemies := generate_raid_enemy(vein_id, value_tier, guards, template_key)
+	if reinforcements > 0:
+		var cfg: Dictionary = GameData.RAID_SECURITY["reinforcement"]
+		for extra in generate_raid_enemy(vein_id, value_tier, reinforcements, str(cfg["template"])):
+			extra["arriveRound"] = int(cfg["arriveRound"])
+			enemies.append(extra)
 	var log_lines := ["%s steps out to meet you." % _guard_group_name(enemies)]
 	var allies := _gather_raid_allies(ally_ids, log_lines)
 	_add_hired_muscle(allies, log_lines)
@@ -774,9 +781,11 @@ static func _start_round_combat(context: String, vein_id, enemies: Array, log_li
 	var enemy_cap: int = 1 if bool(mods.get("oneAtATime", false)) else SQUAD_MAX
 	if int(live.get("enemyWaves", 0)) > 0:
 		enemy_cap = mini(enemy_cap, int(live["enemyWaves"]))
+	var timed := enemies.filter(func(e: Dictionary) -> bool: return e.has("arriveRound"))
+	var opening := enemies.filter(func(e: Dictionary) -> bool: return not e.has("arriveRound"))
 	combat.merge({
 		"context": context, "veinId": vein_id,
-		"enemies": enemies.slice(0, enemy_cap), "enemyQueue": enemies.slice(enemy_cap),
+		"enemies": opening.slice(0, enemy_cap), "enemyQueue": opening.slice(enemy_cap) + timed,
 		"allies": allies.slice(0, SQUAD_MAX - 1), "allyQueue": allies.slice(SQUAD_MAX - 1),
 		"locationKey": location_key,
 		"onWin": on_win, "raiderKit": {}, "guardKit": {}, "slotsUsed": [],

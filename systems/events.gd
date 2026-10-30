@@ -281,6 +281,7 @@ static func _continue() -> void:
 				if not event_state.has("jumps"):
 					event_state["jumps"] = {}
 				event_state["jumps"][str(here)] = dest
+		_tick_reinforcement()
 		if dest >= 0 and dest <= here:
 			_reenter_hub(event_state, dest)
 		else:
@@ -639,6 +640,8 @@ static func condition_met(condition: Dictionary, toggled: Array = []) -> bool:
 		return _security_met(condition["security"])
 	if condition.has("wardTriggered"):
 		return ward_triggered_here() == bool(condition["wardTriggered"])
+	if condition.has("reinforcements"):
+		return reinforcements_arrived() == bool(condition["reinforcements"])
 	return false
 
 
@@ -702,6 +705,50 @@ static func _apply_alert(effect: Dictionary) -> void:
 	if effect.has("atLeast"):
 		level = maxi(level, int(effect["atLeast"]))
 	event_state["alert"] = _clamp_alert(level)
+	_maybe_start_reinforcement_clock()
+
+
+# ── reinforcement clock (R§3.12 "Reinforcements") ──
+
+# Alarm on a site with an alarm line starts event.reinforce {ticks, length,
+# arrived, skip}; skip spares the card that raised it. length is the event's
+# `reinforceClock` or raidSecurity.reinforcement.clockCards. No-op if started.
+static func _maybe_start_reinforcement_clock() -> void:
+	var event_state: Dictionary = GameState.state["event"]
+	if event_state.has("reinforce") or alert_level() < (GameData.EVENT_CHECKS["alert"]["tiers"] as Array).size() - 1:
+		return
+	if _security_count(security_profile().get("alarm")) <= 0:
+		return
+	var cfg: Dictionary = GameData.RAID_SECURITY["reinforcement"]
+	var length := int(_event_def().get("reinforceClock", cfg["clockCards"]))
+	event_state["reinforce"] = { "ticks": 0, "length": length, "arrived": false, "skip": true }
+
+
+# One tick per card resolved after the raising card; at length the guards arrive.
+static func _tick_reinforcement() -> void:
+	var clock: Variant = GameState.state["event"].get("reinforce")
+	if clock == null or clock["arrived"]:
+		return
+	if clock["skip"]:
+		clock["skip"] = false
+		return
+	clock["ticks"] = int(clock["ticks"]) + 1
+	if int(clock["ticks"]) >= int(clock["length"]):
+		clock["arrived"] = true
+
+
+# Reinforcements already in the pool (the clock fired or a fight took them).
+static func reinforcements_arrived() -> bool:
+	var event_state: Variant = GameState.state.get("event")
+	return event_state != null and event_state.get("reinforce", {}).get("arrived", false)
+
+
+# Clock running, not fired, Alarm still up: the next fight gets them at round 3.
+static func reinforcements_pending() -> bool:
+	var event_state: Variant = GameState.state.get("event")
+	if event_state == null or not event_state.has("reinforce") or reinforcements_arrived():
+		return false
+	return alert_level() >= (GameData.EVENT_CHECKS["alert"]["tiers"] as Array).size() - 1
 
 
 # Rolls an alert op's cover ({base, mods?, min?, max?, text}) through
@@ -1711,11 +1758,18 @@ static func _start_raid_combat(effect: Dictionary) -> void:
 	var fight := fight_setup(effect, _running_fight_presets())
 	var guards_spec: Variant = fight.get("guards", 1)
 	var guards: int = Cultivating.vein_guard_count(vein) if guards_spec is String and guards_spec == RAID_GUARDS_FROM_VEIN else int(guards_spec)
+	var cfg: Dictionary = GameData.RAID_SECURITY["reinforcement"]
 	guards -= int(_live_event_context().get("guardsDown", 0))
+	if reinforcements_arrived():
+		guards += int(cfg["guards"])
 	if guards <= 0:
 		return
+	var wave := 0
+	if reinforcements_pending():
+		wave = int(cfg["guards"])
+		GameState.state["event"]["reinforce"]["arrived"] = true
 	var situational: Array = fight.get("situational", []) + _ward_fight_start()
-	Combat.start_raid(vein["id"], Cultivating.combined_magnitude(vein), guards, fight.get("template", ""), Combat.CONTEXT_EVENT_RAID, _event_ally_ids(effect), situational, int(fight.get("waves", 0)))
+	Combat.start_raid(vein["id"], Cultivating.combined_magnitude(vein), guards, fight.get("template", ""), Combat.CONTEXT_EVENT_RAID, _event_ally_ids(effect), situational, int(fight.get("waves", 0)), wave)
 
 
 # A raid fight op's setup (R§3.7b Fight presets): its `preset` from `presets`

@@ -2292,3 +2292,74 @@ func run() -> void:
 		SaveManager._migrate_faction_holdings(save)
 		assert_eq(save["factions"]["firm"]["stockpile"]["guards"], FactionSim.stockpile_guard_target("firm"))
 	)
+
+	# ── Reinforcement clock (raid-events ticket 23) ──────────────────────
+
+	run_case("alarm_on_an_alarm_line_site_fires_after_three_cards_and_adds_two_to_the_next_fight", func():
+		var vein := _carry_over_raid(1)
+		GameState.state["event"]["context"]["securityProfile"] = { "alarm": true }
+		Events._apply_alert({ "atLeast": 2 })
+		for _i in range(3):
+			Events._tick_reinforcement()
+		assert_true(not Events.reinforcements_arrived(), "the raising card doesn't tick")
+		Events._tick_reinforcement()
+		assert_true(Events.reinforcements_arrived())
+		assert_true(Events.condition_met({ "reinforcements": true }))
+		Events._start_raid_combat({ "guards": "vein", "template": "veinGuard" })
+		var combat: Dictionary = GameState.state["combat"]
+		assert_eq(combat["enemies"].size() + combat["enemyQueue"].size(), Cultivating.vein_guard_count(vein) + 2)
+	)
+
+	run_case("an_event_clock_length_of_two_fires_after_two_cards", func():
+		_carry_over_raid(1)
+		GameState.state["event"]["context"]["securityProfile"] = { "alarm": true }
+		Events._apply_alert({ "atLeast": 2 })
+		GameState.state["event"]["reinforce"]["length"] = 2
+		Events._tick_reinforcement()
+		Events._tick_reinforcement()
+		assert_true(not Events.reinforcements_arrived())
+		Events._tick_reinforcement()
+		assert_true(Events.reinforcements_arrived())
+	)
+
+	run_case("a_fight_before_the_clock_fires_gets_the_two_at_round_three_and_never_twice", func():
+		_carry_over_raid(1)
+		GameState.state["event"]["context"]["securityProfile"] = { "alarm": true }
+		Events._apply_alert({ "atLeast": 2 })
+		Events._start_raid_combat({ "guards": 1, "template": "veinGuard" })
+		var combat: Dictionary = GameState.state["combat"]
+		assert_eq(combat["enemies"].size(), 1)
+		var timed := (combat["enemyQueue"] as Array).filter(func(e): return e.has("arriveRound"))
+		assert_eq(timed.size(), 2)
+		assert_eq(int(timed[0]["arriveRound"]), 3)
+		assert_true(Events.reinforcements_arrived())
+		_win_raid_fight()
+		assert_eq(GameState.state["event"]["context"]["guardsDown"], 3)
+		Events._start_raid_combat({ "guards": 3, "template": "veinGuard" })
+		combat = GameState.state["combat"]
+		assert_eq(combat["enemies"].size() + combat["enemyQueue"].size(), 2 + 0, "3 guards - 3 down + the 2 already in the pool")
+		assert_eq((combat["enemyQueue"] as Array).filter(func(e): return e.has("arriveRound")).size(), 0)
+	)
+
+	run_case("no_alarm_line_means_no_clock", func():
+		_carry_over_raid(1)
+		GameState.state["event"]["context"]["securityProfile"] = { "alarm": false }
+		Events._apply_alert({ "atLeast": 2 })
+		Events._tick_reinforcement()
+		assert_true(not GameState.state["event"].has("reinforce"))
+		assert_true(not Events.reinforcements_pending())
+	)
+
+	run_case("rewind_restores_the_reinforcement_clock", func():
+		_carry_over_raid(1)
+		GameState.state["event"]["context"]["securityProfile"] = { "alarm": true }
+		Events._apply_alert({ "atLeast": 2 })
+		Events._snapshot_before_mutation()
+		GameState.state["event"]["reinforce"]["ticks"] = 2
+		GameState.state["event"]["reinforce"]["arrived"] = true
+		Crafting.inventory_add("rewind", 1, 1)
+		assert_true(Events.rewind()["ok"])
+		var clock: Dictionary = GameState.state["event"]["reinforce"]
+		assert_eq(clock["ticks"], 0)
+		assert_true(not clock["arrived"])
+	)

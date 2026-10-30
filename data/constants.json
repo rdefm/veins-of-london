@@ -561,6 +561,7 @@
   "veinRaidEvents": { "in the car park": "vein_raid", "by the bus stop": "vein_raid", "under the railway arch": "raid_arches", "near the off-licence": "raid_shop", "behind the Tesco Metro": "raid_shop", "beside the bookies": "raid_shop" },
   "raidSecurity": {
     "features": { "maxCameras": 2, "cameraChance": 0.3, "cameraPerOpulence": 0.06, "alarmChance": 0.35, "alarmPerOpulence": 0.08 },
+    "reinforcement": { "clockCards": 3, "guards": 2, "template": "veinGuard", "arriveRound": 3 },
     "siteDetails": {
       "chances": { "weakWindow": 0.5, "softPanel": 0.5, "fireEscape": 0.5, "neighbourArch": 0.5, "cellarFlap": 0.5 },
       "cameraZones": ["front", "back"]

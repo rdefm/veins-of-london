@@ -1989,6 +1989,9 @@ static func _admit_reserves(cp: Dictionary, rng: RandomNumberGenerator, fog_rng:
 		if side == SIDE_ENEMY and int(cp.get("enemyWaves", 0)) > 0:
 			cap = mini(cap, int(cp["enemyWaves"]))
 		while not queue.is_empty() and _standing(cp, side) < cap:
+			# A timed entry waits for its round unless the field is empty.
+			if int(queue[0].get("arriveRound", 0)) > int(cp["round"]) and _standing(cp, side) > 0:
+				break
 			var entry: Dictionary = queue.pop_front()
 			var fighter: Dictionary = entry["fighter"]
 			entry.erase("fighter")
