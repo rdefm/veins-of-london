@@ -19,6 +19,21 @@ static func _faction_vein_of_growth(growth: int, ore_type: String, security: Str
 
 # Forces every vein_raid check's odds to `p` (base = min = max) and returns a
 # Callable restoring the authored values.
+# A live vein_raid on a guarded faction vein with `extra_guards` extra guards.
+static func _carry_over_raid(extra_guards: int) -> Dictionary:
+	GameState.reset()
+	var vein := _faction_vein_of_growth(10, "time", "guarded", "firm")
+	vein["extraGuards"] = extra_guards
+	GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", vein)]
+	Events.start_event(Raiding.RAID_EVENT_ID, { "site_id": "s1" })
+	return vein
+
+
+static func _win_raid_fight() -> void:
+	GameState.state["combat"]["outcome"] = "win"
+	Combat.exit_combat()
+
+
 static func _force_raid_checks(p: float, event_id: String = "vein_raid") -> Callable:
 	var saved: Array = []
 	for card in GameData.EVENTS[event_id]["cards"]:
@@ -702,6 +717,44 @@ func run() -> void:
 		assert_eq(GameState.state["event"], null)
 		assert_eq(GameState.state["currentScreen"], "phone")
 		assert_true(GameState.state["world"]["sites"][0]["factionVein"] != null, "the vein stays with the faction")
+	)
+
+	run_case("a_won_one_guard_fight_takes_that_guard_out_of_the_next_full_fight", func():
+		var vein := _carry_over_raid(3)
+		var guards := Cultivating.vein_guard_count(vein)
+		Events._start_raid_combat({ "guards": 1, "template": "veinGuard" })
+		_win_raid_fight()
+		assert_eq(GameState.state["event"]["context"]["guardsDown"], 1)
+		assert_eq(GameState.state["currentScreen"], "event", "a win resumes the raid")
+		Events._start_raid_combat({ "guards": "vein", "template": "veinGuard" })
+		var combat: Dictionary = GameState.state["combat"]
+		assert_eq(combat["enemies"].size() + combat["enemyQueue"].size(), guards - 1)
+	)
+
+	run_case("guards_removed_earlier_and_guards_beaten_add_up", func():
+		var vein := _carry_over_raid(4)
+		var guards := Cultivating.vein_guard_count(vein)
+		Events._reduce_raid_guards({ "count": 1 })
+		Events._start_raid_combat({ "guards": "vein", "template": "veinGuard", "waves": 1 })
+		_win_raid_fight()
+		assert_eq(GameState.state["event"]["context"]["guardsDown"], guards, "1 removed + the %d fought" % (guards - 1))
+	)
+
+	run_case("no_guards_left_after_a_won_fight_starts_no_fight", func():
+		_carry_over_raid(2)
+		Events._start_raid_combat({ "guards": "vein", "template": "veinGuard" })
+		_win_raid_fight()
+		Events._start_raid_combat({ "guards": "vein", "template": "veinGuard" })
+		assert_true(not GameState.state["combat"]["active"])
+	)
+
+	run_case("a_lost_mid_raid_fight_ends_the_raid", func():
+		_carry_over_raid(3)
+		Events._start_raid_combat({ "guards": 1, "template": "veinGuard" })
+		GameState.state["combat"]["outcome"] = "loss"
+		Combat.exit_combat()
+		assert_eq(GameState.state["event"], null)
+		assert_eq(GameState.state["currentScreen"], "phone")
 	)
 
 	run_case("raid_event_incapacitate_route_reduces_guards_and_all_down_skips_the_fight", func():

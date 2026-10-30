@@ -1597,11 +1597,17 @@ static func _running_fight_presets() -> Dictionary:
 # Takes `count` (default 1) guards out of the live raid event's later
 # start_raid_combat; at zero guards left that op starts no fight.
 static func _reduce_raid_guards(effect: Dictionary) -> void:
+	add_raid_guards_down(int(effect.get("count", 1)))
+
+
+# Adds `count` to the live event's guardsDown (R§3.7b Guard carry-over):
+# the reduce_raid_guards op, and Combat.exit_combat() for a won raid fight.
+static func add_raid_guards_down(count: int) -> void:
 	var event_state: Variant = GameState.state.get("event")
-	if event_state == null:
+	if event_state == null or count <= 0:
 		return
 	var context: Dictionary = event_state.get("context", {})
-	context["guardsDown"] = int(context.get("guardsDown", 0)) + int(effect.get("count", 1))
+	context["guardsDown"] = int(context.get("guardsDown", 0)) + count
 	event_state["context"] = context
 
 
