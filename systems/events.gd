@@ -536,7 +536,8 @@ static func _roll_key(choice_index: int) -> String:
 
 # base + every matching modifier's signed delta, clamped to [min, max].
 # toggled: the optional items switched on for this option (active_toggles()).
-static func odds_for(check: Dictionary, toggled: Array = []) -> Dictionary:
+# lasting: false leaves out state.event.lasting bonuses (an alert cover).
+static func odds_for(check: Dictionary, toggled: Array = [], lasting: bool = true) -> Dictionary:
 	var base: float = float(check.get("base", 0.0))
 	var probability := base
 	var applied: Array = []
@@ -546,9 +547,9 @@ static func odds_for(check: Dictionary, toggled: Array = []) -> Dictionary:
 			probability += delta
 			var label: String = GameData.EVENT_CHECKS["alert"]["modFormat"] % alert_tier_name(alert_level()) if mod.has("alertByTier") else mod.get("label", "")
 			applied.append({ "label": label, "delta": delta })
-	for lasting in _lasting_bonuses(check, toggled):
-		probability += float(lasting["delta"])
-		applied.append(lasting)
+	for bonus in (_lasting_bonuses(check, toggled) if lasting else []):
+		probability += float(bonus["delta"])
+		applied.append(bonus)
 	if check.get("raidFactors", false):
 		for factor in Observation.raid_mods():
 			probability += float(factor["delta"])
@@ -651,15 +652,52 @@ static func alert_caught() -> bool:
 
 
 # The `alert` op: `add` shifts the level (signed), `atLeast` raises it to that
-# tier if lower; clamped to the tier range. No-op outside a live event.
+# tier if lower; clamped to the tier range. No-op outside a live event. A
+# `cover` check rolled first and passed leaves the level as it is and adds its
+# line to the current card's result text (R§3.9a "Alert").
 static func _apply_alert(effect: Dictionary) -> void:
 	var event_state: Variant = GameState.state.get("event")
 	if event_state == null:
+		return
+	if effect.has("cover") and _roll_cover(effect["cover"]):
 		return
 	var level := alert_level() + int(effect.get("add", 0))
 	if effect.has("atLeast"):
 		level = maxi(level, int(effect["atLeast"]))
 	event_state["alert"] = _clamp_alert(level)
+
+
+# Rolls an alert op's cover ({base, mods?, min?, max?, text}) through
+# odds_for(), so Be A Lady and authored mods count (not lasting or
+# next-check bonuses, which belong to choice checks). On success the cover's
+# text joins the current card's resolution (or becomes it, when silent).
+static func _roll_cover(cover: Dictionary) -> bool:
+	var event_state: Dictionary = GameState.state["event"]
+	var roll := cover_roll()
+	var covers: Dictionary = event_state.get("covers", {})
+	var card := str(int(event_state["cardIndex"]))
+	covers[card] = int(covers.get(card, 0)) + 1
+	event_state["covers"] = covers
+	if roll >= float(odds_for(cover, [], false)["probability"]):
+		return false
+	var resolution: Variant = event_state["choiceResults"].get(card)
+	if resolution != null:
+		var text: Variant = resolution.get("text")
+		resolution["text"] = cover.get("text", "") if is_silent_text(text) else "%s\n\n%s" % [text, cover.get("text", "")]
+	return true
+
+
+# The next cover roll on the current card in [0,1): a stable hash of
+# world.rollSeed, event id, card index and how many covers this card has
+# rolled (plus run_key() for a repeatable event), so Rewind and a save reload
+# replay it. Never draws from the global Rng stream.
+static func cover_roll() -> float:
+	var event_state: Dictionary = GameState.state["event"]
+	var card := int(event_state["cardIndex"])
+	var key := "%d|%s|%d|cover|%d" % [int(GameState.state["world"]["rollSeed"]), event_state["eventId"], card, int(event_state.get("covers", {}).get(str(card), 0))]
+	if _event_def().get("repeatable", false):
+		key += "|" + run_key()
+	return Rng.stable_unit(key)
 
 
 # ── option gating (R§3.9a "Requires") ──

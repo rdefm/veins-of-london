@@ -238,6 +238,11 @@ func _install_alert_event() -> Dictionary:
 	return original_events
 
 
+# Gives the alert fixture's "Kick it" option (card 1, option 0) a cover.
+func _set_kick_cover(cover: Dictionary) -> void:
+	GameData.EVENTS["test_alert_event"]["cards"][1]["choices"][0]["effects"] = [{ "op": "alert", "add": 1, "cover": cover }]
+
+
 func _install_image_choice_event() -> Dictionary:
 	var original_events: Dictionary = GameData.EVENTS
 	GameData.EVENTS = GameData.EVENTS.duplicate()
@@ -2516,6 +2521,112 @@ func run() -> void:
 		assert_eq(Events.alert_level(), 1)
 		assert_true(Events.rewind()["ok"])
 		assert_eq(Events.alert_level(), 0, "Rewind's snapshot holds the earlier level")
+		GameData.EVENTS = original_events
+		GameState.state["event"] = null
+	)
+
+	# ── cover roll on alert (R§3.9a "Alert") ──
+
+	run_case("cover_success_leaves_alert_and_adds_the_cover_line", func():
+		GameState.reset()
+		var original_events := _install_alert_event()
+		_set_kick_cover({ "base": 1.0, "min": 0.0, "max": 1.0, "text": "A car backfires." })
+		Events.start_event("test_alert_event")
+		Events.advance()
+		Events.choose(0)
+		assert_eq(Events.alert_level(), 0, "covered: no rise")
+		assert_eq(GameState.state["event"]["choiceResults"]["1"]["text"], "Bang.\n\nA car backfires.")
+		GameData.EVENTS = original_events
+		GameState.state["event"] = null
+	)
+
+	run_case("cover_failure_raises_alert_without_the_cover_line", func():
+		GameState.reset()
+		var original_events := _install_alert_event()
+		_set_kick_cover({ "base": 0.0, "min": 0.0, "max": 0.0, "text": "A car backfires." })
+		Events.start_event("test_alert_event")
+		Events.advance()
+		Events.choose(0)
+		assert_eq(Events.alert_level(), 1, "uncovered: rises")
+		assert_eq(GameState.state["event"]["choiceResults"]["1"]["text"], "Bang.")
+		GameData.EVENTS = original_events
+		GameState.state["event"] = null
+	)
+
+	run_case("no_cover_raises_unconditionally", func():
+		GameState.reset()
+		var original_events := _install_alert_event()
+		Events.start_event("test_alert_event")
+		Events.advance()
+		Events.choose(0)
+		assert_eq(Events.alert_level(), 1)
+		assert_true(not GameState.state["event"].has("covers"), "no cover rolled")
+		GameData.EVENTS = original_events
+		GameState.state["event"] = null
+	)
+
+	run_case("be_a_lady_raises_cover_odds", func():
+		for lady in [false, true]:
+			GameState.reset()
+			var original_events := _install_alert_event()
+			Events.start_event("test_alert_event")
+			Events.advance()
+			var roll := Events.cover_roll()
+			_set_kick_cover({ "base": roll - 0.01, "min": 0.0, "max": 1.0, "text": "Covered." })
+			if lady:
+				GameState.state["player"]["activeEffects"] = [{ "item": ActiveEffects.LADY, "level": 2, "expiresAtBlock": 99999 }]
+			Events.choose(0)
+			assert_eq(Events.alert_level(), 0 if lady else 1, "Lady %s" % str(lady))
+			GameData.EVENTS = original_events
+			GameState.state["event"] = null
+	)
+
+	run_case("an_authored_observation_mod_applies_to_cover", func():
+		for read in [false, true]:
+			GameState.reset()
+			var original_events := _install_alert_event()
+			Events.start_event("test_alert_event")
+			Events.advance()
+			var roll := Events.cover_roll()
+			var mod := { "observed": { "event": "test_alert_event", "id": "yard", "ore": "fate", "atLeast": 1 }, "add": 0.5, "label": "Fate read" }
+			_set_kick_cover({ "base": roll - 0.01, "mods": [mod], "min": 0.0, "max": 1.0, "text": "Covered." })
+			if read:
+				GameState.state["observationMemory"] = { "test_alert_event": { "yard": { "fate": 1 } } }
+			Events.choose(0)
+			assert_eq(Events.alert_level(), 0 if read else 1, "read %s" % str(read))
+			GameData.EVENTS = original_events
+			GameState.state["event"] = null
+	)
+
+	run_case("a_next_check_bonus_neither_counts_toward_nor_is_spent_by_cover", func():
+		GameState.reset()
+		var original_events := _install_alert_event()
+		Events.start_event("test_alert_event")
+		Events.advance()
+		var roll := Events.cover_roll()
+		_set_kick_cover({ "base": roll - 0.01, "min": 0.0, "max": 1.0, "text": "Covered." })
+		GameState.state["event"]["lasting"] = [{ "item": "timePearl", "next": true, "add": 0.5, "label": "Pearl" }]
+		Events.choose(0)
+		assert_eq(Events.alert_level(), 1, "the bonus doesn't cover")
+		assert_eq(GameState.state["event"]["lasting"].size(), 1, "still waiting for the next check")
+		GameData.EVENTS = original_events
+		GameState.state["event"] = null
+	)
+
+	run_case("rewind_replays_the_same_cover_roll", func():
+		GameState.reset()
+		var original_events := _install_alert_event()
+		GameState.state["player"]["inventory"]["rewind"] = { "1": 1 }
+		Events.start_event("test_alert_event")
+		Events.advance()
+		var roll := Events.cover_roll()
+		_set_kick_cover({ "base": roll + 0.01, "min": 0.0, "max": 1.0, "text": "Covered." })
+		Events.choose(0)
+		assert_eq(Events.alert_level(), 0)
+		assert_true(Events.rewind()["ok"])
+		assert_almost_eq(Events.cover_roll(), roll, 0.000001, "same roll after Rewind")
+		Events.choose(0)
+		assert_eq(Events.alert_level(), 0, "covered again")
 		GameData.EVENTS = original_events
 		GameState.state["event"] = null
 	)
