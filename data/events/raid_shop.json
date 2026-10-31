@@ -156,6 +156,94 @@
           "miss": "No chances you can see here. It's a shop, and it's open."
         }
       }
+    },
+    "till": {
+      "mods": [],
+      "blocks": {
+        "life": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "The regular scratches each card on the counter and talks her through it. While he talks, she nods and looks at nothing else. He has never won more than two quid, and has never once stopped talking."
+            },
+            {
+              "base": 0.55,
+              "text": "One on the till, and a regular at the counter who's going nowhere. She keeps half an eye on him."
+            }
+          ],
+          "miss": "A queue, a till, someone behind it. People come and go."
+        },
+        "emotion": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "She's forty minutes from the end of her shift and won't spend any of them on an argument. Anyone who asks her for anything gets waved at whatever's nearest."
+            },
+            {
+              "base": 0.55,
+              "text": "She wants this shift over more than she wants anything in the shop."
+            }
+          ],
+          "miss": "Her face is set to 'next, please'. Nothing gets past it."
+        },
+        "fate": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "The card machine has tape round its middle and drops a payment every few customers. She's stopped apologising for it."
+            },
+            {
+              "base": 0.55,
+              "text": "The queue moves in fits. Every so often the whole shop waits on something at the till."
+            }
+          ],
+          "miss": "Nothing at the till looks broken, as far as you can see."
+        }
+      }
+    },
+    "stock": {
+      "mods": [],
+      "blocks": {
+        "physics": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "The shelving runs floor to ceiling down one wall and stands a foot off it. Behind the roll cages there's a strip of floor nobody walks."
+            },
+            {
+              "base": 0.55,
+              "text": "Tall shelving, roll cages, a lot of cardboard. You can't see from one end to the other."
+            }
+          ],
+          "miss": "Shelves and cages, with stock on all of them."
+        },
+        "life": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "Two men in shop fleeces are on the restock. One of them is doing it. The other is holding a single box of teabags, and has been for some time."
+            },
+            {
+              "base": 0.55,
+              "text": "More men in fleeces back here than the shelves need. Not all of them are stocking."
+            }
+          ],
+          "miss": "Someone's back there. You hear a box land, then nothing."
+        },
+        "time": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "Stock comes off the van in runs. Between runs the aisle stands empty long enough to boil a kettle."
+            },
+            {
+              "base": 0.55,
+              "text": "Stock comes through in batches. Sometimes the aisle is busy, sometimes it isn't."
+            }
+          ],
+          "miss": "Boxes come in, boxes go out. You couldn't say when."
+        }
+      }
     }
   },
   "cards": [
@@ -563,6 +651,7 @@
       "type": "choice",
       "label": null,
       "speaker": null,
+      "observe": "till",
       "text": "The till, the queue, and the door marked STAFF ONLY. She's looking at the card machine, not at you.",
       "choices": [
         {
@@ -593,6 +682,15 @@
                 },
                 "add": 0.05,
                 "label": "A sharp read"
+              },
+              {
+                "observed": {
+                  "id": "till",
+                  "ore": "emotion",
+                  "atLeast": 1
+                },
+                "add": 0.05,
+                "label": "Her quiet shift"
               },
               {
                 "alertByTier": [
@@ -894,6 +992,15 @@
                 "label": "A sharp read"
               },
               {
+                "observed": {
+                  "id": "till",
+                  "ore": "life",
+                  "atLeast": 1
+                },
+                "add": 0.05,
+                "label": "The regular's commentary"
+              },
+              {
                 "all": [
                   {
                     "flag": "sCust"
@@ -1057,6 +1164,15 @@
                 },
                 "add": 0.05,
                 "label": "A sharp read"
+              },
+              {
+                "observed": {
+                  "id": "till",
+                  "ore": "fate",
+                  "atLeast": 2
+                },
+                "add": 0.05,
+                "label": "The taped card machine"
               }
             ]
           },
@@ -1238,6 +1354,7 @@
       "type": "choice",
       "label": null,
       "speaker": null,
+      "observe": "stock",
       "text": "The stockroom: shelving, cages, nobody standing guard.",
       "choices": [
         {
@@ -1270,6 +1387,15 @@
                 },
                 "add": 0.13,
                 "label": "A sharp read"
+              },
+              {
+                "observed": {
+                  "id": "stock",
+                  "ore": "time",
+                  "atLeast": 1
+                },
+                "add": 0.05,
+                "label": "Between runs"
               },
               {
                 "all": [
@@ -1432,6 +1558,15 @@
                 },
                 "add": 0.13,
                 "label": "A sharp read"
+              },
+              {
+                "observed": {
+                  "id": "stock",
+                  "ore": "physics",
+                  "atLeast": 1
+                },
+                "add": 0.05,
+                "label": "Behind the cages"
               },
               {
                 "all": [
@@ -1783,6 +1918,7 @@
       "type": "choice",
       "label": null,
       "speaker": null,
+      "observe": "raid",
       "text": "The cellar door: a lock, and a stair behind it.",
       "choices": [
         {

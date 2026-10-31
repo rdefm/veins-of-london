@@ -1066,6 +1066,16 @@
 					"life": 2,
 					"physics": 2,
 					"time": 2
+				},
+				"stock": {
+					"life": 2,
+					"physics": 2,
+					"time": 2
+				},
+				"till": {
+					"emotion": 2,
+					"fate": 2,
+					"life": 2
 				}
 			}
 		},

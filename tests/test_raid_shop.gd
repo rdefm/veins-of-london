@@ -76,6 +76,15 @@ static func _card(key: String) -> Dictionary:
 	return {}
 
 
+# Stores an already-rolled read of `ore` at `level` on observation `id`.
+static func _seed_obs(id: String, ore: String, level: int) -> void:
+	var obs: Dictionary = GameState.state["event"].get("observations", {})
+	if not obs.has(id):
+		obs[id] = { "rollCount": 1, "results": {} }
+	obs[id]["results"][ore] = { "roll": 0.0, "needed": 100, "level": level, "mods": [] }
+	GameState.state["event"]["observations"] = obs
+
+
 # Customer route up to the back-room door with every check forced to pass.
 static func _walk_in_to_the_back() -> void:
 	_pick(WALK_IN)
@@ -370,6 +379,65 @@ func run() -> void:
 		Events.choose(_index("Back out"))
 		assert_eq(GameState.state["factions"]["firm"]["relation"], relation_before)
 		assert_true(not Raiding.is_wary("s1"))
+	)
+
+	run_case("the_till_and_stockroom_carry_their_own_reads_and_later_cards_go_back_to_the_raid_read", func():
+		_start()
+		_settle()
+		_pick(WALK_IN)
+		assert_eq(Observation.in_effect(), "till")
+		_pick("Other ways…")
+		assert_eq(Observation.in_effect(), "till", "the till's follow-up card keeps the till read")
+		_start()
+		var ok := _force_checks(1.0)
+		_settle()
+		_walk_in_to_the_back()
+		ok.call()
+		assert_eq(_key(), "s_back")
+		assert_eq(Observation.in_effect(), "stock")
+		_start()
+		_settle()
+		_pick(ROUND_BACK)
+		assert_eq(Observation.in_effect(), "raid", "the yard never shows the stockroom read")
+	)
+
+	run_case("till_reads_boost_the_toilet_the_regular_and_the_card_machine", func():
+		_start()
+		_settle()
+		_pick(WALK_IN)
+		RaidingTests._seed_read("life", 1)
+		var toilet := _odds(TOILET)
+		var regular := _odds("Wait until she's serving the regular")
+		_seed_obs("till", "emotion", 1)
+		_seed_obs("till", "life", 1)
+		assert_true(absf(_odds(TOILET) - (toilet + 0.05)) < 0.001, "a till emotion read: +0.05")
+		assert_true(absf(_odds("Wait until she's serving the regular") - (regular + 0.05)) < 0.001, "a till life read: +0.05")
+		_pick("Other ways…")
+		var machine := _odds("Hope the card machine goes down")
+		_seed_obs("till", "fate", 1)
+		assert_true(absf(_odds("Hope the card machine goes down") - machine) < 0.001, "the weaker fate tier is only a hint")
+		_seed_obs("till", "fate", 2)
+		assert_true(absf(_odds("Hope the card machine goes down") - (machine + 0.05)) < 0.001, "the taped machine: +0.05")
+	)
+
+	run_case("stockroom_reads_boost_the_pallet_runs_and_the_blind_side", func():
+		_start()
+		var ok := _force_checks(1.0)
+		_settle()
+		_walk_in_to_the_back()
+		ok.call()
+		assert_eq(_key(), "s_back")
+		RaidingTests._seed_read("time", 1)
+		RaidingTests._seed_read("life", 1)
+		var pallets := _odds("Go between pallet runs")
+		var blind := _odds("Keep to the blind side of the shelving")
+		var restock := _odds(RESTOCK)
+		_seed_obs("stock", "time", 1)
+		_seed_obs("stock", "physics", 1)
+		_seed_obs("stock", "life", 2)
+		assert_true(absf(_odds("Go between pallet runs") - (pallets + 0.05)) < 0.001, "a stock time read: +0.05")
+		assert_true(absf(_odds("Keep to the blind side of the shelving") - (blind + 0.05)) < 0.001, "a stock physics read: +0.05")
+		assert_true(absf(_odds(RESTOCK) - restock) < 0.001, "the stock life read is informative only")
 	)
 
 	run_case("claim_takes_the_vein_and_costs_relation_even_when_clean", func():
