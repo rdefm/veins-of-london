@@ -854,6 +854,221 @@
 				}
 			}
 		},
+		"raid_shop": {
+			"choiceCards": {
+				"post": [
+					"",
+					"",
+					""
+				],
+				"post2": [
+					"",
+					"",
+					"",
+					""
+				],
+				"post3": [
+					"",
+					"",
+					"",
+					""
+				],
+				"s_alarm": [
+					"",
+					"",
+					"",
+					""
+				],
+				"s_alarm2": [
+					"",
+					""
+				],
+				"s_back": [
+					"",
+					"",
+					"",
+					""
+				],
+				"s_back2": [
+					"",
+					""
+				],
+				"s_cam": [
+					"",
+					"",
+					"",
+					""
+				],
+				"s_cam2": [
+					"",
+					"",
+					""
+				],
+				"s_cellar": [
+					"",
+					"",
+					"",
+					""
+				],
+				"s_cellar2": [
+					"",
+					""
+				],
+				"s_claim": [
+					"",
+					""
+				],
+				"s_claim_a": [
+					"",
+					""
+				],
+				"s_door": [
+					"",
+					"",
+					""
+				],
+				"s_door2": [
+					"",
+					"",
+					"",
+					""
+				],
+				"s_final": [
+					""
+				],
+				"s_flap": [
+					"",
+					"",
+					"",
+					""
+				],
+				"s_flap2": [
+					"",
+					""
+				],
+				"s_front": [
+					"",
+					"",
+					""
+				],
+				"s_front2": [
+					"",
+					"",
+					""
+				],
+				"s_getaway": [
+					"",
+					"",
+					""
+				],
+				"s_lock": [
+					"",
+					"",
+					""
+				],
+				"s_lock2": [
+					"",
+					"",
+					"",
+					""
+				],
+				"s_reinf": [
+					""
+				],
+				"s_retreat": [
+					"",
+					"",
+					"",
+					""
+				],
+				"s_room": [
+					"",
+					"",
+					"",
+					""
+				],
+				"s_till": [
+					"",
+					"",
+					"",
+					""
+				],
+				"s_till2": [
+					"",
+					"",
+					""
+				],
+				"s_ward": [
+					"",
+					"",
+					"",
+					""
+				],
+				"s_ward2": [
+					"",
+					"",
+					"",
+					""
+				],
+				"s_ward3": [
+					"",
+					""
+				],
+				"s_win_cam": [
+					"",
+					"",
+					"",
+					""
+				],
+				"s_win_in": [
+					"",
+					"",
+					"",
+					""
+				],
+				"s_win_in2": [
+					"",
+					"",
+					""
+				],
+				"s_win_out": [
+					"",
+					"",
+					"",
+					""
+				],
+				"s_win_out2": [
+					"",
+					"",
+					""
+				],
+				"s_win_wit": [
+					"",
+					"",
+					""
+				],
+				"s_yard": [
+					"",
+					"",
+					""
+				],
+				"s_yard2": [
+					"",
+					"",
+					"",
+					""
+				]
+			},
+			"observations": {
+				"raid": {
+					"emotion": 2,
+					"fate": 2,
+					"life": 2,
+					"physics": 2,
+					"time": 2
+				}
+			}
+		},
 		"rain": {
 			"choiceCards": {},
 			"observations": {}
@@ -1283,6 +1498,17 @@
 		"raidCaught",
 		"rentGoal",
 		"rentPaid",
+		"sAt_back",
+		"sAt_cellar",
+		"sAt_door",
+		"sAt_flap",
+		"sAt_room",
+		"sAt_stairs",
+		"sAt_till",
+		"sAt_yard",
+		"sCust",
+		"sReinfOpen",
+		"sYard",
 		"securityContactUnlocked",
 		"sparSessions",
 		"toldJamesJar",

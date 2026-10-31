@@ -1,0 +1,387 @@
+extends "res://tests/test_base.gd"
+
+const Fixtures := preload("res://tests/support/fixtures.gd")
+const RaidingTests := preload("res://tests/test_raiding.gd")
+
+# raid_shop (the Shop): the stage tree driven for real through
+# Events.start_event/choose/advance. Checks are forced with
+# _force_checks(); reads are seeded into event.observations.
+
+const WALK_IN := "Walk in as a customer"
+const ROUND_BACK := "Round the back"
+const TOILET := "Ask for the toilet"
+const STORY := "Spin her the story she wants"
+const RESTOCK := "Hope nobody's restocking"
+const UNLOCKED := "Hope it isn't locked"
+
+
+static func _start(profile: Dictionary = {}, start_alert: int = 0) -> Dictionary:
+	GameState.reset()
+	var vein := RaidingTests._faction_vein_of_growth(10, "time", "guarded", "firm")
+	GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", vein)]
+	var built := Raiding.security_profile(vein)
+	built.merge({ "guards": 0, "cameras": 0, "alarm": false, "ward": false, "cellarFlap": false }, true)
+	built.merge(profile, true)
+	Events.start_event("raid_shop", { "site_id": "s1", "ally_ids": [], "securityProfile": built, "startAlert": start_alert })
+	return vein
+
+
+static func _force_checks(p: float) -> Callable:
+	return RaidingTests._force_raid_checks(p, "raid_shop")
+
+
+static func _key() -> String:
+	return String(Events.current_card().get("key", ""))
+
+
+static func _index(label: String) -> int:
+	return RaidingTests._option_index(label)
+
+
+static func _settle() -> void:
+	var guard := 0
+	while GameState.state["event"] != null and not GameState.state["combat"]["active"] and not Events.current_card().has("choices") and guard < 20:
+		Events.advance()
+		guard += 1
+
+
+static func _pick(label: String) -> void:
+	var i := _index(label)
+	assert(i >= 0, "no option '%s' on %s" % [label, _key()])
+	Events.choose(i)
+	if GameState.state["event"] != null and not GameState.state["combat"]["active"]:
+		Events.advance()
+	_settle()
+
+
+static func _win_fight() -> void:
+	GameState.state["combat"]["outcome"] = "win"
+	Combat.exit_combat()
+	_settle()
+
+
+static func _shown(label: String) -> bool:
+	var i := _index(label)
+	return i >= 0 and Events.option_gate(i)["display"] == "show"
+
+
+static func _odds(label: String) -> float:
+	return float(Events.check_odds(_index(label))["probability"])
+
+
+static func _card(key: String) -> Dictionary:
+	for card in GameData.EVENTS["raid_shop"]["cards"]:
+		if card["key"] == key:
+			return card
+	return {}
+
+
+# Customer route up to the back-room door with every check forced to pass.
+static func _walk_in_to_the_back() -> void:
+	_pick(WALK_IN)
+	_pick(TOILET)
+
+
+func run() -> void:
+	run_case("raid_shop_is_the_event_for_the_three_shop_suffixes", func():
+		GameState.reset()
+		var vein := RaidingTests._faction_vein_of_growth(10, "time", "guarded", "firm")
+		for suffix in ["near the off-licence", "behind the Tesco Metro", "beside the bookies"]:
+			vein["location"] = "Unit 2, %s" % suffix
+			assert_eq(Raiding.raid_event_id(vein), "raid_shop", suffix)
+		assert_eq(GameData.EVENTS["raid_shop"]["reinforceClock"], 2, "the shop's clock runs at two cards")
+		assert_eq(GameData.EVENTS["raid_shop"]["fightPresets"]["veinGuards"].get("waves", 0), 0, "the back room is not cramped into waves")
+	)
+
+	run_case("customer_route_clean_run_reaches_claim_loot", func():
+		var vein := _start()
+		var relation_before: int = GameState.state["factions"]["firm"]["relation"]
+		var restore := _force_checks(1.0)
+		_settle()
+		assert_eq(_key(), "s_front")
+		_pick(WALK_IN)
+		assert_eq(_key(), "s_till")
+		_pick(TOILET)
+		assert_eq(_key(), "s_back", "no guards: the stock is a check, not a post")
+		_pick(RESTOCK)
+		assert_eq(_key(), "s_lock", "no ward: a plain lock on the cellar stairs")
+		_pick(UNLOCKED)
+		assert_eq(_key(), "s_room")
+		_pick("Walk to the vein")
+		restore.call()
+		assert_eq(_key(), "s_claim")
+		assert_eq(Events.alert_level(), 0)
+		Events.choose(1)  # Loot and leave
+		assert_eq(GameState.state["factions"]["firm"]["relation"], relation_before, "a clean loot leaves relation alone")
+		assert_true(vein != null)
+	)
+
+	run_case("yard_door_route_clean_run_shares_the_back_room_and_stairs", func():
+		_start({ "cameras": 1 })
+		var restore := _force_checks(1.0)
+		_settle()
+		_pick(ROUND_BACK)
+		assert_eq(_key(), "s_yard")
+		_pick("Other ways…")
+		_pick("Hope he's gone in")
+		assert_eq(_key(), "s_door")
+		_pick("Pick it")
+		assert_eq(_key(), "s_back", "the same back room as the customer route")
+		_pick(RESTOCK)
+		assert_eq(_key(), "s_lock")
+		_pick(UNLOCKED)
+		restore.call()
+		assert_eq(_key(), "s_room", "the yard door route never meets the till camera")
+	)
+
+	run_case("cellar_route_exists_only_on_rotten_flap_sites_and_skips_the_back_room", func():
+		_start({ "cellarFlap": false, "ward": true, "cameras": 1 })
+		_settle()
+		RaidingTests._seed_read("physics", 2)
+		_pick("Read the gaps…")
+		assert_true(not _shown("The cellar flap"), "no rotten flap, no route")
+		_start({ "cellarFlap": true, "ward": true, "cameras": 1 })
+		_settle()
+		_pick("Read the gaps…")
+		assert_true(not _shown("The cellar flap"), "a flap nobody has read is not offered")
+		RaidingTests._seed_read("physics", 1)
+		assert_true(_shown("The cellar flap"), "seeded and read")
+		var restore := _force_checks(1.0)
+		_pick("The cellar flap")
+		assert_eq(_key(), "s_flap")
+		_pick("Hope no one on the street looks down")
+		assert_eq(_key(), "s_cellar")
+		_pick("Hope he turns")
+		restore.call()
+		assert_eq(_key(), "s_room", "the cellar skips the back room, the stairs, the ward and the camera")
+	)
+
+	run_case("the_drayman's_slot_opens_the_flap_with_no_roll", func():
+		_start({ "cellarFlap": true })
+		_settle()
+		_pick("Read the gaps…")
+		RaidingTests._seed_read("physics", 1)
+		assert_true(not _shown("Take the flap while the drayman has it open"), "needs a sharp time read")
+		RaidingTests._seed_read("time", 2)
+		_pick("The cellar flap")
+		assert_true(_shown("Take the flap while the drayman has it open"))
+		assert_true(not Events.current_card()["choices"][_index("Take the flap while the drayman has it open")].has("check"))
+		_pick("Take the flap while the drayman has it open")
+		assert_eq(_key(), "s_cellar")
+	)
+
+	run_case("a_camera_always_sits_on_the_customer_route_before_the_till", func():
+		_start({ "cameras": 1 })
+		_settle()
+		_pick(WALK_IN)
+		assert_eq(_key(), "s_cam")
+		var restore := _force_checks(1.0)
+		_pick("Hope it's on the blink")
+		restore.call()
+		assert_eq(_key(), "s_till")
+		_start({ "cameras": 0 })
+		_settle()
+		_pick(WALK_IN)
+		assert_eq(_key(), "s_till", "no cameras on the site, no camera card")
+	)
+
+	run_case("a_warded_vein_puts_the_ward_on_the_cellar_stairs_instead_of_the_lock", func():
+		_start({ "ward": true, "wardType": "time" })
+		var restore := _force_checks(1.0)
+		_settle()
+		_walk_in_to_the_back()
+		_pick(RESTOCK)
+		restore.call()
+		assert_eq(_key(), "s_ward")
+	)
+
+	run_case("a_failed_quiet_check_raises_alert_and_a_witness_window_offers_no_fight", func():
+		_start()
+		var restore := _force_checks(0.0)
+		_settle()
+		_pick(WALK_IN)
+		_pick(TOILET)
+		restore.call()
+		assert_eq(Events.alert_level(), 1, "Suspicious")
+		assert_eq(_key(), "s_win_wit")
+		assert_eq(_index("Take him down"), -1, "staff are witnesses, not fighters")
+		assert_true(_index("Talk it out") >= 0)
+		assert_true(_index("Duck out of sight") >= 0)
+		assert_true(_index("Run for it") >= 0)
+	)
+
+	run_case("a_street_witness_at_the_flap_is_also_a_talk_only_window", func():
+		_start({ "cellarFlap": true })
+		_settle()
+		_pick("Read the gaps…")
+		RaidingTests._seed_read("physics", 1)
+		_pick("The cellar flap")
+		var fail := _force_checks(0.0)
+		_pick("Hope no one on the street looks down")
+		fail.call()
+		assert_eq(_key(), "s_win_wit")
+		assert_eq(_index("Take him down"), -1)
+	)
+
+	run_case("a_guard_who_sees_you_in_the_yard_can_be_fought", func():
+		_start()
+		_settle()
+		_pick(ROUND_BACK)
+		_pick("Other ways…")
+		var fail := _force_checks(0.0)
+		_pick("Hope he's gone in")
+		fail.call()
+		assert_eq(_key(), "s_win_out")
+		assert_true(_index("Take him down") >= 0)
+	)
+
+	run_case("a_raised_alert_lowers_later_quiet_odds_and_alarm_gates_the_options_off", func():
+		_start()
+		_settle()
+		_pick(WALK_IN)
+		var unseen := _odds(TOILET)
+		_start({}, 1)
+		_settle()
+		_pick(WALK_IN)
+		assert_true(absf(_odds(TOILET) - (unseen - 0.10)) < 0.001, "Suspicious costs quiet checks 0.10")
+		_start({}, 2)
+		_settle()
+		assert_true(not _shown(WALK_IN), "walking in is gone at Alarm")
+		assert_true(not _shown(ROUND_BACK))
+	)
+
+	run_case("the_customer_route_gated_odds_follow_the_calibration", func():
+		_start()
+		_settle()
+		_pick(WALK_IN)
+		RaidingTests._seed_read("emotion", 2)
+		assert_true(absf(_odds(STORY) - 0.63) < 0.001, "3 checks: 0.50 + 0.13")
+		_start({ "cameras": 1 })
+		_settle()
+		_pick(WALK_IN)
+		var ok := _force_checks(1.0)
+		_pick("Hope it's on the blink")
+		ok.call()
+		assert_eq(_key(), "s_till")
+		RaidingTests._seed_read("emotion", 2)
+		assert_true(absf(_odds(STORY) - 0.71) < 0.001, "a camera makes it 4 checks: 0.58 + 0.13")
+		_start({ "cellarFlap": true })
+		_settle()
+		_pick("Read the gaps…")
+		RaidingTests._seed_read("physics", 2)
+		_pick("The cellar flap")
+		assert_true(absf(_odds("Lever the rotten flap") - 0.53) < 0.001, "2 checks: 0.40 + 0.13")
+	)
+
+	run_case("the_clock_runs_at_two_cards_once_alarm_is_raised_on_an_alarm_line_site", func():
+		_start({ "alarm": true })
+		_settle()
+		Events._apply_alert({ "atLeast": 2 })
+		assert_eq(GameState.state["event"]["reinforce"]["length"], 2)
+		Events._tick_reinforcement()  # the raising card doesn't tick
+		Events._tick_reinforcement()
+		assert_true(not Events.reinforcements_arrived())
+		Events._tick_reinforcement()
+		assert_true(Events.reinforcements_arrived())
+	)
+
+	run_case("force_the_yard_door_lands_on_the_back_room_post", func():
+		_start({ "guards": 2 })
+		var ok := _force_checks(1.0)
+		_settle()
+		_pick(ROUND_BACK)
+		_pick("Other ways…")
+		_pick("Hope he's gone in")
+		_pick("Rougher ways…")
+		_pick("Force the door")
+		ok.call()
+		assert_eq(_key(), "post")
+		var door := _card("s_door2")
+		var cover: Dictionary = {}
+		for effect in door["choices"][1]["success"]["effects"]:
+			if effect.get("op", "") == "alert":
+				cover = effect["cover"]
+		assert_eq(cover["base"], 0.35)
+	)
+
+	run_case("a_mid_raid_fight_win_continues_with_fewer_guards", func():
+		var vein := _start({ "guards": 3 })
+		var guards := Cultivating.vein_guard_count(vein)
+		var ok := _force_checks(1.0)
+		_settle()
+		_walk_in_to_the_back()
+		assert_eq(_key(), "post", "guards in the back room: the post")
+		Events.choose(_index("Fight"))
+		ok.call()
+		assert_true(GameState.state["combat"]["active"], "the post fight starts")
+		_win_fight()
+		assert_true(GameState.state["event"] != null, "a win resumes the raid")
+		assert_eq(GameState.state["event"]["context"]["guardsDown"], guards)
+		Events.advance()
+		_settle()
+		assert_eq(_key(), "s_lock", "the customer route resumes at the cellar stairs")
+	)
+
+	run_case("a_lost_mid_raid_fight_ends_the_raid", func():
+		_start({ "guards": 3 })
+		var ok := _force_checks(1.0)
+		_settle()
+		_walk_in_to_the_back()
+		ok.call()
+		Events.choose(_index("Fight"))
+		GameState.state["combat"]["outcome"] = "loss"
+		Combat.exit_combat()
+		assert_eq(GameState.state["event"], null)
+		assert_eq(GameState.state["currentScreen"], "phone")
+	)
+
+	run_case("a_wormhole_at_the_front_goes_straight_to_the_vein_room", func():
+		_start()
+		_settle()
+		RaidingTests._seed_read("physics", 2)
+		Crafting.inventory_add("wormhole", 1, 1)
+		_pick("Read the gaps…")
+		Events.toggle_item(_index("Open a Wormhole"), "wormhole")
+		var ok := _force_checks(1.0)
+		_pick("Open a Wormhole")
+		ok.call()
+		assert_eq(_key(), "s_room")
+		assert_eq(Events.alert_level(), 0)
+	)
+
+	run_case("panic_in_the_back_room_covers_at_the_shops_lower_base", func():
+		var post3 := _card("post3")
+		var base := -1.0
+		for choice in post3["choices"]:
+			if choice["label"] == "Panic":
+				for effect in choice["effects"]:
+					if effect.get("op", "") == "alert":
+						base = effect["cover"]["base"]
+		assert_eq(base, 0.35)
+	)
+
+	run_case("backing_out_at_unseen_leaves_clean", func():
+		_start()
+		var relation_before: int = GameState.state["factions"]["firm"]["relation"]
+		_settle()
+		_pick("Read the gaps…")
+		_pick("Back out…")
+		assert_eq(_key(), "s_retreat")
+		Events.choose(_index("Back out"))
+		assert_eq(GameState.state["factions"]["firm"]["relation"], relation_before)
+		assert_true(not Raiding.is_wary("s1"))
+	)
+
+	run_case("claim_takes_the_vein_and_costs_relation_even_when_clean", func():
+		_start()
+		var ok := _force_checks(1.0)
+		_settle()
+		_walk_in_to_the_back()
+		_pick(RESTOCK)
+		_pick(UNLOCKED)
+		_pick("Walk to the vein")
+		ok.call()
+		Events.choose(0)  # Claim it
+		assert_eq(GameState.state["world"]["sites"][0]["factionVein"], null)
+		assert_eq(GameState.state["player"]["veins"].size(), 1)
+	)

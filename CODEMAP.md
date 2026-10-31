@@ -335,6 +335,8 @@ The Prologue chain (`cold_open_legacy` is the retired pre-observation intro, unr
 
 `raid_arches.json` is the Arches vein raid (railway-arch veins): a ~48-card stage tree (shutter, neighbour-arch and trackside routes, witness/guard windows, search, bench guard-post in waves of 2, camera, ward, vein-room, claim/loot, getaway cards) on route flags `aAt_*`, with train-timed cover on loud options. Prose is placeholder. Tests: `tests/test_raid_arches.gd`.
 
+`raid_shop.json` is the Shop vein raid (off-licence, Tesco Metro and bookies veins): a ~53-card stage tree (customer, yard-door and cellar-flap routes, talk-only witness windows, guard windows, search, back-room guard-post, till camera, ward on the cellar stairs, vein-room, claim/loot, getaway cards) on route flags `sAt_*`, with a 2-card reinforcement clock. Prose is placeholder. Tests: `tests/test_raid_shop.gd`.
+
 `data/events/_to_be_coded/col_hakim_intel_*.json` holds five unregistered Hakim intel
 prose variants generated with the quest editor builder. Implementation briefs are in
 `data/events/_to_be_coded/drafts/*.notes.md`; these drafts are not loaded by the game.
