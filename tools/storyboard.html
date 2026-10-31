@@ -280,6 +280,7 @@ section { display: grid; gap: 12px; min-width: 0 }
 .g-title { font: 700 13px var(--body); fill: var(--fg) }
 .g-sub { font: 12px var(--body); fill: var(--muted) }
 .g-note { font: italic 11.5px var(--body); fill: var(--accent) }
+.g-obs { font: 700 14px var(--mono); fill: #4aa3ff }
 .g-toggle { font: 700 15px var(--mono); fill: var(--accent); cursor: pointer }
 .g-edge { fill: none; stroke: var(--muted); stroke-width: 1.4 }
 .g-edge.next { stroke: var(--line) }
@@ -1888,10 +1889,10 @@ function checkOddsBlock(opt, changed, restructure) {
         nodes.push({ id: "g:" + name, kind: "group", branch: name, title: br.title || "", start, comments: commentCount(draft, { branch: name }) });
         cards.forEach((c, i) => nodes.push({ id: "c:" + c.key, kind: "card", parent: "g:" + name, branch: name, key: c.key,
           type: c.type || "", speaker: c.speaker || "", text: c.text || "", choices: (c.choices || []).length, start: start && i === 0,
-          notes: (c.choices || []).map((o) => o.checkNote).filter(Boolean), comments: commentCount(draft, { card: c.key }) }));
+          notes: (c.choices || []).map((o) => o.checkNote).filter(Boolean), obs: c.observe ? String(c.observe) : "", comments: commentCount(draft, { card: c.key }) }));
       } else {
         nodes.push({ id: "b:" + name, kind: "branch", branch: name, title: br.title || "", count: cards.length,
-          first: (cards[0] && cards[0].text) || "", start, comments: commentCount(draft, { branch: name, deep: true }) });
+          first: (cards[0] && cards[0].text) || "", start, obs: cards.some((c) => c.observe) ? cards.filter((c) => c.observe).map((c) => String(c.observe)).join(", ") : "", comments: commentCount(draft, { branch: name, deep: true }) });
       }
     }
     // t: {branch, card?}, or null for the event ending.
@@ -3349,6 +3350,10 @@ function checkOddsBlock(opt, changed, restructure) {
       }
       const attrs = { class: `g-node ${n.kind}${n.start ? " start" : ""}`, "data-node": n.id };
       if (label) Object.assign(attrs, { tabindex: "0", role: "button", "aria-label": label + commentsLabel(n.comments) });
+      if (n.obs) {
+        kids.push(sv("text", { x: r.x + r.w - 12, y: r.y + r.h - 8, class: "g-obs", "text-anchor": "middle" }, "◉", sv("title", {}, "Observation set here: " + n.obs)));
+        attrs["aria-label"] = label + ", sets observation " + n.obs + commentsLabel(n.comments);
+      }
       kids.push(commentBadge(n.comments, r));
       g.append(sv("g", attrs, ...kids));
     }

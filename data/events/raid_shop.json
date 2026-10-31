@@ -62,7 +62,7 @@
           "tiers": [
             {
               "base": 0.25,
-              "text": "PLACEHOLDER: physics t2: the yard door's hinge pins are on the outside; vein position",
+              "text": "The pins on the yard door are on the outside, where a child could reach them. Under the back room, the vein runs warm and shallow.",
               "variants": [
                 {
                   "when": {
@@ -70,48 +70,48 @@
                       "feature": "cellarFlap"
                     }
                   },
-                  "text": "PLACEHOLDER: physics t2 + cellarFlap: the pavement cellar flap is rotten"
+                  "text": "The pavement flap over the cellar is rotten at the hinge. Somebody has weighted it with a crate rather than mend it."
                 }
               ]
             },
             {
               "base": 0.55,
-              "text": "PLACEHOLDER: physics t1: the back yard door is old"
+              "text": "The door to the back yard is old, painted shut in some places and not in others."
             }
           ],
-          "miss": "PLACEHOLDER: physics miss: shopfront glass, steel shutters, a door that is bolted"
+          "miss": "Shop glass, steel shutters, a door that's bolted. Nothing here gives."
         },
         "life": {
           "tiers": [
             {
               "base": 0.25,
-              "text": "PLACEHOLDER: life t2: who is on the till, how many are stocking the back, the regular who never leaves"
+              "text": "One on the till, tired, with a queue she's stopped seeing. Two in the back, stocking nothing. And a regular at the counter who has been there longer than the stock has."
             },
             {
               "base": 0.55,
-              "text": "PLACEHOLDER: life t1: there is someone in the back besides the till"
+              "text": "Someone is in the back besides whoever's on the till. They're moving boxes from one pile to the same pile."
             }
           ],
-          "miss": "PLACEHOLDER: life miss: can't tell staff from customers"
+          "miss": "Everyone has a basket or an apron. You can't tell which is which."
         },
         "emotion": {
           "tiers": [
             {
               "base": 0.25,
-              "text": "PLACEHOLDER: emotion t2: she'd look the other way for the right story; the guard in the back wants to be anywhere else"
+              "text": "The till worker would look the other way for a good enough story. The man in the back would rather be anywhere else."
             },
             {
               "base": 0.55,
-              "text": "PLACEHOLDER: emotion t1: the till worker hates this job"
+              "text": "The woman on the till hates this job, and has been hating it quietly for years."
             }
           ],
-          "miss": "PLACEHOLDER: emotion miss: tired faces, nothing more"
+          "miss": "Tired faces, bored faces. Nothing you can use."
         },
         "time": {
           "tiers": [
             {
               "base": 0.25,
-              "text": "PLACEHOLDER: time t2: the drayman's slot, when the cellar flap is open",
+              "text": "The delivery comes at a set minute, and the drayman opens the pavement flap for it every time, and shuts it after.",
               "variants": [
                 {
                   "when": {
@@ -120,22 +120,22 @@
                       "atLeast": 1
                     }
                   },
-                  "text": "PLACEHOLDER: time t2 + cameras: the CCTV loop length"
+                  "text": "The camera over the till loops every ninety seconds. The man on the screen picks his nose in the fifth."
                 }
               ]
             },
             {
               "base": 0.55,
-              "text": "PLACEHOLDER: time t1: deliveries come round the back"
+              "text": "Deliveries come round the back. A van does it twice a night, almost on time."
             }
           ],
-          "miss": "PLACEHOLDER: time miss: can't make out a delivery pattern"
+          "miss": "Vans come and go. You couldn't say which hour, or who was in them."
         },
         "fate": {
           "tiers": [
             {
               "base": 0.25,
-              "text": "PLACEHOLDER: fate t2: the ward on the cellar stairs",
+              "text": "A ward sits on the cellar stairs, faint as a draught under a door.",
               "variants": [
                 {
                   "when": {
@@ -144,16 +144,16 @@
                       "atLeast": 1
                     }
                   },
-                  "text": "PLACEHOLDER: fate t2 + cameras: the till camera records nothing"
+                  "text": "The till camera has a red light and nothing behind it. It hasn't recorded a thing in a while."
                 }
               ]
             },
             {
               "base": 0.55,
-              "text": "PLACEHOLDER: fate t1: the CCTV's not right"
+              "text": "The CCTV is wrong. The monitor shows the till, but the till isn't quite where it ought to be."
             }
           ],
-          "miss": "PLACEHOLDER: fate miss: no chances you can see"
+          "miss": "No chances you can see here. It's a shop, and it's open."
         }
       }
     }
@@ -165,14 +165,14 @@
       "label": "{today} — The approach",
       "speaker": null,
       "observe": "raid",
-      "text": "PLACEHOLDER: the approach to the shop: still trading, the vein is in the cellar"
+      "text": "The shop is lit and doing a little trade. A man with a basket goes in, a woman comes out with a bottle. Under the back room, the vein goes on without them. You case it twice."
     },
     {
       "key": "s_front",
       "type": "choice",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: A lit shopfront, a till, a yard door round the back. The front is public.",
+      "text": "A lit shopfront, a till, a yard door round the back. The front is public. Anyone can walk in.",
       "choices": [
         {
           "label": "Walk in as a customer",
@@ -234,7 +234,7 @@
               "value": false
             }
           ],
-          "result_text": "PLACEHOLDER: Walk in as a customer",
+          "result_text": "You push the door and a bell goes. No one looks up.",
           "goto": "s_in_cust"
         },
         {
@@ -297,7 +297,7 @@
               "value": true
             }
           ],
-          "result_text": "PLACEHOLDER: Round the back",
+          "result_text": "You go round by the side passage, past the bins and the smell of old cooking oil.",
           "goto": "s_yard"
         },
         {
@@ -314,7 +314,7 @@
       "type": "choice",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: What you saw buys other ways in.",
+      "text": "What you saw buys other ways in.",
       "choices": [
         {
           "label": "The cellar flap",
@@ -392,7 +392,7 @@
               "value": false
             }
           ],
-          "result_text": "PLACEHOLDER: The cellar flap",
+          "result_text": "You crouch at the pavement flap. The street goes by on one side of you and the cellar breathes on the other.",
           "goto": "s_flap"
         },
         {
@@ -427,7 +427,7 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: Open a Wormhole: success",
+            "result_text": "The fold opens inside the cellar. The air is cold and smells of damp cardboard.",
             "effects": [
               {
                 "op": "set_flag",
@@ -473,7 +473,7 @@
             "goto": "s_room"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: Open a Wormhole: fail",
+            "result_text": "The fold lands you in the cellar, and not unseen. Someone down here has put down a crate.",
             "effects": [
               {
                 "op": "set_flag",
@@ -542,7 +542,7 @@
       "type": "tension",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: You go in with the others.",
+      "text": "You go in with the others, behind a man buying a lottery ticket.",
       "goto": [
         {
           "if": {
@@ -563,7 +563,7 @@
       "type": "choice",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: The till, the queue, the door marked staff only.",
+      "text": "The till, the queue, and the door marked STAFF ONLY. She's looking at the card machine, not at you.",
       "choices": [
         {
           "label": "Ask for the toilet",
@@ -604,7 +604,7 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: Ask for the toilet: success",
+            "result_text": "\"Is there a toilet?\" She waves at the staff door with her whole arm. You go through it and she doesn't look up again.",
             "effects": [
               {
                 "op": "set_flag",
@@ -650,7 +650,7 @@
             "goto": "s_back_in"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: Ask for the toilet: fail",
+            "result_text": "\"Customers only. Staff toilet's not for customers.\" She puts a hand flat on the counter. Her face says she's had this conversation before.",
             "effects": [
               {
                 "op": "set_flag",
@@ -761,7 +761,7 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: Spin her the story she wants: success",
+            "result_text": "You tell her the story she needs. Her eyebrow goes up, then down. She nods at the door as if that's all it was.",
             "effects": [
               {
                 "op": "set_flag",
@@ -807,7 +807,7 @@
             "goto": "s_back_in"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: Spin her the story she wants: fail",
+            "result_text": "She hears you out, then asks who exactly you came to see. You don't have the answer, and her hand goes under the counter.",
             "effects": [
               {
                 "op": "set_flag",
@@ -918,7 +918,7 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: Wait until she's serving the regular: success",
+            "result_text": "The regular starts talking and the till worker starts nodding. You walk through the back door while she's still nodding.",
             "effects": [
               {
                 "op": "set_flag",
@@ -964,7 +964,7 @@
             "goto": "s_back_in"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: Wait until she's serving the regular: fail",
+            "result_text": "The regular finishes his story just as you reach the door. \"Where are you off to?\"",
             "effects": [
               {
                 "op": "set_flag",
@@ -1033,7 +1033,7 @@
       "type": "choice",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: Or leave it to chance.",
+      "text": "Or leave it to chance.",
       "choices": [
         {
           "label": "Hope the card machine goes down",
@@ -1061,7 +1061,7 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: Hope the card machine goes down: success",
+            "result_text": "The card machine dies mid-payment. She hits it twice and swears at it, and you pass behind her.",
             "effects": [
               {
                 "op": "set_flag",
@@ -1107,7 +1107,7 @@
             "goto": "s_back_in"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: Hope the card machine goes down: fail",
+            "result_text": "The card machine works fine. She looks up from it, straight at you.",
             "effects": [
               {
                 "op": "set_flag",
@@ -1221,7 +1221,7 @@
               "value": false
             }
           ],
-          "result_text": "PLACEHOLDER: Prophet's Breath: know when she's busy",
+          "result_text": "You know when she'll turn to the till, and you move on that.",
           "goto": "s_back_in"
         },
         {
@@ -1238,7 +1238,7 @@
       "type": "choice",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: The stockroom: shelving, cages, nobody standing guard.",
+      "text": "The stockroom: shelving, cages, nobody standing guard.",
       "choices": [
         {
           "label": "Go between pallet runs",
@@ -1301,7 +1301,7 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: Go between pallet runs: success",
+            "result_text": "Between one pallet run and the next, the aisle is clear. You cross it.",
             "effects": [
               {
                 "op": "set_flag",
@@ -1347,7 +1347,7 @@
             "goto": "s_stairs_in"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: Go between pallet runs: fail",
+            "result_text": "A trolley comes round the corner with a man behind it. He says, \"Oi.\"",
             "effects": [
               {
                 "op": "set_flag",
@@ -1463,7 +1463,7 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: Keep to the blind side of the shelving: success",
+            "result_text": "The shelving makes a long blind side. You keep to it, and the stock hides your coat.",
             "effects": [
               {
                 "op": "set_flag",
@@ -1509,7 +1509,7 @@
             "goto": "s_stairs_in"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: Keep to the blind side of the shelving: fail",
+            "result_text": "The shelving ends sooner than you thought. He looks up from the cage and sees you.",
             "effects": [
               {
                 "op": "set_flag",
@@ -1590,7 +1590,7 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: Hope nobody's restocking: success",
+            "result_text": "Nobody is restocking. You cross the floor like it's yours.",
             "effects": [
               {
                 "op": "set_flag",
@@ -1636,7 +1636,7 @@
             "goto": "s_stairs_in"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: Hope nobody's restocking: fail",
+            "result_text": "Somebody is restocking. They put the box down.",
             "effects": [
               {
                 "op": "set_flag",
@@ -1705,7 +1705,7 @@
       "type": "choice",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: Past the stock, another way.",
+      "text": "Past the stock, another way.",
       "choices": [
         {
           "label": "Prophet's Breath: know where they are",
@@ -1766,7 +1766,7 @@
               "value": false
             }
           ],
-          "result_text": "PLACEHOLDER: Prophet's Breath: know where they are",
+          "result_text": "You know where each of them will be, and you aren't there.",
           "goto": "s_stairs_in"
         },
         {
@@ -1783,7 +1783,7 @@
       "type": "choice",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: The cellar door: a lock, a stair behind it.",
+      "text": "The cellar door: a lock, and a stair behind it.",
       "choices": [
         {
           "label": "Pick it quiet",
@@ -1857,7 +1857,7 @@
             "entry": "physical"
           },
           "success": {
-            "result_text": "PLACEHOLDER: Pick it quiet: success",
+            "result_text": "The lock turns over without a sound, behind a shelf of crisps.",
             "effects": [
               {
                 "op": "set_flag",
@@ -1903,7 +1903,7 @@
             "goto": "s_room"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: Pick it quiet: fail",
+            "result_text": "The pick snaps in the lock. In a quiet room it would be nothing. Here it carries to the back room.",
             "effects": [
               {
                 "op": "set_flag",
@@ -1984,7 +1984,7 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: Hope it isn't locked: success",
+            "result_text": "It isn't locked. Someone's been going down with deliveries and didn't bother.",
             "effects": [
               {
                 "op": "set_flag",
@@ -2030,7 +2030,7 @@
             "goto": "s_room"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: Hope it isn't locked: fail",
+            "result_text": "It's locked. The handle rattles in your hand, and out front a conversation stops.",
             "effects": [
               {
                 "op": "set_flag",
@@ -2099,7 +2099,7 @@
       "type": "choice",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: Or make a noise.",
+      "text": "Or make a noise.",
       "choices": [
         {
           "label": "Walk down",
@@ -2152,7 +2152,7 @@
               "value": true
             }
           ],
-          "result_text": "PLACEHOLDER: Walk down",
+          "result_text": "The stairs go down. Cold comes up them.",
           "goto": "s_room"
         },
         {
@@ -2177,7 +2177,7 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: Force the door: success",
+            "result_text": "The door goes in under your shoulder. Nobody out front hears it over the fridges.",
             "effects": [
               {
                 "op": "set_flag",
@@ -2224,7 +2224,7 @@
                 "atLeast": 2,
                 "cover": {
                   "base": 0.35,
-                  "text": "PLACEHOLDER: the shop's noise hides it"
+                  "text": "the fridges and the radio cover it"
                 }
               },
               {
@@ -2236,7 +2236,7 @@
             "goto": "s_room"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: Force the door: fail",
+            "result_text": "The door gives with a crack. Somebody in the shop stops talking.",
             "effects": [
               {
                 "op": "set_flag",
@@ -2363,7 +2363,7 @@
               "atLeast": 2,
               "cover": {
                 "base": 0.35,
-                "text": "PLACEHOLDER: the shop's noise hides it"
+                "text": "the fridges and the radio cover it"
               }
             },
             {
@@ -2372,7 +2372,7 @@
               "value": true
             }
           ],
-          "result_text": "PLACEHOLDER: Blast the door",
+          "result_text": "The door becomes a hole. In the shop, a phone goes off in a pocket and nobody can tell which.",
           "goto": "s_room"
         },
         {
@@ -2389,7 +2389,7 @@
       "type": "choice",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: The back yard: bins, crates, a man on a smoke.",
+      "text": "The back yard: bins, crates, a man on a smoke. The cellar flap lies in the paving by his feet.",
       "choices": [
         {
           "label": "Wait for the smoker to finish",
@@ -2440,7 +2440,7 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: Wait for the smoker to finish: success",
+            "result_text": "He finishes the cigarette, looks at his phone, and goes in. The yard is yours.",
             "effects": [
               {
                 "op": "set_flag",
@@ -2486,7 +2486,7 @@
             "goto": "s_door"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: Wait for the smoker to finish: fail",
+            "result_text": "He lights another. He has plainly decided this is his break and he's having all of it.",
             "effects": [
               {
                 "op": "set_flag",
@@ -2597,7 +2597,7 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: Pose as the delivery: success",
+            "result_text": "\"Delivery,\" you say, with a crate. He holds the door and says, \"Mind the step.\" You do.",
             "effects": [
               {
                 "op": "set_flag",
@@ -2643,7 +2643,7 @@
             "goto": "s_door"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: Pose as the delivery: fail",
+            "result_text": "\"What delivery?\" He knows the schedule better than you do, and says so.",
             "effects": [
               {
                 "op": "set_flag",
@@ -2712,7 +2712,7 @@
       "type": "choice",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: Or trust to luck, or something stranger.",
+      "text": "Or trust to luck, or something stranger.",
       "choices": [
         {
           "label": "Hope he's gone in",
@@ -2740,7 +2740,7 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: Hope he's gone in: success",
+            "result_text": "His phone rings. He goes in to take it, one finger in his other ear.",
             "effects": [
               {
                 "op": "set_flag",
@@ -2786,7 +2786,7 @@
             "goto": "s_door"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: Hope he's gone in: fail",
+            "result_text": "He's staying exactly where he is, watching the end of his cigarette, and now watching you.",
             "effects": [
               {
                 "op": "set_flag",
@@ -2900,7 +2900,7 @@
               "value": false
             }
           ],
-          "result_text": "PLACEHOLDER: Prophet's Breath: know when he goes in",
+          "result_text": "You know when he'll stub it out, and you're ready for it.",
           "goto": "s_door"
         },
         {
@@ -2962,7 +2962,7 @@
               "value": false
             }
           ],
-          "result_text": "PLACEHOLDER: Time Pearl: freeze him",
+          "result_text": "The smoke stops hanging. He stops with it, cigarette halfway to his mouth, while you go by.",
           "goto": "s_door"
         },
         {
@@ -2979,7 +2979,7 @@
       "type": "choice",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: The yard door, old and painted shut-ish.",
+      "text": "The yard door, old and painted shut-ish.",
       "choices": [
         {
           "label": "Slide the hinge pins out",
@@ -3031,7 +3031,7 @@
             "entry": "physical"
           },
           "success": {
-            "result_text": "PLACEHOLDER: Slide the hinge pins out: success",
+            "result_text": "The pins are on the outside. They come out one at a time, and the door sits there loose until you ask it to move.",
             "effects": [
               {
                 "op": "set_flag",
@@ -3077,7 +3077,7 @@
             "goto": "s_back_in"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: Slide the hinge pins out: fail",
+            "result_text": "The pins are painted in. One snaps off and the sound goes into the yard.",
             "effects": [
               {
                 "op": "set_flag",
@@ -3190,7 +3190,7 @@
             "entry": "physical"
           },
           "success": {
-            "result_text": "PLACEHOLDER: Pick it: success",
+            "result_text": "The lock is old and the pick is not. It turns over without argument.",
             "effects": [
               {
                 "op": "set_flag",
@@ -3236,7 +3236,7 @@
             "goto": "s_back_in"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: Pick it: fail",
+            "result_text": "The pick slips. The lock keeps its own counsel, and a small shriek of metal goes into the yard.",
             "effects": [
               {
                 "op": "set_flag",
@@ -3305,7 +3305,7 @@
       "type": "choice",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: Or make a noise.",
+      "text": "Or make a noise.",
       "choices": [
         {
           "label": "Walk in",
@@ -3358,7 +3358,7 @@
               "value": false
             }
           ],
-          "result_text": "PLACEHOLDER: Walk in",
+          "result_text": "It isn't locked. Whoever was last out has gone to the pub.",
           "goto": "s_back_in"
         },
         {
@@ -3383,7 +3383,7 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: Force the door: success",
+            "result_text": "The door gives under your weight, and the shop covers the sound.",
             "effects": [
               {
                 "op": "set_flag",
@@ -3430,7 +3430,7 @@
                 "atLeast": 2,
                 "cover": {
                   "base": 0.35,
-                  "text": "PLACEHOLDER: the shop's noise hides it"
+                  "text": "the shop's noise swallows it"
                 }
               },
               {
@@ -3442,7 +3442,7 @@
             "goto": "s_back_loud"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: Force the door: fail",
+            "result_text": "The door bangs back off the wall. Inside, a voice says, \"Was that the back?\"",
             "effects": [
               {
                 "op": "set_flag",
@@ -3569,7 +3569,7 @@
               "atLeast": 2,
               "cover": {
                 "base": 0.35,
-                "text": "PLACEHOLDER: the shop's noise hides it"
+                "text": "the shop's noise swallows it"
               }
             },
             {
@@ -3578,7 +3578,7 @@
               "value": true
             }
           ],
-          "result_text": "PLACEHOLDER: Blast the door",
+          "result_text": "The door is a hole now, and the handle is across the yard. Inside, somebody drops a bottle.",
           "goto": "s_back_loud"
         },
         {
@@ -3595,7 +3595,7 @@
       "type": "choice",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: The cellar flap in the pavement, the street going by.",
+      "text": "The cellar flap in the pavement, with the street going by an arm's length away.",
       "choices": [
         {
           "label": "Take the flap while the drayman has it open",
@@ -3658,7 +3658,7 @@
               "value": false
             }
           ],
-          "result_text": "PLACEHOLDER: Take the flap while the drayman has it open",
+          "result_text": "The flap's up for the drayman, and he's rolling barrels past it. You go down while his back is turned.",
           "goto": "s_cellar"
         },
         {
@@ -3721,7 +3721,7 @@
             "entry": "physical"
           },
           "success": {
-            "result_text": "PLACEHOLDER: Lever the rotten flap: success",
+            "result_text": "The flap comes up on its rotten hinge with a long creak. Down you go.",
             "effects": [
               {
                 "op": "set_flag",
@@ -3767,7 +3767,7 @@
             "goto": "s_cellar"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: Lever the rotten flap: fail",
+            "result_text": "The hinge goes with a bang, and the flap slaps back on the stone.",
             "effects": [
               {
                 "op": "set_flag",
@@ -3856,7 +3856,7 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: Hope no one on the street looks down: success",
+            "result_text": "No one on the pavement looks down. They look at their phones, which is the same thing.",
             "effects": [
               {
                 "op": "set_flag",
@@ -3902,7 +3902,7 @@
             "goto": "s_cellar"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: Hope no one on the street looks down: fail",
+            "result_text": "A woman looks down. She sees a coat, going into the pavement.",
             "effects": [
               {
                 "op": "set_flag",
@@ -3971,7 +3971,7 @@
       "type": "choice",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: Or the quick way.",
+      "text": "Or the quick way.",
       "choices": [
         {
           "label": "Blast the flap",
@@ -4036,7 +4036,7 @@
               "atLeast": 2,
               "cover": {
                 "base": 0.35,
-                "text": "PLACEHOLDER: the shop's noise hides it"
+                "text": "the street's own noise covers it"
               }
             },
             {
@@ -4045,7 +4045,7 @@
               "value": true
             }
           ],
-          "result_text": "PLACEHOLDER: Blast the flap",
+          "result_text": "The flap goes up in a cloud of pavement. A dog barks and its owner tells it off.",
           "goto": "s_cellar"
         },
         {
@@ -4062,7 +4062,7 @@
       "type": "choice",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: Straight into the cellar, past the stock, no stairs, no till.",
+      "text": "Straight into the cellar, past the stock, with no stairs and no till.",
       "choices": [
         {
           "label": "Wait for the guard on the vein to turn",
@@ -4105,7 +4105,7 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: Wait for the guard on the vein to turn: success",
+            "result_text": "He turns to the far wall and you step down off the ladder. Quiet as a cat.",
             "effects": [
               {
                 "op": "set_flag",
@@ -4151,7 +4151,7 @@
             "goto": "s_room"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: Wait for the guard on the vein to turn: fail",
+            "result_text": "He doesn't turn. He's facing exactly the wall you need him to look away from.",
             "effects": [
               {
                 "op": "set_flag",
@@ -4232,7 +4232,7 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: Hope he turns: success",
+            "result_text": "He turns his head to scratch his ear. That's all you needed.",
             "effects": [
               {
                 "op": "set_flag",
@@ -4278,7 +4278,7 @@
             "goto": "s_room"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: Hope he turns: fail",
+            "result_text": "He doesn't turn. You hang off the ladder with your arms shaking.",
             "effects": [
               {
                 "op": "set_flag",
@@ -4392,7 +4392,7 @@
               "value": true
             }
           ],
-          "result_text": "PLACEHOLDER: Prophet's Breath: know when he turns",
+          "result_text": "You know the moment he turns, and you're on the floor behind him.",
           "goto": "s_room"
         },
         {
@@ -4409,7 +4409,7 @@
       "type": "choice",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: Or freeze him.",
+      "text": "Or freeze him.",
       "choices": [
         {
           "label": "Time Pearl: freeze him",
@@ -4470,7 +4470,7 @@
               "value": true
             }
           ],
-          "result_text": "PLACEHOLDER: Time Pearl: freeze him",
+          "result_text": "He stops mid-turn, one hand on the stock. You walk round him.",
           "goto": "s_room"
         },
         {
@@ -4487,7 +4487,7 @@
       "type": "tension",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: She's looking right at you.",
+      "text": "She's looking right at you, with her hand on the phone.",
       "goto": [
         {
           "if": {
@@ -4507,7 +4507,7 @@
       "type": "tension",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: Someone on the pavement has stopped.",
+      "text": "Someone on the pavement has stopped, and is looking at the flap and then at you.",
       "goto": [
         {
           "if": {
@@ -4527,7 +4527,7 @@
       "type": "tension",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: The smoker has seen you.",
+      "text": "The smoker has seen you. He looks at the cigarette, then at you, then at the cigarette.",
       "goto": [
         {
           "if": {
@@ -4547,7 +4547,7 @@
       "type": "tension",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: Someone heard the door.",
+      "text": "Someone heard the door. A chair scrapes inside.",
       "goto": [
         {
           "if": {
@@ -4567,7 +4567,7 @@
       "type": "tension",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: Someone inside has seen you.",
+      "text": "Someone inside has seen you. They put down the box.",
       "goto": [
         {
           "if": {
@@ -4605,7 +4605,7 @@
       "type": "choice",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: Someone outside has seen you.",
+      "text": "Someone outside has seen you. They are not going to look away.",
       "choices": [
         {
           "label": "Take him down",
@@ -4616,7 +4616,7 @@
               "waves": 1
             }
           ],
-          "result_text": "PLACEHOLDER: Take him down",
+          "result_text": "Quick, and not quiet. He's down before he's finished taking a breath.",
           "goto": "s_resume"
         },
         {
@@ -4679,7 +4679,7 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: Talk it out: success",
+            "result_text": "He goes back to his break, none the wiser.",
             "effects": [
               {
                 "op": "alert",
@@ -4689,7 +4689,7 @@
             "goto": "s_resume"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: Talk it out: fail",
+            "result_text": "He doesn't buy it. He shouts, and the yard carries it.",
             "effects": [
               {
                 "op": "alert",
@@ -4748,7 +4748,7 @@
             "entry": "physical"
           },
           "success": {
-            "result_text": "PLACEHOLDER: Duck out of sight: success",
+            "result_text": "You're round the corner before he looks.",
             "effects": [
               {
                 "op": "alert",
@@ -4758,7 +4758,7 @@
             "goto": "s_resume"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: Duck out of sight: fail",
+            "result_text": "He sees where you went.",
             "effects": [
               {
                 "op": "alert",
@@ -4787,7 +4787,7 @@
       "type": "choice",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: Something packed, or the road home.",
+      "text": "Something packed, or the road home.",
       "choices": [
         {
           "label": "Pan's Rapture",
@@ -4816,7 +4816,7 @@
               "count": 1
             }
           ],
-          "result_text": "PLACEHOLDER: Pan's Rapture",
+          "result_text": "He smiles at nothing and wanders off, and for a while the whole evening is lovely.",
           "goto": "s_resume"
         },
         {
@@ -4862,7 +4862,7 @@
               ]
             }
           ],
-          "result_text": "PLACEHOLDER: Blast him",
+          "result_text": "One bang, and he isn't standing. The alley is quieter after.",
           "goto": "s_resume"
         },
         {
@@ -4879,7 +4879,7 @@
       "type": "choice",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: Someone inside has seen you.",
+      "text": "Someone inside has seen you. He's still holding a bottle, and not like a bottle.",
       "choices": [
         {
           "label": "Take him down",
@@ -4890,7 +4890,7 @@
               "waves": 1
             }
           ],
-          "result_text": "PLACEHOLDER: Take him down",
+          "result_text": "Quick, and not quiet. The shelf helps you more than it helps him.",
           "goto": "s_resume"
         },
         {
@@ -4953,7 +4953,7 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: Talk it out: success",
+            "result_text": "He goes back to the shelves, none the wiser.",
             "effects": [
               {
                 "op": "alert",
@@ -4963,7 +4963,7 @@
             "goto": "s_resume"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: Talk it out: fail",
+            "result_text": "He doesn't buy it. He shouts, and the shop turns to look.",
             "effects": [
               {
                 "op": "alert",
@@ -5022,7 +5022,7 @@
             "entry": "physical"
           },
           "success": {
-            "result_text": "PLACEHOLDER: Duck out of sight: success",
+            "result_text": "You're behind the cages before he looks round.",
             "effects": [
               {
                 "op": "alert",
@@ -5032,7 +5032,7 @@
             "goto": "s_resume"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: Duck out of sight: fail",
+            "result_text": "He sees where you went.",
             "effects": [
               {
                 "op": "alert",
@@ -5061,7 +5061,7 @@
       "type": "choice",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: Something packed, or the road home.",
+      "text": "Something packed, or the road home.",
       "choices": [
         {
           "label": "Pan's Rapture",
@@ -5090,7 +5090,7 @@
               "count": 1
             }
           ],
-          "result_text": "PLACEHOLDER: Pan's Rapture",
+          "result_text": "He smiles at nothing and wanders off down the aisle with the bottle.",
           "goto": "s_resume"
         },
         {
@@ -5136,7 +5136,7 @@
               ]
             }
           ],
-          "result_text": "PLACEHOLDER: Blast him",
+          "result_text": "One bang, indoors. The shop goes quiet for a second.",
           "goto": "s_resume"
         },
         {
@@ -5153,7 +5153,7 @@
       "type": "choice",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: A witness has seen you. Not a guard.",
+      "text": "A witness has seen you. Not a guard, just somebody buying milk.",
       "choices": [
         {
           "label": "Talk it out",
@@ -5215,7 +5215,7 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: Talk it out: success",
+            "result_text": "\"Just looking for the toilet.\" They half nod. Half is enough.",
             "effects": [
               {
                 "op": "alert",
@@ -5225,7 +5225,7 @@
             "goto": "s_resume"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: Talk it out: fail",
+            "result_text": "They don't buy it. They take out a phone.",
             "effects": [
               {
                 "op": "alert",
@@ -5284,7 +5284,7 @@
             "entry": "physical"
           },
           "success": {
-            "result_text": "PLACEHOLDER: Duck out of sight: success",
+            "result_text": "You're gone from the doorway before they've lifted their head.",
             "effects": [
               {
                 "op": "alert",
@@ -5294,7 +5294,7 @@
             "goto": "s_resume"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: Duck out of sight: fail",
+            "result_text": "They see where you went.",
             "effects": [
               {
                 "op": "alert",
@@ -5323,7 +5323,7 @@
       "type": "choice",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: The shop is awake and looking.",
+      "text": "The shop is awake and looking: voices at the till, a stool going over, someone in the back saying, \"Who's that?\"",
       "choices": [
         {
           "label": "Hide",
@@ -5358,12 +5358,12 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: Hide: success",
+            "result_text": "They pass the end of the aisle, close enough to read the label on the box you're behind.",
             "effects": [],
             "goto": "s_resume"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: Hide: fail",
+            "result_text": "They find you between two cages.",
             "effects": [
               {
                 "op": "start_raid_combat",
@@ -5390,12 +5390,12 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: Bluff: success",
+            "result_text": "\"Staff,\" you say, and walk like it. They half believe you. Half is enough.",
             "effects": [],
             "goto": "s_resume"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: Bluff: fail",
+            "result_text": "They don't. A man steps in front of the back door.",
             "effects": [
               {
                 "op": "start_raid_combat",
@@ -5432,7 +5432,7 @@
               "count": 9
             }
           ],
-          "result_text": "PLACEHOLDER: Pan's Rapture",
+          "result_text": "They smile at nothing and go back to their phones, their shift, their evening.",
           "goto": "s_resume"
         },
         {
@@ -5449,7 +5449,7 @@
       "type": "choice",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: Scare them off, or leave.",
+      "text": "Scare them off, or leave.",
       "choices": [
         {
           "label": "Panic",
@@ -5478,7 +5478,7 @@
               "atLeast": 2,
               "cover": {
                 "base": 0.35,
-                "text": "PLACEHOLDER: they scatter, but the staff heard"
+                "text": "they scatter, but the staff heard"
               }
             },
             {
@@ -5487,7 +5487,7 @@
               "value": true
             }
           ],
-          "result_text": "PLACEHOLDER: Panic",
+          "result_text": "Half the shop runs out into the street. The staff stay where they are, and they've heard everything.",
           "goto": "s_resume"
         },
         {
@@ -5504,7 +5504,7 @@
       "type": "choice",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: The back room, and the guards between you and the way on.",
+      "text": "The back room, and the guards in it, standing among the stock with their hands in their pockets.",
       "choices": [
         {
           "label": "Fight",
@@ -5514,7 +5514,7 @@
               "preset": "veinGuards"
             }
           ],
-          "result_text": "PLACEHOLDER: Fight",
+          "result_text": "No more subtlety. They stop pretending to be stock handlers.",
           "goto": "s_resume"
         },
         {
@@ -5557,12 +5557,12 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: Bluff past: success",
+            "result_text": "They let you by. Nobody wants to be the one who stopped the wrong person at work.",
             "effects": [],
             "goto": "s_resume"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: Bluff past: fail",
+            "result_text": "They don't. One moves into the doorway and doesn't say anything.",
             "effects": [
               {
                 "op": "alert",
@@ -5595,7 +5595,7 @@
       "type": "choice",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: Something packed.",
+      "text": "Something packed.",
       "choices": [
         {
           "label": "Prophet's Breath: skip the post",
@@ -5615,7 +5615,7 @@
             }
           ],
           "effects": [],
-          "result_text": "PLACEHOLDER: Prophet's Breath: skip the post",
+          "result_text": "You know where each of them will be, and it isn't where you are.",
           "goto": "s_resume"
         },
         {
@@ -5640,7 +5640,7 @@
             }
           ],
           "effects": [],
-          "result_text": "PLACEHOLDER: Time Pearl: freeze and rush past",
+          "result_text": "The room stops. You don't.",
           "goto": "s_resume"
         },
         {
@@ -5677,7 +5677,7 @@
               ]
             }
           ],
-          "result_text": "PLACEHOLDER: Time Pearl: freeze the line guard",
+          "result_text": "One of them stops mid-reach. The fight gets shorter.",
           "goto": "s_resume"
         },
         {
@@ -5694,7 +5694,7 @@
       "type": "choice",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: Something that makes a post lose its head.",
+      "text": "Something that makes a post lose its head.",
       "choices": [
         {
           "label": "Pandemonium",
@@ -5752,7 +5752,7 @@
               ]
             }
           ],
-          "result_text": "PLACEHOLDER: Pandemonium",
+          "result_text": "A word in the wrong ear, and the post turns on itself over the shelving.",
           "goto": "s_resume"
         },
         {
@@ -5782,7 +5782,7 @@
               "atLeast": 2,
               "cover": {
                 "base": 0.35,
-                "text": "PLACEHOLDER: they scatter, but the staff heard"
+                "text": "they scatter, but the staff heard"
               }
             },
             {
@@ -5791,7 +5791,7 @@
               "value": true
             }
           ],
-          "result_text": "PLACEHOLDER: Panic",
+          "result_text": "Two of them run, knocking over cages. In the shop, someone drops a bottle.",
           "goto": "s_resume"
         },
         {
@@ -5830,7 +5830,7 @@
               "count": 9
             }
           ],
-          "result_text": "PLACEHOLDER: Pan's Rapture",
+          "result_text": "They go docile among the crates, and stay that way.",
           "goto": "s_resume"
         },
         {
@@ -5847,7 +5847,7 @@
       "type": "choice",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: More of them arrive.",
+      "text": "More of them arrive, in the shop's own aprons, through the front.",
       "choices": [
         {
           "label": "Keep moving",
@@ -5868,7 +5868,7 @@
       "type": "choice",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: A camera over the till, facing the queue.",
+      "text": "A camera over the till, facing the queue. Its red light never goes out.",
       "choices": [
         {
           "label": "Time the sweep",
@@ -5911,7 +5911,7 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: Time the sweep: success",
+            "result_text": "You go under it between sweeps. The camera sees a queue, and nothing in it.",
             "effects": [
               {
                 "op": "set_flag",
@@ -5957,7 +5957,7 @@
             "goto": "s_till"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: Time the sweep: fail",
+            "result_text": "It catches you at the end of the sweep. Somewhere a small light changes colour.",
             "effects": [
               {
                 "op": "set_flag",
@@ -6053,7 +6053,7 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: Stay in its blind spot: success",
+            "result_text": "The blind spot is where you are. It sees the queue and a gap in it.",
             "effects": [
               {
                 "op": "set_flag",
@@ -6099,7 +6099,7 @@
             "goto": "s_till"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: Stay in its blind spot: fail",
+            "result_text": "It isn't blind enough. It has you.",
             "effects": [
               {
                 "op": "set_flag",
@@ -6180,7 +6180,7 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: Hope it's on the blink: success",
+            "result_text": "The light flickers and the lens goes dark for just long enough.",
             "effects": [
               {
                 "op": "set_flag",
@@ -6226,7 +6226,7 @@
             "goto": "s_till"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: Hope it's on the blink: fail",
+            "result_text": "It doesn't blink. The red light is steady.",
             "effects": [
               {
                 "op": "set_flag",
@@ -6336,7 +6336,7 @@
       "type": "choice",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: A camera is a system. It can't be talked round.",
+      "text": "A camera is a system. It can't be talked round.",
       "choices": [
         {
           "label": "Time Pearl: freeze it",
@@ -6397,7 +6397,7 @@
               "value": false
             }
           ],
-          "result_text": "PLACEHOLDER: Time Pearl: freeze it",
+          "result_text": "The camera stops, and so does the light in it. The queue goes on without it.",
           "goto": "s_till"
         },
         {
@@ -6463,7 +6463,7 @@
               "atLeast": 2,
               "cover": {
                 "base": 0.35,
-                "text": "PLACEHOLDER: the shop's noise hides it"
+                "text": "the shop's noise hides it"
               }
             },
             {
@@ -6472,7 +6472,7 @@
               "value": true
             }
           ],
-          "result_text": "PLACEHOLDER: Blast it",
+          "result_text": "The camera is a lot of small parts on the lino now. The queue pretends not to have seen.",
           "goto": "s_till"
         },
         {
@@ -6530,7 +6530,7 @@
       "type": "choice",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: They'll be coming to look at the screen.",
+      "text": "Somebody will be looking at the screen by now, and walking this way.",
       "choices": [
         {
           "label": "Take him down",
@@ -6581,7 +6581,7 @@
               "waves": 1
             }
           ],
-          "result_text": "PLACEHOLDER: Take him down",
+          "result_text": "He arrives. You're ready for him.",
           "goto": "s_till"
         },
         {
@@ -6628,7 +6628,7 @@
             "entry": "physical"
           },
           "success": {
-            "result_text": "PLACEHOLDER: Duck out of sight: success",
+            "result_text": "Gone by the time he arrives.",
             "effects": [
               {
                 "op": "set_flag",
@@ -6678,7 +6678,7 @@
             "goto": "s_till"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: Duck out of sight: fail",
+            "result_text": "He arrives early.",
             "effects": [
               {
                 "op": "set_flag",
@@ -6816,7 +6816,7 @@
               ]
             }
           ],
-          "result_text": "PLACEHOLDER: Blast him",
+          "result_text": "One bang, behind the counter. The queue gets shorter.",
           "goto": "s_till"
         },
         {
@@ -6874,7 +6874,7 @@
       "type": "choice",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: A ward on the threshold, faint as a draught.",
+      "text": "A ward on the cellar threshold, faint as a draught.",
       "choices": [
         {
           "label": "Step through",
@@ -6883,7 +6883,7 @@
               "op": "ward_trigger"
             }
           ],
-          "result_text": "PLACEHOLDER: You step through. The air rings once.",
+          "result_text": "You step through. The air rings once.",
           "goto": "s_room"
         },
         {
@@ -6920,12 +6920,12 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: Through the gap in it.",
+            "result_text": "Through the gap in it.",
             "effects": [],
             "goto": "s_room"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: It notices.",
+            "result_text": "It notices.",
             "effects": [
               {
                 "op": "ward_trigger"
@@ -6941,12 +6941,12 @@
             "mods": []
           },
           "success": {
-            "result_text": "PLACEHOLDER: It spends itself on the decoy. You wait, then go.",
+            "result_text": "It spends itself on the decoy. You wait, then go.",
             "effects": [],
             "goto": "s_room"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: It ignores the decoy and takes you.",
+            "result_text": "It ignores the decoy and takes you.",
             "effects": [
               {
                 "op": "ward_trigger"
@@ -6969,7 +6969,7 @@
       "type": "choice",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: Something packed, or someone else.",
+      "text": "Something packed, or someone else.",
       "choices": [
         {
           "label": "Trick a guard into it",
@@ -7015,7 +7015,7 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: He steps through it. You step round him.",
+            "result_text": "He steps through it. You step round him.",
             "effects": [
               {
                 "op": "reduce_raid_guards",
@@ -7025,7 +7025,7 @@
             "goto": "s_room"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: He doesn't fall for it. The ward falls for you.",
+            "result_text": "He doesn't fall for it. The ward falls for you.",
             "effects": [
               {
                 "op": "ward_trigger"
@@ -7046,7 +7046,7 @@
               "op": "ward_trigger"
             }
           ],
-          "result_text": "PLACEHOLDER: Faster than it can notice.",
+          "result_text": "Faster than it can notice.",
           "goto": "s_room",
           "items": [
             {
@@ -7095,12 +7095,12 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: The ward is on the other side of you.",
+            "result_text": "The ward is on the other side of you.",
             "effects": [],
             "goto": "s_room"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: The fold lands short.",
+            "result_text": "The fold lands short, at the top of the stairs.",
             "effects": [
               {
                 "op": "ward_trigger"
@@ -7123,7 +7123,7 @@
       "type": "choice",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: A ward is a system. Stop it.",
+      "text": "A ward is a system. Stop it.",
       "choices": [
         {
           "label": "Time Pearl: freeze the ward",
@@ -7174,7 +7174,7 @@
               "value": true
             }
           ],
-          "result_text": "PLACEHOLDER: The ward stops. You don't.",
+          "result_text": "The ward stops. You don't.",
           "goto": "s_room",
           "items": [
             {
@@ -7201,7 +7201,7 @@
       "type": "choice",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: The vein room: low light, a hum in the floor, and guards standing on the vein.",
+      "text": "The vein room: low light, a hum in the floor, and guards standing on the vein.",
       "choices": [
         {
           "label": "Fight for the room",
@@ -7218,7 +7218,7 @@
               "preset": "veinGuards"
             }
           ],
-          "result_text": "PLACEHOLDER: They don't give it up.",
+          "result_text": "They don't give it up.",
           "goto": "s_claim_route"
         },
         {
@@ -7231,7 +7231,7 @@
             "display": "hide"
           },
           "effects": [],
-          "result_text": "PLACEHOLDER: Nobody stops you.",
+          "result_text": "Nobody stops you.",
           "goto": "s_claim_route"
         },
         {
@@ -7281,12 +7281,12 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: They let you by.",
+            "result_text": "They let you by.",
             "effects": [],
             "goto": "s_claim_route"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: They don't.",
+            "result_text": "They don't.",
             "effects": [
               {
                 "op": "alert",
@@ -7354,7 +7354,7 @@
               "value": true
             }
           ],
-          "result_text": "PLACEHOLDER: You know where each of them will be.",
+          "result_text": "You know where each of them will be.",
           "goto": "s_claim_route",
           "items": [
             {
@@ -7415,7 +7415,7 @@
       "type": "choice",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: Boots in the corridor. They're nearly here.",
+      "text": "Boots on the stairs, and shouting up in the shop. They're nearly here.",
       "choices": [
         {
           "label": "Reach for the vein",
@@ -7425,7 +7425,7 @@
               "preset": "veinGuards"
             }
           ],
-          "result_text": "PLACEHOLDER: You reach for the vein with the footsteps getting louder.",
+          "result_text": "You reach for the vein with the footsteps getting louder.",
           "goto": "s_claim_a"
         }
       ]
@@ -7492,7 +7492,7 @@
       "type": "choice",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: the way out is not the way you came",
+      "text": "The way out is not the way you came. It's the shop, and the shop is awake.",
       "end": true,
       "choices": [
         {
@@ -7514,11 +7514,11 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: You run. Nobody catches you.",
+            "result_text": "You run. Nobody catches you.",
             "effects": []
           },
           "fail": {
-            "result_text": "PLACEHOLDER: They catch you at the gate.",
+            "result_text": "They catch you at the yard door.",
             "effects": [
               {
                 "op": "start_raid_combat",
@@ -7553,11 +7553,11 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: Out through the shop: success",
+            "result_text": "You walk out through the shop, past the queue. The bell goes, and it's perfectly ordinary.",
             "effects": []
           },
           "fail": {
-            "result_text": "PLACEHOLDER: Out through the shop: fail",
+            "result_text": "You walk out like a customer, but the till worker has been counting heads, and you're one too many.",
             "effects": [
               {
                 "op": "start_raid_combat",
@@ -7598,11 +7598,11 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: The fold takes you out.",
+            "result_text": "The fold takes you out.",
             "effects": []
           },
           "fail": {
-            "result_text": "PLACEHOLDER: The fold lands short.",
+            "result_text": "The fold lands short, in the cellar.",
             "effects": [
               {
                 "op": "start_raid_combat",
@@ -7618,7 +7618,7 @@
       "type": "choice",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: You could still walk away.",
+      "text": "You could still walk away.",
       "choices": [
         {
           "label": "Back out",
@@ -7633,7 +7633,7 @@
               "op": "back_out"
             }
           ],
-          "result_text": "PLACEHOLDER: backed out",
+          "result_text": "You walk away.",
           "goto": "s_out"
         },
         {
@@ -7661,7 +7661,7 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: Run for it: success",
+            "result_text": "You run, and nobody catches you.",
             "effects": [
               {
                 "op": "back_out"
@@ -7670,7 +7670,7 @@
             "goto": "s_out"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: Run for it: fail",
+            "result_text": "They cut you off at the door.",
             "effects": [
               {
                 "op": "start_raid_combat",
@@ -7717,7 +7717,7 @@
             ]
           },
           "success": {
-            "result_text": "PLACEHOLDER: Wormhole out: success",
+            "result_text": "The fold takes you out and sets you down a street away, outside the chemist.",
             "effects": [
               {
                 "op": "back_out"
@@ -7726,7 +7726,7 @@
             "goto": "s_out"
           },
           "fail": {
-            "result_text": "PLACEHOLDER: Wormhole out: fail",
+            "result_text": "The fold lands short, in the yard, in front of the smoker.",
             "effects": [
               {
                 "op": "start_raid_combat",
@@ -7760,7 +7760,7 @@
       "type": "tension",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: You carry on.",
+      "text": "You carry on.",
       "goto": [
         {
           "if": {
@@ -7785,7 +7785,7 @@
       "type": "tension",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: You carry on.",
+      "text": "You carry on.",
       "goto": [
         {
           "if": {
@@ -7839,7 +7839,7 @@
       "type": "tension",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: The noise carries into the back room.",
+      "text": "The noise carries into the back room, and the stockroom hears it.",
       "goto": [
         {
           "if": {
@@ -7877,7 +7877,7 @@
       "type": "tension",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: The door marked staff only.",
+      "text": "The door marked STAFF ONLY.",
       "goto": [
         {
           "if": {
@@ -7898,7 +7898,7 @@
       "type": "tension",
       "label": null,
       "speaker": null,
-      "text": "PLACEHOLDER: The cellar stairs.",
+      "text": "The cellar stairs.",
       "goto": [
         {
           "if": {
@@ -7920,7 +7920,7 @@
       "label": null,
       "speaker": null,
       "end": true,
-      "text": "PLACEHOLDER: You walk away. Nobody knows you were here"
+      "text": "You've seen enough. You walk away, and nobody ever knows you were here."
     }
   ],
   "on_complete": [

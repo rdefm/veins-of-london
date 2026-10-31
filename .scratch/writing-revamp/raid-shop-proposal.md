@@ -101,7 +101,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
           "tiers": [
             {
               "base": 0.25,
-              "text": "The yard door's hinge pins are on the outside. You can place the vein to the yard: under the back room, against the far wall.",
+              "text": "Only one front door. Enough people inside to make getaways awkward and conflict dangerous. ",
               "variants": [
                 {
                   "when": {
@@ -115,7 +115,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
             },
             {
               "base": 0.55,
-              "text": "The yard door round the back is old: soft paint, a warped frame, and a lock newer than the wood.",
+              "text": "Through the one door you can see people moving, and some narrow shelves. Feels a bit claustrophobic.",
               "variants": [
                 {
                   "when": {
@@ -128,39 +128,39 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
               ]
             }
           ],
-          "miss": "Plate glass, a shutter rolled up for the evening, a door with a chime. Nothing you can read past that."
+          "miss": "There's a door. A flickering light in the store. Oh, and shelves. Yup, it's a shop."
         },
         "life": {
           "tiers": [
             {
               "base": 0.25,
-              "text": "One woman on the till, and a regular at the counter who's been \"just going\" for forty minutes. In the back, men in shop fleeces stocking the shelves, more men than the shelves need. One of them keeps stepping out to the yard for a smoke."
+              "text": "There's someone chatting to the shopkeeper, and a few other customers browsing. Seems like more people in the back, too."
             },
             {
               "base": 0.55,
-              "text": "There's more than one person in the back. The man at the counter isn't buying anything, and somebody keeps stepping out the back for a smoke."
+              "text": "You can make out at least 2 people by the till, and likely more elsewhere in the shop."
             }
           ],
-          "miss": "Customers, staff, a man at the counter. From out here you can't tell who works for the shop and who works for the cellar."
+          "miss": "At first you think it's empty. Then you notice the customers. And the staff. Yup, those are people alright."
         },
         "emotion": {
           "tiers": [
             {
               "base": 0.25,
-              "text": "The woman on the till would accept any story that means she doesn't have to deal with it. The men in the back are bored, and boredom makes people easy to talk past."
+              "text": "There's a sense of passiveness, being resigned to your fate. Boredom and complacency is what you pick up on, not vigilance or danger."
             },
             {
               "base": 0.55,
-              "text": "The woman on the till hates this job, quietly and in detail."
+              "text": "They say the active displaces the passive. This place should have been displaced a long time ago."
             }
           ],
-          "miss": "Tired faces under strip lights. Nothing you can use."
+          "miss": "Tired faces under strip lights. Almost everyone here would rather be somewhere else. Nothing you can use."
         },
         "time": {
           "tiers": [
             {
               "base": 0.25,
-              "text": "Stock comes in round the back, and the drayman comes on the hour. He props the pavement flap open while he unloads, and leaves it open between crates.",
+              "text": "Stock comes in round the back, and sometimes deliveries go in via the pavement flap. He's due soon, and often leaves the flap open between crates.",
               "variants": [
                 {
                   "when": {
@@ -213,7 +213,54 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
               ]
             }
           ],
-          "miss": "No luck in the air either way. Just a shop."
+          "miss": "You're feeling lucky tonight. Then you notice that you stepped in dog poo, and change your mind."
+        }
+      }
+    },
+    "s_door": {
+      "blocks": {
+        "physics": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "The yard door's hinge pins are on the outside. Stiff, but removable, with enough elbow grease."
+            },
+            {
+              "base": 0.55,
+              "text": "The yard door round the back is old: soft paint, a warped frame, and a lock newer than the wood."
+            }
+          ],
+          "miss": "The door looks too solid for you to kick in. "
+        }
+      }
+    },
+    "s_in_cust": {
+      "blocks": {
+        "life": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "One woman on the till, a regular at the counter who won't stop talking. In the back, men in shop fleeces stock shelves; more men than the shelves need."
+            },
+            {
+              "base": 0.55,
+              "text": "One woman on the till, a regular at the counter who won't stop talking. In the back, men in shop fleeces stock shelves; more men than the shelves need."
+            }
+          ],
+          "miss": "Two people near the till. You hear someone else, but can't tell if they're behind the shelves or further back in the shop."
+        },
+        "emotion": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "The woman on the till would accept any story that means she doesn't have to deal with hassle. The men in the back are bored, and boredom makes people easy to talk past."
+            },
+            {
+              "base": 0.55,
+              "text": "The woman on the till hates this job with the intensity that makes you just not care anymore."
+            }
+          ],
+          "miss": "Tired faces under strip lights. Almost everyone here would rather be somewhere else. Nothing you can use."
         }
       }
     }
@@ -257,7 +304,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
           "type": "choice",
           "label": null,
           "speaker": null,
-          "text": "You can make out 2 ways in. 1) front door: past the till, through the staff door, across the stockroom, down the stairs. 2) round the back: the yard, the yard door, the same stockroom. The front is the easy part. It's also where everyone can see you.",
+          "text": "You can make out 2 ways in. One: front door: past the till and staff door. Then stockroom and stairs. Two: round the back. Yard, door, stockroom, stairs. One is easier, but you're much more exposed.",
           "choices": [
             {
               "label": "Walk in as a customer",
@@ -657,7 +704,8 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
           "type": "tension",
           "label": null,
           "speaker": null,
-          "text": "The door chimes. Three aisles, a humming fridge, a regular at the counter in no hurry to leave. The staff door is behind the till."
+          "text": "The door chimes. Three aisles, a humming fridge, a regular at the counter in no hurry to leave. The staff door is behind the till.",
+          "observe": "s_in_cust"
         }
       ],
       "then": [
@@ -2617,7 +2665,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
           "type": "choice",
           "label": null,
           "speaker": null,
-          "text": "Round the back: bins, flattened boxes, a stack of empty crates. A man in a shop fleece is having a smoke beside the yard door, which is the door you need. He isn't staff. He's watching the door more than his phone.",
+          "text": "Round the back: bins, flattened boxes, a stack of empty crates. A man in a shop fleece is having a smoke beside the yard door, which is the door you need. He's watching the door more than his phone.",
           "choices": [
             {
               "label": "Wait for the smoker to finish",
@@ -2877,7 +2925,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
                 }
               },
               "fail": {
-                "result_text": "He asks where the van is. There isn't a van.",
+                "result_text": "He asks where the van is. You say it's parked on the road. He asks how the pallet got here then. Your suggestion of \"magic?\" doesn't persuade him.",
                 "effects": [
                   {
                     "op": "set_flag",
@@ -3214,7 +3262,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
                   "value": false
                 }
               ],
-              "result_text": "He stops with the lighter halfway to his mouth. You walk past him to the door.",
+              "result_text": "He stops with the lighter halfway to his mouth. You walk past him to the door. From his perspective you're just a trick of the light, there and gone in an instant.",
               "goto": {
                 "branch": "b13"
               }
@@ -3572,7 +3620,8 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
                 "branch": "b14"
               }
             }
-          ]
+          ],
+          "observe": "s_door"
         }
       ],
       "then": {
@@ -3728,7 +3777,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
                 }
               },
               "fail": {
-                "result_text": "It gives on the third, all at once, and slams into a cage of crisps.",
+                "result_text": "It gives on the third, all at once, and slams loudly into a cage of crisps. Someone probably heard that, and now your shoulder hurts.",
                 "effects": [
                   {
                     "op": "set_flag",
@@ -3866,7 +3915,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
                   "value": true
                 }
               ],
-              "result_text": "The yard door stops being a door. Most of it lands in the stockroom ahead of you.",
+              "result_text": "What was left of the door lands in the stockroom ahead of you. Loudly.",
               "goto": {
                 "branch": "b50"
               }
@@ -4485,7 +4534,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
                 }
               },
               "fail": {
-                "result_text": "He turns, but the wrong way, and you're standing in the middle of the floor.",
+                "result_text": "He turns, but the wrong way. He sees you crouching silently. Somehow you don't think he'd believe you if you said you were looking for a lost contact lens.",
                 "effects": [
                   {
                     "op": "set_flag",
@@ -4543,7 +4592,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
               }
             },
             {
-              "label": "Hope he turns",
+              "label": "Walk past like you belong",
               "check": {
                 "base": 0.36,
                 "mods": [
@@ -4568,7 +4617,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
                 ]
               },
               "success": {
-                "result_text": "He gets up to stretch, facing the wall. You're past him.",
+                "result_text": "He gets up with a yawn, stretching his arms out. He gives you a nod as you walk past confidently.",
                 "effects": [
                   {
                     "op": "set_flag",
@@ -4616,7 +4665,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
                 }
               },
               "fail": {
-                "result_text": "He doesn't turn. He looks up, straight at the bottom of the chute.",
+                "result_text": "He hears your steps, looks up, and scrambles to his feet in a panic. So much for the quiet approach.",
                 "effects": [
                   {
                     "op": "set_flag",
@@ -4822,7 +4871,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
                   "value": true
                 }
               ],
-              "result_text": "He stops mid-yawn. You walk round him to the vein.",
+              "result_text": "He stops mid-yawn. You quickly walk round him to the vein. From his perspective you're just a shadow moving at the edge of his vision, gone before he can even glance in your direction.",
               "goto": {
                 "branch": "b41"
               }
@@ -4994,7 +5043,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
           "type": "choice",
           "label": null,
           "speaker": null,
-          "text": "A man in a shop fleece is looking at you across the yard. He isn't surprised. He's got his phone out, and he hasn't decided who to ring yet.",
+          "text": "A man in a shop fleece is looking at you across the yard. He isn't surprised. He's turned sideways, one arm behind him, holding a phone or a weapon. He's watching you.",
           "choices": [
             {
               "label": "Take him down",
@@ -5279,7 +5328,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
               }
             },
             {
-              "label": "Run for it",
+              "label": "Get out of here",
               "reselectable": true,
               "effects": [],
               "result_text": null,
@@ -5533,7 +5582,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
                   "count": 1
                 }
               ],
-              "result_text": "He sits down on a pallet of water, smiling, and forgets why he stood up.",
+              "result_text": "He sits down on a pallet of water, smiling, and forgets why he stood up. He starts humming the Venga Bus song.",
               "goto": {
                 "branch": "b48"
               }
@@ -7956,14 +8005,14 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
                 ]
               },
               "success": {
-                "result_text": "You say you've been sent to take a reading. They've been down here long enough to want it to be true.",
+                "result_text": "You say you've been sent to take a reading. They've been down here long enough to want it to be true. They go back to chatting about last night's game.",
                 "effects": [],
                 "goto": {
                   "branch": "b42"
                 }
               },
               "fail": {
-                "result_text": "One of them asks who sent you. You haven't got a name ready.",
+                "result_text": "One of them asks who sent you. You panic and say Mr. Bean. One of them raises an eyebrow, the other smiles. Both square up to you.",
                 "effects": [
                   {
                     "op": "alert",
@@ -8033,7 +8082,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
                   "value": true
                 }
               ],
-              "result_text": "You know where each of them will look, and you're never there.",
+              "result_text": "You know when and where each of them will look. It's almost too easy to make sure they don't see you.",
               "goto": {
                 "branch": "b42"
               },
@@ -8063,7 +8112,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
           "type": "tension",
           "label": null,
           "speaker": null,
-          "text": "You kneel on the vein. It's warm, like a pipe. Over your head, faintly, the till drawer opens and shuts."
+          "text": "You kneel on the vein. It's warm, like a pipe. Over your head, you hear the shop door chime faintly."
         }
       ],
       "then": [
@@ -8148,7 +8197,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
                   "op": "claim_raid_vein"
                 }
               ],
-              "result_text": "You take it outright. Word gets round fast — it always does — and the relationship with whoever ran this patch takes the hit that comes with being seen to do it."
+              "result_text": "You take it outright. Word gets round fast - it always does - and your relationship with whoever ran this patch takes a hit."
             },
             {
               "label": "Loot and leave",
@@ -8157,7 +8206,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
                   "op": "loot_raid_vein"
                 }
               ],
-              "result_text": "You take what you can carry and leave the rest where it stands. Someone else's problem, still."
+              "result_text": "You take what you can carry and leave the rest where it stands. The vein doesn't feel quite as warm as when you came in."
             }
           ]
         }
@@ -8344,10 +8393,10 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
           "type": "choice",
           "label": null,
           "speaker": null,
-          "text": "The street's right there. Leave before anyone's noticed you and the shop never knows. Leave after, and they'll be watching for you for days.",
+          "text": "The street's right there. You can leave now and hope no one noticed you; if they did, they'll be on guard next time.",
           "choices": [
             {
-              "label": "Back out",
+              "label": "Walk out calmly",
               "requires": {
                 "alert": {
                   "atMost": 1
@@ -8389,7 +8438,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
                 ]
               },
               "success": {
-                "result_text": "You go out the quickest way and keep going. Behind you, someone's shouting a description that could be anybody.",
+                "result_text": "You go out the quickest way and keep going. You get some glances from passersby, but more like you're someone running for a bus than a would-be raider.",
                 "effects": [
                   {
                     "op": "back_out"
@@ -8400,7 +8449,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
                 }
               },
               "fail": {
-                "result_text": "They cut you off between the shelves.",
+                "result_text": "They cut you off. Nowhere to run now.",
                 "effects": [
                   {
                     "op": "start_raid_combat",
@@ -8449,7 +8498,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
                 ]
               },
               "success": {
-                "result_text": "The fold sets you down on a pavement a street away, next to a bin.",
+                "result_text": "The fold sets you down on a pavement a street away, next to a bin. A cat eyes you disdainfully, then goes back to licking itself.",
                 "effects": [
                   {
                     "op": "back_out"
@@ -8460,7 +8509,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
                 }
               },
               "fail": {
-                "result_text": "The fold lands short, in the middle of the shop floor, in front of everyone.",
+                "result_text": "The fold lands short, in the middle of the shop floor, in front of everyone. You briefly consider trying to convince them you're David Blaine and this is a trick. Briefly.",
                 "effects": [
                   {
                     "op": "start_raid_combat",
@@ -8595,7 +8644,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
           "type": "tension",
           "label": null,
           "speaker": null,
-          "text": "You're in the stockroom, and the yard door behind you is open to the night. Either nobody heard, or everybody did."
+          "text": "You're in the stockroom, and the yard door behind you is open to the night. The silence you hear is either completely normal, or the sound of alerted guards listening. Your paranoia makes it heard to know which."
         }
       ],
       "then": [
@@ -8638,7 +8687,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
           "type": "tension",
           "label": null,
           "speaker": null,
-          "text": "The stockroom: cages of crisps, a pallet of water, a mop in a bucket. The cellar door is at the far end. Between you and it is whoever's back here."
+          "text": "The stockroom: cages of crisps, a pallet of water, a mop in a bucket. The cellar door is at the far end. "
         }
       ],
       "then": [
