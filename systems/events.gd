@@ -787,9 +787,10 @@ static func cover_roll() -> float:
 # ── option gating (R§3.9a "Requires") ──
 
 # How the current card's option shows: {display: "show"|"hide"|"disable",
-# reason}. An option with no `requires`, or whose condition holds, shows;
-# otherwise its requires.display decides (default "hide"). Only a "show"
-# option can be committed.
+# reason}. A failing requires.hideUnless hides it outright; otherwise an
+# option with no `requires`, or whose condition holds, shows, and else its
+# requires.display decides (default "hide"). Only a "show" option can be
+# committed.
 static func option_gate(choice_index: int) -> Dictionary:
 	var choice: Dictionary = current_card()["choices"][choice_index]
 	if _spent_one_shot(choice_index):
@@ -797,19 +798,42 @@ static func option_gate(choice_index: int) -> Dictionary:
 	var asked := _picked_here().has(choice_index)
 	var requires: Variant = choice.get("requires")
 	var toggled := active_toggles(choice_index)
-	if not requires is Dictionary or condition_met(requires, toggled):
+	if requires is Dictionary and not _hide_unless_met(requires, toggled):
+		return { "display": "hide", "reason": "", "asked": asked }
+	if not requires is Dictionary or _requires_met(requires, toggled):
 		return _pick_gate(choice, asked) if choice.has("pick") else { "display": "show", "reason": "", "asked": asked }
 	var display: String = requires.get("display", "hide")
 	return { "display": display if display == "disable" else "hide", "reason": String(requires.get("reason", "")), "asked": asked }
 
 
+# A `requires` without its hideUnless/display/reason: the condition itself,
+# {} when hideUnless is all it gates on.
+static func requires_condition(requires: Dictionary) -> Dictionary:
+	var condition := requires.duplicate()
+	for key in ["hideUnless", "display", "reason"]:
+		condition.erase(key)
+	return condition
+
+
+static func _hide_unless_met(requires: Dictionary, toggled: Array) -> bool:
+	return not requires.get("hideUnless") is Dictionary or condition_met(requires["hideUnless"], toggled)
+
+
+# The requires' own condition holds; a hideUnless-only requires has none.
+static func _requires_met(requires: Dictionary, toggled: Array) -> bool:
+	if requires.has("hideUnless") and requires_condition(requires).is_empty():
+		return true
+	return condition_met(requires, toggled)
+
+
 # The ? modal's lines for a locked option: one per unmet part of its `requires`
-# (observation tier, item), then the authored `reason` if any. [] when it holds.
+# (observation tier, item), then the authored `reason` if any. [] when it holds
+# or its hideUnless fails (the option is hidden).
 static func unmet_requirement_lines(choice_index: int) -> Array:
 	var choice: Dictionary = current_card()["choices"][choice_index]
 	var requires: Variant = choice.get("requires")
 	var toggled := active_toggles(choice_index)
-	if not requires is Dictionary or condition_met(requires, toggled):
+	if not requires is Dictionary or not _hide_unless_met(requires, toggled) or _requires_met(requires, toggled):
 		return []
 	var out: Array = []
 	var parts: Array = requires["all"] if requires.has("all") else [requires]

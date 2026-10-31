@@ -176,7 +176,7 @@ static func _lint_option(id: String, i: int, j: int, option: Dictionary, cards: 
 	for goto in gotos:
 		out.append_array(_lint_goto(where, goto, i, cards))
 	if option.get("requires") is Dictionary:
-		out.append_array(_lint_condition(where + " requires", option["requires"], refs))
+		out.append_array(_lint_requires(where + " requires", option["requires"], refs))
 	if option.get("pick") is Dictionary:
 		out.append_array(_lint_pick(where, option, cards, i, refs))
 	if option.get("check") is Dictionary:
@@ -269,6 +269,21 @@ static func _lint_goto(where: String, goto: Variant, i: int, cards: Array, requi
 	if target <= i and cards[target].get("type") != "choice":
 		return ["%s goto %s is not a later card" % [where, str(goto)]]
 	return []
+
+
+# An option's `requires`: its hideUnless and its own condition, each as any
+# other condition (R§3.9a "Requires"); a hideUnless-only requires has no own.
+static func _lint_requires(where: String, requires: Dictionary, refs: Dictionary) -> Array:
+	if not requires.has("hideUnless"):
+		return _lint_condition(where, requires, refs)
+	var out: Array = []
+	if requires["hideUnless"] is Dictionary:
+		out.append_array(_lint_condition(where + " hideUnless", requires["hideUnless"], refs))
+	else:
+		out.append("%s hideUnless is not a condition" % where)
+	if not Events.requires_condition(requires).is_empty():
+		out.append_array(_lint_condition(where, requires, refs))
+	return out
 
 
 # Mirrors Events.condition_met()'s vocabulary (R§3.9a "Mods"/"Requires").

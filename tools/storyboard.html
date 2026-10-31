@@ -599,9 +599,27 @@ function setConditionKind(obj, kind, isMod) {
     if (kind !== "path") fresh.add = typeof obj.add === "number" ? obj.add : 0;
     fresh.label = typeof obj.label === "string" ? obj.label : "";
   } else {
-    for (const k of ["display", "reason"]) if (k in obj) fresh[k] = obj[k];
+    for (const k of ["display", "reason", "hideUnless"]) if (k in obj) fresh[k] = obj[k];
   }
   replaceContents(obj, fresh);
+}
+
+// Whether a requires gates on a condition of its own, beyond its
+// display/reason and hideUnless (R§3.9a "Requires").
+function requiresHasCondition(req) {
+  return Object.keys(req).some((k) => !["display", "reason", "hideUnless"].includes(k));
+}
+
+// Sets requires.hideUnless to condition cond, or removes it for null
+// (dropping a requires left with no condition).
+function setHideUnless(opt, cond) {
+  if (cond) {
+    if (!opt.requires || typeof opt.requires !== "object") opt.requires = {};
+    opt.requires.hideUnless = cond;
+  } else if (opt.requires && typeof opt.requires === "object") {
+    delete opt.requires.hideUnless;
+    if (!requiresHasCondition(opt.requires)) delete opt.requires;
+  }
 }
 
 function optionToCheck(opt) {
@@ -851,7 +869,8 @@ function requiresBlock(opt, changed, restructure) {
   const kinds = [["", "Always available"]].concat(CONDITION_KINDS.filter((k) => !k.modOnly).map((k) => [k.kind, k.label]));
   const row = mechEl("div", "mech-row");
   row.appendChild(mechCell("Requires", mechSelect(kinds, conditionKind(req), (v) => {
-    if (!v) delete opt.requires;
+    if (!v && req && req.hideUnless) replaceContents(req, { hideUnless: req.hideUnless });
+    else if (!v) delete opt.requires;
     else {
       if (!req) opt.requires = {};
       setConditionKind(opt.requires, v, false);
@@ -859,17 +878,46 @@ function requiresBlock(opt, changed, restructure) {
     restructure();
   })));
   box.appendChild(row);
-  if (!req) return box;
-  conditionCells(req, false, changed).forEach((c) => row.appendChild(c));
-  const row2 = mechEl("div", "mech-row");
-  row2.appendChild(mechCell("When unmet", mechSelect([["hide", "Hide"], ["disable", "Show disabled"]], req.display === "disable" ? "disable" : "hide", (v) => {
-    if (v === "disable") req.display = "disable";
-    else delete req.display;
-    restructure();
-  })));
-  row2.appendChild(mechCell("Reason (shown when disabled)", mechText(req, "reason", changed, "delete"), true));
-  box.appendChild(row2);
+  if (req && requiresHasCondition(req)) {
+    conditionCells(req, false, changed).forEach((c) => row.appendChild(c));
+    const row2 = mechEl("div", "mech-row");
+    row2.appendChild(mechCell("When unmet", mechSelect([["hide", "Hide"], ["disable", "Show disabled"]], req.display === "disable" ? "disable" : "hide", (v) => {
+      if (v === "disable") req.display = "disable";
+      else delete req.display;
+      restructure();
+    })));
+    row2.appendChild(mechCell("Reason (shown when disabled)", mechText(req, "reason", changed, "delete"), true));
+    box.appendChild(row2);
+  }
+  box.appendChild(hideUnlessRow(opt, restructure));
   return box;
+}
+
+// requires.hideUnless as condition JSON (any R§3.9a condition); blank
+// removes it. Unparseable or non-object input is flagged and not stored.
+function hideUnlessRow(opt, restructure) {
+  const row = mechEl("div", "mech-row");
+  const req = opt.requires && typeof opt.requires === "object" ? opt.requires : null;
+  const c = document.createElement("input");
+  c.type = "text";
+  c.value = req && req.hideUnless ? JSON.stringify(req.hideUnless) : "";
+  c.placeholder = '{"security": {"feature": "guards", "atLeast": 1}}';
+  c.addEventListener("change", () => {
+    let cond = null;
+    try {
+      if (c.value.trim() !== "") cond = JSON.parse(c.value);
+    } catch (e) {
+      cond = undefined;
+    }
+    if (cond !== null && (!cond || typeof cond !== "object" || Array.isArray(cond))) {
+      c.setAttribute("aria-invalid", "true");
+      return;
+    }
+    setHideUnless(opt, cond);
+    restructure();
+  });
+  row.appendChild(mechCell("Hide unless (condition JSON; blank = never)", c, true));
+  return row;
 }
 
 function conditionCells(c, isMod, changed) {
@@ -1854,7 +1902,21 @@ function checkOddsBlock(opt, changed, restructure) {
     if (c.item) return c.item + (c.equipped ? " equipped" : c.optional ? (c.consume ? " (optional, spent)" : " (optional)") : " held");
     if (c.path) return c.path + (c.atLeast != null ? ` ≥ ${c.atLeast}` : c.perPoint != null ? (c.above ? ` above ${c.above}` : "") : "");
     if (c.observed) return `observed ${c.observed.id} ${c.observed.ore} ≥ ${c.observed.atLeast}`;
+    if (c.all) return c.all.map(condText).join(" & ");
+    if (c.security) {
+      const sec = c.security;
+      if (sec.is != null) return `${sec.feature} = ${sec.is}`;
+      return sec.feature + (sec.atMost === 0 ? " none" : sec.atMost != null ? ` ≤ ${sec.atMost}` : ` ≥ ${sec.atLeast ?? 1}`);
+    }
+    if (c.alert) return c.alert.atMost != null ? `alert ≤ ${c.alert.atMost}` : `alert ≥ ${c.alert.atLeast}`;
     return "?";
+  }
+  // An option's gate as a short phrase: its own condition (greyed or hidden when unmet), then its hideUnless.
+  function requiresText(r) {
+    const bits = [];
+    if (requiresHasCondition(r)) bits.push(`needs ${condText(r)}${r.display === "disable" ? " (greyed)" : " (hidden)"}`);
+    if (r.hideUnless) bits.push(`hidden unless ${condText(r.hideUnless)}`);
+    return bits.join(", ");
   }
   // How play leaves a card, as nextPos reads it: each outcome goto with an edge label, and whether play can also
   // go on by the card's own goto or fall-through (no options, or some outcome without a goto).
@@ -2754,7 +2816,7 @@ function checkOddsBlock(opt, changed, restructure) {
     for (const k of ["success", "fail"]) if (lintIsObj(option[k])) gotos.push(option[k].goto);
     if (lintIsObj(option.bySuccesses)) for (const o of Object.values(option.bySuccesses)) gotos.push(o.goto);
     for (const g of gotos) out.push(...lintGoto(where, g, i, cards));
-    if (lintIsObj(option.requires)) out.push(...lintCondition(where + " requires", option.requires, ctx));
+    if (lintIsObj(option.requires)) out.push(...lintRequires(where + " requires", option.requires, ctx));
     if (lintIsObj(option.pick)) out.push(...lintPick(where, option, cards, i, ctx));
     if (lintIsObj(option.check)) for (const mod of option.check.mods || []) out.push(...lintCondition(where + " mod", mod, ctx));
     return out;
@@ -2810,6 +2872,13 @@ function checkOddsBlock(opt, changed, restructure) {
     if (t < 0 || t >= cards.length) return bad;
     if (t <= i && cards[t].type !== "choice") return bad;
     return [];
+  }
+  // An option's `requires`: its hideUnless and its own condition, each as any other condition.
+  function lintRequires(where, r, ctx) {
+    if (!lintHas(r, "hideUnless")) return lintCondition(where, r, ctx);
+    const out = lintIsObj(r.hideUnless) ? lintCondition(where + " hideUnless", r.hideUnless, ctx) : [`${where} hideUnless is not a condition`];
+    if (requiresHasCondition(r)) out.push(...lintCondition(where, r, ctx));
+    return out;
   }
   function lintCondition(where, c, ctx) {
     const refs = ctx.refs;
@@ -3066,7 +3135,7 @@ function checkOddsBlock(opt, changed, restructure) {
   const effectsText = (list) => (list || []).map(effectText).join(", ");
   function optionMech(o) {
     const bits = [];
-    if (o.requires) bits.push(`needs ${condText(o.requires)}${o.requires.display === "disable" ? " (greyed)" : " (hidden)"}`);
+    if (o.requires) bits.push(requiresText(o.requires));
     if (o.pick) bits.push(`pick ${o.pick.observation}: ${Object.entries(o.pick.ores || {}).map(([ore, v]) => `${ore} ≥ ${[].concat(v).map((x) => x.atLeast).join("/")}`).join(", ")}`);
     if (o.check) {
       const k = o.check, n = k.attempts || 1;

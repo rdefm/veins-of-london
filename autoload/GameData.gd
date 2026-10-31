@@ -2346,6 +2346,8 @@ func _validate_choice_refs(events: Dictionary, errors: Array[String]) -> void:
 				var requires: Variant = option.get("requires")
 				if typeof(requires) == TYPE_DICTIONARY:
 					conditions.append(requires)
+					if typeof(requires.get("hideUnless")) == TYPE_DICTIONARY:
+						conditions.append(requires["hideUnless"])
 				elif typeof(requires) == TYPE_ARRAY:
 					conditions.append_array(requires)
 				var check: Variant = option.get("check")

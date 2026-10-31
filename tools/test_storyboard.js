@@ -25,7 +25,7 @@ const {
   findCycle, addBranch, renameBranch, deleteBranch, inboundLinks, setCardGoto, setThen,
   COND_KINDS, condKind, blankCond, condGet, condSet,
   outcomeSlots, setReselectable, setOptionExitFlag, setCardAdvance, hubExit, advanceRule, addOption, deleteOption, moveOption, setOptionField, setOutcomeText, setOutcomeGoto, setOutcomeImage, routeToNewBranch,
-  setCheckNote, setCheckOn, setOptionMechanics, setEffects, addBySuccess, deleteBySuccess, setConditionKind,
+  setCheckNote, setCheckOn, setOptionMechanics, setEffects, addBySuccess, deleteBySuccess, setConditionKind, setHideUnless, requiresText,
   addComment, updateComment, deleteComment, filterComments, commentCount, anchorText, anchorType, proseComments,
   cardImageName, freeImageName, freeResultImageName, setCardImage, eventImageDir, SHOT_FIELDS, serialiseBoard, setShotField, shotFieldText,
   LIVE_EVENTS_DIR, proposalFileName, importBoard, blankBoard, duplicateBoard, boardCardLabel, promoteDraft, serialiseEvent,
@@ -41,7 +41,7 @@ const {
     " findCycle, addBranch, renameBranch, deleteBranch, inboundLinks, setCardGoto, setThen," +
     " COND_KINDS, condKind, blankCond, condGet, condSet," +
     " outcomeSlots, setReselectable, setOptionExitFlag, setCardAdvance, hubExit, advanceRule, addOption, deleteOption, moveOption, setOptionField, setOutcomeText, setOutcomeGoto, setOutcomeImage, routeToNewBranch," +
-    " setCheckNote, setCheckOn, setOptionMechanics, setEffects, addBySuccess, deleteBySuccess, setConditionKind," +
+    " setCheckNote, setCheckOn, setOptionMechanics, setEffects, addBySuccess, deleteBySuccess, setConditionKind, setHideUnless, requiresText," +
     " addComment, updateComment, deleteComment, filterComments, commentCount, anchorText, anchorType, proseComments," +
     " cardImageName, freeImageName, freeResultImageName, setCardImage, eventImageDir, SHOT_FIELDS, serialiseBoard, setShotField, shotFieldText," +
     " LIVE_EVENTS_DIR, proposalFileName, importBoard, blankBoard, duplicateBoard, boardCardLabel, promoteDraft, serialiseEvent," +
@@ -218,6 +218,27 @@ test("setOptionExitFlag and setCardAdvance write exit / advance and promote carr
   setOptionExitFlag(d, "h", 2, false);
   assert.strictEqual("exit" in card.choices[2], false);
   assert(!serialiseDraft(d).includes('"exit"'));
+});
+
+test("requires.hideUnless round-trips draft -> promote unchanged and reads in the gate summary", () => {
+  const d = hubDraft(), opt = d.branches.main.cards[0].choices[1];
+  const guards = { security: { feature: "guards", atLeast: 1 } };
+  opt.requires = { item: "prophetsBreath", optional: true, display: "disable" };
+  setHideUnless(opt, guards);
+  const want = { item: "prophetsBreath", optional: true, display: "disable", hideUnless: guards };
+  assert.deepStrictEqual(opt.requires, want);
+  const again = parseDraft(serialiseDraft(d)).draft;
+  const hub = promoteDraft(again).event.cards.find((c) => c.text === "hub");
+  assert.deepStrictEqual(hub.choices[1].requires, want);
+  assert.strictEqual(requiresText(want), "needs prophetsBreath (optional) (greyed), hidden unless guards ≥ 1");
+  setConditionKind(opt.requires, "flag", false);
+  assert.deepStrictEqual(opt.requires.hideUnless, guards, "switching the condition kind keeps hideUnless");
+  const alone = { label: "Wave" };
+  setHideUnless(alone, guards);
+  assert.deepStrictEqual(alone.requires, { hideUnless: guards });
+  assert.strictEqual(requiresText(alone.requires), "hidden unless guards ≥ 1");
+  setHideUnless(alone, null);
+  assert.strictEqual("requires" in alone, false, "clearing a hideUnless-only requires drops it");
 });
 
 test("hubExit gates the exit by the advance rule over the asked options", () => {
@@ -1854,6 +1875,18 @@ test("JS content lint flags each rule family the way the GDScript probe does", (
   const own = JSON.parse(JSON.stringify(def));
   own.cards[0].effects = [{ op: "set_flag", flag: "noSuchFlag" }];
   assert(!lintEvent("probe", own, lintRefs).some((v) => v.includes("unknown flag noSuchFlag")), "a flag the event itself sets is known");
+});
+
+test("JS content lint checks requires.hideUnless like the GDScript lint", () => {
+  const def = { id: "hide", cards: [{ type: "choice", key: "c1", label: null, text: "", choices: [
+    { label: "a", result_text: "x", requires: { item: "timePearl", display: "disable", hideUnless: { flag: "noSuchFlag" } } },
+    { label: "b", result_text: "x", requires: { hideUnless: { moonPhase: "full" } } },
+    { label: "c", result_text: "x", requires: { hideUnless: { item: "timePearl" } } },
+  ] }] };
+  assert.deepStrictEqual(lintEvent("hide", def, lintRefs), [
+    "hide: card 0 option 0 requires hideUnless: unknown flag noSuchFlag",
+    'hide: card 0 option 1 requires hideUnless: unknown condition {"moonPhase":"full"}',
+  ]);
 });
 
 test("JS content lint checks key links like the GDScript lint", () => {

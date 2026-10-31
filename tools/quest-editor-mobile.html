@@ -273,9 +273,27 @@ function setConditionKind(obj, kind, isMod) {
     if (kind !== "path") fresh.add = typeof obj.add === "number" ? obj.add : 0;
     fresh.label = typeof obj.label === "string" ? obj.label : "";
   } else {
-    for (const k of ["display", "reason"]) if (k in obj) fresh[k] = obj[k];
+    for (const k of ["display", "reason", "hideUnless"]) if (k in obj) fresh[k] = obj[k];
   }
   replaceContents(obj, fresh);
+}
+
+// Whether a requires gates on a condition of its own, beyond its
+// display/reason and hideUnless (R§3.9a "Requires").
+function requiresHasCondition(req) {
+  return Object.keys(req).some((k) => !["display", "reason", "hideUnless"].includes(k));
+}
+
+// Sets requires.hideUnless to condition cond, or removes it for null
+// (dropping a requires left with no condition).
+function setHideUnless(opt, cond) {
+  if (cond) {
+    if (!opt.requires || typeof opt.requires !== "object") opt.requires = {};
+    opt.requires.hideUnless = cond;
+  } else if (opt.requires && typeof opt.requires === "object") {
+    delete opt.requires.hideUnless;
+    if (!requiresHasCondition(opt.requires)) delete opt.requires;
+  }
 }
 
 function optionToCheck(opt) {
@@ -525,7 +543,8 @@ function requiresBlock(opt, changed, restructure) {
   const kinds = [["", "Always available"]].concat(CONDITION_KINDS.filter((k) => !k.modOnly).map((k) => [k.kind, k.label]));
   const row = mechEl("div", "mech-row");
   row.appendChild(mechCell("Requires", mechSelect(kinds, conditionKind(req), (v) => {
-    if (!v) delete opt.requires;
+    if (!v && req && req.hideUnless) replaceContents(req, { hideUnless: req.hideUnless });
+    else if (!v) delete opt.requires;
     else {
       if (!req) opt.requires = {};
       setConditionKind(opt.requires, v, false);
@@ -533,17 +552,46 @@ function requiresBlock(opt, changed, restructure) {
     restructure();
   })));
   box.appendChild(row);
-  if (!req) return box;
-  conditionCells(req, false, changed).forEach((c) => row.appendChild(c));
-  const row2 = mechEl("div", "mech-row");
-  row2.appendChild(mechCell("When unmet", mechSelect([["hide", "Hide"], ["disable", "Show disabled"]], req.display === "disable" ? "disable" : "hide", (v) => {
-    if (v === "disable") req.display = "disable";
-    else delete req.display;
-    restructure();
-  })));
-  row2.appendChild(mechCell("Reason (shown when disabled)", mechText(req, "reason", changed, "delete"), true));
-  box.appendChild(row2);
+  if (req && requiresHasCondition(req)) {
+    conditionCells(req, false, changed).forEach((c) => row.appendChild(c));
+    const row2 = mechEl("div", "mech-row");
+    row2.appendChild(mechCell("When unmet", mechSelect([["hide", "Hide"], ["disable", "Show disabled"]], req.display === "disable" ? "disable" : "hide", (v) => {
+      if (v === "disable") req.display = "disable";
+      else delete req.display;
+      restructure();
+    })));
+    row2.appendChild(mechCell("Reason (shown when disabled)", mechText(req, "reason", changed, "delete"), true));
+    box.appendChild(row2);
+  }
+  box.appendChild(hideUnlessRow(opt, restructure));
   return box;
+}
+
+// requires.hideUnless as condition JSON (any R§3.9a condition); blank
+// removes it. Unparseable or non-object input is flagged and not stored.
+function hideUnlessRow(opt, restructure) {
+  const row = mechEl("div", "mech-row");
+  const req = opt.requires && typeof opt.requires === "object" ? opt.requires : null;
+  const c = document.createElement("input");
+  c.type = "text";
+  c.value = req && req.hideUnless ? JSON.stringify(req.hideUnless) : "";
+  c.placeholder = '{"security": {"feature": "guards", "atLeast": 1}}';
+  c.addEventListener("change", () => {
+    let cond = null;
+    try {
+      if (c.value.trim() !== "") cond = JSON.parse(c.value);
+    } catch (e) {
+      cond = undefined;
+    }
+    if (cond !== null && (!cond || typeof cond !== "object" || Array.isArray(cond))) {
+      c.setAttribute("aria-invalid", "true");
+      return;
+    }
+    setHideUnless(opt, cond);
+    restructure();
+  });
+  row.appendChild(mechCell("Hide unless (condition JSON; blank = never)", c, true));
+  return row;
 }
 
 function conditionCells(c, isMod, changed) {

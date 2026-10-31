@@ -123,6 +123,23 @@ func run() -> void:
 		assert_eq(found.size(), 3, "valid alert refs add no violations: %s" % [found])
 	)
 
+	run_case("lint_checks_requires_hide_unless", func():
+		GameState.reset()
+		var guards := { "security": { "feature": "guards", "atLeast": 1 } }
+		var def := { "id": "hide_probe", "cards": [
+			{ "type": "choice", "key": "c1", "label": null, "text": "", "choices": [
+				{ "label": "ok", "result_text": "x", "requires": { "item": "timePearl", "display": "disable", "hideUnless": guards } },
+				{ "label": "alone", "result_text": "x", "requires": { "hideUnless": { "all": [guards, { "alert": { "atMost": 1 } }] } } },
+				{ "label": "bogus", "result_text": "x", "requires": { "hideUnless": { "moonPhase": "full" } } },
+				{ "label": "both", "result_text": "x", "requires": { "flag": "noSuchFlag", "hideUnless": { "flag": "noSuchFlag" } } },
+			] },
+		] }
+		var found := EventContentLint.lint_event("hide_probe", def, EventContentLint.known_refs())
+		for fragment in ["option 2 requires hideUnless: unknown condition", "option 3 requires hideUnless: unknown flag noSuchFlag", "option 3 requires: unknown flag noSuchFlag"]:
+			assert_true(found.any(func(v): return String(v).contains(fragment)), "expected a violation containing '%s' in %s" % [fragment, found])
+		assert_eq(found.size(), 3, "valid hideUnless adds no violations: %s" % [found])
+	)
+
 	run_case("lint_flags_malformed_observations", func():
 		GameState.reset()
 		var def := { "id": "obs_probe", "observations": {

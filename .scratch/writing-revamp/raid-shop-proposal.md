@@ -244,7 +244,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
             },
             {
               "base": 0.55,
-              "text": "One woman on the till, a regular at the counter who won't stop talking. In the back, men in shop fleeces stock shelves; more men than the shelves need."
+              "text": "A regular chats with (or rather, at) the woman at the till. A few people stock shelves near the back."
             }
           ],
           "miss": "Two people near the till. You hear someone else, but can't tell if they're behind the shelves or further back in the shop."
@@ -261,6 +261,275 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
             }
           ],
           "miss": "Tired faces under strip lights. Almost everyone here would rather be somewhere else. Nothing you can use."
+        }
+      }
+    },
+    "till": {
+      "mods": [],
+      "blocks": {
+        "life": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "The regular scratches each card on the counter and talks her through it. While he talks, she nods and looks at nothing else. He has never won more than two quid, and has never once stopped talking."
+            },
+            {
+              "base": 0.55,
+              "text": "One on the till, and a regular at the counter who's going nowhere. She keeps half an eye on him."
+            }
+          ],
+          "miss": "A queue, a till, someone behind it. People come and go."
+        },
+        "emotion": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "She's forty minutes from the end of her shift and won't spend any of them on an argument. Anyone who asks her for anything gets waved at whatever's nearest."
+            },
+            {
+              "base": 0.55,
+              "text": "She wants this shift over more than she wants anything in the shop."
+            }
+          ],
+          "miss": "Her face is set to 'next, please'. Nothing gets past it."
+        },
+        "fate": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "The card machine has tape round its middle and drops a payment every few customers. She's stopped apologising for it."
+            },
+            {
+              "base": 0.55,
+              "text": "The queue moves in fits. Every so often the whole shop waits on something at the till."
+            }
+          ],
+          "miss": "Nothing at the till looks broken, as far as you can see."
+        }
+      }
+    },
+    "stock": {
+      "mods": [],
+      "blocks": {
+        "physics": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "The shelving runs floor to ceiling down one wall and stands a foot off it. Behind the roll cages there's a strip of floor nobody walks."
+            },
+            {
+              "base": 0.55,
+              "text": "Tall shelving, roll cages, a lot of cardboard. You can't see from one end to the other."
+            }
+          ],
+          "miss": "Shelves and cages, with stock on all of them."
+        },
+        "life": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "Two men in shop fleeces are on the restock. One of them is doing it. The other is holding a single box of teabags, and has been for some time."
+            },
+            {
+              "base": 0.55,
+              "text": "More men in fleeces back here than the shelves need. Not all of them are stocking."
+            }
+          ],
+          "miss": "Someone's back there. You hear a box land, then nothing."
+        },
+        "time": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "Stock comes off the van in runs. Between runs the aisle stands empty long enough to boil a kettle."
+            },
+            {
+              "base": 0.55,
+              "text": "Stock comes through in batches. Sometimes the aisle is busy, sometimes it isn't."
+            }
+          ],
+          "miss": "Boxes come in, boxes go out. You couldn't say when."
+        }
+      }
+    },
+    "lock": {
+      "mods": [],
+      "blocks": {
+        "physics": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "The lock is newer than the door, and cheap. The price sticker is still on the face: £8.99."
+            },
+            {
+              "base": 0.55,
+              "text": "The lock is newer than the door. Somebody spent money back here, though not much."
+            }
+          ],
+          "miss": "A door, a lock, a handle. Nothing more from here."
+        },
+        "fate": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "There's a crate-shaped scuff on the frame at hip height. Whoever takes the deliveries down goes with his hands full, and doesn't always come back to lock up."
+            },
+            {
+              "base": 0.55,
+              "text": "The handle's worn bright. This door gets more use than a cellar door needs."
+            }
+          ],
+          "miss": "Nothing about the door is lucky or unlucky. It's shut."
+        }
+      }
+    },
+    "yard": {
+      "mods": [],
+      "blocks": {
+        "life": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "He's on a dating app, swiping left with great care. He looks up whenever the yard door creaks, and at nothing else."
+            },
+            {
+              "base": 0.55,
+              "text": "One man, a shop fleece, a phone. He's facing the yard door, not the gate."
+            }
+          ],
+          "miss": "Someone's in the yard. You smell the smoke before you see him."
+        },
+        "time": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "He lit this one as you came round the corner. He smokes them down to the filter, one per break, unless the shift's got to him."
+            },
+            {
+              "base": 0.55,
+              "text": "He's not long started. His breaks run a cigarette each."
+            }
+          ],
+          "miss": "He's on a break. You can't tell how long he's had, or how long he's got."
+        }
+      }
+    },
+    "door": {
+      "mods": [],
+      "blocks": {
+        "physics": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "The hinge pins are on the outside, and the paint over the tops of them has cracked. They've been out before, and the door painted back on after."
+            },
+            {
+              "base": 0.55,
+              "text": "The door is old: soft paint, a warped frame, and a lock newer than the wood."
+            }
+          ],
+          "miss": "Old wood under a lot of paint. You can't tell which is holding the other up."
+        },
+        "time": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "The paint round the latch is worn to the wood. He goes in and out all shift, and between smokes the door sits on the latch, not the lock."
+            },
+            {
+              "base": 0.55,
+              "text": "The paint round the latch is worn to the wood. This door opens a lot."
+            }
+          ],
+          "miss": "Yup, it's a door, and it has been opened at some point in the last century. You think."
+        }
+      }
+    },
+    "flap": {
+      "mods": [],
+      "blocks": {
+        "time": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "The drayman comes on the hour. He props both doors back and leaves them up while he fetches the next barrel from the van, which is parked on the zigzags."
+            },
+            {
+              "base": 0.55,
+              "text": "Deliveries go down the chute. The drayman's due, roughly."
+            }
+          ],
+          "miss": "Two doors in the pavement. You can't say when they last opened."
+        },
+        "physics": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "The left door's hinge has rusted to a flake. The crate on top is what's keeping it shut."
+            },
+            {
+              "base": 0.55,
+              "text": "The iron edges are sound. The wood between them has gone soft."
+            }
+          ],
+          "miss": "Iron edges, old wood, shut. Nothing more from up here."
+        },
+        "life": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "Everyone at the bus stop is watching the road for the bus, or their phone for the bus. Nobody's looking down."
+            },
+            {
+              "base": 0.55,
+              "text": "The bus stop's full. They're all facing the road."
+            }
+          ],
+          "miss": "People going past, too many to read any one of them."
+        }
+      }
+    },
+    "cellar": {
+      "mods": [],
+      "blocks": {
+        "life": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "He's scrolling with the sound off. Now and then he glances at the vein, the way you'd pat a pocket to check your keys are still there."
+            },
+            {
+              "base": 0.55,
+              "text": "One man in a shop fleece, on a crate, half turned from the ladder."
+            }
+          ],
+          "miss": "Someone's down there. You hear the crate creak before you see him."
+        },
+        "time": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "Every few minutes, near enough on the dot, he turns on the crate to look at the vein, and stays turned while he reads whatever's come in on his phone."
+            },
+            {
+              "base": 0.55,
+              "text": "He shifts round on the crate every few minutes. He hasn't got comfortable yet."
+            }
+          ],
+          "miss": "He's been down there a while. You can't tell how long, or how long he's got left."
+        },
+        "emotion": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "He's bored past caring. He has read the label on every box down here, and started on the barrels."
+            },
+            {
+              "base": 0.55,
+              "text": "He's bored, and has been since he sat down."
+            }
+          ],
+          "miss": "You can't read his face from the ladder."
         }
       }
     }
@@ -304,7 +573,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
           "type": "choice",
           "label": null,
           "speaker": null,
-          "text": "You can make out 2 ways in. One: front door: past the till and staff door. Then stockroom and stairs. Two: round the back. Yard, door, stockroom, stairs. One is easier, but you're much more exposed.",
+          "text": "You can make out 2 ways in. One: front door, past the till and staff door, then stockroom and stairs. Two: round the back, yard, door, stockroom, stairs. One is easier, but you're much more exposed.",
           "choices": [
             {
               "label": "Walk in as a customer",
@@ -763,6 +1032,15 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
                     "label": "A sharp read"
                   },
                   {
+                    "observed": {
+                      "id": "till",
+                      "ore": "emotion",
+                      "atLeast": 1
+                    },
+                    "add": 0.05,
+                    "label": "Her quiet shift"
+                  },
+                  {
                     "alertByTier": [
                       0,
                       -0.1,
@@ -1070,6 +1348,15 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
                     "label": "A sharp read"
                   },
                   {
+                    "observed": {
+                      "id": "till",
+                      "ore": "life",
+                      "atLeast": 1
+                    },
+                    "add": 0.05,
+                    "label": "The regular's commentary"
+                  },
+                  {
                     "all": [
                       {
                         "flag": "sCust"
@@ -1208,7 +1495,8 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
                 "branch": "b6"
               }
             }
-          ]
+          ],
+          "observe": "till"
         }
       ],
       "then": {
@@ -1247,6 +1535,15 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
                     },
                     "add": 0.05,
                     "label": "A sharp read"
+                  },
+                  {
+                    "observed": {
+                      "id": "till",
+                      "ore": "fate",
+                      "atLeast": 2
+                    },
+                    "add": 0.05,
+                    "label": "The taped card machine"
                   }
                 ]
               },
@@ -1478,6 +1775,15 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
                     "label": "A sharp read"
                   },
                   {
+                    "observed": {
+                      "id": "stock",
+                      "ore": "time",
+                      "atLeast": 1
+                    },
+                    "add": 0.05,
+                    "label": "Between runs"
+                  },
+                  {
                     "all": [
                       {
                         "flag": "sCust"
@@ -1642,6 +1948,15 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
                     },
                     "add": 0.13,
                     "label": "A sharp read"
+                  },
+                  {
+                    "observed": {
+                      "id": "stock",
+                      "ore": "physics",
+                      "atLeast": 1
+                    },
+                    "add": 0.05,
+                    "label": "Behind the cages"
                   },
                   {
                     "all": [
@@ -1918,7 +2233,8 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
                 "branch": "b8"
               }
             }
-          ]
+          ],
+          "observe": "stock"
         }
       ],
       "then": {
@@ -2055,6 +2371,15 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
                     },
                     "add": 0.13,
                     "label": "A sharp read"
+                  },
+                  {
+                    "observed": {
+                      "id": "lock",
+                      "ore": "physics",
+                      "atLeast": 1
+                    },
+                    "add": 0.05,
+                    "label": "A cheap lock"
                   },
                   {
                     "all": [
@@ -2224,6 +2549,15 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
                     },
                     "add": 0.05,
                     "label": "A sharp read"
+                  },
+                  {
+                    "observed": {
+                      "id": "lock",
+                      "ore": "fate",
+                      "atLeast": 2
+                    },
+                    "add": 0.05,
+                    "label": "Left off the lock"
                   }
                 ]
               },
@@ -2342,7 +2676,8 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
                 "branch": "b10"
               }
             }
-          ]
+          ],
+          "observe": "lock"
         }
       ],
       "then": {
@@ -2699,6 +3034,15 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
                     "label": "A sharp read"
                   },
                   {
+                    "observed": {
+                      "id": "yard",
+                      "ore": "time",
+                      "atLeast": 1
+                    },
+                    "add": 0.05,
+                    "label": "One cigarette a break"
+                  },
+                  {
                     "security": {
                       "feature": "tier",
                       "is": "none"
@@ -2991,7 +3335,8 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
                 "branch": "b12"
               }
             }
-          ]
+          ],
+          "observe": "yard"
         }
       ],
       "then": {
@@ -3325,6 +3670,15 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
                     "label": "A sharp read"
                   },
                   {
+                    "observed": {
+                      "id": "door",
+                      "ore": "physics",
+                      "atLeast": 2
+                    },
+                    "add": 0.05,
+                    "label": "Pins out before"
+                  },
+                  {
                     "security": {
                       "feature": "tier",
                       "is": "none"
@@ -3478,6 +3832,15 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
                     "label": "A sharp read"
                   },
                   {
+                    "observed": {
+                      "id": "door",
+                      "ore": "time",
+                      "atLeast": 2
+                    },
+                    "add": 0.05,
+                    "label": "On the latch"
+                  },
+                  {
                     "security": {
                       "feature": "tier",
                       "is": "none"
@@ -3621,7 +3984,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
               }
             }
           ],
-          "observe": "s_door"
+          "observe": "door"
         }
       ],
       "then": {
@@ -4044,6 +4407,15 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
                     "label": "A sharp read"
                   },
                   {
+                    "observed": {
+                      "id": "flap",
+                      "ore": "physics",
+                      "atLeast": 2
+                    },
+                    "add": 0.05,
+                    "label": "Rusted to a flake"
+                  },
+                  {
                     "security": {
                       "feature": "tier",
                       "is": "none"
@@ -4201,6 +4573,15 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
                     "label": "A sharp read"
                   },
                   {
+                    "observed": {
+                      "id": "flap",
+                      "ore": "life",
+                      "atLeast": 1
+                    },
+                    "add": 0.05,
+                    "label": "Facing the road"
+                  },
+                  {
                     "security": {
                       "feature": "tier",
                       "is": "none"
@@ -4325,7 +4706,8 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
                 "branch": "b16"
               }
             }
-          ]
+          ],
+          "observe": "flap"
         }
       ],
       "then": {
@@ -4475,6 +4857,15 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
                     },
                     "add": 0.13,
                     "label": "A sharp read"
+                  },
+                  {
+                    "observed": {
+                      "id": "cellar",
+                      "ore": "time",
+                      "atLeast": 1
+                    },
+                    "add": 0.05,
+                    "label": "Every few minutes"
                   },
                   {
                     "alertByTier": [
@@ -4795,7 +5186,8 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
                 "branch": "b18"
               }
             }
-          ]
+          ],
+          "observe": "cellar"
         }
       ],
       "then": {
@@ -4897,6 +5289,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
       "cards": [
         {
           "key": "s_seen_till",
+          "observe": "till",
           "type": "tension",
           "label": null,
           "speaker": null,
@@ -4922,6 +5315,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
       "cards": [
         {
           "key": "s_seen_flap",
+          "observe": "flap",
           "type": "tension",
           "label": null,
           "speaker": null,
@@ -4947,6 +5341,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
       "cards": [
         {
           "key": "s_seen_yard",
+          "observe": "yard",
           "type": "tension",
           "label": null,
           "speaker": null,
@@ -4972,6 +5367,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
       "cards": [
         {
           "key": "s_seen_door",
+          "observe": "door",
           "type": "tension",
           "label": null,
           "speaker": null,
@@ -4997,6 +5393,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
       "cards": [
         {
           "key": "s_seen_in",
+          "observe": "stock",
           "type": "tension",
           "label": null,
           "speaker": null,
@@ -5040,6 +5437,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
       "cards": [
         {
           "key": "s_win_out",
+          "observe": null,
           "type": "choice",
           "label": null,
           "speaker": null,
@@ -5242,6 +5640,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
       "cards": [
         {
           "key": "s_win_out2",
+          "observe": null,
           "type": "choice",
           "label": null,
           "speaker": null,
@@ -5348,6 +5747,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
       "cards": [
         {
           "key": "s_win_in",
+          "observe": null,
           "type": "choice",
           "label": null,
           "speaker": null,
@@ -5550,6 +5950,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
       "cards": [
         {
           "key": "s_win_in2",
+          "observe": null,
           "type": "choice",
           "label": null,
           "speaker": null,
@@ -5656,6 +6057,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
       "cards": [
         {
           "key": "s_win_wit",
+          "observe": null,
           "type": "choice",
           "label": null,
           "speaker": null,
@@ -5844,6 +6246,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
       "cards": [
         {
           "key": "s_alarm",
+          "observe": null,
           "type": "choice",
           "label": null,
           "speaker": null,
@@ -5990,6 +6393,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
       "cards": [
         {
           "key": "s_alarm2",
+          "observe": null,
           "type": "choice",
           "label": null,
           "speaker": null,
@@ -6057,6 +6461,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
       "cards": [
         {
           "key": "post",
+          "observe": "stock",
           "type": "choice",
           "label": null,
           "speaker": null,
@@ -6164,6 +6569,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
       "cards": [
         {
           "key": "post2",
+          "observe": "stock",
           "type": "choice",
           "label": null,
           "speaker": null,
@@ -6279,6 +6685,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
       "cards": [
         {
           "key": "post3",
+          "observe": "stock",
           "type": "choice",
           "label": null,
           "speaker": null,
@@ -6448,6 +6855,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
       "cards": [
         {
           "key": "s_reinf",
+          "observe": null,
           "type": "choice",
           "label": null,
           "speaker": null,
@@ -6479,6 +6887,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
       "cards": [
         {
           "key": "s_cam",
+          "observe": "till",
           "type": "choice",
           "label": null,
           "speaker": null,
@@ -6969,6 +7378,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
       "cards": [
         {
           "key": "s_cam2",
+          "observe": "till",
           "type": "choice",
           "label": null,
           "speaker": null,
@@ -7177,6 +7587,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
       "cards": [
         {
           "key": "s_win_cam",
+          "observe": "till",
           "type": "choice",
           "label": null,
           "speaker": null,
@@ -7539,6 +7950,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
       "cards": [
         {
           "key": "s_ward",
+          "observe": "lock",
           "type": "choice",
           "label": null,
           "speaker": null,
@@ -7654,6 +8066,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
       "cards": [
         {
           "key": "s_ward2",
+          "observe": "lock",
           "type": "choice",
           "label": null,
           "speaker": null,
@@ -7828,6 +8241,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
       "cards": [
         {
           "key": "s_ward3",
+          "observe": "lock",
           "type": "choice",
           "label": null,
           "speaker": null,
@@ -7918,6 +8332,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
       "cards": [
         {
           "key": "s_room",
+          "observe": "cellar",
           "type": "choice",
           "label": null,
           "speaker": null,
@@ -8109,6 +8524,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
       "cards": [
         {
           "key": "s_claim_route",
+          "observe": "cellar",
           "type": "tension",
           "label": null,
           "speaker": null,
@@ -8155,6 +8571,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
       "cards": [
         {
           "key": "s_final",
+          "observe": "cellar",
           "type": "choice",
           "label": null,
           "speaker": null,
@@ -8185,6 +8602,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
       "cards": [
         {
           "key": "s_claim",
+          "observe": "cellar",
           "type": "choice",
           "label": null,
           "speaker": null,
@@ -8218,6 +8636,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
       "cards": [
         {
           "key": "s_claim_a",
+          "observe": "cellar",
           "type": "choice",
           "label": null,
           "speaker": null,
@@ -8259,6 +8678,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
       "cards": [
         {
           "key": "s_getaway",
+          "observe": "cellar",
           "type": "choice",
           "label": null,
           "speaker": null,
@@ -8390,6 +8810,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
       "cards": [
         {
           "key": "s_retreat",
+          "observe": "cellar",
           "type": "choice",
           "label": null,
           "speaker": null,
@@ -8552,6 +8973,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
       "cards": [
         {
           "key": "s_resume",
+          "observe": null,
           "type": "tension",
           "label": null,
           "speaker": null,
@@ -8582,6 +9004,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
       "cards": [
         {
           "key": "s_resume2",
+          "observe": null,
           "type": "tension",
           "label": null,
           "speaker": null,
@@ -8599,7 +9022,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
           "if": {
             "flag": "sAt_back"
           },
-          "branch": "b51"
+          "branch": "b7"
         },
         {
           "if": {
@@ -8641,6 +9064,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
       "cards": [
         {
           "key": "s_back_loud",
+          "observe": "stock",
           "type": "tension",
           "label": null,
           "speaker": null,
@@ -8684,6 +9108,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
       "cards": [
         {
           "key": "s_back_in",
+          "observe": "stock",
           "type": "tension",
           "label": null,
           "speaker": null,
@@ -8710,6 +9135,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
       "cards": [
         {
           "key": "s_stairs_in",
+          "observe": "lock",
           "type": "tension",
           "label": null,
           "speaker": null,
@@ -8736,6 +9162,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
       "cards": [
         {
           "key": "s_out",
+          "observe": null,
           "type": "tension",
           "label": null,
           "speaker": null,
