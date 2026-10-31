@@ -275,7 +275,7 @@
           "type": "tension",
           "label": "It goes wrong",
           "speaker": null,
-          "text": "The third man gets out last, in no hurry. The other two straighten up. They call him Nick. He holds out a hand for the Tesco bag, looks in, and hands it back. \"Light.\" Nobody has said a number. One of the others opens a Stanley knife.",
+          "text": "The third man gets out last, in no hurry. The other two straighten up. They call him Nick. He holds out a hand for the Tesco bag, looks in, and hands it back. \"Light.\" Nobody has said a number. ",
           "image": "res://assets/events/intro/intro_card7.png"
         },
         {
@@ -290,7 +290,7 @@
           "type": "choice",
           "label": null,
           "speaker": null,
-          "text": "Nick cracks his knuckles, one at a time. Archie edges half a step in front of you.",
+          "text": "Archie edges half a step in front of you just before Nick strikes.",
           "image": "res://assets/events/intro/intro_card8.png",
           "choices": [
             {

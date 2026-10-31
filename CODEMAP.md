@@ -11,7 +11,7 @@ file owns today, no history.
 | GameData.gd | Loads/validates every `data/*.json` table at boot; scans `assets/combat/territorial<N>/` folders into `TERRITORIAL_VARIANTS` and builds their sprite sets in `combat_templates()` |
 | GameState.gd | Pure state tree (Dicts/Arrays/primitives); screens read only |
 | Rng.gd | Seeded RNG for every probabilistic system; `stable_unit()` keyed hash rolls + `fresh_seed()` off the global stream |
-| SaveManager.gd | Save/load/autosave/export-import; backfills missing keys (pre-tenure homes load owned, bedsit rented), restores JSON ints (round-fight RNG states saved as strings), loads a non-round combat dict as idle, founder fix-ups (room→role, Archie recruited past home raid), strips unowned veins from cultivator lists |
+| SaveManager.gd | Save/load/autosave; export/import as VEIN1:+base64(gzip(JSON)) (import also takes plain JSON); backfills missing keys (pre-tenure homes load owned, bedsit rented), restores JSON ints (round-fight RNG states saved as strings), loads a non-round combat dict as idle, founder fix-ups (room→role, Archie recruited past home raid), strips unowned veins from cultivator lists |
 | Snapshots.gd | Bounded snapshot-stack helper backing rewind |
 
 ## systems/*.gd — static-func systems
@@ -266,7 +266,7 @@ overlays; hides the top board on title/intro/combat and the nav dock per screen.
 | profile_app.gd | Stats, the Body/Mind/Soul skill wheel card, the Move Book card (You + recruit tabs), equipment, and a two-slot Loadout card (with the recruit's Move Book rows) (equip/unequip) for the player and each recruited combat contact, plus the shared Dial loadout card; during prep Change loadout shows only participants' Loadout + Dial cards |
 | dialer_app.gd | Phone recent-calls placeholder; no telephony state/actions |
 | settings_app.gd | Reduced-motion, alarm-vibration and quick-combat-pacing preference controls |
-| saveload_app.gd | Save slots, export/import (with copy-to-clipboard), New Game confirm |
+| saveload_app.gd | Save slots, export/import (compressed string, copy-to-clipboard), New Game confirm |
 | notifications_app.gd | Notification log with pending Defend / guard short-pay buttons, Move Book link on move level-ups |
 | short_pay_view.gd | BizBrief short-pay sub-view: per-place guard keep steppers, live cost/reserve/cash needed, Confirm |
 | guard_costs_view.gd | BizBrief Guard Costs sub-view (pot or not): next Monday bill + pending shortfall header, per-place guard payment chart over the history window, multi-select HQ/vein filter |

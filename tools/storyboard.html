@@ -64,6 +64,13 @@ header.top .title { display: grid; gap: 6px; min-width: 0 }
 .textpanel { background: #f4f2ee; color: #1a1d23; border-radius: 10px; padding: 12px 14px; min-height: 120px; display: grid; gap: 6px; align-content: start }
 .textpanel .who { font: 700 12px/1 "JetBrains Mono", monospace; text-transform: uppercase; letter-spacing: .06em; color: #6b5a33 }
 .textpanel p { margin: 0; font-size: 13.5px; line-height: 1.45; white-space: pre-line }
+/* Image and text share one 390x780 screen: the deck sits on the bottom 236px and grows up over the image, scrolling inside past the top. */
+.screen { position: relative; aspect-ratio: 390 / 780; border-radius: 12px; overflow: hidden; background: #22262e }
+.screen .frame { position: absolute; inset: 0 0 auto 0; height: 69.74%; aspect-ratio: auto; border-radius: 0 }
+.deck { position: absolute; inset: auto 0 0 0; min-height: 30.26%; max-height: 100%; overflow-y: auto; display: grid; gap: 8px; align-content: end; padding-top: 8px; background: #0d0e11 }
+.gv { justify-self: center; background: #2a2f39; border: 0; color: #e8eaee; border-radius: 8px; padding: 6px 12px; font: 12px "JetBrains Mono", monospace }
+.gv[aria-pressed="true"] { background: #6b5a33; color: #fff8e8 }
+.phone.ingame .mech, .phone.ingame .tool, .phone.ingame .frame .tag { display: none }
 .nav { display: flex; justify-content: space-between; align-items: center; gap: 8px; color: #d9dde4 }
 .nav button { background: #2a2f39; border: 0; color: #e8eaee; border-radius: 8px; padding: 8px 14px; font-family: "JetBrains Mono", monospace; font-size: 12px }
 .nav button:disabled { opacity: .35; cursor: default }
@@ -145,8 +152,19 @@ header.top .title { display: grid; gap: 6px; min-width: 0 }
 .outcome p { margin: 0; font-size: 13.5px; line-height: 1.45 }
 .outcome .mech { font: 11px/1.4 "JetBrains Mono", monospace; color: #6b5a33 }
 .otabs { display: flex; flex-wrap: wrap; gap: 4px }
+.outcome .continue { justify-self: end; border: 0; background: #6b5a33; color: #fff8e8; border-radius: 6px; padding: 5px 12px; font: 600 12px/1.2 "JetBrains Mono", monospace }
+.outcome .continue:disabled { opacity: .4 }
 .otabs button { border: 1px solid #b7ad97; background: transparent; color: #1a1d23; border-radius: 5px; padding: 3px 7px; font: 600 11px/1.2 "JetBrains Mono", monospace }
 .otabs button[aria-pressed="true"] { background: #6b5a33; border-color: #6b5a33; color: #fff8e8 }
+/* Observe panel: pick a read per ore (− / + steps miss → best tier, tap the text to take it). */
+.obs { display: grid; gap: 6px }
+.obs .obs-toggle { justify-self: start; border: 1px solid #3a404c; background: #1d2129; color: #e0b04a; border-radius: 6px; padding: 5px 10px; font: 600 11.5px/1.2 "JetBrains Mono", monospace }
+.obs-row { display: grid; grid-template-columns: 28px minmax(0, 1fr) 28px; gap: 4px; align-items: stretch }
+.obs-step { border: 1px solid #3a404c; background: #2a2f39; color: #e8eaee; border-radius: 6px; font: 700 15px/1 "JetBrains Mono", monospace }
+.obs-step:disabled { opacity: .35 }
+.obs-read { display: grid; gap: 2px; text-align: left; background: #2a2f39; border: 1px solid #3a404c; color: #e8eaee; border-radius: 8px; padding: 6px 9px; font-size: 12.5px; line-height: 1.35 }
+.obs-read[aria-pressed="true"] { border-color: #e0b04a; background: #3a3424 }
+.obs-ore { font: 600 10.5px/1.3 "JetBrains Mono", monospace; text-transform: uppercase; letter-spacing: .05em; color: #b9bfca }
 .cut .opt { font-size: 12.5px; color: var(--muted); overflow-wrap: anywhere }
 .cut .opt b { color: var(--fg); font-weight: 600 }
 .bhead { padding: 10px 12px 6px; border-top: 2px solid var(--fg); font: 600 12px/1.3 var(--mono); color: var(--muted) }
@@ -215,7 +233,7 @@ section { display: grid; gap: 12px; min-width: 0 }
 .mech-ed .mech-check input { width: auto }
 .mech-ed .mech-btn { padding: 3px 8px; font-size: 12px; margin-bottom: 6px }
 .frame.pickable { cursor: pointer }
-.frame.pickable:hover { outline: 2px solid var(--accent); outline-offset: 2px }
+.frame.pickable:hover { outline: 2px solid var(--accent); outline-offset: -2px }
 .imgpick { width: min(920px, calc(100vw - 32px)); max-height: calc(100vh - 32px); background: var(--surface); color: var(--fg);
   border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: none; gap: 10px }
 .imgpick[open] { display: grid; grid-template-rows: auto auto auto auto minmax(0, 1fr) auto }
@@ -358,15 +376,21 @@ section { display: grid; gap: 12px; min-width: 0 }
       </section>
       <div class="preview">
         <div class="phone" aria-label="Phone preview of the event screen">
-          <div class="frame" id="frame"></div>
-          <div class="textpanel"><span class="eyebrow" id="tp-label"></span><span class="who" id="tp-who"></span><p id="tp-text"></p></div>
-          <div class="opts" id="tp-opts" hidden></div>
-          <div class="outcome" id="tp-outcome" hidden></div>
+          <div class="screen">
+            <div class="frame" id="frame"></div>
+            <div class="deck">
+              <div class="textpanel"><span class="eyebrow" id="tp-label"></span><span class="who" id="tp-who"></span><p id="tp-text"></p></div>
+              <div class="obs" id="tp-obs" hidden></div>
+              <div class="opts" id="tp-opts" hidden></div>
+              <div class="outcome" id="tp-outcome" hidden></div>
+            </div>
+          </div>
           <div class="nav">
             <button id="prev" type="button">◀ Prev</button>
             <span class="mono" id="pos"></span>
             <button id="next" type="button">Next ▶</button>
           </div>
+          <button id="gameview" type="button" class="gv" aria-pressed="false" title="Hide tool-only annotations (mechanics, ids, image tags) and show the card as in-game">Game view</button>
         </div>
         <section>
           <section class="editor" id="card-editor" hidden>
@@ -980,7 +1004,10 @@ function checkOddsBlock(opt, changed, restructure) {
   const el = (tag, attrs = {}, ...kids) => {
     const n = document.createElement(tag);
     for (const [k, v] of Object.entries(attrs)) {
-      if (k === "class") n.className = v; else if (k === "text") n.textContent = v; else n.setAttribute(k, v);
+      // Booleans are presence attributes (disabled="false" still disables), so false omits the attribute.
+      if (k === "class") n.className = v; else if (k === "text") n.textContent = v;
+      else if (typeof v === "boolean") { if (v) n.setAttribute(k, ""); }
+      else n.setAttribute(k, v);
     }
     for (const k of kids) if (k != null) n.append(k);
     return n;
@@ -996,6 +1023,9 @@ function checkOddsBlock(opt, changed, restructure) {
   let trail = [], trailImg = [], pick = null, outcomeKey = null;
   // Option indexes asked so far per hub card key on the played path; they gate the hub's → under its advance rule.
   let asked = new Map();
+  // Observation reads picked in the preview (obsLevels shape), the +/− cursor per "obsId|ore", and whether the
+  // Observe panel is open in place of the options.
+  let obsReads = {}, obsCursor = new Map(), obsOpen = false;
   // Proposal preview images: "shots" = the linked storyboard's shots, "event" = the draft's own image keys.
   let imgMode = (() => { try { return localStorage.getItem("vein-sb-imgmode") || "shots"; } catch { return "shots"; } })();
   // Boards (a proposal or its shot board) in the order their undo steps were taken, so Undo on a proposal
@@ -2253,6 +2283,31 @@ function checkOddsBlock(opt, changed, restructure) {
     if (value === "" || !Number.isFinite(n) || n < 0 || n > 1) throw new Error("tier base: a chance between 0 and 1");
     t.base = n;
   }
+  // Preview reads: {obsId: {ore: level}} (0 = miss, n = tiers reached; an absent ore is unread), as
+  // state.event.observations' levels (R§3.9d State).
+  // A block's possible reads worst first: [{level, text}], level 0 the miss, the last the best tier (tiers[0]).
+  function obsLevels(draft, id, ore) {
+    const b = blockOf(draft, id, ore), tiers = b.tiers || [], n = tiers.length;
+    return [{ level: 0, text: b.miss || "" }, ...tiers.map((_, i) => ({ level: i + 1, text: tiers[n - 1 - i].text || "" }))];
+  }
+  // A pick option's qualifying ores under reads in ore order (R§3.9d Observation pick), each the {ore, k, res}
+  // entry it resolves to: the ore's first entry with atLeast ≤ its level.
+  function pickQualifying(o, reads) {
+    const lv = (reads || {})[o.pick.observation] || {}, entries = pickEntries(o);
+    return OBS_ORES.flatMap((ore) => {
+      if (lv[ore] == null) return [];
+      const hit = entries.find((x) => x.ore === ore && Number(x.res.atLeast) <= lv[ore]);
+      return hit ? [hit] : [];
+    });
+  }
+  // An `observed` condition against reads (R§3.9d Condition); an `event` ref reads past-run memory, which the
+  // preview doesn't have, so it never holds.
+  function observedHolds(c, reads) {
+    const ob = c && c.observed;
+    if (!ob || ob.event != null) return false;
+    const lv = ((reads || {})[ob.id] || {})[ob.ore];
+    return lv != null && lv >= Number(ob.atLeast);
+  }
 
   // Shot board (board.json) editing. Format: .claude/skills/event-storyboard/reference/board-schema.md.
   // Editable shot fields in file order; kind: line | text | lines (one per line) | list (comma-separated) |
@@ -3037,17 +3092,23 @@ function checkOddsBlock(opt, changed, restructure) {
     const c = b.cards[cardIdx];
     const o = pick != null && c && c.choices ? c.choices[pick] : null;
     if (!o) return {};
-    const outs = outcomesOf(o);
+    let outs = outcomesOf(o);
+    // A pick on an observation read in the preview offers only its qualifying ores, or nothing qualifies.
+    if (o.pick && obsReads[o.pick.observation]) {
+      const keys = new Set(pickQualifying(o, obsReads).map((x) => `pick:${x.ore}:${x.k}`));
+      outs = outs.filter((x) => (keys.size ? keys.has(x.key) : x.key === NO_PICK));
+    }
     return { o, outs, oc: outs.find((x) => x.key === outcomeKey) || outs[0] };
   }
   // Flat index of the card Continue plays next (b.cards.length = event ends), via the draft model's nextPos.
-  // Conditional branch `then` lists take their else entry: the preview tracks no game state.
+  // Conditional branch `then` lists test only `observed` against the preview's reads; anything else fails, so
+  // the else entry wins.
   function nextIndex(b) {
     const { oc } = picked(b);
     const c = b.cards[cardIdx];
     let to;
     if (oc && oc.key === NO_PICK) return b.cards.length; // greyed: nothing commits, so play can't go on from it
-    try { to = nextPos(b.draft, { branch: c.branch, idx: c.idx }, oc ? oc.res : null); }
+    try { to = nextPos(b.draft, { branch: c.branch, idx: c.idx }, oc ? oc.res : null, (x) => observedHolds(x, obsReads)); }
     catch (e) { setNote(`Routing: ${e.message}`); return b.cards.length; }
     return to ? b.cards.findIndex((x) => x.branch === to.branch && x.idx === to.idx) : b.cards.length;
   }
@@ -3058,12 +3119,53 @@ function checkOddsBlock(opt, changed, restructure) {
     if (!c || !c.choices || pick == null || c.choices[pick].exit === true) return;
     asked.set(c.key, new Set([...askedAt(c.key), pick]));
   }
-  const goTo = (i) => { cardIdx = i; pick = null; outcomeKey = null; renderFrame(); };
+  const goTo = (i) => { cardIdx = i; pick = null; outcomeKey = null; obsOpen = false; renderFrame(); };
+  // The Observe control for card c: a toggle button, and while open, one row per ore block of the observation
+  // in effect. − / + step the row through miss and each tier; tapping the text takes that read (again = unread).
+  function renderObserve(b, c, box) {
+    const id = b.draft ? effectiveObservation(b.draft, c.key).id : "";
+    const ob = id && (b.draft.observations || {})[id];
+    box.hidden = !ob;
+    if (!ob) return;
+    const reads = obsReads[id] || {}, ores = OBS_ORES.filter((ore) => (ob.blocks || {})[ore]);
+    const nRead = ores.filter((ore) => reads[ore] != null).length;
+    const toggle = el("button", { type: "button", class: "obs-toggle", "aria-expanded": String(obsOpen) },
+      obsOpen ? "◀ Back to event" : `Observe · ${id}${nRead ? ` (${nRead}/${ores.length} read)` : ""}`);
+    toggle.addEventListener("click", () => { obsOpen = !obsOpen; renderFrame(); });
+    box.append(toggle);
+    if (!obsOpen) return;
+    for (const ore of ores) {
+      const levels = obsLevels(b.draft, id, ore), top = levels.length - 1, ck = `${id}|${ore}`;
+      const at = Math.min(top, obsCursor.has(ck) ? obsCursor.get(ck) : reads[ore] ?? 0), lv = levels[at];
+      const step = (d) => { obsCursor.set(ck, Math.max(0, Math.min(top, at + d))); renderFrame(); };
+      const minus = el("button", { type: "button", class: "obs-step", text: "−", disabled: at === 0, "aria-label": `Worse ${ore} read` });
+      const plus = el("button", { type: "button", class: "obs-step", text: "+", disabled: at === top, "aria-label": `Better ${ore} read` });
+      minus.addEventListener("click", () => step(-1)); plus.addEventListener("click", () => step(1));
+      const chosen = reads[ore] === lv.level;
+      const pickBt = el("button", { type: "button", class: "obs-read", "aria-pressed": String(chosen) },
+        el("span", { class: "obs-ore", text: `${ore} · ${lv.level ? `tier ${lv.level}/${top}` : "miss"}${chosen ? " ✓" : ""}` }),
+        el("span", { text: lv.text || "(no text)" }));
+      pickBt.addEventListener("click", () => {
+        const next = { ...reads };
+        if (chosen) delete next[ore]; else next[ore] = lv.level;
+        if (Object.keys(next).length) obsReads = { ...obsReads, [id]: next };
+        else { const { [id]: _, ...rest } = obsReads; obsReads = rest; }
+        outcomeKey = null; renderFrame();
+      });
+      box.append(el("div", { class: "obs-row" }, minus, pickBt, plus));
+    }
+  }
+  // Plays on from the current card along the picked outcome, so skipped branch cards stay skipped (as in the game).
+  function advance(b) {
+    const n = nextIndex(b);
+    if (n < b.cards.length) { noteAsked(b); trail.push(cardIdx); trailImg.push(pickedImage(b)); goTo(n); }
+    else renderFrame();
+  }
   let frameTok = 0;
 
   function renderProposalFrame(b) {
-    const frame = $("frame"), opts = $("tp-opts"), out = $("tp-outcome");
-    frame.replaceChildren(); opts.replaceChildren(); out.replaceChildren();
+    const frame = $("frame"), opts = $("tp-opts"), out = $("tp-outcome"), obs = $("tp-obs");
+    frame.replaceChildren(); opts.replaceChildren(); out.replaceChildren(); obs.replaceChildren(); obs.hidden = true;
     const shots = showingShots(b);
     frame.classList.toggle("pickable", !shots && !!b.draft && b.cards.length > 0);
     frame.title = !shots && b.draft && b.cards.length ? (pick != null ? "Click to pick this result's image" : "Click to pick this card's image") : "";
@@ -3100,24 +3202,32 @@ function checkOddsBlock(opt, changed, restructure) {
     $("tp-label").textContent = c.label || "";
     $("tp-who").textContent = c.speaker || c.type;
     $("tp-text").textContent = c.text;
-    if (c.choices) {
+    renderObserve(b, c, obs);
+    if (obs.hidden) obsOpen = false;
+    if (c.choices && !obsOpen) {
       opts.hidden = false;
       const hub = hubExit(c, askedAt(c.key));
       opts.append(...c.choices.map((x, i) => {
         const isExit = i === hub.index, locked = isExit && hub.locked;
         const bt = el("button", { type: "button", "aria-pressed": String(pick === i), disabled: locked,
           title: locked ? `→ unlocks after ${hub.need} more question${hub.need === 1 ? "" : "s"}` : "" },
-          el("span", { text: (isExit ? "→ " : askedAt(c.key).has(i) ? "✓ " : "") + (x.label || "(no label)") + (x.id ? `  [${x.id}]` : "") }),
+          el("span", {}, isExit ? el("span", { class: "tool", text: "→ " }) : null, (askedAt(c.key).has(i) ? "✓ " : "") + (x.label || "(no label)"),
+            x.id ? el("span", { class: "tool", text: `  [${x.id}]` }) : null),
           el("span", { class: "mech", text: optionMech(x) }));
-        bt.addEventListener("click", () => { pick = pick === i ? null : i; outcomeKey = null; renderFrame(); });
+        // As in the game: an option with no result card plays straight on; otherwise its result shows with Continue.
+        bt.addEventListener("click", () => {
+          pick = pick === i ? null : i; outcomeKey = null;
+          const p = picked(b);
+          if (p.o && p.outs.length === 1 && noResultCard(p.oc.res)) advance(b); else renderFrame();
+        });
         return bt;
       }));
     }
-    if (o && oc) {
+    if (o && oc && !obsOpen) {
       out.hidden = false;
       if (outs.length > 1) {
         out.append(el("div", { class: "otabs" }, ...outs.map((x) => {
-          const t = el("button", { type: "button", "aria-pressed": String(x === oc), text: x.prob == null ? x.label : `${x.label} · ${pct(x.prob)}` });
+          const t = el("button", { type: "button", "aria-pressed": String(x === oc) }, x.label, x.prob == null ? null : el("span", { class: "tool", text: ` · ${pct(x.prob)}` }));
           t.addEventListener("click", () => { outcomeKey = x.key; renderFrame(); });
           return t;
         })));
@@ -3130,6 +3240,9 @@ function checkOddsBlock(opt, changed, restructure) {
       out.append(el("p", { text: noResultCard(res) ? "(no result text: no result card, play goes straight on)" : res.result_text }), mech ? el("span", { class: "mech", text: mech }) : null);
       }
       if (outs.length > 1 && oc.prob != null) out.append(el("span", { class: "mech", text: "Odds at base, before mods." }));
+      const cont = el("button", { type: "button", class: "continue", text: "Continue ▶", disabled: nextIndex(b) >= b.cards.length });
+      cont.addEventListener("click", () => advance(b));
+      out.append(cont);
     }
     $("pos").textContent = `${c.branch} · ${c.key} · ${cardIdx + 1}/${b.cards.length}`;
     $("next").disabled = nextIndex(b) >= b.cards.length;
@@ -4083,7 +4196,7 @@ function checkOddsBlock(opt, changed, restructure) {
     renderGraph(b);
     if (sel) {
       const i = b.cards.findIndex((x) => x.key === sel);
-      if (i >= 0) { cardIdx = i; trail = []; trailImg = []; asked.clear(); pick = null; outcomeKey = null; }
+      if (i >= 0) { cardIdx = i; trail = []; trailImg = []; asked.clear(); pick = null; outcomeKey = null; obsOpen = false; }
     }
     renderCuts(b); renderFrame(); renderComments(b); renderEditBar();
   }
@@ -4629,7 +4742,7 @@ function checkOddsBlock(opt, changed, restructure) {
   const typing = () => { const a = document.activeElement; return !!a && (a.tagName === "TEXTAREA" || a.isContentEditable || (a.tagName === "INPUT" && a.type === "text")); };
   function renderAll() { renderPicker(); if (!typing()) renderBoard(); }
   function selectBoard(id, keepCard) {
-    if (!keepCard) { cardIdx = 0; trail = []; trailImg = []; asked.clear(); pick = null; outcomeKey = null; }
+    if (!keepCard) { cardIdx = 0; trail = []; trailImg = []; asked.clear(); pick = null; outcomeKey = null; obsReads = {}; obsCursor.clear(); obsOpen = false; }
     if (id !== currentId) $("dirty").textContent = "";
     currentId = id; if (id) remember(id);
     renderPicker(); renderBoard();
@@ -4770,10 +4883,16 @@ function checkOddsBlock(opt, changed, restructure) {
   });
   $("next").addEventListener("click", () => {
     const b = board(); if (!b) return;
-    // Proposals follow the picked outcome's goto, so skipped branch cards stay skipped (as in the game).
-    if (b.kind === "proposal") { const n = nextIndex(b); if (n < b.cards.length) { noteAsked(b); trail.push(cardIdx); trailImg.push(pickedImage(b)); goTo(n); } return; }
+    if (b.kind === "proposal") { advance(b); return; }
     if (cardIdx < b.cards.length - 1) { cardIdx++; renderFrame(); }
   });
+  const setGameView = (on) => {
+    document.querySelector(".phone").classList.toggle("ingame", on);
+    $("gameview").setAttribute("aria-pressed", String(on));
+    try { localStorage.setItem("vein-sb-gameview", on ? "1" : ""); } catch {}
+  };
+  setGameView((() => { try { return localStorage.getItem("vein-sb-gameview") === "1"; } catch { return false; } })());
+  $("gameview").addEventListener("click", () => setGameView($("gameview").getAttribute("aria-pressed") !== "true"));
   $("open").addEventListener("click", openFolder);
   $("refresh").addEventListener("click", () => root && loadAll());
   $("new-board").addEventListener("click", openNewBoard);

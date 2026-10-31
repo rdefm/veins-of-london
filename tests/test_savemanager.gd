@@ -86,6 +86,37 @@ func run() -> void:
 		SaveManager.delete_slot(TEST_SLOT)
 	)
 
+	run_case("export_string_is_compressed_and_round_trips_identical_state", func():
+		GameState.reset()
+		GameState.state["player"]["cash"] = 777
+		var original: Dictionary = GameState.deep_copy(GameState.state)
+		var text := SaveManager.export_string()
+		assert_true(text.begins_with("VEIN1:"), "version prefix")
+		assert_true(text.length() < JSON.stringify(GameState.state).length() / 2, "much smaller than plain JSON")
+		GameState.state["player"]["cash"] = 1
+		assert_true(SaveManager.import_string(text)["ok"])
+		assert_eq(GameState.state, original)
+	)
+
+	run_case("import_string_still_accepts_plain_json", func():
+		GameState.reset()
+		GameState.state["player"]["cash"] = 888
+		var plain := JSON.stringify(GameState.state)
+		GameState.state["player"]["cash"] = 1
+		assert_true(SaveManager.import_string(plain)["ok"])
+		assert_eq(GameState.state["player"]["cash"], 888)
+	)
+
+	run_case("import_string_rejects_malformed_compressed_input_with_a_reason", func():
+		GameState.reset()
+		var good := SaveManager.export_string()
+		var truncated := good.substr(0, good.length() / 2)
+		for bad in ["VEIN1:", "VEIN1:!!!not base64!!!", truncated]:
+			var result := SaveManager.import_string(bad)
+			assert_true(not result["ok"],"rejects %s" % bad.left(20))
+			assert_true(String(result["reason"]).length() > 0, "has a reason")
+	)
+
 	run_case("save_mutate_load_round_trips_a_scrappers_combat_variant", func():
 		GameState.reset()
 		Combat.start_raid("v1", 1, 3, Combat.SCRAPPER_TEMPLATE_KEY)

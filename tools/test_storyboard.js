@@ -32,7 +32,7 @@ const {
   promoteForWrite, promoteSummary, shotBoardFor, boardCut, shotOnPath, workingCopyFor, liveHash, liveDrifted,
   liveEventOptions, openOrImport, lintEvent, lintDraft, inboundRefs, inboundWarnings,
   OBS_ORES, obsIds, effectiveObservation, setCardObserve, addObservation, renameObservation, observationUses, deleteObservation, addObservationBlock, deleteObservationBlock, setObservationMiss, addObservationTier, deleteObservationTier, setObservationTier,
-  pickEntries, setPickOn, setPickObservation, setPickReason, addPickOre, deletePickOre, addPickTier, deletePickTier, setPickAtLeast, allLinks,
+  pickEntries, setPickOn, setPickObservation, setPickReason, addPickOre, deletePickOre, addPickTier, deletePickTier, setPickAtLeast, allLinks, obsLevels, pickQualifying, observedHolds,
 } = new Function(
   html.slice(ss, se) + html.slice(s, e) +
     "\nreturn { parseProposal, parseDraft, serialiseDraft, ensureKeys, legacyToDraft, nextPos, playOrder, flatCards, thenText," +
@@ -47,7 +47,7 @@ const {
     " LIVE_EVENTS_DIR, proposalFileName, importBoard, blankBoard, duplicateBoard, boardCardLabel, promoteDraft, serialiseEvent," +
     " promoteForWrite, promoteSummary, shotBoardFor, boardCut, shotOnPath, workingCopyFor, liveHash, liveDrifted," +
     " liveEventOptions, openOrImport, lintEvent, lintDraft, inboundRefs, inboundWarnings, OBS_ORES, obsIds, effectiveObservation, setCardObserve, addObservation, renameObservation, observationUses, deleteObservation, addObservationBlock, deleteObservationBlock, setObservationMiss, addObservationTier, deleteObservationTier, setObservationTier," +
-    " pickEntries, setPickOn, setPickObservation, setPickReason, addPickOre, deletePickOre, addPickTier, deletePickTier, setPickAtLeast, allLinks };"
+    " pickEntries, setPickOn, setPickObservation, setPickReason, addPickOre, deletePickOre, addPickTier, deletePickTier, setPickAtLeast, allLinks, obsLevels, pickQualifying, observedHolds };"
 )();
 
 let passed = 0;
@@ -2044,6 +2044,25 @@ test("pick option: promote → import → promote reproduces the event byte-for-
   const pk = single.cards.find((c) => c.key === "c2").choices[0].pick;
   pk.ores.life = pk.ores.life[0];
   assert.strictEqual(serialiseEvent(promoteDraft(legacyToDraft(JSON.parse(JSON.stringify(single)))).event), serialiseEvent(single));
+});
+
+test("preview reads: obsLevels worst first, pickQualifying by level, observedHolds", () => {
+  const { draft } = parseDraft(draftText);
+  addObservation(draft, "alley");
+  setObservationMiss(draft, "alley", "physics", "Nothing.");
+  setObservationTier(draft, "alley", "physics", 0, "text", "Best.");
+  setObservationTier(draft, "alley", "physics", 1, "text", "Low.");
+  assert.deepStrictEqual(obsLevels(draft, "alley", "physics"), [{ level: 0, text: "Nothing." }, { level: 1, text: "Low." }, { level: 2, text: "Best." }]);
+  const o = { pick: { observation: "alley", ores: { physics: [{ atLeast: 2, result_text: "P2" }, { atLeast: 1, result_text: "P1" }], life: { atLeast: 1, result_text: "L" } } } };
+  assert.deepStrictEqual(pickQualifying(o, {}), []);
+  assert.deepStrictEqual(pickQualifying(o, { alley: { physics: 1, life: 0 } }).map((x) => [x.ore, x.k]), [["physics", 1]]);
+  assert.deepStrictEqual(pickQualifying(o, { alley: { physics: 2, life: 1 } }).map((x) => [x.ore, x.k]), [["physics", 0], ["life", 0]]);
+  const cond = { observed: { id: "alley", ore: "physics", atLeast: 2 } };
+  assert.strictEqual(observedHolds(cond, { alley: { physics: 2 } }), true);
+  assert.strictEqual(observedHolds(cond, { alley: { physics: 1 } }), false);
+  assert.strictEqual(observedHolds(cond, {}), false);
+  assert.strictEqual(observedHolds({ observed: { ...cond.observed, event: "x" } }, { alley: { physics: 2 } }), false);
+  assert.strictEqual(observedHolds({ flag: "f" }, { alley: { physics: 2 } }), false);
 });
 
 console.log(`${passed} passed${process.exitCode ? ", some FAILED" : ""}`);

@@ -84,11 +84,24 @@ func _find_autosave_slot_to_write() -> int:
 	return oldest_index
 
 
+const EXPORT_PREFIX := "VEIN1:"
+
+
+# VEIN1: + base64(gzip(save JSON)); small enough for an Android clipboard.
 func export_string() -> String:
-	return JSON.stringify(_saveable_state())
+	var json_bytes := JSON.stringify(_saveable_state()).to_utf8_buffer()
+	return EXPORT_PREFIX + Marshalls.raw_to_base64(json_bytes.compress(FileAccess.COMPRESSION_GZIP))
 
 
+# Accepts the VEIN1: compressed form or plain save JSON.
 func import_string(text: String) -> Dictionary:
+	text = text.strip_edges()
+	if text.begins_with(EXPORT_PREFIX):
+		var packed := Marshalls.base64_to_raw(text.substr(EXPORT_PREFIX.length()))
+		var json_bytes := packed.decompress_dynamic(-1, FileAccess.COMPRESSION_GZIP) if packed.size() > 0 else PackedByteArray()
+		if json_bytes.is_empty():
+			return { "ok": false, "reason": "Save string is damaged or truncated." }
+		text = json_bytes.get_string_from_utf8()
 	var parsed = JSON.parse_string(text)
 	if parsed == null or typeof(parsed) != TYPE_DICTIONARY:
 		return { "ok": false, "reason": "Invalid save data." }
