@@ -337,6 +337,94 @@
           "miss": "The door's shut. You can't say when it was last open."
         }
       }
+    },
+    "flap": {
+      "mods": [],
+      "blocks": {
+        "time": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "The drayman comes on the hour. He props both doors back and leaves them up while he fetches the next barrel from the van, which is parked on the zigzags."
+            },
+            {
+              "base": 0.55,
+              "text": "Deliveries go down the chute. The drayman's due, roughly."
+            }
+          ],
+          "miss": "Two iron doors in the pavement. You can't say when they last opened."
+        },
+        "physics": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "The left door's hinge has rusted to a flake. The crate on top is what's keeping it shut."
+            },
+            {
+              "base": 0.55,
+              "text": "The iron edges are sound. The wood between them has gone soft."
+            }
+          ],
+          "miss": "Iron edges, old wood, shut. Nothing more from up here."
+        },
+        "life": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "Everyone at the bus stop is watching the road for the bus, or their phone for the bus. Nobody's looking down."
+            },
+            {
+              "base": 0.55,
+              "text": "The bus stop's full. They're all facing the road."
+            }
+          ],
+          "miss": "People going past, too many to read any one of them."
+        }
+      }
+    },
+    "cellar": {
+      "mods": [],
+      "blocks": {
+        "life": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "He's scrolling with the sound off. Now and then he glances at the vein, the way you'd pat a pocket to check your keys are still there."
+            },
+            {
+              "base": 0.55,
+              "text": "One man in a shop fleece, on a crate, half turned from the ladder."
+            }
+          ],
+          "miss": "Someone's down there. You hear the crate creak before you see him."
+        },
+        "time": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "Every few minutes, near enough on the dot, he turns on the crate to look at the vein, and stays turned while he reads whatever's come in on his phone."
+            },
+            {
+              "base": 0.55,
+              "text": "He shifts round on the crate every few minutes. He hasn't got comfortable yet."
+            }
+          ],
+          "miss": "He's been down there a while. You can't tell how long, or how long he's got left."
+        },
+        "emotion": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "He's bored past caring. He has read the label on every box down here, and started on the barrels."
+            },
+            {
+              "base": 0.55,
+              "text": "He's bored, and has been since he sat down."
+            }
+          ],
+          "miss": "You can't read his face from the ladder."
+        }
+      }
     }
   },
   "cards": [
@@ -3871,7 +3959,7 @@
       "type": "choice",
       "label": null,
       "speaker": null,
-      "observe": "raid",
+      "observe": "flap",
       "text": "The cellar flap in the pavement, with the street going by an arm's length away.",
       "choices": [
         {
@@ -3968,6 +4056,15 @@
                 },
                 "add": 0.13,
                 "label": "A sharp read"
+              },
+              {
+                "observed": {
+                  "id": "flap",
+                  "ore": "physics",
+                  "atLeast": 2
+                },
+                "add": 0.05,
+                "label": "Rusted to a flake"
               },
               {
                 "security": {
@@ -4121,6 +4218,15 @@
                 },
                 "add": 0.05,
                 "label": "A sharp read"
+              },
+              {
+                "observed": {
+                  "id": "flap",
+                  "ore": "life",
+                  "atLeast": 1
+                },
+                "add": 0.05,
+                "label": "Facing the road"
               },
               {
                 "security": {
@@ -4339,6 +4445,7 @@
       "type": "choice",
       "label": null,
       "speaker": null,
+      "observe": "cellar",
       "text": "Straight into the cellar, past the stock, with no stairs and no till.",
       "choices": [
         {
@@ -4371,6 +4478,15 @@
                 },
                 "add": 0.13,
                 "label": "A sharp read"
+              },
+              {
+                "observed": {
+                  "id": "cellar",
+                  "ore": "time",
+                  "atLeast": 1
+                },
+                "add": 0.05,
+                "label": "Every few minutes"
               },
               {
                 "alertByTier": [

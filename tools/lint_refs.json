@@ -1060,7 +1060,17 @@
 				]
 			},
 			"observations": {
+				"cellar": {
+					"emotion": 2,
+					"life": 2,
+					"time": 2
+				},
 				"door": {
+					"physics": 2,
+					"time": 2
+				},
+				"flap": {
+					"life": 2,
 					"physics": 2,
 					"time": 2
 				},
