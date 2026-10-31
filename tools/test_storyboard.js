@@ -204,6 +204,46 @@ test("promote refuses a hub whose exit option loops back", () => {
   assert.throws(() => promoteDraft(d), /main · h: hub has no forward exit/);
 });
 
+// A return link: choice card g (no exit option) detours to a fight; the shared resume card's conditional then
+// sends play back to g while atGate holds, else on to the way out.
+const returnDraft = () => ({ start: "main", _keyLinks: true, branches: {
+  main: { cards: [{ key: "i", text: "intro" }, { key: "g", type: "choice", text: "gate", choices: [
+    { id: "s", label: "Sneak", goto: { branch: "fight" } },
+    { id: "l", label: "Leave", goto: { branch: "out" } }] }] },
+  fight: { cards: [{ key: "f", type: "tension", text: "fight" }], then: { branch: "resume" } },
+  resume: { cards: [{ key: "r", type: "tension", text: "resume" }],
+    then: [{ if: { flag: "atGate" }, branch: "main", card: "g" }, { branch: "out" }] },
+  out: { cards: [{ key: "o", text: "bye" }] } } });
+
+test("promote emits a return link as a backward key goto, with no exit option on its target", () => {
+  const { event, dropped } = promoteDraft(returnDraft());
+  const cards = event.cards, at = (k) => cards.findIndex((c) => c.key === k);
+  assert.deepStrictEqual(dropped, []);
+  assert.ok(at("g") < at("r"), "the return target sits before the resume card");
+  const goto = cards[at("r")].goto, list = Array.isArray(goto) ? goto : [goto];
+  assert.deepStrictEqual(list[0], { if: { flag: "atGate" }, card: "g" });
+});
+
+test("a loop that doesn't pass through a return link is still refused", () => {
+  const d = returnDraft();
+  d.branches.out.cards[0].goto = { branch: "main" };
+  assert.throws(() => promoteDraft(d), /play can loop/);
+});
+
+test("promote refuses a return to a non-choice card, naming branch, condition and target", () => {
+  const d = returnDraft();
+  d.branches.resume.then[0] = { if: { flag: "atGate" }, branch: "fight" };
+  assert.throws(() => promoteDraft(d), /resume · then \(if \{"flag":"atGate"\}\): returns to fight, which isn't a choice card/);
+});
+
+test("the editor's loop guard accepts authoring a return link", () => {
+  const d = returnDraft();
+  setThen(d, "resume", [{ branch: "out" }]);
+  setThen(d, "resume", [{ if: { flag: "atGate" }, branch: "main", card: "g" }, { branch: "out" }]);
+  assert.strictEqual(d.branches.resume.then[0].card, "g");
+  assert.throws(() => setThen(d, "resume", [{ if: { flag: "atGate" }, branch: "fight" }, { branch: "out" }]), /would loop/);
+});
+
 test("setOptionExitFlag and setCardAdvance write exit / advance and promote carries them", () => {
   const d = hubDraft(), card = d.branches.main.cards[0];
   setCardAdvance(d, "h", "all");

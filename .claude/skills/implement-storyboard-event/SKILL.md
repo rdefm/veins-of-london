@@ -68,7 +68,8 @@ Writes `data/events/<id>.json` (house formatting), refusing while open comments 
 
 If it refuses:
 
-- `play can loop` — the draft has a cycle that isn't a hub (a back-edge to a choice card); tell the user, don't break it yourself.
+- `play can loop` — the draft has a cycle that isn't a hub (a back-edge to a choice card) or a return link (a conditional `then` entry back to a choice card that reaches it); tell the user, don't break it yourself.
+- `<branch> · then (<condition>): returns to <target>, which isn't a choice card` — a conditional `then` entry points back to a non-choice card; return links must land on a choice card. Tell the user, don't break it yourself.
 - `hub has no forward exit` — every option of that hub loops back or is hidden after use; tell the user, don't break it yourself.
 - `conditional then that can end the event` — the engine's conditional goto has no "end" entry and falls through on no match. Ask the user which branch the else / ending entry should go to.
 - A target error (`unknown branch`, `no card`, `branch X has no cards`) — a dangling link; ask the user where it should go.
