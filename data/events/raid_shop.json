@@ -244,6 +244,99 @@
           "miss": "Boxes come in, boxes go out. You couldn't say when."
         }
       }
+    },
+    "lock": {
+      "mods": [],
+      "blocks": {
+        "physics": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "The lock is newer than the door, and cheap. The price sticker is still on the face: £8.99."
+            },
+            {
+              "base": 0.55,
+              "text": "The lock is newer than the door. Somebody spent money back here, though not much."
+            }
+          ],
+          "miss": "A door, a lock, a handle. Nothing more from here."
+        },
+        "fate": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "There's a crate-shaped scuff on the frame at hip height. Whoever takes the deliveries down goes with his hands full, and doesn't always come back to lock up."
+            },
+            {
+              "base": 0.55,
+              "text": "The handle's worn bright. This door gets more use than a cellar door needs."
+            }
+          ],
+          "miss": "Nothing about the door is lucky or unlucky. It's shut."
+        }
+      }
+    },
+    "yard": {
+      "mods": [],
+      "blocks": {
+        "life": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "He's on a dating app, swiping left with great care. He looks up whenever the yard door creaks, and at nothing else."
+            },
+            {
+              "base": 0.55,
+              "text": "One man, a shop fleece, a phone. He's facing the yard door, not the gate."
+            }
+          ],
+          "miss": "Someone's in the yard. You smell the smoke before you see him."
+        },
+        "time": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "He lit this one as you came round the corner. He smokes them down to the filter, one per break, unless the shift's got to him."
+            },
+            {
+              "base": 0.55,
+              "text": "He's not long started. His breaks run a cigarette each."
+            }
+          ],
+          "miss": "He's on a break. You can't tell how long he's had, or how long he's got."
+        }
+      }
+    },
+    "door": {
+      "mods": [],
+      "blocks": {
+        "physics": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "The hinge pins are on the outside, and the paint over the tops of them has cracked. They've been out before, and the door painted back on after."
+            },
+            {
+              "base": 0.55,
+              "text": "The door is old: soft paint, a warped frame, and a lock newer than the wood."
+            }
+          ],
+          "miss": "Old wood under a lot of paint. You can't tell which is holding the other up."
+        },
+        "time": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "The paint round the latch is worn to the wood. He goes in and out all shift, and between smokes the door sits on the latch, not the lock."
+            },
+            {
+              "base": 0.55,
+              "text": "The paint round the latch is worn to the wood. This door opens a lot."
+            }
+          ],
+          "miss": "The door's shut. You can't say when it was last open."
+        }
+      }
     }
   },
   "cards": [
@@ -1918,7 +2011,7 @@
       "type": "choice",
       "label": null,
       "speaker": null,
-      "observe": "raid",
+      "observe": "lock",
       "text": "The cellar door: a lock, and a stair behind it.",
       "choices": [
         {
@@ -1951,6 +2044,15 @@
                 },
                 "add": 0.13,
                 "label": "A sharp read"
+              },
+              {
+                "observed": {
+                  "id": "lock",
+                  "ore": "physics",
+                  "atLeast": 1
+                },
+                "add": 0.05,
+                "label": "A cheap lock"
               },
               {
                 "all": [
@@ -2116,6 +2218,15 @@
                 },
                 "add": 0.05,
                 "label": "A sharp read"
+              },
+              {
+                "observed": {
+                  "id": "lock",
+                  "ore": "fate",
+                  "atLeast": 2
+                },
+                "add": 0.05,
+                "label": "Left off the lock"
               }
             ]
           },
@@ -2525,6 +2636,7 @@
       "type": "choice",
       "label": null,
       "speaker": null,
+      "observe": "yard",
       "text": "The back yard: bins, crates, a man on a smoke. The cellar flap lies in the paving by his feet.",
       "choices": [
         {
@@ -2557,6 +2669,15 @@
                 },
                 "add": 0.13,
                 "label": "A sharp read"
+              },
+              {
+                "observed": {
+                  "id": "yard",
+                  "ore": "time",
+                  "atLeast": 1
+                },
+                "add": 0.05,
+                "label": "One cigarette a break"
               },
               {
                 "security": {
@@ -3115,6 +3236,7 @@
       "type": "choice",
       "label": null,
       "speaker": null,
+      "observe": "door",
       "text": "The yard door, old and painted shut-ish.",
       "choices": [
         {
@@ -3147,6 +3269,15 @@
                 },
                 "add": 0.13,
                 "label": "A sharp read"
+              },
+              {
+                "observed": {
+                  "id": "door",
+                  "ore": "physics",
+                  "atLeast": 2
+                },
+                "add": 0.05,
+                "label": "Pins out before"
               },
               {
                 "security": {
@@ -3296,6 +3427,15 @@
                 },
                 "add": 0.05,
                 "label": "A sharp read"
+              },
+              {
+                "observed": {
+                  "id": "door",
+                  "ore": "time",
+                  "atLeast": 2
+                },
+                "add": 0.05,
+                "label": "On the latch"
               },
               {
                 "security": {
@@ -3731,6 +3871,7 @@
       "type": "choice",
       "label": null,
       "speaker": null,
+      "observe": "raid",
       "text": "The cellar flap in the pavement, with the street going by an arm's length away.",
       "choices": [
         {

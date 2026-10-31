@@ -1060,6 +1060,14 @@
 				]
 			},
 			"observations": {
+				"door": {
+					"physics": 2,
+					"time": 2
+				},
+				"lock": {
+					"fate": 2,
+					"physics": 2
+				},
 				"raid": {
 					"emotion": 2,
 					"fate": 2,
@@ -1076,6 +1084,10 @@
 					"emotion": 2,
 					"fate": 2,
 					"life": 2
+				},
+				"yard": {
+					"life": 2,
+					"time": 2
 				}
 			}
 		},
