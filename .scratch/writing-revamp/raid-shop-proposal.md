@@ -8453,7 +8453,13 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
               "requires": {
                 "item": "prophetsBreath",
                 "optional": true,
-                "display": "disable"
+                "display": "disable",
+                "hideUnless": {
+                  "security": {
+                    "feature": "guards",
+                    "atLeast": 1
+                  }
+                }
               },
               "effects": [
                 {
@@ -9612,6 +9618,6 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
   },
   "_keyLinks": true,
   "_liveSource": "raid_shop.json",
-  "_liveHash": "68538638"
+  "_liveHash": "a16c8f36"
 }
 ```

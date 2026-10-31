@@ -147,11 +147,11 @@ func run() -> void:
 		_start({ "cellarFlap": false, "ward": true, "cameras": 1 })
 		_settle()
 		RaidingTests._seed_read("physics", 2)
-		_pick("Read the gaps…")
+		_pick("Other ways in…")
 		assert_true(not _shown("The cellar flap"), "no rotten flap, no route")
 		_start({ "cellarFlap": true, "ward": true, "cameras": 1 })
 		_settle()
-		_pick("Read the gaps…")
+		_pick("Other ways in…")
 		assert_true(not _shown("The cellar flap"), "a flap nobody has read is not offered")
 		RaidingTests._seed_read("physics", 1)
 		assert_true(_shown("The cellar flap"), "seeded and read")
@@ -160,7 +160,7 @@ func run() -> void:
 		assert_eq(_key(), "s_flap")
 		_pick("Hope no one on the street looks down")
 		assert_eq(_key(), "s_cellar")
-		_pick("Hope he turns")
+		_pick("Walk past like you belong")
 		restore.call()
 		assert_eq(_key(), "s_room", "the cellar skips the back room, the stairs, the ward and the camera")
 	)
@@ -168,7 +168,7 @@ func run() -> void:
 	run_case("the_drayman's_slot_opens_the_flap_with_no_roll", func():
 		_start({ "cellarFlap": true })
 		_settle()
-		_pick("Read the gaps…")
+		_pick("Other ways in…")
 		RaidingTests._seed_read("physics", 1)
 		assert_true(not _shown("Take the flap while the drayman has it open"), "needs a sharp time read")
 		RaidingTests._seed_read("time", 2)
@@ -222,7 +222,7 @@ func run() -> void:
 	run_case("a_street_witness_at_the_flap_is_also_a_talk_only_window", func():
 		_start({ "cellarFlap": true })
 		_settle()
-		_pick("Read the gaps…")
+		_pick("Other ways in…")
 		RaidingTests._seed_read("physics", 1)
 		_pick("The cellar flap")
 		var fail := _force_checks(0.0)
@@ -276,7 +276,7 @@ func run() -> void:
 		assert_true(absf(_odds(STORY) - 0.71) < 0.001, "a camera makes it 4 checks: 0.58 + 0.13")
 		_start({ "cellarFlap": true })
 		_settle()
-		_pick("Read the gaps…")
+		_pick("Other ways in…")
 		RaidingTests._seed_read("physics", 2)
 		_pick("The cellar flap")
 		assert_true(absf(_odds("Lever the rotten flap") - 0.53) < 0.001, "2 checks: 0.40 + 0.13")
@@ -331,6 +331,28 @@ func run() -> void:
 		assert_eq(_key(), "s_lock", "the customer route resumes at the cellar stairs")
 	)
 
+	run_case("a_fight_win_after_being_seen_at_the_yard_door_resumes_at_the_stockroom_choice", func():
+		_start({ "guards": 2 })
+		var ok := _force_checks(1.0)
+		_settle()
+		_pick(ROUND_BACK)
+		_pick("Other ways…")
+		_pick("Hope he's gone in")
+		ok.call()
+		assert_eq(_key(), "s_door")
+		var fail := _force_checks(0.0)
+		_pick("Pick it")
+		fail.call()
+		assert_eq(_key(), "s_win_out")
+		Events.choose(_index("Take him down"))
+		assert_true(GameState.state["combat"]["active"], "the window fight starts")
+		_win_fight()
+		Events.advance()
+		_settle()
+		assert_eq(_key(), "s_back", "the stockroom resumes at its choice, not the post again")
+		assert_eq(Observation.in_effect(), "stock")
+	)
+
 	run_case("a_lost_mid_raid_fight_ends_the_raid", func():
 		_start({ "guards": 3 })
 		var ok := _force_checks(1.0)
@@ -349,13 +371,57 @@ func run() -> void:
 		_settle()
 		RaidingTests._seed_read("physics", 2)
 		Crafting.inventory_add("wormhole", 1, 1)
-		_pick("Read the gaps…")
+		_pick("Other ways in…")
 		Events.toggle_item(_index("Open a Wormhole"), "wormhole")
 		var ok := _force_checks(1.0)
 		_pick("Open a Wormhole")
 		ok.call()
 		assert_eq(_key(), "s_room")
 		assert_eq(Events.alert_level(), 0)
+	)
+
+	run_case("the_vein_room_offers_the_walk_with_no_guards_and_the_guard_options_with_them", func():
+		for guards in [0, 2]:
+			_start({ "guards": guards })
+			_settle()
+			RaidingTests._seed_read("physics", 2)
+			Crafting.inventory_add("wormhole", 1, 1)
+			_pick("Other ways in…")
+			Events.toggle_item(_index("Open a Wormhole"), "wormhole")
+			var ok := _force_checks(1.0)
+			_pick("Open a Wormhole")
+			ok.call()
+			assert_eq(_key(), "s_room")
+			var breath := _index("Prophet's Breath: slip past")
+			if guards == 0:
+				assert_true(_shown("Walk to the vein"), "no guards: walk to the vein")
+				for label in ["Fight for the room", "Bluff past"]:
+					assert_true(not _shown(label), "no guards: no %s" % label)
+				assert_eq(Events.option_gate(breath)["display"], "hide", "no guards: nobody to slip past")
+			else:
+				assert_true(not _shown("Walk to the vein"), "guards: no walking past them")
+				assert_true(_shown("Fight for the room"))
+				assert_true(_shown("Bluff past"))
+				assert_eq(Events.option_gate(breath)["display"], "disable", "guards, no Prophet's Breath: greyed")
+	)
+
+	run_case("every_card_after_the_cellar_names_its_own_read", func():
+		var want := {
+			"till": ["s_seen_till", "s_cam", "s_cam2", "s_win_cam"],
+			"flap": ["s_seen_flap"],
+			"yard": ["s_seen_yard"],
+			"door": ["s_seen_door"],
+			"stock": ["s_seen_in", "post", "post2", "post3", "s_back_loud", "s_back_in"],
+			"lock": ["s_stairs_in", "s_ward", "s_ward2", "s_ward3"],
+			"cellar": ["s_room", "s_claim_route", "s_final", "s_claim", "s_claim_a", "s_getaway", "s_retreat"],
+			"": ["s_win_out", "s_win_out2", "s_win_in", "s_win_in2", "s_win_wit", "s_alarm", "s_alarm2", "s_reinf", "s_resume", "s_resume2", "s_out"],
+		}
+		for obs in want:
+			for key in want[obs]:
+				var card := _card(key)
+				assert_true(card.has("observe"), "%s carries an explicit observe" % key)
+				var got = card.get("observe")
+				assert_eq("" if got == null else String(got), obs, key)
 	)
 
 	run_case("panic_in_the_back_room_covers_at_the_shops_lower_base", func():
@@ -373,10 +439,10 @@ func run() -> void:
 		_start()
 		var relation_before: int = GameState.state["factions"]["firm"]["relation"]
 		_settle()
-		_pick("Read the gaps…")
+		_pick("Other ways in…")
 		_pick("Back out…")
 		assert_eq(_key(), "s_retreat")
-		Events.choose(_index("Back out"))
+		Events.choose(_index("Walk out calmly"))
 		assert_eq(GameState.state["factions"]["firm"]["relation"], relation_before)
 		assert_true(not Raiding.is_wary("s1"))
 	)
@@ -426,7 +492,7 @@ func run() -> void:
 		assert_eq(Observation.in_effect(), "door", "the door's follow-up card keeps the door read")
 		_start({ "cellarFlap": true })
 		_settle()
-		_pick("Read the gaps…")
+		_pick("Other ways in…")
 		RaidingTests._seed_read("physics", 1)
 		_pick("The cellar flap")
 		assert_eq(_key(), "s_flap")
@@ -436,7 +502,7 @@ func run() -> void:
 	run_case("the_flap_and_the_cellar_carry_their_own_reads", func():
 		_start({ "cellarFlap": true })
 		_settle()
-		_pick("Read the gaps…")
+		_pick("Other ways in…")
 		RaidingTests._seed_read("physics", 1)
 		_pick("The cellar flap")
 		assert_eq(Observation.in_effect(), "flap")
@@ -444,7 +510,7 @@ func run() -> void:
 		assert_eq(Observation.in_effect(), "flap", "the flap's follow-up card keeps the flap read")
 		_start({ "cellarFlap": true })
 		_settle()
-		_pick("Read the gaps…")
+		_pick("Other ways in…")
 		RaidingTests._seed_read("physics", 1)
 		_pick("The cellar flap")
 		var ok := _force_checks(1.0)
@@ -459,7 +525,7 @@ func run() -> void:
 	run_case("flap_reads_boost_levering_it_and_the_street_not_looking_down", func():
 		_start({ "cellarFlap": true })
 		_settle()
-		_pick("Read the gaps…")
+		_pick("Other ways in…")
 		RaidingTests._seed_read("physics", 1)
 		_pick("The cellar flap")
 		var lever := _odds("Lever the rotten flap")
@@ -477,7 +543,7 @@ func run() -> void:
 	run_case("cellar_reads_boost_waiting_for_the_guard_and_the_rest_are_informative", func():
 		_start({ "cellarFlap": true })
 		_settle()
-		_pick("Read the gaps…")
+		_pick("Other ways in…")
 		RaidingTests._seed_read("physics", 1)
 		_pick("The cellar flap")
 		var ok := _force_checks(1.0)
@@ -486,11 +552,11 @@ func run() -> void:
 		assert_eq(_key(), "s_cellar")
 		RaidingTests._seed_read("life", 1)
 		var wait := _odds("Wait for the guard on the vein to turn")
-		var hope := _odds("Hope he turns")
+		var hope := _odds("Walk past like you belong")
 		_seed_obs("cellar", "life", 2)
 		_seed_obs("cellar", "emotion", 2)
 		assert_true(absf(_odds("Wait for the guard on the vein to turn") - wait) < 0.001, "the guard's life read is informative only")
-		assert_true(absf(_odds("Hope he turns") - hope) < 0.001, "his boredom is informative only")
+		assert_true(absf(_odds("Walk past like you belong") - hope) < 0.001, "his boredom is informative only")
 		_seed_obs("cellar", "time", 1)
 		assert_true(absf(_odds("Wait for the guard on the vein to turn") - (wait + 0.05)) < 0.001, "every few minutes: +0.05")
 	)
@@ -578,13 +644,13 @@ func run() -> void:
 		assert_eq(_key(), "s_back")
 		RaidingTests._seed_read("time", 1)
 		RaidingTests._seed_read("life", 1)
-		var pallets := _odds("Go between pallet runs")
+		var pallets := _odds("Go in a quiet spell")
 		var blind := _odds("Keep to the blind side of the shelving")
 		var restock := _odds(RESTOCK)
 		_seed_obs("stock", "time", 1)
 		_seed_obs("stock", "physics", 1)
 		_seed_obs("stock", "life", 2)
-		assert_true(absf(_odds("Go between pallet runs") - (pallets + 0.05)) < 0.001, "a stock time read: +0.05")
+		assert_true(absf(_odds("Go in a quiet spell") - (pallets + 0.05)) < 0.001, "a stock time read: +0.05")
 		assert_true(absf(_odds("Keep to the blind side of the shelving") - (blind + 0.05)) < 0.001, "a stock physics read: +0.05")
 		assert_true(absf(_odds(RESTOCK) - restock) < 0.001, "the stock life read is informative only")
 	)

@@ -1085,6 +1085,13 @@
 					"physics": 2,
 					"time": 2
 				},
+				"s_door": {
+					"physics": 2
+				},
+				"s_in_cust": {
+					"emotion": 2,
+					"life": 2
+				},
 				"stock": {
 					"life": 2,
 					"physics": 2,
