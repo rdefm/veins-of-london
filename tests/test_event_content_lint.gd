@@ -140,6 +140,20 @@ func run() -> void:
 		assert_eq(found.size(), 3, "valid hideUnless adds no violations: %s" % [found])
 	)
 
+	run_case("lint_checks_context_flag_has_a_key", func():
+		GameState.reset()
+		var def := { "id": "ctx_probe", "cards": [
+			{ "type": "choice", "key": "c1", "label": null, "text": "", "choices": [
+				{ "label": "ok", "result_text": "x", "requires": { "context_flag": "slot" } },
+				{ "label": "empty", "result_text": "x", "requires": { "context_flag": "" } },
+				{ "label": "nonstring", "result_text": "x", "requires": { "context_flag": true } },
+			] },
+		] }
+		var found := EventContentLint.lint_event("ctx_probe", def, EventContentLint.known_refs())
+		assert_eq(found.size(), 2, "only the keyless forms fail: %s" % [found])
+		assert_true(found.all(func(v): return String(v).contains("context_flag needs a non-empty key")), "%s" % [found])
+	)
+
 	run_case("lint_flags_malformed_observations", func():
 		GameState.reset()
 		var def := { "id": "obs_probe", "observations": {

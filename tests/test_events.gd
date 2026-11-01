@@ -2067,6 +2067,22 @@ func run() -> void:
 		GameData.EVENTS = original_events
 	)
 
+	run_case("a_context_flag_goto_skips_a_slot_only_when_the_key_is_truthy", func():
+		var original_events := _install_routed_event()
+		var cond := { "context_flag": "slot" }
+		for case in [["text", true], ["", false], [true, true], [false, false], [null, false]]:
+			GameState.reset()
+			GameData.EVENTS["test_routed_event"]["cards"][0]["goto"] = [{ "if": cond, "card": 3 }]
+			Events.start_event("test_routed_event", { "slot": case[0] })
+			assert_eq(Events.condition_met(cond), case[1], "context %s" % str(case[0]))
+			Events.advance()
+			assert_eq(GameState.state["event"]["cardIndex"], 3 if case[1] else 1, "routes on %s" % str(case[0]))
+		GameState.reset()
+		Events.start_event("test_routed_event")
+		assert_true(not Events.condition_met(cond), "a missing key is false")
+		GameData.EVENTS = original_events
+	)
+
 	run_case("a_backwards_or_out_of_range_card_goto_is_rejected", func():
 		var original_events := _install_routed_event()
 		for bad in [0, 3, 99, "5", [{ "card": 1 }]]:

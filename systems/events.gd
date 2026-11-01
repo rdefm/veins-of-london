@@ -660,7 +660,8 @@ static func _mod_delta(mod: Dictionary, toggled: Array = []) -> float:
 # {cash: {atLeast}}, {recipeRung: {recipe, rung}} owned (vague or exact),
 # {observed: {id, ore, atLeast}} read this run (R§3.9d), {alert: {atLeast?,
 # atMost?}} the live event's alert level, {activeEffect: itemId} a running
-# timed item effect (ActiveEffects), {security: {feature, atLeast?,
+# timed item effect (ActiveEffects), {context_flag: key} the live event's
+# context holds key as true or a non-empty string, {security: {feature, atLeast?,
 # atMost?, is?}} the live raid's security profile, {all: [conditions]} every
 # part holds. Unknown shapes never hold.
 static func condition_met(condition: Dictionary, toggled: Array = []) -> bool:
@@ -703,6 +704,9 @@ static func condition_met(condition: Dictionary, toggled: Array = []) -> bool:
 		return _security_met(condition["security"])
 	if condition.has("activeEffect"):
 		return ActiveEffects.is_active(str(condition["activeEffect"]))
+	if condition.has("context_flag"):
+		var held: Variant = _live_event_context().get(str(condition["context_flag"]))
+		return held is bool and held or held is String and held != ""
 	if condition.has("wardTriggered"):
 		return ward_triggered_here() == bool(condition["wardTriggered"])
 	if condition.has("reinforcements"):

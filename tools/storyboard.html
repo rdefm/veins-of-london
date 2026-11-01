@@ -2952,6 +2952,7 @@ function checkOddsBlock(opt, changed, restructure) {
       const r = c.recipeRung;
       return refs.rungs.includes(r.rung) && refs.procedures.includes(String(r.recipe === undefined ? "" : r.recipe)) ? [] : [`${where}: unknown recipe rung ${gdJson(r)}`];
     }
+    if (lintHas(c, "context_flag")) return typeof c.context_flag === "string" && c.context_flag !== "" ? [] : [`${where}: context_flag needs a non-empty key`];
     if (lintHas(c, "choice")) return lintChoiceRef(where, c.choice, ctx);
     if (lintHas(c, "observed")) return lintObservedRef(where, c.observed, ctx);
     return [`${where}: unknown condition ${gdJson(c)}`];

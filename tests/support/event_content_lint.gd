@@ -326,6 +326,8 @@ static func _lint_condition(where: String, c: Dictionary, refs: Dictionary) -> A
 		return []
 	if c.has("activeEffect"):
 		return [] if ActiveEffects.usable_items().has(str(c["activeEffect"])) else ["%s: unknown activeEffect %s" % [where, str(c["activeEffect"])]]
+	if c.has("context_flag"):
+		return [] if c["context_flag"] is String and c["context_flag"] != "" else ["%s: context_flag needs a non-empty key" % where]
 	if c.has("wardTriggered"):
 		return [] if c["wardTriggered"] is bool else ["%s: wardTriggered must be a bool" % where]
 	if c.has("reinforcements"):
