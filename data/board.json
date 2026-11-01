@@ -842,10 +842,10 @@
     "fin_reserve": {
       "label": "Build a cash reserve",
       "case": [
-        "A business that can't survive one bad week is a hobby with invoices. Keep enough back to cover the costs, and keep it there. The books say a week costs you {expenses}. The float stands at {float}, which is {weeks} weeks of that.",
-        "Costs arrive on schedule. Income, in my experience, does not. Hold back enough to meet the first without the second. Running costs: {expenses} a week. Float: {float}. The sum is {weeks} weeks. I did it twice, which is once more than you did.",
-        "You count your cash daily and your costs never. Count the costs. Then keep several weeks of them in the float. Your running costs come to {expenses} a week. Your float is {float}. Judge the gap yourself, or I will.",
-        "A float that covers weeks of costs, not days. Anything less is optimism, and I have seen what optimism invoices for. Cover today is {weeks} weeks of {expenses}. That is the number the bank will ask about, so you may as well know it first."
+        "I want three weeks of running costs sitting in the float. Costs are {expenses} a week and the float is {float}, so we're on {weeks} weeks. With three, a late payer doesn't scare me, and I can say yes when someone needs a hand.",
+        "Let's get the float up to three weeks of costs. Running costs are {expenses} a week, the float is {float}, which is {weeks} weeks. I'm tired of working out which bill waits. Cover the bills and the spare is ours to spend on people who need it.",
+        "The target is three weeks of costs held back. We spend {expenses} a week and hold {float}, so that's {weeks} weeks. One slow week shouldn't be a crisis. With that cushion I can sell when the price is right, not when I'm desperate.",
+        "I'd like three weeks of costs in the float. Costs are {expenses} a week, float is {float}, so {weeks} weeks. Short of that, one bad week and we're begging. Past it, we can lend a few quid to someone who's short and not feel it."
       ]
     },
     "craft_first": {
@@ -872,28 +872,28 @@
     "share_first": {
       "label": "A slice of {calc}",
       "case": [
-        "Take a quarter of London's {calc}. Then we're a name, not a rumour. James has been through the sheets. Contested ore at the moment: {contested}. {calc} is where you're strongest, at {share}%, and that's not nothing.",
-        "Right now nobody in the trade says our name without asking who we are. A quarter of the {calc} fixes that. James's tip, and he gave it me on a napkin: {contested} is where the factions are scrapping. You sit at {share}% of {calc}. Pick your lane.",
-        "We make the stuff. Buyers don't know it. Get a quarter of London's {calc} and they'll learn it quick. James says watch {contested}, because everyone else is. Your best ore is {calc} at {share}%. Start there or start nowhere.",
-        "A quarter of one ore. Doesn't have to be pretty, lads, just has to be ours. According to James, the contested ore is {contested}. You're on {share}% of {calc}, which is a foot in the door and no more."
+        "I want 25% of London's {calc} this week. You're on {share}%. While we're small, any firm that cuts its price drags ours down with it. At 25% we start moving the price ourselves. James says the contested ore right now is {contested}.",
+        "Let's take a quarter of the {calc} market. We're on {share}%. Right now other firms' price swings decide our week. A quarter and we stop being pushed around by them. James's note: the factions are scrapping over {contested}.",
+        "Aim for 25% of London's {calc}. We hold {share}%. A bigger share means a steadier price, and a steadier price means I can pay the bills without checking the market first. James says {contested} is the contested ore at the moment.",
+        "A quarter of London's {calc}, that's the ask. You're at {share}%. Once we're that size, the price swings are partly ours, and spare cash gets easier to find for people who need it. James reckons {contested} is where the fighting is."
       ]
     },
     "share_higher": {
       "label": "Push {calc} higher",
       "case": [
-        "A quarter was the start. Push {calc} higher and the factions notice. You're at {share}% of {calc}. The window still shows room, and {rival} is the one standing in it.",
-        "You've got your foot in. Now lean on the door. More {calc}, and we stop being polite about it. {share}% of {calc} this week. {rival} hasn't moved over for you yet.",
-        "Quarter's nice. Quarter gets you a nod in the pub. Half gets you a seat. The ticker has you on {share}% for {calc}. {rival} is the name next to yours.",
-        "Same ore, bigger bite. Don't look at me like that, you started it. {share}% and holding. {rival} sells the next biggest slice of {calc}, so that's who you're nicking it from."
+        "Let's take {calc} up to 40%. We're on {share}%, and the biggest other seller is {rival}. At that size we stop reacting to other firms' price drops and start causing them. That's the security I want for the bills.",
+        "I want 40% of London's {calc}. You're on {share}% and {rival} is the next biggest. A firm that size sets the price and the others follow. I'd rather follow nobody. Steadier income means more spare for people who need it.",
+        "Push {calc} to 40%. We're at {share}% and {rival} is the one we'd be taking it from. Right now their price swings land on us. At 40% it works the other way round, and I sleep better.",
+        "The next step is 40% of {calc}. You're on {share}%, {rival} is next down. Once we're big enough, a price swing is something we cause. That's worth more to me than the extra sales."
       ]
     },
     "share_leader": {
       "label": "Lead the {calc} market",
       "case": [
-        "Not a share. The biggest share. Nobody sells more {calc} than us. You're at {share}% of {calc}, close enough to first place to smell it. {rival} is the one to beat.",
-        "Second place is just first place with a worse chair. Take the top spot on {calc}. {share}% on {calc} and {rival} is in the way. Nothing a few good weeks won't sort.",
-        "Own the lead, lads. When buyers say {calc}, they say our name first. The sheet gives you {share}% of {calc}. First place is {rival}'s chair until you sit in it.",
-        "Biggest seller of {calc} in London. I'd put it on the van, if we had a van. {share}%. That's a real number on {calc}. {rival} has noticed, so don't be shy."
+        "I want us the biggest seller of {calc} in London, 35% at least. You're on {share}% and {rival} is the one to beat. The biggest seller sets the price and everyone else follows. I'd rather set it than follow it.",
+        "Take first place on {calc}, with a 35% share. We're at {share}% and {rival} is in the way. The top seller doesn't get pushed around by anyone's price swing. That's the security I want.",
+        "Be the largest seller of {calc}, at 35% or better. You're on {share}%, and {rival} is the biggest other name. First place means the price is partly ours to move, and we'll have more spare to give away.",
+        "First place on {calc}: 35% and the biggest share in town. You hold {share}%. {rival} sits just behind. Whoever leads decides what the market does, so I'd like it to be us, not them."
       ]
     },
     "share_leader_james": {
@@ -906,10 +906,10 @@
     "share_second": {
       "label": "Second ore: {calc}",
       "case": [
-        "One ore is a niche. Take a slice of {calc} too. {calc} is on the sheet and you're at {share}%. Room to grow, and James says it won't wait.",
-        "All your eggs in one rock, that's how you end up in a pub talking about the good old days. Get into {calc}. You hold {share}% of {calc}. That's a start, and a second ore is what a start is for.",
-        "A second line of work. {calc} this time. Spread it out so one bad week doesn't take the lot. {share}% of {calc} today. Not much, but it's your second string and it's already in your hands.",
-        "You do one ore well. Do two and I'll start telling people you're a firm. You're on {share}% of {calc}, and it's moving. Get in while the number is small enough to double."
+        "Let's take 25% of {calc} as well. You're at {share}%. One ore means one bad price week can sink us. A second one means a swing in one is covered by the other. That's bills paid without panic.",
+        "I want a second ore, {calc}, at 25% of London's supply. You hold {share}%. With two lines, one bad week doesn't take everything. Steady money is what lets me help people out.",
+        "Get {calc} up to 25%. You're on {share}% now. If all our income rides on one ore, other firms' price swings decide our week. Two ores and they only decide half of it.",
+        "A second ore: 25% of {calc}. We're at {share}%. It's small now, which is the point. It's cheap to grow while nobody's watching, and it means we're not leaning on one price to pay the bills."
       ]
     },
     "cult_yield": {
