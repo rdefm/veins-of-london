@@ -33,6 +33,17 @@
   "templates": {
     "fin_reserve": { "label": "Build a cash reserve" }
   },
+  "todo": {
+    "_comment": "ToDo Board section + Story row (systems/todo.gd). detail = reached + separator + progress; progress[goal type] fills {current} {target} {tier}. PROSE-REVIEW: all strings here are new copy.",
+    "label": "Board",
+    "tierNames": { "base": "Base", "target": "Target", "stretch": "Stretch" },
+    "reached": "{tier} reached",
+    "noTier": "No tier yet",
+    "separator": " · ",
+    "progress": {
+      "reserve_weeks_at_least": "{current} of {target} weeks to {tier}"
+    }
+  },
   "tuning": {
     "agendaSize": 3,
     "fillVoice": "archie",

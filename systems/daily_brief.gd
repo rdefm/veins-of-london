@@ -262,7 +262,8 @@ static func _story_rows(rows: Array[Dictionary]) -> void:
 	var item := Todo.current_objective()
 	if item.is_empty():
 		return
-	var def: Dictionary = GameData.OBJECTIVES[item["id"]]
+	# A board goal isn't in GameData.OBJECTIVES: no briefAction, so ToDo.
+	var def: Dictionary = GameData.OBJECTIVES.get(item["id"], {})
 	var early := Todo.is_early(def) and def.has("earlyBriefAction")
 	var action: Dictionary = def.get("earlyBriefAction" if early else "briefAction", { "to": "todo" })
 	var note: String = def.get("earlyBriefNote" if early else "briefNote", "")

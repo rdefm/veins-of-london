@@ -353,11 +353,12 @@ var CONTACT_TEXTS: Dictionary = {}
 var OBJECTIVES: Dictionary = {}
 
 # data/board.json (systems/board_meetings.gd, R§3.15): founder voices,
-# goal ladders and their rungs, card templates, tuning.
+# goal ladders and their rungs, card templates, ToDo/Story-row copy, tuning.
 var BOARD_VOICES: Dictionary = {}
 var BOARD_LADDERS: Dictionary = {}
 var BOARD_TEMPLATES: Dictionary = {}
 var BOARD_TUNING: Dictionary = {}
+var BOARD_TODO: Dictionary = {}
 
 var loaded := false
 var _load_errors: Array[String] = []
@@ -579,6 +580,7 @@ const MANIFEST: Array[Dictionary] = [
 		{"field": "BOARD_LADDERS", "key": "ladders", "type": TYPE_DICTIONARY},
 		{"field": "BOARD_TEMPLATES", "key": "templates", "type": TYPE_DICTIONARY},
 		{"field": "BOARD_TUNING", "key": "tuning", "type": TYPE_DICTIONARY},
+		{"field": "BOARD_TODO", "key": "todo", "type": TYPE_DICTIONARY},
 	]},
 	{"table": "collective_barks", "file": "res://data/collective_barks.json", "fields": [
 		{"field": "COLLECTIVE_BARKS", "key": "", "type": TYPE_DICTIONARY},

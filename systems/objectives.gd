@@ -319,6 +319,17 @@ static func count_progress(def: Dictionary) -> Dictionary:
 	return {}
 
 
+# { "value": float, "param": String } for tiered condition types: the live
+# measured quantity and the tier param it's compared against, so ToDo can
+# show progress toward a tier. {} for types without a measure.
+static func measure(def: Dictionary) -> Dictionary:
+	if def["type"] == TYPE_RESERVE_WEEKS_AT_LEAST:
+		var expenses := BusinessStats.weekly_expenses()
+		var weeks := 0.0 if expenses <= 0 else float(GameState.state["business"]["float"]) / float(expenses)
+		return { "value": weeks, "param": "minWeeks" }
+	return {}
+
+
 # One all_of condition, read from live state (not a counter), so losing it
 # un-meets it until the objective completes.
 static func condition_met(condition: Dictionary) -> bool:

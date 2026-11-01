@@ -223,6 +223,7 @@ static func _take(id: String, is_skip: bool) -> Dictionary:
 		return { "ok": false, "reason": "That card isn't on the agenda." }
 	board["active"] = {
 		"cardId": card["id"], "ladder": card["ladder"], "rung": card["rung"],
+		"template": card["template"],
 		"voice": card["voice"], "goal": GameState.deep_copy(card["goal"]),
 		"rewards": GameState.deep_copy(card["rewards"]),
 		"lengthWeeks": card["lengthWeeks"], "week": int(board["week"]),
@@ -334,8 +335,9 @@ static func reward_preview(rewards: Array) -> String:
 	return ", ".join(parts)
 
 
+# An agenda card's or the active goal's label (both carry template + rung).
 static func card_label(card: Dictionary) -> String:
-	return str(GameData.BOARD_TEMPLATES.get(card["template"], {}).get("label", card["rung"]))
+	return str(GameData.BOARD_TEMPLATES.get(card.get("template", card["rung"]), {}).get("label", card["rung"]))
 
 
 static func _tier_rank(tier: String) -> int:

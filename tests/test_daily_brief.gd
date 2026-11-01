@@ -336,6 +336,23 @@ func run() -> void:
 		assert_eq(row["consequence"], "")
 	)
 
+	run_case("story_row_shows_the_board_goal_unless_a_questline_step_outranks_it", func():
+		GameState.reset()
+		_quiet_story()
+		Fixtures.board_reserve_goal(100)
+		var row: Dictionary = _kind("story")[0]
+		assert_eq(row["label"], Todo.item_text(Todo.current_objective()))
+		assert_eq(row["label"], "Build a cash reserve — No tier yet · 0 of 2 weeks to Base")
+		assert_eq([row["action"], row["actionLabel"]], [{ "to": "todo" }, "Open ToDo"])
+		# Another questline's active step still shows first.
+		GameState.state["objectives"]["pro_gym"]["active"] = true
+		assert_eq(_kind("story")[0]["key"], "story:pro_gym")
+		# No goal, no board row.
+		_quiet_story()
+		GameState.state["boardMeetings"]["active"] = null
+		assert_eq(_kind("story").size(), 0)
+	)
+
 	run_case("todo_nothing_pressing_agrees_with_no_story_row", func():
 		GameState.reset()
 		assert_true(not Todo.current_objective().is_empty())

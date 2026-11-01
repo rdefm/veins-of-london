@@ -29,7 +29,8 @@ const QUESTLINES := {
 # "status": "active"|"done"|"placeholder", "defaultExpanded": bool,
 # "items": [{ "id", "title", "detail", "done", "checks" }], "ledger": Array, "emptyText" },
 # where "checks" is an undone all_of objective's live checklist (Objectives.checklist()).
-# in QUESTLINES' order, items capped to the most recent MAX_ITEMS_PER_SECTION.
+# in QUESTLINES' order, items capped to the most recent MAX_ITEMS_PER_SECTION,
+# then the Board section (get_board_section()) when a board goal is active.
 static func get_questline_sections() -> Array[Dictionary]:
 	var flags: Dictionary = GameState.state["flags"]
 	var runtime: Dictionary = GameState.state["objectives"]
@@ -77,7 +78,68 @@ static func get_questline_sections() -> Array[Dictionary]:
 			"ledger": ledger,
 			"emptyText": config.get("emptyText", ""),
 		})
+	var board := get_board_section()
+	if not board.is_empty():
+		sections.append(board)
 	return sections
+
+
+# The Board section (spec §"Modules" → Todo): the active board goal as one
+# item -- label, tier reached so far, progress to the next tier. Listed after
+# every questline, so another questline's undone step outranks it in
+# current_objective(). {} when meetings are off or no goal is active.
+static func get_board_section() -> Dictionary:
+	var board: Dictionary = GameState.state.get("boardMeetings", {})
+	var active: Variant = board.get("active")
+	if not board.get("enabled", false) or active == null:
+		return {}
+	return {
+		"questline": "board",
+		"label": GameData.BOARD_TODO["label"],
+		"status": "active",
+		"defaultExpanded": true,
+		"items": [{
+			"id": active["goal"]["id"],
+			"title": BoardMeetings.card_label(active),
+			"detail": _board_detail(active),
+			"done": false,
+			"checks": [],
+		}],
+		"ledger": [],
+		"emptyText": "",
+	}
+
+
+# "<tier> reached · <current> of <target> ... to <next tier>"; the progress
+# half is dropped once stretch is reached or the goal type has no measure.
+static func _board_detail(active: Dictionary) -> String:
+	var copy: Dictionary = GameData.BOARD_TODO
+	var tier := BoardMeetings.current_tier()
+	var parts: PackedStringArray = []
+	if tier == Objectives.TIER_NONE:
+		parts.append(copy["noTier"])
+	else:
+		parts.append(copy["reached"].format({ "tier": copy["tierNames"][tier] }))
+	var next_index := Objectives.TIER_ORDER.find(tier) + 1
+	var goal: Dictionary = active["goal"]
+	var measured := Objectives.measure(goal)
+	if next_index < Objectives.TIER_ORDER.size() and not measured.is_empty() and copy["progress"].has(goal["type"]):
+		var next_tier: String = Objectives.TIER_ORDER[next_index]
+		var target: Variant = goal["tiers"].get(next_tier, {}).get(measured["param"])
+		if target != null:
+			parts.append(copy["progress"][goal["type"]].format({
+				"current": _num(measured["value"]),
+				"target": _num(float(target)),
+				"tier": copy["tierNames"][next_tier],
+			}))
+	return copy["separator"].join(parts)
+
+
+# Whole numbers without a decimal, otherwise one place, floored so an unmet
+# threshold never displays as reached.
+static func _num(value: float) -> String:
+	var tenths := floorf(value * 10.0 + 0.0001) / 10.0
+	return "%d" % int(tenths) if is_equal_approx(tenths, roundf(tenths)) else "%.1f" % tenths
 
 
 # The first undone item across the active sections, in section order: what

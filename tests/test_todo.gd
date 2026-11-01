@@ -192,3 +192,32 @@ func run() -> void:
 		assert_eq(rows[0]["oreType"], GameData.ORE_TYPES["physics"]["name"])
 		assert_eq(rows[0]["security"], Cultivating.security_label(collective_vein))
 	)
+
+	run_case("no_board_section_when_meetings_are_off_or_no_goal_is_active", func():
+		GameState.reset()
+		assert_eq(_section(Todo.get_questline_sections(), "board"), null, "meetings off: no Board section")
+		GameState.state["boardMeetings"]["enabled"] = true
+		assert_eq(_section(Todo.get_questline_sections(), "board"), null, "meetings on but no goal chosen: no Board section")
+	)
+
+	run_case("board_section_lists_the_goal_with_tier_reached_and_progress_to_next", func():
+		GameState.reset()
+		Fixtures.board_reserve_goal(100)
+		var sections := Todo.get_questline_sections()
+		assert_eq(sections[sections.size() - 1]["questline"], "board", "Board is listed after every questline")
+		var board: Dictionary = _section(sections, "board")
+		assert_eq([board["label"], board["status"]], ["Board", "active"])
+		var items: Array = board["items"]
+		assert_eq(items.size(), 1)
+		assert_eq([items[0]["title"], items[0]["detail"], items[0]["done"]], ["Build a cash reserve", "No tier yet · 0 of 2 weeks to Base", false])
+
+		GameState.state["business"]["float"] = 250
+		items = _section(Todo.get_questline_sections(), "board")["items"]
+		assert_eq(items[0]["detail"], "Base reached · 2.5 of 3 weeks to Target")
+
+		GameState.state["business"]["float"] = 400
+		BoardMeetings.note_progress()
+		GameState.state["business"]["float"] = 0
+		items = _section(Todo.get_questline_sections(), "board")["items"]
+		assert_eq(items[0]["detail"], "Stretch reached", "a locked stretch stays reached after a dip, with no next tier")
+	)

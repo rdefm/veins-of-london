@@ -16,6 +16,7 @@ extends RefCounted
 #   install_objectives(entries) -> original                swap GameData.OBJECTIVES; returns the table to restore
 #   has_notification(text) -> bool                         any notification in state with exactly this text
 #   craft(recipe_key, qty, tier)                           file crafted units through Crafting.file_crafted()
+#   board_reserve_goal(weekly_expenses)                   enable meetings (day 10, week 1) and choose the real Financial reserve card
 #   kit_units(pool) -> units                               a fight's kit pool's items + reserved + used, by recipe then tier
 
 
@@ -144,3 +145,17 @@ static func kit_units(pool: Dictionary) -> Dictionary:
 			for tier_key in buckets[recipe_key]:
 				units[recipe_key][tier_key] = int(units[recipe_key].get(tier_key, 0)) + int(buckets[recipe_key][tier_key])
 	return units
+
+
+# Enables board meetings and makes the real data's Financial reserve rung
+# (fin_reserve) the active goal, against `weekly_expenses` of last-day
+# expenses and an empty float.
+static func board_reserve_goal(weekly_expenses: int = 100) -> void:
+	GameState.state["world"]["day"] = 10
+	GameState.state["boardMeetings"]["enabled"] = true
+	GameState.state["boardMeetings"]["week"] = 1
+	GameState.state["businessStats"]["days"] = [{ "day": 9, "expenses": weekly_expenses }]
+	GameState.state["business"]["float"] = 0
+	BoardMeetings.agenda(1)
+	var result := BoardMeetings.choose(BoardMeetings.card_id("financial", "fin_reserve"))
+	assert(result["ok"], "fin_reserve should be on the agenda")
