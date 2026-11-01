@@ -24,6 +24,8 @@ const TYPE_RECIPE_KNOWN := "recipe_known"
 const TYPE_RESERVE_WEEKS_AT_LEAST := "reserve_weeks_at_least"
 const TYPE_ORE_SHARE_AT_LEAST := "ore_share_at_least"
 const TYPE_CRAFTING_SHARE_AT_LEAST := "crafting_share_at_least"
+const TYPE_RECIPES_RANKED_UP_AT_LEAST := "recipes_ranked_up_at_least"
+const TYPE_RECIPES_AT_RANK_AT_LEAST := "recipes_at_rank_at_least"
 
 const TYPE_YIELD_MULTIPLE_AT_LEAST := "yield_multiple_at_least"
 const TYPE_NEW_VEINS_ONLINE_AT_LEAST := "new_veins_online_at_least"
@@ -152,6 +154,10 @@ static func _evaluate(def: Dictionary, progress: Dictionary) -> bool:
 			return ore_share_met(params)
 		TYPE_CRAFTING_SHARE_AT_LEAST:
 			return ore_share_met(params, "craft")
+		TYPE_RECIPES_RANKED_UP_AT_LEAST:
+			return _eval_recipes_ranked_up(params, progress)
+		TYPE_RECIPES_AT_RANK_AT_LEAST:
+			return recipes_at_rank(int(params["rank"])) >= int(params["minCount"])
 		TYPE_YIELD_MULTIPLE_AT_LEAST:
 			return _eval_yield_multiple(params, progress)
 		TYPE_NEW_VEINS_ONLINE_AT_LEAST:
@@ -172,7 +178,34 @@ static func initial_progress(goal_type: String) -> Dictionary:
 	var progress := { "sinceDay": day }
 	if goal_type == TYPE_YIELD_MULTIPLE_AT_LEAST:
 		progress["yieldBaseline"] = yield_baseline()
+	elif goal_type == TYPE_RECIPES_RANKED_UP_AT_LEAST:
+		progress["rankBaseline"] = GameState.deep_copy(GameState.state["lab"]["bestRanks"])
 	return progress
+
+
+# Recipes whose Lab best rank is at least rank.
+static func recipes_at_rank(rank: int) -> int:
+	var count := 0
+	for best in GameState.state["lab"]["bestRanks"].values():
+		if int(best) >= rank:
+			count += 1
+	return count
+
+
+# Recipes whose best rank has risen by at least params.minRise over the
+# progress.rankBaseline captured at choose time (an unperformed recipe
+# counts as rank 1). Unmet without a captured baseline.
+static func _eval_recipes_ranked_up(params: Dictionary, progress: Dictionary) -> bool:
+	if not progress.has("rankBaseline"):
+		return false
+	var baseline: Dictionary = progress["rankBaseline"]
+	var rise := int(params.get("minRise", 1))
+	var count := 0
+	for recipe_key in GameState.state["lab"]["bestRanks"]:
+		var before := maxi(1, int(baseline.get(recipe_key, 0)))
+		if int(GameState.state["lab"]["bestRanks"][recipe_key]) >= before + rise:
+			count += 1
+	return count >= int(params["minCount"])
 
 
 # Average daily player harvest (all ores) over the YIELD_BASELINE_DAYS days
@@ -437,6 +470,13 @@ static func condition_met(condition: Dictionary) -> bool:
 				if Shares.crafting_share(Shares.PLAYER, ore_type) > 0.0:
 					return true
 			return false
+		"recipe_below_master":
+			for best in GameState.state["lab"]["bestRanks"].values():
+				if int(best) < int(condition["rank"]):
+					return true
+			return false
+		"recipe_rank_at_least":
+			return recipes_at_rank(int(condition["rank"])) >= 1
 		"ore_market_active":
 			return not market_ores().is_empty()
 		"yield_baseline_above":

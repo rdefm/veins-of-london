@@ -618,6 +618,41 @@ func run() -> void:
 		assert_almost_eq(float(Objectives.measure(def)["value"]), 62.5, 0.01)
 	)
 
+	run_case("recipes_ranked_up_counts_rises_over_the_chosen_baseline", func():
+		GameState.reset()
+		var ranks: Dictionary = GameState.state["lab"]["bestRanks"]
+		ranks["a"] = 2
+		ranks["b"] = 3
+		var def := _objective("rankup", Objectives.TYPE_RECIPES_RANKED_UP_AT_LEAST, { "minRise": 1 })
+		def["tiers"] = { "base": { "minCount": 1 }, "target": { "minCount": 2 }, "stretch": { "minCount": 3 } }
+		var progress := Objectives.initial_progress(Objectives.TYPE_RECIPES_RANKED_UP_AT_LEAST)
+		assert_eq(Objectives.tier_met(def, progress), "none", "no rise yet")
+		assert_eq(Objectives.tier_met(def), "none", "unmet without a baseline")
+		ranks["a"] = 3
+		assert_eq(Objectives.tier_met(def, progress), "base")
+		ranks["b"] = 4
+		ranks["c"] = 1
+		assert_eq(Objectives.tier_met(def, progress), "target", "a first run at rank 1 is not a rise")
+		ranks["c"] = 2
+		assert_eq(Objectives.tier_met(def, progress), "stretch", "c rose from unperformed (1) to 2")
+	)
+
+	run_case("recipes_at_rank_counts_masters", func():
+		GameState.reset()
+		var ranks: Dictionary = GameState.state["lab"]["bestRanks"]
+		ranks["a"] = 5
+		ranks["b"] = 4
+		var def := _objective("master", Objectives.TYPE_RECIPES_AT_RANK_AT_LEAST, { "rank": 5 })
+		def["tiers"] = { "base": { "minCount": 1 }, "target": { "minCount": 2 }, "stretch": { "minCount": 3 } }
+		assert_eq(Objectives.tier_met(def), "base")
+		ranks["b"] = 5
+		assert_eq(Objectives.tier_met(def), "target")
+		assert_true(Objectives.condition_met({ "kind": "recipe_rank_at_least", "rank": 3 }))
+		assert_true(not (Objectives.condition_met({ "kind": "recipe_below_master", "rank": 5 })), "all at 5")
+		ranks["c"] = 2
+		assert_true(Objectives.condition_met({ "kind": "recipe_below_master", "rank": 5 }))
+	)
+
 	run_case("crafting_active_premise_needs_the_player_to_craft_in_the_window", func():
 		GameState.reset()
 		assert_true(not (Objectives.condition_met({ "kind": "crafting_active" })))

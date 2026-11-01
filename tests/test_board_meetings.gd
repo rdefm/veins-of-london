@@ -704,6 +704,23 @@ func run() -> void:
 		assert_eq(BoardMeetings.rung_status("crafting", "craft_first"), "skipped")
 	)
 
+	run_case("crafting_ladder_walks_share_then_rankup_then_master", func():
+		_enabled_game()
+		Shares.record_craft("player", { "life": 40 })
+		Shares.record_craft("firm", { "life": 60 })
+		GameState.state["lab"]["bestRanks"]["a"] = 3
+		var cards := BoardMeetings.eligible_cards().filter(func(c): return c["ladder"] == "crafting")
+		assert_eq(cards[0]["rung"], "craft_rankup", "share rung already met, skipped")
+		assert_eq(cards[0]["ore"], "")
+		BoardMeetings.agenda(1)
+		BoardMeetings.choose(cards[0]["id"])
+		GameState.state["lab"]["bestRanks"]["a"] = 4
+		assert_eq(Objectives.tier_met(GameState.state["boardMeetings"]["active"]["goal"], GameState.state["boardMeetings"]["active"]["progress"]), "base")
+		GameState.state["boardMeetings"]["rungs"]["crafting"]["craft_rankup"] = { "status": "done", "day": 1, "ore": "" }
+		var next := BoardMeetings.eligible_cards().filter(func(c): return c["ladder"] == "crafting")
+		assert_eq(next[0]["rung"], "craft_master")
+	)
+
 	# ── Cultivation ladder (Owen) ────────────────────────────────────────
 
 	run_case("cultivation_ladder_is_owens_with_placeholder_yield_tiers", func():

@@ -162,6 +162,138 @@
           "pinned": false,
           "spine": null,
           "permanent": false
+        },
+        {
+          "id": "craft_rankup",
+          "premise": {
+            "kind": "recipe_below_master",
+            "rank": 5
+          },
+          "goal": {
+            "type": "recipes_ranked_up_at_least",
+            "params": {
+              "minRise": 1
+            }
+          },
+          "tiers": {
+            "base": {
+              "minCount": 1
+            },
+            "target": {
+              "minCount": 2
+            },
+            "stretch": {
+              "minCount": 3
+            }
+          },
+          "lengthWeeks": 1,
+          "rewards": {
+            "base": [
+              {
+                "kind": "cash",
+                "amount": 150
+              }
+            ],
+            "target": [
+              {
+                "kind": "cash",
+                "amount": 350
+              },
+              {
+                "kind": "item",
+                "id": "enhancementPowder",
+                "tier": 1,
+                "qty": 1
+              }
+            ],
+            "stretch": [
+              {
+                "kind": "cash",
+                "amount": 550
+              },
+              {
+                "kind": "item",
+                "id": "timePearl",
+                "tier": 1,
+                "qty": 1
+              },
+              {
+                "kind": "item",
+                "id": "enhancementPowder",
+                "tier": 1,
+                "qty": 2
+              }
+            ]
+          },
+          "pinned": false,
+          "spine": null,
+          "permanent": false
+        },
+        {
+          "id": "craft_master",
+          "premise": {
+            "kind": "recipe_rank_at_least",
+            "rank": 3
+          },
+          "goal": {
+            "type": "recipes_at_rank_at_least",
+            "params": {
+              "rank": 5
+            }
+          },
+          "tiers": {
+            "base": {
+              "minCount": 1
+            },
+            "target": {
+              "minCount": 2
+            },
+            "stretch": {
+              "minCount": 3
+            }
+          },
+          "lengthWeeks": 1,
+          "rewards": {
+            "base": [
+              {
+                "kind": "cash",
+                "amount": 300
+              }
+            ],
+            "target": [
+              {
+                "kind": "cash",
+                "amount": 600
+              },
+              {
+                "kind": "item",
+                "id": "timePearl",
+                "tier": 1,
+                "qty": 1
+              }
+            ],
+            "stretch": [
+              {
+                "kind": "cash",
+                "amount": 1000
+              },
+              {
+                "kind": "item",
+                "id": "timePearl",
+                "tier": 1,
+                "qty": 2
+              },
+              {
+                "kind": "item",
+                "id": "enhancementPowder",
+                "tier": 1,
+                "qty": 2
+              }
+            ]
+          },
+          "pinned": false,
+          "spine": null,
+          "permanent": false
         }
       ]
     },
@@ -725,6 +857,28 @@
       "why": [
         "The craft tally has you on {share}% of {calc}. {rival} is the name above yours.",
         "{share}% of the {calc} crafted in London is ours. {rival} has the rest, and they aren't offering."
+      ]
+    },
+    "craft_rankup": {
+      "label": "Better work at the bench",
+      "pitch": [
+        "Good enough sells once. Better sells twice. Take a recipe you already know and make it come out better than your best.",
+        "You've a bench full of competent. Push one recipe past your best result and see what the buyers do about it."
+      ],
+      "why": [
+        "Your best results are on the books. Beat them on any recipe you like. I'm not fussy which.",
+        "Same recipes, same bench, higher mark. The bar is whatever you managed last time."
+      ]
+    },
+    "craft_master": {
+      "label": "Master a recipe",
+      "pitch": [
+        "Rank five. Not near it, not nearly. A recipe done so well the bench looks embarrassed.",
+        "Every trade has someone who's finished learning. Be that, for one recipe, and then for more."
+      ],
+      "why": [
+        "You've got work at rank three or better on the books. The last two steps are the expensive ones.",
+        "A recipe in the upper ranks already. Rank five is the same recipe, done properly."
       ]
     },
     "share_first": {
