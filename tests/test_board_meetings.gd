@@ -679,6 +679,31 @@ func run() -> void:
 		assert_eq(cards[0]["ore"], "time")
 	)
 
+	# ── Crafting ladder (James) ──────────────────────────────────────────
+
+	run_case("crafting_rung_needs_crafting_then_opens_on_the_best_craft_ore", func():
+		_enabled_game()
+		var none := BoardMeetings.eligible_cards().filter(func(c): return c["ladder"] == "crafting")
+		assert_eq(none.size(), 0, "no crafting in the window, no card")
+		Shares.record_craft("player", { "life": 5 })
+		Shares.record_craft("firm", { "life": 95, "time": 50 })
+		Shares.record_craft("player", { "time": 20 })
+		var cards := BoardMeetings.eligible_cards().filter(func(c): return c["ladder"] == "crafting")
+		assert_eq(cards.size(), 1)
+		assert_eq(cards[0]["voice"], "james")
+		assert_eq(cards[0]["ore"], "time", "player's best craft share: 20/70 beats 5/100")
+		assert_eq(cards[0]["goal"]["tiers"]["base"]["minPercent"], 20)
+	)
+
+	run_case("crafting_rung_already_at_target_is_skipped", func():
+		_enabled_game()
+		Shares.record_craft("player", { "life": 40 })
+		Shares.record_craft("firm", { "life": 60 })
+		var cards := BoardMeetings.eligible_cards().filter(func(c): return c["ladder"] == "crafting")
+		assert_eq(cards.size(), 0)
+		assert_eq(BoardMeetings.rung_status("crafting", "craft_first"), "skipped")
+	)
+
 	# ── Cultivation ladder (Owen) ────────────────────────────────────────
 
 	run_case("cultivation_ladder_is_owens_with_placeholder_yield_tiers", func():

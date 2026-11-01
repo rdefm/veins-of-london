@@ -603,6 +603,30 @@ func run() -> void:
 		assert_true(not (Objectives.evaluate(def)), "an unproduced ore has no share")
 	)
 
+	run_case("crafting_share_at_least_reads_the_craft_tally_not_the_ore_tally", func():
+		GameState.reset()
+		Shares.record_ore("player", "physics", 100)
+		Shares.record_craft("player", { "physics": 25 })
+		Shares.record_craft("firm", { "physics": 75 })
+		var def := _objective("craft", Objectives.TYPE_CRAFTING_SHARE_AT_LEAST, { "oreType": "physics" })
+		def["tiers"] = { "base": { "minPercent": 20 }, "target": { "minPercent": 25 }, "stretch": { "minPercent": 30 } }
+		assert_eq(Objectives.tier_met(def), "target", "25% of crafting, though 100% of ore")
+		def["params"] = { "oreType": "physics", "minPercent": 20, "lead": true }
+		assert_true(not (Objectives.evaluate(def)), "not the crafting leader")
+		Shares.record_craft("player", { "physics": 100 })
+		assert_true(Objectives.evaluate(def), "125 of 200 crafted leads")
+		assert_almost_eq(float(Objectives.measure(def)["value"]), 62.5, 0.01)
+	)
+
+	run_case("crafting_active_premise_needs_the_player_to_craft_in_the_window", func():
+		GameState.reset()
+		assert_true(not (Objectives.condition_met({ "kind": "crafting_active" })))
+		Shares.record_craft("firm", { "life": 5 })
+		assert_true(not (Objectives.condition_met({ "kind": "crafting_active" })), "rivals crafting doesn't count")
+		Shares.record_craft("player", { "life": 1 })
+		assert_true(Objectives.condition_met({ "kind": "crafting_active" }))
+	)
+
 
 func _settle_contracts(count: int) -> void:
 	for i in count:

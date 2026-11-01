@@ -95,6 +95,76 @@
         }
       ]
     },
+    "crafting": {
+      "voice": "james",
+      "rungs": [
+        {
+          "id": "craft_first",
+          "premise": {
+            "kind": "crafting_active"
+          },
+          "goal": {
+            "type": "crafting_share_at_least",
+            "params": {
+              "oreType": "$best"
+            }
+          },
+          "tiers": {
+            "base": {
+              "minPercent": 20
+            },
+            "target": {
+              "minPercent": 30
+            },
+            "stretch": {
+              "minPercent": 40
+            }
+          },
+          "lengthWeeks": 1,
+          "rewards": {
+            "base": [
+              {
+                "kind": "cash",
+                "amount": 100
+              }
+            ],
+            "target": [
+              {
+                "kind": "cash",
+                "amount": 250
+              },
+              {
+                "kind": "item",
+                "id": "timePearl",
+                "tier": 1,
+                "qty": 1
+              }
+            ],
+            "stretch": [
+              {
+                "kind": "cash",
+                "amount": 400
+              },
+              {
+                "kind": "item",
+                "id": "timePearl",
+                "tier": 1,
+                "qty": 1
+              },
+              {
+                "kind": "item",
+                "id": "enhancementPowder",
+                "tier": 1,
+                "qty": 1
+              }
+            ]
+          },
+          "pinned": false,
+          "spine": null,
+          "permanent": false
+        }
+      ]
+    },
     "market_share": {
       "voice": "archie",
       "rungs": [
@@ -644,6 +714,17 @@
         "Running costs: {expenses} a week. Float: {float}. The sum is {weeks} weeks. I did it twice, which is once more than you did.",
         "Your running costs come to {expenses} a week. Your float is {float}. Judge the gap yourself, or I will.",
         "Cover today is {weeks} weeks of {expenses}. That is the number the bank will ask about, so you may as well know it first."
+      ]
+    },
+    "craft_first": {
+      "label": "Craft more {calc}",
+      "pitch": [
+        "Selling the raw stuff is a start. Putting it into something is a business. Get our {calc} into more of what London crafts.",
+        "Every bench in town burns {calc}. Make sure a fair slice of it is ours."
+      ],
+      "why": [
+        "The craft tally has you on {share}% of {calc}. {rival} is the name above yours.",
+        "{share}% of the {calc} crafted in London is ours. {rival} has the rest, and they aren't offering."
       ]
     },
     "share_first": {

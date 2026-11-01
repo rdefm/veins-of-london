@@ -23,6 +23,7 @@ const TYPE_TEMPLATE_PERIODS_COMPLETED := "template_periods_completed"
 const TYPE_RECIPE_KNOWN := "recipe_known"
 const TYPE_RESERVE_WEEKS_AT_LEAST := "reserve_weeks_at_least"
 const TYPE_ORE_SHARE_AT_LEAST := "ore_share_at_least"
+const TYPE_CRAFTING_SHARE_AT_LEAST := "crafting_share_at_least"
 
 const TYPE_YIELD_MULTIPLE_AT_LEAST := "yield_multiple_at_least"
 const TYPE_NEW_VEINS_ONLINE_AT_LEAST := "new_veins_online_at_least"
@@ -149,6 +150,8 @@ static func _evaluate(def: Dictionary, progress: Dictionary) -> bool:
 			return reserve_weeks_met(float(params["minWeeks"]))
 		TYPE_ORE_SHARE_AT_LEAST:
 			return ore_share_met(params)
+		TYPE_CRAFTING_SHARE_AT_LEAST:
+			return ore_share_met(params, "craft")
 		TYPE_YIELD_MULTIPLE_AT_LEAST:
 			return _eval_yield_multiple(params, progress)
 		TYPE_NEW_VEINS_ONLINE_AT_LEAST:
@@ -412,6 +415,8 @@ static func measure(def: Dictionary) -> Dictionary:
 		return { "value": weeks, "param": "minWeeks" }
 	if def["type"] == TYPE_ORE_SHARE_AT_LEAST:
 		return { "value": Shares.ore_share(Shares.PLAYER, str(def["params"].get("oreType", ""))) * 100.0, "param": "minPercent" }
+	if def["type"] == TYPE_CRAFTING_SHARE_AT_LEAST:
+		return { "value": Shares.crafting_share(Shares.PLAYER, str(def["params"].get("oreType", ""))) * 100.0, "param": "minPercent" }
 	return {}
 
 
@@ -427,6 +432,11 @@ static func condition_met(condition: Dictionary) -> bool:
 			return Lab.is_known(condition["recipe"])
 		"weekly_expenses_above":
 			return BusinessStats.weekly_expenses() > int(condition["amount"])
+		"crafting_active":
+			for ore_type in market_ores("craft"):
+				if Shares.crafting_share(Shares.PLAYER, ore_type) > 0.0:
+					return true
+			return false
 		"ore_market_active":
 			return not market_ores().is_empty()
 		"yield_baseline_above":
@@ -446,8 +456,8 @@ static func condition_met(condition: Dictionary) -> bool:
 
 # Ore types with production in the Shares 7-day window: the ones whose
 # share means something. Canonical order.
-static func market_ores() -> Array[String]:
-	var totals := Shares.window_totals("ore")
+static func market_ores(tally: String = "ore") -> Array[String]:
+	var totals := Shares.window_totals(tally)
 	var ores: Array[String] = []
 	for ore_type in GameData.CANONICAL_ORE_TYPES:
 		for by_type in totals.values():
@@ -459,13 +469,13 @@ static func market_ores() -> Array[String]:
 
 # The player's share of params.oreType over the Shares 7-day window is at
 # least params.minPercent; with params.lead, also the largest of any producer.
-static func ore_share_met(params: Dictionary) -> bool:
+static func ore_share_met(params: Dictionary, tally: String = "ore") -> bool:
 	var ore_type := str(params.get("oreType", ""))
 	if ore_type == "" or not GameData.CANONICAL_ORE_TYPES.has(ore_type):
 		return false
-	if Shares.ore_share(Shares.PLAYER, ore_type) * 100.0 < float(params["minPercent"]):
+	if Shares.share(tally, Shares.PLAYER, ore_type) * 100.0 < float(params["minPercent"]):
 		return false
-	return not bool(params.get("lead", false)) or Shares.is_leader("ore", Shares.PLAYER, ore_type)
+	return not bool(params.get("lead", false)) or Shares.is_leader(tally, Shares.PLAYER, ore_type)
 
 
 # R§3.15: the business float covers min_weeks of the business's real weekly

@@ -101,7 +101,7 @@ static func _complete_spine(beat_id: Variant) -> void:
 # Resolves a goal's "$best" / "$other" ore placeholder to a real ore type:
 # the producing ore where the player's share is highest (canonical order
 # breaks ties); "$other" skips ores this ladder already used. "" when none.
-static func _resolve_ore(placeholder: String, ladder_id: String) -> String:
+static func _resolve_ore(placeholder: String, ladder_id: String, tally: String = "ore") -> String:
 	if not placeholder.begins_with("$"):
 		return placeholder
 	var used := {}
@@ -110,10 +110,10 @@ static func _resolve_ore(placeholder: String, ladder_id: String) -> String:
 			used[entry["ore"]] = true
 	var best := ""
 	var best_share := -1.0
-	for ore_type in Objectives.market_ores():
+	for ore_type in Objectives.market_ores(tally):
 		if placeholder == "$other" and used.has(ore_type):
 			continue
-		var share := Shares.ore_share(Shares.PLAYER, ore_type)
+		var share := Shares.share(tally, Shares.PLAYER, ore_type)
 		if share > best_share:
 			best = ore_type
 			best_share = share
@@ -132,7 +132,8 @@ static func _build_card(ladder_id: String, ladder: Dictionary, rung: Dictionary)
 	}
 	var ore_type := ""
 	if goal["params"].has("oreType"):
-		ore_type = _resolve_ore(str(goal["params"]["oreType"]), ladder_id)
+		var tally := "craft" if goal["type"] == Objectives.TYPE_CRAFTING_SHARE_AT_LEAST else "ore"
+		ore_type = _resolve_ore(str(goal["params"]["oreType"]), ladder_id, tally)
 		if ore_type == "":
 			return {}
 		goal["params"]["oreType"] = ore_type
@@ -581,15 +582,16 @@ static func card_tokens_prose(template: Dictionary, key: String, card: Dictionar
 			"weeks": _number(snappedf(float(cash) / float(maxi(expenses, 1)), 0.1)),
 		})
 	if text.contains("{share}") or text.contains("{rival}") or text.contains("{contested}"):
-		text = text.format(_share_prose_tokens(str(card.get("ore", ""))))
+		var tally := "craft" if card["goal"]["type"] == Objectives.TYPE_CRAFTING_SHARE_AT_LEAST else "ore"
+		text = text.format(_share_prose_tokens(str(card.get("ore", "")), tally))
 	return text
 
 
 # Live market-share tokens: {share} the player's % of the card's ore, {rival}
 # its largest other producer, {contested} the ores two or more rival
 # producers each supply.
-static func _share_prose_tokens(ore_type: String) -> Dictionary:
-	var totals := Shares.window_totals("ore")
+static func _share_prose_tokens(ore_type: String, tally: String = "ore") -> Dictionary:
+	var totals := Shares.window_totals(tally)
 	var rival := ""
 	var rival_qty := 0
 	for producer in totals:
@@ -606,7 +608,7 @@ static func _share_prose_tokens(ore_type: String) -> Dictionary:
 		if suppliers >= 2:
 			contested.append(str(GameData.ORE_TYPES[ore]["name"]))
 	return {
-		"share": str(int(roundf(Shares.ore_share(Shares.PLAYER, ore_type) * 100.0))),
+		"share": str(int(roundf(Shares.share(tally, Shares.PLAYER, ore_type) * 100.0))),
 		"rival": "the independents" if rival == Shares.INDEPENDENTS or rival == "" else str(GameData.FACTIONS[rival]["name"]),
 		"contested": "nothing yet" if contested.is_empty() else " and ".join(contested) if contested.size() < 3 else ", ".join(contested),
 	}
