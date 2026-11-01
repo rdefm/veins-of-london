@@ -96,7 +96,7 @@ Data file per system: see `data/*.json` below.
 | daily_brief.gd | Pure BizBrief Today projection: `items()` (tiered rows + action), `card()` (Routine and 2+ demand spikes fold to summary rows; capped), `badge_count()`, `summary()`, `mark_acted()` (writes today's ticks); sources: alarms, guard/bill/arrears/wage/contract shortfall, poach, low veins, Story, deposit/rent goals, offers, demand, favours, development, idle staff, ore-short |
 | nav.gd | Screen navigation; an open lesson holds it at the bench |
 | notify.gd | Notifications append/evict; per-contact dismiss via contactId meta |
-| objectives.gd | Objective/questline evaluator; all_of live-condition, template_periods_completed (Beat 6) and recurring_proof (Beat 7) objectives + their ToDo checklist rows |
+| objectives.gd | Objective/questline evaluator; all_of live-condition, template_periods_completed (Beat 6) and recurring_proof (Beat 7) objectives + their ToDo checklist rows; `evaluate()`/`tier_met()` run caller-held (generated) defs, tiers = base/target/stretch param overrides |
 | offers.gd | Sales offers: quoting (price fixed at issue), counterparty pick (authored / identity-weighted / Collective-Firm fit), acceptance (quote → contract `signedQuote`), renewal offers, random-only pending cap, day-ramped item-variety pick (`variety_weights`/`ramp_weight`), Sworn-Guild commission offers, Wren assay commissions, poach match/lapse, 2-day expiry |
 | payroll.gd | `role_skill_keys()` (room → skill field, from the role registry); `is_working()` gate for staff actions (false while the business owes them a wage) |
 | phone_apps.gd | Phone main-grid roster/order/labels (LodedInnit absent until James joins) + badge-config projection |

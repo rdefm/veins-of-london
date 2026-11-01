@@ -546,3 +546,50 @@ func run() -> void:
 		Economy.execute_faction_sale("collective", [{ "kind": "consumable", "type": "timePearl", "qty": 2 }])
 		assert_eq(GameState.state["factions"]["collective"]["oreSold"], {}, "oreSold only tracks ore, not consumables")
 	)
+
+	# ── passed-in (generated) definitions and tiers ─────────────────────
+	# A board goal is a generated definition held by its caller, never in
+	# GameData.OBJECTIVES; contracts_completed stands in for any count type.
+
+	run_case("evaluate_runs_a_passed_in_definition_absent_from_objectives_data", func():
+		GameState.reset()
+		var def := _objective("generated_goal", Objectives.TYPE_CONTRACTS_COMPLETED, { "minCount": 2 })
+		assert_true(not GameData.OBJECTIVES.has("generated_goal"))
+		_settle_contracts(1)
+		assert_eq(Objectives.evaluate(def), false, "1 of 2")
+		_settle_contracts(1)
+		assert_eq(Objectives.evaluate(def), true, "2 of 2")
+		assert_true(not GameState.state["objectives"].has("generated_goal"), "evaluate never writes objectives state")
+	)
+
+	var tiered := _objective("generated_tiered", Objectives.TYPE_CONTRACTS_COMPLETED, {})
+	tiered["tiers"] = { "base": { "minCount": 2 }, "target": { "minCount": 4 }, "stretch": { "minCount": 6 } }
+	var expected := { 0: "none", 1: "none", 2: "base", 3: "base", 4: "target", 5: "target", 6: "stretch", 7: "stretch" }
+	for count in expected.keys():
+		run_case("tier_met_with_%d_completed_contracts_is_%s" % [count, expected[count]], func():
+			GameState.reset()
+			_settle_contracts(count)
+			assert_eq(Objectives.tier_met(tiered), expected[count])
+		)
+
+	run_case("tier_met_skips_a_missing_tier", func():
+		GameState.reset()
+		var def := _objective("generated_two_tier", Objectives.TYPE_CONTRACTS_COMPLETED, {})
+		def["tiers"] = { "base": { "minCount": 1 }, "stretch": { "minCount": 3 } }
+		_settle_contracts(2)
+		assert_eq(Objectives.tier_met(def), "base")
+	)
+
+	run_case("tier_met_on_an_untiered_definition_is_none", func():
+		GameState.reset()
+		_settle_contracts(5)
+		assert_eq(Objectives.tier_met(_objective("plain", Objectives.TYPE_CONTRACTS_COMPLETED, { "minCount": 1 })), "none")
+	)
+
+
+func _settle_contracts(count: int) -> void:
+	for i in count:
+		GameState.state["sales"]["contractHistory"].append({
+			"contract": { "id": "c_test_%d" % GameState.state["sales"]["contractHistory"].size(), "templateId": "t_test" },
+			"settlement": { "complete": true, "qualified": true },
+		})

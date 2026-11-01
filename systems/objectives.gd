@@ -22,6 +22,9 @@ const TYPE_RECURRING_PROOF := "recurring_proof"
 const TYPE_TEMPLATE_PERIODS_COMPLETED := "template_periods_completed"
 const TYPE_RECIPE_KNOWN := "recipe_known"
 
+const TIER_NONE := "none"
+const TIER_ORDER: Array[String] = ["base", "target", "stretch"]
+
 
 # The only entry point, called explicitly at action boundaries across
 # Sites/Economy/VeinTrade/Cultivating/TimeSystem/GameState.reset()/
@@ -68,6 +71,30 @@ static func _mark_activated(def: Dictionary, progress: Dictionary) -> void:
 		progress["delivered"] = 0
 	elif def["type"] == TYPE_ITEMS_CRAFTED_SET:
 		progress["craftedBaseline"] = GameState.deep_copy(GameState.state["player"]["craftedCounts"])
+
+
+# Evaluates any definition through the same engine as data objectives —
+# including a generated one a caller holds (a board goal), not present in
+# GameData.OBJECTIVES. Reads only; never writes objectives state.
+static func evaluate(def: Dictionary, progress: Dictionary = {}) -> bool:
+	return _evaluate(def, progress)
+
+
+# def["tiers"]: { "base"|"target"|"stretch": { param overrides } } — three
+# thresholds of one condition, each merged over def["params"]. Returns the
+# highest tier met now, or TIER_NONE (spec §"Modules" → Objectives).
+static func tier_met(def: Dictionary, progress: Dictionary = {}) -> String:
+	var tiers: Dictionary = def.get("tiers", {})
+	var base_params: Dictionary = def.get("params", {})
+	for i in range(TIER_ORDER.size() - 1, -1, -1):
+		var tier: String = TIER_ORDER[i]
+		if not tiers.has(tier):
+			continue
+		var tier_def: Dictionary = def.duplicate()
+		tier_def["params"] = base_params.merged(tiers[tier], true)
+		if _evaluate(tier_def, progress):
+			return tier
+	return TIER_NONE
 
 
 static func _evaluate(def: Dictionary, progress: Dictionary) -> bool:
