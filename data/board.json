@@ -362,6 +362,272 @@
           "permanent": false
         }
       ]
+    },
+    "cultivation": {
+      "voice": "owen",
+      "rungs": [
+        {
+          "id": "cult_yield",
+          "premise": {
+            "kind": "yield_baseline_above",
+            "amount": 0
+          },
+          "goal": {
+            "type": "yield_multiple_at_least",
+            "params": {}
+          },
+          "tiers": {
+            "base": {
+              "multiple": 1.1
+            },
+            "target": {
+              "multiple": 1.25
+            },
+            "stretch": {
+              "multiple": 1.4
+            }
+          },
+          "lengthWeeks": 1,
+          "rewards": {
+            "base": [
+              {
+                "kind": "cash",
+                "amount": 100
+              }
+            ],
+            "target": [
+              {
+                "kind": "cash",
+                "amount": 250
+              },
+              {
+                "kind": "item",
+                "id": "timePearl",
+                "tier": 1,
+                "qty": 1
+              }
+            ],
+            "stretch": [
+              {
+                "kind": "cash",
+                "amount": 400
+              },
+              {
+                "kind": "item",
+                "id": "timePearl",
+                "tier": 1,
+                "qty": 1
+              },
+              {
+                "kind": "item",
+                "id": "enhancementPowder",
+                "tier": 1,
+                "qty": 1
+              }
+            ]
+          },
+          "pinned": false,
+          "spine": null,
+          "permanent": false
+        },
+        {
+          "id": "cult_new_vein",
+          "premise": {
+            "kind": "player_veins_at_least",
+            "minCount": 1
+          },
+          "goal": {
+            "type": "new_veins_online_at_least",
+            "params": {
+              "minCount": 1
+            }
+          },
+          "tiers": {
+            "base": {
+              "minGrowth": 30
+            },
+            "target": {
+              "minGrowth": 50
+            },
+            "stretch": {
+              "minGrowth": 70
+            }
+          },
+          "lengthWeeks": 1,
+          "rewards": {
+            "base": [
+              {
+                "kind": "cash",
+                "amount": 150
+              }
+            ],
+            "target": [
+              {
+                "kind": "cash",
+                "amount": 350
+              },
+              {
+                "kind": "item",
+                "id": "timePearl",
+                "tier": 1,
+                "qty": 1
+              }
+            ],
+            "stretch": [
+              {
+                "kind": "cash",
+                "amount": 550
+              },
+              {
+                "kind": "item",
+                "id": "timePearl",
+                "tier": 1,
+                "qty": 1
+              },
+              {
+                "kind": "item",
+                "id": "enhancementPowder",
+                "tier": 1,
+                "qty": 1
+              }
+            ]
+          },
+          "pinned": false,
+          "spine": null,
+          "permanent": false
+        },
+        {
+          "id": "cult_health_streak",
+          "premise": {
+            "kind": "player_veins_at_least",
+            "minCount": 1
+          },
+          "goal": {
+            "type": "vein_health_streak_at_least",
+            "params": {}
+          },
+          "tiers": {
+            "base": {
+              "minDays": 2
+            },
+            "target": {
+              "minDays": 4
+            },
+            "stretch": {
+              "minDays": 6
+            }
+          },
+          "lengthWeeks": 1,
+          "rewards": {
+            "base": [
+              {
+                "kind": "cash",
+                "amount": 200
+              }
+            ],
+            "target": [
+              {
+                "kind": "cash",
+                "amount": 450
+              },
+              {
+                "kind": "item",
+                "id": "timePearl",
+                "tier": 1,
+                "qty": 1
+              }
+            ],
+            "stretch": [
+              {
+                "kind": "cash",
+                "amount": 700
+              },
+              {
+                "kind": "item",
+                "id": "timePearl",
+                "tier": 1,
+                "qty": 1
+              },
+              {
+                "kind": "item",
+                "id": "enhancementPowder",
+                "tier": 1,
+                "qty": 1
+              }
+            ]
+          },
+          "pinned": false,
+          "spine": null,
+          "permanent": false
+        },
+        {
+          "id": "cult_second_ore",
+          "premise": {
+            "kind": "ore_types_owned_between",
+            "minTypes": 1,
+            "maxTypes": 2
+          },
+          "goal": {
+            "type": "ore_types_online_at_least",
+            "params": {
+              "minTypes": 2
+            }
+          },
+          "tiers": {
+            "base": {
+              "minGrowth": 30
+            },
+            "target": {
+              "minGrowth": 50
+            },
+            "stretch": {
+              "minGrowth": 70
+            }
+          },
+          "lengthWeeks": 1,
+          "rewards": {
+            "base": [
+              {
+                "kind": "cash",
+                "amount": 250
+              }
+            ],
+            "target": [
+              {
+                "kind": "cash",
+                "amount": 500
+              },
+              {
+                "kind": "item",
+                "id": "timePearl",
+                "tier": 1,
+                "qty": 1
+              }
+            ],
+            "stretch": [
+              {
+                "kind": "cash",
+                "amount": 800
+              },
+              {
+                "kind": "item",
+                "id": "timePearl",
+                "tier": 1,
+                "qty": 1
+              },
+              {
+                "kind": "item",
+                "id": "enhancementPowder",
+                "tier": 1,
+                "qty": 1
+              }
+            ]
+          },
+          "pinned": false,
+          "spine": null,
+          "permanent": false
+        }
+      ]
     }
   },
   "templates": {
@@ -389,6 +655,26 @@
       "label": "Second ore: {ore}",
       "pitch": "One ore is a niche. Take a slice of {ore} too.",
       "why": "{ore} is moving and nobody has it sewn up."
+    },
+    "cult_yield": {
+      "label": "Lift the yield",
+      "pitch": "If the veins gave a bit more than usual this week... only if that's all right.",
+      "why": "Your last ten days give a baseline. A bit past it is the ask."
+    },
+    "cult_new_vein": {
+      "label": "Bring a vein online",
+      "pitch": "There's a new vein that could come good. I could watch it. If you'd like.",
+      "why": "A fresh vein only counts once it's healthy enough to work."
+    },
+    "cult_health_streak": {
+      "label": "Keep a vein healthy",
+      "pitch": "A vein held in good condition night after night. Nobody's tried it properly.",
+      "why": "The nightly count only runs while a vein stays in good shape."
+    },
+    "cult_second_ore": {
+      "label": "A second ore",
+      "pitch": "Not to alarm anyone, but we only have one kind of calc. Could we have two?",
+      "why": "Two ore types in good health means the business isn't one bad week from empty."
     }
   },
   "todo": {

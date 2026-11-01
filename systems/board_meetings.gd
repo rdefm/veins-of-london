@@ -282,7 +282,7 @@ static func _take(id: String, is_skip: bool) -> Dictionary:
 		"rewards": GameState.deep_copy(card["rewards"]),
 		"lengthWeeks": card["lengthWeeks"], "week": int(board["week"]),
 		"chosenDay": int(GameState.state["world"]["day"]),
-		"baseline": {}, "progress": {}, "lockedTier": Objectives.TIER_NONE,
+		"baseline": {}, "progress": Objectives.initial_progress(str(card["goal"]["type"])), "lockedTier": Objectives.TIER_NONE,
 		"skip": is_skip,
 	}
 	var weights: Dictionary = board["voiceWeights"]

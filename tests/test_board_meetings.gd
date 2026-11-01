@@ -75,6 +75,43 @@ func _relation(contact_id: String) -> int:
 	return int(GameState.state["contacts"][contact_id]["relation"])
 
 
+# Player harvest of `amount` per day for the `days` days before today.
+func _harvest(amount: int, days: int) -> void:
+	var today: int = GameState.state["world"]["day"]
+	for offset in range(1, days + 1):
+		GameState.state["world"]["day"] = today - offset
+		Shares.record_ore("player", "life", amount)
+	GameState.state["world"]["day"] = today
+
+
+func _mark_done(rung_id: String) -> void:
+	var board: Dictionary = GameState.state["boardMeetings"]
+	if not board["rungs"].has("cultivation"):
+		board["rungs"]["cultivation"] = {}
+	board["rungs"]["cultivation"][rung_id] = { "status": "done", "day": 1 }
+
+
+# Offers the week-1 agenda with Owen certain to pitch, asserts the named
+# cultivation rung is among the cards, and chooses it.
+func _pick_cultivation_card(rung_id: String) -> void:
+	var rarity := _set_owen_rarity(1.0)
+	var cards := BoardMeetings.agenda(1)
+	_set_owen_rarity(rarity)
+	var picked := ""
+	for card in cards:
+		if card["ladder"] == "cultivation":
+			picked = card["id"]
+			assert_eq(card["rung"], rung_id)
+	assert_true(BoardMeetings.choose(picked)["ok"], "cultivation card %s offered" % rung_id)
+
+
+# A player with a vein and a 10-day harvest history, so Owen's first rung
+# is live next to James's financial rung.
+func _cultivation_ready() -> void:
+	GameState.state["player"]["veins"].append(Cultivating.make_vein("life", 50, "", null, {}))
+	_harvest(5, 10)
+
+
 # Continues the live event until it awaits a pick or ends; capped.
 func _advance_to_choice() -> void:
 	for i in 10:
@@ -573,4 +610,151 @@ func run() -> void:
 		var cards := BoardMeetings.eligible_cards().filter(func(c): return c["ladder"] == "market_share")
 		assert_eq(cards[0]["rung"], "share_second")
 		assert_eq(cards[0]["ore"], "time")
+	)
+
+	# ── Cultivation ladder (Owen) ────────────────────────────────────────
+
+	run_case("cultivation_ladder_is_owens_with_placeholder_yield_tiers", func():
+		var ladder: Dictionary = GameData.BOARD_LADDERS["cultivation"]
+		assert_eq(ladder["voice"], "owen")
+		assert_eq(ladder["rungs"].size(), 4)
+		var tiers: Dictionary = ladder["rungs"][0]["tiers"]
+		assert_eq(ladder["rungs"][0]["goal"]["type"], Objectives.TYPE_YIELD_MULTIPLE_AT_LEAST)
+		assert_eq(float(tiers["base"]["multiple"]), 1.1)
+		assert_eq(float(tiers["target"]["multiple"]), 1.25)
+		assert_eq(float(tiers["stretch"]["multiple"]), 1.4)
+		assert_true(float(GameData.BOARD_VOICES["owen"]["pitchRarity"]) < 1.0, "Owen pitches rarely, from data")
+	)
+
+	run_case("yield_rung_needs_a_harvest_baseline_to_open", func():
+		_enabled_game()
+		GameState.state["player"]["veins"].append(Cultivating.make_vein("life", 50, "", null, {}))
+		var no_baseline := BoardMeetings.eligible_cards().filter(func(c): return c["rung"] == "cult_yield")
+		assert_eq(no_baseline.size(), 0, "no harvest in the prior 10 days")
+		_harvest(5, 10)
+		var with_baseline := BoardMeetings.eligible_cards().filter(func(c): return c["rung"] == "cult_yield")
+		assert_eq(with_baseline.size(), 1)
+	)
+
+	run_case("choosing_the_yield_card_captures_the_prior_ten_day_average", func():
+		_enabled_game()
+		GameState.state["player"]["veins"].append(Cultivating.make_vein("life", 50, "", null, {}))
+		_harvest(10, 10)
+		_pick_cultivation_card("cult_yield")
+		var active: Dictionary = GameState.state["boardMeetings"]["active"]
+		assert_eq(float(active["progress"]["yieldBaseline"]), 10.0)
+		assert_eq(int(active["progress"]["sinceDay"]), 10)
+		# baseline 10/day x 7 = 70; x1.1 = 77, x1.25 = 87.5, x1.4 = 98
+		var goal: Dictionary = active["goal"]
+		assert_eq(Objectives.tier_met(goal, active["progress"]), "none")
+		Shares.record_ore("player", "life", 76)
+		assert_eq(Objectives.tier_met(goal, active["progress"]), "none", "76 < 77")
+		Shares.record_ore("player", "life", 1)
+		assert_eq(Objectives.tier_met(goal, active["progress"]), "base", "77 = 1.1 x 70")
+		Shares.record_ore("player", "life", 11)
+		assert_eq(Objectives.tier_met(goal, active["progress"]), "target", "88 >= 87.5")
+		Shares.record_ore("player", "life", 10)
+		assert_eq(Objectives.tier_met(goal, active["progress"]), "stretch", "98 = 1.4 x 70")
+	)
+
+	run_case("yield_goal_ignores_harvest_after_the_goal_week", func():
+		_enabled_game()
+		GameState.state["player"]["veins"].append(Cultivating.make_vein("life", 50, "", null, {}))
+		_harvest(10, 10)
+		_pick_cultivation_card("cult_yield")
+		var active: Dictionary = GameState.state["boardMeetings"]["active"]
+		GameState.state["world"]["day"] = 17
+		Shares.record_ore("player", "life", 500)
+		assert_eq(Objectives.tier_met(active["goal"], active["progress"]), "none", "day 17 is past the 7-day goal week")
+	)
+
+	run_case("new_vein_rung_counts_only_veins_claimed_since_choose", func():
+		_enabled_game()
+		var old_vein := Cultivating.make_vein("life", 80, "", null, {})
+		old_vein["claimedOnDay"] = 3
+		GameState.state["player"]["veins"].append(old_vein)
+		_mark_done("cult_yield")
+		_pick_cultivation_card("cult_new_vein")
+		var active: Dictionary = GameState.state["boardMeetings"]["active"]
+		assert_eq(Objectives.tier_met(active["goal"], active["progress"]), "none", "the old vein is not new")
+		var fresh := Cultivating.make_vein("time", 30, "", null, {})
+		GameState.state["player"]["veins"].append(fresh)
+		assert_eq(Objectives.tier_met(active["goal"], active["progress"]), "base")
+		fresh["growth"] = 70
+		assert_eq(Objectives.tier_met(active["goal"], active["progress"]), "stretch")
+	)
+
+	run_case("health_streak_rung_is_skipped_when_already_met", func():
+		_enabled_game()
+		var vein := Cultivating.make_vein("life", 95, "", null, {})
+		vein["developmentStreak"] = 4
+		GameState.state["player"]["veins"].append(vein)
+		_mark_done("cult_yield")
+		_mark_done("cult_new_vein")
+		var cards := BoardMeetings.eligible_cards().filter(func(c): return c["ladder"] == "cultivation")
+		assert_eq(BoardMeetings.rung_status("cultivation", "cult_health_streak"), "skipped", "a 4-night streak meets the target")
+		assert_eq(cards[0]["rung"], "cult_second_ore", "the next rung opens")
+	)
+
+	run_case("second_ore_rung_needs_two_healthy_ore_types", func():
+		_enabled_game()
+		GameState.state["player"]["veins"].append(Cultivating.make_vein("life", 60, "", null, {}))
+		for rung_id in ["cult_yield", "cult_new_vein", "cult_health_streak"]:
+			_mark_done(rung_id)
+		_pick_cultivation_card("cult_second_ore")
+		var active: Dictionary = GameState.state["boardMeetings"]["active"]
+		assert_eq(Objectives.tier_met(active["goal"], active["progress"]), "none")
+		GameState.state["player"]["veins"].append(Cultivating.make_vein("time", 35, "", null, {}))
+		assert_eq(Objectives.tier_met(active["goal"], active["progress"]), "base")
+	)
+
+	run_case("owen_with_zero_pitch_rarity_never_makes_the_agenda", func():
+		_enabled_game()
+		_cultivation_ready()
+		var original := _set_owen_rarity(0.0)
+		var cards := BoardMeetings.agenda(1)
+		_set_owen_rarity(original)
+		assert_true(not _voices(cards).has("owen"))
+	)
+
+	run_case("owen_with_full_pitch_rarity_pitches_his_card", func():
+		_enabled_game()
+		_cultivation_ready()
+		var original := _set_owen_rarity(1.0)
+		var cards := BoardMeetings.agenda(1)
+		_set_owen_rarity(original)
+		assert_true(_voices(cards).has("owen"))
+	)
+
+	run_case("owen_pitch_frequency_follows_the_data_rarity", func():
+		_enabled_game()
+		_cultivation_ready()
+		var original := _set_owen_rarity(0.25)
+		var pitched := 0
+		for week in range(1, 41):
+			GameState.state["boardMeetings"]["agenda"] = []
+			if _voices(BoardMeetings.agenda(week)).has("owen"):
+				pitched += 1
+		_set_owen_rarity(original)
+		assert_true(pitched > 0 and pitched < 20, "owen pitched %d of 40 weeks at 0.25" % pitched)
+	)
+
+	run_case("archie_fills_the_slot_when_owen_is_absent", func():
+		_enabled_game()
+		var original := _install_ladders()
+		var rarity := _set_owen_rarity(0.0)
+		var cards := BoardMeetings.agenda(1)
+		_set_owen_rarity(rarity)
+		GameData.BOARD_LADDERS = original
+		assert_eq(cards.size(), 3)
+		assert_eq(_voices(cards).count("archie"), 2, "Archie holds Owen's slot")
+		assert_true(not _voices(cards).has("owen"))
+	)
+
+	run_case("choosing_a_cultivation_card_warms_owen", func():
+		_enabled_game()
+		_cultivation_ready()
+		var before := _relation("owen")
+		_pick_cultivation_card("cult_yield")
+		assert_eq(_relation("owen"), before + int(GameData.BOARD_VOICES["owen"]["warmth"]))
 	)

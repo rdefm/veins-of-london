@@ -130,6 +130,20 @@ static func end_cache() -> void:
 	_cache.clear()
 
 
+# One producer's harvested ore by type over the inclusive day range
+# [first_day, last_day]: { oreType: n }. Reads the daily buckets only.
+static func ore_between(producer: String, first_day: int, last_day: int) -> Dictionary:
+	var totals := {}
+	for bucket in GameState.state["shares"]["days"]:
+		var day: int = int(bucket["day"])
+		if day < first_day or day > last_day:
+			continue
+		var by_type: Dictionary = bucket["ore"].get(producer, {})
+		for ore_type in by_type:
+			totals[ore_type] = int(totals.get(ore_type, 0)) + int(by_type[ore_type])
+	return totals
+
+
 # Summed tally over a window: { producer: { oreType: n } }.
 static func window_totals(tally: String, week: int = 0) -> Dictionary:
 	var cache_key := "t:%s:%d" % [tally, week]

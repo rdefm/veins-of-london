@@ -24,6 +24,16 @@ const TYPE_RECIPE_KNOWN := "recipe_known"
 const TYPE_RESERVE_WEEKS_AT_LEAST := "reserve_weeks_at_least"
 const TYPE_ORE_SHARE_AT_LEAST := "ore_share_at_least"
 
+const TYPE_YIELD_MULTIPLE_AT_LEAST := "yield_multiple_at_least"
+const TYPE_NEW_VEINS_ONLINE_AT_LEAST := "new_veins_online_at_least"
+const TYPE_VEIN_HEALTH_STREAK_AT_LEAST := "vein_health_streak_at_least"
+const TYPE_ORE_TYPES_ONLINE_AT_LEAST := "ore_types_online_at_least"
+
+# Days of harvest the yield baseline averages, and the goal week it is
+# compared against (spec §"Modules" → Objectives).
+const YIELD_BASELINE_DAYS := 10
+const GOAL_WEEK_DAYS := 7
+
 const TIER_NONE := "none"
 const TIER_ORDER: Array[String] = ["base", "target", "stretch"]
 
@@ -139,8 +149,78 @@ static func _evaluate(def: Dictionary, progress: Dictionary) -> bool:
 			return reserve_weeks_met(float(params["minWeeks"]))
 		TYPE_ORE_SHARE_AT_LEAST:
 			return ore_share_met(params)
+		TYPE_YIELD_MULTIPLE_AT_LEAST:
+			return _eval_yield_multiple(params, progress)
+		TYPE_NEW_VEINS_ONLINE_AT_LEAST:
+			return _eval_new_veins_online(params, progress)
+		TYPE_VEIN_HEALTH_STREAK_AT_LEAST:
+			return _max_development_streak() >= int(params["minDays"])
+		TYPE_ORE_TYPES_ONLINE_AT_LEAST:
+			return _online_ore_types(int(params["minGrowth"])) >= int(params["minTypes"])
 		_:
 			return false
+
+
+# Progress a generated goal needs captured at the moment it is chosen: the
+# start day for goal-week types, plus the prior-10-day average daily yield
+# for yield_multiple_at_least. Plain data.
+static func initial_progress(goal_type: String) -> Dictionary:
+	var day: int = GameState.state["world"]["day"]
+	var progress := { "sinceDay": day }
+	if goal_type == TYPE_YIELD_MULTIPLE_AT_LEAST:
+		progress["yieldBaseline"] = yield_baseline()
+	return progress
+
+
+# Average daily player harvest (all ores) over the YIELD_BASELINE_DAYS days
+# before today.
+static func yield_baseline() -> float:
+	var day: int = GameState.state["world"]["day"]
+	var total := 0
+	for amount in Shares.ore_between(Shares.PLAYER, day - YIELD_BASELINE_DAYS, day - 1).values():
+		total += int(amount)
+	return float(total) / YIELD_BASELINE_DAYS
+
+
+# Player harvest (all ores) from progress.sinceDay through the goal week;
+# false (unmet) until a goal has captured a baseline, or on no baseline yield.
+static func _eval_yield_multiple(params: Dictionary, progress: Dictionary) -> bool:
+	var baseline := float(progress.get("yieldBaseline", 0.0))
+	if baseline <= 0.0 or not progress.has("sinceDay"):
+		return false
+	var since := int(progress["sinceDay"])
+	var harvest := 0
+	for amount in Shares.ore_between(Shares.PLAYER, since, since + GOAL_WEEK_DAYS - 1).values():
+		harvest += int(amount)
+	return float(harvest) + 0.000001 >= float(params["multiple"]) * baseline * GOAL_WEEK_DAYS
+
+
+# Player veins claimed since progress.sinceDay whose growth is at least
+# params.minGrowth number params.minCount. Unmet without a captured start.
+static func _eval_new_veins_online(params: Dictionary, progress: Dictionary) -> bool:
+	if not progress.has("sinceDay"):
+		return false
+	var count := 0
+	for vein in GameState.state["player"]["veins"]:
+		if int(vein["claimedOnDay"]) >= int(progress["sinceDay"]) and int(vein["growth"]) >= int(params["minGrowth"]):
+			count += 1
+	return count >= int(params["minCount"])
+
+
+static func _max_development_streak() -> int:
+	var best := 0
+	for vein in GameState.state["player"]["veins"]:
+		best = maxi(best, int(vein.get("developmentStreak", 0)))
+	return best
+
+
+# Distinct ore types among player veins with growth >= min_growth.
+static func _online_ore_types(min_growth: int) -> int:
+	var types := {}
+	for vein in GameState.state["player"]["veins"]:
+		if int(vein["growth"]) >= min_growth:
+			types[vein["oreType"]] = true
+	return types.size()
 
 
 # requireEachOreType: [String]. Collective.report_des_site() stamps a
@@ -349,6 +429,13 @@ static func condition_met(condition: Dictionary) -> bool:
 			return BusinessStats.weekly_expenses() > int(condition["amount"])
 		"ore_market_active":
 			return not market_ores().is_empty()
+		"yield_baseline_above":
+			return yield_baseline() > float(condition["amount"])
+		"player_veins_at_least":
+			return GameState.state["player"]["veins"].size() >= int(condition["minCount"])
+		"ore_types_owned_between":
+			var owned := _online_ore_types(0)
+			return owned >= int(condition["minTypes"]) and owned < int(condition["maxTypes"])
 		"ore_share_any_at_least":
 			for ore_type in market_ores():
 				if Shares.ore_share(Shares.PLAYER, ore_type) * 100.0 >= float(condition["minPercent"]):
