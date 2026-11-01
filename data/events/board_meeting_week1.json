@@ -2,26 +2,85 @@
   "id": "board_meeting_week1",
   "fillFromContext": true,
   "cards": [
-    { "key": "intro", "type": "narration", "label": "Bermondsey - James's workshop", "speaker": null, "text": "Monday. Archie has pushed two benches together and called it a boardroom. Owen has been given a chair again." },
-    { "key": "explain", "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Board meeting. Every Monday. Three pitches, you pick one, we see how it went next week. Nobody gets fired.\"" },
     {
-      "key": "agenda", "type": "choice", "label": null, "speaker": null, "text": "Agenda, week {week}.\n\n{agendaText}",
+      "key": "intro",
+      "type": "narration",
+      "label": "Bermondsey - James's workshop",
+      "speaker": null,
+      "text": "Archie has pushed two benches together and set a Tesco meal deal at each place. Owen has been given a chair again."
+    },
+    {
+      "key": "explain",
+      "type": "speaker",
+      "label": null,
+      "speaker": "Archie",
+      "text": "\"Board meeting. Every Monday, catering provided.\" He taps his sandwich. \"Three pitches, one goal each. You pick which one we chase this week.\""
+    },
+    {
+      "key": "rules",
+      "type": "speaker",
+      "label": null,
+      "speaker": "James",
+      "text": "\"Next Monday I read the minutes and we find out whether you chose well. Choose anything. Nobody is wounded if it isn't theirs.\""
+    },
+    {
+      "key": "next_week",
+      "type": "speaker",
+      "label": null,
+      "speaker": "Archie",
+      "text": "\"Worst you'll get is 'next week, then'. Then I pitch again, louder.\""
+    },
+    {
+      "key": "owen",
+      "type": "speaker",
+      "label": null,
+      "speaker": "Owen",
+      "text": "\"Sorry. Do I have a vote?\""
+    },
+    {
+      "key": "poach",
+      "type": "speaker",
+      "label": null,
+      "speaker": "Archie",
+      "text": "\"You're getting poached, Owen. Different department. Start Friday.\" James does not look up. \"He is not.\""
+    },
+    {
+      "key": "agenda",
+      "type": "choice",
+      "label": null,
+      "speaker": null,
+      "text": "Agenda, week {week}.\n\n{agendaText}",
       "choicesFromContext": "agenda",
       "choices": [
         {
           "id": "skip",
           "label": "Leave it to Archie",
           "exit": true,
-          "effects": [{ "op": "board_skip" }],
+          "effects": [
+            {
+              "op": "board_skip"
+            }
+          ],
           "result_text": "\"You weren't there, so you're doing mine.\"",
           "goto": "aob"
         }
       ]
     },
-    { "key": "aob", "type": "narration", "label": null, "speaker": null, "text": "Any other business. James asks that the benches be put back exactly where they were." }
+    {
+      "key": "aob",
+      "type": "narration",
+      "label": null,
+      "speaker": null,
+      "text": "Any other business. James asks that the benches be put back exactly where they were. Owen asks which of them is Friday."
+    }
   ],
   "on_complete": [
-    { "op": "set_screen", "screen": "phone" },
-    { "op": "open_morning_accounts" }
+    {
+      "op": "set_screen",
+      "screen": "phone"
+    },
+    {
+      "op": "open_morning_accounts"
+    }
   ]
 }

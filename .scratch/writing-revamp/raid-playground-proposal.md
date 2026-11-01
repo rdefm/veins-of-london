@@ -369,7 +369,10 @@
             {
               "id": "option2",
               "label": "Get ready for a fight",
-              "result_text": ""
+              "result_text": "",
+              "goto": {
+                "branch": "fight_prep"
+              }
             },
             {
               "label": "Try to talk your way out",
@@ -397,7 +400,111 @@
         {
           "key": "c10",
           "type": "narration",
-          "text": "Player sees 2 guards turn up, and head in the player's direction. Player knows if they avoid them, the guards will just reclaim the vein, so must confront them.\n\nOptions to fight them, or convince them to back off and that player owns the vein now."
+          "text": "Player sees 2 guards turn up, and head in the player's direction. Player knows if they avoid them, the guards will just reclaim the vein, so must confront them.\n\nOptions to fight them, or convince them to back off and that player owns the vein now.\n - Fighting: high observation in Life tells you they are glancing around, unsure if you're the threat (or if you've got back up). High observation in emotion shows they're nervous, amped up, and jumpy.\nIf you strike quickly you'll get a head start. Starting a fight with either of these observations means player gets a free bonus action at the start of the fight.\n - Talk them down; either of the observations above gives an advantage. Successful text is player saying they can see the guys are nervous; they can walk away without any fighting. Tell their bosses that this vein belongs to someone else now. Failed roll has player saying the wrong thing and guards lash out, starting the fight.\n - Try to avoid them: same observations give advantage as player knows to not move or make sudden movements, and look like you belong. Examines a bush; guards walk past, player leaves.\n\n",
+          "choices": [
+            {
+              "label": "Try to avoid them",
+              "id": "option1",
+              "check": {
+                "base": 0.5,
+                "mods": [
+                  {
+                    "observed": {
+                      "id": "",
+                      "ore": "physics",
+                      "atLeast": 2
+                    },
+                    "add": 0.3,
+                    "label": ""
+                  },
+                  {
+                    "observed": {
+                      "id": "",
+                      "ore": "emotion",
+                      "atLeast": 2
+                    },
+                    "add": 0.3,
+                    "label": ""
+                  },
+                  {
+                    "observed": {
+                      "id": "",
+                      "ore": "life",
+                      "atLeast": 2
+                    },
+                    "add": 0.3,
+                    "label": ""
+                  }
+                ]
+              },
+              "success": {
+                "result_text": "You move slowly but deliberately, like you belong. You examine the flower bed with a vague sense of annoyance, tutting about when they were last watered. The guards breeze past with barely a second glance.",
+                "effects": []
+              },
+              "fail": {
+                "result_text": "You sprint to some bushes to try and hide behind them, but the guards spot you. Now they're heading your way.",
+                "effects": [],
+                "goto": {
+                  "branch": "fight_prep"
+                }
+              }
+            },
+            {
+              "id": "option2",
+              "label": "Get ready for a fight",
+              "result_text": "",
+              "goto": {
+                "branch": "fight_prep"
+              }
+            },
+            {
+              "label": "Try to talk your way out",
+              "id": "option3",
+              "check": {
+                "base": 0.5,
+                "mods": [
+                  {
+                    "observed": {
+                      "id": "",
+                      "ore": "physics",
+                      "atLeast": 2
+                    },
+                    "add": 0.3,
+                    "label": ""
+                  },
+                  {
+                    "observed": {
+                      "id": "",
+                      "ore": "emotion",
+                      "atLeast": 2
+                    },
+                    "add": 0.3,
+                    "label": ""
+                  },
+                  {
+                    "observed": {
+                      "id": "",
+                      "ore": "life",
+                      "atLeast": 2
+                    },
+                    "add": 0.3,
+                    "label": ""
+                  }
+                ]
+              },
+              "success": {
+                "result_text": "Hands visible, you calmly tell them that everyone can walk away safe and sound if they tell their bosses that this vein belongs to someone else now. They glance at each other, then nod at you and back away.",
+                "effects": []
+              },
+              "fail": {
+                "result_text": "You wave energetically to get their attention. They jump, then head over to you, fists balled. So much for talking...",
+                "effects": [],
+                "goto": {
+                  "branch": "fight_prep"
+                }
+              }
+            }
+          ]
         }
       ]
     },
@@ -407,7 +514,79 @@
         {
           "key": "c11",
           "type": "narration",
-          "text": "Player sees 2 guards turn up, just on patrol, unaware. Player knows if they avoid them, the guards will just reclaim the vein, so must confront them.\n\nOptions to fight them (you catch them unaware so get a free bonus action), or convince them to back off and that player owns the vein now."
+          "text": "You see 2 men walking through the church grounds. Heavyset, attention focused on people, hiding posts, and entry points - guards on patrol, not actively expecting trouble."
+        },
+        {
+          "key": "c14",
+          "type": "narration",
+          "text": "If you leave now, they'll just reclaim the vein. You need to send a clear message that this belongs to you now.\n\nOptions to fight them (you catch them unaware so get a free bonus action), or convince them to back off and that player owns the vein now.",
+          "choices": [
+            {
+              "id": "option1",
+              "label": "Fight them off",
+              "result_text": "",
+              "goto": {
+                "branch": "fight_prep"
+              }
+            },
+            {
+              "label": "Tell them the vein belongs to you now",
+              "id": "option2",
+              "check": {
+                "base": 0.5,
+                "mods": [
+                  {
+                    "observed": {
+                      "id": "",
+                      "ore": "physics",
+                      "atLeast": 22
+                    },
+                    "add": 0.4,
+                    "label": ""
+                  },
+                  {
+                    "observed": {
+                      "id": "",
+                      "ore": "physics",
+                      "atLeast": 1
+                    },
+                    "add": 0.4,
+                    "label": ""
+                  },
+                  {
+                    "observed": {
+                      "id": "",
+                      "ore": "physics",
+                      "atLeast": 1
+                    },
+                    "add": 0.2,
+                    "label": ""
+                  },
+                  {
+                    "observed": {
+                      "id": "",
+                      "ore": "life",
+                      "atLeast": 1
+                    },
+                    "add": 0.2,
+                    "label": ""
+                  }
+                ]
+              },
+              "success": {
+                "result_text": "You tell them vein is under new ownership, and they can leave safe and sound to tell their boss. They look you up and own, then glance around for any hidden backup you might have. Eventually they nod at you and leave.",
+                "effects": []
+              },
+              "fail": {
+                "result_text": "You tell them vein is under new ownership, and they should leave. They look you up and down, and seem to like their chances. Uh oh.",
+                "effects": [],
+                "goto": {
+                  "branch": "fight_prep"
+                }
+              }
+            }
+          ],
+          "observe": "claimed_vein_not_seen"
         }
       ]
     },
@@ -417,7 +596,17 @@
         {
           "key": "c12",
           "type": "narration",
-          "text": "Player leaves, the stolen ore warm in their bag."
+          "text": "You leave the church grounds, the stolen ore warm in the bag under your arm."
+        }
+      ]
+    },
+    "fight_prep": {
+      "title": "fight_prep",
+      "cards": [
+        {
+          "key": "c13",
+          "type": "narration",
+          "text": "You have moments before the fighting begins. If you have any last minute items you want to use before thing's kick off, now's the time."
         }
       ]
     }
@@ -453,7 +642,63 @@
               "text": "Two large men walking from the street to the vein. Their build, expressions, and speed tell you they're guards."
             }
           ],
-          "miss": ""
+          "miss": "You see a few passers-by on the street and in the church yard."
+        },
+        "life": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "Two men are walking purposefully, glancing around for threats, amped up for conflict. But they haven't spotted you yet."
+            },
+            {
+              "base": 0.55,
+              "text": "Two men are walking purposefully, glancing around for threats, amped up for conflict."
+            }
+          ],
+          "miss": "They're walking quickly. Powerwalking? In desperate need of the loo?"
+        },
+        "emotion": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "They're nervous, amped up, and jumpy. Any sudden movement or aggressive words could trigger conflictt."
+            },
+            {
+              "base": 0.55,
+              "text": "They're clearly alert and looking for trouble."
+            }
+          ],
+          "miss": "They're looking for something. Jesus? Their car keys? Who knows."
+        }
+      }
+    },
+    "claimed_vein_not_seen": {
+      "blocks": {
+        "physics": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "Two large men walking from the street to the vein. Their build, expressions, and speed tell you they're guards - but you've seen them first."
+            },
+            {
+              "base": 0.55,
+              "text": "Two large men walking from the street to the vein. Their build, expressions, and speed tell you they're guards."
+            }
+          ],
+          "miss": "You see a few passers-by on the street and in the church yard."
+        },
+        "life": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "Two men are walking purposefully, glancing around for threats, amped up for conflict. But they haven't spotted you yet."
+            },
+            {
+              "base": 0.55,
+              "text": "Two men are walking purposefully, glancing around for threats, amped up for conflict."
+            }
+          ],
+          "miss": "They're walking quickly. Powerwalking? In desperate need of the loo?"
         }
       }
     }
@@ -490,6 +735,17 @@
         "card": "c6",
         "option": 0,
         "slot": "success"
+      }
+    },
+    {
+      "id": "m4",
+      "kind": "claude",
+      "status": "open",
+      "text": "option 1 from card c14: player should get a free bonus round when the fight starts",
+      "anchor": {
+        "card": "c14",
+        "option": 0,
+        "slot": "result"
       }
     }
   ],
@@ -583,8 +839,16 @@
       -267
     ],
     "end": [
-      3252,
-      155
+      3607,
+      162
+    ],
+    "b:fight_prep": [
+      2957,
+      -151
+    ],
+    "c:c14": [
+      2815,
+      369
     ]
   }
 }
