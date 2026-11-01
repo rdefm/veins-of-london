@@ -188,10 +188,34 @@ static func agenda(week: int) -> Array:
 			break
 		if card["voice"] == fill_voice:
 			picked.append(card)
+	_mark_competing(picked, week)
 	board["agenda"] = picked
 	board["agendaWeek"] = week
 	EventBus.state_changed.emit()
 	return picked
+
+
+# Flavour beat only: two offered cards wanting the same ore get a
+# "competesWith" link to each other. Never alters rewards or goals. Allowed
+# when competingCapWeeks have passed since lastCompeting and a seeded roll
+# under competingChance succeeds.
+static func _mark_competing(cards: Array, week: int) -> void:
+	var board := _board()
+	var last := int(board["lastCompeting"])
+	if last > 0 and week - last < int(GameData.BOARD_TUNING["competingCapWeeks"]):
+		return
+	if _seeded_unit(week, "competing") >= float(GameData.BOARD_TUNING["competingChance"]):
+		return
+	for i in cards.size():
+		var ore_type: String = cards[i].get("ore", "")
+		if ore_type == "":
+			continue
+		for j in range(i + 1, cards.size()):
+			if cards[j].get("ore", "") == ore_type:
+				cards[i]["competesWith"] = cards[j]["id"]
+				cards[j]["competesWith"] = cards[i]["id"]
+				board["lastCompeting"] = week
+				return
 
 
 # Cards per voice not yet on the agenda; a voice with pitchRarity < 1 is in

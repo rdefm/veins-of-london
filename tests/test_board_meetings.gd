@@ -257,8 +257,45 @@ func run() -> void:
 		var first: Array = GameState.deep_copy(BoardMeetings.agenda(4))
 		GameState.state["boardMeetings"]["agenda"] = []
 		GameState.state["boardMeetings"]["agendaWeek"] = 0
+		GameState.state["boardMeetings"]["lastCompeting"] = 0
 		assert_eq(BoardMeetings.agenda(4), first)
 		GameData.BOARD_LADDERS = original
+	)
+
+	run_case("competing_beat_links_same_ore_cards_without_changing_rewards", func():
+		_enabled_game()
+		var original_chance: float = GameData.BOARD_TUNING["competingChance"]
+		GameData.BOARD_TUNING["competingChance"] = 1.0
+		var cards: Array = [
+			{ "id": "a", "ore": "time", "rewards": { "base": [] } },
+			{ "id": "b", "ore": "time", "rewards": { "base": [] } },
+			{ "id": "c", "ore": "life", "rewards": { "base": [] } },
+		]
+		var before: Array = GameState.deep_copy(cards)
+		BoardMeetings._mark_competing(cards, 3)
+		assert_eq(cards[0]["competesWith"], "b")
+		assert_eq(cards[1]["competesWith"], "a")
+		assert_true(not cards[2].has("competesWith"))
+		assert_eq(cards[0]["rewards"], before[0]["rewards"])
+		assert_eq(int(GameState.state["boardMeetings"]["lastCompeting"]), 3)
+		GameData.BOARD_TUNING["competingChance"] = original_chance
+	)
+
+	run_case("competing_beat_respects_the_cap_window", func():
+		_enabled_game()
+		var original_chance: float = GameData.BOARD_TUNING["competingChance"]
+		GameData.BOARD_TUNING["competingChance"] = 1.0
+		var cap := int(GameData.BOARD_TUNING["competingCapWeeks"])
+		var fired: Array = []
+		for week in range(1, 40):
+			var cards: Array = [{ "id": "a", "ore": "time" }, { "id": "b", "ore": "time" }]
+			BoardMeetings._mark_competing(cards, week)
+			if cards[0].has("competesWith"):
+				fired.append(week)
+		for i in range(1, fired.size()):
+			assert_true(fired[i] - fired[i - 1] >= cap, "gap %d" % (fired[i] - fired[i - 1]))
+		assert_true(fired.size() >= 2)
+		GameData.BOARD_TUNING["competingChance"] = original_chance
 	)
 
 	run_case("a_different_card_can_be_chosen_after_a_snapshot_restore", func():
