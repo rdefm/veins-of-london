@@ -835,170 +835,104 @@
   "templates": {
     "fin_reserve": {
       "label": "Build a cash reserve",
-      "pitch": [
-        "A business that can't survive one bad week is a hobby with invoices. Keep enough back to cover the costs, and keep it there.",
-        "Costs arrive on schedule. Income, in my experience, does not. Hold back enough to meet the first without the second.",
-        "You count your cash daily and your costs never. Count the costs. Then keep several weeks of them in the float.",
-        "A float that covers weeks of costs, not days. Anything less is optimism, and I have seen what optimism invoices for."
-      ],
-      "why": [
-        "The books say a week costs you {expenses}. The float stands at {float}, which is {weeks} weeks of that.",
-        "Running costs: {expenses} a week. Float: {float}. The sum is {weeks} weeks. I did it twice, which is once more than you did.",
-        "Your running costs come to {expenses} a week. Your float is {float}. Judge the gap yourself, or I will.",
-        "Cover today is {weeks} weeks of {expenses}. That is the number the bank will ask about, so you may as well know it first."
+      "case": [
+        "A business that can't survive one bad week is a hobby with invoices. Keep enough back to cover the costs, and keep it there. The books say a week costs you {expenses}. The float stands at {float}, which is {weeks} weeks of that.",
+        "Costs arrive on schedule. Income, in my experience, does not. Hold back enough to meet the first without the second. Running costs: {expenses} a week. Float: {float}. The sum is {weeks} weeks. I did it twice, which is once more than you did.",
+        "You count your cash daily and your costs never. Count the costs. Then keep several weeks of them in the float. Your running costs come to {expenses} a week. Your float is {float}. Judge the gap yourself, or I will.",
+        "A float that covers weeks of costs, not days. Anything less is optimism, and I have seen what optimism invoices for. Cover today is {weeks} weeks of {expenses}. That is the number the bank will ask about, so you may as well know it first."
       ]
     },
     "craft_first": {
       "label": "Craft more {calc}",
-      "pitch": [
-        "Selling the raw stuff is a start. Putting it into something is a business. Get our {calc} into more of what London crafts.",
-        "Every bench in town burns {calc}. Make sure a fair slice of it is ours."
-      ],
-      "why": [
-        "The craft tally has you on {share}% of {calc}. {rival} is the name above yours.",
-        "{share}% of the {calc} crafted in London is ours. {rival} has the rest, and they aren't offering."
+      "case": [
+        "Selling the raw stuff is a start. Putting it into something is a business. Get our {calc} into more of what London crafts. The craft tally has you on {share}% of {calc}. {rival} is the name above yours.",
+        "Every bench in town burns {calc}. Make sure a fair slice of it is ours. {share}% of the {calc} crafted in London is ours. {rival} has the rest, and they aren't offering."
       ]
     },
     "craft_rankup": {
       "label": "Better work at the bench",
-      "pitch": [
-        "Good enough sells once. Better sells twice. Take a recipe you already know and make it come out better than your best.",
-        "You've a bench full of competent. Push one recipe past your best result and see what the buyers do about it."
-      ],
-      "why": [
-        "Your best results are on the books. Beat them on any recipe you like. I'm not fussy which.",
-        "Same recipes, same bench, higher mark. The bar is whatever you managed last time."
+      "case": [
+        "Good enough sells once. Better sells twice. Take a recipe you already know and make it come out better than your best. Your best results are on the books. Beat them on any recipe you like. I'm not fussy which.",
+        "You've a bench full of competent. Push one recipe past your best result and see what the buyers do about it. Same recipes, same bench, higher mark. The bar is whatever you managed last time."
       ]
     },
     "craft_master": {
       "label": "Master a recipe",
-      "pitch": [
-        "Rank five. Not near it, not nearly. A recipe done so well the bench looks embarrassed.",
-        "Every trade has someone who's finished learning. Be that, for one recipe, and then for more."
-      ],
-      "why": [
-        "You've got work at rank three or better on the books. The last two steps are the expensive ones.",
-        "A recipe in the upper ranks already. Rank five is the same recipe, done properly."
+      "case": [
+        "Rank five. Not near it, not nearly. A recipe done so well the bench looks embarrassed. You've got work at rank three or better on the books. The last two steps are the expensive ones.",
+        "Every trade has someone who's finished learning. Be that, for one recipe, and then for more. A recipe in the upper ranks already. Rank five is the same recipe, done properly."
       ]
     },
     "share_first": {
       "label": "A slice of {calc}",
-      "pitch": [
-        "Take a quarter of London's {calc}. Then we're a name, not a rumour.",
-        "Right now nobody in the trade says our name without asking who we are. A quarter of the {calc} fixes that.",
-        "We make the stuff. Buyers don't know it. Get a quarter of London's {calc} and they'll learn it quick.",
-        "A quarter of one ore. Doesn't have to be pretty, lads, just has to be ours."
-      ],
-      "why": [
-        "James has been through the sheets. Contested ore at the moment: {contested}. {calc} is where you're strongest, at {share}%, and that's not nothing.",
-        "James's tip, and he gave it me on a napkin: {contested} is where the factions are scrapping. You sit at {share}% of {calc}. Pick your lane.",
-        "James says watch {contested}, because everyone else is. Your best ore is {calc} at {share}%. Start there or start nowhere.",
-        "According to James, the contested ore is {contested}. You're on {share}% of {calc}, which is a foot in the door and no more."
+      "case": [
+        "Take a quarter of London's {calc}. Then we're a name, not a rumour. James has been through the sheets. Contested ore at the moment: {contested}. {calc} is where you're strongest, at {share}%, and that's not nothing.",
+        "Right now nobody in the trade says our name without asking who we are. A quarter of the {calc} fixes that. James's tip, and he gave it me on a napkin: {contested} is where the factions are scrapping. You sit at {share}% of {calc}. Pick your lane.",
+        "We make the stuff. Buyers don't know it. Get a quarter of London's {calc} and they'll learn it quick. James says watch {contested}, because everyone else is. Your best ore is {calc} at {share}%. Start there or start nowhere.",
+        "A quarter of one ore. Doesn't have to be pretty, lads, just has to be ours. According to James, the contested ore is {contested}. You're on {share}% of {calc}, which is a foot in the door and no more."
       ]
     },
     "share_higher": {
       "label": "Push {calc} higher",
-      "pitch": [
-        "A quarter was the start. Push {calc} higher and the factions notice.",
-        "You've got your foot in. Now lean on the door. More {calc}, and we stop being polite about it.",
-        "Quarter's nice. Quarter gets you a nod in the pub. Half gets you a seat.",
-        "Same ore, bigger bite. Don't look at me like that, you started it."
-      ],
-      "why": [
-        "You're at {share}% of {calc}. The window still shows room, and {rival} is the one standing in it.",
-        "{share}% of {calc} this week. {rival} hasn't moved over for you yet.",
-        "The ticker has you on {share}% for {calc}. {rival} is the name next to yours.",
-        "{share}% and holding. {rival} sells the next biggest slice of {calc}, so that's who you're nicking it from."
+      "case": [
+        "A quarter was the start. Push {calc} higher and the factions notice. You're at {share}% of {calc}. The window still shows room, and {rival} is the one standing in it.",
+        "You've got your foot in. Now lean on the door. More {calc}, and we stop being polite about it. {share}% of {calc} this week. {rival} hasn't moved over for you yet.",
+        "Quarter's nice. Quarter gets you a nod in the pub. Half gets you a seat. The ticker has you on {share}% for {calc}. {rival} is the name next to yours.",
+        "Same ore, bigger bite. Don't look at me like that, you started it. {share}% and holding. {rival} sells the next biggest slice of {calc}, so that's who you're nicking it from."
       ]
     },
     "share_leader": {
       "label": "Lead the {calc} market",
-      "pitch": [
-        "Not a share. The biggest share. Nobody sells more {calc} than us.",
-        "Second place is just first place with a worse chair. Take the top spot on {calc}.",
-        "Own the lead, lads. When buyers say {calc}, they say our name first.",
-        "Biggest seller of {calc} in London. I'd put it on the van, if we had a van."
-      ],
-      "why": [
-        "You're at {share}% of {calc}, close enough to first place to smell it. {rival} is the one to beat.",
-        "{share}% on {calc} and {rival} is in the way. Nothing a few good weeks won't sort.",
-        "The sheet gives you {share}% of {calc}. First place is {rival}'s chair until you sit in it.",
-        "{share}%. That's a real number on {calc}. {rival} has noticed, so don't be shy."
+      "case": [
+        "Not a share. The biggest share. Nobody sells more {calc} than us. You're at {share}% of {calc}, close enough to first place to smell it. {rival} is the one to beat.",
+        "Second place is just first place with a worse chair. Take the top spot on {calc}. {share}% on {calc} and {rival} is in the way. Nothing a few good weeks won't sort.",
+        "Own the lead, lads. When buyers say {calc}, they say our name first. The sheet gives you {share}% of {calc}. First place is {rival}'s chair until you sit in it.",
+        "Biggest seller of {calc} in London. I'd put it on the van, if we had a van. {share}%. That's a real number on {calc}. {rival} has noticed, so don't be shy."
       ]
     },
     "share_second": {
       "label": "Second ore: {calc}",
-      "pitch": [
-        "One ore is a niche. Take a slice of {calc} too.",
-        "All your eggs in one rock, that's how you end up in a pub talking about the good old days. Get into {calc}.",
-        "A second line of work. {calc} this time. Spread it out so one bad week doesn't take the lot.",
-        "You do one ore well. Do two and I'll start telling people you're a firm."
-      ],
-      "why": [
-        "{calc} is on the sheet and you're at {share}%. Room to grow, and James says it won't wait.",
-        "You hold {share}% of {calc}. That's a start, and a second ore is what a start is for.",
-        "{share}% of {calc} today. Not much, but it's your second string and it's already in your hands.",
-        "You're on {share}% of {calc}, and it's moving. Get in while the number is small enough to double."
+      "case": [
+        "One ore is a niche. Take a slice of {calc} too. {calc} is on the sheet and you're at {share}%. Room to grow, and James says it won't wait.",
+        "All your eggs in one rock, that's how you end up in a pub talking about the good old days. Get into {calc}. You hold {share}% of {calc}. That's a start, and a second ore is what a start is for.",
+        "A second line of work. {calc} this time. Spread it out so one bad week doesn't take the lot. {share}% of {calc} today. Not much, but it's your second string and it's already in your hands.",
+        "You do one ore well. Do two and I'll start telling people you're a firm. You're on {share}% of {calc}, and it's moving. Get in while the number is small enough to double."
       ]
     },
     "cult_yield": {
       "label": "A bit more yield",
-      "pitch": [
-        "If the veins gave a bit more than usual this week... only if that's all right.",
-        "I've been watching the numbers. Not in a weird way. They could go up a little, I think. If we asked nicely.",
-        "Could we try for a bit past our usual? Just a bit. I've written the number down and then crossed it out.",
-        "I had an idea about the yield. It's a small idea. I'll go first, so it's quicker if it's bad."
-      ],
-      "why": [
-        "Your last ten days give a baseline, and a bit past it is the ask. Nothing heroic.",
-        "I averaged the last ten days. Twice. A bit above that is the whole plan.",
-        "The ten-day average is the number to beat. Gently. Veins respond to gentle.",
-        "Ten days of yield, averaged, is the line. I'd like us a little over it, and I'd like someone to tell me if that's daft."
+      "case": [
+        "If the veins gave a bit more than usual this week... only if that's all right. Your last ten days give a baseline, and a bit past it is the ask. Nothing heroic.",
+        "I've been watching the numbers. Not in a weird way. They could go up a little, I think. If we asked nicely. I averaged the last ten days. Twice. A bit above that is the whole plan.",
+        "Could we try for a bit past our usual? Just a bit. I've written the number down and then crossed it out. The ten-day average is the number to beat. Gently. Veins respond to gentle.",
+        "I had an idea about the yield. It's a small idea. I'll go first, so it's quicker if it's bad. Ten days of yield, averaged, is the line. I'd like us a little over it, and I'd like someone to tell me if that's daft."
       ]
     },
     "cult_new_vein": {
       "label": "Bring a vein online",
-      "pitch": [
-        "There's a new vein that could come good. I could watch it. If you'd like.",
-        "There's one in the files nobody's looked at since you got it. I looked at it. It looked back, a bit.",
-        "I'd like to try bringing a new vein up. I've read about it. I've read about it a lot.",
-        "Archie says I should aim higher. This is higher. It's one vein higher."
-      ],
-      "why": [
-        "A fresh vein only counts once it's healthy enough to work. That's the bit I'd be watching.",
-        "It has to get healthy first, then it counts. I'd check on it every morning, if that's allowed.",
-        "You've got a vein that isn't earning yet. Get it to working health and it's a new line on the sheet.",
-        "A vein that's only on paper doesn't count. A vein that's well enough to work does. I'd like the second kind."
+      "case": [
+        "There's a new vein that could come good. I could watch it. If you'd like. A fresh vein only counts once it's healthy enough to work. That's the bit I'd be watching.",
+        "There's one in the files nobody's looked at since you got it. I looked at it. It looked back, a bit. It has to get healthy first, then it counts. I'd check on it every morning, if that's allowed.",
+        "I'd like to try bringing a new vein up. I've read about it. I've read about it a lot. You've got a vein that isn't earning yet. Get it to working health and it's a new line on the sheet.",
+        "Archie says I should aim higher. This is higher. It's one vein higher. A vein that's only on paper doesn't count. A vein that's well enough to work does. I'd like the second kind."
       ]
     },
     "cult_health_streak": {
       "label": "Keep a vein healthy",
-      "pitch": [
-        "A vein held in good condition night after night. Nobody's tried it properly.",
-        "I'd like to keep one vein well. Every night. I'll stay late, I don't mind. I've brought a flask.",
-        "It's not a big ask, it's a long one. A vein, kept in good shape, for days on the trot.",
-        "What if one vein just... never had a bad night? I can't stop thinking about it."
-      ],
-      "why": [
-        "The nightly count only runs while a vein stays in good shape. One slip and it starts over.",
-        "It's counted every night, and a bad night resets it. I know. I've thought about the bad night a lot.",
-        "A vein has to stay in good shape for the whole run of nights. The count doesn't forgive. I would.",
-        "Each night it holds, the count goes up one. Each night it doesn't, it's back to nothing. I did warn you it was small."
+      "case": [
+        "A vein held in good condition night after night. Nobody's tried it properly. The nightly count only runs while a vein stays in good shape. One slip and it starts over.",
+        "I'd like to keep one vein well. Every night. I'll stay late, I don't mind. I've brought a flask. It's counted every night, and a bad night resets it. I know. I've thought about the bad night a lot.",
+        "It's not a big ask, it's a long one. A vein, kept in good shape, for days on the trot. A vein has to stay in good shape for the whole run of nights. The count doesn't forgive. I would.",
+        "What if one vein just... never had a bad night? I can't stop thinking about it. Each night it holds, the count goes up one. Each night it doesn't, it's back to nothing. I did warn you it was small."
       ]
     },
     "cult_second_ore": {
       "label": "A second ore",
-      "pitch": [
-        "Not to alarm anyone, but we only have one kind of calc. Could we have two?",
-        "I keep thinking about the other kinds of calc. We don't have any. I keep thinking about that.",
-        "Could we grow a second sort of calc? I'll do the reading. I've already done the reading.",
-        "James says one thing done well is a craft. Archie says one thing is a risk. Could I have a second thing?"
-      ],
-      "why": [
-        "Two ore types in good health means the business isn't one bad week from empty.",
-        "If one ore has a bad week, the other doesn't. That's the whole argument. It's not a long one.",
-        "A second ore, healthy enough to work, and the books stop leaning on one vein for everything.",
-        "Both ores have to be in good shape for it to count. Two is steadier than one. I checked with the biscuits and it holds."
+      "case": [
+        "Not to alarm anyone, but we only have one kind of calc. Could we have two? Two ore types in good health means the business isn't one bad week from empty.",
+        "I keep thinking about the other kinds of calc. We don't have any. I keep thinking about that. If one ore has a bad week, the other doesn't. That's the whole argument. It's not a long one.",
+        "Could we grow a second sort of calc? I'll do the reading. I've already done the reading. A second ore, healthy enough to work, and the books stop leaning on one vein for everything.",
+        "James says one thing done well is a craft. Archie says one thing is a risk. Could I have a second thing? Both ores have to be in good shape for it to count. Two is steadier than one. I checked with the biscuits and it holds."
       ]
     }
   },
@@ -1038,7 +972,12 @@
     "minutesNone": "No goal on the books last week.",
     "minutes": {
       "_comment": "Minutes reaction (BoardMeetings.minutes_line()). groups maps a history result to a reaction group; variant = entry week mod list size. Tokens: {label}, {tier}. skipped = the goal Archie picked for you (tuning.skipVoice). PROSE-REVIEW: all new copy.",
-      "groups": { "missed": "missed", "base": "base", "target": "full", "stretch": "full" },
+      "groups": {
+        "missed": "missed",
+        "base": "base",
+        "target": "full",
+        "stretch": "full"
+      },
       "reactions": {
         "archie": {
           "full": [
@@ -1134,13 +1073,157 @@
       "target": "target",
       "stretch": "stretch"
     },
-    "agendaCard": "{pitcher} — {label}\n\"{pitch}\"\nWhy now: {why}\n{tiers}\nPays: {reward}",
-    "tierFormat": "Base {base} · Target {target} · Stretch {stretch}",
-    "rewardFormat": "{base} / {target} / {stretch}",
-    "agendaSeparator": "\n\n",
     "agendaEmpty": "Nobody has a pitch this week.",
     "optionLabel": "{pitcher}: {label}",
-    "chosenText": "{pitcher} writes it on the whiteboard."
+    "chosenText": "{pitcher} writes it on the whiteboard.",
+    "debate": {
+      "_comment": "Debate scene (BoardMeetings.meeting_context()). Every line below is PLACEHOLDER copy; PROSE-REVIEW: real prose is tickets 32-35. response[responder][pitcher][stance]: stances present are the ones the responder can take (Owen only wobbles); tokens {label}, {ore}. rebuttal plays only after a challenge. clashOrder = voice pairs by how opposed their levers are; clash[pair] = list of 2-line exchanges [first voice, second voice]. chosen/concede tokens {label}.",
+      "clashChance": 0.5,
+      "clashOrder": [
+        "james|archie",
+        "archie|owen",
+        "james|owen"
+      ],
+      "opener": {
+        "james": [
+          "James opener placeholder, line one.",
+          "James opener placeholder, line two."
+        ],
+        "archie": [
+          "Archie opener placeholder, line one.",
+          "Archie opener placeholder, line two."
+        ],
+        "owen": [
+          "Owen opener placeholder, line one.",
+          "Owen opener placeholder, line two."
+        ]
+      },
+      "response": {
+        "james": {
+          "archie": {
+            "back": [
+              "James backs Archie on {label}."
+            ],
+            "challenge": [
+              "James challenges Archie on {label}."
+            ]
+          },
+          "owen": {
+            "back": [
+              "James backs Owen on {label}."
+            ],
+            "challenge": [
+              "James challenges Owen on {label}."
+            ]
+          }
+        },
+        "archie": {
+          "james": {
+            "back": [
+              "Archie backs James on {label}."
+            ],
+            "challenge": [
+              "Archie challenges James on {label}."
+            ]
+          },
+          "owen": {
+            "back": [
+              "Archie backs Owen on {label}."
+            ],
+            "challenge": [
+              "Archie challenges Owen on {label}."
+            ]
+          }
+        },
+        "owen": {
+          "james": {
+            "wobble": [
+              "Owen wobbles over {label}. Could the veins come into it?"
+            ]
+          },
+          "archie": {
+            "wobble": [
+              "Owen wobbles over {label}. Could the veins come into it?"
+            ]
+          }
+        }
+      },
+      "rebuttal": {
+        "james": [
+          "James rebuts, line one.",
+          "James rebuts, line two."
+        ],
+        "archie": [
+          "Archie rebuts, line one.",
+          "Archie rebuts, line two."
+        ],
+        "owen": [
+          "Owen rebuts, line one.",
+          "Owen rebuts, line two."
+        ]
+      },
+      "clash": {
+        "james|archie": [
+          [
+            "James clash placeholder 1a.",
+            "Archie clash placeholder 1b."
+          ],
+          [
+            "James clash placeholder 2a.",
+            "Archie clash placeholder 2b."
+          ]
+        ],
+        "archie|owen": [
+          [
+            "Archie clash placeholder 1a.",
+            "Owen clash placeholder 1b."
+          ],
+          [
+            "Archie clash placeholder 2a.",
+            "Owen clash placeholder 2b."
+          ]
+        ],
+        "james|owen": [
+          [
+            "James clash placeholder 1a.",
+            "Owen clash placeholder 1b."
+          ],
+          [
+            "James clash placeholder 2a.",
+            "Owen clash placeholder 2b."
+          ]
+        ]
+      },
+      "votePrompt": {
+        "lead": "Over to you.",
+        "line": "{label} ({pitcher})\n{tiers}\nPays: {reward}",
+        "tierFormat": "Base {base} · Target {target} · Stretch {stretch}",
+        "rewardFormat": "{base} / {target} / {stretch}",
+        "separator": "\n\n"
+      },
+      "chosen": {
+        "james": [
+          "James is pleased: {label}, then."
+        ],
+        "archie": [
+          "Archie is pleased: {label}, then."
+        ],
+        "owen": [
+          "Owen is pleased: {label}, then."
+        ]
+      },
+      "concede": {
+        "james": [
+          "James concedes, for now."
+        ],
+        "archie": [
+          "Archie concedes, for now."
+        ],
+        "owen": [
+          "Owen concedes, for now."
+        ]
+      }
+    }
   },
   "spine": {
     "_comment": "Act 2 beats shown in ToDo (Todo.get_act2_section()). rung = ladder rung that completes the beat; requires = beat that must be done first. PROSE-REVIEW: titles are new copy.",

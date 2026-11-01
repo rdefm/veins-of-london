@@ -62,7 +62,7 @@
 		},
 		"board_meeting": {
 			"choiceCards": {
-				"agenda": [
+				"vote": [
 					"skip"
 				]
 			},
@@ -70,7 +70,7 @@
 		},
 		"board_meeting_week1": {
 			"choiceCards": {
-				"agenda": [
+				"vote": [
 					"skip"
 				]
 			},

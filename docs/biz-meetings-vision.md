@@ -45,8 +45,12 @@ Design pillars:
    Full success is celebrated; base-tier-only is ribbed affectionately; a miss
    is laughed off and the voice says "next week, then". Most of the humour lives
    here.
-2. **Agenda.** **Three goal cards**, each pitched by a different voice. The player
-   picks one.
+2. **Debate.** An opener, then per offered goal (up to three, each pitched by a
+   different voice) a case, a response from another voice (back / challenge /
+   wobble) and, after a challenge, the pitcher's rebuttal. Sometimes one clash
+   between the two most-opposed voices. Then the vote: option labels are goal
+   names with the pitcher, the prompt holds tiers and rewards, and the player
+   picks one. The pitcher is pleased in a line; one other voice concedes.
 3. **Any other business.** A light slot for one-line asides, running gags, and
    pointers to opportunities that don't need a full card.
 

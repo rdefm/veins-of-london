@@ -149,6 +149,8 @@ static func revealed_cards() -> Array:
 		if fill:
 			card = card.duplicate()
 			card["text"] = String(card["text"]).format(event_state.get("context", {}))
+			if card.get("speaker") is String:
+				card["speaker"] = String(card["speaker"]).format(event_state.get("context", {}))
 		result.append(card)
 		if choice_results.has(str(i)):
 			var resolution: Dictionary = choice_results[str(i)]

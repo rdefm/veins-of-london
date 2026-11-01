@@ -491,33 +491,132 @@ static func maybe_start_meeting() -> bool:
 
 
 # The meeting event's context (R§3.9a "Context options"): minutes for last
-# week, the agenda summary, and one hub option per agenda card whose label
-# and result_text read that card's tokens (c<i>_pitcher, c<i>_label, ...).
-# Plain data, so Rewind and save/load restore exactly what was offered.
+# week, then the debate as plain data the fixed card run reads (R§3.15):
+# opener, per offered card i the case / response / optional rebuttal tokens
+# (c<i>_...), an optional clash, the vote prompt and one hub option per card.
+# Empty slots are skipped by card `goto`s on the flags set here (none,
+# c<i>_last, c<i>_norebut, noclash). Seeded by week and rollSeed, so Rewind
+# shows the same scene.
 static func meeting_context(week: int) -> Dictionary:
 	var meeting: Dictionary = GameData.BOARD_MEETING
+	var debate: Dictionary = meeting["debate"]
 	var context := { "week": str(week), "minutes": minutes_line(week) }
 	var options: Array = []
-	var summaries: PackedStringArray = []
+	var vote_lines: PackedStringArray = []
 	var cards := agenda(week)
+	context["none"] = cards.is_empty()
+	if not cards.is_empty():
+		var opener_voice: String = cards[0]["voice"]
+		context["opener_speaker"] = GameData.BOARD_VOICES[opener_voice]["name"]
+		context["opener"] = _debate_line(debate["opener"].get(opener_voice, []), week, "opener", {})
 	for i in cards.size():
 		var card: Dictionary = cards[i]
 		var tokens := card_tokens(card)
 		var prefix := "c%d_" % i
 		for key in tokens:
 			context[prefix + key] = tokens[key]
-		summaries.append(String(meeting["agendaCard"]).format(tokens))
+		_add_exchange(context, card, i, week)
+		vote_lines.append(String(debate["votePrompt"]["line"]).format(tokens))
 		options.append({
 			"id": card["id"],
-			"label": _prefixed(meeting["optionLabel"], prefix),
+			"label": String(meeting["optionLabel"]).format(tokens),
 			"effects": [{ "op": "board_choose", "card": card["id"] }],
-			"result_text": _prefixed(meeting["chosenText"], prefix),
+			"result_text": _result_text(card, i, week),
 			"goto": "aob",
 		})
+	_add_clash(context, cards, week)
 	context["agenda"] = options
 	context["aob"] = aob_line(week)
-	context["agendaText"] = meeting["agendaEmpty"] if summaries.is_empty() else String(meeting["agendaSeparator"]).join(summaries)
+	context["voteText"] = "%s\n\n%s" % [
+		debate["votePrompt"]["lead"],
+		meeting["agendaEmpty"] if vote_lines.is_empty() else String(debate["votePrompt"]["separator"]).join(vote_lines),
+	]
 	return context
+
+
+# Slot i's response (a seeded other voice, a stance that voice has for the
+# pitcher) and, after a `challenge`, the pitcher's rebuttal.
+static func _add_exchange(context: Dictionary, card: Dictionary, i: int, week: int) -> void:
+	var debate: Dictionary = GameData.BOARD_MEETING["debate"]
+	var prefix := "c%d_" % i
+	var pitcher: String = card["voice"]
+	var ore_name := str(GameData.ORE_TYPES[card["ore"]]["name"]) if str(card.get("ore", "")) != "" else "the ore"
+	var line_tokens := { "label": card_label(card), "ore": ore_name }
+	context[prefix + "last"] = i == _board()["agenda"].size() - 1
+	context[prefix + "norebut"] = true
+	var responders: Array = []
+	for voice_id in debate["response"]:
+		if voice_id != pitcher and (debate["response"][voice_id] as Dictionary).has(pitcher):
+			responders.append(voice_id)
+	if responders.is_empty():
+		return
+	var responder: String = _pick(responders, week, "responder|%d" % i)
+	var stances: Array = (debate["response"][responder][pitcher] as Dictionary).keys()
+	var stance: String = _pick(stances, week, "stance|%d" % i)
+	context[prefix + "resp_speaker"] = GameData.BOARD_VOICES[responder]["name"]
+	context[prefix + "resp"] = _debate_line(debate["response"][responder][pitcher][stance], week, "response|%d" % i, line_tokens)
+	if stance == "challenge":
+		context[prefix + "reb"] = _debate_line(debate["rebuttal"].get(pitcher, []), week, "rebuttal|%d" % i, line_tokens)
+		context[prefix + "norebut"] = false
+
+
+# Once per meeting, on a seeded roll under clashChance: a two-line exchange
+# keyed by the first clashOrder voice pair that both have an offered card.
+static func _add_clash(context: Dictionary, cards: Array, week: int) -> void:
+	var debate: Dictionary = GameData.BOARD_MEETING["debate"]
+	context["noclash"] = true
+	if _seeded_unit(week, "clash") >= float(debate["clashChance"]):
+		return
+	var offered := {}
+	for card in cards:
+		offered[card["voice"]] = true
+	for pair in debate["clashOrder"]:
+		var voices: PackedStringArray = String(pair).split("|")
+		if not (offered.has(voices[0]) and offered.has(voices[1])):
+			continue
+		var exchanges: Array = debate["clash"].get(pair, [])
+		if exchanges.is_empty():
+			return
+		var exchange: Array = _pick(exchanges, week, "clashLines")
+		context["clash_a_speaker"] = GameData.BOARD_VOICES[voices[0]]["name"]
+		context["clash_a"] = exchange[0]
+		context["clash_b_speaker"] = GameData.BOARD_VOICES[voices[1]]["name"]
+		context["clash_b"] = exchange[1]
+		context["noclash"] = false
+		return
+
+
+# A chosen option's result: the pitcher's pleased line, then a seeded other
+# voice's concede line.
+static func _result_text(card: Dictionary, i: int, week: int) -> String:
+	var debate: Dictionary = GameData.BOARD_MEETING["debate"]
+	var pitcher: String = card["voice"]
+	var line_tokens := { "label": card_label(card) }
+	var out: PackedStringArray = []
+	var chosen := _debate_line(debate["chosen"].get(pitcher, []), week, "chosen|%d" % i, line_tokens)
+	if chosen != "":
+		out.append("%s: \"%s\"" % [GameData.BOARD_VOICES[pitcher]["name"], chosen])
+	var others: Array = []
+	for voice_id in debate["concede"]:
+		if voice_id != pitcher:
+			others.append(voice_id)
+	if not others.is_empty():
+		var conceder: String = _pick(others, week, "conceder|%d" % i)
+		var concede := _debate_line(debate["concede"][conceder], week, "concede|%d" % i, line_tokens)
+		if concede != "":
+			out.append("%s: \"%s\"" % [GameData.BOARD_VOICES[conceder]["name"], concede])
+	return "\n\n".join(out)
+
+
+static func _pick(list: Array, week: int, salt: String) -> Variant:
+	return list[_seeded_index(list.size(), week, salt)]
+
+
+# A seeded variant of `lines` with `tokens` filled; "" for an empty list.
+static func _debate_line(lines: Array, week: int, salt: String, tokens: Dictionary) -> String:
+	if lines.is_empty():
+		return ""
+	return String(_pick(lines, week, salt)).format(tokens)
 
 
 # Closing aside: the competing line when two offered cards share an ore, else
@@ -542,10 +641,10 @@ static func aob_line(week: int) -> String:
 	return "%s %s" % [lead, lines[index]]
 
 
-# A card's display tokens: pitcher, label, pitch, why (templates), tiers
-# (each tier's threshold numbers) and reward (the per-tier previews).
+# A card's display tokens: pitcher, label, case (template prose), tiers (each
+# tier's threshold numbers) and reward (the per-tier previews).
 static func card_tokens(card: Dictionary) -> Dictionary:
-	var meeting: Dictionary = GameData.BOARD_MEETING
+	var votes: Dictionary = GameData.BOARD_MEETING["debate"]["votePrompt"]
 	var template: Dictionary = GameData.BOARD_TEMPLATES.get(card["template"], {})
 	var numbers := {}
 	for tier in Objectives.TIER_ORDER:
@@ -556,14 +655,13 @@ static func card_tokens(card: Dictionary) -> Dictionary:
 	return {
 		"pitcher": GameData.BOARD_VOICES[card["voice"]]["name"],
 		"label": card_label(card),
-		"pitch": card_tokens_prose(template, "pitch", card),
-		"why": card_tokens_prose(template, "why", card),
-		"tiers": String(meeting["tierFormat"]).format(numbers),
-		"reward": String(meeting["rewardFormat"]).format(card["preview"]),
+		"case": card_tokens_prose(template, "case", card),
+		"tiers": String(votes["tierFormat"]).format(numbers),
+		"reward": String(votes["rewardFormat"]).format(card["preview"]),
 	}
 
 
-# A template's pitch/why prose: a string or a list of variants (picked by a
+# A template's prose (`case`): a string or a list of variants (picked by a
 # stable hash of the card id, so Rewind shows the same line), with {ore} and
 # the live reserve tokens filled.
 static func card_tokens_prose(template: Dictionary, key: String, card: Dictionary) -> String:
@@ -630,10 +728,6 @@ static func minutes_line(week: int) -> String:
 		"label": card_label(entry),
 		"tier": meeting["resultNames"][entry["result"]],
 	})
-
-
-static func _prefixed(text: String, prefix: String) -> String:
-	return text.replace("{", "{" + prefix)
 
 
 static func _number(value: Variant) -> String:
