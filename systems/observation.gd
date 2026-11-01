@@ -285,14 +285,13 @@ static func option_ores(choice: Dictionary) -> Array:
 	var out: Array = []
 	var conditions: Array = []
 	var requires: Variant = choice.get("requires")
-	if requires is Dictionary:
-		conditions.append(requires)
+	if requires is Dictionary and Events.condition_met(requires):
+		conditions = _held_observed(requires)
 	for mod in choice.get("check", {}).get("mods", []):
-		conditions.append(mod)
+		if mod.has("observed") and Events.condition_met(mod):
+			conditions.append(mod["observed"])
 	for cond in conditions:
-		if not cond.has("observed") or not Events.condition_met(cond):
-			continue
-		var ore := String(cond["observed"].get("ore", ""))
+		var ore := String(cond.get("ore", ""))
 		if ore != "" and not out.has(ore):
 			out.append(ore)
 	for ore in pick_ores(choice):
@@ -301,15 +300,31 @@ static func option_ores(choice: Dictionary) -> Array:
 	return out
 
 
+# The holding `observed` conditions in a requires tree: the root itself and any
+# nested under `all` / `any` (each judged on its own); `not` branches never count.
+static func _held_observed(requires: Variant) -> Array:
+	var out: Array = []
+	if not requires is Dictionary:
+		return out
+	if requires.has("observed") and Events.condition_met({ "observed": requires["observed"] }):
+		out.append(requires["observed"])
+	for key in ["all", "any"]:
+		for sub in requires.get(key, []):
+			out.append_array(_held_observed(sub))
+	return out
+
+
 # Why an option is available or boosted, one entry per observation-driven source:
-# {kind: unlock|boost|pick, ore, ore_name, obs, level, tiers, at_least, tier_text,
-# add}. `unlock` = a holding `observed` in requires, `boost` = a holding `observed`
-# check mod (add = its delta), `pick` = a qualifying ore of a pick option.
+# {kind: unlock|boost|pick, ore, ore_name, obs, chip_obs, level, tiers, at_least,
+# tier_text, add}. `unlock` = a holding `observed` in requires (nested under
+# all/any too), `boost` = a holding `observed` check mod (add = its delta), `pick`
+# = a qualifying ore of a pick option.
 static func explainers(choice: Dictionary) -> Array:
 	var out: Array = []
 	var requires: Variant = choice.get("requires")
-	if requires is Dictionary and requires.has("observed") and Events.condition_met(requires):
-		out.append(_explainer("unlock", requires["observed"], 0.0))
+	if requires is Dictionary and Events.condition_met(requires):
+		for cond in _held_observed(requires):
+			out.append(_explainer("unlock", cond, 0.0))
 	for mod in choice.get("check", {}).get("mods", []):
 		if mod.has("observed") and Events.condition_met(mod):
 			out.append(_explainer("boost", mod["observed"], float(mod.get("add", 0.0))))
@@ -319,23 +334,30 @@ static func explainers(choice: Dictionary) -> Array:
 	return out
 
 
-# The one-line "why": the authored `explain` override if the option has one, else
-# generated from the first explainer; "" when no observation drives the option.
-static func explain_line(choice: Dictionary) -> String:
+# One explainer's chip: observation · ore · pips (filled to the tier reached, out
+# of the block's tier count).
+static func chip_text(entry: Dictionary) -> String:
+	var texts: Dictionary = GameData.OBSERVATION["explain"]
+	var total := maxi(int(entry["tiers"]), int(entry["level"]))
+	var pips := String(texts["pipFilled"]).repeat(int(entry["level"])) + String(texts["pipEmpty"]).repeat(total - int(entry["level"]))
+	return texts["chip"] % [entry["chip_obs"], entry["ore_name"], pips]
+
+
+# The chips under an option button: the authored `explain` override alone if the
+# option has one, else one chip per distinct explainer; [] when no observation
+# drives the option.
+static func chips(choice: Dictionary) -> Array:
 	var entries := explainers(choice)
 	if entries.is_empty():
-		return ""
+		return []
 	if choice.has("explain"):
-		return String(choice["explain"])
-	var texts: Dictionary = GameData.OBSERVATION["explain"]
-	var first: Dictionary = entries[0]
-	if first["kind"] == "pick":
-		var names: Array = []
-		for entry in entries:
-			if entry["kind"] == "pick":
-				names.append(entry["ore_name"])
-		return texts["pickLine"] % ", ".join(names)
-	return texts["line"] % first["tier_text"]
+		return [String(choice["explain"])]
+	var out: Array = []
+	for entry in entries:
+		var text := chip_text(entry)
+		if not out.has(text):
+			out.append(text)
+	return out
 
 
 # The ? modal's explainer lines: per entry, observation / ore / tier reached /
@@ -385,6 +407,7 @@ static func _explainer(kind: String, cond: Dictionary, add: float) -> Dictionary
 		"ore": ore,
 		"ore_name": ore.capitalize(),
 		"obs": String(def.get("name", GameData.OBSERVATION["explain"]["observationDefault"])),
+		"chip_obs": String(def.get("name", GameData.OBSERVATION["explain"]["chipDefault"])),
 		"level": level,
 		"tiers": tiers.size(),
 		"at_least": int(cond.get("atLeast", 1)),

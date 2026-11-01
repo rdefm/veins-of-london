@@ -351,21 +351,61 @@ func run() -> void:
 		Events.advance()
 		var choices: Array = Events.current_card()["choices"]
 		assert_eq(Observation.explainers(choices[0]).size(), 0, "unread: nothing holds")
-		assert_eq(Observation.explain_line(choices[0]), "", "no line before the read")
+		assert_eq(Observation.chips(choices[0]), [], "no chip before the read")
 		Observation.read()
 		var u: Array = Observation.explainers(choices[0])
 		assert_eq([u[0]["kind"], u[0]["ore"], u[0]["level"], u[0]["tiers"], u[0]["tier_text"], u[0]["obs"]], ["unlock", "time", 1, 1, "one way in", "The doorway"], "unlock entry")
-		assert_eq(Observation.explain_line(choices[0]), "You noticed: one way in", "generated line")
+		assert_eq(Observation.chips(choices[0]), ["The doorway · Time ●"], "unlock chip, no tier prose")
+		assert_true("You noticed: one way in" in Observation.explain_modal_lines(choices[0]), "modal keeps the tier text")
 		var b: Array = Observation.explainers(choices[1])
 		assert_eq([b[0]["kind"], b[0]["add"]], ["boost", 0.15], "boost entry")
+		assert_eq(Observation.chips(choices[1]), ["The doorway · Time ●"], "boost chip")
 		assert_true("Improved its odds by 15%." in Observation.explain_modal_lines(choices[1]), "boost effect line")
 		assert_eq(Observation.explainers(choices[2])[0]["kind"], "pick", "pick entry")
-		assert_eq(Observation.explain_line(choices[2]), "Your read gave you a way in (Time)", "pick line lists ores")
+		assert_eq(Observation.chips(choices[2]), ["The doorway · Time ●"], "pick chip")
 		assert_eq(Observation.option_ores(choices[2]), ["time"], "pick ore gets a glyph")
-		assert_eq([Observation.explainers(choices[3]).size(), Observation.explain_line(choices[3]), Observation.explain_modal_lines(choices[3])], [0, "", []], "plain option unchanged")
+		assert_eq([Observation.explainers(choices[3]).size(), Observation.chips(choices[3]), Observation.explain_modal_lines(choices[3])], [0, [], []], "plain option unchanged")
 		var authored := unlock.duplicate()
 		authored["explain"] = "Custom."
-		assert_eq(Observation.explain_line(authored), "Custom.", "authored override")
+		assert_eq(Observation.chips(authored), ["Custom."], "authored override")
+		_cleanup()
+	)
+
+	run_case("chip_pips_fill_to_tier_reached_out_of_tier_count_and_unnamed_falls_back", func():
+		GameState.reset()
+		var unlock := { "label": "Door", "requires": { "observed": { "id": "o", "ore": "time", "atLeast": 1 } }, "result_text": "x" }
+		_install({ "o": { "blocks": { "time": { "tiers": [_tier("best", ALWAYS), _tier("mid", ALWAYS), _tier("low", ALWAYS)], "miss": "m" } } } },
+			[_card({ "observe": "o" }), _choice_card([unlock])])
+		Events.advance()
+		Observation.read()
+		GameState.state["event"]["observations"]["o"]["results"]["time"]["level"] = 2
+		var choice: Dictionary = Events.current_card()["choices"][0]
+		var e: Dictionary = Observation.explainers(choice)[0]
+		assert_eq([e["level"], e["tiers"], e["at_least"], e["tier_text"]], [2, 3, 1, "mid"], "reached 2 of 3, needs 1")
+		assert_eq(Observation.chip_text(e), "Your read · Time ●●○", "unnamed observation uses the chip default")
+		_cleanup()
+	)
+
+	run_case("observed_nested_in_requires_all_gets_an_explainer", func():
+		GameState.reset()
+		var nested := { "label": "Flap", "requires": { "all": [{ "flag": "door" }, { "observed": { "id": "o", "ore": "physics", "atLeast": 1 } }], "display": "disable" }, "result_text": "x" }
+		_install({ "o": { "name": "Raid", "blocks": { "physics": { "tiers": [_tier("top", ALWAYS), _tier("rotten flap", ALWAYS)], "miss": "m" } } } },
+			[_card({ "observe": "o" }), _choice_card([nested])])
+		GameState.state["flags"]["door"] = true
+		Events.advance()
+		var choice: Dictionary = Events.current_card()["choices"][0]
+		assert_eq(Observation.explainers(choice), [], "nothing before the read")
+		Observation.read()
+		GameState.state["event"]["observations"]["o"]["results"]["physics"]["level"] = 1
+		var entries: Array = Observation.explainers(choice)
+		assert_eq(entries.size(), 1, "nested observed explained")
+		assert_eq([entries[0]["kind"], entries[0]["level"], entries[0]["tiers"]], ["unlock", 1, 2], "unlock at 1 of 2")
+		assert_eq(Observation.chips(choice), ["Raid · Physics ●○"], "nested chip")
+		var lines: Array = Observation.explain_modal_lines(choice)
+		assert_true("You noticed: rotten flap" in lines and "Unlocked this option (needs tier 1)." in lines, "modal lines")
+		assert_eq(Observation.option_ores(choice), ["physics"], "nested ore gets a glyph")
+		GameState.state["flags"]["door"] = false
+		assert_eq(Observation.explainers(choice), [], "no explainer while the option is locked")
 		_cleanup()
 	)
 

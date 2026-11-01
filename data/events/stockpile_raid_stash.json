@@ -2,6 +2,7 @@
   "id": "stockpile_raid_stash",
   "observations": {
     "raid": {
+      "name": "Raid",
       "mods": [],
       "blocks": {
         "physics": {

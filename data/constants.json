@@ -724,8 +724,10 @@
     "pickButton": "Go with this",
     "pickReason": "You didn't spot anything worth acting on.",
     "explain": {
-      "line": "You noticed: %s",
-      "pickLine": "Your read gave you a way in (%s)",
+      "chip": "%s · %s %s",
+      "chipDefault": "Your read",
+      "pipFilled": "●",
+      "pipEmpty": "○",
       "observationDefault": "What you saw here",
       "observation": "Observation: %s",
       "ore": "Ore: %s",

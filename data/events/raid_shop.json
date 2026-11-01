@@ -16,6 +16,7 @@
   },
   "observations": {
     "raid": {
+      "name": "Raid",
       "mods": [],
       "ward": { "ore": "fate", "atLeast": 1 },
       "blocks": {

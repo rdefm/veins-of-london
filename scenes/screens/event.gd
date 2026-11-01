@@ -5,6 +5,7 @@ const VN_TEXT_FRAME_HEIGHT := 236.0
 const VN_BOTTOM_MARGIN := 8.0  # outer frame padding, also the image/text gap
 const ACTION_SEPARATION := 8
 const CONTEXT_BUTTON_SIZE := 44.0
+const EXPLAIN_CHIP_FONT_SIZE := 13
 const CONTEXT_MODAL_MAX_WIDTH := 340.0
 const PULSE_SECONDS := 0.7
 const REVEAL_SPIN_SECONDS := 0.5
@@ -515,20 +516,29 @@ func _build_choice_button(label: String, choice_index: int) -> Control:
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_style_action_button(b)
 	_add_read_glyphs(b, choice)
-	var why := Observation.explain_line(choice)
+	var chips: Array = Observation.chips(choice)
 	var left: Control = b
-	if why != "":
+	if not chips.is_empty():
 		var col := UI.vbox(2)
 		col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		col.add_child(b)
-		var line := UI.muted_label(why)
-		line.name = "ExplainLine"
-		line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		col.add_child(line)
+		col.add_child(_build_explain_chips(chips))
 		left = col
-	if Events.check_odds(choice_index).is_empty() and why == "" and Events.item_toggles(choice_index).is_empty():
+	if Events.check_odds(choice_index).is_empty() and chips.is_empty() and Events.item_toggles(choice_index).is_empty():
 		return b
 	return _option_row(left, choice_index)
+
+# The observation chips under an option button (R§3.9d "Why-available explainer"):
+# small muted labels that wrap as a row.
+func _build_explain_chips(chips: Array) -> Control:
+	var flow := UI.hflow(10)
+	flow.name = "ExplainChips"
+	for text: String in chips:
+		var chip := UI.muted_label(text)
+		chip.name = "ExplainChip"
+		chip.add_theme_font_size_override("font_size", EXPLAIN_CHIP_FONT_SIZE)
+		flow.add_child(chip)
+	return flow
 
 # A reselectable hub question already asked: greyed and ticked, still pressable.
 func _build_asked_option(label: String, choice_index: int) -> Control:

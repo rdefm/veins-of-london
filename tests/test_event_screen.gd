@@ -1051,6 +1051,15 @@ func run() -> void:
 		assert_eq(screen._fade_nodes[0].modulate.a, 0.0, "unlocked option invisible while the sheet is open")
 		assert_true(screen.find_child("ReadGlyph_time", true, false) != null, "unlocked option carries the ore glyph")
 		assert_true(screen.find_child("ReadGlyph_physics", true, false) != null, "boosted option carries the ore glyph")
+		var chip_texts: Array = screen.find_children("ExplainChip*", "Label", true, false).filter(func(l: Label) -> bool:
+			var n: Node = l
+			while n != null and n != screen:
+				if n.is_queued_for_deletion():
+					return false
+				n = n.get_parent()
+			return true
+		).map(func(l: Label) -> String: return l.text)
+		assert_eq(chip_texts, ["Your read · Time ●", "Your read · Physics ●"], "unlock and boost show chips, not tier prose")
 		var odds := Events.check_odds(2)
 		assert_true(odds["mods"].any(func(m: Dictionary) -> bool: return m["label"] == "Spotted the gap"), "boost listed with author label")
 		GameState.state["meta"]["reducedMotion"] = true

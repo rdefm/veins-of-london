@@ -52,6 +52,7 @@
   },
   "observations": {
     "raid": {
+      "name": "Raid",
       "mods": [],
       "ward": {
         "ore": "fate",
