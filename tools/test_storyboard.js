@@ -182,6 +182,23 @@ test("buildGraph marks the loop edges back to the hub", () => {
   assert.deepStrictEqual(loops, ["c:a1>c:h", "c:b2>c:h"]);
 });
 
+test("buildGraph: only the return to the start is a loop, and layout feeds it to elkjs reversed", () => {
+  const d = parseDraft(JSON.stringify({ start: "main", branches: {
+    main: { cards: [{ key: "s", text: "pick", choices: [{ label: "A", goto: { branch: "a" } }, { label: "B", goto: { branch: "b" } }] }] },
+    a: { cards: [{ key: "a1", text: "a", choices: [{ label: "back", goto: { branch: "main" } }, { label: "on" }] }] },
+    b: { cards: [{ key: "b1", text: "b" }] },
+  } })).draft;
+  for (const open of [[], ["main", "a", "b"]]) {
+    const g = buildGraph(d, open), loops = g.edges.filter((e) => e.loop);
+    assert.deepStrictEqual(loops.map((e) => e.label), ["back"]);
+    const elk = elkGraph(g).edges.find((e) => e.id === loops[0].id);
+    assert.deepStrictEqual([elk.sources[0], elk.targets[0], elk.rev], [loops[0].to, loops[0].from, true]);
+  }
+  const L = placeLayout({ id: "root", width: 10, height: 10, children: [],
+    edges: [{ id: "e0", rev: true, sections: [{ startPoint: { x: 1, y: 1 }, endPoint: { x: 9, y: 1 } }] }] });
+  assert.deepStrictEqual(L.edges.get("e0").points, [[9, 1], [1, 1]]);
+});
+
 test("promote lays out a hub loop as a flat event with backward gotos", () => {
   const { event, dropped } = promoteDraft(hubDraft());
   const cards = event.cards, idx = (t) => cards.findIndex((c) => c.text === t), hub = idx("hub");

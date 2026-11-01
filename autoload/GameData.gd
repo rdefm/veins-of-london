@@ -2421,6 +2421,8 @@ func _validate_choice_card(card: Dictionary, context: String, errors: Array[Stri
 	if not card.has("choices") or typeof(card["choices"]) != TYPE_ARRAY:
 		errors.append("%s: 'choice' card missing 'choices' array" % context)
 		return
+	if card.has("choicesFromContext") and typeof(card["choicesFromContext"]) != TYPE_STRING:
+		errors.append("%s: choicesFromContext must be a context key string" % context)
 	for choice in card["choices"]:
 		if typeof(choice) == TYPE_DICTIONARY and choice.has("check"):
 			_require_keys(choice, ["label", "success", "fail"], "%s.choices" % context, errors)

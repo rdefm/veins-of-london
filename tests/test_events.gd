@@ -1815,6 +1815,41 @@ func run() -> void:
 		GameData.EVENTS = original_events
 	)
 
+	run_case("a_context_hub_offers_context_options_with_tokens_filled_then_its_exit", func():
+		GameState.reset()
+		var original_events := _install_context_hub()
+		var context := { "who": "James", "agenda": [
+			{ "id": "a", "label": "{who}'s plan", "effects": [{ "op": "add", "path": "player.cash", "value": 5 }], "result_text": "{who} nods." },
+			{ "id": "b", "label": "Other plan", "effects": [], "result_text": "Fine." },
+		] }
+		Events.start_event("test_context_hub", context)
+		Events.advance()
+		var choices: Array = Events.current_card()["choices"]
+		assert_eq(choices.size(), 3, "two context options + authored exit")
+		assert_eq(choices[0]["label"], "James's plan", "label tokens filled")
+		assert_eq(Events.hub_exit_index(), 2, "authored exit after generated options")
+		assert_true(Events.hub_exit_available(), "anytime exit")
+		GameState.state["player"]["inventory"]["rewind"] = { "1": 1 }
+		var cash: int = int(GameState.state["player"]["cash"])
+		Events.choose(0)
+		assert_eq(int(GameState.state["player"]["cash"]), cash + 5, "generated option's effect applied")
+		assert_true(_texts(Events.revealed_cards()).has("James nods."), "result_text tokens filled")
+		assert_eq(Events.choice_id("test_context_hub", "agenda"), "a")
+		assert_true(Events.rewind()["ok"])
+		assert_eq(int(GameState.state["player"]["cash"]), cash, "Rewind undoes the effect")
+		assert_eq(Events.current_card()["choices"][1]["label"], "Other plan", "context options restored after Rewind")
+		Events.choose(1)
+		Events.advance()
+		assert_true(_texts(Events.revealed_cards()).has("After."), "event continues past the hub")
+		Events.start_event("test_context_hub", context)
+		Events.advance()
+		Events.choose(2)
+		assert_true(not Events.is_awaiting_choice(), "exit taken")
+		assert_true(_texts(Events.revealed_cards()).has("After."), "exit continues too")
+		GameData.EVENTS = original_events
+		GameState.state["event"] = null
+	)
+
 	run_case("a_hub_advance_rule_of_n_opens_the_exit_after_n_questions", func():
 		GameState.reset()
 		var original_events := _install_demo_hub()
@@ -2863,6 +2898,26 @@ func run() -> void:
 			GameData.EVENTS = original_events
 			GameState.state["event"] = null
 	)
+
+
+# A hub whose options come from context["agenda"], with one authored exit.
+func _install_context_hub() -> Dictionary:
+	var original_events: Dictionary = GameData.EVENTS
+	GameData.EVENTS = GameData.EVENTS.duplicate()
+	GameData.EVENTS["test_context_hub"] = {
+		"id": "test_context_hub",
+		"cards": [
+			{ "type": "narration", "label": null, "speaker": null, "text": "Before." },
+			{
+				"type": "choice", "key": "agenda", "label": null, "speaker": null, "text": "Pick one",
+				"choicesFromContext": "agenda",
+				"choices": [{ "id": "skip", "label": "Skip", "exit": true, "effects": [], "result_text": "" }],
+			},
+			{ "type": "narration", "label": null, "speaker": null, "text": "After." },
+		],
+		"on_complete": [],
+	}
+	return original_events
 
 
 func _card_index(event_id: String, card_key: String) -> int:

@@ -104,8 +104,11 @@
                 }
               },
               "fail": {
-                "result_text": null,
-                "effects": []
+                "result_text": "This door won't budge, and now your shoulder hurts. Back to square 1.",
+                "effects": [],
+                "goto": {
+                  "branch": "main"
+                }
               }
             },
             {
@@ -214,7 +217,110 @@
         {
           "key": "c6",
           "type": "narration",
-          "text": "Player is at the vein. There's a camera that can be noticed. If it's triggered, silent alarm triggers, guards come in 2 turns.\n\nCamera can be observed with physics roll. Options to deal with it:\n - Hope it's broken (low roll, but very high if Be A Lady is present\n - Trace the wires, realise its controlled from a room in the church, go back to the church to disable the camera\n - Just go anyway (alarm triggers, and guards arrive before player can harvest the vein.\nThey have option to harvest the vein, or claim it."
+          "text": "Player is at the vein. There's a camera that can be noticed. If it's triggered, silent alarm triggers, guards come in 2 turns.\n\nCamera can be observed with physics roll. Options to deal with it:\n - Hope it's broken (low roll, but very high if Be A Lady is present)\n - Trace the wires, realise its controlled from a room in the church, go back to the church to disable the camera\n - Just go anyway (alarm triggers, and guards arrive before player can harvest the vein.\n - Destroy the camera (normal roll, can also use blast for guaranteed success). Silent alarm  they triggers, player has 2 turns until they arrive. When leaving the vein they fight the player, if player can't talk their way past them. If player claims vein, encounter is different where they either fight, or tell guards that player now owns this vein and the guards back down.\n\n",
+          "choices": [
+            {
+              "label": "Hope the camera is broken",
+              "id": "option1",
+              "check": {
+                "base": 0.05,
+                "mods": []
+              },
+              "success": {
+                "result_text": "",
+                "effects": [],
+                "goto": {
+                  "branch": "vein_not_seen"
+                }
+              },
+              "fail": {
+                "result_text": null,
+                "effects": [],
+                "goto": {
+                  "branch": "vein_seen"
+                }
+              }
+            },
+            {
+              "label": "Break the camera",
+              "id": "option2",
+              "check": {
+                "base": 0.5,
+                "mods": []
+              },
+              "success": {
+                "result_text": "",
+                "effects": []
+              },
+              "fail": {
+                "result_text": null,
+                "effects": []
+              }
+            },
+            {
+              "id": "option3",
+              "label": "Ignore the camera, just get to the vein",
+              "result_text": ""
+            }
+          ]
+        }
+      ]
+    },
+    "vein_not_seen": {
+      "title": "vein_not_seen",
+      "cards": [
+        {
+          "key": "c7",
+          "type": "narration",
+          "text": "Player has option to harvest the vein, or claim it, as when a normal raid ends."
+        }
+      ]
+    },
+    "vein_seen": {
+      "title": "vein_seen",
+      "cards": [
+        {
+          "key": "c8",
+          "type": "narration",
+          "text": "Player has option to harvest the vein, or claim it, as when a normal raid ends.",
+          "choices": [
+            {
+              "id": "option1",
+              "label": "Harvest the vein and leave",
+              "result_text": "",
+              "goto": {
+                "branch": "harvested_seen"
+              }
+            },
+            {
+              "id": "option2",
+              "label": "Claim the vein",
+              "result_text": "",
+              "goto": {
+                "branch": "claimed_vein_seen"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "harvested_seen": {
+      "title": "harvested_seen",
+      "cards": [
+        {
+          "key": "c9",
+          "type": "narration",
+          "text": "Player sees 2 guards turn up, and head in the player's direction. Player can fight or try to talk their way out of it. High observation roll means player spots them first and can escape unseen"
+        }
+      ]
+    },
+    "claimed_vein_seen": {
+      "title": "claimed_vein_seen",
+      "cards": [
+        {
+          "key": "c10",
+          "type": "narration",
+          "text": "Player sees 2 guards turn up, and head in the player's direction. Player knows if they avoid them, the guards will just reclaim the vein, so must confront them.\n\nOptions to fight them, or convince them to back off and that player owns the vein now."
         }
       ]
     }
@@ -260,20 +366,51 @@
         "option": 0,
         "slot": "success"
       }
+    },
+    {
+      "id": "m3",
+      "kind": "claude",
+      "status": "open",
+      "text": "If player has Be A Lady activated, success chance for \"Hope the camera is broken\" should increase to 0.95",
+      "anchor": {
+        "card": "c6",
+        "option": 0,
+        "slot": "success"
+      }
     }
   ],
   "_layout": {
     "c:c1": [
-      38,
-      -8
+      -491,
+      9
     ],
     "b:church_approach": [
-      923,
-      -248
+      -43,
+      -407
     ],
     "b:playground_approach": [
-      798,
-      447
+      -87,
+      502
+    ],
+    "b:hall_approach": [
+      -71,
+      235
+    ],
+    "b:vein_not_seen": [
+      1419,
+      -24
+    ],
+    "b:vein_seen": [
+      1420,
+      165
+    ],
+    "b:harvested_seen": [
+      1849,
+      243
+    ],
+    "b:claimed_vein_seen": [
+      1839,
+      332
     ]
   }
 }

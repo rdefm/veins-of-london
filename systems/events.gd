@@ -85,7 +85,37 @@ static func _event_def() -> Dictionary:
 static func current_card() -> Dictionary:
 	var event_state: Dictionary = GameState.state["event"]
 	var cards: Array = _event_def()["cards"]
-	return _with_label_tokens(cards[event_state["cardIndex"]])
+	return _with_context_choices(_with_label_tokens(cards[event_state["cardIndex"]]))
+
+
+# R§3.9a "Context options": a choice card naming `choicesFromContext` gets the
+# option list at that key of the event's context ahead of its authored options
+# (e.g. the hub's exit), each option's label and result_text {key}s filled from
+# the context. A card without the field comes back as-is.
+static func _with_context_choices(card: Dictionary) -> Dictionary:
+	if not card.has("choicesFromContext"):
+		return card
+	var context: Dictionary = GameState.state["event"].get("context", {})
+	var supplied: Variant = context.get(String(card["choicesFromContext"]))
+	if not supplied is Array:
+		push_error("Events: context key '%s' holds no option list" % card["choicesFromContext"])
+		supplied = []
+	var choices: Array = []
+	for option in supplied:
+		if not option is Dictionary:
+			push_error("Events: context option '%s' is not a dictionary" % str(option))
+			continue
+		var filled: Dictionary = (option as Dictionary).duplicate(true)
+		for key in ["label", "result_text"]:
+			if filled.get(key) is String:
+				filled[key] = String(filled[key]).format(context)
+		choices.append(filled)
+	choices.append_array(card.get("choices", []))
+	if choices.size() > MAX_OPTIONS:
+		push_error("Events: context hub has %d options (max %d)" % [choices.size(), MAX_OPTIONS])
+	var resolved: Dictionary = card.duplicate()
+	resolved["choices"] = choices
+	return resolved
 
 
 # True once the current card is an unresolved "choice" card -- the runner must not advance() past it via Continue.
@@ -115,7 +145,7 @@ static func revealed_cards() -> Array:
 	var fill: bool = _event_def().get("fillFromContext", false)
 	var result: Array = []
 	for i in _visited_indices():
-		var card: Dictionary = _with_label_tokens(cards[i])
+		var card: Dictionary = _with_context_choices(_with_label_tokens(cards[i]))
 		if fill:
 			card = card.duplicate()
 			card["text"] = String(card["text"]).format(event_state.get("context", {}))

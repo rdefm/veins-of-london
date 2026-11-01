@@ -2007,12 +2007,20 @@ function checkOddsBlock(opt, changed, restructure) {
       for (const e of then) link(src, e.branch ? e : null, e.if ? "if " + condText(e.if) : "else", "then");
       if (then.every((e) => e.if != null)) link(src, null, "else", "then");
     }
-    // A loop edge returns to a choice card that can reach its source again.
-    const keyOf = new Map(nodes.filter((n) => n.kind === "card").map((n) => [n.id, n.key]));
-    for (const e of edges) {
-      const from = keyOf.get(e.from), to = keyOf.get(e.to);
-      if (from && to && cardByKey(draft, to).choices && reachesCard(draft, to, from)) e.loop = true;
-    }
+    // A loop edge is a back-edge of a depth-first walk from the start (in edge order): a return to a node
+    // already on the path, such as "go back and try another approach". Layout lays these out reversed, so the
+    // start stays leftmost and the return draws as an arrow back to it.
+    const outOf = new Map(), state = new Map();
+    for (const e of edges) { if (!outOf.has(e.from)) outOf.set(e.from, []); outOf.get(e.from).push(e); }
+    const walk = (id) => {
+      state.set(id, 1);
+      for (const e of outOf.get(id) || []) {
+        if (state.get(e.to) === 1) e.loop = true;
+        else if (!state.has(e.to)) walk(e.to);
+      }
+      state.set(id, 2);
+    };
+    for (const n of nodes) if (n.kind !== "group" && !state.has(n.id)) walk(n.id);
     if (ends) nodes.push({ id: "end", kind: "end" });
     return { nodes, edges };
   }
@@ -2033,7 +2041,8 @@ function checkOddsBlock(opt, changed, restructure) {
         "elk.layered.considerModelOrder.strategy": "NODES_AND_EDGES", "elk.padding": "[top=16,left=16,bottom=16,right=16]",
       },
       children: top,
-      edges: graph.edges.map((e) => ({ id: e.id, sources: [e.from], targets: [e.to],
+      // Loop edges go in reversed (rev) so the layering follows play order; placeLayout turns them back.
+      edges: graph.edges.map((e) => ({ id: e.id, sources: [e.loop ? e.to : e.from], targets: [e.loop ? e.from : e.to], rev: !!e.loop,
         labels: e.label ? [{ text: e.label, width: Math.ceil(e.label.length * 6.6) + 10, height: 16 }] : [] })),
     };
   }
@@ -2052,6 +2061,7 @@ function checkOddsBlock(opt, changed, restructure) {
     for (const e of raw) {
       const o = boxes.get(e.container || "root") || boxes.get("root");
       const points = (e.sections || []).flatMap((s) => [s.startPoint, ...(s.bendPoints || []), s.endPoint]).map((p) => [o.x + p.x, o.y + p.y]);
+      if (e.rev) points.reverse();
       const l = (e.labels || [])[0];
       edges.set(e.id, { points, label: l ? { x: o.x + l.x, y: o.y + l.y, w: l.width, h: l.height, text: l.text } : null });
     }
