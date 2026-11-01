@@ -66,8 +66,7 @@ func run() -> void:
 		assert_eq(Events.option_gate(2)["display"], "disable", "optional item off: greyed")
 		Crafting.inventory_add("timePearl", 1, 1)
 		assert_eq(Events.option_gate(0)["display"], "show", "item held: shows")
-		assert_true(Events.toggle_item(2, "timePearl")["ok"], "toggle on")
-		assert_eq(Events.option_gate(2)["display"], "show", "optional item toggled: shows")
+		assert_eq(Events.option_gate(2)["display"], "show", "owned unlock item: on by default, shows")
 		Events.choose(0)
 		assert_true(not Events.is_awaiting_choice(), "a shown option commits")
 		GameState.state["event"] = null

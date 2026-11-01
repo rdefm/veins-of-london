@@ -213,7 +213,6 @@ func run() -> void:
 		Crafting.inventory_add("wormhole", 1, 1)
 		_pick("Read the gaps…")
 		_pick("Louder, or stranger…")
-		Events.toggle_item(_index("Open a Wormhole"), "wormhole")
 		var ok := _force_checks(1.0)
 		_pick("Open a Wormhole")
 		ok.call()

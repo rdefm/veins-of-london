@@ -1186,7 +1186,6 @@ func run() -> void:
 		Events.start_event("test_no_roll_item")
 		Events.advance()
 		assert_true(Events.item_toggles(0)[0]["held"])
-		Events.toggle_item(0, "blast")
 		Events.choose(0)
 		assert_true(GameState.state["flags"].get("windowBlown", false))
 		assert_eq(GameState.state["player"]["dial"]["currentCharge"], 2)
@@ -1220,7 +1219,6 @@ func run() -> void:
 			var original_events := _install_no_roll_item_event()
 			Events.start_event("test_no_roll_item")
 			Events.advance()
-			Events.toggle_item(0, "blast")
 			Events.choose(0)
 			seen.append([GameState.state["flags"].get("windowBlown", false), GameState.state["event"]["lasting"][0]["add"]])
 			GameData.EVENTS = original_events
@@ -1243,7 +1241,7 @@ func run() -> void:
 		GameData.EVENTS = original_events
 	)
 
-	run_case("a_no_roll_item_option_is_locked_naming_the_item_until_toggled", func():
+	run_case("a_no_roll_item_option_is_locked_naming_the_item_until_owned", func():
 		GameState.reset()
 		var original_events := _install_no_roll_item_event()
 		Events.start_event("test_no_roll_item")
@@ -1252,12 +1250,72 @@ func run() -> void:
 		assert_eq(Events.option_gate(0)["display"], "disable")
 		assert_eq(Events.unmet_requirement_lines(0), [GameData.EVENT_CHECKS["unmet"]["itemOptional"] % blast_name], "locked reason names the item")
 		assert_eq(Events.item_toggles(0)[0]["held"], false)
+		assert_true(not Events.toggle_item(0, "blast")["ok"], "can't switch on without one")
 		Events.choose(0)
 		assert_true(Events.is_awaiting_choice(), "locked option can't commit")
 		Crafting.inventory_add("blast", 1, 1)
+		assert_eq(Events.option_gate(0)["display"], "show", "owned unlock item is on by default")
+		assert_true(Events.item_toggles(0)[0]["on"], "shown pre-toggled")
+		assert_eq(Crafting.inventory_qty("blast"), 1, "owning and viewing spend nothing")
+		GameData.EVENTS = original_events
+	)
+
+	run_case("untoggling_an_owned_unlock_item_greys_the_option", func():
+		GameState.reset()
+		Crafting.inventory_add("blast", 1, 1)
+		var original_events := _install_no_roll_item_event()
+		Events.start_event("test_no_roll_item")
+		Events.advance()
 		assert_true(Events.toggle_item(0, "blast")["ok"])
-		assert_eq(Events.option_gate(0)["display"], "show", "toggle unlocks it")
-		assert_eq(Crafting.inventory_qty("blast"), 1, "viewing and toggling spend nothing")
+		assert_eq(GameState.state["event"]["toggles"], { "1|0": [] }, "explicit off stored")
+		assert_eq(Events.option_gate(0)["display"], "disable", "greys once untoggled")
+		Events.choose(0)
+		assert_true(Events.is_awaiting_choice(), "and can't commit")
+		assert_true(Events.toggle_item(0, "blast")["ok"])
+		assert_eq(Events.option_gate(0)["display"], "show", "back on")
+		GameData.EVENTS = original_events
+	)
+
+	run_case("an_owned_unlock_item_commits_on_one_tap_and_is_spent_once", func():
+		GameState.reset()
+		GameState.state["player"]["inventory"]["rewind"] = { "1": 1 }
+		Crafting.inventory_add("blast", 1, 2)
+		var original_events := _install_no_roll_item_event()
+		Events.start_event("test_no_roll_item")
+		Events.advance()
+		Events.choose(0)
+		assert_true(not Events.is_awaiting_choice(), "committed without a manual toggle")
+		assert_eq(Crafting.inventory_qty("blast"), 1, "one unit spent")
+		assert_true(GameState.state["flags"].get("windowBlown", false))
+		assert_true(Events.rewind()["ok"])
+		assert_eq(Crafting.inventory_qty("blast"), 2, "Rewind refunds it")
+		assert_eq(Events.active_toggles(0), ["blast"], "and it's still on")
+		GameData.EVENTS = original_events
+	)
+
+	run_case("an_untoggled_unlock_item_stays_off_across_rewind", func():
+		GameState.reset()
+		GameState.state["player"]["inventory"]["rewind"] = { "1": 1 }
+		Crafting.inventory_add("blast", 1, 1)
+		var original_events := _install_no_roll_item_event()
+		Events.start_event("test_no_roll_item")
+		Events.advance()
+		Events.toggle_item(0, "blast")
+		Events.choose(1)
+		assert_true(Events.rewind()["ok"])
+		assert_eq(Events.active_toggles(0), [], "the explicit off survives Rewind")
+		assert_eq(Events.option_gate(0)["display"], "disable")
+		GameData.EVENTS = original_events
+	)
+
+	run_case("a_bonus_only_optional_item_starts_off", func():
+		GameState.reset()
+		Crafting.inventory_add("enhancementPowder", 1, 1)
+		var original_events := _install_powder_event(0.4)
+		Events.start_event("test_check_event")
+		Events.advance()
+		assert_eq(Events.active_toggles(0), [], "not named in requires: off until toggled")
+		assert_eq(Events.item_toggles(0)[0]["on"], false)
 		GameData.EVENTS = original_events
 	)
 
@@ -1268,7 +1326,6 @@ func run() -> void:
 		var original_events := _install_no_roll_item_event()
 		Events.start_event("test_no_roll_item")
 		Events.advance()
-		Events.toggle_item(0, "blast")
 		Events.choose(1)
 		assert_eq(Crafting.inventory_qty("blast"), 1, "the other option spends nothing")
 		assert_true(Events.rewind()["ok"])
@@ -1288,7 +1345,6 @@ func run() -> void:
 		var original_events := _install_no_roll_item_event()
 		Events.start_event("test_no_roll_item")
 		Events.advance()
-		Events.toggle_item(0, "blast")
 		Events.choose(0)
 		Events.advance()
 		assert_eq(int(GameState.state["event"]["cardIndex"]), 2)

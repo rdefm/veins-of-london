@@ -1227,7 +1227,8 @@ static func item_toggles(choice_index: int) -> Array:
 	return out
 
 
-# Flips an optional item on or off for the current card's option. Kept in
+# Flips an optional item on or off for the current card's option, starting
+# from default_toggles() if untouched. Kept in
 # state.event.toggles["<cardIndex>|<optionIndex>"], so save and Rewind
 # capture it; takes no snapshot and spends nothing (choose() spends).
 static func toggle_item(choice_index: int, item: String) -> Dictionary:
@@ -1239,10 +1240,11 @@ static func toggle_item(choice_index: int, item: String) -> Dictionary:
 	if not event_state.has("toggles"):
 		event_state["toggles"] = {}
 	var key := _roll_key(choice_index)
-	var stored: Array = event_state["toggles"].get(key, []).duplicate()
-	if stored.has(item):
+	var stored: Array = _stored_toggles(choice_index).duplicate()
+	var held := item_source(item) != ""
+	if stored.has(item) and held:
 		stored.erase(item)
-	elif item_source(item) == "":
+	elif not held:
 		return { "ok": false, "reason": "None on you." }
 	else:
 		stored.append(item)
@@ -1265,8 +1267,36 @@ static func active_toggles(choice_index: int) -> Array:
 	return out
 
 
+# The option's switched-on items: its stored list once the player has
+# toggled anything on it, else its default (the unlock items, §3.9a).
 static func _stored_toggles(choice_index: int) -> Array:
-	return GameState.state["event"].get("toggles", {}).get(_roll_key(choice_index), [])
+	var toggles: Dictionary = GameState.state["event"].get("toggles", {})
+	var key := _roll_key(choice_index)
+	return toggles[key] if toggles.has(key) else default_toggles(choice_index)
+
+
+# Optional items that start switched on: those the option's `requires` names
+# as `{item, optional}` (top level or under all/any), so an owned unlock item
+# makes the option usable. Bonus-only items start off.
+static func default_toggles(choice_index: int) -> Array:
+	var requires: Variant = current_card()["choices"][choice_index].get("requires")
+	var named: Array = []
+	if requires is Dictionary:
+		_collect_optional_items(requires, named)
+	var out: Array = []
+	for mod in _optional_mods(choice_index):
+		if named.has(mod["item"]) and not out.has(mod["item"]):
+			out.append(mod["item"])
+	return out
+
+
+static func _collect_optional_items(condition: Dictionary, out: Array) -> void:
+	if condition.has("item") and condition.get("optional", false):
+		out.append(condition["item"])
+	for key in ["all", "any"]:
+		for part in condition.get(key, []):
+			if part is Dictionary:
+				_collect_optional_items(part, out)
 
 
 # A check option's optional item mods, or a no-roll option's `items` (same shape).
