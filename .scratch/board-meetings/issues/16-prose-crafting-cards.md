@@ -8,8 +8,12 @@
 - `docs/writing-guide.md` (required), `docs/CONTENT-GUIDE.md`, `docs/biz-meetings-vision.md`
 - `data/board.json` — Crafting templates
 
-**Status:** needs-triage
+**Status:** wontfix — deprecated, folded into 34 (James's cases cover craft_first, craft_rankup, craft_master)
 
 - [ ] Written against `docs/writing-guide.md`; passes its audit
 - [ ] Premise lines true for the eligible state
 - [ ] Report flagged `PROSE-REVIEW:`
+
+## Comments
+
+- Debate rework (`.scratch/board-meetings/debate-rework.md`): write only a `case` per template (merged pitch + why), following its Prose principles; generic banter is ticket 32. Also blocked by 30.
