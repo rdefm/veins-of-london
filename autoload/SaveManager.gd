@@ -957,6 +957,7 @@ func _restore_dial_ints(dial: Dictionary) -> void:
 
 
 func _restore_int_types(state: Dictionary) -> void:
+	_restore_whole_numbers(state.get("boardMeetings", {}))
 	_int_key(state, "pendingSaleCut")
 	_int_key(state, "pendingArchieDealCut")
 	_int_dict_values(state.get("labThresholds", {}))
@@ -1524,6 +1525,28 @@ func _restore_payday_int_types(record: Dictionary) -> void:
 	for expense in record.get("expenses", []):
 		_int_key(expense, "amount")
 	_int_dict_values(record.get("shares", {}))
+
+
+# Board state holds data-normalised numbers (whole numbers are ints, as
+# GameData loads them); JSON reads every number back as a float, so whole
+# floats return to int. voiceWeights stay floats (they're always float).
+func _restore_whole_numbers(node: Variant) -> void:
+	if node is Dictionary:
+		for key in node:
+			if key == "voiceWeights":
+				continue
+			node[key] = _whole_number(node[key])
+			_restore_whole_numbers(node[key])
+	elif node is Array:
+		for i in node.size():
+			node[i] = _whole_number(node[i])
+			_restore_whole_numbers(node[i])
+
+
+func _whole_number(value: Variant) -> Variant:
+	if typeof(value) == TYPE_FLOAT and value == floorf(value):
+		return int(value)
+	return value
 
 
 func _int_key(dict: Dictionary, key: String) -> void:

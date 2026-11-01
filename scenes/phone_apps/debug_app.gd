@@ -1,7 +1,8 @@
 # Debug app (present only on a Debug Start save): cash/calc/site spawners,
 # combat launchers, a Lab page (skill override, recipe/hint grants, best
 # ranks, calc refill), safe-area dump, one relation adjuster over every
-# contact and faction, and an any-event trigger.
+# contact and faction, an any-event trigger, and board meeting
+# choose/skip/judge controls.
 class_name DebugApp
 extends PhoneApp
 
@@ -32,6 +33,7 @@ func build(content: VBoxContainer) -> void:
 	content.add_child(_build_safe_area_card())
 	content.add_child(_build_relation_card())
 	content.add_child(_build_trigger_event_card())
+	content.add_child(_build_board_card())
 	content.add_child(_build_learn_recipes_card())
 	content.add_child(_build_timing_log_card())
 
@@ -75,6 +77,33 @@ func _build_trigger_event_card() -> Control:
 		DebugTools.fire_event(event_ids[_event_index])
 	))
 
+	return c["panel"]
+
+
+func _build_board_card() -> Control:
+	var c := UI.card()
+	c["content"].add_child(UI.heading("Board meeting", 14))
+	var board: Dictionary = GameState.state["boardMeetings"]
+	c["content"].add_child(UI.muted_label("Week %d · %s" % [board["week"], "on" if board["enabled"] else "off"]))
+	var status := UI.muted_label("")
+	var active: Variant = board["active"]
+	if active != null:
+		c["content"].add_child(UI.label("Active: %s (%s) · now %s" % [active["cardId"], active["voice"], BoardMeetings.current_tier()]))
+	else:
+		for card in board["agenda"]:
+			c["content"].add_child(UI.label("%s — %s" % [card["voice"], BoardMeetings.card_label(card)]))
+			for tier in Objectives.TIER_ORDER:
+				c["content"].add_child(UI.muted_label("%s: %s → %s" % [tier, JSON.stringify(card["goal"]["tiers"][tier]), card["preview"][tier]]))
+			var id: String = card["id"]
+			c["content"].add_child(UI.button("Choose", func(): status.text = str(DebugTools.board_choose(id).get("reason", ""))))
+		if not board["agenda"].is_empty():
+			c["content"].add_child(UI.button("Skip (Archie picks)", func(): status.text = str(DebugTools.board_skip().get("reason", ""))))
+	c["content"].add_child(UI.button("Judge now", func(): status.text = JSON.stringify(DebugTools.board_judge())))
+	c["content"].add_child(UI.button("Next week (judge + agenda)", func(): DebugTools.board_next_week()))
+	if not board["history"].is_empty():
+		var last: Dictionary = board["history"][board["history"].size() - 1]
+		c["content"].add_child(UI.muted_label("Last: week %d %s → %s" % [last["week"], last["rung"], last["result"]]))
+	c["content"].add_child(status)
 	return c["panel"]
 
 

@@ -1,0 +1,44 @@
+{
+  "voices": {
+    "archie": { "name": "Archie", "contactId": "archie", "baseWeight": 1.0, "unpickedBump": 0.5, "warmth": 2, "pitchRarity": 1.0 },
+    "james": { "name": "James", "contactId": "james", "baseWeight": 1.0, "unpickedBump": 0.5, "warmth": 2, "pitchRarity": 1.0 },
+    "owen": { "name": "Owen", "contactId": "owen", "baseWeight": 1.0, "unpickedBump": 0.5, "warmth": 2, "pitchRarity": 0.25 }
+  },
+  "ladders": {
+    "financial": {
+      "voice": "james",
+      "rungs": [
+        {
+          "id": "fin_reserve",
+          "premise": { "kind": "weekly_expenses_above", "amount": 0 },
+          "goal": { "type": "reserve_weeks_at_least", "params": {} },
+          "tiers": {
+            "base": { "minWeeks": 2 },
+            "target": { "minWeeks": 3 },
+            "stretch": { "minWeeks": 4 }
+          },
+          "lengthWeeks": 1,
+          "rewards": {
+            "base": [ { "kind": "cash", "amount": 100 } ],
+            "target": [ { "kind": "cash", "amount": 250 }, { "kind": "item", "id": "timePearl", "tier": 1, "qty": 1 } ],
+            "stretch": [ { "kind": "cash", "amount": 400 }, { "kind": "item", "id": "timePearl", "tier": 1, "qty": 1 }, { "kind": "item", "id": "enhancementPowder", "tier": 1, "qty": 1 } ]
+          },
+          "pinned": false,
+          "spine": null,
+          "permanent": false
+        }
+      ]
+    }
+  },
+  "templates": {
+    "fin_reserve": { "label": "Build a cash reserve" }
+  },
+  "tuning": {
+    "agendaSize": 3,
+    "fillVoice": "archie",
+    "skipVoice": "archie",
+    "historyLength": 12,
+    "competingCapWeeks": 5,
+    "rewardItems": ["timePearl", "enhancementPowder"]
+  }
+}

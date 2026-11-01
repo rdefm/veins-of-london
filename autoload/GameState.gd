@@ -118,6 +118,8 @@ func new_game_state() -> Dictionary:
 		# LodedInnit market (R§3.10 "Hiring"): status keys a candidate id ->
 		# { state: "open"|"employed"|"ours", employer, since }.
 		"hiring": Hiring.new_state(),
+		# Weekly board meetings (R§2 boardMeetings, systems/board_meetings.gd).
+		"boardMeetings": BoardMeetings.new_state(),
 		# Archie's Beat 2 starter-offer chain (systems/business_quest.gd):
 		# which starter template is next, and the day it may be (re)issued
 		# (null = as soon as none is outstanding).

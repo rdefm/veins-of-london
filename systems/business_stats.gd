@@ -98,6 +98,17 @@ static func window_days() -> Array[int]:
 	return days
 
 
+# The business's real weekly expenses: snapshot "expenses" summed over the
+# last days_per_week() completed days (R§3.15 reserve_weeks_at_least).
+static func weekly_expenses() -> int:
+	var oldest: int = GameState.state["world"]["day"] - Calendar.days_per_week()
+	var total := 0
+	for record in _stats()["days"]:
+		if int(record["day"]) >= oldest:
+			total += int(record.get("expenses", 0))
+	return total
+
+
 # One metric's value per window day, zero where no snapshot exists.
 static func series(metric: String) -> Array[int]:
 	var by_day := {}

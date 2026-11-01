@@ -22,6 +22,31 @@ static func add_cash(amount: int) -> void:
 	EventBus.state_changed.emit()
 
 
+# Board meeting stand-in until the Monday meeting exists: enables board
+# meetings, judges any active goal, advances the week and builds its agenda.
+static func board_next_week() -> void:
+	var board: Dictionary = GameState.state["boardMeetings"]
+	board["enabled"] = true
+	if board["firstMeetingDay"] == 0:
+		board["firstMeetingDay"] = GameState.state["world"]["day"]
+	BoardMeetings.judge_week()
+	board["week"] += 1
+	BoardMeetings.agenda(board["week"])
+	EventBus.state_changed.emit()
+
+
+static func board_choose(card_id: String) -> Dictionary:
+	return BoardMeetings.choose(card_id)
+
+
+static func board_skip() -> Dictionary:
+	return BoardMeetings.skip()
+
+
+static func board_judge() -> Dictionary:
+	return BoardMeetings.judge_week()
+
+
 static func add_calc(ore_type: String, amount: int) -> void:
 	var orichalchum: Dictionary = GameState.state["player"]["orichalchum"]
 	orichalchum[ore_type] = orichalchum.get(ore_type, 0) + amount

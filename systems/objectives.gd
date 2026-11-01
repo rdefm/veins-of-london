@@ -21,6 +21,7 @@ const TYPE_ALL_OF := "all_of"
 const TYPE_RECURRING_PROOF := "recurring_proof"
 const TYPE_TEMPLATE_PERIODS_COMPLETED := "template_periods_completed"
 const TYPE_RECIPE_KNOWN := "recipe_known"
+const TYPE_RESERVE_WEEKS_AT_LEAST := "reserve_weeks_at_least"
 
 const TIER_NONE := "none"
 const TIER_ORDER: Array[String] = ["base", "target", "stretch"]
@@ -34,6 +35,7 @@ const TIER_ORDER: Array[String] = ["base", "target", "stretch"]
 static func refresh() -> void:
 	for id in GameData.OBJECTIVES.keys():
 		_refresh_one(id, GameData.OBJECTIVES[id])
+	BoardMeetings.note_progress()
 
 
 static func _refresh_one(id: String, def: Dictionary) -> void:
@@ -132,6 +134,8 @@ static func _evaluate(def: Dictionary, progress: Dictionary) -> bool:
 			return completed_period_count(params["templateId"]) >= int(params["minCount"])
 		TYPE_RECIPE_KNOWN:
 			return Lab.is_known(params["recipe"])
+		TYPE_RESERVE_WEEKS_AT_LEAST:
+			return reserve_weeks_met(float(params["minWeeks"]))
 		_:
 			return false
 
@@ -325,7 +329,18 @@ static func condition_met(condition: Dictionary) -> bool:
 			return GameState.state["home"]["rooms"].has(condition["roomId"])
 		"recipe_known":
 			return Lab.is_known(condition["recipe"])
+		"weekly_expenses_above":
+			return BusinessStats.weekly_expenses() > int(condition["amount"])
 	return false
+
+
+# R§3.15: the business float covers min_weeks of the business's real weekly
+# expenses. No expenses yet means nothing to cover, so never met.
+static func reserve_weeks_met(min_weeks: float) -> bool:
+	var expenses := BusinessStats.weekly_expenses()
+	if expenses <= 0:
+		return false
+	return float(GameState.state["business"]["float"]) >= min_weeks * float(expenses)
 
 
 static func _contact_skill_level(condition: Dictionary) -> int:

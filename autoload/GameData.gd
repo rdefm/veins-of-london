@@ -352,6 +352,13 @@ var CONTACT_TEXTS: Dictionary = {}
 # objectives, distinguished only by questline.
 var OBJECTIVES: Dictionary = {}
 
+# data/board.json (systems/board_meetings.gd, R§3.15): founder voices,
+# goal ladders and their rungs, card templates, tuning.
+var BOARD_VOICES: Dictionary = {}
+var BOARD_LADDERS: Dictionary = {}
+var BOARD_TEMPLATES: Dictionary = {}
+var BOARD_TUNING: Dictionary = {}
+
 var loaded := false
 var _load_errors: Array[String] = []
 var _errors: Array[String] = []
@@ -566,6 +573,12 @@ const MANIFEST: Array[Dictionary] = [
 	]},
 	{"table": "objectives", "file": "res://data/objectives.json", "fields": [
 		{"field": "OBJECTIVES", "key": "", "type": TYPE_DICTIONARY},
+	]},
+	{"table": "board", "file": "res://data/board.json", "fields": [
+		{"field": "BOARD_VOICES", "key": "voices", "type": TYPE_DICTIONARY},
+		{"field": "BOARD_LADDERS", "key": "ladders", "type": TYPE_DICTIONARY},
+		{"field": "BOARD_TEMPLATES", "key": "templates", "type": TYPE_DICTIONARY},
+		{"field": "BOARD_TUNING", "key": "tuning", "type": TYPE_DICTIONARY},
 	]},
 	{"table": "collective_barks", "file": "res://data/collective_barks.json", "fields": [
 		{"field": "COLLECTIVE_BARKS", "key": "", "type": TYPE_DICTIONARY},
