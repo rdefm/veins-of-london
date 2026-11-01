@@ -427,11 +427,12 @@ static func _rung_spine(ladder_id: String, rung_id: String) -> Variant:
 	return null
 
 
-# Fills {ore} with the ore's display name; text with no ore is unchanged.
+# Fills {ore} with the ore's display name and {calc} with its short slang
+# ("time calc"); text with no ore is unchanged.
 static func _with_ore(text: String, ore_type: String) -> String:
 	if ore_type == "":
 		return text
-	return text.replace("{ore}", str(GameData.ORE_TYPES[ore_type]["name"]))
+	return text.replace("{ore}", str(GameData.ORE_TYPES[ore_type]["name"])).replace("{calc}", "%s calc" % ore_type)
 
 
 static func _tier_rank(tier: String) -> int:
@@ -579,7 +580,36 @@ static func card_tokens_prose(template: Dictionary, key: String, card: Dictionar
 			"float": "£%d" % cash,
 			"weeks": _number(snappedf(float(cash) / float(maxi(expenses, 1)), 0.1)),
 		})
+	if text.contains("{share}") or text.contains("{rival}") or text.contains("{contested}"):
+		text = text.format(_share_prose_tokens(str(card.get("ore", ""))))
 	return text
+
+
+# Live market-share tokens: {share} the player's % of the card's ore, {rival}
+# its largest other producer, {contested} the ores two or more rival
+# producers each supply.
+static func _share_prose_tokens(ore_type: String) -> Dictionary:
+	var totals := Shares.window_totals("ore")
+	var rival := ""
+	var rival_qty := 0
+	for producer in totals:
+		var qty := int((totals[producer] as Dictionary).get(ore_type, 0))
+		if producer != Shares.PLAYER and qty > rival_qty:
+			rival = str(producer)
+			rival_qty = qty
+	var contested: PackedStringArray = []
+	for ore in GameData.CANONICAL_ORE_TYPES:
+		var suppliers := 0
+		for producer in totals:
+			if producer != Shares.PLAYER and int((totals[producer] as Dictionary).get(ore, 0)) > 0:
+				suppliers += 1
+		if suppliers >= 2:
+			contested.append(str(GameData.ORE_TYPES[ore]["name"]))
+	return {
+		"share": str(int(roundf(Shares.ore_share(Shares.PLAYER, ore_type) * 100.0))),
+		"rival": "the independents" if rival == Shares.INDEPENDENTS or rival == "" else str(GameData.FACTIONS[rival]["name"]),
+		"contested": "nothing yet" if contested.is_empty() else " and ".join(contested) if contested.size() < 3 else ", ".join(contested),
+	}
 
 
 # Minutes for the week before `week`: a reaction from the pitcher (or Archie's

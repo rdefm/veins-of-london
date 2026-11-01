@@ -620,6 +620,22 @@ func run() -> void:
 		assert_true(not (BoardMeetings.spine_unlocked("supplier_contract")))
 	)
 
+	run_case("share_card_prose_fills_live_share_rival_and_contested_tokens", func():
+		_enabled_game()
+		Shares.record_ore("player", "life", 10)
+		Shares.record_ore("firm", "life", 60)
+		Shares.record_ore("guild", "life", 30)
+		Shares.record_ore("firm", "time", 50)
+		Shares.record_ore("guild", "time", 50)
+		var card: Dictionary = BoardMeetings.agenda(1)[0]
+		var tokens := BoardMeetings.card_tokens(card)
+		var text := str(tokens["pitch"]) + str(tokens["why"]) + str(tokens["label"])
+		assert_true(not text.contains("{"), "no unfilled token: " + text)
+		assert_true(str(tokens["why"]).contains("10%"), "player share: " + str(tokens["why"]))
+		assert_true(str(tokens["why"]).contains("Time Orichalchum and Life Orichalchum") or str(tokens["why"]).contains("Life Orichalchum and Time Orichalchum"), "contested ores: " + str(tokens["why"]))
+		assert_true(str(tokens["label"]).contains("life calc"), "short calc token")
+	)
+
 	run_case("completing_the_share_card_marks_spine_beat_one_done", func():
 		_enabled_game()
 		Shares.record_ore("player", "life", 10)

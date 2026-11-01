@@ -11,11 +11,11 @@
         {
           "key": "c1",
           "type": "narration",
-          "text": "Recap text of location. Image is the satellite view with he 3 approaches tagged. Image and text state that the vein is under a shrubbery between the nursery playground and he church hall. Observations are focused around the general area. Image file assets in C:\\Users\\Richard\\projects\\veins-of-london\\.scratch\\playground_raid",
+          "text": "The old church has an adjacent hall, and a small nursery and playground. The vein is in a tiny garden courtyard between all 3 sites.\nObservations are focused around the general area. Image file assets in C:\\Users\\Richard\\projects\\veins-of-london\\.scratch\\playground_raid",
           "choices": [
             {
               "id": "option1",
-              "label": "Church",
+              "label": "Try the church",
               "result_text": "",
               "goto": {
                 "branch": "church_approach"
@@ -23,7 +23,7 @@
             },
             {
               "id": "option2",
-              "label": "Hall",
+              "label": "Look for a way in via the hall",
               "result_text": "",
               "goto": {
                 "branch": "hall_approach"
@@ -31,7 +31,7 @@
             },
             {
               "id": "option3",
-              "label": "Playground",
+              "label": "Check out the playground",
               "result_text": "",
               "goto": {
                 "branch": "playground_approach"
@@ -228,17 +228,38 @@
         {
           "key": "c4",
           "type": "narration",
-          "text": "Door is locked, no code. Can jump the fence to get to the playground.",
+          "text": "There is a tall wooden fence in front of the nursery playground. The gate is locked and barred from the other side.",
           "choices": [
             {
+              "label": "Blast the gate open",
               "id": "option1",
-              "label": "Force the gate open",
-              "result_text": ""
+              "effects": [],
+              "result_text": "",
+              "requires": {
+                "item": ""
+              },
+              "goto": {
+                "branch": "shrubbery"
+              }
             },
             {
-              "id": "option2",
               "label": "Jump the fence",
-              "result_text": ""
+              "id": "option2",
+              "check": {
+                "base": 0.5,
+                "mods": []
+              },
+              "success": {
+                "result_text": "You get a run up and grab the top of the fence, then pull yourself over to the other side.",
+                "effects": [],
+                "goto": {
+                  "branch": "shrubbery"
+                }
+              },
+              "fail": {
+                "result_text": "You get a run up and jump, aiming for the top of the fence. You don't even get close, and barely avoid faceplanting into the fence.",
+                "effects": []
+              }
             },
             {
               "id": "option3",
@@ -766,12 +787,18 @@
                 "mods": []
               },
               "success": {
-                "result_text": "",
-                "effects": []
+                "result_text": "You say you're a council surveyor and need to check the integrity of the south wall. He looks at the pile of unsorted books and sighs. \"Come along then, I'll take you there.\"",
+                "effects": [],
+                "goto": {
+                  "branch": "church_caretaker_to_shrubbery"
+                }
               },
               "fail": {
-                "result_text": null,
-                "effects": []
+                "result_text": "You say you're from the church society to view the southern wall. He eyes you suspiciously. \"Hm. It's this way. Let me call the management company on the way.\"",
+                "effects": [],
+                "goto": {
+                  "branch": "church_caretaker_to_shrubbery"
+                }
               }
             },
             {
@@ -785,6 +812,20 @@
           ]
         }
       ]
+    },
+    "church_caretaker_to_shrubbery": {
+      "title": "church_caretaker_to_shrubbery",
+      "cards": [
+        {
+          "key": "c17",
+          "type": "speaker",
+          "text": "\"The south wall faces a lovely small garden, just next to the nursery playground,\" Roger says. \"Please don't touch the shrubbery; it requires a lot of caretaking.\"",
+          "speaker": "Roger"
+        }
+      ],
+      "then": {
+        "branch": "shrubbery"
+      }
     }
   },
   "observations": {
@@ -988,6 +1029,39 @@
         "option": 0,
         "slot": "fail"
       }
+    },
+    {
+      "id": "m7",
+      "kind": "claude",
+      "status": "open",
+      "text": "Failure here should raise alarm level",
+      "anchor": {
+        "card": "c16",
+        "option": 0,
+        "slot": "fail"
+      }
+    },
+    {
+      "id": "m8",
+      "kind": "claude",
+      "status": "open",
+      "text": "Enhancement powder should add 40% chance to success",
+      "anchor": {
+        "card": "c4",
+        "option": 1,
+        "slot": "fail"
+      }
+    },
+    {
+      "id": "m9",
+      "kind": "claude",
+      "status": "open",
+      "text": "Requires Player consumes a Blast",
+      "anchor": {
+        "card": "c4",
+        "option": 0,
+        "slot": "result"
+      }
     }
   ],
   "_layout": {
@@ -1000,8 +1074,8 @@
       -220
     ],
     "b:playground_approach": [
-      529,
-      705
+      492,
+      866
     ],
     "b:hall_approach": [
       569,
@@ -1106,6 +1180,14 @@
     "c:c16": [
       1108,
       -336
+    ],
+    "b:church_caretaker_to_shrubbery": [
+      1649,
+      -290
+    ],
+    "b:hall_inside": [
+      897,
+      143
     ]
   }
 }

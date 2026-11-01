@@ -647,24 +647,64 @@
       ]
     },
     "share_first": {
-      "label": "{ore} market share",
-      "pitch": "Take a quarter of London's {ore}. Then we're a name, not a rumour.",
-      "why": "James says {ore} is where the buyers are bunched. Pick your lane."
+      "label": "A slice of {calc}",
+      "pitch": [
+        "Take a quarter of London's {calc}. Then we're a name, not a rumour.",
+        "Right now nobody in the trade says our name without asking who we are. A quarter of the {calc} fixes that.",
+        "We make the stuff. Buyers don't know it. Get a quarter of London's {calc} and they'll learn it quick.",
+        "A quarter of one ore. Doesn't have to be pretty, lads, just has to be ours."
+      ],
+      "why": [
+        "James has been through the sheets. Contested ore at the moment: {contested}. {calc} is where you're strongest, at {share}%, and that's not nothing.",
+        "James's tip, and he gave it me on a napkin: {contested} is where the factions are scrapping. You sit at {share}% of {calc}. Pick your lane.",
+        "James says watch {contested}, because everyone else is. Your best ore is {calc} at {share}%. Start there or start nowhere.",
+        "According to James, the contested ore is {contested}. You're on {share}% of {calc}, which is a foot in the door and no more."
+      ]
     },
     "share_higher": {
-      "label": "Grow {ore} share",
-      "pitch": "A quarter was the start. Push {ore} higher and the factions notice.",
-      "why": "The window still shows room in {ore}."
+      "label": "Push {calc} higher",
+      "pitch": [
+        "A quarter was the start. Push {calc} higher and the factions notice.",
+        "You've got your foot in. Now lean on the door. More {calc}, and we stop being polite about it.",
+        "Quarter's nice. Quarter gets you a nod in the pub. Half gets you a seat.",
+        "Same ore, bigger bite. Don't look at me like that, you started it."
+      ],
+      "why": [
+        "You're at {share}% of {calc}. The window still shows room, and {rival} is the one standing in it.",
+        "{share}% of {calc} this week. {rival} hasn't moved over for you yet.",
+        "The ticker has you on {share}% for {calc}. {rival} is the name next to yours.",
+        "{share}% and holding. {rival} sells the next biggest slice of {calc}, so that's who you're nicking it from."
+      ]
     },
     "share_leader": {
-      "label": "Lead the {ore} market",
-      "pitch": "Not a share. The biggest share. Nobody sells more {ore} than us.",
-      "why": "You're close enough to {ore} first place to smell it."
+      "label": "Lead the {calc} market",
+      "pitch": [
+        "Not a share. The biggest share. Nobody sells more {calc} than us.",
+        "Second place is just first place with a worse chair. Take the top spot on {calc}.",
+        "Own the lead, lads. When buyers say {calc}, they say our name first.",
+        "Biggest seller of {calc} in London. I'd put it on the van, if we had a van."
+      ],
+      "why": [
+        "You're at {share}% of {calc}, close enough to first place to smell it. {rival} is the one to beat.",
+        "{share}% on {calc} and {rival} is in the way. Nothing a few good weeks won't sort.",
+        "The sheet gives you {share}% of {calc}. First place is {rival}'s chair until you sit in it.",
+        "{share}%. That's a real number on {calc}. {rival} has noticed, so don't be shy."
+      ]
     },
     "share_second": {
-      "label": "Second ore: {ore}",
-      "pitch": "One ore is a niche. Take a slice of {ore} too.",
-      "why": "{ore} is moving and nobody has it sewn up."
+      "label": "Second ore: {calc}",
+      "pitch": [
+        "One ore is a niche. Take a slice of {calc} too.",
+        "All your eggs in one rock, that's how you end up in a pub talking about the good old days. Get into {calc}.",
+        "A second line of work. {calc} this time. Spread it out so one bad week doesn't take the lot.",
+        "You do one ore well. Do two and I'll start telling people you're a firm."
+      ],
+      "why": [
+        "{calc} is on the sheet and you're at {share}%. Room to grow, and James says it won't wait.",
+        "You hold {share}% of {calc}. That's a start, and a second ore is what a start is for.",
+        "{share}% of {calc} today. Not much, but it's your second string and it's already in your hands.",
+        "You're on {share}% of {calc}, and it's moving. Get in while the number is small enough to double."
+      ]
     },
     "cult_yield": {
       "label": "Lift the yield",
