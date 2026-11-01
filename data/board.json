@@ -27,7 +27,7 @@
   },
   "ladders": {
     "financial": {
-      "voice": "james",
+      "voice": "archie",
       "rungs": [
         {
           "id": "fin_reserve",
@@ -433,6 +433,12 @@
         },
         {
           "id": "share_leader",
+          "altVoices": [
+            {
+              "voice": "james",
+              "template": "share_leader_james"
+            }
+          ],
           "premise": {
             "kind": "ore_share_any_at_least",
             "minPercent": 35
@@ -888,6 +894,13 @@
         "Second place is just first place with a worse chair. Take the top spot on {calc}. {share}% on {calc} and {rival} is in the way. Nothing a few good weeks won't sort.",
         "Own the lead, lads. When buyers say {calc}, they say our name first. The sheet gives you {share}% of {calc}. First place is {rival}'s chair until you sit in it.",
         "Biggest seller of {calc} in London. I'd put it on the van, if we had a van. {share}%. That's a real number on {calc}. {rival} has noticed, so don't be shy."
+      ]
+    },
+    "share_leader_james": {
+      "label": "Lead the {calc} market",
+      "case": [
+        "The Guild's standard for a leading house is the biggest share of one ore. Meet it on {calc}. You're at {share}% of {calc}, and {rival} is the name above yours.",
+        "A house that leads its ore is one the Guild has to deal with. Take first place on {calc}. {share}% today, with {rival} still ahead."
       ]
     },
     "share_second": {

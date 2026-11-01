@@ -144,11 +144,63 @@ func run() -> void:
 
 	run_case("financial_placeholder_tiers_are_2_3_4_weeks", func():
 		var rung: Dictionary = GameData.BOARD_LADDERS["financial"]["rungs"][0]
-		assert_eq(GameData.BOARD_LADDERS["financial"]["voice"], "james")
+		assert_eq(GameData.BOARD_LADDERS["financial"]["voice"], "archie")
 		assert_eq(rung["goal"]["type"], Objectives.TYPE_RESERVE_WEEKS_AT_LEAST)
 		assert_eq(int(rung["tiers"]["base"]["minWeeks"]), 2)
 		assert_eq(int(rung["tiers"]["target"]["minWeeks"]), 3)
 		assert_eq(int(rung["tiers"]["stretch"]["minWeeks"]), 4)
+	)
+
+	run_case("share_leader_has_james_alt_voice_with_same_goal", func():
+		_enabled_game()
+		var ladder: Dictionary = GameData.BOARD_LADDERS["market_share"]
+		var rung: Dictionary = {}
+		for r in ladder["rungs"]:
+			if r["id"] == "share_leader":
+				rung = r
+		var a := BoardMeetings._build_card("market_share", ladder, rung)
+		var j := BoardMeetings._build_card("market_share", ladder, rung, "james", "share_leader_james")
+		assert_eq(a["voice"], "archie")
+		assert_eq(j["voice"], "james")
+		assert_eq(a["id"], j["id"])
+		assert_eq(a["goal"], j["goal"])
+		assert_eq(a["rewards"], j["rewards"])
+		assert_true(GameData.BOARD_TEMPLATES.has(j["template"]))
+	)
+
+	run_case("alt_voice_rung_is_offered_once_per_agenda", func():
+		_enabled_game()
+		var original := _install_ladders()
+		var rung := _rung("lead")
+		rung["altVoices"] = [{ "voice": "james", "template": "share_leader_james" }]
+		GameData.BOARD_LADDERS = { "m": { "voice": "archie", "rungs": [rung] } }
+		var eligible := BoardMeetings.eligible_cards()
+		assert_eq(_voices(eligible), ["archie", "james"])
+		var seen := {}
+		for week in range(1, 12):
+			GameState.state["boardMeetings"]["agenda"] = []
+			GameState.state["boardMeetings"]["agendaWeek"] = 0
+			var cards := BoardMeetings.agenda(week)
+			assert_eq(cards.size(), 1, "one card for the rung, week %d" % week)
+			seen[cards[0]["voice"]] = true
+		assert_true(seen.has("archie") and seen.has("james"), "both voices can pitch it")
+		GameData.BOARD_LADDERS = original
+	)
+
+	run_case("alt_voice_pitch_credits_that_voice", func():
+		_enabled_game()
+		var rung := _rung("lead")
+		rung["altVoices"] = [{ "voice": "james", "template": "share_leader_james" }]
+		var original: Dictionary = GameData.BOARD_LADDERS
+		GameData.BOARD_LADDERS = { "m": { "voice": "archie", "rungs": [rung] } }
+		var cards := BoardMeetings.agenda(1)
+		var voice: String = cards[0]["voice"]
+		var contact: String = GameData.BOARD_VOICES[voice]["contactId"]
+		var before := _relation(contact)
+		assert_true(BoardMeetings.choose(cards[0]["id"])["ok"])
+		assert_eq(GameState.state["boardMeetings"]["active"]["voice"], voice)
+		assert_true(_relation(contact) > before, "warmth credited to the pitching voice")
+		GameData.BOARD_LADDERS = original
 	)
 
 	run_case("no_tier_rewards_a_rewind", func():
@@ -221,7 +273,7 @@ func run() -> void:
 		var cards := BoardMeetings.eligible_cards()
 		assert_eq(cards.size(), 1)
 		assert_eq(cards[0]["id"], "financial:fin_reserve")
-		assert_eq(cards[0]["voice"], "james")
+		assert_eq(cards[0]["voice"], "archie")
 		assert_eq(cards[0]["preview"]["base"], "£100")
 	)
 
@@ -385,7 +437,10 @@ func run() -> void:
 
 	run_case("skip_fails_without_an_archie_card", func():
 		_enabled_game()
+		var original: Dictionary = GameData.BOARD_LADDERS
+		GameData.BOARD_LADDERS = { "j1": { "voice": "james", "rungs": [_rung("j1_r")] } }
 		BoardMeetings.agenda(1)
+		GameData.BOARD_LADDERS = original
 		assert_eq(BoardMeetings.skip()["ok"], false)
 		assert_eq(GameState.state["boardMeetings"]["active"], null)
 	)
@@ -426,7 +481,7 @@ func run() -> void:
 			assert_eq(board["active"], null)
 			assert_eq(board["history"].size(), 1)
 			assert_eq(board["history"][0]["rung"], "fin_reserve")
-			assert_eq(board["history"][0]["voice"], "james")
+			assert_eq(board["history"][0]["voice"], "archie")
 			assert_eq(board["history"][0]["week"], 1)
 		)
 
@@ -774,7 +829,7 @@ func run() -> void:
 		assert_eq(BoardMeetings.rung_status("market_share", "share_first"), "skipped", "41% beats the 25% target")
 		assert_true(BoardMeetings.spine_done("share_target"), "a skipped spine rung still completes its beat")
 		assert_eq(BoardMeetings.rung_status("market_share", "share_higher"), "skipped", "41% beats the 40% target")
-		assert_eq(cards.size(), 1)
+		assert_eq(cards.size(), 2, "Archie and James variants of the one rung")
 		assert_eq(cards[0]["rung"], "share_leader", "the first rung not already met (41% does not lead)")
 	)
 

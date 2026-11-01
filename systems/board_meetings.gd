@@ -62,6 +62,8 @@ static func eligible_cards() -> Array:
 				_complete_spine(rung.get("spine"))
 				continue
 			cards.append(card)
+			for alt in rung.get("altVoices", []):
+				cards.append(_build_card(ladder_id, ladder, rung, str(alt["voice"]), str(alt["template"])))
 			break
 	return cards
 
@@ -122,7 +124,7 @@ static func _resolve_ore(placeholder: String, ladder_id: String, tally: String =
 
 # A plain-data card: everything the meeting and Rewind need to show and
 # choose it again without re-deriving.
-static func _build_card(ladder_id: String, ladder: Dictionary, rung: Dictionary) -> Dictionary:
+static func _build_card(ladder_id: String, ladder: Dictionary, rung: Dictionary, voice_id: String = "", template_id: String = "") -> Dictionary:
 	var rung_id: String = rung["id"]
 	var id := card_id(ladder_id, rung_id)
 	var goal := {
@@ -141,8 +143,8 @@ static func _build_card(ladder_id: String, ladder: Dictionary, rung: Dictionary)
 	for tier in Objectives.TIER_ORDER:
 		preview[tier] = reward_preview(rung["rewards"].get(tier, []))
 	return {
-		"id": id, "ladder": ladder_id, "rung": rung_id, "voice": ladder["voice"],
-		"template": rung_id, "goal": goal,
+		"id": id, "ladder": ladder_id, "rung": rung_id, "voice": voice_id if voice_id != "" else ladder["voice"],
+		"template": template_id if template_id != "" else rung_id, "goal": goal,
 		"rewards": GameState.deep_copy(rung["rewards"]), "preview": preview,
 		"lengthWeeks": int(rung.get("lengthWeeks", 1)),
 		"pinned": bool(rung.get("pinned", false)),
@@ -169,6 +171,7 @@ static func agenda(week: int) -> Array:
 		if card["pinned"] and picked.is_empty():
 			picked.append(card)
 			used_voices[card["voice"]] = true
+			_drop_card_id(pool, card["id"])
 		else:
 			pool.append(card)
 	var draw := 0
@@ -180,20 +183,35 @@ static func agenda(week: int) -> Array:
 		var voice_cards: Array = by_voice[voice_id]
 		var card: Dictionary = voice_cards[_seeded_index(voice_cards.size(), week, "card|%d" % draw)]
 		picked.append(card)
-		pool.erase(card)
+		_drop_card_id(pool, card["id"])
 		used_voices[voice_id] = true
 		draw += 1
 	var fill_voice: String = GameData.BOARD_TUNING["fillVoice"]
 	for card in pool:
 		if picked.size() >= size:
 			break
-		if card["voice"] == fill_voice:
+		if card["voice"] == fill_voice and not _has_card_id(picked, card["id"]):
 			picked.append(card)
 	_mark_competing(picked, week)
 	board["agenda"] = picked
 	board["agendaWeek"] = week
 	EventBus.state_changed.emit()
 	return picked
+
+
+# A rung with several voice variants shares one card id; once one is offered
+# the others leave the pool.
+static func _drop_card_id(pool: Array, id: String) -> void:
+	for i in range(pool.size() - 1, -1, -1):
+		if pool[i]["id"] == id:
+			pool.remove_at(i)
+
+
+static func _has_card_id(cards: Array, id: String) -> bool:
+	for card in cards:
+		if card["id"] == id:
+			return true
+	return false
 
 
 # Flavour beat only: two offered cards wanting the same ore get a
