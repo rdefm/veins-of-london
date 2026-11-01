@@ -851,22 +851,28 @@
     "craft_first": {
       "label": "Craft more {calc}",
       "case": [
-        "Selling the raw stuff is a start. Putting it into something is a business. Get our {calc} into more of what London crafts. The craft tally has you on {share}% of {calc}. {rival} is the name above yours.",
-        "Every bench in town burns {calc}. Make sure a fair slice of it is ours. {share}% of the {calc} crafted in London is ours. {rival} has the rest, and they aren't offering."
+        "I'd rather we craft 30% of the {calc} made in London. We're on {share}%. The Guild still sets the standard for a good piece. The more we make, the more buyers set ours beside theirs. I'm not worried about that comparison.",
+        "Let's craft 30% of London's {calc}. Our share is {share}%, and {rival} makes the most besides us. Buyers can only judge our work if they see plenty of it. More of it on the market means more of them comparing it with the Guild's.",
+        "Aim for 30% of the {calc} crafted in London. You're on {share}%. Raw ore sells on price alone, and I don't like that. Crafted {calc} sells on quality, which is where we beat the Guild, so I want more of it out there.",
+        "The target is 30% of London's crafted {calc}. At present it's {share}%. The Guild's work is the standard buyers know. Every piece of ours they see is a chance to show we're better, and {rival} isn't taking that chance."
       ]
     },
     "craft_rankup": {
       "label": "Better work at the bench",
       "case": [
-        "Good enough sells once. Better sells twice. Take a recipe you already know and make it come out better than your best. Your best results are on the books. Beat them on any recipe you like. I'm not fussy which.",
-        "You've a bench full of competent. Push one recipe past your best result and see what the buyers do about it. Same recipes, same bench, higher mark. The bar is whatever you managed last time."
+        "Take one recipe you already know and push it past your best rank. I'd like at least one recipe higher than it stands today, two if you can manage. A higher rank means a better piece, and a better piece is what lets us name a price the Guild can't undercut.",
+        "Raise a recipe's rank this week, any recipe. Two would be better. The firm is only as good as its best bench work. Higher rank means better pieces, and better pieces are how we show the Guild's standard isn't the ceiling.",
+        "I want at least one recipe ranked up by Sunday, and two if the ore allows. Same recipe, finer result. Buyers pay for quality they can see, and the Guild has relied on them not looking closely at ours.",
+        "Rank up a recipe, then another. It's the one thing here that doesn't depend on the market. A higher rank makes a better piece, a better piece sells for more, and I'd like to meet the Guild's standard from above."
       ]
     },
     "craft_master": {
       "label": "Master a recipe",
       "case": [
-        "Rank five. Not near it, not nearly. A recipe done so well the bench looks embarrassed. You've got work at rank three or better on the books. The last two steps are the expensive ones.",
-        "Every trade has someone who's finished learning. Be that, for one recipe, and then for more. A recipe in the upper ranks already. Rank five is the same recipe, done properly."
+        "I want a recipe at rank five. You have recipes at rank three or better, so the last two ranks are the only gap. Rank five is the best a piece can be made, and a firm that has one can fairly say it's passed the Guild's standard, not met it.",
+        "Master a recipe, take it to rank five. Two, if you can. You've already got work at rank three or above, so you know the cost of those last steps. A mastered recipe gives us pieces the Guild's own benches can't beat, and I'd like that on the record.",
+        "Bring one recipe to rank five this week. It's the top of the scale. Mastery is what lets us say we're better than the Guild and have a bench to prove it. You're close enough that it would be a waste to stop at three.",
+        "Take a recipe to rank five. We have work at rank three or better, so this is finishing, not starting. The Guild calls its masters a standard. I'd like us to be the standard, and one mastered recipe is the proof."
       ]
     },
     "share_first": {
@@ -899,8 +905,10 @@
     "share_leader_james": {
       "label": "Lead the {calc} market",
       "case": [
-        "The Guild's standard for a leading house is the biggest share of one ore. Meet it on {calc}. You're at {share}% of {calc}, and {rival} is the name above yours.",
-        "A house that leads its ore is one the Guild has to deal with. Take first place on {calc}. {share}% today, with {rival} still ahead."
+        "I want us the leading seller of {calc} in London, at 35% or better. We're on {share}%, and {rival} is the one to pass. The Guild's standard for a leading house is the biggest share of an ore. Meeting it is the least I'll accept.",
+        "Take first place on {calc}, at a 35% share. You hold {share}% and {rival} is ahead. A house that leads its ore is one the Guild has to deal with as an equal. Then they can't say we're beneath them.",
+        "Be the largest seller of {calc}, with 35% or more. You're at {share}%, and {rival} is the name above yours. First place is how the Guild measures a house. I'd like the measure to come out in our favour for once.",
+        "First place on {calc}, 35% at least. Your share is {share}% and {rival} stands in the way. The Guild counts a house that leads its ore as a real one. Sell more {calc} than anyone and it has to count us."
       ]
     },
     "share_second": {
