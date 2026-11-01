@@ -116,6 +116,14 @@
                   "branch": "church_caretaker"
                 }
               }
+            },
+            {
+              "id": "option3",
+              "label": "Go back and try another approach",
+              "result_text": "",
+              "goto": {
+                "branch": "main"
+              }
             }
           ]
         }
@@ -748,7 +756,22 @@
           "key": "c16",
           "type": "speaker",
           "text": "\"Hello there,\" he says with a smile. \"I'm Roger Schrubber, the caretaker. Can I help you?\"",
-          "speaker": "Roger"
+          "speaker": "Roger",
+          "choices": [
+            {
+              "id": "option1",
+              "label": "Ask him to help you get through the south door",
+              "result_text": ""
+            },
+            {
+              "id": "option2",
+              "label": "Go back and try another approach",
+              "result_text": "",
+              "goto": {
+                "branch": "main"
+              }
+            }
+          ]
         }
       ]
     }
@@ -966,8 +989,8 @@
       -220
     ],
     "b:playground_approach": [
-      583,
-      489
+      529,
+      705
     ],
     "b:hall_approach": [
       569,
@@ -1014,8 +1037,8 @@
       -214
     ],
     "c:c2": [
-      657,
-      224
+      672,
+      320
     ],
     "c:c5": [
       1151,
@@ -1068,6 +1091,10 @@
     "c:c15": [
       1106,
       -86
+    ],
+    "c:c16": [
+      1108,
+      -336
     ]
   }
 }

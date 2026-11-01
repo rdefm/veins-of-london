@@ -819,3 +819,29 @@ func run() -> void:
 		assert_true(not BoardMeetings.minutes_line(3).contains("James"))
 		assert_eq(BoardMeetings.minutes_line(9), GameData.BOARD_MEETING["minutesNone"])
 	)
+
+	run_case("aob_line_fills_tokens_and_never_repeats_consecutive_weeks", func():
+		_enabled_game()
+		var previous := ""
+		for week in range(2, 30):
+			GameState.state["boardMeetings"]["agenda"] = []
+			GameState.state["boardMeetings"]["agendaWeek"] = week
+			var line := BoardMeetings.aob_line(week)
+			assert_true(line.begins_with(GameData.BOARD_MEETING["aob"]["lead"]))
+			assert_true(not line.contains("{"), "tokens filled")
+			assert_true(line != previous, "week %d repeats" % week)
+			previous = line
+	)
+
+	run_case("aob_line_uses_competing_pool_when_cards_compete", func():
+		_enabled_game()
+		var board: Dictionary = GameState.state["boardMeetings"]
+		board["agendaWeek"] = 4
+		board["agenda"] = [
+			{ "id": "a", "voice": "archie", "ore": "time", "competesWith": "b" },
+			{ "id": "b", "voice": "james", "ore": "time", "competesWith": "a" },
+		]
+		var line := BoardMeetings.aob_line(4)
+		assert_true(line.contains("Archie") and line.contains("James"), line)
+		assert_true(not line.contains("{"), "tokens filled")
+	)

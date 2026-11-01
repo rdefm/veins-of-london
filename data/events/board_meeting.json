@@ -17,7 +17,7 @@
         }
       ]
     },
-    { "key": "aob", "type": "narration", "label": null, "speaker": null, "text": "Any other business. Owen raises a hand, thinks better of it, and lowers it." }
+    { "key": "aob", "type": "narration", "label": null, "speaker": null, "text": "{aob}" }
   ],
   "on_complete": [
     { "op": "set_screen", "screen": "phone" },

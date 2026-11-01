@@ -513,8 +513,31 @@ static func meeting_context(week: int) -> Dictionary:
 			"goto": "aob",
 		})
 	context["agenda"] = options
+	context["aob"] = aob_line(week)
 	context["agendaText"] = meeting["agendaEmpty"] if summaries.is_empty() else String(meeting["agendaSeparator"]).join(summaries)
 	return context
+
+
+# Closing aside: the competing line when two offered cards share an ore, else
+# a seeded pool line that never repeats the previous week's pick.
+static func aob_line(week: int) -> String:
+	var aob: Dictionary = GameData.BOARD_MEETING["aob"]
+	var lead: String = aob["lead"]
+	for card in agenda(week):
+		var rival: Variant = _agenda_card(str(card.get("competesWith", "")))
+		if rival == null:
+			continue
+		var variants: Array = aob["competing"]
+		return "%s %s" % [lead, String(variants[_seeded_index(variants.size(), week, "aobCompeting")]).format({
+			"a": GameData.BOARD_VOICES[card["voice"]]["name"],
+			"b": GameData.BOARD_VOICES[rival["voice"]]["name"],
+			"ore": GameData.ORE_TYPES[card["ore"]]["name"],
+		})]
+	var lines: Array = aob["lines"]
+	var index := _seeded_index(lines.size(), week, "aob")
+	if week > 1 and index == _seeded_index(lines.size(), week - 1, "aob"):
+		index = (index + 1) % lines.size()
+	return "%s %s" % [lead, lines[index]]
 
 
 # A card's display tokens: pitcher, label, pitch, why (templates), tiers

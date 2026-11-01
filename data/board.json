@@ -773,6 +773,36 @@
         ]
       }
     },
+    "aob": {
+      "_comment": "Any other business (BoardMeetings.aob_line()): one seeded line per meeting, never the same as last week's. competing = used instead when two offered cards want the same ore; tokens {a}, {b} (pitchers), {ore}. Running gags: James and the minutes, Archie's catering, Owen's unasked questions, Archie poaching Owen. PROSE-REVIEW: all new copy.",
+      "lead": "Any other business.",
+      "competing": [
+        "Archie notes that {a} and {b} both want {ore}. Nobody offers to share.",
+        "James observes that {a} and {b} have pitched for the same {ore}. He asks that the minutes call it a coincidence.",
+        "Owen asks whether {a} and {b} know they want the same {ore}. They do. It's why the room is quiet.",
+        "Archie says {a} and {b} can fight over {ore} in the car park. Not today, he adds. The car park is booked."
+      ],
+      "lines": [
+        "James asks that the minutes record the date correctly this time. Archie says he has. James says he has seen the minutes.",
+        "James would like it noted that 'any other business' is not a catch-all for Archie's opinions. Archie asks that his objection be noted.",
+        "James reads back the last item. It's a different item from the one Archie wrote down. They agree to keep James's.",
+        "James spots a typo in the minutes and asks who typed it. Archie says autocorrect. James says autocorrect has never once written 'calk'.",
+        "Archie raises catering. There is no budget for catering. Archie says that is the problem.",
+        "Archie proposes catering, in the sense of a Greggs run. James asks that it be minuted as 'refreshments'.",
+        "Archie says next week there will be catering. He says it the way people say they'll start running.",
+        "Archie asks if the biscuits count as catering. Owen says they were his. Archie says that settles it.",
+        "Owen raises a hand and asks who gets the last biscuit. Nobody knew there was a question.",
+        "Owen asks whether the whiteboard counts as a vein. Nobody has an answer ready.",
+        "Owen asks what happens to the minutes after the meeting. James says they are filed. Owen asks where. James does not say.",
+        "Owen asks if this is the meeting where they decide things or the one where they talk about deciding. Archie says yes.",
+        "Archie tells Owen his offer still stands: better money, a van, and a desk with a drawer that locks. Owen says he'll think about the drawer.",
+        "Archie mentions, to nobody, that Owen would be wasted on a bench. Owen looks at the bench.",
+        "Archie slides a business card across to Owen. James slides it back. Neither of them says a word about it.",
+        "Archie offers Owen a lift home. Owen says he has a bus. Archie says buses are a choice.",
+        "Nobody has any other business. James asks that this be minuted. Archie asks that it be minuted as a miracle.",
+        "James raises the kettle. It's his, he'd like it back, and he'd like to know who has been descaling it with lemon."
+      ]
+    },
     "resultNames": {
       "missed": "missed",
       "base": "base",
