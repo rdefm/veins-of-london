@@ -22,6 +22,7 @@ const TYPE_RECURRING_PROOF := "recurring_proof"
 const TYPE_TEMPLATE_PERIODS_COMPLETED := "template_periods_completed"
 const TYPE_RECIPE_KNOWN := "recipe_known"
 const TYPE_RESERVE_WEEKS_AT_LEAST := "reserve_weeks_at_least"
+const TYPE_ORE_SHARE_AT_LEAST := "ore_share_at_least"
 
 const TIER_NONE := "none"
 const TIER_ORDER: Array[String] = ["base", "target", "stretch"]
@@ -136,6 +137,8 @@ static func _evaluate(def: Dictionary, progress: Dictionary) -> bool:
 			return Lab.is_known(params["recipe"])
 		TYPE_RESERVE_WEEKS_AT_LEAST:
 			return reserve_weeks_met(float(params["minWeeks"]))
+		TYPE_ORE_SHARE_AT_LEAST:
+			return ore_share_met(params)
 		_:
 			return false
 
@@ -327,6 +330,8 @@ static func measure(def: Dictionary) -> Dictionary:
 		var expenses := BusinessStats.weekly_expenses()
 		var weeks := 0.0 if expenses <= 0 else float(GameState.state["business"]["float"]) / float(expenses)
 		return { "value": weeks, "param": "minWeeks" }
+	if def["type"] == TYPE_ORE_SHARE_AT_LEAST:
+		return { "value": Shares.ore_share(Shares.PLAYER, str(def["params"].get("oreType", ""))) * 100.0, "param": "minPercent" }
 	return {}
 
 
@@ -342,7 +347,38 @@ static func condition_met(condition: Dictionary) -> bool:
 			return Lab.is_known(condition["recipe"])
 		"weekly_expenses_above":
 			return BusinessStats.weekly_expenses() > int(condition["amount"])
+		"ore_market_active":
+			return not market_ores().is_empty()
+		"ore_share_any_at_least":
+			for ore_type in market_ores():
+				if Shares.ore_share(Shares.PLAYER, ore_type) * 100.0 >= float(condition["minPercent"]):
+					return true
+			return false
 	return false
+
+
+# Ore types with production in the Shares 7-day window: the ones whose
+# share means something. Canonical order.
+static func market_ores() -> Array[String]:
+	var totals := Shares.window_totals("ore")
+	var ores: Array[String] = []
+	for ore_type in GameData.CANONICAL_ORE_TYPES:
+		for by_type in totals.values():
+			if int(by_type.get(ore_type, 0)) > 0:
+				ores.append(ore_type)
+				break
+	return ores
+
+
+# The player's share of params.oreType over the Shares 7-day window is at
+# least params.minPercent; with params.lead, also the largest of any producer.
+static func ore_share_met(params: Dictionary) -> bool:
+	var ore_type := str(params.get("oreType", ""))
+	if ore_type == "" or not GameData.CANONICAL_ORE_TYPES.has(ore_type):
+		return false
+	if Shares.ore_share(Shares.PLAYER, ore_type) * 100.0 < float(params["minPercent"]):
+		return false
+	return not bool(params.get("lead", false)) or Shares.is_leader("ore", Shares.PLAYER, ore_type)
 
 
 # R§3.15: the business float covers min_weeks of the business's real weekly

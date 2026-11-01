@@ -221,3 +221,18 @@ func run() -> void:
 		items = _section(Todo.get_questline_sections(), "board")["items"]
 		assert_eq(items[0]["detail"], "Stretch reached", "a locked stretch stays reached after a dip, with no next tier")
 	)
+
+	run_case("act2_section_lists_spine_beats_with_done_and_locked_state", func():
+		GameState.reset()
+		assert_eq(_section(Todo.get_questline_sections(), "act2"), null, "no Act 2 section while meetings are off")
+		GameState.state["boardMeetings"]["enabled"] = true
+		var section: Dictionary = _section(Todo.get_questline_sections(), "act2")
+		assert_eq(section["status"], "active")
+		assert_eq(section["items"].size(), GameData.BOARD_SPINE["beats"].size())
+		assert_eq(section["items"][0]["done"], false)
+		assert_eq(section["items"][1]["detail"], GameData.BOARD_SPINE["lockedText"], "beat 2 is locked until beat 1")
+		GameState.state["boardMeetings"]["spine"]["share_target"] = "done"
+		section = _section(Todo.get_questline_sections(), "act2")
+		assert_eq([section["items"][0]["done"], section["items"][1]["detail"]], [true, ""])
+		assert_true(not str(Todo.current_objective().get("id", "")).begins_with("spine_"), "the overview never becomes the Story row")
+	)

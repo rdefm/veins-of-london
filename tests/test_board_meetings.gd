@@ -510,3 +510,67 @@ func run() -> void:
 		assert_eq(GameState.state["boardMeetings"], before)
 		GameData.BOARD_LADDERS = original
 	)
+
+	# ── market share ladder + Act 2 spine ────────────────────────────────
+
+	run_case("share_card_names_the_best_producing_ore_and_stays_pinned_until_taken", func():
+		_enabled_game()
+		assert_eq(BoardMeetings.eligible_cards().filter(func(c): return c["ladder"] == "market_share").size(), 0, "no production: no share card")
+		Shares.record_ore("player", "life", 10)
+		Shares.record_ore("firm", "life", 90)
+		Shares.record_ore("player", "time", 5)
+		Shares.record_ore("firm", "time", 95)
+		var cards := BoardMeetings.agenda(1)
+		assert_eq(cards[0]["rung"], "share_first", "pinned card first")
+		assert_eq(cards[0]["ore"], "life", "the ore where the player's share is highest")
+		assert_eq(cards[0]["goal"]["params"]["oreType"], "life")
+		assert_true(cards.size() >= 2, "the other slots stay free")
+		GameState.state["boardMeetings"]["agendaWeek"] = 0
+		var week2 := BoardMeetings.agenda(2)
+		assert_eq(week2[0]["rung"], "share_first", "passing keeps it next week")
+		assert_true(not (BoardMeetings.spine_done("share_target")))
+		assert_true(not (BoardMeetings.spine_unlocked("supplier_contract")))
+	)
+
+	run_case("completing_the_share_card_marks_spine_beat_one_done", func():
+		_enabled_game()
+		Shares.record_ore("player", "life", 10)
+		Shares.record_ore("firm", "life", 90)
+		BoardMeetings.agenda(1)
+		assert_true(BoardMeetings.choose(BoardMeetings.card_id("market_share", "share_first"))["ok"])
+		Shares.record_ore("player", "life", 20)
+		BoardMeetings.judge_week()
+		assert_eq(BoardMeetings.rung_status("market_share", "share_first"), "done")
+		assert_true(BoardMeetings.spine_done("share_target"))
+		assert_true(BoardMeetings.spine_unlocked("supplier_contract"))
+	)
+
+	run_case("already_met_share_rungs_are_skipped_and_later_rungs_open_from_state", func():
+		_enabled_game()
+		Shares.record_ore("player", "life", 41)
+		Shares.record_ore("firm", "life", 59)
+		Shares.record_ore("player", "time", 10)
+		Shares.record_ore("firm", "time", 90)
+		var cards := BoardMeetings.eligible_cards().filter(func(c): return c["ladder"] == "market_share")
+		assert_eq(BoardMeetings.rung_status("market_share", "share_first"), "skipped", "41% beats the 25% target")
+		assert_true(BoardMeetings.spine_done("share_target"), "a skipped spine rung still completes its beat")
+		assert_eq(BoardMeetings.rung_status("market_share", "share_higher"), "skipped", "41% beats the 40% target")
+		assert_eq(cards.size(), 1)
+		assert_eq(cards[0]["rung"], "share_leader", "the first rung not already met (41% does not lead)")
+	)
+
+	run_case("second_ore_rung_avoids_ores_the_ladder_already_used", func():
+		_enabled_game()
+		Shares.record_ore("player", "life", 60)
+		Shares.record_ore("firm", "life", 40)
+		Shares.record_ore("player", "time", 10)
+		Shares.record_ore("firm", "time", 90)
+		var board: Dictionary = GameState.state["boardMeetings"]
+		board["rungs"]["market_share"] = {
+			"share_first": { "status": "done", "day": 1, "ore": "life" }, "share_higher": { "status": "done", "day": 2, "ore": "life" },
+			"share_leader": { "status": "done", "day": 3, "ore": "life" },
+		}
+		var cards := BoardMeetings.eligible_cards().filter(func(c): return c["ladder"] == "market_share")
+		assert_eq(cards[0]["rung"], "share_second")
+		assert_eq(cards[0]["ore"], "time")
+	)

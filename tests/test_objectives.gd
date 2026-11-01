@@ -586,6 +586,23 @@ func run() -> void:
 		assert_eq(Objectives.tier_met(_objective("plain", Objectives.TYPE_CONTRACTS_COMPLETED, { "minCount": 1 })), "none")
 	)
 
+	run_case("ore_share_at_least_reads_the_seven_day_window_and_optional_lead", func():
+		GameState.reset()
+		Shares.record_ore("player", "physics", 25)
+		Shares.record_ore("firm", "physics", 75)
+		var def := _objective("share", Objectives.TYPE_ORE_SHARE_AT_LEAST, { "oreType": "physics" })
+		def["tiers"] = { "base": { "minPercent": 20 }, "target": { "minPercent": 25 }, "stretch": { "minPercent": 30 } }
+		assert_eq(Objectives.tier_met(def), "target", "exactly 25% meets target, not stretch")
+		def["params"]["minPercent"] = 26
+		assert_true(not (Objectives.evaluate(def)), "26% not met at 25%")
+		def["params"] = { "oreType": "physics", "minPercent": 20, "lead": true }
+		assert_true(not (Objectives.evaluate(def)), "25% is not the lead behind the Firm's 75%")
+		Shares.record_ore("player", "physics", 100)
+		assert_true(Objectives.evaluate(def), "80% leads")
+		def["params"] = { "oreType": "life", "minPercent": 1 }
+		assert_true(not (Objectives.evaluate(def)), "an unproduced ore has no share")
+	)
+
 
 func _settle_contracts(count: int) -> void:
 	for i in count:

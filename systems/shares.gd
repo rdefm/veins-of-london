@@ -173,6 +173,19 @@ static func _share_of(totals: Dictionary, producer: String, ore_type: String) ->
 	return float(totals.get(producer, {}).get(ore_type, 0)) / float(total)
 
 
+# True when `producer` holds the strictly largest share of an ore type's
+# tally over the window (and the type has any production).
+static func is_leader(tally: String, producer: String, ore_type: String, week: int = 0) -> bool:
+	var totals := window_totals(tally, week)
+	var mine := int(totals.get(producer, {}).get(ore_type, 0))
+	if mine <= 0:
+		return false
+	for other in totals:
+		if other != producer and int(totals[other].get(ore_type, 0)) >= mine:
+			return false
+	return true
+
+
 static func ore_share(producer: String, ore_type: String, week: int = 0) -> float:
 	return share("ore", producer, ore_type, week)
 

@@ -55,8 +55,11 @@ static func eligible_cards() -> Array:
 			if not Objectives.condition_met(rung["premise"]):
 				continue
 			var card := _build_card(ladder_id, ladder, rung)
+			if card.is_empty():
+				continue
 			if _tier_rank(Objectives.tier_met(card["goal"])) >= _tier_rank("target"):
-				_set_rung_status(ladder_id, rung_id, RUNG_SKIPPED)
+				_set_rung_status(ladder_id, rung_id, RUNG_SKIPPED, card["ore"])
+				_complete_spine(rung.get("spine"))
 				continue
 			cards.append(card)
 			break
@@ -67,11 +70,54 @@ static func rung_status(ladder_id: String, rung_id: String) -> String:
 	return str(_board()["rungs"].get(ladder_id, {}).get(rung_id, {}).get("status", ""))
 
 
-static func _set_rung_status(ladder_id: String, rung_id: String, status: String) -> void:
+static func _set_rung_status(ladder_id: String, rung_id: String, status: String, ore_type: String = "") -> void:
 	var rungs: Dictionary = _board()["rungs"]
 	if not rungs.has(ladder_id):
 		rungs[ladder_id] = {}
-	rungs[ladder_id][rung_id] = { "status": status, "day": int(GameState.state["world"]["day"]) }
+	var entry := { "status": status, "day": int(GameState.state["world"]["day"]) }
+	if ore_type != "":
+		entry["ore"] = ore_type
+	rungs[ladder_id][rung_id] = entry
+
+
+# Act 2 spine beats (state.boardMeetings.spine: beat id -> "done"). A beat is
+# done once its rung is; a beat with `requires` stays locked until that beat is.
+static func spine_done(beat_id: String) -> bool:
+	return str(_board()["spine"].get(beat_id, "")) == "done"
+
+
+static func spine_unlocked(beat_id: String) -> bool:
+	for beat in GameData.BOARD_SPINE.get("beats", []):
+		if beat["id"] == beat_id:
+			return not beat.has("requires") or spine_done(beat["requires"])
+	return false
+
+
+static func _complete_spine(beat_id: Variant) -> void:
+	if beat_id != null and str(beat_id) != "":
+		_board()["spine"][str(beat_id)] = "done"
+
+
+# Resolves a goal's "$best" / "$other" ore placeholder to a real ore type:
+# the producing ore where the player's share is highest (canonical order
+# breaks ties); "$other" skips ores this ladder already used. "" when none.
+static func _resolve_ore(placeholder: String, ladder_id: String) -> String:
+	if not placeholder.begins_with("$"):
+		return placeholder
+	var used := {}
+	for entry in _board()["rungs"].get(ladder_id, {}).values():
+		if entry.has("ore"):
+			used[entry["ore"]] = true
+	var best := ""
+	var best_share := -1.0
+	for ore_type in Objectives.market_ores():
+		if placeholder == "$other" and used.has(ore_type):
+			continue
+		var share := Shares.ore_share(Shares.PLAYER, ore_type)
+		if share > best_share:
+			best = ore_type
+			best_share = share
+	return best
 
 
 # A plain-data card: everything the meeting and Rewind need to show and
@@ -84,6 +130,12 @@ static func _build_card(ladder_id: String, ladder: Dictionary, rung: Dictionary)
 		"params": GameState.deep_copy(rung["goal"].get("params", {})),
 		"tiers": GameState.deep_copy(rung["tiers"]),
 	}
+	var ore_type := ""
+	if goal["params"].has("oreType"):
+		ore_type = _resolve_ore(str(goal["params"]["oreType"]), ladder_id)
+		if ore_type == "":
+			return {}
+		goal["params"]["oreType"] = ore_type
 	var preview := {}
 	for tier in Objectives.TIER_ORDER:
 		preview[tier] = reward_preview(rung["rewards"].get(tier, []))
@@ -94,6 +146,7 @@ static func _build_card(ladder_id: String, ladder: Dictionary, rung: Dictionary)
 		"lengthWeeks": int(rung.get("lengthWeeks", 1)),
 		"pinned": bool(rung.get("pinned", false)),
 		"spine": rung.get("spine"),
+		"ore": ore_type,
 	}
 
 
@@ -225,7 +278,7 @@ static func _take(id: String, is_skip: bool) -> Dictionary:
 	board["active"] = {
 		"cardId": card["id"], "ladder": card["ladder"], "rung": card["rung"],
 		"template": card["template"],
-		"voice": card["voice"], "goal": GameState.deep_copy(card["goal"]),
+		"voice": card["voice"], "ore": card.get("ore", ""), "goal": GameState.deep_copy(card["goal"]),
 		"rewards": GameState.deep_copy(card["rewards"]),
 		"lengthWeeks": card["lengthWeeks"], "week": int(board["week"]),
 		"chosenDay": int(GameState.state["world"]["day"]),
@@ -288,10 +341,11 @@ static func judge_week() -> Dictionary:
 		for reward in paid:
 			_pay(reward)
 	if _tier_rank(tier) >= _tier_rank("target"):
-		_set_rung_status(active["ladder"], active["rung"], RUNG_DONE)
+		_set_rung_status(active["ladder"], active["rung"], RUNG_DONE, str(active.get("ore", "")))
+		_complete_spine(_rung_spine(active["ladder"], active["rung"]))
 	var entry := {
 		"week": int(active["week"]), "voice": active["voice"], "ladder": active["ladder"],
-		"rung": active["rung"], "result": result, "reward": paid, "skip": bool(active["skip"]),
+		"rung": active["rung"], "ore": active.get("ore", ""), "result": result, "reward": paid, "skip": bool(active["skip"]),
 	}
 	var history: Array = board["history"]
 	history.append(entry)
@@ -338,7 +392,22 @@ static func reward_preview(rewards: Array) -> String:
 
 # An agenda card's or the active goal's label (both carry template + rung).
 static func card_label(card: Dictionary) -> String:
-	return str(GameData.BOARD_TEMPLATES.get(card.get("template", card["rung"]), {}).get("label", card["rung"]))
+	var label := str(GameData.BOARD_TEMPLATES.get(card.get("template", card["rung"]), {}).get("label", card["rung"]))
+	return _with_ore(label, str(card.get("ore", "")))
+
+
+static func _rung_spine(ladder_id: String, rung_id: String) -> Variant:
+	for rung in GameData.BOARD_LADDERS.get(ladder_id, {}).get("rungs", []):
+		if rung["id"] == rung_id:
+			return rung.get("spine")
+	return null
+
+
+# Fills {ore} with the ore's display name; text with no ore is unchanged.
+static func _with_ore(text: String, ore_type: String) -> String:
+	if ore_type == "":
+		return text
+	return text.replace("{ore}", str(GameData.ORE_TYPES[ore_type]["name"]))
 
 
 static func _tier_rank(tier: String) -> int:
@@ -438,8 +507,8 @@ static func card_tokens(card: Dictionary) -> Dictionary:
 	return {
 		"pitcher": GameData.BOARD_VOICES[card["voice"]]["name"],
 		"label": card_label(card),
-		"pitch": str(template.get("pitch", "")),
-		"why": str(template.get("why", "")),
+		"pitch": _with_ore(str(template.get("pitch", "")), str(card.get("ore", ""))),
+		"why": _with_ore(str(template.get("why", "")), str(card.get("ore", ""))),
 		"tiers": String(meeting["tierFormat"]).format(numbers),
 		"reward": String(meeting["rewardFormat"]).format(card["preview"]),
 	}

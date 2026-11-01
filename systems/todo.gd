@@ -78,10 +78,44 @@ static func get_questline_sections() -> Array[Dictionary]:
 			"ledger": ledger,
 			"emptyText": config.get("emptyText", ""),
 		})
+	var act2 := get_act2_section()
+	if not act2.is_empty():
+		sections.append(act2)
 	var board := get_board_section()
 	if not board.is_empty():
 		sections.append(board)
 	return sections
+
+
+# The Act 2 spine as a questline-shaped section (BOARD_SPINE beats in order):
+# done beats tick, a beat whose `requires` isn't done reads as locked.
+# status "done" once every beat is. {} while meetings are off.
+static func get_act2_section() -> Dictionary:
+	var board: Dictionary = GameState.state.get("boardMeetings", {})
+	if not board.get("enabled", false) or GameData.BOARD_SPINE.is_empty():
+		return {}
+	var items: Array = []
+	var all_done := true
+	for beat in GameData.BOARD_SPINE["beats"]:
+		var done := BoardMeetings.spine_done(beat["id"])
+		all_done = all_done and done
+		items.append({
+			"id": "spine_%s" % beat["id"],
+			"title": beat["title"],
+			"detail": "" if done or BoardMeetings.spine_unlocked(beat["id"]) else GameData.BOARD_SPINE["lockedText"],
+			"done": done,
+			"checks": [],
+		})
+	var status := "done" if all_done else "active"
+	return {
+		"questline": "act2",
+		"label": GameData.BOARD_SPINE["label"],
+		"status": status,
+		"defaultExpanded": status != "done",
+		"items": items,
+		"ledger": [],
+		"emptyText": "",
+	}
 
 
 # The Board section (spec §"Modules" → Todo): the active board goal as one
@@ -131,6 +165,7 @@ static func _board_detail(active: Dictionary) -> String:
 				"current": _num(measured["value"]),
 				"target": _num(float(target)),
 				"tier": copy["tierNames"][next_tier],
+				"ore": str(GameData.ORE_TYPES.get(goal["params"].get("oreType", ""), {}).get("name", "")),
 			}))
 	return copy["separator"].join(parts)
 
@@ -143,11 +178,11 @@ static func _num(value: float) -> String:
 
 
 # The first undone item across the active sections, in section order: what
-# BizBrief's Story row shows. Empty when nothing is pending ("nothing
+# BizBrief's Story row shows (the Act 2 overview is skipped: it is read-only). Empty when nothing is pending ("nothing
 # pressing"). Same item shape as get_questline_sections().
 static func current_objective() -> Dictionary:
 	for section in get_questline_sections():
-		if section["status"] != "active":
+		if section["status"] != "active" or section["questline"] == "act2":
 			continue
 		for item in section["items"]:
 			if not item["done"]:

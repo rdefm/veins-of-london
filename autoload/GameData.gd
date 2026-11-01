@@ -359,6 +359,7 @@ var BOARD_LADDERS: Dictionary = {}
 var BOARD_TEMPLATES: Dictionary = {}
 var BOARD_TUNING: Dictionary = {}
 var BOARD_TODO: Dictionary = {}
+var BOARD_SPINE: Dictionary = {}
 var BOARD_MEETING: Dictionary = {}
 
 var loaded := false
@@ -582,6 +583,7 @@ const MANIFEST: Array[Dictionary] = [
 		{"field": "BOARD_TEMPLATES", "key": "templates", "type": TYPE_DICTIONARY},
 		{"field": "BOARD_TUNING", "key": "tuning", "type": TYPE_DICTIONARY},
 		{"field": "BOARD_TODO", "key": "todo", "type": TYPE_DICTIONARY},
+		{"field": "BOARD_SPINE", "key": "spine", "type": TYPE_DICTIONARY},
 		{"field": "BOARD_MEETING", "key": "meeting", "type": TYPE_DICTIONARY},
 	]},
 	{"table": "collective_barks", "file": "res://data/collective_barks.json", "fields": [

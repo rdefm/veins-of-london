@@ -1,8 +1,29 @@
 {
   "voices": {
-    "archie": { "name": "Archie", "contactId": "archie", "baseWeight": 1.0, "unpickedBump": 0.5, "warmth": 2, "pitchRarity": 1.0 },
-    "james": { "name": "James", "contactId": "james", "baseWeight": 1.0, "unpickedBump": 0.5, "warmth": 2, "pitchRarity": 1.0 },
-    "owen": { "name": "Owen", "contactId": "owen", "baseWeight": 1.0, "unpickedBump": 0.5, "warmth": 2, "pitchRarity": 0.25 }
+    "archie": {
+      "name": "Archie",
+      "contactId": "archie",
+      "baseWeight": 1.0,
+      "unpickedBump": 0.5,
+      "warmth": 2,
+      "pitchRarity": 1.0
+    },
+    "james": {
+      "name": "James",
+      "contactId": "james",
+      "baseWeight": 1.0,
+      "unpickedBump": 0.5,
+      "warmth": 2,
+      "pitchRarity": 1.0
+    },
+    "owen": {
+      "name": "Owen",
+      "contactId": "owen",
+      "baseWeight": 1.0,
+      "unpickedBump": 0.5,
+      "warmth": 2,
+      "pitchRarity": 0.25
+    }
   },
   "ladders": {
     "financial": {
@@ -10,18 +31,331 @@
       "rungs": [
         {
           "id": "fin_reserve",
-          "premise": { "kind": "weekly_expenses_above", "amount": 0 },
-          "goal": { "type": "reserve_weeks_at_least", "params": {} },
+          "premise": {
+            "kind": "weekly_expenses_above",
+            "amount": 0
+          },
+          "goal": {
+            "type": "reserve_weeks_at_least",
+            "params": {}
+          },
           "tiers": {
-            "base": { "minWeeks": 2 },
-            "target": { "minWeeks": 3 },
-            "stretch": { "minWeeks": 4 }
+            "base": {
+              "minWeeks": 2
+            },
+            "target": {
+              "minWeeks": 3
+            },
+            "stretch": {
+              "minWeeks": 4
+            }
           },
           "lengthWeeks": 1,
           "rewards": {
-            "base": [ { "kind": "cash", "amount": 100 } ],
-            "target": [ { "kind": "cash", "amount": 250 }, { "kind": "item", "id": "timePearl", "tier": 1, "qty": 1 } ],
-            "stretch": [ { "kind": "cash", "amount": 400 }, { "kind": "item", "id": "timePearl", "tier": 1, "qty": 1 }, { "kind": "item", "id": "enhancementPowder", "tier": 1, "qty": 1 } ]
+            "base": [
+              {
+                "kind": "cash",
+                "amount": 100
+              }
+            ],
+            "target": [
+              {
+                "kind": "cash",
+                "amount": 250
+              },
+              {
+                "kind": "item",
+                "id": "timePearl",
+                "tier": 1,
+                "qty": 1
+              }
+            ],
+            "stretch": [
+              {
+                "kind": "cash",
+                "amount": 400
+              },
+              {
+                "kind": "item",
+                "id": "timePearl",
+                "tier": 1,
+                "qty": 1
+              },
+              {
+                "kind": "item",
+                "id": "enhancementPowder",
+                "tier": 1,
+                "qty": 1
+              }
+            ]
+          },
+          "pinned": false,
+          "spine": null,
+          "permanent": false
+        }
+      ]
+    },
+    "market_share": {
+      "voice": "archie",
+      "rungs": [
+        {
+          "id": "share_first",
+          "premise": {
+            "kind": "ore_market_active"
+          },
+          "goal": {
+            "type": "ore_share_at_least",
+            "params": {
+              "oreType": "$best"
+            }
+          },
+          "tiers": {
+            "base": {
+              "minPercent": 20
+            },
+            "target": {
+              "minPercent": 25
+            },
+            "stretch": {
+              "minPercent": 30
+            }
+          },
+          "lengthWeeks": 1,
+          "rewards": {
+            "base": [
+              {
+                "kind": "cash",
+                "amount": 100
+              }
+            ],
+            "target": [
+              {
+                "kind": "cash",
+                "amount": 250
+              },
+              {
+                "kind": "item",
+                "id": "timePearl",
+                "tier": 1,
+                "qty": 1
+              }
+            ],
+            "stretch": [
+              {
+                "kind": "cash",
+                "amount": 400
+              },
+              {
+                "kind": "item",
+                "id": "timePearl",
+                "tier": 1,
+                "qty": 1
+              },
+              {
+                "kind": "item",
+                "id": "enhancementPowder",
+                "tier": 1,
+                "qty": 1
+              }
+            ]
+          },
+          "pinned": true,
+          "spine": "share_target",
+          "permanent": false
+        },
+        {
+          "id": "share_higher",
+          "premise": {
+            "kind": "ore_share_any_at_least",
+            "minPercent": 25
+          },
+          "goal": {
+            "type": "ore_share_at_least",
+            "params": {
+              "oreType": "$best"
+            }
+          },
+          "tiers": {
+            "base": {
+              "minPercent": 35
+            },
+            "target": {
+              "minPercent": 40
+            },
+            "stretch": {
+              "minPercent": 50
+            }
+          },
+          "lengthWeeks": 1,
+          "rewards": {
+            "base": [
+              {
+                "kind": "cash",
+                "amount": 150
+              }
+            ],
+            "target": [
+              {
+                "kind": "cash",
+                "amount": 350
+              },
+              {
+                "kind": "item",
+                "id": "timePearl",
+                "tier": 1,
+                "qty": 1
+              }
+            ],
+            "stretch": [
+              {
+                "kind": "cash",
+                "amount": 550
+              },
+              {
+                "kind": "item",
+                "id": "timePearl",
+                "tier": 1,
+                "qty": 1
+              },
+              {
+                "kind": "item",
+                "id": "enhancementPowder",
+                "tier": 1,
+                "qty": 1
+              }
+            ]
+          },
+          "pinned": false,
+          "spine": null,
+          "permanent": false
+        },
+        {
+          "id": "share_leader",
+          "premise": {
+            "kind": "ore_share_any_at_least",
+            "minPercent": 35
+          },
+          "goal": {
+            "type": "ore_share_at_least",
+            "params": {
+              "oreType": "$best",
+              "lead": true
+            }
+          },
+          "tiers": {
+            "base": {
+              "minPercent": 30
+            },
+            "target": {
+              "minPercent": 35
+            },
+            "stretch": {
+              "minPercent": 40
+            }
+          },
+          "lengthWeeks": 1,
+          "rewards": {
+            "base": [
+              {
+                "kind": "cash",
+                "amount": 200
+              }
+            ],
+            "target": [
+              {
+                "kind": "cash",
+                "amount": 450
+              },
+              {
+                "kind": "item",
+                "id": "timePearl",
+                "tier": 1,
+                "qty": 1
+              }
+            ],
+            "stretch": [
+              {
+                "kind": "cash",
+                "amount": 700
+              },
+              {
+                "kind": "item",
+                "id": "timePearl",
+                "tier": 1,
+                "qty": 1
+              },
+              {
+                "kind": "item",
+                "id": "enhancementPowder",
+                "tier": 1,
+                "qty": 1
+              }
+            ]
+          },
+          "pinned": false,
+          "spine": null,
+          "permanent": false
+        },
+        {
+          "id": "share_second",
+          "premise": {
+            "kind": "ore_market_active"
+          },
+          "goal": {
+            "type": "ore_share_at_least",
+            "params": {
+              "oreType": "$other"
+            }
+          },
+          "tiers": {
+            "base": {
+              "minPercent": 20
+            },
+            "target": {
+              "minPercent": 25
+            },
+            "stretch": {
+              "minPercent": 30
+            }
+          },
+          "lengthWeeks": 1,
+          "rewards": {
+            "base": [
+              {
+                "kind": "cash",
+                "amount": 250
+              }
+            ],
+            "target": [
+              {
+                "kind": "cash",
+                "amount": 500
+              },
+              {
+                "kind": "item",
+                "id": "timePearl",
+                "tier": 1,
+                "qty": 1
+              }
+            ],
+            "stretch": [
+              {
+                "kind": "cash",
+                "amount": 800
+              },
+              {
+                "kind": "item",
+                "id": "timePearl",
+                "tier": 1,
+                "qty": 1
+              },
+              {
+                "kind": "item",
+                "id": "enhancementPowder",
+                "tier": 1,
+                "qty": 1
+              }
+            ]
           },
           "pinned": false,
           "spine": null,
@@ -35,17 +369,42 @@
       "label": "Build a cash reserve",
       "pitch": "Put weeks of running costs aside, so one bad week costs nothing.",
       "why": "The books show what a week costs now. The float should outlast it."
+    },
+    "share_first": {
+      "label": "{ore} market share",
+      "pitch": "Take a quarter of London's {ore}. Then we're a name, not a rumour.",
+      "why": "James says {ore} is where the buyers are bunched. Pick your lane."
+    },
+    "share_higher": {
+      "label": "Grow {ore} share",
+      "pitch": "A quarter was the start. Push {ore} higher and the factions notice.",
+      "why": "The window still shows room in {ore}."
+    },
+    "share_leader": {
+      "label": "Lead the {ore} market",
+      "pitch": "Not a share. The biggest share. Nobody sells more {ore} than us.",
+      "why": "You're close enough to {ore} first place to smell it."
+    },
+    "share_second": {
+      "label": "Second ore: {ore}",
+      "pitch": "One ore is a niche. Take a slice of {ore} too.",
+      "why": "{ore} is moving and nobody has it sewn up."
     }
   },
   "todo": {
     "_comment": "ToDo Board section + Story row (systems/todo.gd). detail = reached + separator + progress; progress[goal type] fills {current} {target} {tier}. PROSE-REVIEW: all strings here are new copy.",
     "label": "Board",
-    "tierNames": { "base": "Base", "target": "Target", "stretch": "Stretch" },
+    "tierNames": {
+      "base": "Base",
+      "target": "Target",
+      "stretch": "Stretch"
+    },
     "reached": "{tier} reached",
     "noTier": "No tier yet",
     "separator": " · ",
     "progress": {
-      "reserve_weeks_at_least": "{current} of {target} weeks to {tier}"
+      "reserve_weeks_at_least": "{current} of {target} weeks to {tier}",
+      "ore_share_at_least": "{current}% of {target}% {ore} for {tier}"
     }
   },
   "tuning": {
@@ -54,7 +413,10 @@
     "skipVoice": "archie",
     "historyLength": 12,
     "competingCapWeeks": 5,
-    "rewardItems": ["timePearl", "enhancementPowder"]
+    "rewardItems": [
+      "timePearl",
+      "enhancementPowder"
+    ]
   },
   "meeting": {
     "_comment": "Monday meeting (BoardMeetings.meeting_context()). Text is placeholder copy; PROSE-REVIEW: every string here is new.",
@@ -64,7 +426,12 @@
     "minutesFormat": "Last week: {pitcher}'s goal, {label}. Result: {result}.",
     "minutesSkip": " Archie picked it.",
     "minutesNone": "No goal on the books last week.",
-    "resultNames": { "missed": "missed", "base": "base", "target": "target", "stretch": "stretch" },
+    "resultNames": {
+      "missed": "missed",
+      "base": "base",
+      "target": "target",
+      "stretch": "stretch"
+    },
     "agendaCard": "{pitcher} — {label}\n\"{pitch}\"\nWhy now: {why}\n{tiers}\nPays: {reward}",
     "tierFormat": "Base {base} · Target {target} · Stretch {stretch}",
     "rewardFormat": "{base} / {target} / {stretch}",
@@ -72,5 +439,38 @@
     "agendaEmpty": "Nobody has a pitch this week.",
     "optionLabel": "{pitcher}: {label}",
     "chosenText": "{pitcher} writes it on the whiteboard."
+  },
+  "spine": {
+    "_comment": "Act 2 beats shown in ToDo (Todo.get_act2_section()). rung = ladder rung that completes the beat; requires = beat that must be done first. PROSE-REVIEW: titles are new copy.",
+    "label": "Act 2",
+    "lockedText": "Not yet",
+    "beats": [
+      {
+        "id": "share_target",
+        "title": "Reach a quarter of one ore",
+        "rung": "share_first"
+      },
+      {
+        "id": "supplier_contract",
+        "title": "Sign a supplier contract",
+        "requires": "share_target"
+      },
+      {
+        "id": "rival_move",
+        "title": "Weather the rival's first move"
+      },
+      {
+        "id": "weather_or_soften",
+        "title": "Weather it or soften it"
+      },
+      {
+        "id": "partner",
+        "title": "Reach Partner"
+      },
+      {
+        "id": "debrief",
+        "title": "Debrief"
+      }
+    ]
   }
 }
