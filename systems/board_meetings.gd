@@ -554,11 +554,32 @@ static func card_tokens(card: Dictionary) -> Dictionary:
 	return {
 		"pitcher": GameData.BOARD_VOICES[card["voice"]]["name"],
 		"label": card_label(card),
-		"pitch": _with_ore(str(template.get("pitch", "")), str(card.get("ore", ""))),
-		"why": _with_ore(str(template.get("why", "")), str(card.get("ore", ""))),
+		"pitch": card_tokens_prose(template, "pitch", card),
+		"why": card_tokens_prose(template, "why", card),
 		"tiers": String(meeting["tierFormat"]).format(numbers),
 		"reward": String(meeting["rewardFormat"]).format(card["preview"]),
 	}
+
+
+# A template's pitch/why prose: a string or a list of variants (picked by a
+# stable hash of the card id, so Rewind shows the same line), with {ore} and
+# the live reserve tokens filled.
+static func card_tokens_prose(template: Dictionary, key: String, card: Dictionary) -> String:
+	var raw: Variant = template.get(key, "")
+	var text := str(raw)
+	if raw is Array:
+		var variants: Array = raw
+		text = str(variants[absi(str(card["id"]).hash()) % variants.size()])
+	text = _with_ore(text, str(card.get("ore", "")))
+	if text.contains("{expenses}") or text.contains("{float}") or text.contains("{weeks}"):
+		var expenses := BusinessStats.weekly_expenses()
+		var cash := int(GameState.state["business"]["float"])
+		text = text.format({
+			"expenses": "£%d" % expenses,
+			"float": "£%d" % cash,
+			"weeks": _number(snappedf(float(cash) / float(maxi(expenses, 1)), 0.1)),
+		})
+	return text
 
 
 # Minutes for the week before `week`: a reaction from the pitcher (or Archie's

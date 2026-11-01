@@ -759,9 +759,20 @@
           "speaker": "Roger",
           "choices": [
             {
+              "label": "Ask if he can open the door to the vein",
               "id": "option1",
-              "label": "Ask him to help you get through the south door",
-              "result_text": ""
+              "check": {
+                "base": 0.5,
+                "mods": []
+              },
+              "success": {
+                "result_text": "",
+                "effects": []
+              },
+              "fail": {
+                "result_text": null,
+                "effects": []
+              }
             },
             {
               "id": "option2",

@@ -633,8 +633,18 @@
   "templates": {
     "fin_reserve": {
       "label": "Build a cash reserve",
-      "pitch": "Put weeks of running costs aside, so one bad week costs nothing.",
-      "why": "The books show what a week costs now. The float should outlast it."
+      "pitch": [
+        "A business that can't survive one bad week is a hobby with invoices. Keep enough back to cover the costs, and keep it there.",
+        "Costs arrive on schedule. Income, in my experience, does not. Hold back enough to meet the first without the second.",
+        "You count your cash daily and your costs never. Count the costs. Then keep several weeks of them in the float.",
+        "A float that covers weeks of costs, not days. Anything less is optimism, and I have seen what optimism invoices for."
+      ],
+      "why": [
+        "The books say a week costs you {expenses}. The float stands at {float}, which is {weeks} weeks of that.",
+        "Running costs: {expenses} a week. Float: {float}. The sum is {weeks} weeks. I did it twice, which is once more than you did.",
+        "Your running costs come to {expenses} a week. Your float is {float}. Judge the gap yourself, or I will.",
+        "Cover today is {weeks} weeks of {expenses}. That is the number the bank will ask about, so you may as well know it first."
+      ]
     },
     "share_first": {
       "label": "{ore} market share",

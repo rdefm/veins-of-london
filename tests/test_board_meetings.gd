@@ -193,6 +193,20 @@ func run() -> void:
 		assert_eq(Objectives.evaluate(reserve_def), false)
 	)
 
+	run_case("financial_card_prose_fills_live_reserve_tokens", func():
+		_enabled_game()
+		_set_float(250)
+		var template: Dictionary = GameData.BOARD_TEMPLATES["fin_reserve"]
+		assert_true(template["pitch"] is Array and template["why"] is Array, "variant lists")
+		for i in template["why"].size():
+			var card := { "id": "c%d" % i, "template": "fin_reserve" }
+			var why: String = BoardMeetings.card_tokens_prose(template, "why", card)
+			assert_true(not why.contains("{"), "tokens filled: " + why)
+			assert_eq(BoardMeetings.card_tokens_prose(template, "why", card), why, "stable per card")
+		var text: String = BoardMeetings.card_tokens_prose({ "why": "{expenses} {float} {weeks}" }, "why", { "id": "x" })
+		assert_eq(text, "£100 £250 2.5")
+	)
+
 	# ── eligibility ──────────────────────────────────────────────────────
 
 	run_case("financial_rung_absent_while_its_premise_is_false", func():
