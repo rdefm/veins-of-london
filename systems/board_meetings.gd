@@ -5,8 +5,9 @@ extends RefCounted
 # → BoardMeetings): eligible ladder rungs become goal cards, a seeded agenda
 # offers one per voice, the chosen card becomes the active goal (a generated
 # objective definition evaluated by Objectives), and judge_week() pays the
-# tier reached. Owns state.boardMeetings; static funcs only, never touches
-# nodes.
+# tier reached. Each Monday rollover opens a week whose meeting event
+# (data/events/board_meeting*.json) starts once the player is free. Owns
+# state.boardMeetings; static funcs only, never touches nodes.
 
 const RESULT_MISSED := "missed"
 const RUNG_DONE := "done"
@@ -25,7 +26,7 @@ static func new_state() -> Dictionary:
 		"enabled": false, "week": 0, "firstMeetingDay": 0,
 		"agenda": [], "agendaWeek": 0, "active": null,
 		"voiceWeights": weights, "rungs": {}, "spine": {},
-		"history": [], "lastCompeting": 0,
+		"history": [], "lastCompeting": 0, "pendingWeek": 0,
 	}
 
 
@@ -342,3 +343,130 @@ static func card_label(card: Dictionary) -> String:
 
 static func _tier_rank(tier: String) -> int:
 	return Objectives.TIER_ORDER.find(tier) + 1
+
+
+# Rollover ⑧i, after ⑥.4 contract renewal and ⑥.4b payday so a goal is
+# judged on the week's real books (spec §"Modules" → Rollover). Act 1's
+# closing flag (meeting.enableFlag) enables meetings; every rollover into a
+# Monday from then on opens a week, so the first Monday on or after the
+# flag is Week 1.
+static func monday_rollover() -> void:
+	var board := _board()
+	if not board["enabled"]:
+		if not GameState.state["flags"].get(GameData.BOARD_MEETING["enableFlag"], false):
+			return
+		board["enabled"] = true
+	if Calendar.is_monday(int(GameState.state["world"]["day"])):
+		open_week()
+
+
+# Judges the active goal, advances the meeting count, builds the new week's
+# agenda and leaves its meeting pending for maybe_start_meeting().
+static func open_week() -> void:
+	var board := _board()
+	judge_week()
+	board["week"] = int(board["week"]) + 1
+	if int(board["firstMeetingDay"]) == 0:
+		board["firstMeetingDay"] = int(GameState.state["world"]["day"])
+	agenda(int(board["week"]))
+	board["pendingWeek"] = int(board["week"])
+	EventBus.state_changed.emit()
+
+
+static func meeting_pending() -> bool:
+	return int(GameState.state.get("boardMeetings", {}).get("pendingWeek", 0)) > 0
+
+
+# Starts the pending meeting once the player is free: no event or fight
+# live (a modal flow parks it via start_or_defer). Week 1 plays the scripted
+# variant. The event has no `at`, so it spends no time block and needs no
+# travel. True when the meeting started (or was parked behind a modal).
+static func maybe_start_meeting() -> bool:
+	if not meeting_pending():
+		return false
+	if GameState.state["event"] != null or GameState.state["combat"]["active"]:
+		return false
+	var board := _board()
+	var week := int(board["pendingWeek"])
+	board["pendingWeek"] = 0
+	var meeting: Dictionary = GameData.BOARD_MEETING
+	var event_id: String = meeting["week1EventId"] if week == 1 else meeting["eventId"]
+	Events.start_or_defer(event_id, meeting_context(week))
+	return true
+
+
+# The meeting event's context (R§3.9a "Context options"): minutes for last
+# week, the agenda summary, and one hub option per agenda card whose label
+# and result_text read that card's tokens (c<i>_pitcher, c<i>_label, ...).
+# Plain data, so Rewind and save/load restore exactly what was offered.
+static func meeting_context(week: int) -> Dictionary:
+	var meeting: Dictionary = GameData.BOARD_MEETING
+	var context := { "week": str(week), "minutes": minutes_line(week) }
+	var options: Array = []
+	var summaries: PackedStringArray = []
+	var cards := agenda(week)
+	for i in cards.size():
+		var card: Dictionary = cards[i]
+		var tokens := card_tokens(card)
+		var prefix := "c%d_" % i
+		for key in tokens:
+			context[prefix + key] = tokens[key]
+		summaries.append(String(meeting["agendaCard"]).format(tokens))
+		options.append({
+			"id": card["id"],
+			"label": _prefixed(meeting["optionLabel"], prefix),
+			"effects": [{ "op": "board_choose", "card": card["id"] }],
+			"result_text": _prefixed(meeting["chosenText"], prefix),
+			"goto": "aob",
+		})
+	context["agenda"] = options
+	context["agendaText"] = meeting["agendaEmpty"] if summaries.is_empty() else String(meeting["agendaSeparator"]).join(summaries)
+	return context
+
+
+# A card's display tokens: pitcher, label, pitch, why (templates), tiers
+# (each tier's threshold numbers) and reward (the per-tier previews).
+static func card_tokens(card: Dictionary) -> Dictionary:
+	var meeting: Dictionary = GameData.BOARD_MEETING
+	var template: Dictionary = GameData.BOARD_TEMPLATES.get(card["template"], {})
+	var numbers := {}
+	for tier in Objectives.TIER_ORDER:
+		var parts: PackedStringArray = []
+		for value in (card["goal"]["tiers"][tier] as Dictionary).values():
+			parts.append(_number(value))
+		numbers[tier] = "/".join(parts)
+	return {
+		"pitcher": GameData.BOARD_VOICES[card["voice"]]["name"],
+		"label": card_label(card),
+		"pitch": str(template.get("pitch", "")),
+		"why": str(template.get("why", "")),
+		"tiers": String(meeting["tierFormat"]).format(numbers),
+		"reward": String(meeting["rewardFormat"]).format(card["preview"]),
+	}
+
+
+# Minutes for the week before `week`: its history entry's pitcher, label and
+# result, or meeting.minutesNone with no goal judged that week.
+static func minutes_line(week: int) -> String:
+	var meeting: Dictionary = GameData.BOARD_MEETING
+	var history: Array = _board()["history"]
+	if history.is_empty() or int(history.back()["week"]) != week - 1:
+		return meeting["minutesNone"]
+	var entry: Dictionary = history.back()
+	var line := String(meeting["minutesFormat"]).format({
+		"pitcher": GameData.BOARD_VOICES[entry["voice"]]["name"],
+		"label": card_label(entry),
+		"result": meeting["resultNames"][entry["result"]],
+	})
+	if entry["skip"]:
+		line += String(meeting["minutesSkip"])
+	return line
+
+
+static func _prefixed(text: String, prefix: String) -> String:
+	return text.replace("{", "{" + prefix)
+
+
+static func _number(value: Variant) -> String:
+	var number := float(value)
+	return str(int(number)) if is_equal_approx(number, roundf(number)) else str(number)

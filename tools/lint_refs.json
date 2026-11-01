@@ -60,6 +60,22 @@
 			"choiceCards": {},
 			"observations": {}
 		},
+		"board_meeting": {
+			"choiceCards": {
+				"agenda": [
+					"skip"
+				]
+			},
+			"observations": {}
+		},
+		"board_meeting_week1": {
+			"choiceCards": {
+				"agenda": [
+					"skip"
+				]
+			},
+			"observations": {}
+		},
 		"busker_greenwich": {
 			"choiceCards": {
 				"c3": [
@@ -1614,6 +1630,7 @@
 		"boardMeetings.firstMeetingDay",
 		"boardMeetings.history",
 		"boardMeetings.lastCompeting",
+		"boardMeetings.pendingWeek",
 		"boardMeetings.rungs",
 		"boardMeetings.spine",
 		"boardMeetings.voiceWeights",

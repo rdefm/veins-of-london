@@ -196,6 +196,7 @@ static func daily_tick() -> void:
 	ContactTexts.daily_tick()                    # ⑧g3 after ⑥'s payroll/payday so the working check is today's
 	RecipeKnowledge.maybe_queue_introductions()  # ⑧g4 Wren's message the day after james_experiment
 	BusinessQuest.maybe_trigger_closing()      # ⑧h after ⑥.4b's payday record
+	BoardMeetings.monday_rollover()            # ⑧i Monday: judge the board goal after ⑥.4 renewals and ⑥.4b payday, then open the week's meeting
 	MorningAccountsSystem.finish_rollover(morning_context)
 	EventBus.day_ticked.emit(GameState.state["world"]["day"])
 	SaveManager.autosave()               # R§6: autosave on every daily tick

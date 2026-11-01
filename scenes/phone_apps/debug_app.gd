@@ -99,7 +99,7 @@ func _build_board_card() -> Control:
 		if not board["agenda"].is_empty():
 			c["content"].add_child(UI.button("Skip (Archie picks)", func(): status.text = str(DebugTools.board_skip().get("reason", ""))))
 	c["content"].add_child(UI.button("Judge now", func(): status.text = JSON.stringify(DebugTools.board_judge())))
-	c["content"].add_child(UI.button("Next week (judge + agenda)", func(): DebugTools.board_next_week()))
+	c["content"].add_child(UI.button("Jump to Monday meeting", func(): DebugTools.board_jump_to_meeting()))
 	if not board["history"].is_empty():
 		var last: Dictionary = board["history"][board["history"].size() - 1]
 		c["content"].add_child(UI.muted_label("Last: week %d %s → %s" % [last["week"], last["rung"], last["result"]]))

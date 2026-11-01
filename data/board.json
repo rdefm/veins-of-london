@@ -31,7 +31,11 @@
     }
   },
   "templates": {
-    "fin_reserve": { "label": "Build a cash reserve" }
+    "fin_reserve": {
+      "label": "Build a cash reserve",
+      "pitch": "Put weeks of running costs aside, so one bad week costs nothing.",
+      "why": "The books show what a week costs now. The float should outlast it."
+    }
   },
   "todo": {
     "_comment": "ToDo Board section + Story row (systems/todo.gd). detail = reached + separator + progress; progress[goal type] fills {current} {target} {tier}. PROSE-REVIEW: all strings here are new copy.",
@@ -51,5 +55,22 @@
     "historyLength": 12,
     "competingCapWeeks": 5,
     "rewardItems": ["timePearl", "enhancementPowder"]
+  },
+  "meeting": {
+    "_comment": "Monday meeting (BoardMeetings.meeting_context()). Text is placeholder copy; PROSE-REVIEW: every string here is new.",
+    "enableFlag": "bizA1Complete",
+    "eventId": "board_meeting",
+    "week1EventId": "board_meeting_week1",
+    "minutesFormat": "Last week: {pitcher}'s goal, {label}. Result: {result}.",
+    "minutesSkip": " Archie picked it.",
+    "minutesNone": "No goal on the books last week.",
+    "resultNames": { "missed": "missed", "base": "base", "target": "target", "stretch": "stretch" },
+    "agendaCard": "{pitcher} — {label}\n\"{pitch}\"\nWhy now: {why}\n{tiers}\nPays: {reward}",
+    "tierFormat": "Base {base} · Target {target} · Stretch {stretch}",
+    "rewardFormat": "{base} / {target} / {stretch}",
+    "agendaSeparator": "\n\n",
+    "agendaEmpty": "Nobody has a pitch this week.",
+    "optionLabel": "{pitcher}: {label}",
+    "chosenText": "{pitcher} writes it on the whiteboard."
   }
 }

@@ -71,6 +71,37 @@ func _pearls() -> int:
 	return int(GameState.state["player"]["inventory"]["timePearl"].get("1", 0))
 
 
+func _relation(contact_id: String) -> int:
+	return int(GameState.state["contacts"][contact_id]["relation"])
+
+
+# Continues the live event until it awaits a pick or ends; capped.
+func _advance_to_choice() -> void:
+	for i in 10:
+		if GameState.state["event"] == null or Events.is_awaiting_choice():
+			return
+		Events.advance()
+
+
+# Continues the live event to its end; capped.
+func _finish_event() -> void:
+	for i in 10:
+		if GameState.state["event"] == null:
+			return
+		Events.advance()
+
+
+# Opens week 1 with the synthetic ladders and starts its meeting at the hub.
+func _meeting_at_hub() -> Dictionary:
+	_enabled_game()
+	GameState.state["boardMeetings"]["week"] = 0
+	var original := _install_ladders()
+	BoardMeetings.open_week()
+	assert_true(BoardMeetings.maybe_start_meeting(), "the pending meeting starts")
+	_advance_to_choice()
+	return original
+
+
 func run() -> void:
 	# ── data ─────────────────────────────────────────────────────────────
 
@@ -348,6 +379,123 @@ func run() -> void:
 		_enabled_game()
 		assert_eq(BoardMeetings.judge_week(), {})
 		assert_eq(GameState.state["boardMeetings"]["history"], [])
+	)
+
+	# ── meeting event + rollover ─────────────────────────────────────────
+
+	run_case("act_1_closing_enables_meetings_and_the_next_monday_is_week_1", func():
+		GameState.reset()
+		var monday := Calendar.monday_on_or_after(10)
+		GameState.state["world"]["day"] = monday - 3
+		TimeSystem.do_rest()
+		assert_true(not GameState.state["boardMeetings"]["enabled"], "no closing, no meetings")
+		GameState.state["flags"]["bizA1Complete"] = true
+		TimeSystem.do_rest()
+		var board: Dictionary = GameState.state["boardMeetings"]
+		assert_true(board["enabled"], "the closing flag enables meetings at rollover")
+		assert_eq(board["week"], 0, "no meeting off a Monday")
+		TimeSystem.do_rest()
+		assert_eq(int(GameState.state["world"]["day"]), monday)
+		assert_eq(board["week"], 1, "first Monday on or after the flag is Week 1")
+		assert_eq(board["firstMeetingDay"], monday)
+		assert_true(BoardMeetings.meeting_pending())
+		assert_true(BoardMeetings.maybe_start_meeting())
+		assert_eq(GameState.state["event"]["eventId"], "board_meeting_week1", "Week 1 is the scripted meeting")
+		assert_true(not BoardMeetings.meeting_pending(), "starting clears the pending meeting")
+	)
+
+	run_case("monday_rollover_judges_the_goal_after_payday_then_queues_the_meeting", func():
+		_enabled_game()
+		var monday := Calendar.monday_on_or_after(10)
+		GameState.state["world"]["day"] = monday - 1
+		_set_expenses(WEEKLY_EXPENSES)
+		Business.activate()
+		_choose_financial()
+		_set_float(350)
+		assert_eq(BoardMeetings.current_tier(), "target", "sanity: before payday the float covers 3.5 weeks")
+		var goal: Dictionary = GameState.deep_copy(GameState.state["boardMeetings"]["active"]["goal"])
+		var ledger_before: int = GameState.state["business"]["ledger"].size()
+		TimeSystem.do_rest()
+		assert_eq(GameState.state["business"]["ledger"].size(), ledger_before + 1, "payday ran")
+		var board: Dictionary = GameState.state["boardMeetings"]
+		var entry: Dictionary = board["history"].back()
+		var after := Objectives.tier_met(goal)
+		assert_eq(entry["result"], BoardMeetings.RESULT_MISSED if after == Objectives.TIER_NONE else after, "judged on the post-payday books")
+		assert_true(entry["result"] != "target", "payday's wage draw counted")
+		assert_eq(entry["week"], 1)
+		assert_eq(board["active"], null)
+		assert_eq(board["week"], 2)
+		assert_true(BoardMeetings.meeting_pending(), "the meeting is queued")
+		var block: int = GameState.state["world"]["timeBlock"]
+		assert_true(BoardMeetings.maybe_start_meeting())
+		assert_eq(GameState.state["event"]["eventId"], "board_meeting")
+		assert_true(String(Events.revealed_cards()[0]["text"]).contains("James's goal"), "minutes read last week's result")
+		_advance_to_choice()
+		Events.choose(Events.hub_exit_index())
+		_finish_event()
+		assert_eq(GameState.state["event"], null)
+		assert_eq(GameState.state["world"]["timeBlock"], block, "the meeting spends no time block")
+	)
+
+	run_case("a_live_event_holds_the_meeting_until_it_ends", func():
+		_enabled_game()
+		GameState.state["boardMeetings"]["pendingWeek"] = 2
+		GameState.state["event"] = { "eventId": "x" }
+		assert_true(not BoardMeetings.maybe_start_meeting(), "held while an event is live")
+		assert_true(BoardMeetings.meeting_pending())
+		GameState.state["event"] = null
+	)
+
+	run_case("agenda_hub_offers_the_three_cards_with_tokens_filled_and_a_skip_exit", func():
+		var rarity := _set_owen_rarity(1.0)
+		var original := _meeting_at_hub()
+		var agenda: Array = GameState.state["boardMeetings"]["agenda"]
+		var choices: Array = Events.current_card()["choices"]
+		assert_eq(agenda.size(), 3, "sanity: three voices pitch")
+		assert_eq(choices.size(), agenda.size() + 1, "one option per agenda card + exit")
+		assert_eq(Events.hub_exit_index(), agenda.size(), "skip exit last")
+		for i in agenda.size():
+			var name: String = GameData.BOARD_VOICES[agenda[i]["voice"]]["name"]
+			assert_eq(choices[i]["label"], "%s: %s" % [name, BoardMeetings.card_label(agenda[i])], "option %d label filled" % i)
+		var hub_text: String = Events.revealed_cards().back()["text"]
+		assert_true(not hub_text.contains("{"), "no unfilled tokens")
+		assert_true(hub_text.contains("Base 2 · Target 3 · Stretch 4"), "tier numbers")
+		assert_true(hub_text.contains("Pays: "), "reward preview line")
+		var pitcher: String = GameData.BOARD_VOICES[agenda[0]["voice"]]["contactId"]
+		var before := _relation(pitcher)
+		Events.choose(0)
+		var active: Dictionary = GameState.state["boardMeetings"]["active"]
+		assert_eq(active["cardId"], agenda[0]["id"], "picked card is the goal")
+		assert_true(not active["skip"])
+		assert_eq(_relation(pitcher), before + int(GameData.BOARD_VOICES[agenda[0]["voice"]]["warmth"]))
+		_finish_event()
+		assert_eq(GameState.state["event"], null, "the meeting runs to its end")
+		GameData.BOARD_LADDERS = original
+		_set_owen_rarity(rarity)
+		GameState.state["event"] = null
+	)
+
+	run_case("leaving_the_meeting_without_choosing_makes_archies_card_the_goal", func():
+		var original := _meeting_at_hub()
+		Events.choose(Events.hub_exit_index())
+		var active: Dictionary = GameState.state["boardMeetings"]["active"]
+		assert_eq(active["voice"], "archie")
+		assert_true(active["skip"])
+		_finish_event()
+		GameData.BOARD_LADDERS = original
+		GameState.state["event"] = null
+	)
+
+	run_case("debug_jump_starts_a_meeting_with_the_current_state", func():
+		GameState.reset()
+		var day: int = GameState.state["world"]["day"]
+		DebugTools.board_jump_to_meeting()
+		var board: Dictionary = GameState.state["boardMeetings"]
+		assert_true(board["enabled"])
+		assert_eq(board["week"], 1)
+		assert_eq(GameState.state["event"]["eventId"], "board_meeting_week1")
+		assert_eq(int(GameState.state["world"]["day"]), day, "the calendar doesn't move")
+		GameState.state["event"] = null
 	)
 
 	# ── state purity ─────────────────────────────────────────────────────

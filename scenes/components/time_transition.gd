@@ -72,7 +72,8 @@ func _process(delta: float) -> void:
 			active = false
 			visible = false
 			safe_elapsed = 0.0
-			if was_overnight:
+			# A Monday meeting plays first; its on_complete opens the accounts.
+			if was_overnight and not BoardMeetings.maybe_start_meeting():
 				MorningAccountsSystem.open_after_transition(completed_target["day"])
 			return
 	if pending.is_empty():

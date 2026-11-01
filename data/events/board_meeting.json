@@ -1,0 +1,26 @@
+{
+  "id": "board_meeting",
+  "fillFromContext": true,
+  "cards": [
+    { "key": "minutes", "type": "narration", "label": "Bermondsey - James's workshop", "speaker": null, "text": "Monday. Archie has the minutes on his phone. {minutes}" },
+    {
+      "key": "agenda", "type": "choice", "label": null, "speaker": null, "text": "Agenda, week {week}.\n\n{agendaText}",
+      "choicesFromContext": "agenda",
+      "choices": [
+        {
+          "id": "skip",
+          "label": "Leave it to Archie",
+          "exit": true,
+          "effects": [{ "op": "board_skip" }],
+          "result_text": "\"You weren't there, so you're doing mine.\"",
+          "goto": "aob"
+        }
+      ]
+    },
+    { "key": "aob", "type": "narration", "label": null, "speaker": null, "text": "Any other business. Owen raises a hand, thinks better of it, and lowers it." }
+  ],
+  "on_complete": [
+    { "op": "set_screen", "screen": "phone" },
+    { "op": "open_morning_accounts" }
+  ]
+}

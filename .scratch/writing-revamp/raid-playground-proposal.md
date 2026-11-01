@@ -249,18 +249,27 @@
                 "mods": []
               },
               "success": {
-                "result_text": "",
-                "effects": []
+                "result_text": "The camera is no longer recording. You head over to the vein.",
+                "effects": [],
+                "goto": {
+                  "branch": "vein_not_seen"
+                }
               },
               "fail": {
-                "result_text": null,
-                "effects": []
+                "result_text": "You didn't manage to break the camera. You did, however, manage to stumble into the camera's line of sight. No point in stealth now; speed is your best option.",
+                "effects": [],
+                "goto": {
+                  "branch": "vein_seen"
+                }
               }
             },
             {
               "id": "option3",
               "label": "Ignore the camera, just get to the vein",
-              "result_text": ""
+              "result_text": "",
+              "goto": {
+                "branch": "vein_seen"
+              }
             }
           ]
         }
@@ -272,7 +281,25 @@
         {
           "key": "c7",
           "type": "narration",
-          "text": "Player has option to harvest the vein, or claim it, as when a normal raid ends."
+          "text": "Player has option to harvest the vein, or claim it, as when a normal raid ends.",
+          "choices": [
+            {
+              "id": "option1",
+              "label": "Harvest the vein and leave",
+              "result_text": "",
+              "goto": {
+                "branch": "harvested_not_seen"
+              }
+            },
+            {
+              "id": "option2",
+              "label": "Claim the vein",
+              "result_text": "",
+              "goto": {
+                "branch": "claimed_vein_not_seen"
+              }
+            }
+          ]
         }
       ]
     },
@@ -310,7 +337,57 @@
         {
           "key": "c9",
           "type": "narration",
-          "text": "Player sees 2 guards turn up, and head in the player's direction. Player can fight or try to talk their way out of it. High observation roll means player spots them first and can escape unseen"
+          "text": "Player sees 2 guards turn up, and head in the player's direction. Player can fight or try to talk their way out of it. \nHigh observation roll means player spots them first and can escape unseen",
+          "observe": "harvested_seen",
+          "choices": [
+            {
+              "label": "Try to avoid them",
+              "id": "option1",
+              "check": {
+                "base": 0.25,
+                "mods": [
+                  {
+                    "observed": {
+                      "id": "harvested_seen",
+                      "ore": "physics",
+                      "atLeast": 2
+                    },
+                    "add": 0.5,
+                    "label": ""
+                  }
+                ]
+              },
+              "success": {
+                "result_text": "",
+                "effects": []
+              },
+              "fail": {
+                "result_text": null,
+                "effects": []
+              }
+            },
+            {
+              "id": "option2",
+              "label": "Get ready for a fight",
+              "result_text": ""
+            },
+            {
+              "label": "Try to talk your way out",
+              "id": "option3",
+              "check": {
+                "base": 0.25,
+                "mods": []
+              },
+              "success": {
+                "result_text": "You act like you're from the church and talk to them about Jesus. They don't have time for time for a God botherer, and walk off quickly to the vein. You're free to go.",
+                "effects": []
+              },
+              "fail": {
+                "result_text": "You act like you're from the church and talk to them about Jesus. They ask your name. From their expression, you assume they didn't believe you when you said \"Father McChurch\".",
+                "effects": []
+              }
+            }
+          ]
         }
       ]
     },
@@ -321,6 +398,26 @@
           "key": "c10",
           "type": "narration",
           "text": "Player sees 2 guards turn up, and head in the player's direction. Player knows if they avoid them, the guards will just reclaim the vein, so must confront them.\n\nOptions to fight them, or convince them to back off and that player owns the vein now."
+        }
+      ]
+    },
+    "claimed_vein_not_seen": {
+      "title": "claimed_vein_not_seen",
+      "cards": [
+        {
+          "key": "c11",
+          "type": "narration",
+          "text": "Player sees 2 guards turn up, just on patrol, unaware. Player knows if they avoid them, the guards will just reclaim the vein, so must confront them.\n\nOptions to fight them (you catch them unaware so get a free bonus action), or convince them to back off and that player owns the vein now."
+        }
+      ]
+    },
+    "harvested_not_seen": {
+      "title": "harvested_not_seen",
+      "cards": [
+        {
+          "key": "c12",
+          "type": "narration",
+          "text": "Player leaves, the stolen ore warm in their bag."
         }
       ]
     }
@@ -340,6 +437,23 @@
             }
           ],
           "miss": "Through the window you see chairs, some folded tables, a noticeboard. Nothing useful here."
+        }
+      }
+    },
+    "harvested_seen": {
+      "blocks": {
+        "physics": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "Two large men walking from the street to the vein. Their build, expressions, and speed tell you they're guards - but you've seen them first."
+            },
+            {
+              "base": 0.55,
+              "text": "Two large men walking from the street to the vein. Their build, expressions, and speed tell you they're guards."
+            }
+          ],
+          "miss": ""
         }
       }
     }
@@ -385,32 +499,92 @@
       9
     ],
     "b:church_approach": [
-      -43,
-      -407
+      522,
+      -220
     ],
     "b:playground_approach": [
-      -87,
-      502
+      583,
+      489
     ],
     "b:hall_approach": [
-      -71,
-      235
+      569,
+      147
     ],
     "b:vein_not_seen": [
-      1419,
-      -24
+      2213,
+      277
     ],
     "b:vein_seen": [
-      1420,
-      165
+      2213,
+      -157
     ],
     "b:harvested_seen": [
-      1849,
-      243
+      2600,
+      -258
     ],
     "b:claimed_vein_seen": [
-      1839,
-      332
+      2598,
+      -51
+    ],
+    "b:shrubbery": [
+      1788,
+      65
+    ],
+    "b:claimed_vein_not_seen": [
+      2537,
+      398
+    ],
+    "b:harvested_not_seen": [
+      2536,
+      156
+    ],
+    "c:c6": [
+      1910,
+      84
+    ],
+    "c:c4": [
+      578,
+      533
+    ],
+    "c:c3": [
+      570,
+      -45
+    ],
+    "c:c2": [
+      657,
+      224
+    ],
+    "c:c5": [
+      1151,
+      302
+    ],
+    "c:c7": [
+      2216,
+      261
+    ],
+    "c:c11": [
+      2551,
+      369
+    ],
+    "c:c12": [
+      2555,
+      163
+    ],
+    "c:c10": [
+      2630,
+      -16
+    ],
+    "c:c8": [
+      2227,
+      -150
+    ],
+    "c:c9": [
+      2637,
+      -267
+    ],
+    "end": [
+      3252,
+      155
     ]
   }
 }

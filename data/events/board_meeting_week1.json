@@ -1,0 +1,27 @@
+{
+  "id": "board_meeting_week1",
+  "fillFromContext": true,
+  "cards": [
+    { "key": "intro", "type": "narration", "label": "Bermondsey - James's workshop", "speaker": null, "text": "Monday. Archie has pushed two benches together and called it a boardroom. Owen has been given a chair again." },
+    { "key": "explain", "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Board meeting. Every Monday. Three pitches, you pick one, we see how it went next week. Nobody gets fired.\"" },
+    {
+      "key": "agenda", "type": "choice", "label": null, "speaker": null, "text": "Agenda, week {week}.\n\n{agendaText}",
+      "choicesFromContext": "agenda",
+      "choices": [
+        {
+          "id": "skip",
+          "label": "Leave it to Archie",
+          "exit": true,
+          "effects": [{ "op": "board_skip" }],
+          "result_text": "\"You weren't there, so you're doing mine.\"",
+          "goto": "aob"
+        }
+      ]
+    },
+    { "key": "aob", "type": "narration", "label": null, "speaker": null, "text": "Any other business. James asks that the benches be put back exactly where they were." }
+  ],
+  "on_complete": [
+    { "op": "set_screen", "screen": "phone" },
+    { "op": "open_morning_accounts" }
+  ]
+}

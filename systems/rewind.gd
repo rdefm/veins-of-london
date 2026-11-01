@@ -100,6 +100,8 @@ static func rewind_to_block_start(source: String = "") -> Dictionary:
 	Preferences.carry_forward(live["meta"])
 	pay(payment)
 	Notify.push("⟲ Time unspools. The moment resets. Only you remember.")
+	# Rewinding Monday's first block replays its meeting with the same agenda.
+	BoardMeetings.maybe_start_meeting()
 	EventBus.state_changed.emit()
 	return { "ok": true }
 

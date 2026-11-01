@@ -298,6 +298,8 @@ static func _continue() -> void:
 		BusinessQuest.maybe_trigger_production()
 		BusinessQuest.maybe_trigger_put_to_work()
 		BusinessQuest.maybe_trigger_owen_craft()
+		# A Monday meeting held back by an event live at rollover starts now.
+		BoardMeetings.maybe_start_meeting()
 		SaveManager.autosave()  # R§6: autosave on event completion
 	else:
 		var here: int = int(event_state["cardIndex"])
@@ -1640,6 +1642,14 @@ static func _apply_one(effect: Dictionary, context: Dictionary = {}) -> void:
 		# divergent card sequences that don't rejoin (a `goto` only jumps forward within one event).
 		"start_event":
 			start_event(effect["event"])
+		# R§3.15 "Meeting event": an agenda option takes its card; the hub exit lets Archie pick.
+		"board_choose":
+			BoardMeetings.choose(String(effect["card"]))
+		"board_skip":
+			BoardMeetings.skip()
+		# Opens the day's morning accounts in BizBrief if they haven't auto-opened yet.
+		"open_morning_accounts":
+			MorningAccounts.open_after_transition(int(GameState.state["world"]["day"]))
 		# Creates the site+vein+claim directly (see _scripted_seed() below) rather than
 		# spending calc through Sites.attempt_seed(), so this seed can't roll a failure.
 		"scripted_seed":

@@ -22,17 +22,13 @@ static func add_cash(amount: int) -> void:
 	EventBus.state_changed.emit()
 
 
-# Board meeting stand-in until the Monday meeting exists: enables board
-# meetings, judges any active goal, advances the week and builds its agenda.
-static func board_next_week() -> void:
-	var board: Dictionary = GameState.state["boardMeetings"]
-	board["enabled"] = true
-	if board["firstMeetingDay"] == 0:
-		board["firstMeetingDay"] = GameState.state["world"]["day"]
-	BoardMeetings.judge_week()
-	board["week"] += 1
-	BoardMeetings.agenda(board["week"])
-	EventBus.state_changed.emit()
+# Jumps straight to a Monday meeting with the current state: enables board
+# meetings, opens the next week (judging any active goal) and starts its
+# meeting event, without moving the calendar.
+static func board_jump_to_meeting() -> void:
+	GameState.state["boardMeetings"]["enabled"] = true
+	BoardMeetings.open_week()
+	BoardMeetings.maybe_start_meeting()
 
 
 static func board_choose(card_id: String) -> Dictionary:
@@ -108,6 +104,8 @@ static func prepare_event(event_id: String) -> Dictionary:
 			break
 	if context.is_empty() and "reveal_site" in ops:
 		context = { "site_id": Sites.spawn_unclaimed_site(SPAWN_DISTRICT, SPAWN_TIER, SPAWN_ORE)["id"] }
+	if event_id in [GameData.BOARD_MEETING["eventId"], GameData.BOARD_MEETING["week1EventId"]]:
+		context = BoardMeetings.meeting_context(int(GameState.state["boardMeetings"]["week"]))
 	EventBus.state_changed.emit()
 	return context
 

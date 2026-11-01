@@ -359,6 +359,7 @@ var BOARD_LADDERS: Dictionary = {}
 var BOARD_TEMPLATES: Dictionary = {}
 var BOARD_TUNING: Dictionary = {}
 var BOARD_TODO: Dictionary = {}
+var BOARD_MEETING: Dictionary = {}
 
 var loaded := false
 var _load_errors: Array[String] = []
@@ -581,6 +582,7 @@ const MANIFEST: Array[Dictionary] = [
 		{"field": "BOARD_TEMPLATES", "key": "templates", "type": TYPE_DICTIONARY},
 		{"field": "BOARD_TUNING", "key": "tuning", "type": TYPE_DICTIONARY},
 		{"field": "BOARD_TODO", "key": "todo", "type": TYPE_DICTIONARY},
+		{"field": "BOARD_MEETING", "key": "meeting", "type": TYPE_DICTIONARY},
 	]},
 	{"table": "collective_barks", "file": "res://data/collective_barks.json", "fields": [
 		{"field": "COLLECTIVE_BARKS", "key": "", "type": TYPE_DICTIONARY},
@@ -2247,6 +2249,10 @@ const VALID_EFFECT_OPS: Array[String] = [
 	# Chains straight into a second event, so a branch's own on_complete
 	# can reach cards a sibling branch must never see.
 	"start_event",
+	# Board meeting (R§3.15): board_choose {card} takes an agenda card,
+	# board_skip lets Archie pick; open_morning_accounts opens the day's
+	# accounts in BizBrief if they haven't auto-opened.
+	"board_choose", "board_skip", "open_morning_accounts",
 	# resolve_home_raid: the home raid's win/loss consequence and debrief, no fight.
 	"resolve_home_raid",
 	# scripted_seed creates a site + claimed vein at seedGrowth + map
