@@ -324,6 +324,8 @@ static func _lint_condition(where: String, c: Dictionary, refs: Dictionary) -> A
 		if not s is Dictionary or not (GameData.RAID_SECURITY["featureNames"] as Dictionary).has(s.get("feature", "")):
 			return ["%s: unknown security feature %s" % [where, JSON.stringify(s)]]
 		return []
+	if c.has("activeEffect"):
+		return [] if ActiveEffects.usable_items().has(str(c["activeEffect"])) else ["%s: unknown activeEffect %s" % [where, str(c["activeEffect"])]]
 	if c.has("wardTriggered"):
 		return [] if c["wardTriggered"] is bool else ["%s: wardTriggered must be a bool" % where]
 	if c.has("reinforcements"):

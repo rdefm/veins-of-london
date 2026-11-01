@@ -10,7 +10,7 @@
       "cards": [
         {
           "key": "c1",
-          "type": "narration",
+          "type": "choice",
           "text": "The old church has an adjacent hall, and a small nursery and playground. The vein is in a tiny garden courtyard between all 3 sites.\nObservations are focused around the general area. Image file assets in C:\\Users\\Richard\\projects\\veins-of-london\\.scratch\\playground_raid",
           "choices": [
             {
@@ -19,7 +19,9 @@
               "result_text": "",
               "goto": {
                 "branch": "church_approach"
-              }
+              },
+              "effects": [],
+              "reselectable": true
             },
             {
               "id": "option2",
@@ -27,7 +29,9 @@
               "result_text": "",
               "goto": {
                 "branch": "hall_approach"
-              }
+              },
+              "effects": [],
+              "reselectable": true
             },
             {
               "id": "option3",
@@ -35,9 +39,13 @@
               "result_text": "",
               "goto": {
                 "branch": "playground_approach"
-              }
+              },
+              "effects": [],
+              "reselectable": true
             }
-          ]
+          ],
+          "label": null,
+          "speaker": null
         }
       ]
     },
@@ -46,8 +54,8 @@
       "cards": [
         {
           "key": "c3",
-          "type": "narration",
-          "text": "Inside the church is quiet and cold. There's a light scent of incense in the air. You see a caretaker sorting some prayer books.\n\n - Speak to the caretaker\nAdvantage if life insight 1\n - Try to find a door to the vein\nAdvantage with life insight 2, physics insight 2, time insight 2.\nLeads to trying to open the door.\n\n\nNo guards, but caretaker (Roger) is cleaning and may spot/challenge player if they try to go from church to playground. Player can find a way through to the vein via a backdoor. Observation gives hints as to which door (chance to see a floorplan which helps, dirt/mud on ground beside the right door that leads outside).\nPlayer can try to force door (blast or otherwise), or convince caretaker to let them outside (if so, he comments on the Shrubbery and tells you not to mess with it, he's been working on it for years).",
+          "type": "choice",
+          "text": "Inside the church is quiet and cold. There's a light scent of incense in the air. You see a caretaker sorting some prayer books.",
           "observe": "church",
           "choices": [
             {
@@ -56,7 +64,8 @@
               "result_text": "",
               "goto": {
                 "branch": "church_caretaker"
-              }
+              },
+              "effects": []
             },
             {
               "label": "Try to find a door to the vein",
@@ -66,7 +75,7 @@
                 "mods": [
                   {
                     "observed": {
-                      "id": "",
+                      "id": "church",
                       "ore": "physics",
                       "atLeast": 2
                     },
@@ -75,7 +84,7 @@
                   },
                   {
                     "observed": {
-                      "id": "",
+                      "id": "church",
                       "ore": "life",
                       "atLeast": 2
                     },
@@ -84,7 +93,7 @@
                   },
                   {
                     "observed": {
-                      "id": "",
+                      "id": "church",
                       "ore": "time",
                       "atLeast": 2
                     },
@@ -93,7 +102,7 @@
                   },
                   {
                     "observed": {
-                      "id": "",
+                      "id": "church",
                       "ore": "physics",
                       "atLeast": 1
                     },
@@ -123,9 +132,12 @@
               "result_text": "",
               "goto": {
                 "branch": "main"
-              }
+              },
+              "effects": []
             }
-          ]
+          ],
+          "label": null,
+          "speaker": null
         }
       ]
     },
@@ -134,7 +146,7 @@
       "cards": [
         {
           "key": "c2",
-          "type": "narration",
+          "type": "choice",
           "text": "Door lock has a code; prophets breath lets player figure it out otherwise low % chance. Observation; through the window can see a noticeboard with the code on it.\nImage: C:\\Users\\Richard\\projects\\veins-of-london\\.scratch\\playground_raid\\hall_approach.png (needs editing to match game visual style)",
           "choices": [
             {
@@ -152,8 +164,14 @@
                     },
                     "add": 0.5,
                     "label": ""
+                  },
+                  {
+                    "activeEffect": "prophetsBreath",
+                    "add": 1,
+                    "label": "Prophet's Breath"
                   }
-                ]
+                ],
+                "max": 1
               },
               "success": {
                 "result_text": "",
@@ -172,21 +190,74 @@
               "id": "option2",
               "check": {
                 "base": 0.5,
-                "mods": []
+                "mods": [
+                  {
+                    "path": "player.bodySkill",
+                    "perPoint": 0.1,
+                    "label": "Body"
+                  }
+                ]
               },
               "success": {
                 "result_text": "",
-                "effects": [],
+                "effects": [
+                  {
+                    "op": "chance",
+                    "p": 0.5,
+                    "on_success": [
+                      {
+                        "op": "alert",
+                        "add": 1
+                      }
+                    ],
+                    "on_fail": []
+                  }
+                ],
                 "goto": {
                   "branch": "hall_inside"
                 }
               },
               "fail": {
                 "result_text": "This door won't budge, and now your shoulder hurts. Back to square 1.",
-                "effects": [],
+                "effects": [
+                  {
+                    "op": "add",
+                    "path": "player.hp",
+                    "value": -3
+                  }
+                ],
                 "goto": {
                   "branch": "main"
                 }
+              }
+            },
+            {
+              "id": "option4",
+              "label": "Blast the door open",
+              "requires": {
+                "item": "blast",
+                "optional": true,
+                "display": "disable"
+              },
+              "items": [
+                {
+                  "item": "blast",
+                  "optional": true,
+                  "label": "Blast",
+                  "effect": {
+                    "kind": "unlock"
+                  }
+                }
+              ],
+              "effects": [
+                {
+                  "op": "alert",
+                  "add": 1
+                }
+              ],
+              "result_text": "",
+              "goto": {
+                "branch": "hall_inside"
               }
             },
             {
@@ -215,10 +286,14 @@
                 },
                 "display": "disable",
                 "reason": "You don't know the code"
-              }
+              },
+              "effects": [],
+              "result_text": null
             }
           ],
-          "observe": "hall_approach"
+          "observe": "hall_approach",
+          "label": null,
+          "speaker": null
         }
       ]
     },
@@ -227,7 +302,7 @@
       "cards": [
         {
           "key": "c4",
-          "type": "narration",
+          "type": "choice",
           "text": "There is a tall wooden fence in front of the nursery playground. The gate is locked and barred from the other side.",
           "choices": [
             {
@@ -236,18 +311,40 @@
               "effects": [],
               "result_text": "",
               "requires": {
-                "item": ""
+                "item": "blast",
+                "optional": true,
+                "display": "disable"
               },
               "goto": {
                 "branch": "shrubbery"
-              }
+              },
+              "items": [
+                {
+                  "item": "blast",
+                  "optional": true,
+                  "label": "Blast",
+                  "effect": {
+                    "kind": "unlock"
+                  }
+                }
+              ]
             },
             {
               "label": "Jump the fence",
               "id": "option2",
               "check": {
                 "base": 0.5,
-                "mods": []
+                "mods": [
+                  {
+                    "item": "enhancementPowder",
+                    "optional": true,
+                    "label": "Enhancement Powder",
+                    "effect": {
+                      "kind": "bonus",
+                      "add": 0.4
+                    }
+                  }
+                ]
               },
               "success": {
                 "result_text": "You get a run up and grab the top of the fence, then pull yourself over to the other side.",
@@ -267,10 +364,13 @@
               "result_text": "",
               "goto": {
                 "branch": "main"
-              }
+              },
+              "effects": []
             }
           ],
-          "observe": null
+          "observe": null,
+          "label": null,
+          "speaker": null
         }
       ]
     },
@@ -279,7 +379,7 @@
       "cards": [
         {
           "key": "c5",
-          "type": "narration",
+          "type": "choice",
           "text": "Once inside hall, can see shrubbery with vein underneath.\n\nCan try to get window open to sneak through, or break window.\nVery low observation roll tells player which door leads there from church; option to go via the church and find your way through.\n\nShrubbery description: Monty Python reference.\n",
           "choices": [
             {
@@ -288,7 +388,8 @@
               "result_text": "",
               "goto": {
                 "branch": "shrubbery"
-              }
+              },
+              "effects": []
             },
             {
               "id": "option2",
@@ -296,7 +397,8 @@
               "result_text": "",
               "goto": {
                 "branch": "shrubbery"
-              }
+              },
+              "effects": []
             },
             {
               "id": "option3",
@@ -304,9 +406,12 @@
               "result_text": "",
               "goto": {
                 "branch": "main"
-              }
+              },
+              "effects": []
             }
-          ]
+          ],
+          "label": null,
+          "speaker": null
         }
       ]
     },
@@ -315,7 +420,7 @@
       "cards": [
         {
           "key": "c6",
-          "type": "narration",
+          "type": "choice",
           "text": "Player is at the vein. There's a camera that can be noticed. If it's triggered, silent alarm triggers, guards come in 2 turns.\n\nCamera can be observed with physics roll. Options to deal with it:\n - Hope it's broken (low roll, but very high if Be A Lady is present)\n - Trace the wires, realise its controlled from a room in the church, go back to the church to disable the camera\n - Just go anyway (alarm triggers, and guards arrive before player can harvest the vein.\n - Destroy the camera (normal roll, can also use blast for guaranteed success). Silent alarm  they triggers, player has 2 turns until they arrive. When leaving the vein they fight the player, if player can't talk their way past them. If player claims vein, encounter is different where they either fight, or tell guards that player now owns this vein and the guards back down.\n\n",
           "choices": [
             {
@@ -323,7 +428,13 @@
               "id": "option1",
               "check": {
                 "base": 0.05,
-                "mods": []
+                "mods": [
+                  {
+                    "activeEffect": "beALady",
+                    "add": 0.9,
+                    "label": "Be a Lady"
+                  }
+                ]
               },
               "success": {
                 "result_text": "",
@@ -334,7 +445,12 @@
               },
               "fail": {
                 "result_text": null,
-                "effects": [],
+                "effects": [
+                  {
+                    "op": "alert",
+                    "atLeast": 2
+                  }
+                ],
                 "goto": {
                   "branch": "vein_seen"
                 }
@@ -356,7 +472,12 @@
               },
               "fail": {
                 "result_text": "You didn't manage to break the camera. You did, however, manage to stumble into the camera's line of sight. No point in stealth now; speed is your best option.",
-                "effects": [],
+                "effects": [
+                  {
+                    "op": "alert",
+                    "atLeast": 2
+                  }
+                ],
                 "goto": {
                   "branch": "vein_seen"
                 }
@@ -368,9 +489,17 @@
               "result_text": "",
               "goto": {
                 "branch": "vein_seen"
-              }
+              },
+              "effects": [
+                {
+                  "op": "alert",
+                  "atLeast": 2
+                }
+              ]
             }
-          ]
+          ],
+          "label": null,
+          "speaker": null
         }
       ]
     },
@@ -379,7 +508,7 @@
       "cards": [
         {
           "key": "c7",
-          "type": "narration",
+          "type": "choice",
           "text": "Player has option to harvest the vein, or claim it, as when a normal raid ends.",
           "choices": [
             {
@@ -388,7 +517,12 @@
               "result_text": "",
               "goto": {
                 "branch": "harvested_not_seen"
-              }
+              },
+              "effects": [
+                {
+                  "op": "loot_raid_vein"
+                }
+              ]
             },
             {
               "id": "option2",
@@ -396,9 +530,16 @@
               "result_text": "",
               "goto": {
                 "branch": "claimed_vein_not_seen"
-              }
+              },
+              "effects": [
+                {
+                  "op": "claim_raid_vein"
+                }
+              ]
             }
-          ]
+          ],
+          "label": null,
+          "speaker": null
         }
       ]
     },
@@ -407,7 +548,7 @@
       "cards": [
         {
           "key": "c8",
-          "type": "narration",
+          "type": "choice",
           "text": "Player has option to harvest the vein, or claim it, as when a normal raid ends.",
           "choices": [
             {
@@ -416,7 +557,12 @@
               "result_text": "",
               "goto": {
                 "branch": "harvested_seen"
-              }
+              },
+              "effects": [
+                {
+                  "op": "loot_raid_vein"
+                }
+              ]
             },
             {
               "id": "option2",
@@ -424,9 +570,16 @@
               "result_text": "",
               "goto": {
                 "branch": "claimed_vein_seen"
-              }
+              },
+              "effects": [
+                {
+                  "op": "claim_raid_vein"
+                }
+              ]
             }
-          ]
+          ],
+          "label": null,
+          "speaker": null
         }
       ]
     },
@@ -435,7 +588,7 @@
       "cards": [
         {
           "key": "c9",
-          "type": "narration",
+          "type": "choice",
           "text": "Player sees 2 guards turn up, and head in the player's direction. Player can fight or try to talk their way out of it. \nHigh observation roll means player spots them first and can escape unseen",
           "observe": "harvested_seen",
           "choices": [
@@ -462,7 +615,10 @@
               },
               "fail": {
                 "result_text": null,
-                "effects": []
+                "effects": [],
+                "goto": {
+                  "branch": "fight_prep"
+                }
               }
             },
             {
@@ -471,7 +627,8 @@
               "result_text": "",
               "goto": {
                 "branch": "fight_prep"
-              }
+              },
+              "effects": []
             },
             {
               "label": "Try to talk your way out",
@@ -486,10 +643,15 @@
               },
               "fail": {
                 "result_text": "You act like you're from the church and talk to them about Jesus. They ask your name. From their expression, you assume they didn't believe you when you said \"Father McChurch\".",
-                "effects": []
+                "effects": [],
+                "goto": {
+                  "branch": "fight_prep"
+                }
               }
             }
-          ]
+          ],
+          "label": null,
+          "speaker": null
         }
       ]
     },
@@ -498,7 +660,7 @@
       "cards": [
         {
           "key": "c10",
-          "type": "narration",
+          "type": "choice",
           "text": "Player sees 2 guards turn up, and head in the player's direction. Player knows if they avoid them, the guards will just reclaim the vein, so must confront them.\n\nOptions to fight them, or convince them to back off and that player owns the vein now.\n - Fighting: high observation in Life tells you they are glancing around, unsure if you're the threat (or if you've got back up). High observation in emotion shows they're nervous, amped up, and jumpy.\nIf you strike quickly you'll get a head start. Starting a fight with either of these observations means player gets a free bonus action at the start of the fight.\n - Talk them down; either of the observations above gives an advantage. Successful text is player saying they can see the guys are nervous; they can walk away without any fighting. Tell their bosses that this vein belongs to someone else now. Failed roll has player saying the wrong thing and guards lash out, starting the fight.\n - Try to avoid them: same observations give advantage as player knows to not move or make sudden movements, and look like you belong. Examines a bush; guards walk past, player leaves.\n\n",
           "choices": [
             {
@@ -509,7 +671,7 @@
                 "mods": [
                   {
                     "observed": {
-                      "id": "",
+                      "id": "harvested_seen",
                       "ore": "physics",
                       "atLeast": 2
                     },
@@ -518,7 +680,7 @@
                   },
                   {
                     "observed": {
-                      "id": "",
+                      "id": "harvested_seen",
                       "ore": "emotion",
                       "atLeast": 2
                     },
@@ -527,7 +689,7 @@
                   },
                   {
                     "observed": {
-                      "id": "",
+                      "id": "harvested_seen",
                       "ore": "life",
                       "atLeast": 2
                     },
@@ -554,7 +716,8 @@
               "result_text": "",
               "goto": {
                 "branch": "fight_prep"
-              }
+              },
+              "effects": []
             },
             {
               "label": "Try to talk your way out",
@@ -564,7 +727,7 @@
                 "mods": [
                   {
                     "observed": {
-                      "id": "",
+                      "id": "harvested_seen",
                       "ore": "physics",
                       "atLeast": 2
                     },
@@ -573,7 +736,7 @@
                   },
                   {
                     "observed": {
-                      "id": "",
+                      "id": "harvested_seen",
                       "ore": "emotion",
                       "atLeast": 2
                     },
@@ -582,7 +745,7 @@
                   },
                   {
                     "observed": {
-                      "id": "",
+                      "id": "harvested_seen",
                       "ore": "life",
                       "atLeast": 2
                     },
@@ -603,7 +766,10 @@
                 }
               }
             }
-          ]
+          ],
+          "observe": "harvested_seen",
+          "label": null,
+          "speaker": null
         }
       ]
     },
@@ -613,11 +779,13 @@
         {
           "key": "c11",
           "type": "narration",
-          "text": "You see 2 men walking through the church grounds. Heavyset, attention focused on people, hiding posts, and entry points - guards on patrol, not actively expecting trouble."
+          "text": "You see 2 men walking through the church grounds. Heavyset, attention focused on people, hiding posts, and entry points - guards on patrol, not actively expecting trouble.",
+          "label": null,
+          "speaker": null
         },
         {
           "key": "c14",
-          "type": "narration",
+          "type": "choice",
           "text": "If you leave now, they'll just reclaim the vein. You need to send a clear message that this belongs to you now.\n\nOptions to fight them (you catch them unaware so get a free bonus action), or convince them to back off and that player owns the vein now.",
           "choices": [
             {
@@ -626,7 +794,14 @@
               "result_text": "",
               "goto": {
                 "branch": "fight_prep"
-              }
+              },
+              "effects": [
+                {
+                  "op": "set_flag",
+                  "flag": "playgroundAmbush",
+                  "value": true
+                }
+              ]
             },
             {
               "label": "Tell them the vein belongs to you now",
@@ -636,16 +811,16 @@
                 "mods": [
                   {
                     "observed": {
-                      "id": "",
+                      "id": "claimed_vein_not_seen",
                       "ore": "physics",
-                      "atLeast": 22
+                      "atLeast": 2
                     },
                     "add": 0.4,
                     "label": ""
                   },
                   {
                     "observed": {
-                      "id": "",
+                      "id": "claimed_vein_not_seen",
                       "ore": "physics",
                       "atLeast": 1
                     },
@@ -654,16 +829,7 @@
                   },
                   {
                     "observed": {
-                      "id": "",
-                      "ore": "physics",
-                      "atLeast": 1
-                    },
-                    "add": 0.2,
-                    "label": ""
-                  },
-                  {
-                    "observed": {
-                      "id": "",
+                      "id": "claimed_vein_not_seen",
                       "ore": "life",
                       "atLeast": 1
                     },
@@ -685,7 +851,9 @@
               }
             }
           ],
-          "observe": "claimed_vein_not_seen"
+          "observe": "claimed_vein_not_seen",
+          "label": null,
+          "speaker": null
         }
       ]
     },
@@ -695,7 +863,9 @@
         {
           "key": "c12",
           "type": "narration",
-          "text": "You leave the church grounds, the stolen ore warm in the bag under your arm."
+          "text": "You leave the church grounds, the stolen ore warm in the bag under your arm.",
+          "label": null,
+          "speaker": null
         }
       ]
     },
@@ -704,8 +874,23 @@
       "cards": [
         {
           "key": "c13",
-          "type": "narration",
-          "text": "You have moments before the fighting begins. If you have any last minute items you want to use before thing's kick off, now's the time."
+          "type": "choice",
+          "text": "You have moments before the fighting begins. If you have any last minute items you want to use before thing's kick off, now's the time.",
+          "choices": [
+            {
+              "id": "option1",
+              "label": "Start the fight",
+              "result_text": "",
+              "effects": [
+                {
+                  "op": "start_raid_combat",
+                  "preset": "veinGuards"
+                }
+              ]
+            }
+          ],
+          "label": null,
+          "speaker": null
         }
       ]
     },
@@ -714,7 +899,7 @@
       "cards": [
         {
           "key": "c15",
-          "type": "narration",
+          "type": "choice",
           "text": "You can feel the vein just beyond this locked door. Now you just have to find a way to open it.",
           "choices": [
             {
@@ -733,29 +918,42 @@
               },
               "fail": {
                 "result_text": "Your shoulder hurts, and the door is still there, smugly silent. It might be your wounded pride, wounded shoulder, or imagination, but you'd swear the door is mocking you.",
-                "effects": []
+                "effects": [
+                  {
+                    "op": "add",
+                    "path": "player.hp",
+                    "value": -3
+                  }
+                ]
               }
             },
             {
               "label": "Blast the door open",
               "id": "option2",
-              "check": {
-                "base": 1,
-                "mods": []
-              },
-              "success": {
-                "result_text": "To door swings on its hinges and slams loudly against the wall. It wasn't subtle, but it got the job done.",
-                "effects": [],
-                "goto": {
-                  "branch": "shrubbery"
-                }
-              },
-              "fail": {
-                "result_text": null,
-                "effects": []
-              },
               "requires": {
-                "item": ""
+                "item": "blast",
+                "optional": true,
+                "display": "disable"
+              },
+              "items": [
+                {
+                  "item": "blast",
+                  "optional": true,
+                  "label": "Blast",
+                  "effect": {
+                    "kind": "unlock"
+                  }
+                }
+              ],
+              "effects": [
+                {
+                  "op": "alert",
+                  "add": 1
+                }
+              ],
+              "result_text": "To door swings on its hinges and slams loudly against the wall. It wasn't subtle, but it got the job done.",
+              "goto": {
+                "branch": "shrubbery"
               }
             },
             {
@@ -764,9 +962,13 @@
               "result_text": "",
               "goto": {
                 "branch": "church_caretaker"
-              }
+              },
+              "effects": []
             }
-          ]
+          ],
+          "observe": null,
+          "label": null,
+          "speaker": null
         }
       ]
     },
@@ -795,7 +997,12 @@
               },
               "fail": {
                 "result_text": "You say you're from the church society to view the southern wall. He eyes you suspiciously. \"Hm. It's this way. Let me call the management company on the way.\"",
-                "effects": [],
+                "effects": [
+                  {
+                    "op": "alert",
+                    "add": 1
+                  }
+                ],
                 "goto": {
                   "branch": "church_caretaker_to_shrubbery"
                 }
@@ -807,9 +1014,12 @@
               "result_text": "",
               "goto": {
                 "branch": "main"
-              }
+              },
+              "effects": []
             }
-          ]
+          ],
+          "observe": null,
+          "label": null
         }
       ]
     },
@@ -820,7 +1030,8 @@
           "key": "c17",
           "type": "speaker",
           "text": "\"The south wall faces a lovely small garden, just next to the nursery playground,\" Roger says. \"Please don't touch the shrubbery; it requires a lot of caretaking.\"",
-          "speaker": "Roger"
+          "speaker": "Roger",
+          "label": null
         }
       ],
       "then": {
@@ -967,7 +1178,7 @@
     {
       "id": "m1",
       "kind": "claude",
-      "status": "open",
+      "status": "resolved",
       "text": "Roll to force the door. Success more likely as Player's Body skill level is higher. I also want an option here to use a Blast item. A high success opens the door without being noticed. A medium success opens the door but raises alarm level. Low success does some damage to the player (-3 HP) and door doens't open. Using blast always raises alarm level",
       "anchor": {
         "card": "c2",
@@ -978,7 +1189,7 @@
     {
       "id": "m2",
       "kind": "claude",
-      "status": "open",
+      "status": "resolved",
       "text": "If a player uses Prophet's Breath, I want them to be able to figure out the door code, guaranteed",
       "anchor": {
         "card": "c2",
@@ -989,7 +1200,7 @@
     {
       "id": "m3",
       "kind": "claude",
-      "status": "open",
+      "status": "resolved",
       "text": "If player has Be A Lady activated, success chance for \"Hope the camera is broken\" should increase to 0.95",
       "anchor": {
         "card": "c6",
@@ -1000,7 +1211,7 @@
     {
       "id": "m4",
       "kind": "claude",
-      "status": "open",
+      "status": "resolved",
       "text": "option 1 from card c14: player should get a free bonus round when the fight starts",
       "anchor": {
         "card": "c14",
@@ -1011,7 +1222,7 @@
     {
       "id": "m5",
       "kind": "claude",
-      "status": "open",
+      "status": "resolved",
       "text": "Option 2 on curch_vein_door; player must have Blast. This option consumes 1 blast and raises the alarm level",
       "anchor": {
         "card": "c15",
@@ -1022,7 +1233,7 @@
     {
       "id": "m6",
       "kind": "claude",
-      "status": "open",
+      "status": "resolved",
       "text": "Failure for church_vein_door option 1 should reduce player's hp by 3",
       "anchor": {
         "card": "c15",
@@ -1033,7 +1244,7 @@
     {
       "id": "m7",
       "kind": "claude",
-      "status": "open",
+      "status": "resolved",
       "text": "Failure here should raise alarm level",
       "anchor": {
         "card": "c16",
@@ -1044,7 +1255,7 @@
     {
       "id": "m8",
       "kind": "claude",
-      "status": "open",
+      "status": "resolved",
       "text": "Enhancement powder should add 40% chance to success",
       "anchor": {
         "card": "c4",
@@ -1055,7 +1266,7 @@
     {
       "id": "m9",
       "kind": "claude",
-      "status": "open",
+      "status": "resolved",
       "text": "Requires Player consumes a Blast",
       "anchor": {
         "card": "c4",
@@ -1189,6 +1400,48 @@
       897,
       143
     ]
-  }
+  },
+  "reinforceClock": 2,
+  "repeatable": true,
+  "fightPresets": {
+    "veinGuards": {
+      "guards": "vein",
+      "template": "veinGuard",
+      "situational": [
+        {
+          "if": {
+            "flag": "playgroundAmbush"
+          },
+          "firstStrike": true
+        },
+        {
+          "if": {
+            "observed": {
+              "id": "harvested_seen",
+              "ore": "life",
+              "atLeast": 2
+            }
+          },
+          "firstStrike": true
+        },
+        {
+          "if": {
+            "observed": {
+              "id": "harvested_seen",
+              "ore": "emotion",
+              "atLeast": 2
+            }
+          },
+          "firstStrike": true
+        }
+      ]
+    }
+  },
+  "on_complete": [
+    {
+      "op": "set_screen",
+      "screen": "map"
+    }
+  ]
 }
 ```

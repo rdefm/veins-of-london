@@ -659,7 +659,8 @@ static func _mod_delta(mod: Dictionary, toggled: Array = []) -> float:
 # card (key), option}} remembered, {path, atLeast}, {relation, atLeast},
 # {cash: {atLeast}}, {recipeRung: {recipe, rung}} owned (vague or exact),
 # {observed: {id, ore, atLeast}} read this run (R§3.9d), {alert: {atLeast?,
-# atMost?}} the live event's alert level, {security: {feature, atLeast?,
+# atMost?}} the live event's alert level, {activeEffect: itemId} a running
+# timed item effect (ActiveEffects), {security: {feature, atLeast?,
 # atMost?, is?}} the live raid's security profile, {all: [conditions]} every
 # part holds. Unknown shapes never hold.
 static func condition_met(condition: Dictionary, toggled: Array = []) -> bool:
@@ -700,6 +701,8 @@ static func condition_met(condition: Dictionary, toggled: Array = []) -> bool:
 		return level >= int(a.get("atLeast", 0)) and level <= int(a.get("atMost", level))
 	if condition.has("security"):
 		return _security_met(condition["security"])
+	if condition.has("activeEffect"):
+		return ActiveEffects.is_active(str(condition["activeEffect"]))
 	if condition.has("wardTriggered"):
 		return ward_triggered_here() == bool(condition["wardTriggered"])
 	if condition.has("reinforcements"):

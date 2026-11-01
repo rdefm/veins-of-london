@@ -870,6 +870,94 @@
 				}
 			}
 		},
+		"raid_playground": {
+			"choiceCards": {
+				"c1": [
+					"option1",
+					"option2",
+					"option3"
+				],
+				"c10": [
+					"option1",
+					"option2",
+					"option3"
+				],
+				"c13": [
+					"option1"
+				],
+				"c14": [
+					"option1",
+					"option2"
+				],
+				"c15": [
+					"option1",
+					"option2",
+					"option3"
+				],
+				"c16": [
+					"option1",
+					"option2"
+				],
+				"c2": [
+					"option1",
+					"option2",
+					"option4",
+					"option3"
+				],
+				"c3": [
+					"option1",
+					"option2",
+					"option3"
+				],
+				"c4": [
+					"option1",
+					"option2",
+					"option3"
+				],
+				"c5": [
+					"option1",
+					"option2",
+					"option3"
+				],
+				"c6": [
+					"option1",
+					"option2",
+					"option3"
+				],
+				"c7": [
+					"option1",
+					"option2"
+				],
+				"c8": [
+					"option1",
+					"option2"
+				],
+				"c9": [
+					"option1",
+					"option2",
+					"option3"
+				]
+			},
+			"observations": {
+				"church": {
+					"life": 2,
+					"physics": 2,
+					"time": 2
+				},
+				"claimed_vein_not_seen": {
+					"life": 2,
+					"physics": 2
+				},
+				"hall_approach": {
+					"physics": 2
+				},
+				"harvested_seen": {
+					"emotion": 2,
+					"life": 2,
+					"physics": 2
+				}
+			}
+		},
 		"raid_shop": {
 			"choiceCards": {
 				"post": [
@@ -1547,6 +1635,7 @@
 		"networkHandlerUnlocked",
 		"networkShopUnlocked",
 		"oddities",
+		"playgroundAmbush",
 		"prologueDone",
 		"prologueEndingQueued",
 		"prologueNudgePending",

@@ -215,6 +215,12 @@ test("promote refuses a hub with no exit option, naming the card", () => {
   assert.throws(() => promoteDraft(d), /main · h: hub has no exit option/);
 });
 
+test("promote accepts a hub with no exit flag when an option's path can end the event", () => {
+  const d = hubDraft();
+  d.branches.main.cards[0].choices[2] = { id: "x", label: "Leave", goto: { branch: "out" } };
+  assert.doesNotThrow(() => promoteDraft(d));
+});
+
 test("promote refuses a hub whose exit option loops back", () => {
   const d = hubDraft();
   d.branches.main.cards[0].choices[2].goto = { branch: "ans", card: "a1" };

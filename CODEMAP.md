@@ -339,6 +339,8 @@ The Prologue chain (`cold_open_legacy` is the retired pre-observation intro, unr
 
 `raid_shop.json` is the Shop vein raid (off-licence, Tesco Metro and bookies veins): a ~53-card stage tree (customer, yard-door and cellar-flap routes, talk-only witness windows, guard windows, search, back-room guard-post, till camera, ward on the cellar stairs, vein-room, claim/loot, getaway cards) on route flags `sAt_*`, with a 2-card reinforcement clock. Prose is placeholder. Tests: `tests/test_raid_shop.gd`.
 
+`raid_playground.json` is the Playground vein raid (church, hall and nursery approaches round a courtyard vein): 17 cards, church/hall/playground hub, camera, harvest/claim guard confrontations, 2-card reinforcement clock. Promoted from `.scratch/writing-revamp/raid-playground-proposal.md`; not yet in `veinRaidEvents` (debug-fired). Tests: `tests/test_raid_playground.gd`.
+
 `data/events/_to_be_coded/col_hakim_intel_*.json` holds five unregistered Hakim intel
 prose variants generated with the quest editor builder. Implementation briefs are in
 `data/events/_to_be_coded/drafts/*.notes.md`; these drafts are not loaded by the game.

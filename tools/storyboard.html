@@ -2616,7 +2616,23 @@ function checkOddsBlock(opt, changed, restructure) {
     // which the hub can't be reached again; otherwise every option loops or is spent and play is stuck.
     for (const hub of new Set([...back].map((e) => e.split(">")[1]))) {
       const p = reach.get(hub), card = branchCards(draft, p.branch)[p.idx];
-      if (!(card.choices || []).some((o) => o.exit === true)) throw new Error(`${p.branch} · ${hub}: hub has no exit option (flag one option as the advance option)`);
+      if (!(card.choices || []).some((o) => o.exit === true)) {
+        // No advance option: fine while some option's path can still end the event (the runtime keeps the last
+        // forward option visible); refused when every path loops back to the hub.
+        const seenEnd = new Set(), todo = [hub];
+        let canEnd = false;
+        while (todo.length && !canEnd) {
+          const k = todo.pop();
+          if (seenEnd.has(k)) continue;
+          seenEnd.add(k);
+          const here = reach.get(k), at = branchCards(draft, here.branch)[here.idx];
+          const falls = !(at.choices || []).length || at.choices.some((o) => optionOutcomes(o).some((x) => !x.goto));
+          canEnd = falls && !!continuation(here).end;
+          successors(draft, reach.get(k), returns).forEach((s) => todo.push(keyAt(s)));
+        }
+        if (!canEnd) throw new Error(`${p.branch} · ${hub}: hub has no exit option (flag one option as the advance option)`);
+        continue;
+      }
       const exits = (card.choices || []).some((o) => optionOutcomes(o).some((x) => {
         const to = x.goto ? { to: resolveTarget(draft, x.goto) } : continuation(p);
         if (to.end) return true;
