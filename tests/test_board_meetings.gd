@@ -670,7 +670,11 @@ func run() -> void:
 						assert_true(str(card["speaker"]) != "" and not str(card["speaker"]).contains("{"), "speaker filled")
 				# opener + (case + response) per goal, plus the clash pair when it fires.
 				assert_true(speakers >= 1 + 2 * count, "%d goals: %d spoken cards" % [count, speakers])
-				var clashed := cards.any(func(c): return str(c["text"]).contains("clash placeholder"))
+				var clash_lines: Array = []
+				for exchanges in GameData.BOARD_MEETING["debate"]["clash"].values():
+					for exchange in exchanges:
+						clash_lines.append_array(exchange)
+				var clashed := cards.any(func(c): return clash_lines.has(str(c["text"])))
 				assert_eq(clashed, chance == 1.0 and count >= 2, "%d goals, clash chance %s" % [count, str(chance)])
 				assert_eq(Events.current_card()["choices"].size(), count + 1, "options + skip")
 				Events.choose(Events.hub_exit_index())

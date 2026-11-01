@@ -1090,7 +1090,7 @@
     "optionLabel": "{pitcher}: {label}",
     "chosenText": "{pitcher} writes it on the whiteboard.",
     "debate": {
-      "_comment": "Debate scene (BoardMeetings.meeting_context()). Every line below is PLACEHOLDER copy; PROSE-REVIEW: real prose is tickets 32-35. response[responder][pitcher][stance]: stances present are the ones the responder can take (Owen only wobbles); tokens {label}, {ore}. rebuttal plays only after a challenge. clashOrder = voice pairs by how opposed their levers are; clash[pair] = list of 2-line exchanges [first voice, second voice]. chosen/concede tokens {label}.",
+      "_comment": "Debate scene (BoardMeetings.meeting_context()). PROSE-REVIEW: all copy is real prose (ticket 32). response[responder][pitcher][stance]: stances present are the ones the responder can take (Owen only wobbles); tokens {label}, {ore}. rebuttal plays only after a challenge, so it answers either challenger. clashOrder = voice pairs by how opposed their levers are; clash[pair] = list of 2-line exchanges [first voice, second voice]. chosen/concede tokens {label}.",
       "clashChance": 0.5,
       "clashOrder": [
         "james|archie",
@@ -1099,111 +1099,149 @@
       ],
       "opener": {
         "james": [
-          "James opener placeholder, line one.",
-          "James opener placeholder, line two."
+          "The firm needs to be better than it is. That's the whole agenda, whatever the rest of you call it.",
+          "I'll be plain. We'll be judged on the work, and the work isn't good enough yet.",
+          "Whatever we choose this week, it should leave us ahead of the Guild's standard, not behind it."
         ],
         "archie": [
-          "Archie opener placeholder, line one.",
-          "Archie opener placeholder, line two."
+          "Right. What we need is money in the bank, so a bad week stops being a crisis.",
+          "Simple question: what gets us more cash and less worry? That's what I'm after.",
+          "Rent doesn't care how good our calc is. I want us comfortable first, then we can be proud."
         ],
         "owen": [
-          "Owen opener placeholder, line one.",
-          "Owen opener placeholder, line two."
+          "Um. Sorry. I think the business needs the veins to keep giving, and I can't see a good week without that.",
+          "I don't want to say the wrong thing. I think we need more coming out of the veins, and the rest follows.",
+          "Sorry, can I start? I think we should be sure of what we've got first. The veins, I mean."
         ]
       },
       "response": {
         "james": {
           "archie": {
             "back": [
-              "James backs Archie on {label}."
+              "Money buys us a better bench. I'll give you that, Archie.",
+              "A firm afraid of its bills makes rushed work. You're right about the cash.",
+              "Fine. If it stops us worrying about the rent, I can work in peace. I'll back it."
             ],
             "challenge": [
-              "James challenges Archie on {label}."
+              "Selling more doesn't make it good. You're counting pounds, I'm counting quality.",
+              "Cash isn't standing, Archie. Buyers who only want the cheap one leave when someone is cheaper.",
+              "You keep saying safe. A safe firm that makes forgettable work is just closing slowly."
             ]
           },
           "owen": {
             "back": [
-              "James backs Owen on {label}."
+              "More from the veins means more on the bench. Sensible, Owen.",
+              "Yes. I can't craft what we haven't got. Carry on.",
+              "That, at least, I can find no fault with."
             ],
             "challenge": [
-              "James challenges Owen on {label}."
+              "More of the same ore doesn't improve it, Owen. Yield without craft is a bigger pile.",
+              "Quantity is the easy part, Owen. What would we do with it?",
+              "That's what you always propose. Why is this week different?"
             ]
           }
         },
         "archie": {
           "james": {
             "back": [
-              "Archie backs James on {label}."
+              "Better work means we can ask more for it. I like that, James.",
+              "If it's good enough, buyers pay more. Fair enough.",
+              "Go on, then, make it better. Just make sure someone's buying it."
             ],
             "challenge": [
-              "Archie challenges James on {label}."
+              "Lovely work, James. Does it sell? Rent's due either way.",
+              "Being proud of it doesn't pay the bills. Who's buying?",
+              "It's the Guild this and the Guild that every week. I'm trying to pay for things, not win an argument."
             ]
           },
           "owen": {
             "back": [
-              "Archie backs Owen on {label}."
+              "More from the veins is more to sell. Good call, Owen.",
+              "Can't argue with that. More stock, more sales, and nobody has to worry.",
+              "You picked a good one, Owen. I'll back it."
             ],
             "challenge": [
-              "Archie challenges Owen on {label}."
+              "More stock's no use if it sits there, Owen. Who's selling it?",
+              "Yeah, but more of what? If nobody wants it, it's just more to store.",
+              "I like it, Owen, but I want the plan to include the part where it turns into money."
             ]
           }
         },
         "owen": {
           "james": {
             "wobble": [
-              "Owen wobbles over {label}. Could the veins come into it?"
+              "Sorry, James, that sounds right. Could the veins come into it somehow?",
+              "I'm not sure I know enough to say. Would it need more from the veins, do you think?",
+              "That sounds sensible, I think. Though the veins would have to supply it. Sorry."
             ]
           },
           "archie": {
             "wobble": [
-              "Owen wobbles over {label}. Could the veins come into it?"
+              "Sorry, Archie, that makes sense. Could the veins come into it somehow?",
+              "I'm not sure I can judge the money. Would it need more from the veins, do you think?",
+              "That sounds sensible, I think. The veins would have to bring in the stock, though. Sorry."
             ]
           }
         }
       },
       "rebuttal": {
         "james": [
-          "James rebuts, line one.",
-          "James rebuts, line two."
+          "Buyers pay more for good work, and they come back for it. That's all I'm asking us to be.",
+          "I'll grant it takes longer. It also lasts longer, and so does our name.",
+          "You may be right about the timing. I'm still right about the work."
         ],
         "archie": [
-          "Archie rebuts, line one.",
-          "Archie rebuts, line two."
+          "Fine, but cash is what lets us fix everything else. Bills first, then the nice stuff.",
+          "I hear you. But the bank doesn't take pride, it takes pounds.",
+          "Fair point, and I'll watch that. But money's still what keeps the lights on."
         ],
         "owen": [
-          "Owen rebuts, line one.",
-          "Owen rebuts, line two."
+          "Sorry, I know. But it all starts with the veins. If they give more, everything else has more to work with.",
+          "You're right, I didn't think about that. I still think it's worth doing, though. If that's all right.",
+          "I just think it's the safe bit. We know the veins. We don't have to guess."
         ]
       },
       "clash": {
         "james|archie": [
           [
-            "James clash placeholder 1a.",
-            "Archie clash placeholder 1b."
+            "You'd sell anything someone would pay for, Archie.",
+            "Anything decent, and nobody's complained yet. Pride's lovely, James, but I can't pay the rent with it."
           ],
           [
-            "James clash placeholder 2a.",
-            "Archie clash placeholder 2b."
+            "The Guild wouldn't put its name on a rushed job for the sake of cash.",
+            "The Guild has money behind it. We don't, so I'd like some of that first."
+          ],
+          [
+            "You think every problem is a shortage of money.",
+            "Name one that's easier with less of it."
           ]
         ],
         "archie|owen": [
           [
-            "Archie clash placeholder 1a.",
-            "Owen clash placeholder 1b."
+            "Owen, more yield is great, but the extra's only worth something if we sell it.",
+            "Yes, sorry, you're right. I just thought that with more of it, selling would be easier."
           ],
           [
-            "Archie clash placeholder 2a.",
-            "Owen clash placeholder 2b."
+            "You pitch the same thing every time, Owen. Veins, veins, veins.",
+            "I know. Sorry. It's what I understand, and I'd rather be right about a small thing than wrong about a big one."
+          ],
+          [
+            "Do you ever want to try a bigger number, Owen?",
+            "Sometimes. Then I think about what happens if I'm wrong, and I'd rather not find out."
           ]
         ],
         "james|owen": [
           [
-            "James clash placeholder 1a.",
-            "Owen clash placeholder 1b."
+            "Owen, you can't keep proposing more as if more were an answer.",
+            "Sorry, James. It's just that I can see more, and I'm not sure I can see better."
           ],
           [
-            "James clash placeholder 2a.",
-            "Owen clash placeholder 2b."
+            "Tell me you'd at least like the work to be good.",
+            "I would! I'd just like to be sure there's something to make it from first."
+          ],
+          [
+            "You know the veins better than any of us. Why do you apologise for it?",
+            "Habit, I think. Sorry. Sorry about saying sorry."
           ]
         ]
       },
@@ -1216,24 +1254,36 @@
       },
       "chosen": {
         "james": [
-          "James is pleased: {label}, then."
+          "{label}. Good. Now we do it properly.",
+          "{label}, then. I'll hold us to the standard.",
+          "Sensible choice. {label}, and no corners cut."
         ],
         "archie": [
-          "Archie is pleased: {label}, then."
+          "{label}. Lovely. That'll help the books.",
+          "Good. {label}. I'll start on it today.",
+          "{label}, then. Nice and simple, how I like it."
         ],
         "owen": [
-          "Owen is pleased: {label}, then."
+          "Oh. {label}? Thank you. I'll do my best.",
+          "Really? {label}. Right. I'll get it right, I promise.",
+          "{label}, then. Thanks. Sorry, I mean, thank you."
         ]
       },
       "concede": {
         "james": [
-          "James concedes, for now."
+          "Very well. Do it properly, though.",
+          "Not what I'd have picked. I'll live.",
+          "Acceptable. Don't mistake that for enthusiasm."
         ],
         "archie": [
-          "Archie concedes, for now."
+          "Fair enough. Your call. I'll sort the money side.",
+          "Not my pick, but fine. We'll see what it brings in.",
+          "Go on, then. I'll find a way to make it pay."
         ],
         "owen": [
-          "Owen concedes, for now."
+          "Oh, good. I mean, whatever you think is best.",
+          "That's all right. I wasn't sure about mine anyway.",
+          "Sorry, I'll help however I can."
         ]
       }
     }
