@@ -710,9 +710,69 @@
     "enableFlag": "bizA1Complete",
     "eventId": "board_meeting",
     "week1EventId": "board_meeting_week1",
-    "minutesFormat": "Last week: {pitcher}'s goal, {label}. Result: {result}.",
-    "minutesSkip": " Archie picked it.",
     "minutesNone": "No goal on the books last week.",
+    "minutes": {
+      "_comment": "Minutes reaction (BoardMeetings.minutes_line()). groups maps a history result to a reaction group; variant = entry week mod list size. Tokens: {label}, {tier}. skipped = the goal Archie picked for you (tuning.skipVoice). PROSE-REVIEW: all new copy.",
+      "groups": { "missed": "missed", "base": "base", "target": "full", "stretch": "full" },
+      "reactions": {
+        "archie": {
+          "full": [
+            "Archie reads it off his phone. \"{label}, {tier}. Don't make that face. It's a good number.\"",
+            "Archie holds the phone up like a receipt. \"{label}, {tier}. Somebody frame that.\""
+          ],
+          "base": [
+            "\"{label}. Base.\" Archie nods slowly. \"A pass. Barely. I'm putting 'barely' in the minutes.\"",
+            "\"{label}, base only.\" Archie taps the screen. \"Door's open and you walked through it. Politely.\""
+          ],
+          "missed": [
+            "\"{label}, missed.\" Archie pockets the phone. \"Next week, then.\"",
+            "\"{label} didn't land.\" He says it like a cancelled bus. \"There's another one in seven days.\""
+          ]
+        },
+        "james": {
+          "full": [
+            "James leans over Archie's phone. \"{label}, {tier}. Competent.\" He straightens. \"Minute that word, Archie. Exactly that word.\"",
+            "James reads the line, then reads it again. \"{label}, {tier}. Archie has spelled 'reached' with two e's. I have corrected it. The result stands.\""
+          ],
+          "base": [
+            "James takes his glasses off to read it. \"{label}, base. Technically a pass. The minutes will say so. My opinion I will record separately.\"",
+            "\"{label}, base only.\" James frowns at the screen. \"Archie wrote 'solid'. I'd have written 'adequate'. We will settle on 'base'.\""
+          ],
+          "missed": [
+            "\"{label}, missed.\" James folds his arms. \"It was a reasonable number. Next week it can be a reasonable number again.\"",
+            "James squints at the phone. \"'Not reached', Archie, not 'failed'. They are different words and I will defend the difference. {label}, not reached.\""
+          ]
+        },
+        "owen": {
+          "full": [
+            "Owen leans in, finger under the line. \"{label}, {tier}. That's good, yeah? That's the good one?\"",
+            "Owen reads it twice to be sure. \"{label}, {tier}. I'd like that noted. Not by me. By someone.\""
+          ],
+          "base": [
+            "\"{label}, base.\" Owen nods like it's a bonus. \"That's a pass. Passes count. I'm counting it.\"",
+            "Owen reads the line. \"Base on {label}. It's the one before the good ones. I'm choosing to see it as the start of the good ones.\""
+          ],
+          "missed": [
+            "Owen winces on your behalf. \"{label}, missed. It's one week. I missed a whole year of dentist.\"",
+            "Owen holds the phone like it's warm. \"{label}, missed. Next week, then. I'll bring biscuits.\""
+          ]
+        }
+      },
+      "skipped": {
+        "full": [
+          "\"{label}, {tier}.\" Archie reads it out with great calm. \"My pick, that was. I'll take the credit. You weren't using it.\"",
+          "\"I picked {label}. We hit {tier}.\" Archie puts the phone down. \"I'm only saying it the once.\""
+        ],
+        "base": [
+          "\"{label}, base. Mine, so I'm calling it a solid pass.\" He looks at you. \"You'd have said the same.\"",
+          "\"I picked {label} and it made base.\" Archie considers this. \"Next time pick your own and I'll complain about that instead.\""
+        ],
+        "missed": [
+          "\"Mine, {label}. Missed.\" Archie doesn't dress it up. \"Next week, then. Pick something yourself.\"",
+          "\"I picked {label} and it didn't land.\" He says it flat, no excuse. \"Happens. Put the kettle on.\""
+        ]
+      }
+    },
     "resultNames": {
       "missed": "missed",
       "base": "base",

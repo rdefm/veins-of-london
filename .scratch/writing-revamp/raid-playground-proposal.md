@@ -53,12 +53,69 @@
             {
               "id": "option1",
               "label": "Speak to the caretaker",
-              "result_text": ""
+              "result_text": "",
+              "goto": {
+                "branch": "church_caretaker"
+              }
             },
             {
-              "id": "option2",
               "label": "Try to find a door to the vein",
-              "result_text": ""
+              "id": "option2",
+              "check": {
+                "base": 0.35,
+                "mods": [
+                  {
+                    "observed": {
+                      "id": "",
+                      "ore": "physics",
+                      "atLeast": 2
+                    },
+                    "add": 0.5,
+                    "label": ""
+                  },
+                  {
+                    "observed": {
+                      "id": "",
+                      "ore": "life",
+                      "atLeast": 2
+                    },
+                    "add": 0.5,
+                    "label": ""
+                  },
+                  {
+                    "observed": {
+                      "id": "",
+                      "ore": "time",
+                      "atLeast": 2
+                    },
+                    "add": 0.5,
+                    "label": ""
+                  },
+                  {
+                    "observed": {
+                      "id": "",
+                      "ore": "physics",
+                      "atLeast": 1
+                    },
+                    "add": 0.35,
+                    "label": ""
+                  }
+                ]
+              },
+              "success": {
+                "result_text": "",
+                "effects": [],
+                "goto": {
+                  "branch": "church_vein_door"
+                }
+              },
+              "fail": {
+                "result_text": "You wander around the church, trying not to draw attention. After walking around longer than you'd care to admit, you are about to admit defeat when the caretaker approaches you.",
+                "effects": [],
+                "goto": {
+                  "branch": "church_caretaker"
+                }
+              }
             }
           ]
         }
@@ -622,6 +679,78 @@
           "text": "You have moments before the fighting begins. If you have any last minute items you want to use before thing's kick off, now's the time."
         }
       ]
+    },
+    "church_vein_door": {
+      "title": "church_vein_door",
+      "cards": [
+        {
+          "key": "c15",
+          "type": "narration",
+          "text": "You can feel the vein just beyond this locked door. Now you just have to find a way to open it.",
+          "choices": [
+            {
+              "label": "Force the door open",
+              "id": "option1",
+              "check": {
+                "base": 0.5,
+                "mods": []
+              },
+              "success": {
+                "result_text": "The door shudders open as you bash it. You grab the handle before it bangs against the wall.",
+                "effects": [],
+                "goto": {
+                  "branch": "shrubbery"
+                }
+              },
+              "fail": {
+                "result_text": "Your shoulder hurts, and the door is still there, smugly silent. It might be your wounded pride, wounded shoulder, or imagination, but you'd swear the door is mocking you.",
+                "effects": []
+              }
+            },
+            {
+              "label": "Blast the door open",
+              "id": "option2",
+              "check": {
+                "base": 1,
+                "mods": []
+              },
+              "success": {
+                "result_text": "To door swings on its hinges and slams loudly against the wall. It wasn't subtle, but it got the job done.",
+                "effects": [],
+                "goto": {
+                  "branch": "shrubbery"
+                }
+              },
+              "fail": {
+                "result_text": null,
+                "effects": []
+              },
+              "requires": {
+                "item": ""
+              }
+            },
+            {
+              "id": "option3",
+              "label": "Ask the caretaker to open it",
+              "result_text": "",
+              "goto": {
+                "branch": "church_caretaker"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "church_caretaker": {
+      "title": "church_caretaker",
+      "cards": [
+        {
+          "key": "c16",
+          "type": "speaker",
+          "text": "\"Hello there,\" he says with a smile. \"I'm Roger Schrubber, the caretaker. Can I help you?\"",
+          "speaker": "Roger"
+        }
+      ]
     }
   },
   "observations": {
@@ -803,6 +932,28 @@
         "option": 0,
         "slot": "result"
       }
+    },
+    {
+      "id": "m5",
+      "kind": "claude",
+      "status": "open",
+      "text": "Option 2 on curch_vein_door; player must have Blast. This option consumes 1 blast and raises the alarm level",
+      "anchor": {
+        "card": "c15",
+        "option": 1,
+        "slot": "success"
+      }
+    },
+    {
+      "id": "m6",
+      "kind": "claude",
+      "status": "open",
+      "text": "Failure for church_vein_door option 1 should reduce player's hp by 3",
+      "anchor": {
+        "card": "c15",
+        "option": 0,
+        "slot": "fail"
+      }
     }
   ],
   "_layout": {
@@ -860,7 +1011,7 @@
     ],
     "c:c3": [
       570,
-      -45
+      -214
     ],
     "c:c2": [
       657,
@@ -905,6 +1056,18 @@
     "c:c14": [
       2815,
       369
+    ],
+    "b:church_caretaker": [
+      1098,
+      -343
+    ],
+    "b:church_vein_door": [
+      1114,
+      -109
+    ],
+    "c:c15": [
+      1106,
+      -86
     ]
   }
 }

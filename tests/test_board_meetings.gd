@@ -503,7 +503,7 @@ func run() -> void:
 		var block: int = GameState.state["world"]["timeBlock"]
 		assert_true(BoardMeetings.maybe_start_meeting())
 		assert_eq(GameState.state["event"]["eventId"], "board_meeting")
-		assert_true(String(Events.revealed_cards()[0]["text"]).contains("James's goal"), "minutes read last week's result")
+		assert_true(String(Events.revealed_cards()[0]["text"]).contains(BoardMeetings.card_label(entry)), "minutes read last week's result")
 		_advance_to_choice()
 		Events.choose(Events.hub_exit_index())
 		_finish_event()
@@ -794,4 +794,28 @@ func run() -> void:
 		var before := _relation("owen")
 		_pick_cultivation_card("cult_yield")
 		assert_eq(_relation("owen"), before + int(GameData.BOARD_VOICES["owen"]["warmth"]))
+	)
+
+	# ── minutes reactions ────────────────────────────────────────────────
+
+	run_case("minutes_have_two_variants_per_voice_and_result_group", func():
+		var minutes: Dictionary = GameData.BOARD_MEETING["minutes"]
+		for group in minutes["groups"].values():
+			assert_true((minutes["skipped"][group] as Array).size() >= 2, "skipped %s" % group)
+			for voice in GameData.BOARD_VOICES:
+				assert_true((minutes["reactions"][voice][group] as Array).size() >= 2, "%s %s" % [voice, group])
+	)
+
+	run_case("minutes_line_fills_tokens_and_picks_by_week", func():
+		_enabled_game()
+		var history: Array = GameState.state["boardMeetings"]["history"]
+		history.append({ "week": 1, "voice": "james", "ladder": "financial", "rung": "fin_reserve", "ore": "", "result": "missed", "reward": [], "skip": false })
+		var first := BoardMeetings.minutes_line(2)
+		assert_true(not first.contains("{"), "tokens filled")
+		assert_true(first.contains(BoardMeetings.card_label(history[0])))
+		history[0]["week"] = 2
+		assert_true(BoardMeetings.minutes_line(3) != first, "next week picks the other variant")
+		history[0]["skip"] = true
+		assert_true(not BoardMeetings.minutes_line(3).contains("James"))
+		assert_eq(BoardMeetings.minutes_line(9), GameData.BOARD_MEETING["minutesNone"])
 	)

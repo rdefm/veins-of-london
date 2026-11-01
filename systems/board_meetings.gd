@@ -538,22 +538,22 @@ static func card_tokens(card: Dictionary) -> Dictionary:
 	}
 
 
-# Minutes for the week before `week`: its history entry's pitcher, label and
-# result, or meeting.minutesNone with no goal judged that week.
+# Minutes for the week before `week`: a reaction from the pitcher (or Archie's
+# for a skipped meeting) to that history entry's result, or
+# meeting.minutesNone with no goal judged that week.
 static func minutes_line(week: int) -> String:
 	var meeting: Dictionary = GameData.BOARD_MEETING
 	var history: Array = _board()["history"]
 	if history.is_empty() or int(history.back()["week"]) != week - 1:
 		return meeting["minutesNone"]
 	var entry: Dictionary = history.back()
-	var line := String(meeting["minutesFormat"]).format({
-		"pitcher": GameData.BOARD_VOICES[entry["voice"]]["name"],
+	var minutes: Dictionary = meeting["minutes"]
+	var group: String = minutes["groups"][entry["result"]]
+	var variants: Array = minutes["skipped"][group] if entry["skip"] else minutes["reactions"][entry["voice"]][group]
+	return String(variants[int(entry["week"]) % variants.size()]).format({
 		"label": card_label(entry),
-		"result": meeting["resultNames"][entry["result"]],
+		"tier": meeting["resultNames"][entry["result"]],
 	})
-	if entry["skip"]:
-		line += String(meeting["minutesSkip"])
-	return line
 
 
 static func _prefixed(text: String, prefix: String) -> String:
