@@ -47,7 +47,20 @@
         {
           "key": "c3",
           "type": "narration",
-          "text": "No guards, but caretaker (Roger) is cleaning and may spot/challenge player if they try to go from church to playground. Player can find a way through to the vein via a backdoor. Observation gives hints as to which door (chance to see a floorplan which helps, dirt/mud on ground beside the right door that leads outside).\nPlayer can try to force door (blast or otherwise), or convince caretaker to let them outside (if so he comments on the Shrubbery and tells you not to mess with it, he's been working on it for years)."
+          "text": "Inside the church is quiet and cold. There's a light scent of incense in the air. You see a caretaker sorting some prayer books.\n\n - Speak to the caretaker\nAdvantage if life insight 1\n - Try to find a door to the vein\nAdvantage with life insight 2, physics insight 2, time insight 2.\nLeads to trying to open the door.\n\n\nNo guards, but caretaker (Roger) is cleaning and may spot/challenge player if they try to go from church to playground. Player can find a way through to the vein via a backdoor. Observation gives hints as to which door (chance to see a floorplan which helps, dirt/mud on ground beside the right door that leads outside).\nPlayer can try to force door (blast or otherwise), or convince caretaker to let them outside (if so, he comments on the Shrubbery and tells you not to mess with it, he's been working on it for years).",
+          "observe": "church",
+          "choices": [
+            {
+              "id": "option1",
+              "label": "Speak to the caretaker",
+              "result_text": ""
+            },
+            {
+              "id": "option2",
+              "label": "Try to find a door to the vein",
+              "result_text": ""
+            }
+          ]
         }
       ]
     },
@@ -699,6 +712,49 @@
             }
           ],
           "miss": "They're walking quickly. Powerwalking? In desperate need of the loo?"
+        }
+      }
+    },
+    "church": {
+      "blocks": {
+        "physics": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "You see a board with details for the fire escape route, including a map of the exits. It also shows where the door nearest to the vein is."
+            },
+            {
+              "base": 0.55,
+              "text": "There's a map near the main door showing fire exits. It also shows you where the door closest to the vein is."
+            }
+          ],
+          "miss": "Pews with uncomfortable wooden benches. Stone flooring worn smooth from however many footsteps. A vague scent of 'old'. You've seen dozens of churches like this."
+        },
+        "life": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "A door to the south leads to a corridor with another door, traces of mud and dirt in front of it. Seems to lead outside."
+            },
+            {
+              "base": 0.55,
+              "text": "There aren't many people. The place seems relatively clean despite its size; the caretaker takes his job seriously."
+            }
+          ],
+          "miss": "This place is a ghost town. Wait, if calc exists, could ghosts exist too? In this place, it doesn't seem so far fetched."
+        },
+        "time": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "The church walls look old but are 'only' Victorian. A plaque in the corner details that the original Saxon church was on the south side of the current building; maybe it's where the vein is."
+            },
+            {
+              "base": 0.55,
+              "text": "This building is recent (barely 100 years old), but this site has had a church since the Saxons."
+            }
+          ],
+          "miss": "The books the caretaker is sorting look as old as he does."
         }
       }
     }
