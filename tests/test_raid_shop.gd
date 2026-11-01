@@ -143,6 +143,36 @@ func run() -> void:
 		assert_eq(_key(), "s_room", "the yard door route never meets the till camera")
 	)
 
+	run_case("the_hinge_pins_result_shows_once_through_the_stockroom_to_the_cellar", func():
+		for guards in [0, 1]:
+			_start({ "guards": guards })
+			var restore := _force_checks(1.0)
+			_settle()
+			_pick(ROUND_BACK)
+			_pick("Other ways…")
+			_pick("Hope he's gone in")
+			RaidingTests._seed_read("physics", 2)
+			var shown: Array = []
+			Events.choose(_index("Slide the hinge pins out"))
+			for step in range(40):
+				if GameState.state["event"] == null or GameState.state["combat"]["active"] or _key() == "s_room":
+					break
+				shown.append(String(Events.revealed_cards().back()["text"]))
+				if _key() == "post" and Events.is_choosing():
+					Events.choose(_index("Bluff past"))
+				elif _key() == "s_back" and Events.is_choosing():
+					Events.choose(_index(RESTOCK))
+				elif _key() == "s_lock" and Events.is_choosing():
+					Events.choose(_index(UNLOCKED))
+				else:
+					Events.advance()
+			restore.call()
+			assert_eq(_key(), "s_room", "guards %d: reaches the vein room" % guards)
+			var pins := shown.filter(func(t: String) -> bool: return t.begins_with("The pins come out"))
+			assert_eq(pins.size(), 1, "guards %d: the pins result shows exactly once" % guards)
+			assert_true(shown.has(String(_card("s_lock")["text"])), "guards %d: the cellar door prompt shows on first arrival" % guards)
+	)
+
 	run_case("cellar_route_exists_only_on_rotten_flap_sites_and_skips_the_back_room", func():
 		_start({ "cellarFlap": false, "ward": true, "cameras": 1 })
 		_settle()

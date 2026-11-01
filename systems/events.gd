@@ -9,8 +9,8 @@ extends RefCounted
 # index or key, or a conditional list [{if, card}, ..., {card}]) or `end: true`
 # (R§3.9a "Goto"); an option/outcome goto takes precedence over both.
 # Events: {id, cards, on_complete:[effect]}. state.event holds runtime
-# progress: {eventId, cardIndex, snapshots, choiceResults, jumps, rolled, toggles,
-# choosing?}. `choosing` is true once Continue was tapped on an unresolved choice
+# progress: {eventId, cardIndex, path, snapshots, choiceResults, jumps, rolled,
+# toggles, choosing?}; path is the card indexes visited, in order (_arrive()). `choosing` is true once Continue was tapped on an unresolved choice
 # card's prompt, so the screen shows its option buttons instead of its text.
 #
 # Any card (including a choice's own "choices" entries) may carry an optional
@@ -40,7 +40,7 @@ static func start_event(event_id: String, context: Dictionary = {}) -> void:
 		return
 	_apply_timing(GameData.EVENTS[event_id].get("at", {}))
 	TimingLog.begin(TimingLog.KIND_EVENT, event_id)
-	GameState.state["event"] = { "eventId": event_id, "cardIndex": 0, "snapshots": [], "choiceResults": {}, "jumps": {}, "rolled": {}, "toggles": {}, "context": context, "alert": _clamp_alert(int(context.get("startAlert", 0))) }
+	GameState.state["event"] = { "eventId": event_id, "cardIndex": 0, "path": [0], "snapshots": [], "choiceResults": {}, "jumps": {}, "rolled": {}, "toggles": {}, "context": context, "alert": _clamp_alert(int(context.get("startAlert", 0))) }
 	Observation.restore_site_memory()
 	Nav.go_to("event")
 
@@ -282,24 +282,36 @@ static func _continue() -> void:
 					event_state["jumps"] = {}
 				event_state["jumps"][str(here)] = dest
 		_tick_reinforcement()
-		if dest >= 0 and dest <= here:
-			_reenter_hub(event_state, dest)
-		else:
-			event_state["cardIndex"] = _next_index(here)
+		_arrive(event_state, dest if dest >= 0 and dest <= here else _next_index(here))
 		EventBus.state_changed.emit()
 
 
-# Backward goto to choice card `hub`: drops the resolutions, jumps and toggles
-# of every card from the hub on, so the hub is unresolved and the revealed
-# list shows it once, as on first arrival.
-static func _reenter_hub(event_state: Dictionary, hub: int) -> void:
-	for key in ["choiceResults", "jumps", "toggles"]:
-		var table: Dictionary = event_state.get(key, {})
-		for entry in table.keys():
-			if int(String(entry).split("|")[0]) >= hub:
-				table.erase(entry)
-	event_state["cardIndex"] = hub
-	event_state["choosing"] = true  # the prompt was already read; land on the options
+# A scripted fight's exit picks the event up again at `card`.
+static func resume_at(card: int) -> void:
+	_arrive(GameState.state["event"], card)
+
+
+# Moves the runner to `card` and records it on state.event.path. A card
+# already on the path is a revisit (a hub loop, or a raid stage resumed):
+# the path is cut back to that card's last visit and the resolutions, jumps
+# and toggles of every card visited since are dropped, so the card is
+# unresolved and the revealed list shows it once, as on first arrival.
+static func _arrive(event_state: Dictionary, card: int) -> void:
+	var path: Array = _path(event_state)
+	var at: int = path.rfind(card)
+	if at >= 0:
+		var dropped: Array = path.slice(at)
+		for key in ["choiceResults", "jumps", "toggles"]:
+			var table: Dictionary = event_state.get(key, {})
+			for entry in table.keys():
+				if dropped.has(int(String(entry).split("|")[0])):
+					table.erase(entry)
+		path.resize(at + 1)
+		if _event_def()["cards"][card]["type"] == "choice":
+			event_state["choosing"] = true  # the prompt was already read; land on the options
+	else:
+		path.append(card)
+	event_state["cardIndex"] = card
 
 
 # A card's own `goto` as a plain target: an index as-is, or a conditional
@@ -359,8 +371,26 @@ static func _next_index(index: int) -> int:
 	return maxi(int(resolution.get("goto", jump)), index + 1)
 
 
-# The card indexes played so far, 0..cardIndex, skipping any a goto jumped past.
+# The card indexes played so far, in visit order, ending at cardIndex.
 static func _visited_indices() -> Array:
+	return _path(GameState.state["event"])
+
+
+# state.event.path; an event state without one (an older save) gets it
+# rebuilt from the forward walk first, and a cardIndex set without
+# _arrive() is appended.
+static func _path(event_state: Dictionary) -> Array:
+	if not event_state.has("path"):
+		event_state["path"] = _walked_indices()
+	var path: Array = event_state["path"]
+	var here: int = int(event_state["cardIndex"])
+	if path.is_empty() or int(path.back()) != here:
+		path.append(here)
+	return path
+
+
+# 0..cardIndex by index order, skipping any card a goto jumped past.
+static func _walked_indices() -> Array:
 	var visited: Array = []
 	var last: int = int(GameState.state["event"]["cardIndex"])
 	var i := 0

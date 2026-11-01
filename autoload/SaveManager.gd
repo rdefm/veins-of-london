@@ -1389,6 +1389,7 @@ func _restore_int_types(state: Dictionary) -> void:
 	if state.get("event") != null:
 		var event: Dictionary = state["event"]
 		_int_key(event, "cardIndex")
+		_int_array_values(event.get("path", []))
 		for snap in event.get("snapshots", []):
 			_restore_int_types(snap)
 

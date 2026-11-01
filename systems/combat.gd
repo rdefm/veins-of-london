@@ -1752,7 +1752,7 @@ static func _exit_event_mugging() -> Dictionary:
 static func _exit_scripted(resume_card: int) -> Dictionary:
 	var event_state: Variant = GameState.state.get("event")
 	if event_state is Dictionary:
-		event_state["cardIndex"] = resume_card
+		Events.resume_at(resume_card)
 	return _exit_event_mugging()
 
 
