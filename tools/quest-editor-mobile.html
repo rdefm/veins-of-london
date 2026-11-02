@@ -205,6 +205,18 @@ const CONDITION_KINDS = [
 // constants.json observation.oreOrder (R§3.9d).
 const OBSERVATION_ORES = ["physics", "life", "emotion", "time", "fate"];
 
+// Item-id control. The storyboard installs a catalogue-backed dropdown; unset, it is plain text.
+let mechItemControl = null;
+function mechItemField(obj, key, changed, tags) {
+  return mechItemControl ? mechItemControl(obj, key, changed, tags || []) : mechText(obj, key, changed, "");
+}
+
+// Tags an option's item pickers filter by: its check's, else its own (a no-roll option).
+function optionTags(opt) {
+  const t = opt && opt.check && typeof opt.check === "object" ? opt.check.tags : opt && opt.tags;
+  return Array.isArray(t) ? t : [];
+}
+
 // Empty prose fields are written as null, matching the convention every
 // hand-authored event file already uses (e.g. a narration card's unused
 // "speaker" key) rather than empty strings.
@@ -467,6 +479,7 @@ function optionMechanicsRows(opt, changed, restructure) {
   if (Array.isArray(opt.effects) && (!check || opt.effects.length)) {
     rows.push(mechReadonly(check ? "Effects before the roll (read-only)" : "Effects (read-only)", opt.effects));
   }
+  if (!check && Array.isArray(opt.items)) rows.push(...itemListRows(opt, changed));
   if (check) {
     rows.push(...checkRows(opt, changed, restructure));
   } else {
@@ -553,7 +566,7 @@ function requiresBlock(opt, changed, restructure) {
   })));
   box.appendChild(row);
   if (req && requiresHasCondition(req)) {
-    conditionCells(req, false, changed).forEach((c) => row.appendChild(c));
+    conditionCells(req, false, changed, optionTags(opt)).forEach((c) => row.appendChild(c));
     const row2 = mechEl("div", "mech-row");
     row2.appendChild(mechCell("When unmet", mechSelect([["hide", "Hide"], ["disable", "Show disabled"]], req.display === "disable" ? "disable" : "hide", (v) => {
       if (v === "disable") req.display = "disable";
@@ -594,7 +607,7 @@ function hideUnlessRow(opt, restructure) {
   return row;
 }
 
-function conditionCells(c, isMod, changed) {
+function conditionCells(c, isMod, changed, tags) {
   const kind = conditionKind(c);
   const cells = [];
   if (kind === "flag") cells.push(mechCell("Flag", mechText(c, "flag", changed, "")));
@@ -634,7 +647,7 @@ function conditionCells(c, isMod, changed) {
     cells.push(mechCell("Tier level at least", mechNumber(ob, "atLeast", changed, false, "1 = lowest tier")));
   }
   if (kind === "item" || kind === "itemEquipped" || kind === "itemOptional") {
-    cells.push(mechCell("Item id", mechText(c, "item", changed, "")));
+    cells.push(mechCell("Item id", mechItemField(c, "item", changed, tags)));
   }
   if (kind === "itemOptional") {
     cells.push(mechCheckbox("Consumed on commit", !!c.consume, (on) => {
@@ -646,13 +659,22 @@ function conditionCells(c, isMod, changed) {
   return cells;
 }
 
-function modBlock(mod, i, mods, changed, restructure) {
+// A no-roll option's items list: each entry's item id as a picker (the effect passes through untouched).
+function itemListRows(opt, changed) {
+  const row = mechEl("div", "mech-row");
+  opt.items.forEach((entry, i) => {
+    if (entry && typeof entry === "object") row.appendChild(mechCell("Item " + (i + 1) + " (no-roll toggle)", mechItemField(entry, "item", changed, optionTags(opt)), true));
+  });
+  return [row];
+}
+
+function modBlock(mod, i, mods, changed, restructure, tags) {
   const row = mechEl("div", "mech-row mech-mod");
   row.appendChild(mechCell("Modifier " + (i + 1), mechSelect(CONDITION_KINDS.map((k) => [k.kind, k.label]), conditionKind(mod), (v) => {
     setConditionKind(mod, v, true);
     restructure();
   })));
-  conditionCells(mod, true, changed).forEach((c) => row.appendChild(c));
+  conditionCells(mod, true, changed, tags).forEach((c) => row.appendChild(c));
   if (conditionKind(mod) !== "path") row.appendChild(mechCell("Add", mechNumber(mod, "add", changed, false, "e.g. 0.1")));
   row.appendChild(mechCell("Label", mechText(mod, "label", changed, ""), true));
   row.appendChild(mechButton("✕ Remove", true, () => {
@@ -705,7 +727,7 @@ function checkOddsBlock(opt, changed, restructure) {
   odds.appendChild(row);
 
   const mods = Array.isArray(check.mods) ? check.mods : [];
-  mods.forEach((mod, i) => odds.appendChild(modBlock(mod, i, mods, changed, restructure)));
+  mods.forEach((mod, i) => odds.appendChild(modBlock(mod, i, mods, changed, restructure, optionTags(opt))));
   odds.appendChild(mechButton("+ Add modifier", false, () => {
     if (!Array.isArray(check.mods)) check.mods = [];
     const m = {};

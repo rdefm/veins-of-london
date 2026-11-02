@@ -32,10 +32,11 @@ const {
   promoteForWrite, promoteSummary, shotBoardFor, boardCut, shotOnPath, workingCopyFor, liveHash, liveDrifted,
   liveEventOptions, openOrImport, lintEvent, lintDraft, inboundRefs, inboundWarnings,
   OBS_ORES, obsIds, effectiveObservation, setCardObserve, addObservation, renameObservation, observationUses, deleteObservation, addObservationBlock, deleteObservationBlock, setObservationMiss, addObservationTier, deleteObservationTier, setObservationTier,
+  parseItemCatalogue, itemChoices, optionTags, conditionCells, optionMechanicsRows, setMechItemControl,
   pickEntries, setPickOn, setPickObservation, setPickReason, addPickOre, deletePickOre, addPickTier, deletePickTier, setPickAtLeast, allLinks, obsLevels, pickQualifying, observedHolds,
 } = new Function(
   html.slice(ss, se) + html.slice(s, e) +
-    "\nreturn { parseProposal, parseDraft, serialiseDraft, ensureKeys, legacyToDraft, nextPos, playOrder, flatCards, thenText," +
+    "\nfunction setMechItemControl(f) { mechItemControl = f; }\nreturn { parseItemCatalogue, itemChoices, optionTags, conditionCells, optionMechanicsRows, setMechItemControl, parseProposal, parseDraft, serialiseDraft, ensureKeys, legacyToDraft, nextPos, playOrder, flatCards, thenText," +
     " jsonBlockRange, spliceDraft, writableProposal, cardByKey, makeHistory," +
     " cardPos, insertCard, deleteCard, moveCard, danglingLinks, hasCycle, buildGraph, elkGraph, placeLayout, setNodePositions, clearLayout, applyPositions," +
     " findCycle, addBranch, renameBranch, deleteBranch, inboundLinks, setCardGoto, setThen," +
@@ -2159,6 +2160,68 @@ test("preview reads: obsLevels worst first, pickQualifying by level, observedHol
   assert.strictEqual(observedHolds(cond, {}), false);
   assert.strictEqual(observedHolds({ observed: { ...cond.observed, event: "x" } }, { alley: { physics: 2 } }), false);
   assert.strictEqual(observedHolds({ flag: "f" }, { alley: { physics: 2 } }), false);
+});
+
+
+// ---- item catalogue + item dropdown ----
+const recipesText = JSON.stringify({ recipes: {
+  timePearl: { name: "Time Pearl" },
+  enhancementPowder: { name: "Enhancement Powder", eventProfile: { tags: ["physical"] } },
+  secondImpression: { name: "Second Impression", eventProfile: { tags: ["social"] } },
+  blast: { name: "Blast", eventProfile: { tags: ["barrier"] } },
+  stutter: { name: "Stutter", eventProfile: { tags: [] } },
+} });
+
+test("parseItemCatalogue reads ids, names and profile tags; null on junk", () => {
+  const cat = parseItemCatalogue(recipesText);
+  assert.deepStrictEqual(cat.map((i) => i.id), ["timePearl", "enhancementPowder", "secondImpression", "blast", "stutter"]);
+  assert.strictEqual(cat[1].name, "Enhancement Powder");
+  assert.deepStrictEqual(cat[1].tags, ["physical"]);
+  assert.deepStrictEqual(cat[0].tags, [], "no profile -> no tags");
+  assert.strictEqual(parseItemCatalogue("not json"), null);
+  assert.strictEqual(parseItemCatalogue("{}"), null);
+});
+
+test("itemChoices filters to matching tags; show all lifts the filter", () => {
+  const cat = parseItemCatalogue(recipesText);
+  assert.deepStrictEqual(itemChoices(cat, "", ["physical"], false).map((c) => c.value), ["enhancementPowder"]);
+  assert.deepStrictEqual(itemChoices(cat, "", ["physical", "social"], false).map((c) => c.value), ["enhancementPowder", "secondImpression"]);
+  assert.strictEqual(itemChoices(cat, "", ["physical"], true).length, 5);
+  assert.strictEqual(itemChoices(cat, "", [], false).length, 5, "untagged option lists everything");
+  assert.strictEqual(itemChoices(cat, "", ["physical"], false)[0].label, "Enhancement Powder (enhancementPowder)");
+});
+
+test("itemChoices: unknown id leads as a warning; a hidden known id stays listed", () => {
+  const cat = parseItemCatalogue(recipesText);
+  const unk = itemChoices(cat, "noSuchItem", ["physical"], false);
+  assert.strictEqual(unk[0].value, "noSuchItem");
+  assert.strictEqual(unk[0].warn, true);
+  assert(unk[0].label.startsWith("⚠"));
+  const hidden = itemChoices(cat, "blast", ["physical"], false);
+  assert(hidden.some((c) => c.value === "blast" && !c.warn));
+});
+
+test("itemChoices: no catalogue -> null (free text)", () => {
+  assert.strictEqual(itemChoices(null, "x", ["physical"], false), null);
+});
+
+test("optionTags: check tags, else no-roll option tags", () => {
+  assert.deepStrictEqual(optionTags({ check: { base: 0.5, tags: ["social"] } }), ["social"]);
+  assert.deepStrictEqual(optionTags({ tags: ["barrier"] }), ["barrier"]);
+  assert.deepStrictEqual(optionTags({ check: { base: 0.5 } }), []);
+});
+
+test("item fields route through the item control with the option's tags; ids unchanged", () => {
+  const seen = [];
+  setMechItemControl((obj, key, changed, tags) => { seen.push([obj[key], tags]); return { stub: true }; });
+  const el = { createElement: () => ({}) };
+  const mod = { item: "enhancementPowder", optional: true };
+  try {
+    global.document = { createElement: () => ({ addEventListener() {}, appendChild() {}, style: {} }) };
+    conditionCells(mod, true, () => {}, ["physical"]);
+  } finally { delete global.document; setMechItemControl(null); }
+  assert.deepStrictEqual(seen, [["enhancementPowder", ["physical"]]]);
+  assert.strictEqual(mod.item, "enhancementPowder");
 });
 
 console.log(`${passed} passed${process.exitCode ? ", some FAILED" : ""}`);

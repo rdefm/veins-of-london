@@ -230,6 +230,9 @@ section { display: grid; gap: 12px; min-width: 0 }
 .mech-ed .field-row { margin-bottom: 6px }
 .mech-ed .field-row label { display: block; font-size: 11px; color: var(--muted); margin-bottom: 2px }
 .mech-ed input, .mech-ed select, .mech-ed textarea { width: 100%; background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 6px; padding: 4px 7px; font-size: 13px }
+.mech-ed .item-warn { font-size: 11px; color: #e0a040; margin-top: 2px }
+.mech-ed .item-all { display: flex; gap: 4px; align-items: center; font-size: 11px; color: var(--muted); margin-top: 2px }
+.mech-ed .item-all input { width: auto }
 .mech-ed .mech-check { display: flex; gap: 6px; align-items: center; font-size: 12px; color: var(--muted); margin-bottom: 8px }
 .mech-ed .mech-check input { width: auto }
 .mech-ed .mech-btn { padding: 3px 8px; font-size: 12px; margin-bottom: 6px }
@@ -532,6 +535,18 @@ const CONDITION_KINDS = [
 // constants.json observation.oreOrder (R§3.9d).
 const OBSERVATION_ORES = ["physics", "life", "emotion", "time", "fate"];
 
+// Item-id control. The storyboard installs a catalogue-backed dropdown; unset, it is plain text.
+let mechItemControl = null;
+function mechItemField(obj, key, changed, tags) {
+  return mechItemControl ? mechItemControl(obj, key, changed, tags || []) : mechText(obj, key, changed, "");
+}
+
+// Tags an option's item pickers filter by: its check's, else its own (a no-roll option).
+function optionTags(opt) {
+  const t = opt && opt.check && typeof opt.check === "object" ? opt.check.tags : opt && opt.tags;
+  return Array.isArray(t) ? t : [];
+}
+
 // Empty prose fields are written as null, matching the convention every
 // hand-authored event file already uses (e.g. a narration card's unused
 // "speaker" key) rather than empty strings.
@@ -794,6 +809,7 @@ function optionMechanicsRows(opt, changed, restructure) {
   if (Array.isArray(opt.effects) && (!check || opt.effects.length)) {
     rows.push(mechReadonly(check ? "Effects before the roll (read-only)" : "Effects (read-only)", opt.effects));
   }
+  if (!check && Array.isArray(opt.items)) rows.push(...itemListRows(opt, changed));
   if (check) {
     rows.push(...checkRows(opt, changed, restructure));
   } else {
@@ -880,7 +896,7 @@ function requiresBlock(opt, changed, restructure) {
   })));
   box.appendChild(row);
   if (req && requiresHasCondition(req)) {
-    conditionCells(req, false, changed).forEach((c) => row.appendChild(c));
+    conditionCells(req, false, changed, optionTags(opt)).forEach((c) => row.appendChild(c));
     const row2 = mechEl("div", "mech-row");
     row2.appendChild(mechCell("When unmet", mechSelect([["hide", "Hide"], ["disable", "Show disabled"]], req.display === "disable" ? "disable" : "hide", (v) => {
       if (v === "disable") req.display = "disable";
@@ -921,7 +937,7 @@ function hideUnlessRow(opt, restructure) {
   return row;
 }
 
-function conditionCells(c, isMod, changed) {
+function conditionCells(c, isMod, changed, tags) {
   const kind = conditionKind(c);
   const cells = [];
   if (kind === "flag") cells.push(mechCell("Flag", mechText(c, "flag", changed, "")));
@@ -961,7 +977,7 @@ function conditionCells(c, isMod, changed) {
     cells.push(mechCell("Tier level at least", mechNumber(ob, "atLeast", changed, false, "1 = lowest tier")));
   }
   if (kind === "item" || kind === "itemEquipped" || kind === "itemOptional") {
-    cells.push(mechCell("Item id", mechText(c, "item", changed, "")));
+    cells.push(mechCell("Item id", mechItemField(c, "item", changed, tags)));
   }
   if (kind === "itemOptional") {
     cells.push(mechCheckbox("Consumed on commit", !!c.consume, (on) => {
@@ -973,13 +989,22 @@ function conditionCells(c, isMod, changed) {
   return cells;
 }
 
-function modBlock(mod, i, mods, changed, restructure) {
+// A no-roll option's items list: each entry's item id as a picker (the effect passes through untouched).
+function itemListRows(opt, changed) {
+  const row = mechEl("div", "mech-row");
+  opt.items.forEach((entry, i) => {
+    if (entry && typeof entry === "object") row.appendChild(mechCell("Item " + (i + 1) + " (no-roll toggle)", mechItemField(entry, "item", changed, optionTags(opt)), true));
+  });
+  return [row];
+}
+
+function modBlock(mod, i, mods, changed, restructure, tags) {
   const row = mechEl("div", "mech-row mech-mod");
   row.appendChild(mechCell("Modifier " + (i + 1), mechSelect(CONDITION_KINDS.map((k) => [k.kind, k.label]), conditionKind(mod), (v) => {
     setConditionKind(mod, v, true);
     restructure();
   })));
-  conditionCells(mod, true, changed).forEach((c) => row.appendChild(c));
+  conditionCells(mod, true, changed, tags).forEach((c) => row.appendChild(c));
   if (conditionKind(mod) !== "path") row.appendChild(mechCell("Add", mechNumber(mod, "add", changed, false, "e.g. 0.1")));
   row.appendChild(mechCell("Label", mechText(mod, "label", changed, ""), true));
   row.appendChild(mechButton("✕ Remove", true, () => {
@@ -1032,7 +1057,7 @@ function checkOddsBlock(opt, changed, restructure) {
   odds.appendChild(row);
 
   const mods = Array.isArray(check.mods) ? check.mods : [];
-  mods.forEach((mod, i) => odds.appendChild(modBlock(mod, i, mods, changed, restructure)));
+  mods.forEach((mod, i) => odds.appendChild(modBlock(mod, i, mods, changed, restructure, optionTags(opt))));
   odds.appendChild(mechButton("+ Add modifier", false, () => {
     if (!Array.isArray(check.mods)) check.mods = [];
     const m = {};
@@ -3008,6 +3033,41 @@ function checkOddsBlock(opt, changed, restructure) {
     try { event = promoteDraft(draft).event; } catch { return null; }
     return lintEvent(event.id || "draft", event, refs);
   }
+  // ---- item catalogue (data/recipes.json) ----
+  // [{ id, name, tags }] in file order, or null when the text isn't a recipes file. tags = the item's
+  // eventProfile.tags ([] when it has no profile).
+  function parseItemCatalogue(text) {
+    let d;
+    try { d = JSON.parse(text); } catch { return null; }
+    const r = d && d.recipes;
+    if (!r || typeof r !== "object" || Array.isArray(r)) return null;
+    return Object.keys(r).map((id) => {
+      const it = r[id] || {};
+      const p = it.eventProfile && typeof it.eventProfile === "object" ? it.eventProfile : null;
+      return { id, name: typeof it.name === "string" && it.name ? it.name : id, tags: p && Array.isArray(p.tags) ? p.tags.slice() : [] };
+    });
+  }
+  // Dropdown choices [{ value, label, warn? }] for an item field, or null with no catalogue (free text). Filtered to
+  // items whose profile tags share one with tags unless showAll or tags is empty. An id outside the catalogue leads
+  // as a warning entry; an id the filter hides stays listed so the field never silently changes.
+  function itemChoices(catalogue, current, tags, showAll) {
+    if (!Array.isArray(catalogue)) return null;
+    const want = Array.isArray(tags) ? tags : [];
+    const filtered = !showAll && want.length > 0;
+    const label = (it) => it.name + " (" + it.id + ")";
+    const out = [];
+    for (const it of catalogue) {
+      if (filtered && !it.tags.some((x) => want.includes(x))) continue;
+      out.push({ value: it.id, label: label(it) });
+    }
+    if (current) {
+      const known = catalogue.find((it) => it.id === current);
+      if (!known) out.unshift({ value: current, label: "⚠ " + current + " (unknown item)", warn: true });
+      else if (!out.some((o) => o.value === current)) out.push({ value: current, label: label(known) });
+    }
+    return out;
+  }
+
   /* ---------- End draft model ---------- */
 
   // Image per card, as the event screen resolves it: an explicit "image" key (null clears), else (legacy flat
@@ -3066,8 +3126,44 @@ function checkOddsBlock(opt, changed, restructure) {
   }
 
   let liveFiles = [];
+  // data/recipes.json as a parseItemCatalogue list (null = no repo folder or unreadable), read on every loadAll.
+  let itemCatalogue = null;
+  async function loadItemCatalogue() {
+    try { itemCatalogue = parseItemCatalogue(await readText(await dirAt(["data"]), "recipes.json")); } catch { itemCatalogue = null; }
+  }
+  // Item-id field for the shared mechanics widgets: a dropdown of display name + id filtered by the option's tags
+  // ("show all" lifts the filter), or a free-text box with a warning when there is no catalogue.
+  mechItemControl = (obj, key, changed, tags) => {
+    const wrap = mechEl("div", "item-ctl");
+    if (!itemCatalogue) {
+      wrap.append(mechText(obj, key, changed, ""), mechEl("div", "item-warn", "⚠ No item catalogue (data/recipes.json): ids are free text and unchecked."));
+      return wrap;
+    }
+    let showAll = false;
+    const draw = () => {
+      const cur = typeof obj[key] === "string" ? obj[key] : "";
+      const choices = itemChoices(itemCatalogue, cur, tags, showAll);
+      const sel = mechSelect([["", "— pick an item —"]].concat(choices.map((c) => [c.value, c.label])), cur, (v) => { obj[key] = v; changed(); draw(); });
+      const warn = choices.some((c) => c.warn);
+      if (warn) sel.setAttribute("aria-invalid", "true");
+      wrap.replaceChildren(sel);
+      if (warn) wrap.appendChild(mechEl("div", "item-warn", "⚠ " + cur + " is not in data/recipes.json."));
+      if (tags && tags.length) {
+        const all = mechEl("label", "item-all");
+        const box = document.createElement("input");
+        box.type = "checkbox";
+        box.checked = showAll;
+        box.addEventListener("change", () => { showAll = box.checked; draw(); });
+        all.append(box, mechEl("span", "", "show all (filtered to " + tags.join(", ") + ")"));
+        wrap.appendChild(all);
+      }
+    };
+    draw();
+    return wrap;
+  };
   async function loadAll() {
     const found = [];
+    await loadItemCatalogue();
     liveFiles = root ? await fileNames(LIVE_EVENTS_DIR, /\.json$/) : [];
     feedback = {};
     repoImages = null;
