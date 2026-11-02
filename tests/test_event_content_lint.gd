@@ -140,6 +140,20 @@ func run() -> void:
 		assert_eq(found.size(), 3, "valid hideUnless adds no violations: %s" % [found])
 	)
 
+	run_case("lint_rejects_autosuccess_on_non_check_and_bad_profiles", func():
+		GameState.reset()
+		var def := { "id": "auto_probe", "cards": [
+			{ "type": "choice", "key": "c1", "label": null, "text": "", "choices": [
+				{ "label": "bad", "result_text": "x", "items": [{ "item": "invisibility", "optional": true, "effect": { "kind": "autoSuccess" } }] },
+			] },
+		] }
+		var found := EventContentLint.lint_event("auto_probe", def, EventContentLint.known_refs())
+		assert_true(found.any(func(v): return String(v).contains("autoSuccess on a non-check option")), "got %s" % [found])
+		assert_eq(EventContentLint.lint_profiles(GameData.RECIPES), [], "live profiles are clean")
+		var bad := { "x": { "eventProfile": { "tags": ["nope"], "effect": { "kind": "zap" } } }, "y": { "eventProfile": { "label": "Y" } } }
+		assert_eq(EventContentLint.lint_profiles(bad).size(), 4, "tag, label, kind, shape")
+	)
+
 	run_case("lint_checks_context_flag_has_a_key", func():
 		GameState.reset()
 		var def := { "id": "ctx_probe", "cards": [

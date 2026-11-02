@@ -1428,6 +1428,96 @@ func run() -> void:
 		GameData.EVENTS = original_events
 	)
 
+	run_case("invisibility_auto_offered_on_stealth_check_only", func():
+		GameState.reset()
+		Crafting.inventory_add("invisibility", 1, 1)
+		var original_events := _install_tagged_event(0.0, ["stealth"])
+		Events.start_event("test_check_event")
+		Events.advance()
+		var offered := Events.item_toggles(0).map(func(t): return t["item"])
+		assert_true(offered.has("invisibility"), "stealth check offers it")
+		GameData.EVENTS["test_check_event"]["cards"][1]["choices"][0]["check"]["tags"] = ["physical"]
+		assert_true(not (Events.item_toggles(0).any(func(t): return t["item"] == "invisibility")), "other tag: not offered")
+		GameData.EVENTS["test_check_event"]["cards"][1]["choices"][0]["check"]["tags"] = ["stealth"]
+		GameData.EVENTS["test_check_event"]["cards"][1]["choices"][0]["excludeItems"] = ["invisibility"]
+		assert_true(not (Events.item_toggles(0).any(func(t): return t["item"] == "invisibility")), "excludeItems wins")
+		GameData.EVENTS = original_events
+	)
+
+	run_case("stutter_is_authored_only_never_auto_offered", func():
+		GameState.reset()
+		Crafting.inventory_add("stutter", 1, 1)
+		var original_events := _install_tagged_event(0.0, ["stealth", "physical", "social", "discovery", "barrier"])
+		Events.start_event("test_check_event")
+		Events.advance()
+		assert_true(not Events.item_toggles(0).any(func(t): return t["item"] == "stutter"), "never auto-offered")
+		var profile: Dictionary = GameData.RECIPES["stutter"]["eventProfile"]
+		assert_eq(profile["tags"], [])
+		assert_eq(profile["effect"]["kind"], "unlock", "no-roll item-gated shape, no built-in alert")
+		assert_true(not profile.has("alert"))
+		GameData.EVENTS = original_events
+	)
+
+	run_case("invisibility_not_held_is_greyed_and_refused", func():
+		GameState.reset()
+		var original_events := _install_tagged_event(0.0, ["stealth"])
+		Events.start_event("test_check_event")
+		Events.advance()
+		var toggle: Dictionary = Events.item_toggles(0).filter(func(t): return t["item"] == "invisibility")[0]
+		assert_true(not toggle["held"])
+		assert_true(not Events.toggle_item(0, "invisibility")["ok"])
+		GameData.EVENTS = original_events
+	)
+
+	run_case("invisibility_toggled_skips_roll_alert_and_spends_item", func():
+		GameState.reset()
+		Crafting.inventory_add("invisibility", 1, 1)
+		var original_events := _install_tagged_event(0.0, ["stealth"])
+		var option: Dictionary = GameData.EVENTS["test_check_event"]["cards"][1]["choices"][0]
+		option["success"]["effects"] = [{ "op": "alert", "add": 1, "cover": { "base": 0.0, "text": "x" } }, { "op": "add", "path": "player.cash", "value": 30 }]
+		Events.start_event("test_check_event")
+		Events.advance()
+		Events.toggle_item(0, "invisibility")
+		assert_almost_eq(Events.check_odds(0)["probability"], 1.0, 0.0001)
+		Events.choose(0)
+		var res: Dictionary = GameState.state["event"]["choiceResults"]["1"]
+		assert_eq(res["outcome"], "success", "p=0 still succeeds")
+		assert_eq(res["autoItem"], "invisibility")
+		assert_true(not (res.has("roll")), "no d100 line")
+		assert_eq(Events.alert_level(), 0, "alert raise skipped")
+		assert_eq(Crafting.inventory_qty("invisibility"), 0, "spent")
+		assert_eq(GameState.state["event"].get("rolled", {}), {}, "nothing rolled")
+		GameData.EVENTS = original_events
+	)
+
+	run_case("invisibility_dial_paid_behaves_the_same", func():
+		GameState.reset()
+		_load_dial_complication("invisibility", 1, 2)
+		var original_events := _install_tagged_event(0.0, ["stealth"])
+		Events.start_event("test_check_event")
+		Events.advance()
+		assert_true(Events.toggle_item(0, "invisibility")["ok"])
+		Events.choose(0)
+		assert_eq(GameState.state["event"]["choiceResults"]["1"]["outcome"], "success")
+		assert_eq(int(GameState.state["player"]["dial"]["currentCharge"]), 1, "one charge paid")
+		GameData.EVENTS = original_events
+	)
+
+	run_case("invisibility_rewind_refunds_the_item", func():
+		GameState.reset()
+		Crafting.inventory_add("invisibility", 1, 1)
+		Crafting.inventory_add("rewind", 1, 1)
+		var original_events := _install_tagged_event(0.0, ["stealth"])
+		Events.start_event("test_check_event")
+		Events.advance()
+		Events.toggle_item(0, "invisibility")
+		Events.choose(0)
+		assert_eq(Crafting.inventory_qty("invisibility"), 0)
+		Events.rewind("consumable")
+		assert_eq(Crafting.inventory_qty("invisibility"), 1, "refunded")
+		GameData.EVENTS = original_events
+	)
+
 	run_case("untoggling_an_owned_unlock_item_greys_the_option", func():
 		GameState.reset()
 		Crafting.inventory_add("blast", 1, 1)

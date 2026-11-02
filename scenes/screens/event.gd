@@ -650,7 +650,9 @@ static func outcome_marker(card: Dictionary) -> String:
 	if card.has("attempts"):
 		return GameData.EVENT_CHECKS["attemptsMarkerFormat"] % [card["successes"], card["attempts"]]
 	var marker: String = GameData.EVENT_CHECKS["outcomeMarkers"][card["outcome"]]
-	if card.has("roll"):
+	if card.has("autoItem"):
+		marker += GameData.EVENT_CHECKS["autoSuccessMarkerFormat"] % GameData.RECIPES.get(card["autoItem"], {}).get("name", card["autoItem"])
+	elif card.has("roll"):
 		marker += GameData.EVENT_CHECKS["rollMarkerFormat"] % [card["roll"], card["needed"]]
 	return marker
 

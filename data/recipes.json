@@ -418,6 +418,7 @@
       "xpReward": 40,
       "eventUsable": true,
       "bagWhenHeld": true,
+      "eventProfile": { "tags": [], "label": "Stutter", "placeholder": true, "effect": { "kind": "unlock" } },
       "description": "A very short hop. You're behind them before they've finished looking at where you were."
     },
     "invisibility": {
@@ -430,6 +431,7 @@
       "xpReward": 30,
       "eventUsable": true,
       "bagWhenHeld": true,
+      "eventProfile": { "tags": ["stealth"], "label": "Invisibility", "placeholder": true, "effect": { "kind": "autoSuccess" } },
       "description": "Does what it says on the tin. The tin is also, somehow, missing."
     },
     "stiffUpperLip": {

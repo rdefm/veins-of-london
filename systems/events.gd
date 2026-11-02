@@ -468,7 +468,13 @@ static func choose(choice_index: int, pick_ore: String = "") -> void:
 	var shown_roll := 0
 	var shown_needed := 0
 	var toggled := active_toggles(choice_index)
-	if choice.has("check"):
+	var auto_item := auto_success_item(choice_index) if choice.has("check") else ""
+	if auto_item != "":
+		# An autoSuccess item skips the roll: the success outcome, no alert raise or cover.
+		outcome = "success"
+		successes = 1
+		source = choice["success"]
+	elif choice.has("check"):
 		var p: float = odds_for(check_with_offers(choice), toggled)["probability"]
 		attempts = check_attempts(choice)
 		for attempt in range(attempts):
@@ -507,7 +513,9 @@ static func choose(choice_index: int, pick_ore: String = "") -> void:
 		resolution["image"] = choice["image"]
 	if outcome != "":
 		resolution["outcome"] = outcome
-	if attempts == 1 and outcome != "":
+	if auto_item != "":
+		resolution["autoItem"] = auto_item
+	elif attempts == 1 and outcome != "":
 		resolution["roll"] = shown_roll
 		resolution["needed"] = shown_needed
 	if attempts > 1:
@@ -531,6 +539,8 @@ static func choose(choice_index: int, pick_ore: String = "") -> void:
 		for i in range(successes):
 			effects = effects + choice["check"].get("perSuccess", [])
 		effects = effects + source.get("effects", [])
+	if auto_item != "":
+		effects = effects.filter(func(e: Dictionary) -> bool: return e.get("op", "") != "alert")
 	if not re_asked:
 		apply_effects(effects)
 	# A blank result_text shows no resolution card: play moves straight on (R§3.9a Goto),
@@ -636,6 +646,9 @@ static func odds_for(check: Dictionary, toggled: Array = [], lasting: bool = tru
 		if lady_delta != 0.0:
 			probability += lady_delta
 			applied.append({ "label": GameData.EVENT_CHECKS["ladyLabel"], "delta": lady_delta })
+	for mod in check.get("mods", []):
+		if mod.has("effect") and mod["effect"].get("kind") == "autoSuccess" and toggled.has(mod.get("item", "")):
+			return { "probability": 1.0, "base": base, "mods": [{ "label": mod.get("label", ""), "delta": 1.0 - base }] }
 	var lo: float = float(check.get("min", GameData.EVENT_CHECKS["defaultMin"]))
 	var hi: float = float(check.get("max", GameData.EVENT_CHECKS["itemBoostedMax" if boosted else "defaultMax"]))
 	probability = clampf(probability, lo, hi)
@@ -1471,6 +1484,15 @@ static func _optional_mods(choice_index: int) -> Array:
 	var choice: Dictionary = current_card()["choices"][choice_index]
 	var mods: Array = offered_mods(choice) if choice.has("check") else choice.get("items", [])
 	return mods.filter(func(m: Dictionary) -> bool: return m.has("item") and m.get("optional", false))
+
+
+# The toggled-on autoSuccess item that resolves this check option unrolled, else "".
+static func auto_success_item(choice_index: int) -> String:
+	var toggled := active_toggles(choice_index)
+	for mod in _optional_mods(choice_index):
+		if mod.has("effect") and mod["effect"].get("kind") == "autoSuccess" and toggled.has(mod["item"]):
+			return String(mod["item"])
+	return ""
 
 
 # A check option's check with its automatic item offers added (R§3.9a Automatic

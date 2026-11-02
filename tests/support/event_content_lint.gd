@@ -161,6 +161,28 @@ static func _lint_label(id: String, i: int, label: String, at_block: Variant) ->
 	return out
 
 
+# Malformed item event profiles (recipes.json eventProfile): tags a list from
+# eventChecks.tags, a label, an effect with a known kind.
+static func lint_profiles(recipes: Dictionary) -> Array:
+	var out: Array = []
+	var kinds := ["bonus", "unlock", "wardPass", "revealWard", "failRecovery", "autoSuccess"]
+	for id in recipes:
+		var profile: Variant = recipes[id].get("eventProfile")
+		if profile == null:
+			continue
+		if not profile is Dictionary or not profile.get("tags") is Array or not profile.get("effect") is Dictionary:
+			out.append("%s: eventProfile needs tags (array) and effect (object)" % id)
+			continue
+		for tag in profile["tags"]:
+			if not (GameData.EVENT_CHECKS["tags"] as Array).has(tag):
+				out.append("%s: eventProfile tag '%s' is not in eventChecks.tags" % [id, tag])
+		if String(profile.get("label", "")) == "":
+			out.append("%s: eventProfile needs a label" % id)
+		if not kinds.has(profile["effect"].get("kind", "")):
+			out.append("%s: eventProfile effect kind '%s' unknown" % [id, profile["effect"].get("kind", "")])
+	return out
+
+
 static func _lint_option(id: String, i: int, j: int, option: Dictionary, cards: Array, refs: Dictionary) -> Array:
 	var out: Array = []
 	var where := "%s: card %d option %d" % [id, i, j]
@@ -179,6 +201,10 @@ static func _lint_option(id: String, i: int, j: int, option: Dictionary, cards: 
 		out.append_array(_lint_requires(where + " requires", option["requires"], refs))
 	if option.get("pick") is Dictionary:
 		out.append_array(_lint_pick(where, option, cards, i, refs))
+	if not option.has("check"):
+		for entry in option.get("items", []):
+			if entry is Dictionary and entry.get("effect", {}).get("kind") == "autoSuccess":
+				out.append("%s item '%s' has autoSuccess on a non-check option" % [where, entry.get("item", "")])
 	if option.get("check") is Dictionary:
 		if option["check"].has("entry"):
 			out.append("%s check uses retired 'entry'; use tags" % where)
