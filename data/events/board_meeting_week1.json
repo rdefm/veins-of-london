@@ -14,14 +14,14 @@
       "type": "speaker",
       "label": null,
       "speaker": "Archie",
-      "text": "\"Board meeting. Every Monday, catering provided.\" He taps his sandwich. \"Three pitches, one goal each. You pick which one we chase this week.\""
+      "text": "\"Board meeting. Every Monday, catering provided.\" He taps his sandwich. \"Each of us pitches a goal and we argue it out in front of you. Then you pick which one we chase this week.\""
     },
     {
       "key": "rules",
       "type": "speaker",
       "label": null,
       "speaker": "James",
-      "text": "\"Next Monday I read the minutes and we find out whether you chose well. Choose anything. Nobody is wounded if it isn't theirs.\""
+      "text": "\"Next Monday I read the minutes and we find out whether you chose well. We'll argue. You decide. Nobody is wounded if it isn't theirs.\""
     },
     {
       "key": "next_week",
