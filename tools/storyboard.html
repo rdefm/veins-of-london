@@ -577,6 +577,44 @@ function setExcludeItem(opt, id, excluded) {
   if (list.length) opt.excludeItems = list; else delete opt.excludeItems;
 }
 
+// Item effect kinds (R§3.9a "Item effects").
+const ITEM_EFFECT_KINDS = ["bonus", "unlock", "wardPass", "revealWard", "failRecovery", "autoSuccess"];
+
+// The kind an optional mod / no-roll item entry carries; "" for a plain `add` mod.
+function itemEffectKind(entry) {
+  return entry && entry.effect && typeof entry.effect === "object" && typeof entry.effect.kind === "string" ? entry.effect.kind : "";
+}
+
+// Sets an optional item mod / no-roll entry to effect kind `kind` ("" = plain add, mods only). The entry's own
+// label survives; so do the effect's label and nextCheck. A mod swaps `add` for `effect`; bonus starts at add 0.
+function setItemEffectKind(entry, kind) {
+  const old = entry.effect && typeof entry.effect === "object" ? entry.effect : {};
+  if (!kind) {
+    delete entry.effect;
+    if (typeof entry.add !== "number") entry.add = 0;
+    return;
+  }
+  const next = { kind };
+  if (kind === "bonus") next.add = typeof old.add === "number" ? old.add : 0;
+  if (typeof old.label === "string") next.label = old.label;
+  if (old.nextCheck && typeof old.nextCheck === "object") next.nextCheck = old.nextCheck;
+  entry.effect = next;
+  delete entry.add;
+}
+
+// Toggles a lasting tag on a bonus effect; an empty list drops the key (the bonus then applies to this check only).
+function setEffectTag(effect, tag, on) {
+  const list = Array.isArray(effect.tags) ? effect.tags.filter((x) => x !== tag) : [];
+  if (on) list.push(tag);
+  if (list.length) effect.tags = list; else delete effect.tags;
+}
+
+// Turns an effect's nextCheck {add, label?} on (add 0) or off.
+function setNextCheck(effect, on) {
+  if (!on) delete effect.nextCheck;
+  else if (!effect.nextCheck || typeof effect.nextCheck !== "object") effect.nextCheck = { add: 0 };
+}
+
 // Toggles tag on a check option (check.tags) or a no-roll option (opt.tags); an empty list drops the key.
 function setOptionTag(opt, tag, on) {
   const holder = opt.check && typeof opt.check === "object" ? opt.check : opt;
@@ -853,7 +891,7 @@ function optionMechanicsRows(opt, changed, restructure) {
   if (Array.isArray(opt.effects) && (!check || opt.effects.length)) {
     rows.push(mechReadonly(check ? "Effects before the roll (read-only)" : "Effects (read-only)", opt.effects));
   }
-  if (!check && Array.isArray(opt.items)) rows.push(...itemListRows(opt, changed));
+  if (!check && Array.isArray(opt.items)) rows.push(...itemListRows(opt, changed, restructure));
   if (check) {
     rows.push(...checkRows(opt, changed, restructure));
   } else {
@@ -1034,13 +1072,42 @@ function conditionCells(c, isMod, changed, tags) {
   return cells;
 }
 
-// A no-roll option's items list: each entry's item id as a picker (the effect passes through untouched).
-function itemListRows(opt, changed) {
-  const row = mechEl("div", "mech-row");
+// Kind dropdown plus the fields that kind carries (bonus: add + lasting tags; any: nextCheck add/label).
+// `plainAdd` offers "Plain bonus (add)" for a mod; a no-roll entry always has an effect.
+function itemEffectCells(entry, changed, restructure, plainAdd) {
+  const cells = [];
+  const kinds = (plainAdd ? [["", "Plain bonus (add)"]] : []).concat(ITEM_EFFECT_KINDS.map((k) => [k, k]));
+  cells.push(mechCell("Effect kind", mechSelect(kinds, itemEffectKind(entry), (v) => { setItemEffectKind(entry, v); changed(); restructure(); })));
+  const eff = entry.effect && typeof entry.effect === "object" ? entry.effect : null;
+  if (!eff) return cells;
+  if (eff.kind === "bonus") {
+    cells.push(mechCell("Add", mechNumber(eff, "add", changed, false, "e.g. 0.15")));
+    const wrap = mechEl("div", "tag-picker");
+    const have = Array.isArray(eff.tags) ? eff.tags : [];
+    mechTagVocab.concat(have.filter((t) => !mechTagVocab.includes(t)))
+      .forEach((t) => wrap.appendChild(mechCheckbox(t, have.includes(t), (on) => { setEffectTag(eff, t, on); changed(); })));
+    cells.push(mechCell("Lasting for tags (none = this check only)", wrap, true));
+  }
+  cells.push(mechCheckbox("Also bonus the next check", !!eff.nextCheck, (on) => { setNextCheck(eff, on); changed(); restructure(); }));
+  if (eff.nextCheck) {
+    cells.push(mechCell("Next-check add", mechNumber(eff.nextCheck, "add", changed, false)));
+    cells.push(mechCell("Next-check label", mechText(eff.nextCheck, "label", changed, "delete", false, "defaults to item name")));
+  }
+  return cells;
+}
+
+// A no-roll option's items list: each entry's item id as a picker, with its effect editor and label.
+function itemListRows(opt, changed, restructure) {
+  const rows = [];
   opt.items.forEach((entry, i) => {
-    if (entry && typeof entry === "object") row.appendChild(mechCell("Item " + (i + 1) + " (no-roll toggle)", mechItemField(entry, "item", changed, optionTags(opt)), true));
+    if (!entry || typeof entry !== "object") return;
+    const row = mechEl("div", "mech-row");
+    row.appendChild(mechCell("Item " + (i + 1) + " (no-roll toggle)", mechItemField(entry, "item", changed, optionTags(opt)), true));
+    itemEffectCells(entry, changed, restructure, false).forEach((c) => row.appendChild(c));
+    row.appendChild(mechCell("Label", mechText(entry, "label", changed, ""), true));
+    rows.push(row);
   });
-  return [row];
+  return rows;
 }
 
 function modBlock(mod, i, mods, changed, restructure, tags) {
@@ -1050,7 +1117,8 @@ function modBlock(mod, i, mods, changed, restructure, tags) {
     restructure();
   })));
   conditionCells(mod, true, changed, tags).forEach((c) => row.appendChild(c));
-  if (conditionKind(mod) !== "path") row.appendChild(mechCell("Add", mechNumber(mod, "add", changed, false, "e.g. 0.1")));
+  if (conditionKind(mod) === "itemOptional") itemEffectCells(mod, changed, restructure, true).forEach((c) => row.appendChild(c));
+  if (conditionKind(mod) !== "path" && !(mod.effect && typeof mod.effect === "object")) row.appendChild(mechCell("Add", mechNumber(mod, "add", changed, false, "e.g. 0.1")));
   row.appendChild(mechCell("Label", mechText(mod, "label", changed, ""), true));
   row.appendChild(mechButton("✕ Remove", true, () => {
     mods.splice(i, 1);
@@ -1850,6 +1918,7 @@ function checkOddsBlock(opt, changed, restructure) {
     if (Array.isArray(w.excludeItems) && w.excludeItems.length) o.excludeItems = w.excludeItems.slice(); else delete o.excludeItems;
     if (!o.check) {
       if (Array.isArray(w.tags) && w.tags.length) o.tags = w.tags.slice(); else delete o.tags;
+      if (Array.isArray(w.items)) o.items = deepClone(w.items);
       return;
     }
     const k = deepClone(w.check), per = o.check.perSuccess;

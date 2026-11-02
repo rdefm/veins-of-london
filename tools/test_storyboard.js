@@ -33,10 +33,11 @@ const {
   liveEventOptions, openOrImport, lintEvent, lintDraft, inboundRefs, inboundWarnings,
   OBS_ORES, obsIds, effectiveObservation, setCardObserve, addObservation, renameObservation, observationUses, deleteObservation, addObservationBlock, deleteObservationBlock, setObservationMiss, addObservationTier, deleteObservationTier, setObservationTier,
   parseItemCatalogue, itemChoices, optionTags, autoOfferItems, setExcludeItem, setOptionTag, conditionCells, optionMechanicsRows, setMechItemControl,
+  itemEffectKind, setItemEffectKind, setEffectTag, setNextCheck,
   pickEntries, setPickOn, setPickObservation, setPickReason, addPickOre, deletePickOre, addPickTier, deletePickTier, setPickAtLeast, allLinks, obsLevels, pickQualifying, observedHolds,
 } = new Function(
   html.slice(ss, se) + html.slice(s, e) +
-    "\nfunction setMechItemControl(f) { mechItemControl = f; }\nreturn { parseItemCatalogue, itemChoices, optionTags, autoOfferItems, setExcludeItem, setOptionTag, conditionCells, optionMechanicsRows, setMechItemControl, parseProposal, parseDraft, serialiseDraft, ensureKeys, legacyToDraft, nextPos, playOrder, flatCards, thenText," +
+    "\nfunction setMechItemControl(f) { mechItemControl = f; }\nreturn { itemEffectKind, setItemEffectKind, setEffectTag, setNextCheck, parseItemCatalogue, itemChoices, optionTags, autoOfferItems, setExcludeItem, setOptionTag, conditionCells, optionMechanicsRows, setMechItemControl, parseProposal, parseDraft, serialiseDraft, ensureKeys, legacyToDraft, nextPos, playOrder, flatCards, thenText," +
     " jsonBlockRange, spliceDraft, writableProposal, cardByKey, makeHistory," +
     " cardPos, insertCard, deleteCard, moveCard, danglingLinks, hasCycle, buildGraph, elkGraph, placeLayout, setNodePositions, clearLayout, applyPositions," +
     " findCycle, addBranch, renameBranch, deleteBranch, inboundLinks, setCardGoto, setThen," +
@@ -2290,6 +2291,61 @@ test("tags and excludeItems survive setOptionMechanics, serialise, re-import and
   setOptionTag(p, "barrier", true);
   setOptionMechanics(draft, "c2", j, p);
   assert.deepStrictEqual(cardByKey(draft, "c2").choices[j].tags, ["barrier"]);
+});
+
+test("setItemEffectKind: each kind yields the live shape", () => {
+  for (const kind of ["unlock", "wardPass", "revealWard", "failRecovery", "autoSuccess"]) {
+    const m = { item: "x", optional: true, add: 0.1, label: "L" };
+    setItemEffectKind(m, kind);
+    assert.deepStrictEqual(m, { item: "x", optional: true, label: "L", effect: { kind } });
+  }
+  const b = { item: "x", optional: true, add: 0.1, label: "L" };
+  setItemEffectKind(b, "bonus");
+  assert.deepStrictEqual(b.effect, { kind: "bonus", add: 0 });
+  assert(!("add" in b));
+  assert.strictEqual(itemEffectKind(b), "bonus");
+  setItemEffectKind(b, "");
+  assert.deepStrictEqual(b, { item: "x", optional: true, label: "L", add: 0 });
+});
+
+test("item effect: label survives kind changes; bonus add, tags and nextCheck edit cleanly", () => {
+  const e = { item: "p", optional: true, label: "Powder", effect: { kind: "bonus", add: 0.15, tags: ["physical"], nextCheck: { add: 0.1, label: "Buzz" } } };
+  setItemEffectKind(e, "wardPass");
+  assert.strictEqual(e.label, "Powder");
+  assert.deepStrictEqual(e.effect, { kind: "wardPass", nextCheck: { add: 0.1, label: "Buzz" } });
+  setItemEffectKind(e, "bonus");
+  assert.strictEqual(e.label, "Powder");
+  assert.deepStrictEqual(e.effect.nextCheck, { add: 0.1, label: "Buzz" });
+  setEffectTag(e.effect, "social", true); setEffectTag(e.effect, "physical", true);
+  assert.deepStrictEqual(e.effect.tags, ["social", "physical"]);
+  setEffectTag(e.effect, "social", false); setEffectTag(e.effect, "physical", false);
+  assert(!("tags" in e.effect));
+  setNextCheck(e.effect, false);
+  assert(!("nextCheck" in e.effect));
+  setNextCheck(e.effect, true);
+  assert.deepStrictEqual(e.effect.nextCheck, { add: 0 });
+});
+
+test("item effects survive setOptionMechanics, round trip and promote (mods and no-roll items)", () => {
+  const { draft } = parseDraft(draftText);
+  const w = JSON.parse(JSON.stringify(cardByKey(draft, "c2").choices[0]));
+  w.check.mods = [{ item: "enhancementPowder", optional: true, label: "Powder" }];
+  setItemEffectKind(w.check.mods[0], "bonus");
+  w.check.mods[0].effect.add = 0.15; setEffectTag(w.check.mods[0].effect, "physical", true);
+  setOptionMechanics(draft, "c2", 0, w);
+  const j = addOption(draft, "c2");
+  const p = JSON.parse(JSON.stringify(cardByKey(draft, "c2").choices[j]));
+  p.items = [{ item: "blast", optional: true, label: "Blast" }];
+  setItemEffectKind(p.items[0], "unlock");
+  setNextCheck(p.items[0].effect, true);
+  setOptionMechanics(draft, "c2", j, p);
+  const re = parseDraft(serialiseDraft(draft)).draft;
+  const ev = promoteDraft(re).event;
+  const opts = ev.cards.flatMap((c) => c.choices || []);
+  const mod = opts.find((o) => o.check && o.check.mods && o.check.mods.some((m) => m.effect));
+  assert.deepStrictEqual(mod.check.mods[0].effect, { kind: "bonus", add: 0.15, tags: ["physical"] });
+  const nr = opts.find((o) => o.items);
+  assert.deepStrictEqual(nr.items[0], { item: "blast", optional: true, label: "Blast", effect: { kind: "unlock", nextCheck: { add: 0 } } });
 });
 
 console.log(`${passed} passed${process.exitCode ? ", some FAILED" : ""}`);
