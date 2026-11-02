@@ -6,7 +6,9 @@
 
 **Relevant files:** `systems/cultivating.gd`, `systems/vein_list.gd`, `data/vein_growth.json`, `tests/test_cultivating.gd`; REFERENCE §3.4 Cultivating & pruning, §2.1 Vein dict.
 
-**Status:** needs-info
+**Decision (12):** Entry points (ADR 0007): Vein list row + Network Map mini vein card, "Apply item…". Shared apply fn; one effect per item id per vein, reuse refreshes.
+
+**Status:** ready-for-agent
 
 - [ ] Boost state stored on the vein as pure data (`vein.boosts`)
 - [ ] Effects apply only for the tier's days and then expire; tests at day boundaries
