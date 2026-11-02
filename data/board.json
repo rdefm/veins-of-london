@@ -923,37 +923,37 @@
     "cult_yield": {
       "label": "A bit more yield",
       "case": [
-        "If the veins gave a bit more than usual this week... only if that's all right. Your last ten days give a baseline, and a bit past it is the ask. Nothing heroic.",
-        "I've been watching the numbers. Not in a weird way. They could go up a little, I think. If we asked nicely. I averaged the last ten days. Twice. A bit above that is the whole plan.",
-        "Could we try for a bit past our usual? Just a bit. I've written the number down and then crossed it out. The ten-day average is the number to beat. Gently. Veins respond to gentle.",
-        "I had an idea about the yield. It's a small idea. I'll go first, so it's quicker if it's bad. Ten days of yield, averaged, is the line. I'd like us a little over it, and I'd like someone to tell me if that's daft."
+        "Sorry to bring it up. Could the veins beat our usual ten-day yield, just over it? Archie has more calc to sell and James has more to craft with, and it's the quickest way I know to give them both.",
+        "I'm sorry, I know it's not my place. I'd like the yield to finish this week above our ten-day average. Not by much. Every bit over is calc Archie can sell and James can work, so it's worth a try.",
+        "If it's all right, I'd like to try for a yield past our ten-day average. I'm sorry, I'll say it plainly: just over. More calc out of the veins means more on Archie's table and more on James's bench.",
+        "Sorry, this might be daft. Could we aim for a little above our ten-day yield? I'd tend the veins closer to get it. Extra calc is something Archie and James would both use."
       ]
     },
     "cult_new_vein": {
       "label": "Bring a vein online",
       "case": [
-        "There's a new vein that could come good. I could watch it. If you'd like. A fresh vein only counts once it's healthy enough to work. That's the bit I'd be watching.",
-        "There's one in the files nobody's looked at since you got it. I looked at it. It looked back, a bit. It has to get healthy first, then it counts. I'd check on it every morning, if that's allowed.",
-        "I'd like to try bringing a new vein up. I've read about it. I've read about it a lot. You've got a vein that isn't earning yet. Get it to working health and it's a new line on the sheet.",
-        "Archie says I should aim higher. This is higher. It's one vein higher. A vein that's only on paper doesn't count. A vein that's well enough to work does. I'd like the second kind."
+        "I'm sorry, could I bring a vein online? We own one that isn't earning yet, and I'd like to get it healthy enough to work. A new line means more calc for Archie to sell and James to craft.",
+        "Sorry to ask. I'd like to get one of our idle veins up and working this week. It only counts once it's healthy enough, so I'd be looking in on it most days. More veins, more calc for the others.",
+        "If nobody minds, I'd like to bring another vein online. I know it's more work for me. That's rather the point, I think. Another working vein is more calc for Archie to sell and James to put on the bench.",
+        "Sorry. Archie says I should aim higher, so: one more working vein. We've got one that's only on paper, and I'd like it healthy enough to earn. Then there's more calc for everyone."
       ]
     },
     "cult_health_streak": {
       "label": "Keep a vein healthy",
       "case": [
-        "A vein held in good condition night after night. Nobody's tried it properly. The nightly count only runs while a vein stays in good shape. One slip and it starts over.",
-        "I'd like to keep one vein well. Every night. I'll stay late, I don't mind. I've brought a flask. It's counted every night, and a bad night resets it. I know. I've thought about the bad night a lot.",
-        "It's not a big ask, it's a long one. A vein, kept in good shape, for days on the trot. A vein has to stay in good shape for the whole run of nights. The count doesn't forgive. I would.",
-        "What if one vein just... never had a bad night? I can't stop thinking about it. Each night it holds, the count goes up one. Each night it doesn't, it's back to nothing. I did warn you it was small."
+        "Sorry, this is a long one. Could I keep a vein in good health every night this week? One bad night and the count starts again. A vein that's always well gives steady calc, and Archie and James can plan around steady.",
+        "I'd like to keep one vein healthy night after night. I'm sorry, it isn't exciting. The count resets after any bad night, so I'd check on it late as well. Steady calc is easier to sell and easier to craft with.",
+        "If it's all right, I'd like to try for a run of good nights on one vein. Each healthy night adds one; a bad one wipes it. I'm sorry, I know that's harsh. Reliable calc is what Archie and James keep asking me for.",
+        "Could one vein go the whole week without a bad night? I'm sorry to make it a project. A vein that never slips yields evenly, and that gives Archie something to promise and James something to rely on."
       ]
     },
     "cult_second_ore": {
       "label": "A second ore",
       "case": [
-        "Not to alarm anyone, but we only have one kind of calc. Could we have two? Two ore types in good health means the business isn't one bad week from empty.",
-        "I keep thinking about the other kinds of calc. We don't have any. I keep thinking about that. If one ore has a bad week, the other doesn't. That's the whole argument. It's not a long one.",
-        "Could we grow a second sort of calc? I'll do the reading. I've already done the reading. A second ore, healthy enough to work, and the books stop leaning on one vein for everything.",
-        "James says one thing done well is a craft. Archie says one thing is a risk. Could I have a second thing? Both ores have to be in good shape for it to count. Two is steadier than one. I checked with the biscuits and it holds."
+        "Sorry, could we try a second kind of calc? Right now we lean on one or two. A new ore type, healthy and working, gives Archie another thing to sell and James another thing to craft.",
+        "I'm sorry if this is too much. I'd like us to get a different kind of calc online. I've only worked the ones we have, so I'd learn it as I go. Another ore means more to sell, more to craft, and less hanging on one price.",
+        "If it's all right, I'd like to bring a vein of a different type online. I haven't done it before, so I'm sorry if it's slow. Two kinds of calc at once is more choice for Archie's buyers and James's benches.",
+        "Sorry, I know it's a lot. Could we add another ore type? It has to be healthy enough to work before it counts. I'd like the practice, and it gives the others a second calc to sell and make things with."
       ]
     }
   },
