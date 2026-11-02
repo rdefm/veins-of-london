@@ -18,6 +18,7 @@ static var REGISTRY: Dictionary = {
 	"network_sourcing": NetworkSourcingModal,
 	"network_intel": NetworkIntelModal,
 	"sell_vein_quote": SellVeinQuoteModal,
+	"apply_vein_item": ApplyVeinItemModal,
 	"craft_components_menu": CraftComponentsMenuModal,
 	"network_reference": NetworkReferenceModal,
 	"movement_craft": MovementCraftModal,

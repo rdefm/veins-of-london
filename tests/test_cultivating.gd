@@ -1522,3 +1522,107 @@ func run() -> void:
 		assert_true(Cultivating.LOCATION_STREETS.has(parts[0]), "street should come from the verbatim HTML array")
 		assert_true(Cultivating.LOCATION_SUFFIXES.has(parts[1]), "suffix should come from the verbatim HTML array")
 	)
+
+	# ── item boosts: Root Feed / Good Year (item-event-effects 13) ─────
+
+	run_case("apply_item_spends_one_unit_and_stores_pure_boost_data", func():
+		GameState.reset()
+		GameState.state["player"]["veins"] = [_vein(50)]
+		var day: int = GameState.state["world"]["day"]
+		Crafting.inventory_add("rootFeed", 3, 2)
+		var result := Cultivating.apply_item("test_vein", "rootFeed", 3)
+		assert_true(result["ok"], "applies")
+		assert_eq(Crafting.inventory_qty("rootFeed"), 1, "one unit spent")
+		var boost: Dictionary = GameState.state["player"]["veins"][0]["boosts"]["rootFeed"]
+		assert_eq(boost["until"], day + 2, "tier 3 Root Feed lasts 2 days")
+		assert_eq(boost["power"], 2, "power recorded")
+	)
+
+	run_case("apply_item_refuses_unheld_or_unknown", func():
+		GameState.reset()
+		GameState.state["player"]["veins"] = [_vein(50)]
+		assert_true(not Cultivating.apply_item("test_vein", "rootFeed", 1)["ok"], "none held")
+		Crafting.inventory_add("rootFeed", 1, 1)
+		assert_true(not Cultivating.apply_item("test_vein", "healingBurst", 1)["ok"], "not a vein item")
+		assert_true(not Cultivating.apply_item("nope", "rootFeed", 1)["ok"], "unknown vein")
+		assert_eq(Crafting.inventory_qty("rootFeed"), 1, "nothing spent on refusals")
+	)
+
+	run_case("reapplying_refreshes_without_stacking", func():
+		GameState.reset()
+		GameState.state["player"]["veins"] = [_vein(50)]
+		var day: int = GameState.state["world"]["day"]
+		Crafting.inventory_add("rootFeed", 1, 1)
+		Crafting.inventory_add("rootFeed", 5, 1)
+		Cultivating.apply_item("test_vein", "rootFeed", 1)
+		Cultivating.apply_item("test_vein", "rootFeed", 5)
+		var boosts: Dictionary = GameState.state["player"]["veins"][0]["boosts"]
+		assert_eq(boosts.size(), 1, "one entry per item")
+		assert_eq(boosts["rootFeed"]["until"], day + 3, "refreshed to the new duration, not summed")
+	)
+
+	run_case("root_feed_adds_growth_each_tick_for_its_days_then_expires", func():
+		GameState.reset()
+		GameState.state["player"]["veins"] = [_vein(50)]
+		var world: Dictionary = GameState.state["world"]
+		var day: int = world["day"]
+		Crafting.inventory_add("rootFeed", 3, 1)
+		Cultivating.apply_item("test_vein", "rootFeed", 3)
+		var vein: Dictionary = GameState.state["player"]["veins"][0]
+		world["day"] = day + 1
+		Cultivating.drift_veins()
+		assert_eq(vein["growth"], 51, "tick on day+1 feeds")
+		assert_true(vein["boosts"].has("rootFeed"), "still running after the first tick")
+		# Drift now pushes the vein off neutral; isolate the boost step itself.
+		vein["growth"] = 60
+		world["day"] = day + 2
+		Cultivating._tick_boosts(vein)
+		assert_eq(vein["growth"], 61, "second and last tick feeds")
+		assert_true(not vein["boosts"].has("rootFeed"), "expired after its last day")
+		world["day"] = day + 3
+		Cultivating._tick_boosts(vein)
+		assert_eq(vein["growth"], 61, "no feed once expired")
+	)
+
+	run_case("root_feed_is_capped_at_the_ceiling", func():
+		GameState.reset()
+		GameState.state["player"]["veins"] = [_vein(100)]
+		Crafting.inventory_add("rootFeed", 1, 1)
+		Cultivating.apply_item("test_vein", "rootFeed", 1)
+		GameState.state["world"]["day"] += 1
+		Cultivating.drift_veins()
+		assert_eq(GameState.state["player"]["veins"][0]["growth"], 100, "never past the ceiling")
+	)
+
+	run_case("good_year_bumps_yield_tier_for_its_days_only", func():
+		GameState.reset()
+		GameState.state["player"]["veins"] = [_vein(80, "shoreditch", [], "fair")]
+		var vein: Dictionary = GameState.state["player"]["veins"][0]
+		var world: Dictionary = GameState.state["world"]
+		var day: int = world["day"]
+		var base: int = Cultivating.prune_yield(vein, 24)
+		Crafting.inventory_add("goodYear", 1, 1)
+		Cultivating.apply_item("test_vein", "goodYear", 1)
+		assert_eq(Cultivating.yield_terroir_tier(vein), "rich", "fair reads as rich")
+		assert_true(Cultivating.prune_yield(vein, 24) > base, "yield rises")
+		world["day"] = day + 1
+		assert_eq(Cultivating.yield_terroir_tier(vein), "rich", "still on the last day")
+		world["day"] = day + 2
+		assert_eq(Cultivating.yield_terroir_tier(vein), "fair", "off the day it ends")
+		assert_eq(Cultivating.prune_yield(vein, 24), base, "yield back to base")
+	)
+
+	run_case("good_year_caps_at_the_top_tier", func():
+		GameState.reset()
+		var vein := _vein(80, "shoreditch", [], "saturated")
+		vein["boosts"] = { "goodYear": { "until": GameState.state["world"]["day"] + 2, "power": 2 } }
+		assert_eq(Cultivating.yield_terroir_tier(vein), "saturated", "no tier above saturated")
+	)
+
+	run_case("vein_list_offers_apply_item_only_with_a_stack_in_the_bag", func():
+		GameState.reset()
+		var vein := _vein(50)
+		assert_true(VeinList.actions_for(vein).any(func(a): return a["id"] == VeinList.APPLY_ITEM_ID and a["disabled"]), "disabled when empty")
+		Crafting.inventory_add("goodYear", 2, 1)
+		assert_true(VeinList.actions_for(vein).any(func(a): return a["id"] == VeinList.APPLY_ITEM_ID and not a["disabled"]), "enabled with a stack")
+	)

@@ -10,6 +10,7 @@ const PRUNE_LIGHT_ID := "prune_light"
 const PRUNE_HARD_ID := "prune_hard"
 const MANAGE_ID := "manage"
 const SELL_ID := "sell"
+const APPLY_ITEM_ID := "apply_item"
 
 
 # Every player vein, optionally scoped to one district (null = every
@@ -49,6 +50,7 @@ static func actions_for(vein: Dictionary) -> Array:
 		{ "id": CULTIVATE_ID, "disabled": cultivate_disabled, "reason": cultivate_reason },
 		{ "id": PRUNE_LIGHT_ID, "disabled": light_gate["disabled"], "reason": light_gate["reason"] },
 		{ "id": PRUNE_HARD_ID, "disabled": hard_gate["disabled"], "reason": hard_gate["reason"] },
+		apply_item_action(),
 		{ "id": MANAGE_ID, "disabled": false, "reason": "" },
 	]
 
@@ -58,6 +60,12 @@ static func actions_for(vein: Dictionary) -> Array:
 		actions.append({ "id": SELL_ID, "disabled": false, "reason": "" })
 
 	return actions
+
+
+# "Apply item…" (ADR 0007): enabled while the Bag holds a Root Feed / Good Year.
+static func apply_item_action() -> Dictionary:
+	var has_item: bool = not Cultivating.usable_boost_stacks().is_empty()
+	return { "id": APPLY_ITEM_ID, "disabled": not has_item, "reason": "" if has_item else "Nothing in the Bag to apply." }
 
 
 # Dispatches through the same Cultivating/Travel calls the Map tab's site
@@ -88,6 +96,11 @@ static func apply_option(option_id: String, vein_id: String) -> Dictionary:
 			# Quote, then confirm (spec §5.6: "losing a vein must never be
 			# one tap") -- the sale itself fires from the modal's Confirm button.
 			Modal.open("sell_vein_quote", { "veinId": vein_id, "price": VeinTrade.quote(vein), "factionId": VeinTrade.SELL_FACTION_ID })
+			return { "ok": true }
+		APPLY_ITEM_ID:
+			if Cultivating.find_vein(vein_id) == null:
+				return { "ok": false }
+			Modal.open("apply_vein_item", { "veinId": vein_id })
 			return { "ok": true }
 		_:
 			return { "ok": false }

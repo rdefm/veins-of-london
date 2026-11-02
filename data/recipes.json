@@ -261,6 +261,7 @@
       "xpReward": 30,
       "eventUsable": false,
       "bagWhenHeld": true,
+      "effectText": "Apply to a vein: it grows a little extra each day.",
       "description": "Life calc, worked into the seam like bone meal. The vein grows, and resents it slightly."
     },
     "bloom": {
@@ -381,6 +382,7 @@
       "xpReward": 40,
       "eventUsable": false,
       "bagWhenHeld": true,
+      "effectText": "Apply to a vein: harvests yield as if its terroir were a tier higher.",
       "description": "Not more ore. Better ore, which is worse news for the people buying it."
     },
     "secondImpression": {

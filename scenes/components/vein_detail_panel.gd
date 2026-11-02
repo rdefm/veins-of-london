@@ -5,7 +5,7 @@ extends RefCounted
 # through the same StationBubble/Cultivating/Raiding seams as other surfaces.
 
 const CARD_WIDTH := 354.0
-const CARD_HEIGHT := 596.0
+const CARD_HEIGHT := 640.0
 
 
 static func build(vein: Dictionary) -> Control:
@@ -47,6 +47,7 @@ static func build(vein: Dictionary) -> Control:
 	content.add_child(_build_actions_section(vein))
 	content.add_child(_build_security_button(vein))
 	content.add_child(_build_guard_kit_row(vein))
+	content.add_child(_build_apply_item_row(vein))
 	content.add_child(_divider())
 	content.add_child(_build_alarm_button(vein))
 	return root
@@ -312,6 +313,23 @@ static func _build_guard_kit_row(vein: Dictionary) -> Control:
 	var button := UI.button("%s ›" % status, func(): Modal.open("guard_kit", { "target": target }))
 	button.name = "GuardKitButton"
 	button.disabled = Cultivating.vein_guard_count(vein) <= 0
+	button.clip_text = true
+	button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	UI.style_action_button(button, MapCardStyle.dim() if button.disabled else MapCardStyle.ink())
+	return button
+
+
+static func _build_apply_item_row(vein: Dictionary) -> Control:
+	var gate: Dictionary = VeinList.apply_item_action()
+	var parts: PackedStringArray = ["Apply item…"]
+	for item in Cultivating.boost_items():
+		var days_left: int = Cultivating.boost_days_left(vein, item)
+		if days_left > 0:
+			parts.append("%s %dd" % [GameData.VEIN_GROWTH["boostItems"][item]["label"], days_left])
+	var button := UI.button(" · ".join(parts), func(): VeinList.apply_option(VeinList.APPLY_ITEM_ID, vein["id"]))
+	button.name = "ApplyItemButton"
+	button.disabled = gate["disabled"]
 	button.clip_text = true
 	button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL

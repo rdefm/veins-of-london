@@ -103,6 +103,11 @@ func _build_vein_row(vein: Dictionary) -> Control:
 	if station_text != null:
 		c["content"].add_child(_dim_label(String(station_text)))
 
+	for item in Cultivating.boost_items():
+		var days_left: int = Cultivating.boost_days_left(vein, item)
+		if days_left > 0:
+			c["content"].add_child(_dim_label("%s · %d day%s left" % [GameData.VEIN_GROWTH["boostItems"][item]["label"], days_left, "" if days_left == 1 else "s"]))
+
 	c["content"].add_child(_build_actions_row(vein))
 
 	return c["panel"]
@@ -128,6 +133,8 @@ func _build_action_button(vein: Dictionary, gate: Dictionary) -> Control:
 		VeinList.SELL_ID:
 			var price: int = VeinTrade.quote(vein)
 			return MapCardStyle.style_button(UI.button("Sell — £%d" % price, func(): VeinList.apply_option(option_id, vein_id)))
+		VeinList.APPLY_ITEM_ID:
+			return MapCardStyle.action_button("Apply item…", func(): VeinList.apply_option(option_id, vein_id), gate["disabled"], gate["reason"])
 		_:  # MANAGE_ID
 			return MapCardStyle.style_button(UI.button("Manage", func(): VeinList.apply_option(option_id, vein_id)))
 func _build_prune_button(action_label: String, vein: Dictionary, depth: int, gate: Dictionary) -> Control:

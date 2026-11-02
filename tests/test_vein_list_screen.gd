@@ -225,7 +225,7 @@ func run() -> void:
 		var screen := VeinListScreen.new()
 		var actions: Control = screen._build_actions_row(vein)
 
-		assert_eq(actions.get_child_count(), 4)
+		assert_eq(actions.get_child_count(), 5)
 		assert_true(actions is HFlowContainer, "must wrap on a narrow phone, same as the map sheet's own action row")
 
 		actions.free()

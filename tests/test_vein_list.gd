@@ -88,7 +88,7 @@ func run() -> void:
 		var gates := VeinList.actions_for(vein)
 
 		var ids := gates.map(func(g): return g["id"])
-		assert_eq(ids, [VeinList.CULTIVATE_ID, VeinList.PRUNE_LIGHT_ID, VeinList.PRUNE_HARD_ID, VeinList.MANAGE_ID])
+		assert_eq(ids, [VeinList.CULTIVATE_ID, VeinList.PRUNE_LIGHT_ID, VeinList.PRUNE_HARD_ID, VeinList.APPLY_ITEM_ID, VeinList.MANAGE_ID])
 	)
 
 	run_case("actions_for_disables_cultivate_with_a_reason_at_the_ceiling", func():

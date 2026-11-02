@@ -158,8 +158,110 @@ static func apply_yield_bonus(vein: Dictionary, rolled: int) -> int:
 
 # Tier drives ore yield directly (R§1.2 terroirYieldMult): poor 0.6 / fair 1.0 / rich 1.6 / saturated 2.4.
 static func terroir_yield_mult(vein: Dictionary) -> float:
+	return GameData.VEIN_GROWTH["terroirYieldMult"].get(yield_terroir_tier(vein), 1.0)
+
+
+# The tier yields roll against: the vein's own tier, one step higher (capped at
+# the top tier) while Good Year is active (R§3.4 Item boosts).
+static func yield_terroir_tier(vein: Dictionary) -> String:
 	var tier: String = vein.get("hospitability", {}).get("tier", "fair")
-	return GameData.VEIN_GROWTH["terroirYieldMult"].get(tier, 1.0)
+	if not boost_active(vein, GOOD_YEAR):
+		return tier
+	var order: Array = GameData.VEIN_GROWTH["terroirTierOrder"]
+	var index: int = order.find(tier)
+	if index < 0:
+		return tier
+	var bump: int = int(GameData.VEIN_GROWTH["boostItems"][GOOD_YEAR]["tierBump"])
+	return order[mini(order.size() - 1, index + bump)]
+
+
+# ── item boosts (R§3.4 Item boosts) ──────────────────────────────
+
+const ROOT_FEED := "rootFeed"
+const GOOD_YEAR := "goodYear"
+
+
+# Recipe keys that can be applied to a vein (data/vein_growth.json boostItems).
+static func boost_items() -> Array:
+	return GameData.VEIN_GROWTH["boostItems"].keys()
+
+
+# Days a boost has left: until - today, never below 0. 0 = not running.
+static func boost_days_left(vein: Dictionary, item: String) -> int:
+	var boost: Variant = vein.get("boosts", {}).get(item)
+	if boost == null:
+		return 0
+	return maxi(0, int(boost["until"]) - int(GameState.state["world"]["day"]))
+
+
+# Good Year / Root Feed applied on day D for N days run through day D+N-1:
+# Good Year covers harvests on days D..D+N-1; Root Feed fires at each of the
+# N daily ticks that land on days D+1..D+N (see _tick_boosts).
+static func boost_active(vein: Dictionary, item: String) -> bool:
+	return boost_days_left(vein, item) > 0
+
+
+# Bag stacks the player can apply: [{ item, tier, qty, days }] in boost_items()
+# then tier order. days = the unit's effectPower at its tier.
+static func usable_boost_stacks() -> Array:
+	var inventory: Dictionary = GameState.state["player"]["inventory"]
+	var stacks: Array = []
+	for item in boost_items():
+		var buckets: Dictionary = inventory.get(item, {})
+		var tiers: Array = buckets.keys()
+		tiers.sort_custom(func(a, b): return int(a) < int(b))
+		for tier_key in tiers:
+			var qty: int = buckets[tier_key]
+			if qty > 0:
+				stacks.append({ "item": item, "tier": int(tier_key), "qty": qty, "days": boost_days_for(item, int(tier_key)) })
+	return stacks
+
+
+static func boost_days_for(item: String, tier: int) -> int:
+	var powers: Array = GameData.RECIPES[item]["effectPower"]
+	return int(powers[clampi(tier, 0, powers.size() - 1)])
+
+
+# The shared "apply item to a vein" entry (ADR 0007). Spends one unit at `tier`
+# and writes vein.boosts[item] = { until, power }; reuse refreshes, never stacks.
+static func apply_item(vein_id: String, item: String, tier: int) -> Dictionary:
+	if not boost_items().has(item):
+		return { "ok": false, "reason": "That can't go on a vein." }
+	var vein: Variant = find_vein(vein_id)
+	if vein == null:
+		return { "ok": false, "reason": "Vein not found." }
+	var days: int = boost_days_for(item, tier)
+	if days <= 0:
+		return { "ok": false, "reason": "Too weak to take." }
+	var have: int = int(GameState.state["player"]["inventory"].get(item, {}).get(str(tier), 0))
+	if have <= 0:
+		return { "ok": false, "reason": "None left." }
+	Crafting.inventory_remove_from_tier(item, tier, 1)
+	if not vein.has("boosts"):
+		vein["boosts"] = {}
+	var until: int = int(GameState.state["world"]["day"]) + days
+	vein["boosts"][item] = { "until": until, "power": days }
+	# PROSE-REVIEW: item-on-vein notification.
+	Notify.push("%s on the %s vein. %d day%s." % [GameData.VEIN_GROWTH["boostItems"][item]["label"], GameData.ORE_TYPES[vein["oreType"]]["name"], days, "" if days == 1 else "s"], Notify.CATEGORY_SUCCESS)
+	EventBus.state_changed.emit()
+	return { "ok": true, "until": until, "days": days }
+
+
+# Daily-tick step for a player vein's boosts: Root Feed adds its growth, then
+# any boost whose last day has passed is dropped. Runs after drift.
+static func _tick_boosts(vein: Dictionary) -> void:
+	var boosts: Dictionary = vein.get("boosts", {})
+	if boosts.is_empty():
+		return
+	var day: int = GameState.state["world"]["day"]
+	if boosts.has(ROOT_FEED) and int(boosts[ROOT_FEED]["until"]) >= day:
+		var growth_before: int = vein["growth"]
+		var step: int = int(GameData.VEIN_GROWTH["boostItems"][ROOT_FEED]["growthPerDay"])
+		vein["growth"] = mini(ceiling(vein), growth_before + step)
+		apply_growth_change(vein, growth_before)
+	for item in boosts.keys():
+		if int(boosts[item]["until"]) <= day:
+			boosts.erase(item)
 
 
 # Level drives ore yield directly (R§1.2 levelYieldMult): 1 + 0.2*(level-1), so level1=1.0x .. level5=1.8x.
@@ -403,6 +505,7 @@ static func drift_veins() -> void:
 		_advance_development_streak(vein)
 		if not _roll_level_up(vein):
 			_drift_one(vein)
+		_tick_boosts(vein)
 	for vein in GameState.state["player"]["veins"].duplicate():
 		collapse_vein(vein)
 	for vein in GameState.state["player"]["veins"].duplicate():

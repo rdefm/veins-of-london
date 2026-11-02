@@ -44,7 +44,7 @@ Data file per system: see `data/*.json` below.
 | contact_texts.gd | Per-contact random texts: rollover scheduling, gated selection, vein templating, reply rewards, and ticker notices; content from contact_texts.json |
 | contracts.gd | Block-end Sales auto-delivery (full, then partials by priority; goods to buyer holdings + supplier share), settlement to pot; recurring periods pay on fill, lock (`periodFilled`) until Monday renewal, expire at term end; per-contract `buyCalc` calc buys from the pot; unattended-proof taint (`playerAssisted`) and `qualified` settlements; `cancel()` (unpaid, hurts counterparty) |
 | crafting.gd | Recipe crafting; staff `craft_chance`, faction `calc_cost`; tiered inventory buckets; multi-target variant (from Lab best rank 3, `<recipe>_multi` inventory key, `craftMulti` checkbox state); `file_crafted` = the one filing entry point (inventory, Shares, counts, XP, Contracts/Objectives/Collective) |
-| cultivating.gd | Vein growth / cultivate / prune (player rolls max under Be a Lady; `player_*_text` previews); security tiers (lock/ward prices, guard tiers hired via GuardUpkeep) + raid resist; shared vein `value_order`; vein guard count + `drop_vein_guard` |
+| cultivating.gd | Vein growth / cultivate / prune (player rolls max under Be a Lady; `player_*_text` previews); security tiers (lock/ward prices, guard tiers hired via GuardUpkeep) + raid resist; shared vein `value_order`; vein guard count + `drop_vein_guard`; item boosts (`apply_item`, `vein.boosts`: Root Feed daily growth, Good Year yield-tier bump) |
 | debug_start.gd | Maximal-unlock debug state; `apply(model)` keeps a picked `player.model` through its reset |
 | timing_log.gd | Debug-build-only log of real seconds + in-game day/block per event and fight (begin/end hooks in events.gd, combat.gd); static vars outside state; CSV export to `user://prologue_timing.csv` |
 | debug_tools.gd | Debug phone-app state adjusters; `learn_recipe()`/`learn_all_recipes()` grant rungs exact via RecipeKnowledge; `fire_event()` preps any event (state-path veins/sites, addressed contacts, raid/reveal site context, raid security profile) then starts it; `board_*` jump-to-meeting/choose/skip/judge; `add_item()` grants any recipe item |
@@ -125,7 +125,7 @@ Data file per system: see `data/*.json` below.
 | time_system.gd | Time blocks (each runs the staff block step + LodedInnit post), forward-only `advance_to_block()` for event `at` timing (R§3.9b), `blocks_left()`, rest, daily tick (Monday-only tenure-aware weekly home bill (full pay sets `rentPaid`), weekly arrears clock + interest, forced one-tier downgrade per ADR 0006), Prologue day triggers (buyer text, ending) |
 | todo.gd | ToDo-app sections per questline (Tutorial, Collective, Business Empire) with active/done/placeholder status, "n of N" count detail, all_of checklist sub-items; Collective carries the site ledger; trailing Board section = active board goal (label, tier reached, progress to next tier); `current_objective()` = first undone item, read by the Story row |
 | travel.gd | District travel (free) |
-| vein_list.gd | Vein-portfolio list decision layer |
+| vein_list.gd | Vein-portfolio list decision layer (row actions incl. Apply item…) |
 | vein_list_nav.gd | Vein list screen nav state |
 | vein_trade.gd | Selling a vein outright to a faction (at quote, a forced handback price, or a faction's named price), buying one back, and a no-price handover from a faction (truce vein swap) |
 
@@ -212,7 +212,7 @@ overlays; hides the top board on title/intro/combat and the nav dock per screen.
 | turn_order_strip.gd | Combat turn-order strip: one card per caller-built entry (an action). Tap selects; drag scrolls; selected/`focused` card expands. Damage-tier sign frames, optional action/guard/status lines, dimmed ⏸ frozen cards, +1 Powder tab, HP ghost drain, `advance_to()` carousel; `flip` entries flap `?` to the intent; fight-intro `deal_in()` + `pulse_player_card()` |
 | ui.gd | Shared Control builders, time-cost labels, lot price text ("£75/10"), ui_action_red accent + bordered-panel/action-button StyleBoxFlat helpers |
 | vein_bubble.gd | Compact player-vein tap bubble: pin-anchored card, Lv segments, condition needle with 50/90+ scale, outline development/raid cues, round Harvest (light/hard chooser)/Cultivate actions, cultivator picker + hold-target stepper (via Rooms) while anyone holds Cultivation; tapping the info area opens vein_detail_panel.gd instead of running an action |
-| vein_detail_panel.gd | Floating map_card_style.gd-skinned vein detail (mapNav.selectedVeinId): compact level/location, condition, drift/development/raid/security cues, three icon action tiles, security/guard kit row/alarm/Defend; reuses VeinBubble's level/condition builders |
+| vein_detail_panel.gd | Floating map_card_style.gd-skinned vein detail (mapNav.selectedVeinId): compact level/location, condition, drift/development/raid/security cues, three icon action tiles, security/guard kit row/Apply item…/alarm/Defend; reuses VeinBubble's level/condition builders |
 
 ## scenes/modals/*.gd — modal content, one script per type
 
@@ -234,6 +234,7 @@ overlays; hides the top board on title/intro/combat and the nav dock per screen.
 | network_sourcing_modal.gd | Handler Sourcing order: ore type + minimum tier |
 | network_intel_modal.gd | Handler intel menu: product rows at relation price, gate lock, faction/disinformation pickers, running timers |
 | sell_vein_quote_modal.gd | Single-vein sale confirmation card |
+| apply_vein_item_modal.gd | Bag-stack picker for Root Feed / Good Year on one vein |
 | craft_components_menu_modal.gd | Movement-archetype picker; Craft hands off to movement_craft |
 | movement_craft_modal.gd | Pick a calc type to attempt a Movement craft; pushes success/fail notices |
 | movement_swap_modal.gd | Seat a Movement from movementInventory into the Dial |

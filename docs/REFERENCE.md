@@ -648,7 +648,8 @@ state = {
   district:String,
   hospitability: {tier:String, bonuses:[String]},   # M1; M0 default {tier:"fair", bonuses:[]}
   rampantDays:int,                  # vein-growth-state; consecutive daily ticks spent at the ceiling
-  guardKit: { recipeKey: { "<tier>": count } } }   # player veins only; {} = empty; backfilled {} on load — §1.6 Guard kit
+  guardKit: { recipeKey: { "<tier>": count } },   # player veins only; {} = empty; backfilled {} on load — §1.6 Guard kit
+  boosts?: { "<itemKey>": { until:int, power:int } } }   # absent = none; rootFeed / goodYear, §3.4 Item boosts
 ```
 `growth` (0..ceiling(vein), neutral 50) replaces the old `devBar`/`level`/`levelLabel`/`charged`/`chargeBlocks` quartet entirely — see §1.2. A faction vein (`site.factionVein`) carries the same fields plus `factionId`, `kit` (§1.8 per-vein kit allocation) and `features {cameras: int, alarm: bool, ward?: wardType}` (§3.12 "Security profile", "Wards").
 
@@ -761,6 +762,7 @@ The dock (`NavBar`, now 3 slots: Phone · Map · HQ) is hidden on `title, intro,
 - **Share crediting:** the player's `prune()` yield and each staff cultivator prune (`Rooms._cultivator_act()`) credit `Shares.record_ore("player", oreType, yield)` (§3.14).
 - **Left wall (depletion/collapse):** `growth` pins at 0. A vein above level 1 depletes instead: `level` -= 1, `growth` resets to `neutral` (50), `developmentStreak` clears, one level per event, no cascade, no collapse roll that tick (cultivation-refining ticket 07). A level-1 vein at 0 keeps the original roll: each daily tick, `chance(collapseChancePerDay)` (0.15) removes it — a player vein's site reverts to unclaimed; a faction vein's site is deleted outright. Still cultivable (a full gain roll — no diminishing-near-zero rule anymore) while pinned at 0, which is how both are rescued before the reset/roll lands. This is the only way a faction vein dies — see the NPC-claim/faction-vein-growth bullet in §3.1.
 - **Right wall (rampant/self-seed):** `growth` clamps at `ceiling(vein)`. `rampantDays` increments each daily tick spent at the ceiling; at `rampantSeedDays` (5), claims an unclaimed site in the same district for a new player vein at `growth = selfSeedGrowth` (60) — see vein-growth-state ticket 02. Faction veins never self-seed.
+- **Item boosts** (`Cultivating.apply_item`, `data/vein_growth.json` `boostItems`; ADR 0007): Root Feed / Good Year are applied from the Vein list row or the map vein detail card ("Apply item…"), spending one Bag unit at a chosen tier. `days = effectPower[tier]`; stores `vein.boosts[item] = {until: day + days, power: days}`; reuse refreshes, never stacks. **Root Feed:** each daily tick (after drift) with `until >= day` adds `growthPerDay` (1) growth, capped at `ceiling(vein)`. **Good Year:** while `until > day`, yields use the terroir tier `tierBump` (1) higher (capped at saturated) via `Cultivating.yield_terroir_tier`. Boosts with `until <= day` are dropped at the tick.
 - `value_tier(vein) = min(6, 1 + floor(growth/20))` — the 1–6 condition-derived magnitude. `combined_magnitude(vein) = value_tier(vein) + (level − 1)` is what every value/strength consumer actually reads (§1.2).
 - XP level-up loop: while skill < 5 and XP ≥ table[skill+1] → skill += 1 (notification for cultivating).
 
