@@ -615,6 +615,73 @@ function setNextCheck(effect, on) {
   else if (!effect.nextCheck || typeof effect.nextCheck !== "object") effect.nextCheck = { add: 0 };
 }
 
+// Alert tier names (constants.json eventChecks.alert.tiers); the live game's three tiers until the file loads.
+let mechAlertTiers = ["Unseen", "Suspicious", "Alarm"];
+
+const isAlertOp = (e) => !!e && typeof e === "object" && e.op === "alert";
+
+// Alert ops in an effects list are edited in place; every other effect passes through verbatim.
+function nonAlertEffects(effects) {
+  return Array.isArray(effects) ? effects.filter((e) => !isAlertOp(e)) : [];
+}
+
+// "add" (signed shift) or "atLeast" (raise to a tier) for an alert op.
+function alertMode(op) {
+  return typeof op.atLeast === "number" && typeof op.add !== "number" ? "atLeast" : "add";
+}
+
+// Switches an alert op between signed add and raise-to-tier; cover and other keys are kept.
+function setAlertMode(op, mode) {
+  if (mode === "atLeast") { delete op.add; op.atLeast = typeof op.atLeast === "number" ? op.atLeast : 1; }
+  else { delete op.atLeast; op.add = typeof op.add === "number" ? op.add : 1; }
+}
+
+// Turns an alert op's cover {base, text} on (base 0.5, blank text) or off.
+function setAlertCover(op, on) {
+  if (!on) delete op.cover;
+  else if (!op.cover || typeof op.cover !== "object") op.cover = { base: 0.5, text: "" };
+}
+
+// Appends a fresh alert op (add 1) to opt[key].effects-style list; creates the list when absent.
+function addAlertOp(holder) {
+  if (!Array.isArray(holder.effects)) holder.effects = [];
+  holder.effects.push({ op: "alert", add: 1 });
+}
+
+// Removes the n-th alert op (counting alert ops only); an emptied list stays as [].
+function removeAlertOp(holder, n) {
+  let seen = -1;
+  const at = holder.effects.findIndex((e) => isAlertOp(e) && ++seen === n);
+  if (at >= 0) holder.effects.splice(at, 1);
+}
+
+// Does this op raise the alert level?
+function alertRaises(op) {
+  return typeof op.add === "number" ? op.add > 0 : typeof op.atLeast === "number" && op.atLeast > 0;
+}
+
+// Warnings for an option that spends an item whose profile already raises alert (Blast) and also authors its own
+// raising alert op (option effects or either outcome). PROSE-REVIEW
+function alertWarnings(opt, catalogue) {
+  if (!opt || typeof opt !== "object" || !Array.isArray(catalogue)) return [];
+  const used = [];
+  const take = (c) => {
+    if (!c || typeof c !== "object") return;
+    if (typeof c.item === "string") used.push(c.item);
+    for (const k of ["all", "any"]) if (Array.isArray(c[k])) c[k].forEach(collectItem);
+  };
+  const collectItem = take;
+  (Array.isArray(opt.items) ? opt.items : []).forEach(take);
+  if (opt.check && Array.isArray(opt.check.mods)) opt.check.mods.forEach(take);
+  take(opt.requires);
+  const lists = [opt.effects, opt.success && opt.success.effects, opt.fail && opt.fail.effects];
+  const own = lists.some((l) => Array.isArray(l) && l.some((e) => isAlertOp(e) && alertRaises(e)));
+  if (!own) return [];
+  return catalogue
+    .filter((it) => used.includes(it.id) && it.alert && alertRaises(it.alert))
+    .map((it) => "⚠ " + it.name + " already raises alert when spent; this option's own alert op raises it a second time.");
+}
+
 // Toggles tag on a check option (check.tags) or a no-roll option (opt.tags); an empty list drops the key.
 function setOptionTag(opt, tag, on) {
   const holder = opt.check && typeof opt.check === "object" ? opt.check : opt;
@@ -888,9 +955,10 @@ function optionMechanicsRows(opt, changed, restructure) {
   rows.push(head);
   rows.push(exitRow(opt, changed));
   rows.push(requiresBlock(opt, changed, restructure));
-  if (Array.isArray(opt.effects) && (!check || opt.effects.length)) {
-    rows.push(mechReadonly(check ? "Effects before the roll (read-only)" : "Effects (read-only)", opt.effects));
-  }
+  const others = nonAlertEffects(opt.effects);
+  if (others.length) rows.push(mechReadonly(check ? "Effects before the roll (read-only)" : "Effects (read-only)", others));
+  rows.push(alertEditor(opt, check ? "Alert before the roll" : "Alert", changed, restructure));
+  alertWarnings(opt, mechCatalogue).forEach((w) => rows.push(mechEl("div", "item-warn", w)));
   if (!check && Array.isArray(opt.items)) rows.push(...itemListRows(opt, changed, restructure));
   if (check) {
     rows.push(...checkRows(opt, changed, restructure));
@@ -1153,6 +1221,30 @@ function autoOfferRow(opt, changed, restructure) {
   return mechCell("Auto-offers", wrap, true);
 }
 
+// Structured editor for the alert ops in holder.effects: signed add or raise-to-tier, optional cover (base, text).
+function alertEditor(holder, title, changed, restructure) {
+  const box = mechEl("div", "mech-sub");
+  box.appendChild(mechEl("div", "mech-heading", title));
+  const ops = Array.isArray(holder.effects) ? holder.effects.filter(isAlertOp) : [];
+  const tierChoices = mechAlertTiers.map((n, i) => [String(i), n]);
+  ops.forEach((op, n) => {
+    const row = mechEl("div", "mech-row");
+    const mode = alertMode(op);
+    row.appendChild(mechCell("Alert", mechSelect([["add", "Shift by (signed)"], ["atLeast", "Raise to at least"]], mode, (v) => { setAlertMode(op, v); changed(); restructure(); })));
+    if (mode === "add") row.appendChild(mechCell("Add", mechNumber(op, "add", changed, false, "e.g. 1 or -1")));
+    else row.appendChild(mechCell("Tier", mechSelect(tierChoices, String(op.atLeast), (v) => { op.atLeast = Number(v); changed(); })));
+    row.appendChild(mechCheckbox("Cover roll", !!op.cover, (on) => { setAlertCover(op, on); changed(); restructure(); }));
+    if (op.cover && typeof op.cover === "object") {
+      row.appendChild(mechCell("Cover base", mechNumber(op.cover, "base", changed, false, "e.g. 0.4")));
+      row.appendChild(mechCell("Cover text", mechText(op.cover, "text", changed, ""), true));
+    }
+    row.appendChild(mechButton("✕ Remove", true, () => { removeAlertOp(holder, n); changed(); restructure(); }));
+    box.appendChild(row);
+  });
+  box.appendChild(mechButton("+ Add alert", false, () => { addAlertOp(holder); changed(); restructure(); }));
+  return box;
+}
+
 function outcomeBlock(opt, key, title, changed, restructure) {
   const box = mechEl("div", "mech-sub");
   box.appendChild(mechEl("div", "mech-heading", title));
@@ -1165,7 +1257,9 @@ function outcomeBlock(opt, key, title, changed, restructure) {
     return box;
   }
   box.appendChild(mechCell("Result text", mechText(out, "result_text", changed, "null", true), true));
-  if (Array.isArray(out.effects)) box.appendChild(mechReadonly("Effects (read-only)", out.effects));
+  const others = nonAlertEffects(out.effects);
+  if (others.length) box.appendChild(mechReadonly("Effects (read-only)", others));
+  box.appendChild(alertEditor(out, "Alert", changed, restructure));
   box.appendChild(gotoRow(out, changed));
   return box;
 }
@@ -1948,6 +2042,31 @@ function checkOddsBlock(opt, changed, restructure) {
     let res = findSlot(o, where).res;
     if (!res) res = o[where] = { result_text: "" };
     res.effects = list;
+  }
+  // Effect list at `where` ("option" or an outcome slot) as stored; [] when unset.
+  function effectsAt(o, where) {
+    const l = where === "option" ? o.effects : (findSlot(o, where).res || {}).effects;
+    return Array.isArray(l) ? l : [];
+  }
+  // stored with its entries of one class (alert ops, or everything else) swapped for `next`, in place: the n-th
+  // slot of that class takes next[n]; leftover slots are dropped, leftover next entries are appended.
+  function swapEffectClass(stored, next, wantAlert) {
+    const rest = next.slice(), out = [];
+    for (const e of stored) {
+      if (isAlertOp(e) === wantAlert) { if (rest.length) out.push(rest.shift()); } else out.push(e);
+    }
+    return out.concat(rest);
+  }
+  // Replaces option i's alert ops at `where` with the alert ops of `edited`; every other effect stays verbatim.
+  function setAlertEffects(draft, key, i, where, edited) {
+    const { o } = optionAt(draft, key, i);
+    setEffects(draft, key, i, where, swapEffectClass(effectsAt(o, where), edited.filter(isAlertOp), true));
+  }
+  // Replaces the non-alert effects at `where` with `others`; alert ops stay where they were.
+  function setOtherEffects(draft, key, i, where, others) {
+    checkEffects(others);
+    const { o } = optionAt(draft, key, i);
+    setEffects(draft, key, i, where, swapEffectClass(effectsAt(o, where), others.filter((e) => !isAlertOp(e)), false));
   }
   // Adds a bySuccesses outcome for `count` successes (0..attempts) to check option i; play then takes it instead
   // of success / fail at that count.
@@ -3190,7 +3309,7 @@ function checkOddsBlock(opt, changed, restructure) {
     return Object.keys(r).map((id) => {
       const it = r[id] || {};
       const p = it.eventProfile && typeof it.eventProfile === "object" ? it.eventProfile : null;
-      return { id, name: typeof it.name === "string" && it.name ? it.name : id, tags: p && Array.isArray(p.tags) ? p.tags.slice() : [], kind: p && p.effect && typeof p.effect.kind === "string" ? p.effect.kind : "" };
+      return { id, name: typeof it.name === "string" && it.name ? it.name : id, tags: p && Array.isArray(p.tags) ? p.tags.slice() : [], kind: p && p.effect && typeof p.effect.kind === "string" ? p.effect.kind : "", alert: p && p.alert && typeof p.alert === "object" ? p.alert : null };
     });
   }
   // Dropdown choices [{ value, label, warn? }] for an item field, or null with no catalogue (free text). Filtered to
@@ -3281,6 +3400,8 @@ function checkOddsBlock(opt, changed, restructure) {
       const c = JSON.parse(await readText(await dirAt(["data"]), "constants.json"));
       const t = c && c.eventChecks && c.eventChecks.tags;
       mechTagVocab = Array.isArray(t) ? t.filter((x) => typeof x === "string") : [];
+      const at = c && c.eventChecks && c.eventChecks.alert && c.eventChecks.alert.tiers;
+      if (Array.isArray(at) && at.length) mechAlertTiers = at.filter((x) => typeof x === "string");
     } catch { mechTagVocab = []; }
   }
   // Item-id field for the shared mechanics widgets: a dropdown of display name + id filtered by the option's tags
@@ -4176,6 +4297,8 @@ function checkOddsBlock(opt, changed, restructure) {
         o.pick ? el("span", { class: "mono muted", text: optionMech(o) }) : null));
       if (o.pick) rows.push(...pickBlock(b.draft, c, i, o, edit, field));
       rows.push(mechanicsBox(c, i, o));
+      alertWarnings(o, mechCatalogue).forEach((m) => rows.push(el("div", { class: "item-warn", text: m })));
+      rows.push(alertBox(c, i, "option", o.check ? "Alert before the roll" : "Alert", o.effects));
       rows.push(effectsField(c, i, "option", o.effects, o.check ? "Effects before the roll" : "Effects"));
       if (o.check) rows.push(effectsField(c, i, "perSuccess", o.check.perSuccess, "Effects per success"));
       for (const s of outcomeSlots(o)) {
@@ -4206,6 +4329,7 @@ function checkOddsBlock(opt, changed, restructure) {
           field("textarea", s.res && s.res.result_text, `${s.label} text`, fid + ":text",
             (v) => edit((d) => setOutcomeText(d, c.key, i, s.slot, v))),
           resultImageRow(c, i, s),
+          s.slot === "result" ? null : alertBox(c, i, s.slot, `${s.label} alert`, s.res && s.res.effects),
           s.slot === "result" ? null : effectsField(c, i, s.slot, s.res && s.res.effects, `${s.label} effects`));
       }
       if (o.check) {
@@ -4285,8 +4409,23 @@ function checkOddsBlock(opt, changed, restructure) {
     box.addEventListener("focusin", () => { editSession = false; });
     return box;
   }
+  // Alert editor for the effects at `where`, bound to a working copy; edits commit through setAlertEffects so every
+  // other effect is left untouched.
+  function alertBox(c, i, where, title, stored) {
+    const w = { effects: deepClone(stored || []) };
+    const put = (d) => setAlertEffects(d, c.key, i, where, w.effects);
+    const changed = () => {
+      quietOptions = true;
+      try { editDraft(put, !editSession); } finally { quietOptions = false; }
+      editSession = true;
+    };
+    const box = el("div", { class: "mech-ed" }, alertEditor(w, title, changed, () => editDraft(put, true)));
+    box.addEventListener("focusin", () => { editSession = false; });
+    return box;
+  }
   // An effect list as JSON, committed on change (blank = none). Bad JSON stays in the box with the error shown.
-  function effectsField(c, i, where, list, label) {
+  function effectsField(c, i, where, fullList, label) {
+    const list = where === "perSuccess" ? fullList : nonAlertEffects(fullList);
     const f = el("textarea", { rows: 1, class: "mono fx", "aria-label": label, placeholder: label + " (JSON list)",
       "data-focus": `opt:${i}:fx:${where}`, spellcheck: "false" });
     f.value = list && list.length ? JSON.stringify(list) : "";
@@ -4294,7 +4433,7 @@ function checkOddsBlock(opt, changed, restructure) {
       let next;
       try { next = f.value.trim() ? JSON.parse(f.value) : []; checkEffects(next); }
       catch (e) { f.setAttribute("aria-invalid", "true"); renderEditBar(`${label}: ${e.message}`); return; }
-      editDraft((d) => setEffects(d, c.key, i, where, next), true);
+      editDraft((d) => (where === "perSuccess" ? setEffects(d, c.key, i, where, next) : setOtherEffects(d, c.key, i, where, next)), true);
     });
     return el("label", { class: "route" }, el("span", { class: "kw", text: label }), f);
   }

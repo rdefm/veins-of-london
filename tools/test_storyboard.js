@@ -33,11 +33,11 @@ const {
   liveEventOptions, openOrImport, lintEvent, lintDraft, inboundRefs, inboundWarnings,
   OBS_ORES, obsIds, effectiveObservation, setCardObserve, addObservation, renameObservation, observationUses, deleteObservation, addObservationBlock, deleteObservationBlock, setObservationMiss, addObservationTier, deleteObservationTier, setObservationTier,
   parseItemCatalogue, itemChoices, optionTags, autoOfferItems, setExcludeItem, setOptionTag, conditionCells, optionMechanicsRows, setMechItemControl,
-  itemEffectKind, setItemEffectKind, setEffectTag, setNextCheck,
+  itemEffectKind, setItemEffectKind, setEffectTag, setNextCheck, nonAlertEffects, alertMode, setAlertMode, setAlertCover, addAlertOp, removeAlertOp, alertWarnings, setAlertEffects, setOtherEffects,
   pickEntries, setPickOn, setPickObservation, setPickReason, addPickOre, deletePickOre, addPickTier, deletePickTier, setPickAtLeast, allLinks, obsLevels, pickQualifying, observedHolds,
 } = new Function(
   html.slice(ss, se) + html.slice(s, e) +
-    "\nfunction setMechItemControl(f) { mechItemControl = f; }\nreturn { itemEffectKind, setItemEffectKind, setEffectTag, setNextCheck, parseItemCatalogue, itemChoices, optionTags, autoOfferItems, setExcludeItem, setOptionTag, conditionCells, optionMechanicsRows, setMechItemControl, parseProposal, parseDraft, serialiseDraft, ensureKeys, legacyToDraft, nextPos, playOrder, flatCards, thenText," +
+    "\nfunction setMechItemControl(f) { mechItemControl = f; }\nreturn { itemEffectKind, setItemEffectKind, setEffectTag, setNextCheck, nonAlertEffects, alertMode, setAlertMode, setAlertCover, addAlertOp, removeAlertOp, alertWarnings, setAlertEffects, setOtherEffects, parseItemCatalogue, itemChoices, optionTags, autoOfferItems, setExcludeItem, setOptionTag, conditionCells, optionMechanicsRows, setMechItemControl, parseProposal, parseDraft, serialiseDraft, ensureKeys, legacyToDraft, nextPos, playOrder, flatCards, thenText," +
     " jsonBlockRange, spliceDraft, writableProposal, cardByKey, makeHistory," +
     " cardPos, insertCard, deleteCard, moveCard, danglingLinks, hasCycle, buildGraph, elkGraph, placeLayout, setNodePositions, clearLayout, applyPositions," +
     " findCycle, addBranch, renameBranch, deleteBranch, inboundLinks, setCardGoto, setThen," +
@@ -2346,6 +2346,77 @@ test("item effects survive setOptionMechanics, round trip and promote (mods and 
   assert.deepStrictEqual(mod.check.mods[0].effect, { kind: "bonus", add: 0.15, tags: ["physical"] });
   const nr = opts.find((o) => o.items);
   assert.deepStrictEqual(nr.items[0], { item: "blast", optional: true, label: "Blast", effect: { kind: "unlock", nextCheck: { add: 0 } } });
+});
+
+test("alert edits touch only alert ops; other effects stay verbatim", () => {
+  const h = { effects: [{ op: "set_flag", flag: "f", value: true }, { op: "alert", add: 1 }, { op: "give_cash", amount: 5 }, { op: "alert", atLeast: 2, cover: { base: 0.4, text: "Ducked.", min: 0.1 } }] };
+  const other = JSON.parse(JSON.stringify(nonAlertEffects(h.effects)));
+  assert.deepStrictEqual(other.map((e) => e.op), ["set_flag", "give_cash"]);
+  setAlertMode(h.effects[1], "atLeast");
+  assert.deepStrictEqual(h.effects[1], { op: "alert", atLeast: 1 });
+  setAlertMode(h.effects[3], "add");
+  assert.deepStrictEqual(h.effects[3], { op: "alert", add: 1, cover: { base: 0.4, text: "Ducked.", min: 0.1 } });
+  assert.strictEqual(alertMode(h.effects[3]), "add");
+  setAlertCover(h.effects[3], false);
+  assert(!("cover" in h.effects[3]));
+  setAlertCover(h.effects[3], true);
+  assert.deepStrictEqual(h.effects[3].cover, { base: 0.5, text: "" });
+  removeAlertOp(h, 0);
+  addAlertOp(h);
+  assert.deepStrictEqual(nonAlertEffects(h.effects), other);
+  assert.strictEqual(h.effects.filter((e) => e.op === "alert").length, 2);
+  const fresh = {};
+  addAlertOp(fresh);
+  assert.deepStrictEqual(fresh.effects, [{ op: "alert", add: 1 }]);
+});
+
+test("alertWarnings: Blast plus own raising alert op warns; lowering alert or no Blast does not", () => {
+  const cat = [{ id: "blast", name: "Blast", tags: ["barrier"], kind: "unlock", alert: { add: 1 } }, { id: "powder", name: "Powder", tags: [], kind: "bonus", alert: null }];
+  const base = () => ({ items: [{ item: "blast", optional: true, effect: { kind: "unlock" } }], effects: [{ op: "alert", add: 1 }] });
+  assert.strictEqual(alertWarnings(base(), cat).length, 1);
+  assert(/Blast/.test(alertWarnings(base(), cat)[0]));
+  const lower = base(); lower.effects = [{ op: "alert", add: -1 }];
+  assert.deepStrictEqual(alertWarnings(lower, cat), []);
+  const inOutcome = { items: base().items, success: { effects: [{ op: "alert", atLeast: 2 }] } };
+  assert.strictEqual(alertWarnings(inOutcome, cat).length, 1);
+  const noBlast = { items: [{ item: "powder" }], effects: [{ op: "alert", add: 1 }] };
+  assert.deepStrictEqual(alertWarnings(noBlast, cat), []);
+  const noOwn = { items: base().items, effects: [] };
+  assert.deepStrictEqual(alertWarnings(noOwn, cat), []);
+  assert.deepStrictEqual(alertWarnings(base(), null), []);
+});
+
+test("setAlertEffects / setOtherEffects swap one effect class and keep the other in place", () => {
+  const { draft } = parseDraft(draftText);
+  const stored = [{ op: "alert", add: 1 }, { op: "set_flag", flag: "a", value: true }, { op: "alert", atLeast: 2 }, { op: "give_cash", amount: 5 }];
+  setEffects(draft, "c2", 0, "option", JSON.parse(JSON.stringify(stored)));
+  const edited = [{ op: "alert", add: 2, cover: { base: 0.4, text: "Ducked." } }];
+  setAlertEffects(draft, "c2", 0, "option", edited);
+  assert.deepStrictEqual(cardByKey(draft, "c2").choices[0].effects,
+    [{ op: "alert", add: 2, cover: { base: 0.4, text: "Ducked." } }, stored[1], stored[3]]);
+  setOtherEffects(draft, "c2", 0, "option", [{ op: "set_flag", flag: "b", value: false }]);
+  assert.deepStrictEqual(cardByKey(draft, "c2").choices[0].effects.map((e) => e.op), ["alert", "set_flag"]);
+  assert.strictEqual(cardByKey(draft, "c2").choices[0].effects[1].flag, "b");
+});
+
+test("alert ops survive tags, exclusions and item effects through serialise, re-import and promote", () => {
+  const { draft } = parseDraft(draftText);
+  const w = JSON.parse(JSON.stringify(cardByKey(draft, "c2").choices[0]));
+  setOptionTag(w, "barrier", true); w.excludeItems = ["rewind"];
+  w.check.mods = [{ item: "enhancementPowder", optional: true, label: "Powder" }];
+  setItemEffectKind(w.check.mods[0], "bonus");
+  setOptionMechanics(draft, "c2", 0, w);
+  setEffects(draft, "c2", 0, "option", [{ op: "set_flag", flag: "seen", value: true }]);
+  setAlertEffects(draft, "c2", 0, "option", [{ op: "alert", add: 1 }]);
+  setEffects(draft, "c2", 0, "success", [{ op: "give_cash", amount: 3 }]);
+  setAlertEffects(draft, "c2", 0, "success", [{ op: "alert", atLeast: 1, cover: { base: 0.5, text: "" } }]);
+  const re = parseDraft(serialiseDraft(draft)).draft;
+  const opt = promoteDraft(re).event.cards.flatMap((c) => c.choices || []).find((o) => o.excludeItems);
+  assert.deepStrictEqual(opt.excludeItems, ["rewind"]);
+  assert.deepStrictEqual(opt.check.tags, ["barrier"]);
+  assert.deepStrictEqual(opt.effects, [{ op: "set_flag", flag: "seen", value: true }, { op: "alert", add: 1 }]);
+  assert.deepStrictEqual(opt.success.effects, [{ op: "give_cash", amount: 3 }, { op: "alert", atLeast: 1, cover: { base: 0.5, text: "" } }]);
+  assert.deepStrictEqual(opt.check.mods[0].effect, { kind: "bonus", add: 0 });
 });
 
 console.log(`${passed} passed${process.exitCode ? ", some FAILED" : ""}`);
