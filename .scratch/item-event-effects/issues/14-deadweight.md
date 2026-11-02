@@ -6,7 +6,7 @@
 
 **Relevant files:** `systems/home.gd`, `systems/raiding.gd`, `tests/test_raiding.gd`; REFERENCE §1.7 `data/home.json`, §3.12.
 
-**Decision (12):** Entry points (ADR 0007): vein row/mini card as 13, plus HQ screen action (HQ entry PROPOSED, confirm). Reuses 13's apply fn; refresh on reuse.
+**Decision (12):** Entry points (ADR 0007): vein row/mini card as 13, plus an "Apply Deadweight" option in the HQ ore readout modal (hq_ore_readout_modal.gd); HQ's only placeable item, only cuts raid ore loss. Reuses 13's apply fn; refresh on reuse.
 
 **Status:** ready-for-agent
 

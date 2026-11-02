@@ -1,7 +1,6 @@
 # Using items on a place (Root Feed, Good Year, Deadweight)
 
-Decision record for `item-event-effects` ticket 12. **Partly approved
-2026-11-02**; the HQ entry point is proposed, not yet signed off.
+Decision record for `item-event-effects` ticket 12. **Approved 2026-11-02.**
 
 ## Decision
 
@@ -15,13 +14,14 @@ Decision record for `item-event-effects` ticket 12. **Partly approved
   items coexist (Root Feed + Good Year is the intended cultivation pair).
 - **Storage.** Active effects are pure data on the place (`vein.boosts`,
   entries with an expiry day number); expiry is checked in the daily tick.
-- **Deadweight on HQ (PROPOSED).** The HQ screen (`systems/home.gd`) gets the
-  same "Apply item…" action, storing the boost on the HQ/stockpile. Needs
-  human confirmation.
+- **Deadweight on HQ.** HQ's only placeable item. It only reduces ore lost
+  to raids. Entry point is an "Apply Deadweight" option in the HQ ore
+  readout modal (`scenes/modals/hq_ore_readout_modal.gd`), not a general
+  HQ "Apply item…" action.
 
 ## Consequences
 
 - Ticket 13 (Root Feed, Good Year) builds the shared apply function and the
   Vein list / mini card entry points.
-- Ticket 14 (Deadweight) reuses it and adds the HQ entry point.
+- Ticket 14 (Deadweight) reuses it and adds the HQ ore readout modal option.
 - Bag drawer stays a viewer; it gains no targeting flow.
