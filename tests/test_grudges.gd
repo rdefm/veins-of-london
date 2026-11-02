@@ -146,3 +146,25 @@ func run() -> void:
 		assert_eq(rows[0]["daysLeft"], int(GameData.FACTION_GRUDGE["windowDays"]))
 		assert_eq(Grudges.rows_for_district("camden").size(), 0)
 	)
+
+	run_case("clean_slate_clears_grudge_and_revenge_window_and_spends_item", func():
+		_raided("claim")
+		GameState.state["grudgeEffects"]["revenge"]["site_pv"] = 99
+		Crafting.inventory_add("cleanSlate", 1, 2)
+		assert_eq(Grudges.clearable_factions(), ["firm"])
+		var res := Grudges.use_clean_slate("firm")
+		assert_true(res["ok"])
+		assert_true(not Grudges.has_grudge("firm"))
+		assert_true(not GameState.state["grudgeEffects"]["revenge"].has("site_pv"))
+		assert_eq(Crafting.inventory_qty("cleanSlate"), 1)
+		assert_eq(Grudges.raid_odds_bonus("site_pv"), 0.0)
+	)
+
+	run_case("clean_slate_refused_without_grudge_or_item", func():
+		_raided("claim")
+		assert_true(not Grudges.use_clean_slate("firm")["ok"])
+		Crafting.inventory_add("cleanSlate", 1, 1)
+		assert_true(not Grudges.use_clean_slate("guild")["ok"])
+		assert_eq(Crafting.inventory_qty("cleanSlate"), 1)
+		assert_true(Grudges.has_grudge("firm"))
+	)

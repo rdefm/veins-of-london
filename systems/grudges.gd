@@ -68,6 +68,28 @@ static func answer_district(district_id: String) -> void:
 			answer(faction_id)
 
 
+static func clearable_factions() -> Array:
+	return GameState.state["grudges"].keys()
+
+
+# Bag use of a Clean Slate: drops faction_id's grudge and any revenge window on
+# its lost site, with no relation gain or odds bonus. Spends one.
+static func use_clean_slate(faction_id: String) -> Dictionary:
+	if not has_grudge(faction_id):
+		return { "ok": false, "reason": "No grudge to clear." }
+	if Crafting.inventory_qty("cleanSlate") <= 0:
+		return { "ok": false, "reason": "None left." }
+	Crafting.inventory_remove("cleanSlate", 1)
+	var grudge: Dictionary = GameState.state["grudges"][faction_id]
+	GameState.state["grudges"].erase(faction_id)
+	if grudge.has("siteId"):
+		_effects()["revenge"].erase(String(grudge["siteId"]))
+	# PROSE-REVIEW: Clean Slate bag-use notification.
+	Notify.push("%s remember it differently now." % GameData.FACTIONS[faction_id]["shortName"], Notify.CATEGORY_SUCCESS)
+	EventBus.state_changed.emit()
+	return { "ok": true }
+
+
 # Odds bonus on the player's raid on site_id while a revenge window is open.
 static func raid_odds_bonus(site_id: String) -> float:
 	if site_id == "" or int(_effects()["revenge"].get(site_id, -1)) < _day():

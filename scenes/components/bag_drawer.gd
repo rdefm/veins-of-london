@@ -124,6 +124,10 @@ func _add_out_of_combat_use_buttons(player: Dictionary) -> void:
 		for contact_id in Contacts.ko_cooldown_contacts():
 			var contact_name: String = Contacts.display_name(contact_id)
 			_content.add_child(_symbol_use_button("smellingSalts", "Smelling Salts (%d) — wake %s" % [Crafting.inventory_qty("smellingSalts"), contact_name], func(): _on_use_smelling_salts(contact_id)))
+	if Crafting.inventory_qty("cleanSlate") > 0:
+		for faction_id in Grudges.clearable_factions():
+			var faction_name: String = GameData.FACTIONS[faction_id]["shortName"]
+			_content.add_child(_symbol_use_button("cleanSlate", "Clean Slate (%d) — clear %s grudge" % [Crafting.inventory_qty("cleanSlate"), faction_name], func(): _on_use_clean_slate(faction_id)))
 	for item in ActiveEffects.usable_items():
 		var qty: int = Crafting.inventory_qty(item)
 		if qty > 0:
@@ -153,6 +157,11 @@ func _build_dial_summary_label(player: Dictionary) -> Control:
 func _on_use_smelling_salts(contact_id: String) -> void:
 	Bag.close()
 	Contacts.use_smelling_salts(contact_id)
+
+
+func _on_use_clean_slate(faction_id: String) -> void:
+	Bag.close()
+	Grudges.use_clean_slate(faction_id)
 
 
 func _on_use_active_effect(item: String) -> void:
