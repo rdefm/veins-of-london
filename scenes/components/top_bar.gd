@@ -111,7 +111,8 @@ func _progress_line_text() -> String:
 	for index in GameData.TIME_BLOCKS.size():
 		var kind := "completed" if index < phase else ("current" if index == phase else "remaining")
 		markers += GameData.DAY_CLOCK["segments"][kind]
-	return "%s £%d" % [markers, GameState.state["player"]["cash"]]
+	var chip: String = TimeSystem.borrowed_chip_text()
+	return "%s £%d%s" % [markers, GameState.state["player"]["cash"], " " + chip if chip != "" else ""]
 
 
 func _refresh() -> void:

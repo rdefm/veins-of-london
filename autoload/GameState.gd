@@ -187,6 +187,8 @@ func new_game_state() -> Dictionary:
 
 		"world": {
 			"day": 1, "timeBlock": 0, "timeBlocksDone": [],
+			# Borrowed Time: unspent block charges, blocks owed to tomorrow, and the debt each spent charge books.
+			"borrowedCharges": 0, "blockDebt": 0, "borrowedDebtPer": 0,
 			# Per-game seed for event checks' deterministic rolls (Events.check_roll()).
 			"rollSeed": Rng.fresh_seed(),
 			"currentDistrict": "shoreditch",

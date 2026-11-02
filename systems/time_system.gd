@@ -4,6 +4,8 @@ extends RefCounted
 # Time blocks, rest, and the daily tick per R§3.1. Static funcs only.
 
 const BLOCKS_PER_DAY := 3
+const MAX_BLOCK_DEBT := BLOCKS_PER_DAY - 1  # a day always keeps at least one block
+const BORROWED_TIME := "borrowedTime"
 const REST_HEAL_FRACTION := 0.2
 const PASSIVE_REGEN_FRACTION := 0.05
 const MorningAccountsSystem := preload("res://systems/morning_accounts.gd")
@@ -15,18 +17,77 @@ static func advance_time_block() -> void:
 	var world: Dictionary = GameState.state["world"]
 	var source := { "day": world["day"], "phase": world["timeBlock"] }
 	run_staff_block()
+	if int(world.get("borrowedCharges", 0)) > 0:
+		# A borrowed charge pays for this advance: the clock stays put and the
+		# tier's debt is booked against tomorrow.
+		world["borrowedCharges"] = int(world["borrowedCharges"]) - 1
+		world["blockDebt"] = mini(int(world.get("blockDebt", 0)) + int(world.get("borrowedDebtPer", 0)), MAX_BLOCK_DEBT)
+		Rewind.mark_block_start()
+		EventBus.time_advanced.emit(source, { "day": world["day"], "phase": world["timeBlock"] })
+		EventBus.state_changed.emit()
+		return
 	world["timeBlocksDone"].append(world["timeBlock"])
 	world["timeBlock"] += 1
 	if world["timeBlock"] >= BLOCKS_PER_DAY:
-		world["day"] += 1
-		world["timeBlock"] = 0
-		world["timeBlocksDone"] = []
-		world["currentDistrict"] = "shoreditch"
-		daily_tick()
+		_roll_day()
 	ActiveEffects.expire()
 	Rewind.mark_block_start()
 	EventBus.time_advanced.emit(source, { "day": world["day"], "phase": world["timeBlock"] })
 	EventBus.state_changed.emit()
+
+
+# Starts the next day: daily_tick, then the booked block debt. Each owed block
+# is already elapsed (its staff block runs), so timeBlock/timeBlocksDone start
+# past it; debt clears. Shared by advance_time_block() and do_rest().
+static func _roll_day() -> void:
+	var world: Dictionary = GameState.state["world"]
+	world["day"] += 1
+	world["timeBlock"] = 0
+	world["timeBlocksDone"] = []
+	world["currentDistrict"] = "shoreditch"
+	daily_tick()
+	var debt: int = clampi(int(world.get("blockDebt", 0)), 0, MAX_BLOCK_DEBT)
+	world["blockDebt"] = 0
+	for i in debt:
+		run_staff_block(i)
+		world["timeBlocksDone"].append(i)
+	world["timeBlock"] = debt
+
+
+# Borrowed Time (data constants activeEffects.borrowedTime): the unit's tier
+# adds charges now and sets the debt each spent charge books. Returns
+# { ok, charges } or { ok: false, reason }.
+static func use_borrowed_time() -> Dictionary:
+	if Crafting.inventory_qty(BORROWED_TIME) <= 0:
+		return { "ok": false, "reason": "None left." }
+	var taken: Array = Crafting.inventory_remove(BORROWED_TIME, 1)
+	var level: int = int(taken[0]["tier"]) if not taken.is_empty() else 1
+	var table: Dictionary = GameData.ACTIVE_EFFECTS["borrowedTime"]
+	var charges: int = int(_tier_value(table["chargesByLevel"], level))
+	if Rng.chance(float(_tier_value(table["bonusChargeChanceByLevel"], level))):
+		charges += 1
+	var world: Dictionary = GameState.state["world"]
+	world["borrowedCharges"] = int(world.get("borrowedCharges", 0)) + charges
+	world["borrowedDebtPer"] = int(_tier_value(table["debtByLevel"], level))
+	# PROSE-REVIEW: Borrowed Time use notification.
+	Notify.push("Borrowed Time. +%d block%s." % [charges, "" if charges == 1 else "s"], Notify.CATEGORY_SUCCESS)
+	EventBus.state_changed.emit()
+	return { "ok": true, "charges": charges }
+
+
+static func _tier_value(table: Array, level: int) -> Variant:
+	return table[clampi(level, 1, table.size() - 1)]
+
+
+# Day-header chip text: "+N borrowed" (charges in hand), "-N tomorrow" (debt), or "".
+static func borrowed_chip_text() -> String:
+	var world: Dictionary = GameState.state["world"]
+	var parts: Array[String] = []
+	if int(world.get("borrowedCharges", 0)) > 0:
+		parts.append("+%d borrowed" % int(world["borrowedCharges"]))
+	if int(world.get("blockDebt", 0)) > 0:
+		parts.append("-%d tomorrow" % int(world["blockDebt"]))
+	return " ".join(parts)
 
 
 # Moves the clock forward within today to the named block (lowercase
@@ -76,11 +137,8 @@ static func do_rest() -> void:
 	var source := { "day": world["day"], "phase": world["timeBlock"] }
 	for i in BLOCKS_PER_DAY - world["timeBlock"]:
 		run_staff_block(world["timeBlock"] + i)
-	world["day"] += 1
-	world["timeBlock"] = 0
-	world["timeBlocksDone"] = []
-	world["currentDistrict"] = "shoreditch"
-	daily_tick()
+	world["borrowedCharges"] = 0  # unspent charges are lost; Rest never repays debt
+	_roll_day()
 	ActiveEffects.expire()
 
 	var player: Dictionary = GameState.state["player"]

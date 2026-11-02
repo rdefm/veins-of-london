@@ -1154,6 +1154,8 @@ func _restore_int_types(state: Dictionary) -> void:
 		_int_key(world, "day")
 		_int_key(world, "timeBlock")
 		_int_key(world, "rollSeed")
+		for key in ["borrowedCharges", "blockDebt", "borrowedDebtPer"]:
+			_int_key(world, key)
 		_int_array_values(world.get("timeBlocksDone", []))
 		for site in world.get("sites", []):
 			_int_key(site, "discoveredDay")

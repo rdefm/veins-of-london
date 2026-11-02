@@ -122,7 +122,7 @@ Data file per system: see `data/*.json` below.
 | stash.gd | Personal stash vs. shared pools |
 | station_bubble.gd | Site/vein-stop tap-bubble decision |
 | calendar.gd | Pure `world.day` → calendar date (`MON 3 JAN`, `Y2`+ suffix) per R§3.1 "Calendar"; day 1's weekday from `calendar.startWeekday`; every player-facing date string uses `Calendar.format_day`; `widget_date` for the phone widget/Today card; weekday/Monday helpers for the weekly cadence |
-| time_system.gd | Time blocks (each runs the staff block step + LodedInnit post), forward-only `advance_to_block()` for event `at` timing (R§3.9b), `blocks_left()`, rest, daily tick (Monday-only tenure-aware weekly home bill (full pay sets `rentPaid`), weekly arrears clock + interest, forced one-tier downgrade per ADR 0006), Prologue day triggers (buyer text, ending) |
+| time_system.gd | Time blocks (staff step + LodedInnit post), forward-only `advance_to_block()` (R§3.9b), rest, Borrowed Time charges/debt (`use_borrowed_time`, shared `_roll_day`), daily tick (weekly home bill, arrears, forced downgrade per ADR 0006), Prologue day triggers |
 | todo.gd | ToDo-app sections per questline (Tutorial, Collective, Business Empire) with active/done/placeholder status, "n of N" count detail, all_of checklist sub-items; Collective carries the site ledger; trailing Board section = active board goal (label, tier reached, progress to next tier); `current_objective()` = first undone item, read by the Story row |
 | travel.gd | District travel (free) |
 | vein_list.gd | Vein-portfolio list decision layer (row actions incl. Apply item…) |

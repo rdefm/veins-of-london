@@ -23,6 +23,67 @@ func run() -> void:
 		assert_eq(GameState.state["world"]["timeBlocksDone"], [], "timeBlocksDone resets on rollover")
 	)
 
+	run_case("borrowed_time_use_adds_charges_by_tier", func():
+		GameState.reset()
+		var world: Dictionary = GameState.state["world"]
+		Crafting.inventory_add("borrowedTime", 2, 1)
+		var result := TimeSystem.use_borrowed_time()
+		assert_true(result["ok"], "use ok")
+		assert_eq(world["borrowedCharges"], 1, "Lv2 +1 charge")
+		assert_eq(world["borrowedDebtPer"], 1, "Lv2 books 1 per charge")
+		assert_eq(Crafting.inventory_qty("borrowedTime"), 0, "unit consumed")
+		assert_true(not TimeSystem.use_borrowed_time()["ok"], "none left refuses")
+		Crafting.inventory_add("borrowedTime", 5, 1)
+		TimeSystem.use_borrowed_time()
+		assert_eq(world["borrowedCharges"], 3, "Lv5 +2 stacks unlimited")
+		assert_eq(world["borrowedDebtPer"], 0, "Lv5 books no debt")
+		assert_eq(TimeSystem.borrowed_chip_text(), "+3 borrowed", "chip shows charges")
+	)
+
+	run_case("borrowed_charge_holds_clock_runs_staff_books_debt", func():
+		GameState.reset()
+		var world: Dictionary = GameState.state["world"]
+		world["borrowedCharges"] = 1
+		world["borrowedDebtPer"] = 2
+		TimeSystem.advance_time_block()
+		assert_eq(world["timeBlock"], 0, "clock did not move")
+		assert_eq(world["timeBlocksDone"], [], "timeBlocksDone unchanged")
+		assert_eq(world["borrowedCharges"], 0, "charge spent")
+		assert_eq(world["blockDebt"], 2, "debt booked")
+		assert_eq(TimeSystem.borrowed_chip_text(), "-2 tomorrow", "chip shows debt")
+		TimeSystem.advance_time_block()
+		assert_eq(world["timeBlock"], 1, "next advance moves the clock")
+	)
+
+	run_case("block_debt_caps_and_applies_at_rollover", func():
+		GameState.reset()
+		var world: Dictionary = GameState.state["world"]
+		world["borrowedCharges"] = 3
+		world["borrowedDebtPer"] = 2
+		for i in 3:
+			TimeSystem.advance_time_block()
+		assert_eq(world["blockDebt"], 2, "debt capped at BLOCKS_PER_DAY - 1")
+		world["timeBlock"] = 2
+		world["timeBlocksDone"] = [0, 1]
+		TimeSystem.advance_time_block()
+		assert_eq(world["day"], 2, "rolled")
+		assert_eq(world["timeBlock"], 2, "day starts 2 blocks in")
+		assert_eq(world["timeBlocksDone"], [0, 1], "owed blocks pre-filled")
+		assert_eq(world["blockDebt"], 0, "debt cleared")
+	)
+
+	run_case("rest_loses_charges_keeps_debt_and_applies_it", func():
+		GameState.reset()
+		var world: Dictionary = GameState.state["world"]
+		world["borrowedCharges"] = 2
+		world["blockDebt"] = 1
+		TimeSystem.do_rest()
+		assert_eq(world["borrowedCharges"], 0, "unspent charges lost")
+		assert_eq(world["blockDebt"], 0, "debt consumed by rollover")
+		assert_eq(world["timeBlock"], 1, "day starts 1 block in")
+		assert_eq(world["timeBlocksDone"], [0], "owed block pre-filled")
+	)
+
 	run_case("advance_time_block_runs_the_staff_step_before_any_rollover", func():
 		GameState.reset()
 		var veins := _staff_overgrown_veins(4)

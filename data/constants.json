@@ -826,6 +826,7 @@
     "durationByLevel": [0, 1, 1, 2, 2, 3],
     "items": ["beALady", "prophetsBreath", "navvysDraught", "happyAccident", "secondImpression"],
     "happyAccident": { "label": "Happy Accident", "observationPerLevel": 0.05, "benchPerLevel": 0.05 },
-    "secondImpression": { "label": "Second Impression", "daysByLevel": [0, 1, 1, 2, 2, 3] }
+    "secondImpression": { "label": "Second Impression", "daysByLevel": [0, 1, 1, 2, 2, 3] },
+    "borrowedTime": { "chargesByLevel": [0, 1, 1, 1, 1, 2], "bonusChargeChanceByLevel": [0, 0, 0, 0, 0.5, 0], "debtByLevel": [0, 2, 1, 0, 0, 0] }
   }
 }

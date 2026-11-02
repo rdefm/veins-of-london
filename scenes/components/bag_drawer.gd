@@ -128,6 +128,8 @@ func _add_out_of_combat_use_buttons(player: Dictionary) -> void:
 		for faction_id in Grudges.clearable_factions():
 			var faction_name: String = GameData.FACTIONS[faction_id]["shortName"]
 			_content.add_child(_symbol_use_button("cleanSlate", "Clean Slate (%d) — clear %s grudge" % [Crafting.inventory_qty("cleanSlate"), faction_name], func(): _on_use_clean_slate(faction_id)))
+	if Crafting.inventory_qty(TimeSystem.BORROWED_TIME) > 0:
+		_content.add_child(_symbol_use_button(TimeSystem.BORROWED_TIME, "Use Borrowed Time (%d) — an extra block today, paid back tomorrow" % Crafting.inventory_qty(TimeSystem.BORROWED_TIME), _on_use_borrowed_time))
 	for item in ActiveEffects.usable_items():
 		var qty: int = Crafting.inventory_qty(item)
 		if qty > 0:
@@ -162,6 +164,11 @@ func _on_use_smelling_salts(contact_id: String) -> void:
 func _on_use_clean_slate(faction_id: String) -> void:
 	Bag.close()
 	Grudges.use_clean_slate(faction_id)
+
+
+func _on_use_borrowed_time() -> void:
+	Bag.close()
+	TimeSystem.use_borrowed_time()
 
 
 func _on_use_active_effect(item: String) -> void:
