@@ -1259,8 +1259,7 @@ func run() -> void:
 		GameState.reset()
 		var combat := _start_vs([_slow_mugger(60)], [[["guard", "guard"]]], [{ "recipe": "blast", "tier": 3 }, { "recipe": "heavyMetal", "tier": 3 }])
 		combat["combatants"][1]["invisibleUntil"] = 99
-		var blast: Array = Combat.choose_item(0, 1)["beats"]
-		assert_true(blast.any(func(b): return b["kind"] == "evade"), "single-target Blast misses")
+		assert_eq(CombatRounds.item_block_reason(combat, 0, 1), CombatRounds.REASON_UNSEEN, "single-target Blast can't pick it")
 		assert_eq(combat["combatants"][1]["hp"], 60)
 		var metal: Array = Combat.choose_item(1)["beats"]
 		assert_true(metal.any(func(b): return b["kind"] == "metalHit"), "Heavy Metal lands")
@@ -2517,6 +2516,64 @@ func run() -> void:
 		assert_true(CombatRounds.enemy_intents(combat, 1)[0].get("unread", false), "the item hides behind ?")
 		Combat.choose_move("guard")
 		assert_eq(CombatRounds.enemy_intents(combat, 1)[0]["move"], "blast", "read once it resolves")
+	)
+
+	run_case("raider_kit_invisibility_below_threshold_and_stutter_on_open_target", func():
+		GameState.reset()
+		var hurt := _slow_mugger(200)
+		hurt["hp"] = 60
+		var kit := { "items": { "invisibility": { "1": 1 }, "stutter": { "1": 1 }, "blast": { "1": 1 } }, "used": {} }
+		Combat._start_round_combat(Combat.CONTEXT_EVENT_MUGGING, null, [hurt], [], "", [], null,
+			{ "seed": 1, "fog": false, "enemyPlans": [_strikes_at_player()] }, { "raiderKit": kit })
+		var combat: Dictionary = GameState.state["combat"]
+		var first: Dictionary = combat["combatants"][1]["plan"][0]
+		assert_eq([first["move"], first["target"]], ["invisibility", 1], "below 50% hp it sprays itself")
+		GameState.reset()
+		Combat._start_round_combat(Combat.CONTEXT_EVENT_MUGGING, null, [_slow_mugger(200)], [], "", [], null,
+			{ "seed": 1, "fog": false, "enemyPlans": [_strikes_at_player()] }, { "raiderKit": kit })
+		combat = GameState.state["combat"]
+		assert_eq(combat["combatants"][1]["plan"][0]["move"], "blast", "the player starts Guarded: no Stutter")
+		var pool: Dictionary = combat["raiderKit"]
+		pool["items"] = { "stutter": { "1": 1 }, "blast": { "1": 1 } }
+		pool["reserved"] = {}
+		combat["combatants"][1]["plan"][0] = { "move": "strike", "target": CombatRounds.PLAYER_INDEX, "part": 0 }
+		combat["combatants"][CombatRounds.PLAYER_INDEX]["guard"] = CombatRounds.OPEN
+		CombatRounds._commit_kit_item(combat, 1, [])
+		assert_eq(combat["combatants"][1]["plan"][0]["move"], "stutter", "open target: Stutter beats Blast")
+	)
+
+	run_case("raider_kit_shield_still_beats_invisibility", func():
+		GameState.reset()
+		var hurt := _slow_mugger(200)
+		hurt["hp"] = 60
+		var kit := { "items": { "invisibility": { "1": 1 }, "shield": { "1": 1 } }, "used": {} }
+		Combat._start_round_combat(Combat.CONTEXT_EVENT_MUGGING, null, [hurt], [], "", [], null,
+			{ "seed": 1, "fog": false, "enemyPlans": [_strikes_at_player()] }, { "raiderKit": kit })
+		assert_eq(GameState.state["combat"]["combatants"][1]["plan"][0]["move"], "shield")
+	)
+
+	run_case("player_cannot_pick_an_invisible_enemy_but_area_items_land", func():
+		GameState.reset()
+		var combat := _start_vs([_slow_mugger(60), _slow_mugger(60)], [[["guard", "guard"]], [["guard", "guard"]]], [{ "recipe": "heavyMetal", "tier": 3 }])
+		combat["combatants"][1]["invisibleUntil"] = 99
+		assert_eq(CombatRounds.move_block_reason(combat, "strike", 1), CombatRounds.REASON_UNSEEN)
+		assert_eq(CombatRounds.move_block_reason(combat, "stun", 1), CombatRounds.REASON_UNSEEN)
+		assert_eq(CombatRounds.move_block_reason(combat, "strike", 2), "", "the visible one is fine")
+		assert_eq(CombatRounds.target_options(combat, CombatRounds.PLAYER_INDEX, "strike"), [2])
+		var metal: Array = Combat.choose_item(0)["beats"]
+		assert_true(metal.any(func(b): return b["kind"] == "metalHit" and int(b["target"]) == 1), "Heavy Metal still hits it")
+	)
+
+	run_case("allies_skip_invisible_enemies_and_guard_when_all_hidden", func():
+		GameState.reset()
+		_start_with_allies([Contacts.build_combat_ally("archie")], [])
+		var combat: Dictionary = GameState.state["combat"]
+		combat["combatants"][2]["invisibleUntil"] = 99
+		var rng := RandomNumberGenerator.new()
+		rng.seed = 3
+		CombatRounds._plan_allies(combat, rng)
+		for action in combat["combatants"][1]["plan"]:
+			assert_eq(action["move"], "guard", "nobody visible: Guard")
 	)
 
 	run_case("a_kit_unit_whose_action_never_resolves_goes_back_to_the_pool", func():

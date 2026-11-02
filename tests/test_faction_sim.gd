@@ -21,6 +21,10 @@ static func _seed_veins(veins: Array) -> void:
 		sites.append(Fixtures.site_with_vein(vein["siteId"], vein))
 	GameState.state["world"]["sites"] = sites
 	GameState.state["world"]["day"] = 5
+	# The raiders' Stutter / Invisibility stock is out of scope for the kit-allocation cases.
+	for faction_id in ["firm", "guild"]:
+		GameState.state["factions"][faction_id]["holdings"]["items"].erase("stutter")
+		GameState.state["factions"][faction_id]["holdings"]["items"].erase("invisibility")
 
 
 static func _growth(site_id: String) -> int:
@@ -311,7 +315,8 @@ func run() -> void:
 	run_case("an_empty_kit_logs_nothing", func():
 		GameState.reset()
 		FactionSim.log_kit_burn("guild", "attack", "rivalry")
-		assert_eq(GameState.state["factions"]["guild"]["kitBurns"], [], "the Guild carries no attack kit")
+		FactionSim.log_kit_burn("network", "defend", "rivalry")
+		assert_eq(GameState.state["factions"]["network"]["kitBurns"], [], "the Network carries no defend kit")
 	)
 
 	run_case("an_old_save_without_consumption_keys_backfills_them", func():
@@ -608,7 +613,7 @@ func run() -> void:
 
 	run_case("raider_kit_is_capped_by_two_units_per_raider_and_authored_quantities", func():
 		GameState.reset()
-		GameState.state["factions"]["firm"]["holdings"]["items"] = { "blast": { "1": 9 }, "healingBurst": { "1": 9 } }
+		GameState.state["factions"]["firm"]["holdings"]["items"] = { "blast": { "1": 9 }, "healingBurst": { "1": 9 }, "stutter": { "1": 9 }, "invisibility": { "1": 9 } }
 		var wanted: Dictionary = GameData.FACTIONS["firm"]["raidKits"]["attack"]
 		var full: Dictionary = GuardKit.recipe_totals(FactionSim.raider_kit("firm", "attack")["items"])
 		assert_eq(full, wanted, "no roster cap: authored quantities, not holdings")
@@ -767,7 +772,7 @@ static func _blast_price_after_trade(blasts: int) -> int:
 # the craft gap), so a trade with nothing changed neither buys nor sells.
 static func _firm_at_reserve() -> void:
 	GameState.state["factions"]["firm"]["holdings"]["items"] = {}
-	for recipe_key in ["blast", "shield", "healingBurst", "enhancementPowder"]:
+	for recipe_key in ["blast", "shield", "healingBurst", "enhancementPowder", "stutter", "invisibility"]:
 		_set_item("firm", recipe_key, FactionSim.item_reserve("firm", recipe_key))
 	for ore_type in GameData.ORE_TYPES:
 		_set_ore("firm", ore_type, FactionSim.ore_reserve("firm", ore_type))

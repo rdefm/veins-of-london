@@ -1551,6 +1551,8 @@ func run() -> void:
 		GameState.state["player"]["veins"] = [vein]
 		GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
 		GameState.state["factions"]["firm"]["holdings"]["items"]["blast"] = { "3": 1 }
+		GameState.state["factions"]["firm"]["holdings"]["items"].erase("stutter")
+		GameState.state["factions"]["firm"]["holdings"]["items"].erase("invisibility")
 		GameState.state["world"]["pendingDefendRaids"] = [{ "attackerId": "firm", "veinId": "pv_test", "siteId": "s_player", "success": true }]
 		assert_true(Raiding.trigger_defend("pv_test"))
 		var kit: Dictionary = GameState.state["combat"]["raiderKit"]

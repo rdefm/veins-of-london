@@ -101,7 +101,7 @@
       "healingBurst": 3,
       "enhancementPowder": 3
     },
-    "raidKits": { "attack": { "blast": 2, "healingBurst": 1 }, "defend": { "shield": 2, "healingBurst": 1 } },
+    "raidKits": { "attack": { "blast": 2, "healingBurst": 1, "stutter": 1, "invisibility": 1 }, "defend": { "shield": 2, "healingBurst": 1, "stutter": 1, "invisibility": 1 } },
     "speaker": "lusk",
     "keyMembers": [
       {"id": "lusk", "contactId": "lusk", "seat": "speaker", "outlook": "hawk", "want": "firm_ascendancy", "aggressionMult": 1.3, "relationBaseline": -10, "startStanding": 50, "name": "Lusk", "role": "The Firm · Bermondsey", "unlock": "firstMessage", "giftPrefs": ["rejuvenation", "prophetsBreath"], "intro": "\"Lusk. I look after the Firm's interests south of the river. Some of those interests appear to be yours now. We'll keep this civil for as long as it stays that way.\""},
@@ -120,7 +120,9 @@
         "blast": 8,
         "shield": 8,
         "healingBurst": 8,
-        "enhancementPowder": 3
+        "enhancementPowder": 3,
+        "stutter": 3,
+        "invisibility": 3
       }
     }
   },
@@ -167,7 +169,7 @@
       "timePearl": 1,
       "enhancementPowder": 1
     },
-    "raidKits": { "attack": {}, "defend": {} },
+    "raidKits": { "attack": { "stutter": 1, "invisibility": 1 }, "defend": { "stutter": 1, "invisibility": 1 } },
     "speaker": "ingram",
     "keyMembers": [
       {"id": "ingram", "contactId": "ingram", "seat": "speaker", "outlook": "hawk", "want": "guild_audit", "aggressionMult": 1.3, "relationBaseline": -10, "startStanding": 50, "name": "Ingram", "role": "The Guild · Assay Warden", "unlock": "firstMessage", "giftPrefs": ["failsafe", "panic"], "intro": "\"Dr Ingram, Assay Warden to the Guild of Applied Alchemists. Your name has come before the Court twice this month. Once would have been sufficient.\""},
@@ -188,7 +190,9 @@
         "wormhole": 5,
         "prophetsBreath": 5,
         "rejuvenation": 5,
-        "enhancementPowder": 1
+        "enhancementPowder": 1,
+        "stutter": 3,
+        "invisibility": 3
       }
     }
   },

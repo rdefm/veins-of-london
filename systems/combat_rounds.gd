@@ -89,6 +89,7 @@ const PAN_EFFECTS: Array[String] = [ITEM_PANIC, ITEM_RAPTURE, ITEM_ANGER, ITEM_F
 const REASON_PAN_STATUSED := "Already out of it."
 const REASON_NO_CHARGE := "Not enough charge."
 const REASON_NOBODY_DOWN := "Nobody's down."
+const REASON_UNSEEN := "Can't see them."
 # The turns Panic and Pan's Rapture play in place of an enemy's own actions
 # (the data's statusTurns).
 const STATUS_PANIC := "panic"
@@ -110,6 +111,7 @@ const KIT_NEAR_MISS := "nearMiss"
 const KIT_RICOCHET := "ricochet"
 const KIT_REVIVE := "smellingSalts"
 const KIT_INVISIBILITY := "invisibility"
+const KIT_STUTTER := "stutter"
 # The guard kit's crowd items, in rule order.
 const KIT_CROWD: Array[String] = ["blackHole", "timePearl"]
 # The ally's own reactive save (R§3.7b Rewind): never planned, so no round
@@ -811,6 +813,11 @@ static func _recommit_targets(cp: Dictionary, actor: int, plan: Array, rng: Rand
 	return plan
 
 
+# `actor`'s living opponents it can pick out: none of them invisible.
+static func _visible_opponents(cp: Dictionary, actor: int) -> Array:
+	return _living_opponents(cp, actor).filter(func(e): return not is_invisible(cp, cp["combatants"][e]))
+
+
 static func _living_opponents(cp: Dictionary, actor: int) -> Array:
 	var combatants: Array = cp["combatants"]
 	var enemy_side: bool = combatants[actor]["side"] == SIDE_ENEMY
@@ -884,8 +891,10 @@ static func _release_kits(cp: Dictionary) -> void:
 # raider-kit item when a rule fires on the round-start state, in order: a
 # heal on the worst-off teammate under allyHealBelow of hpMax not already in
 # `patients` (enemies commit in array order; the patient joins it); a Shield
-# on itself while its own pool is 0; a Blast at the Strike's target. At most
-# one per enemy per round; the item keeps the Strike's fog.
+# on itself while its own pool is 0; Invisibility on itself below
+# enemyInvisibleBelow of hpMax; Stutter at a Strike's target that isn't
+# Guarded; a Blast at the Strike's target. At most one per enemy per round;
+# the item keeps the Strike's fog.
 static func _commit_kit_item(cp: Dictionary, actor: int, patients: Array) -> void:
 	var pool := _kit_pool(cp, actor)
 	if pool.get("items", {}).is_empty():
@@ -902,8 +911,15 @@ static func _commit_kit_item(cp: Dictionary, actor: int, patients: Array) -> voi
 				action = _kit_action(cp, actor, KIT_HEAL, patient)
 		if action.is_empty() and _kit_has(pool, KIT_SHIELD) and int(cp["combatants"][actor]["shield"]) == 0:
 			action = _kit_action(cp, actor, KIT_SHIELD, actor)
+		if action.is_empty() and _kit_has(pool, KIT_INVISIBILITY) and not is_invisible(cp, cp["combatants"][actor]):
+			var me: Dictionary = cp["combatants"][actor]
+			if float(me["hp"]) < float(me["hpMax"]) * float(_data()["enemyInvisibleBelow"]):
+				action = _kit_action(cp, actor, KIT_INVISIBILITY, actor)
+		var aimed := int(plan[i]["target"])
+		if action.is_empty() and _kit_has(pool, KIT_STUTTER) and aimed >= 0 and cp["combatants"][aimed]["guard"] != GUARDED:
+			action = _kit_action(cp, actor, KIT_STUTTER, aimed)
 		if action.is_empty() and _kit_has(pool, KIT_BLAST):
-			action = _kit_action(cp, actor, KIT_BLAST, int(plan[i]["target"]))
+			action = _kit_action(cp, actor, KIT_BLAST, aimed)
 		if not action.is_empty():
 			action["unread"] = bool(plan[i].get("unread", false))
 			plan[i] = action
@@ -958,9 +974,10 @@ static func _kit_ally_action(cp: Dictionary, ally: int, plan: Array, planned: Di
 		for recipe_key in KIT_CROWD:
 			if _kit_has(pool, recipe_key):
 				return _kit_action(cp, ally, recipe_key, -1)
-	if _kit_has(pool, KIT_BLAST) and not opponents.is_empty():
-		var weakest: int = opponents[0]
-		for e in opponents:
+	var seen := _visible_opponents(cp, ally)
+	if _kit_has(pool, KIT_BLAST) and not seen.is_empty():
+		var weakest: int = seen[0]
+		for e in seen:
 			if int(combatants[e]["hp"]) < int(combatants[weakest]["hp"]):
 				weakest = e
 		return _kit_action(cp, ally, KIT_BLAST, weakest)
@@ -1106,7 +1123,7 @@ static func _ally_item_action(cp: Dictionary, ally: int, plan: Array, planned: D
 	if struck.has(ally) and not is_invisible(cp, combatant):
 		for unit in _units_with(units, [ITEM_INVISIBILITY]):
 			return _unit_action(unit, ally)
-	if (struck.has(ally) or plan.is_empty()) and not opponents.is_empty():
+	if (struck.has(ally) or plan.is_empty()) and not _visible_opponents(cp, ally).is_empty():
 		for unit in _units_with(units, [ITEM_STUTTER]):
 			return _unit_action(unit, _ally_blast_target(cp, ally, 0))
 	var paused: bool = opponents.any(func(e): return combatants[e]["actionsLost"] > 0)
@@ -1115,13 +1132,14 @@ static func _ally_item_action(cp: Dictionary, ally: int, plan: Array, planned: D
 			return _unit_action(unit, -1)
 	if not opponents.is_empty():
 		for unit in _units_with(units, [ITEM_BLAST]):
-			return _unit_action(unit, -1 if unit["multi"] else _ally_blast_target(cp, ally, _unit_power(combatant, unit)))
+			if unit["multi"] or not _visible_opponents(cp, ally).is_empty():
+				return _unit_action(unit, -1 if unit["multi"] else _ally_blast_target(cp, ally, _unit_power(combatant, unit)))
 	if plan.is_empty() and not is_powered(cp, combatant) and not combatant.get("powderUsed", false):
 		for unit in _units_with(units, [ITEM_POWDER]):
 			return _unit_action(unit, ally)
 	if plan.is_empty() and not opponents.is_empty():
 		for unit in _units_with(units, [ITEM_SODS_LAW]):
-			var cursed := opponents.filter(func(e): return int(combatants[e]["lowRolls"]) == 0)
+			var cursed := _visible_opponents(cp, ally).filter(func(e): return int(combatants[e]["lowRolls"]) == 0)
 			if not cursed.is_empty():
 				return _unit_action(unit, cursed[0])
 	if plan.is_empty() and int(cp["round"]) == 1:
@@ -1174,7 +1192,7 @@ static func _read_strike_targets(cp: Dictionary, ally: int) -> Array:
 # else the lowest-hp one; ties to the first in combatant order.
 static func _ally_blast_target(cp: Dictionary, ally: int, power: int) -> int:
 	var combatants: Array = cp["combatants"]
-	var opponents := _living_opponents(cp, ally)
+	var opponents := _visible_opponents(cp, ally)
 	var droppable: Array = opponents.filter(func(e): return int(combatants[e]["hp"]) <= power)
 	var best: int = -1
 	for e in droppable:
@@ -1196,7 +1214,7 @@ static func _ally_pan_target(cp: Dictionary, ally: int, panned: Array, need_offe
 	var combatants: Array = cp["combatants"]
 	var best := -1
 	var best_count := 0 if need_offence else -1
-	for e in _living_opponents(cp, ally):
+	for e in _visible_opponents(cp, ally):
 		if has_pan_status(combatants[e]) or is_emotion_immune(cp, combatants[e]) or panned.has(e):
 			continue
 		var plan: Array = combatants[e]["plan"]
@@ -1235,7 +1253,7 @@ static func _ally_revive_patient(cp: Dictionary, ally: int, patients: Array) -> 
 
 static func _ally_action(cp: Dictionary, ally: int, index: int, count: int, feints: Array, rng: RandomNumberGenerator) -> Dictionary:
 	var combatants: Array = cp["combatants"]
-	var enemies := _living_opponents(cp, ally)
+	var enemies := _visible_opponents(cp, ally)
 	var healthy: bool = float(combatants[ally]["hp"]) >= float(combatants[ally]["hpMax"]) * float(_data()["allyGuardBelow"])
 	if healthy:
 		for e in enemies:
@@ -1683,7 +1701,7 @@ static func target_options(cp: Dictionary, actor: int, move_id: String) -> Array
 		TARGET_SELF:
 			return [actor]
 		TARGET_ENEMY:
-			return _living_opponents(cp, actor)
+			return _living_opponents(cp, actor) if cp["combatants"][actor]["side"] == SIDE_ENEMY else _visible_opponents(cp, actor)
 		TARGET_FRIEND:
 			return _team(cp, actor)
 		TARGET_KOED_FRIEND:
@@ -1726,6 +1744,8 @@ static func _action_block_reason(cp: Dictionary, action) -> String:
 		elif cp["combatants"][PLAYER_INDEX]["loadout"][action["slot"]]["used"]:
 			return "That one's spent."
 	var multi := bool(_player_unit(cp, action).get("multi", false))
+	if m["target"] == TARGET_ENEMY and not multi and _living_opponents(cp, PLAYER_INDEX).has(int(action["target"])) and is_invisible(cp, cp["combatants"][int(action["target"])]):
+		return REASON_UNSEEN
 	if m["target"] in AIMED_TARGETS and not multi and not target_options(cp, PLAYER_INDEX, action["move"]).has(action["target"]):
 		return REASON_NOBODY_DOWN if m["target"] == TARGET_KOED_FRIEND and target_options(cp, PLAYER_INDEX, action["move"]).is_empty() else "Pick a target."
 	if m["effect"] in PAN_EFFECTS and _pan_targets(cp, PLAYER_INDEX, int(action["target"]), multi).is_empty():
