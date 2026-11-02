@@ -1532,10 +1532,10 @@ func run() -> void:
 		assert_eq(int(GameState.state["player"]["inventory"]["healingBurst"].get("2", 0)), 0, "stock spent on refill")
 	)
 
-	run_case("recruits_can_equip_every_item_but_wormhole", func():
+	run_case("recruits_can_equip_every_item_but_player_only", func():
 		GameState.reset()
 		for recipe in GameData.LOADOUT["items"]:
-			assert_eq(Loadout.is_equippable(recipe, "archie"), recipe != "wormhole", recipe)
+			assert_eq(Loadout.is_equippable(recipe, "archie"), recipe not in ["wormhole", "coldFeet"], recipe)
 	)
 
 	run_case("ally_breathes_prophets_breath_for_the_player_while_an_enemy_action_is_unread", func():
@@ -1879,6 +1879,20 @@ func run() -> void:
 		var result := Combat.choose_item(0)
 		assert_eq(result["beats"].filter(func(b): return b["kind"] == "rapture").map(func(b): return b["target"]), [2], "multi skips the statused one")
 		assert_eq(combat["combatants"][1]["raptureActions"], 0)
+	)
+
+	run_case("cold_feet_always_flees_and_allies_cant_equip_it", func():
+		for seed_value in [1, 2, 3, 4, 5]:
+			GameState.reset()
+			var combat := _start_armed([{ "recipe": "coldFeet", "tier": 1 }], [["strike", "strike"]], seed_value)
+			var result := Combat.choose_item(0)
+			assert_true(_kinds(result["beats"]).has("coldFeet"), "coldFeet beat")
+			assert_eq(combat["outcome"], "fled", "fled every time")
+			assert_eq(result["beats"].size(), 1, "no parting shot")
+			assert_eq(Loadout.slot(0), null, "unit consumed")
+		GameState.reset()
+		_recruit("archie")
+		assert_true(not Loadout.is_equippable("coldFeet", "archie"), "player only")
 	)
 
 	run_case("wormhole_ends_the_fight_fled_and_allies_refuse_it", func():

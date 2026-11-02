@@ -1116,6 +1116,29 @@ func run() -> void:
 		GameData.EVENTS = original_events
 	)
 
+	run_case("an_exit_item_option_is_hidden_without_the_item_and_spends_it_when_taken", func():
+		GameState.reset()
+		var original_events := _install_check_event(0.5)
+		var choices: Array = GameData.EVENTS["test_check_event"]["cards"][1]["choices"]
+		choices.append({ "label": "Slip out", "exitItem": "coldFeet", "result_text": "Gone.", "effects": [] })
+		Events.start_event("test_check_event")
+		Events.advance()
+		var exit_index := choices.size() - 1
+		assert_eq(Events.option_gate(exit_index)["display"], "hide", "hidden without Cold Feet")
+		Crafting.inventory_add("coldFeet", 1, 1)
+		assert_eq(Events.option_gate(exit_index)["display"], "show", "shown with Cold Feet")
+		Events.choose(exit_index)
+		assert_eq(Crafting.inventory_qty("coldFeet"), 0, "spent on commit")
+		GameState.reset()
+		_load_dial_complication("coldFeet", 1, 2)
+		Events.start_event("test_check_event")
+		Events.advance()
+		assert_eq(Events.option_gate(exit_index)["display"], "show", "Dial copy shows it")
+		Events.choose(exit_index)
+		assert_eq(GameState.state["player"]["dial"]["currentCharge"], 1, "Dial paid one charge")
+		GameData.EVENTS = original_events
+	)
+
 	run_case("a_toggle_with_the_item_only_on_the_dial_pays_from_the_dial", func():
 		GameState.reset()
 		_load_dial_complication("enhancementPowder", 1, 3)

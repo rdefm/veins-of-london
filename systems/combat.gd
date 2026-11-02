@@ -69,7 +69,7 @@ const DEBUG_SETUP_CONTEXTS: Array[String] = [CONTEXT_RAID, CONTEXT_MUGGING, CONT
 # recipeKeys a loaded Dial Complication casts in a fight (as a round item,
 # _round_dial()); rejuvenation/beALady/healingSalve have no in-combat cast,
 # and a rewind cast pays for round_rewind() instead.
-const COMBAT_COMPLICATION_RECIPES: Array[String] = ["timePearl", "enhancementPowder", "blast", "shield", "blackHole", "healingBurst", "prophetsBreath", "wormhole", "panic", "panger", "pandemonium", "pansRapture"]
+const COMBAT_COMPLICATION_RECIPES: Array[String] = ["timePearl", "enhancementPowder", "blast", "shield", "blackHole", "healingBurst", "prophetsBreath", "wormhole", "coldFeet", "panic", "panger", "pandemonium", "pansRapture"]
 
 # PROSE-REVIEW: loadout-row block reasons.
 const REASON_SLOT_EMPTY := "Empty."

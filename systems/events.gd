@@ -484,6 +484,9 @@ static func choose(choice_index: int, pick_ore: String = "") -> void:
 	# A toggled consumable is spent only here, on committing its own option,
 	# rolled or not.
 	var spent: Array = []
+	# An exit-item option (R§3.9a Exit item) spends its item on commit.
+	if choice.has("exitItem"):
+		_pay_item(String(choice["exitItem"]), item_source(String(choice["exitItem"])))
 	for mod in _optional_mods(choice_index):
 		if not toggled.has(mod["item"]) or spent.has(mod["item"]):
 			continue
@@ -867,6 +870,8 @@ static func option_gate(choice_index: int) -> Dictionary:
 	if _spent_one_shot(choice_index):
 		return { "display": "hide", "reason": "", "asked": true }
 	var asked := _picked_here().has(choice_index)
+	if choice.has("exitItem") and item_source(String(choice["exitItem"])) == "":
+		return { "display": "hide", "reason": "", "asked": asked }
 	var requires: Variant = choice.get("requires")
 	var toggled := active_toggles(choice_index)
 	if requires is Dictionary and not _hide_unless_met(requires, toggled):

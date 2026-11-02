@@ -1444,7 +1444,7 @@ static func beat_cues(beat: Dictionary, enemy: bool = false) -> Array:
 				cues.append({ "call": "guardShatter", "who": target })
 			elif kind == "evade" and target >= 0:
 				cues.append({ "call": "sidestep", "who": target })
-		"fled", "bolt":
+		"fled", "bolt", "coldFeet":
 			cues.append({ "call": "runOff", "who": actor })
 			if beat.get("boosted", false):
 				cues.append({ "call": "legItStreak", "who": actor })

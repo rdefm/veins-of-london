@@ -79,7 +79,8 @@ const ITEM_HEAVY_METAL := "heavyMetal"
 const ITEM_REVIVE := "revive"
 const ITEM_STIFF_LIP := "stiffUpperLip"
 const ITEM_SIGNAL_FAILURE := "signalFailure"
-const ITEM_EFFECTS: Array[String] = [ITEM_FREEZE, ITEM_BLACK_HOLE, ITEM_BLAST, ITEM_SHIELD, ITEM_HEAL, ITEM_POWDER, ITEM_SIGHT, ITEM_LADY, ITEM_PANIC, ITEM_RAPTURE, ITEM_ANGER, ITEM_FURY, ITEM_WORMHOLE, ITEM_NEAR_MISS, ITEM_SODS_LAW, ITEM_RICOCHET, ITEM_HEAVY_METAL, ITEM_REVIVE, ITEM_STIFF_LIP, ITEM_SIGNAL_FAILURE]
+const ITEM_COLD_FEET := "coldFeet"
+const ITEM_EFFECTS: Array[String] = [ITEM_FREEZE, ITEM_BLACK_HOLE, ITEM_BLAST, ITEM_SHIELD, ITEM_HEAL, ITEM_POWDER, ITEM_SIGHT, ITEM_LADY, ITEM_PANIC, ITEM_RAPTURE, ITEM_ANGER, ITEM_FURY, ITEM_WORMHOLE, ITEM_NEAR_MISS, ITEM_SODS_LAW, ITEM_RICOCHET, ITEM_HEAVY_METAL, ITEM_REVIVE, ITEM_STIFF_LIP, ITEM_SIGNAL_FAILURE, ITEM_COLD_FEET]
 # The Pan family (R§3.7b Table 4): an enemy holds one of their statuses at a
 # time and refuses another while it runs.
 const PAN_EFFECTS: Array[String] = [ITEM_PANIC, ITEM_RAPTURE, ITEM_ANGER, ITEM_FURY]
@@ -2724,6 +2725,11 @@ static func _use_item(cp: Dictionary, actor_idx: int, action: Dictionary, m: Dic
 			risen["koed"] = false
 			risen["hp"] = mini(power, int(risen["hpMax"]))
 			_beat(cp, beats, "revive", actor_idx, int(action["target"]), move_id, { "amount": risen["hp"], "hpAfter": risen["hp"] })
+		ITEM_COLD_FEET:
+			# Player only: a Leg it that cannot fail, for the whole squad; no roll, no parting shot.
+			_beat(cp, beats, "coldFeet", actor_idx, -1, move_id, {})
+			if actor_idx == PLAYER_INDEX:
+				cp["outcome"] = "fled"
 		ITEM_WORMHOLE:
 			# Player only: the fight ends fled, no roll, no parting shot.
 			_beat(cp, beats, "wormhole", actor_idx, -1, move_id, {})
