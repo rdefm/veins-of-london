@@ -71,7 +71,8 @@ const ITEM_WORMHOLE := "wormhole"
 const ITEM_NEAR_MISS := "nearMiss"
 const ITEM_SODS_LAW := "sodsLaw"
 const ITEM_RICOCHET := "ricochet"
-const ITEM_EFFECTS: Array[String] = [ITEM_FREEZE, ITEM_BLACK_HOLE, ITEM_BLAST, ITEM_SHIELD, ITEM_HEAL, ITEM_POWDER, ITEM_SIGHT, ITEM_LADY, ITEM_PANIC, ITEM_RAPTURE, ITEM_ANGER, ITEM_FURY, ITEM_WORMHOLE, ITEM_NEAR_MISS, ITEM_SODS_LAW, ITEM_RICOCHET]
+const ITEM_HEAVY_METAL := "heavyMetal"
+const ITEM_EFFECTS: Array[String] = [ITEM_FREEZE, ITEM_BLACK_HOLE, ITEM_BLAST, ITEM_SHIELD, ITEM_HEAL, ITEM_POWDER, ITEM_SIGHT, ITEM_LADY, ITEM_PANIC, ITEM_RAPTURE, ITEM_ANGER, ITEM_FURY, ITEM_WORMHOLE, ITEM_NEAR_MISS, ITEM_SODS_LAW, ITEM_RICOCHET, ITEM_HEAVY_METAL]
 # The Pan family (R§3.7b Table 4): an enemy holds one of their statuses at a
 # time and refuses another while it runs.
 const PAN_EFFECTS: Array[String] = [ITEM_PANIC, ITEM_RAPTURE, ITEM_ANGER, ITEM_FURY]
@@ -2192,14 +2193,20 @@ static func _play_status_turn(cp: Dictionary, actor_idx: int, rng: RandomNumberG
 		return false
 	actor["guard"] = _data()["statusTurns"][status]["actorGuard"]
 	if status == STATUS_PANIC and rng.randf() < float(_data()["items"]["panic"]["params"]["boltChance"]):
-		actor["hp"] = 0
-		actor["koed"] = true
-		actor["panicActions"] = 0
-		_beat(cp, beats, "bolt", actor_idx, -1, "", { "status": status })
-		_check_outcome(cp)
+		_bolt_out(cp, actor_idx, status, beats)
 	else:
 		_beat(cp, beats, "cower" if status == STATUS_PANIC else "enraptured", actor_idx, -1, "", { "status": status })
 	return true
+
+
+# A combatant bolts: defeated, counted as a KO (a Panic turn's bolt).
+static func _bolt_out(cp: Dictionary, idx: int, status: String, beats: Array) -> void:
+	var c: Dictionary = cp["combatants"][idx]
+	c["hp"] = 0
+	c["koed"] = true
+	c["panicActions"] = 0
+	_beat(cp, beats, "bolt", idx, -1, "", { "status": status })
+	_check_outcome(cp)
 
 
 static func _is_furious(cp: Dictionary, actor: int) -> bool:
@@ -2623,11 +2630,29 @@ static func _use_item(cp: Dictionary, actor_idx: int, action: Dictionary, m: Dic
 		ITEM_RICOCHET:
 			actor["reflect"] = maxi(int(actor["reflect"]), power)
 			_beat(cp, beats, "ricochet", actor_idx, -1, move_id, {})
+		ITEM_HEAVY_METAL:
+			_beat(cp, beats, "heavyMetal", actor_idx, -1, move_id, { "affected": _living_opponents(cp, actor_idx) })
+			for e in _living_opponents(cp, actor_idx):
+				_deal_damage(cp, actor_idx, e, power, "metalHit", move_id, beats, {})
+				if cp["outcome"] != null:
+					return
+			var weakest := _lowest_hp(_living_opponents(cp, actor_idx), combatants)
+			if weakest >= 0 and rng.randf() < float(m["params"]["boltChance"]):
+				_bolt_out(cp, weakest, STATUS_PANIC, beats)
 		ITEM_WORMHOLE:
 			# Player only: the fight ends fled, no roll, no parting shot.
 			_beat(cp, beats, "wormhole", actor_idx, -1, move_id, {})
 			if actor_idx == PLAYER_INDEX:
 				cp["outcome"] = "fled"
+
+
+# The index in `indices` of the fewest hp (the first on a tie), -1 if none.
+static func _lowest_hp(indices: Array, combatants: Array) -> int:
+	var best := -1
+	for i in indices:
+		if best < 0 or int(combatants[i]["hp"]) < int(combatants[best]["hp"]):
+			best = i
+	return best
 
 
 # A multi-target unit's beat fields: multi, and affected (every combatant

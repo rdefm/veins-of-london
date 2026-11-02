@@ -105,7 +105,7 @@ Each recipe's `ingredients` field is a dict of `{oreType: baseCalcCost}` — one
 | goodYear | Good Year | ❧ | {fate: 5, life: 5} | 0.20 | [0,2,3,4,5,7] (placeholder, no mechanics yet) | 40 | false |
 | secondImpression | Second Impression | ♢ | {fate: 4, emotion: 5} | 0.30 | [0,10,15,20,25,35] (placeholder, no mechanics yet) | 30 | false |
 | stiffUpperLip | Stiff Upper Lip | ☗ | {emotion: 4, life: 5} | 0.30 | [0,2,3,4,5,6] (placeholder, no mechanics yet) | 30 | false |
-| heavyMetal | Heavy Metal | ♫ | {emotion: 5, physics: 5} | 0.20 | [0,3,4,6,8,10] (placeholder, no mechanics yet) | 40 | false |
+| heavyMetal | Heavy Metal | ♫ | {emotion: 5, physics: 5} | 0.20 | [0,3,4,6,8,10] | 40 | false |
 | coldFeet | Cold Feet | ❄ | {emotion: 4, time: 4} | 0.35 | [0,1,1,1,1,1] (placeholder, no mechanics yet) | 30 | false |
 | nostalgia | Nostalgia | ☙ | {emotion: 5, time: 5} | 0.30 | [0,0,0,0,0,0] (placeholder, no mechanics yet) | 25 | false |
 | navvysDraught | Navvy's Draught | ⚒ | {life: 5, physics: 5} | 0.30 | [0,5,8,12,16,20] | 30 | false |
@@ -922,6 +922,8 @@ Items and Dial casts cost 1 action and leave guard state unchanged (except Shiel
 **Dial Complications.** A loaded Complication is a pick at a player pause: 1 action, guard state unchanged, `Dial.cast_complication()` cost/XP/magnitude per §3.5 (Time Pearl/Prophet's Breath add `level` actions/rounds, Black Hole its L3/L5 bonus). Ally Dial casts use the same rules inside the ally's plan (planned at round start, shown as ally intents).
 
 **Fate/physics/life item statuses.** Combat items (loadout and guard-kit allowlists, `combat_rounds.json items`; power = `effectPower` at the slot tier): **Near Miss** (`nearMiss`, self) — the next `power` Strikes at the user miss outright (`dodges`; beat `dodge`); **Sod's Law** (`sodsLaw`, one enemy) — that combatant's next `power` Strikes roll their range's minimum (`lowRolls`; crit/guard/anger still apply); **Ricochet** (`ricochet`, self) — the next Strike to land on the user (hit or chip, not a block) returns `power` damage to the striker, once (`reflect`; beat `reflect`, guard-ignoring). Blast and other item damage are neither dodged nor reflected. Guard-kit allies cast Near Miss/Ricochet when a read Strike is aimed at them; recruit slots do the same, and cast Sod's Law on a free enemy in their first action. **Navvy's Draught** (`navvysDraught`) is a Bag active effect (`activeEffects.items`): a running one adds `effectPower[level]` max and current HP to the player's next round fight (`ActiveEffects.navvy_bonus()`, `combat.navvyBonus`); when that fight's outcome settles, hp is clamped to the real `hpMax` and the effect ends.
+
+**Heavy Metal** (`heavyMetal`, all enemies, loadout and guard-kit allowlists, always multi) — deals `power` damage to every living enemy (guard-ignoring, beat `metalHit`), then the lowest-hp survivor (first on a tie) rolls Panic's `boltChance` (`items.heavyMetal.params`): a hit bolts it out as a KO (beat `bolt`). No status otherwise.
 
 **Carry-in effects.** An out-of-combat `player.activeEffects.prophetsBreath` active at fight start gives sight from round 1 for the whole fight (the block clock doesn't move mid-fight); it still blocks ambushes (§3.1d). An active `beALady` gives max rolls + 1/3 crit + its level's evade cut for the whole fight likewise.
 

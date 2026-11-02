@@ -906,6 +906,47 @@ func run() -> void:
 		assert_true(not _first(result["beats"], "lost").is_empty(), "lost beat")
 	)
 
+	run_case("heavy_metal_hits_every_enemy_by_tier_then_bolt_checks_the_weakest", func():
+		var saved: float = GameData.COMBAT_ROUNDS["items"]["heavyMetal"]["params"]["boltChance"]
+		for tier in [1, 5]:
+			var power := int(GameData.RECIPES["heavyMetal"]["effectPower"][tier])
+			# Never bolts: damage only, every enemy.
+			GameData.COMBAT_ROUNDS["items"]["heavyMetal"]["params"]["boltChance"] = 0.0
+			GameState.reset()
+			var combat := _start_vs([_slow_mugger(40), _slow_mugger(30), _slow_mugger(35)], [[["guard", "guard"]], [["guard", "guard"]], [["guard", "guard"]]], [{ "recipe": "heavyMetal", "tier": tier }])
+			var beats: Array = Combat.choose_item(0)["beats"]
+			assert_eq(combat["combatants"][1]["hp"], 40 - power, "tier %d hits enemy 1" % tier)
+			assert_eq(combat["combatants"][2]["hp"], 30 - power, "tier %d hits enemy 2" % tier)
+			assert_eq(combat["combatants"][3]["hp"], 35 - power, "tier %d hits enemy 3" % tier)
+			assert_eq(beats.filter(func(b): return b["kind"] == "metalHit").size(), 3, "one hit beat each")
+			assert_true(_first(beats, "bolt").is_empty(), "no bolt at 0 chance")
+			# Always bolts: only the lowest-hp enemy, after the damage.
+			GameData.COMBAT_ROUNDS["items"]["heavyMetal"]["params"]["boltChance"] = 1.0
+			GameState.reset()
+			combat = _start_vs([_slow_mugger(40), _slow_mugger(30), _slow_mugger(35)], [[["guard", "guard"]], [["guard", "guard"]], [["guard", "guard"]]], [{ "recipe": "heavyMetal", "tier": tier }])
+			beats = Combat.choose_item(0)["beats"]
+			assert_true(combat["combatants"][2]["koed"], "weakest bolts")
+			assert_true(not combat["combatants"][1]["koed"] and not combat["combatants"][3]["koed"], "others stay")
+			assert_eq(_first(beats, "bolt")["actor"], 2, "bolt beat on the weakest")
+		GameData.COMBAT_ROUNDS["items"]["heavyMetal"]["params"]["boltChance"] = saved
+	)
+
+	run_case("heavy_metal_on_a_lone_enemy_hits_then_bolt_checks_it", func():
+		var saved: float = GameData.COMBAT_ROUNDS["items"]["heavyMetal"]["params"]["boltChance"]
+		var power := int(GameData.RECIPES["heavyMetal"]["effectPower"][3])
+		GameData.COMBAT_ROUNDS["items"]["heavyMetal"]["params"]["boltChance"] = 0.0
+		GameState.reset()
+		var combat := _start_vs([_slow_mugger(40)], [[["guard", "guard"]]], [{ "recipe": "heavyMetal", "tier": 3 }])
+		Combat.choose_item(0)
+		assert_eq(combat["combatants"][1]["hp"], 40 - power, "damaged, standing")
+		GameData.COMBAT_ROUNDS["items"]["heavyMetal"]["params"]["boltChance"] = 1.0
+		GameState.reset()
+		combat = _start_vs([_slow_mugger(40)], [[["guard", "guard"]]], [{ "recipe": "heavyMetal", "tier": 3 }])
+		Combat.choose_item(0)
+		assert_true(combat["combatants"][1]["koed"], "bolts")
+		GameData.COMBAT_ROUNDS["items"]["heavyMetal"]["params"]["boltChance"] = saved
+	)
+
 	run_case("blast_hits_through_guard_and_boosts_the_next_leg_it_once", func():
 		var boosted := false
 		for seed_value in range(1, 200):

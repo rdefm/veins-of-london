@@ -31,7 +31,7 @@ const STRIP_SIZE := 10
 # A frozen position's strip card text.
 const PAUSE_TEXT := "⏸"
 const _OVERLAY_KINDS: Array[String] = ["guard", "lost", "frozen", "calm", "disarm"]
-const _CAST_KINDS: Array[String] = ["powder", "sight", "sightGiven", "lady"]
+const _CAST_KINDS: Array[String] = ["powder", "sight", "sightGiven", "lady", "heavyMetal"]
 # The screen's own closing beat after a pick's beats (_play_beats()).
 const _SETTLE_KIND := "settle"
 const _VOICEOVER_INSET := 16.0
@@ -1466,7 +1466,7 @@ static func beat_cues(beat: Dictionary, enemy: bool = false) -> Array:
 			cues.append({ "call": "slideIn", "who": actor })
 		"ko":
 			cues.append({ "call": "ko", "who": target })
-		"pull":
+		"pull", "metalHit":
 			pass
 		"timePearl", "blackHole":
 			cues.append({ "call": "throw", "who": actor })
