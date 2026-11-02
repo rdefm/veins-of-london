@@ -44,7 +44,7 @@ Data file per system: see `data/*.json` below.
 | contact_texts.gd | Per-contact random texts: rollover scheduling, gated selection, vein templating, reply rewards, and ticker notices; content from contact_texts.json |
 | contracts.gd | Block-end Sales auto-delivery (full, then partials by priority; goods to buyer holdings + supplier share), settlement to pot; recurring periods pay on fill, lock (`periodFilled`) until Monday renewal, expire at term end; per-contract `buyCalc` calc buys from the pot; unattended-proof taint (`playerAssisted`) and `qualified` settlements; `cancel()` (unpaid, hurts counterparty) |
 | crafting.gd | Recipe crafting; staff `craft_chance`, faction `calc_cost`; tiered inventory buckets; multi-target variant (from Lab best rank 3, `<recipe>_multi` inventory key, `craftMulti` checkbox state); `file_crafted` = the one filing entry point (inventory, Shares, counts, XP, Contracts/Objectives/Collective) |
-| cultivating.gd | Vein growth / cultivate / prune (player rolls max under Be a Lady; `player_*_text` previews); security tiers (lock/ward prices, guard tiers hired via GuardUpkeep) + raid resist; shared vein `value_order`; vein guard count + `drop_vein_guard`; item boosts (`apply_item`, `vein.boosts`: Root Feed daily growth, Good Year yield-tier bump) |
+| cultivating.gd | Vein growth / cultivate / prune (player rolls max under Be a Lady; `player_*_text` previews); security tiers (lock/ward prices, guard tiers hired via GuardUpkeep) + raid resist; shared vein `value_order`; vein guard count + `drop_vein_guard`; item boosts (`apply_item`, `vein.boosts`: Root Feed daily growth, Good Year yield-tier bump, Deadweight raid-loss cut) |
 | debug_start.gd | Maximal-unlock debug state; `apply(model)` keeps a picked `player.model` through its reset |
 | timing_log.gd | Debug-build-only log of real seconds + in-game day/block per event and fight (begin/end hooks in events.gd, combat.gd); static vars outside state; CSV export to `user://prologue_timing.csv` |
 | debug_tools.gd | Debug phone-app state adjusters; `learn_recipe()`/`learn_all_recipes()` grant rungs exact via RecipeKnowledge; `fire_event()` preps any event (state-path veins/sites, addressed contacts, raid/reveal site context, raid security profile) then starts it; `board_*` jump-to-meeting/choose/skip/judge; `add_item()` grants any recipe item |
@@ -234,7 +234,7 @@ overlays; hides the top board on title/intro/combat and the nav dock per screen.
 | network_sourcing_modal.gd | Handler Sourcing order: ore type + minimum tier |
 | network_intel_modal.gd | Handler intel menu: product rows at relation price, gate lock, faction/disinformation pickers, running timers |
 | sell_vein_quote_modal.gd | Single-vein sale confirmation card |
-| apply_vein_item_modal.gd | Bag-stack picker for Root Feed / Good Year on one vein |
+| apply_vein_item_modal.gd | Bag-stack picker for Root Feed / Good Year / Deadweight on one vein |
 | craft_components_menu_modal.gd | Movement-archetype picker; Craft hands off to movement_craft |
 | movement_craft_modal.gd | Pick a calc type to attempt a Movement craft; pushes success/fail notices |
 | movement_swap_modal.gd | Seat a Movement from movementInventory into the Dial |
@@ -242,7 +242,7 @@ overlays; hides the top board on title/intro/combat and the nav dock per screen.
 | combat_setup_modal.gd | Debug combat setup: fight type, location override (`location_options()`), fight-only player level, player slot picks (written to real slots via `Loadout.debug_grant()`), enemy count/level + per-enemy template/archetype, contact toggles, 0–2 debug allies (level + slots); requests `CombatPrep.KIND_DEBUG` → `Combat.start_debug_combat()` |
 | combat_block_reason_modal.gd | Why a combat command row is disabled: the action name and its block reason, opened from the row's red "!" (combat_rounds.gd) |
 | network_reference_modal.gd | Network Map legend |
-| hq_ore_readout_modal.gd | Ore-store slip with raid-risk stamp + personal-stash move controls, map_card_style.gd-skinned (always light) |
+| hq_ore_readout_modal.gd | Ore-store slip with raid-risk stamp, Apply Deadweight (HQ) + personal-stash move controls, map_card_style.gd-skinned (always light) |
 | hq_study_modal.gd | Study action card (XP per session, block cost) opened from the HQ Study chip |
 | hq_meditate_modal.gd | Meditate action card (XP per session, block cost) opened from the HQ Meditate chip |
 | hq_gym_modal.gd | Combat skill card (level, XP bar, current + next-level HP/ATK/SPD/actions/crit via `Combat.skill_summary()`) + Train action card |

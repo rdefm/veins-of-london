@@ -33,7 +33,8 @@
   "terroirTierOrder": ["poor", "fair", "rich", "saturated"],
   "boostItems": {
     "rootFeed": { "label": "Root Feed", "growthPerDayByTier": [0, 5, 10, 15, 20, 25] },
-    "goodYear": { "label": "Good Year", "tierBump": 1 }
+    "goodYear": { "label": "Good Year", "tierBump": 1 },
+    "deadweight": { "label": "Deadweight", "daysByTier": [0, 1, 1, 2, 2, 3] }
   },
   "levelCapByTerroir": { "poor": 2, "fair": 3, "rich": 4, "saturated": 5 },
   "levelUpChancePerDay": 0.10,

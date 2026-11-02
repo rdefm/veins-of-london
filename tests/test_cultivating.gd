@@ -1561,6 +1561,38 @@ func run() -> void:
 		assert_eq(boosts["rootFeed"]["until"], day + 3, "refreshed to the new duration, not summed")
 	)
 
+	run_case("deadweight_on_vein_stores_pct_and_cuts_raid_harvest", func():
+		GameState.reset()
+		GameState.state["player"]["veins"] = [_vein(80)]
+		var vein: Dictionary = GameState.state["player"]["veins"][0]
+		Crafting.inventory_add("deadweight", 4, 1)  # tier 4: 25%, 2 days
+		var day: int = GameState.state["world"]["day"]
+		assert_true(Cultivating.apply_item("test_vein", "deadweight", 4)["ok"], "applies")
+		assert_eq(vein["boosts"]["deadweight"]["until"], day + 2, "tier 4 lasts 2 days")
+		assert_eq(Cultivating.raid_loss_cut_pct(vein), 25, "25% cut while active")
+		Rng.set_seed(7)
+		var cut: int = FactionSim.raid_harvest("firm", vein)
+		var plain_vein: Dictionary = _vein(80)
+		Rng.set_seed(7)
+		var full: int = FactionSim.raid_harvest("firm", plain_vein)
+		assert_eq(cut, full * 75 / 100, "raider gets 75% of the unboosted take")
+	)
+
+	run_case("deadweight_expires_and_hq_raid_loss_is_cut", func():
+		GameState.reset()
+		GameState.state["player"]["orichalchum"] = { "time": 100 }
+		Crafting.inventory_add("deadweight", 5, 1)  # 35%, 3 days
+		var result := Home.apply_deadweight(5)
+		assert_true(result["ok"], "applies to HQ")
+		var home: Dictionary = GameState.state["home"]
+		assert_eq(home["boosts"]["deadweight"]["until"], GameState.state["world"]["day"] + 3, "expiry is a day number")
+		Home._apply_raid_loss()
+		assert_eq(GameState.state["player"]["orichalchum"]["time"], 100 - int(floor(100 * 0.5 * 0.65)), "lost 50% x 65%")
+		GameState.state["world"]["day"] += 3
+		assert_eq(Cultivating.raid_loss_cut_pct(home), 0, "no cut once expired")
+		assert_true(not Home.apply_deadweight(5)["ok"], "none left")
+	)
+
 	run_case("root_feed_adds_growth_each_tick_for_its_days_then_expires", func():
 		GameState.reset()
 		GameState.state["player"]["veins"] = [_vein(50)]

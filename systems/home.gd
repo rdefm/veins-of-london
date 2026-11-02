@@ -74,6 +74,7 @@ static func _apply_raid_loss() -> void:
 		return
 
 	var ratio: float = 0.25 if has_room("safeRoom") else 0.50
+	ratio *= float(100 - Cultivating.raid_loss_cut_pct(GameState.state["home"])) / 100.0  # Deadweight
 	var lost: Dictionary = {}
 	for ore_type in stored.keys():
 		var qty: int = stored[ore_type]
@@ -88,6 +89,20 @@ static func _apply_raid_loss() -> void:
 	var summary: String = ", ".join(parts) if not parts.is_empty() else "nothing"
 	Notify.push("Home raided. Lost %s." % summary, Notify.CATEGORY_DANGER)
 	EventBus.state_changed.emit()
+
+
+# The HQ ore readout's "Apply Deadweight" entry (ADR 0007): spends one
+# Deadweight at `tier` and cuts HQ raid ore loss for its days.
+static func apply_deadweight(tier: int) -> Dictionary:
+	var home: Dictionary = GameState.state["home"]
+	var result: Dictionary = Cultivating.spend_and_record_boost(home, Cultivating.DEADWEIGHT, tier)
+	if not result["ok"]:
+		return result
+	var days: int = result["days"]
+	# PROSE-REVIEW: Deadweight-on-HQ notification.
+	Notify.push("Deadweight at HQ. %d day%s." % [days, "" if days == 1 else "s"], Notify.CATEGORY_SUCCESS)
+	EventBus.state_changed.emit()
+	return result
 
 
 # With Alarm System installed, a raid queues a pending flag instead of

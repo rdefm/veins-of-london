@@ -322,6 +322,7 @@
       "xpReward": 35,
       "eventUsable": false,
       "bagWhenHeld": true,
+      "effectText": "Apply to HQ or a vein: raids carry off less ore.",
       "description": "Makes a safe weigh four tonnes for anyone who isn't you."
     },
     "signalFailure": {

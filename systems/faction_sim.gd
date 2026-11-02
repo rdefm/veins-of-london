@@ -219,6 +219,7 @@ static func _prune(faction_id: String, vein: Dictionary, depth: int, yield_mult:
 static func raid_harvest(raider_id: String, vein: Dictionary) -> int:
 	var depth: int = GameData.VEIN_GROWTH["pruneHardDepth"]
 	var amount: int = Cultivating.roll_prune_yield(vein, depth)
+	amount = amount * (100 - Cultivating.raid_loss_cut_pct(vein)) / 100  # Deadweight
 	var growth_before: int = vein["growth"]
 	vein["growth"] = Cultivating.prune_resulting_growth(vein, depth)
 	vein["rampantDays"] = 0

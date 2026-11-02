@@ -179,6 +179,7 @@ static func yield_terroir_tier(vein: Dictionary) -> String:
 
 const ROOT_FEED := "rootFeed"
 const GOOD_YEAR := "goodYear"
+const DEADWEIGHT := "deadweight"
 
 
 # Recipe keys that can be applied to a vein (data/vein_growth.json boostItems).
@@ -202,11 +203,13 @@ static func boost_active(vein: Dictionary, item: String) -> bool:
 
 
 # Bag stacks the player can apply: [{ item, tier, qty, days }] in boost_items()
-# then tier order. days = the unit's effectPower at its tier.
-static func usable_boost_stacks() -> Array:
+# (or `only`) then tier order. days = the unit's duration at its tier.
+static func usable_boost_stacks(only: Array = []) -> Array:
 	var inventory: Dictionary = GameState.state["player"]["inventory"]
 	var stacks: Array = []
 	for item in boost_items():
+		if not only.is_empty() and not only.has(item):
+			continue
 		var buckets: Dictionary = inventory.get(item, {})
 		var tiers: Array = buckets.keys()
 		tiers.sort_custom(func(a, b): return int(a) < int(b))
@@ -217,9 +220,44 @@ static func usable_boost_stacks() -> Array:
 	return stacks
 
 
+# Duration in days: boostItems[item].daysByTier when set (Deadweight, whose
+# effectPower is a percentage), else the recipe's effectPower.
 static func boost_days_for(item: String, tier: int) -> int:
-	var powers: Array = GameData.RECIPES[item]["effectPower"]
+	var powers: Array = GameData.VEIN_GROWTH["boostItems"][item].get("daysByTier", GameData.RECIPES[item]["effectPower"])
 	return int(powers[clampi(tier, 0, powers.size() - 1)])
+
+
+# The value stored as boost.power: Deadweight's raid-loss cut %, else the days.
+static func boost_power_for(item: String, tier: int) -> int:
+	if item == DEADWEIGHT:
+		var powers: Array = GameData.RECIPES[item]["effectPower"]
+		return int(powers[clampi(tier, 0, powers.size() - 1)])
+	return boost_days_for(item, tier)
+
+
+# Percent of raided ore Deadweight saves on a place (a vein or `state.home`):
+# 0 when none is running (R§3.4 Item boosts).
+static func raid_loss_cut_pct(place: Dictionary) -> int:
+	if not boost_active(place, DEADWEIGHT):
+		return 0
+	return clampi(int(place["boosts"][DEADWEIGHT]["power"]), 0, 100)
+
+
+# Spends one unit of `item` at `tier` and writes place.boosts[item]; reuse
+# refreshes, never stacks. Returns { ok, reason? | until, days }.
+static func spend_and_record_boost(place: Dictionary, item: String, tier: int) -> Dictionary:
+	var days: int = boost_days_for(item, tier)
+	if days <= 0:
+		return { "ok": false, "reason": "Too weak to take." }
+	var have: int = int(GameState.state["player"]["inventory"].get(item, {}).get(str(tier), 0))
+	if have <= 0:
+		return { "ok": false, "reason": "None left." }
+	Crafting.inventory_remove_from_tier(item, tier, 1)
+	if not place.has("boosts"):
+		place["boosts"] = {}
+	var until: int = int(GameState.state["world"]["day"]) + days
+	place["boosts"][item] = { "until": until, "power": boost_power_for(item, tier), "tier": tier }
+	return { "ok": true, "until": until, "days": days }
 
 
 # The shared "apply item to a vein" entry (ADR 0007). Spends one unit at `tier`
@@ -230,17 +268,11 @@ static func apply_item(vein_id: String, item: String, tier: int) -> Dictionary:
 	var vein: Variant = find_vein(vein_id)
 	if vein == null:
 		return { "ok": false, "reason": "Vein not found." }
-	var days: int = boost_days_for(item, tier)
-	if days <= 0:
-		return { "ok": false, "reason": "Too weak to take." }
-	var have: int = int(GameState.state["player"]["inventory"].get(item, {}).get(str(tier), 0))
-	if have <= 0:
-		return { "ok": false, "reason": "None left." }
-	Crafting.inventory_remove_from_tier(item, tier, 1)
-	if not vein.has("boosts"):
-		vein["boosts"] = {}
-	var until: int = int(GameState.state["world"]["day"]) + days
-	vein["boosts"][item] = { "until": until, "power": days, "tier": tier }
+	var result: Dictionary = spend_and_record_boost(vein, item, tier)
+	if not result["ok"]:
+		return result
+	var days: int = result["days"]
+	var until: int = result["until"]
 	# PROSE-REVIEW: item-on-vein notification.
 	Notify.push("%s on the %s vein. %d day%s." % [GameData.VEIN_GROWTH["boostItems"][item]["label"], GameData.ORE_TYPES[vein["oreType"]]["name"], days, "" if days == 1 else "s"], Notify.CATEGORY_SUCCESS)
 	EventBus.state_changed.emit()

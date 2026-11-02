@@ -40,6 +40,7 @@ static func _build(container: VBoxContainer) -> void:
 	slip_content.add_child(MapCardStyle.section_label("Ore kept at the flat is what a raid takes — carry less, lose less."))
 
 	container.add_child(slip["panel"])
+	container.add_child(_deadweight_section())
 	container.add_child(_personal_stash_section())
 	var close := MapCardStyle.text_button("Close", func(): Modal.close())
 	close.size_flags_horizontal = Control.SIZE_SHRINK_END
@@ -48,6 +49,34 @@ static func _build(container: VBoxContainer) -> void:
 
 static func _ink_row(symbol: String, fallback: Variant, text: String, icon: Texture2D = null) -> Control:
 	return MapCardStyle.tint_symbols(UI.symbol_row([{ "symbol": symbol, "fallback": fallback, "icon": icon }, text]), MapCardStyle.ink())
+
+
+# "Apply Deadweight" (ADR 0007): one button per Bag Deadweight stack; the pick
+# goes through Home.apply_deadweight and refreshes the modal.
+static func _deadweight_section() -> Control:
+	var card := MapCardStyle.card()
+	var content: VBoxContainer = card["content"]
+	content.add_child(MapCardStyle.label("Deadweight", 15, MapCardStyle.ink()))
+	var home: Dictionary = GameState.state["home"]
+	var days_left: int = Cultivating.boost_days_left(home, Cultivating.DEADWEIGHT)
+	if days_left > 0:
+		content.add_child(MapCardStyle.section_label("Raids take %d%% less · %d day%s left." % [Cultivating.raid_loss_cut_pct(home), days_left, "" if days_left == 1 else "s"]))
+	else:
+		content.add_child(MapCardStyle.section_label("Cuts the ore a raid takes. Using another restarts the days."))
+	var stacks: Array = Cultivating.usable_boost_stacks([Cultivating.DEADWEIGHT])
+	if stacks.is_empty():
+		content.add_child(MapCardStyle.section_label("No Deadweight in the Bag."))
+	for stack in stacks:
+		var tier: int = stack["tier"]
+		var days: int = stack["days"]
+		var text := "Apply Deadweight · tier %d · %d day%s · ×%d" % [tier, days, "" if days == 1 else "s", stack["qty"]]
+		content.add_child(MapCardStyle.action_button(text, func(): _apply_deadweight(tier), days <= 0, "Too weak to take." if days <= 0 else ""))
+	return card["panel"]
+
+
+static func _apply_deadweight(tier: int) -> void:
+	Home.apply_deadweight(tier)
+	Modal.close()
 
 
 static func _personal_stash_section() -> Control:
