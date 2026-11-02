@@ -115,7 +115,7 @@
           "label": "Blast the door open",
           "requires": { "item": "blast", "optional": true, "display": "disable" },
           "items": [{ "item": "blast", "optional": true, "label": "Blast", "effect": { "kind": "unlock" } }],
-          "effects": [{ "op": "alert", "add": 1 }],
+          "effects": [],
           "result_text": "",
           "goto": 4
         },
@@ -234,7 +234,7 @@
           "id": "option2",
           "requires": { "item": "blast", "optional": true, "display": "disable" },
           "items": [{ "item": "blast", "optional": true, "label": "Blast", "effect": { "kind": "unlock" } }],
-          "effects": [{ "op": "alert", "add": 1 }],
+          "effects": [],
           "result_text": "To door swings on its hinges and slams loudly against the wall. It wasn't subtle, but it got the job done.",
           "goto": 8
         },

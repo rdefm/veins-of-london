@@ -54,6 +54,7 @@
       "baseSuccess": 0.40,
       "effectPower": [0, 4, 6, 8, 10, 12],
       "xpReward": 25,
+      "eventProfile": { "tags": ["barrier"], "label": "Blast", "placeholder": true, "effect": { "kind": "unlock" }, "alert": { "add": 1 } },
       "eventUsable": false,
       "description": "A concentrated shove of physics calc. Knocks them back, occasionally knocks the gun out of their hand. Mostly the former."
     },
@@ -134,6 +135,7 @@
       "baseSuccess": 0.25,
       "effectPower": [0, 2, 2, 3, 4, 5],
       "xpReward": 30,
+      "eventProfile": { "tags": [], "label": "Pandemonium", "placeholder": true, "effect": { "kind": "unlock" } },
       "eventUsable": true,
       "description": "Fury, brought to the boil. Nobody in range remembers whose side they were on."
     },
@@ -145,6 +147,7 @@
       "baseSuccess": 0.25,
       "effectPower": [0, 2, 2, 3, 4, 5],
       "xpReward": 30,
+      "eventProfile": { "tags": [], "label": "Pan's Rapture", "placeholder": true, "effect": { "kind": "unlock" } },
       "eventUsable": true,
       "description": "Joy, distilled to the last clear drop. Pleasant until you notice nobody is going home."
     },
@@ -336,6 +339,7 @@
       "baseSuccess": 0.35,
       "effectPower": [0, 1, 1, 2, 2, 3],
       "xpReward": 25,
+      "eventProfile": { "tags": [], "label": "Signal Failure", "placeholder": true, "effect": { "kind": "unlock" } },
       "eventUsable": false,
       "bagWhenHeld": true,
       "description": "The target's reinforcements are held at a red signal. They are not told why."
@@ -372,6 +376,7 @@
       "baseSuccess": 0.20,
       "effectPower": [0, 1, 1, 2, 2, 3],
       "xpReward": 40,
+      "eventProfile": { "tags": ["barrier"], "label": "Skeleton Key", "placeholder": true, "effect": { "kind": "unlock" } },
       "eventUsable": false,
       "bagWhenHeld": true,
       "description": "Not a key. A strong opinion about which way a lock should be."

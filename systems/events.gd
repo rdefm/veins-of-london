@@ -494,9 +494,11 @@ static func choose(choice_index: int, pick_ore: String = "") -> void:
 		if mod.has("effect"):
 			spent.append(mod["item"])
 			apply_item_effect(mod["item"], mod["effect"], item_source(mod["item"]))
+			_apply_profile_alert(mod["item"])
 		elif mod.get("consume", false):
 			spent.append(mod["item"])
 			_pay_item(mod["item"], item_source(mod["item"]))
+			_apply_profile_alert(mod["item"])
 
 	var resolution: Dictionary = { "text": source["result_text"] }
 	if source.has("image"):
@@ -1501,9 +1503,19 @@ static func offered_mods(choice: Dictionary) -> Array:
 		var profile: Variant = GameData.RECIPES[id].get("eventProfile")
 		if not profile is Dictionary or authored.has(id) or choice.get("excludeItems", []).has(id):
 			continue
+		if profile["effect"].get("kind", "") == "unlock":
+			continue  # bypass items are authored no-roll options; their tags only filter
 		if _shares_tag(profile.get("tags", []), tags):
 			mods.append({ "item": id, "optional": true, "consume": true, "label": profile.get("label", ""), "effect": profile["effect"] })
 	return mods
+
+
+# The spent item's eventProfile `alert` (an `alert` op without cover), applied as
+# it is spent, so before the option's own effects (R§3.9a No-roll bypasses).
+static func _apply_profile_alert(item: String) -> void:
+	var profile: Variant = GameData.RECIPES.get(item, {}).get("eventProfile")
+	if profile is Dictionary and profile.has("alert"):
+		_apply_alert(profile["alert"])
 
 
 static func _collect_items(condition: Dictionary, out: Array) -> void:

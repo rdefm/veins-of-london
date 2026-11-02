@@ -1507,6 +1507,31 @@ func run() -> void:
 		GameData.EVENTS = original_events
 	)
 
+	run_case("blast_raises_alert_one_tier_from_its_profile_clamped_and_skeleton_key_does_not", func():
+		var original_events := _install_no_roll_item_event()
+		var top: int = (GameData.EVENT_CHECKS["alert"]["tiers"] as Array).size() - 1
+		for start in [0, top]:
+			GameState.reset()
+			Crafting.inventory_add("blast", 1, 1)
+			Events.start_event("test_no_roll_item", { "startAlert": start })
+			Events.advance()
+			assert_eq(Events.alert_level(), start, "no raise before commit")
+			Events.choose(0)
+			assert_eq(Events.alert_level(), mini(start + 1, top), "Blast +1 tier, clamped (start %d)" % start)
+			assert_eq(Crafting.inventory_qty("blast"), 0, "spent")
+		GameState.reset()
+		Crafting.inventory_add("skeletonKey", 1, 1)
+		GameData.EVENTS["test_no_roll_item"]["cards"][1]["choices"][0]["requires"]["item"] = "skeletonKey"
+		var items: Array = GameData.EVENTS["test_no_roll_item"]["cards"][1]["choices"][0]["items"]
+		items[0] = { "item": "skeletonKey", "optional": true, "label": "Skeleton Key", "effect": { "kind": "unlock" } }
+		Events.start_event("test_no_roll_item")
+		Events.advance()
+		Events.choose(0)
+		assert_eq(Events.alert_level(), 0, "Skeleton Key leaves the alert alone")
+		assert_eq(Crafting.inventory_qty("skeletonKey"), 0, "spent")
+		GameData.EVENTS = original_events
+	)
+
 	run_case("a_next_check_only_mod_applies_to_the_next_check_only", func():
 		GameState.reset()
 		Crafting.inventory_add("blast", 1, 1)
