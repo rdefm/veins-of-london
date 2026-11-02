@@ -30,6 +30,7 @@ const FIGHT_OVERRIDE_KEYS: Array[String] = ["guards", "template", "waves"]
 # The fixed text box fits this many option buttons; the content lint enforces it.
 const MAX_OPTIONS := 4
 const SKELETON_KEY := "skeletonKey"
+const RECOVERY_ITEM := "cleanSlate"
 
 
 # context: a raid's target site_id is only known at Raid-button-press time, so
@@ -160,7 +161,7 @@ static func revealed_cards() -> Array:
 			var resolution_card: Dictionary = { "type": "resolution", "label": null, "speaker": null, "text": resolution["text"] }
 			if resolution.has("image"):
 				resolution_card["image"] = resolution["image"]
-			for key in ["outcome", "successes", "attempts", "roll", "needed"]:
+			for key in ["outcome", "successes", "attempts", "roll", "needed", "recovered"]:
 				if resolution.has(key):
 					resolution_card[key] = resolution[key]
 			result.append(resolution_card)
@@ -261,6 +262,9 @@ static func advance() -> void:
 		return
 
 	_snapshot_before_mutation()
+	var event_state: Dictionary = GameState.state["event"]
+	if not _settle_pending(event_state):
+		return  # the held fail's effects ended or replaced this event
 	_continue()
 
 
@@ -522,7 +526,12 @@ static func choose(choice_index: int, pick_ore: String = "") -> void:
 		resolution["successes"] = successes
 		resolution["attempts"] = attempts
 	var target := _goto_target(source.get("goto"))
-	if target >= 0:
+	# A recoverable social fail is held pending: its text shows, its effects and
+	# goto wait for Continue or Use Clean Slate (R§3.9a Clean Slate).
+	var hold_fail: bool = outcome == "fail" and auto_item == "" and not re_asked and recovery_applies(choice) and not is_silent_text(resolution["text"])
+	if hold_fail:
+		resolution["pending"] = { "choice": choice_index, "effects": source.get("effects", []).duplicate(true), "goto": target }
+	elif target >= 0:
 		resolution["goto"] = target
 	event_state["choiceResults"][str(event_state["cardIndex"])] = resolution
 	if not event_state.has("picked"):
@@ -538,7 +547,8 @@ static func choose(choice_index: int, pick_ore: String = "") -> void:
 	if outcome != "":
 		for i in range(successes):
 			effects = effects + choice["check"].get("perSuccess", [])
-		effects = effects + source.get("effects", [])
+		if not hold_fail:
+			effects = effects + source.get("effects", [])
 	if auto_item != "":
 		effects = effects.filter(func(e: Dictionary) -> bool: return e.get("op", "") != "alert")
 	if not re_asked:
@@ -547,6 +557,90 @@ static func choose(choice_index: int, pick_ore: String = "") -> void:
 	# unless the effects ended this event or started another.
 	if is_silent_text(resolution["text"]) and is_same(GameState.state["event"], event_state):
 		_continue()
+
+
+# ── Clean Slate: social fail recovery (R§3.9a Clean Slate) ──
+
+# True when a failed check option holds its fail pending: tagged `social`, no
+# `pick`, and not excluding Clean Slate (`excludeItems`).
+static func recovery_applies(choice: Dictionary) -> bool:
+	if not choice.has("check") or choice.has("pick"):
+		return false
+	if not choice["check"].get("tags", []).has("social"):
+		return false
+	return not choice.get("excludeItems", []).has(RECOVERY_ITEM)
+
+
+# The current card's resolution while its fail is held, else {}.
+static func _pending_resolution() -> Dictionary:
+	var event_state: Variant = GameState.state["event"]
+	if event_state == null:
+		return {}
+	var resolution: Dictionary = event_state["choiceResults"].get(str(event_state["cardIndex"]), {})
+	return resolution if resolution.has("pending") else {}
+
+
+# True while the current card's check fail awaits Continue or Use Clean Slate.
+static func is_fail_pending() -> bool:
+	return not _pending_resolution().is_empty()
+
+
+# True when a Clean Slate could be spent now (inventory or loaded Dial).
+static func clean_slate_payable() -> bool:
+	return item_source(RECOVERY_ITEM) != ""
+
+
+# Use Clean Slate on a held fail: spends one, rewrites the resolution to the
+# option's success outcome and applies its effects and goto, never the fail's.
+# Refused (no change) when nothing is held or Clean Slate isn't payable.
+static func use_clean_slate() -> void:
+	var resolution := _pending_resolution()
+	if resolution.is_empty() or not clean_slate_payable():
+		return
+	var event_state: Dictionary = GameState.state["event"]
+	var choice: Dictionary = current_card()["choices"][int(resolution["pending"]["choice"])]
+	_pay_item(RECOVERY_ITEM, item_source(RECOVERY_ITEM))
+	var source: Dictionary = choice["success"]
+	var multi: bool = resolution.has("attempts")
+	resolution.erase("pending")
+	for key in ["roll", "needed", "successes", "attempts", "image", "goto"]:
+		resolution.erase(key)
+	resolution["text"] = source["result_text"]
+	if source.has("image"):
+		resolution["image"] = source["image"]
+	elif choice.has("image"):
+		resolution["image"] = choice["image"]
+	resolution["outcome"] = "success"
+	resolution["recovered"] = true
+	var target := _goto_target(source.get("goto"))
+	if target >= 0:
+		resolution["goto"] = target
+	var card: Dictionary = current_card()
+	var record: Dictionary = GameState.state["flags"]["choices"][event_state["eventId"]][str(card.get("key", event_state["cardIndex"]))]
+	record["outcome"] = "success"
+	record["recovered"] = true
+	if multi:
+		record["successes"] = 1
+	# Recovery counts as one success.
+	apply_effects(choice["check"].get("perSuccess", []) + source.get("effects", []))
+	if is_silent_text(resolution["text"]) and is_same(GameState.state["event"], event_state):
+		_continue()
+	else:
+		EventBus.state_changed.emit()
+
+
+# Continue on a held fail: applies its effects and records its goto. False when
+# those effects ended or replaced the event, so the caller must not continue.
+static func _settle_pending(event_state: Dictionary) -> bool:
+	var resolution: Dictionary = event_state["choiceResults"].get(str(event_state["cardIndex"]), {})
+	if not resolution.has("pending"):
+		return true
+	var held: Dictionary = resolution["pending"]
+	resolution.erase("pending")
+	if int(held.get("goto", -1)) >= 0:
+		resolution["goto"] = int(held["goto"])
+	apply_effects(held.get("effects", []))
+	return is_same(GameState.state["event"], event_state)
 
 
 # True for a result_text that shows no resolution card: null or blank.
@@ -1527,6 +1621,8 @@ static func offered_mods(choice: Dictionary) -> Array:
 			continue
 		if profile["effect"].get("kind", "") == "unlock":
 			continue  # bypass items are authored no-roll options; their tags only filter
+		if profile["effect"].get("kind", "") == "failRecovery":
+			continue  # offered on the fail card (fail_pending), not as a toggle
 		if _shares_tag(profile.get("tags", []), tags):
 			mods.append({ "item": id, "optional": true, "consume": true, "label": profile.get("label", ""), "effect": profile["effect"] })
 	return mods

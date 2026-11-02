@@ -504,6 +504,7 @@
       "effectPower": [0, 0, 0, 0, 0, 0],
       "xpReward": 60,
       "eventUsable": false,
+      "eventProfile": { "tags": ["social"], "label": "Clean Slate", "placeholder": true, "effect": { "kind": "failRecovery" } },
       "bagWhenHeld": true,
       "description": "Everyone involved remembers it differently, and slightly in your favour."
     },

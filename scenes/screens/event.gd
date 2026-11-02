@@ -180,7 +180,15 @@ func _fill_footer(box: BoxContainer) -> Array:
 		var spacer := Control.new()
 		spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		controls.append(spacer)
-		controls.append(_build_continue_button("→"))
+		if Events.is_fail_pending():
+			var recover := UI.button(GameData.EVENT_CHECKS["cleanSlateButton"], func(): Events.use_clean_slate())
+			recover.name = "CleanSlateButton"
+			recover.disabled = not Events.clean_slate_payable()
+			_style_action_button(recover)
+			controls.append(recover)
+			controls.append(_build_continue_button(GameData.EVENT_CHECKS["failContinueButton"]))
+		else:
+			controls.append(_build_continue_button("→"))
 	elif Events.hub_exit_available():
 		var spacer := Control.new()
 		spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -647,6 +655,8 @@ static func item_toggle_label(toggle: Dictionary) -> String:
 # A multi-attempt check's resolution reads "N of M came off"; a single check
 # uses the success/fail marker.
 static func outcome_marker(card: Dictionary) -> String:
+	if card.get("recovered", false):
+		return GameData.EVENT_CHECKS["outcomeMarkers"]["success"] + GameData.EVENT_CHECKS["cleanSlateMarker"]
 	if card.has("attempts"):
 		return GameData.EVENT_CHECKS["attemptsMarkerFormat"] % [card["successes"], card["attempts"]]
 	var marker: String = GameData.EVENT_CHECKS["outcomeMarkers"][card["outcome"]]

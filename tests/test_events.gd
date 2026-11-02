@@ -1417,6 +1417,130 @@ func run() -> void:
 		GameData.EVENTS = original_events
 	)
 
+	run_case("clean_slate_social_fail_is_held_pending_and_continue_applies_it", func():
+		GameState.reset()
+		Crafting.inventory_add("cleanSlate", 1, 1)
+		var original_events := _install_tagged_event(0.0, ["social"])
+		Events.start_event("test_check_event")
+		Events.advance()
+		Events.choose(0)
+		var res: Dictionary = GameState.state["event"]["choiceResults"]["1"]
+		assert_eq(res["outcome"], "fail")
+		assert_true(Events.is_fail_pending())
+		assert_true(not GameState.state["flags"].get("checkFailed", false), "fail effects held")
+		assert_true(Events.revealed_cards().any(func(c: Dictionary) -> bool: return c.get("text") == "It didn't."))
+		Events.advance()
+		assert_true(not Events.is_fail_pending())
+		assert_true(GameState.state["flags"].get("checkFailed", false), "Continue applies the fail")
+		assert_eq(Crafting.inventory_qty("cleanSlate"), 1, "not spent")
+		assert_eq(int(GameState.state["event"]["cardIndex"]), 2)
+		GameData.EVENTS = original_events
+	)
+
+	run_case("use_clean_slate_resolves_as_success_and_never_applies_the_fail", func():
+		GameState.reset()
+		Crafting.inventory_add("cleanSlate", 1, 1)
+		var original_events := _install_tagged_event(0.0, ["social"])
+		Events.start_event("test_check_event")
+		Events.advance()
+		var cash: int = GameState.state["player"]["cash"]
+		Events.choose(0)
+		Events.use_clean_slate()
+		var res: Dictionary = GameState.state["event"]["choiceResults"]["1"]
+		assert_eq(res["outcome"], "success")
+		assert_eq(res["text"], "It worked.")
+		assert_true(res["recovered"])
+		assert_true(not res.has("roll") and not res.has("pending"))
+		assert_eq(Crafting.inventory_qty("cleanSlate"), 0, "spent")
+		assert_eq(GameState.state["player"]["cash"], cash + 30, "success effects")
+		assert_true(not GameState.state["flags"].get("checkFailed", false), "fail effects never")
+		assert_eq(Events.choice_record("test_check_event", "push")["outcome"], "success")
+		assert_true(Events.choice_record("test_check_event", "push")["recovered"])
+		assert_true(Events.revealed_cards().back().get("recovered", false))
+		assert_true(not Events.is_fail_pending())
+		GameData.EVENTS = original_events
+	)
+
+	run_case("use_clean_slate_is_refused_when_none_held_and_continue_still_applies_fail", func():
+		GameState.reset()
+		var original_events := _install_tagged_event(0.0, ["social"])
+		Events.start_event("test_check_event")
+		Events.advance()
+		Events.choose(0)
+		assert_true(not Events.clean_slate_payable())
+		Events.use_clean_slate()
+		assert_true(Events.is_fail_pending(), "refused")
+		assert_eq(GameState.state["event"]["choiceResults"]["1"]["outcome"], "fail")
+		Events.advance()
+		assert_true(GameState.state["flags"].get("checkFailed", false))
+		GameData.EVENTS = original_events
+	)
+
+	run_case("clean_slate_is_not_offered_on_non_social_or_excluded_checks_nor_on_success", func():
+		GameState.reset()
+		Crafting.inventory_add("cleanSlate", 3, 1)
+		var original_events := _install_tagged_event(0.0, ["physical"])
+		Events.start_event("test_check_event")
+		Events.advance()
+		Events.choose(0)
+		assert_true(not Events.is_fail_pending(), "non-social")
+		GameData.EVENTS = original_events
+		original_events = _install_tagged_event(0.0, ["social"])
+		GameData.EVENTS["test_check_event"]["cards"][1]["choices"][0]["excludeItems"] = ["cleanSlate"]
+		Events.start_event("test_check_event")
+		Events.advance()
+		Events.choose(0)
+		assert_true(not Events.is_fail_pending(), "excluded")
+		GameData.EVENTS = original_events
+		original_events = _install_tagged_event(1.0, ["social"])
+		Events.start_event("test_check_event")
+		Events.advance()
+		Events.choose(0)
+		assert_true(not Events.is_fail_pending(), "success")
+		var toggled_ids: Array = Events.item_toggles(0).map(func(t: Dictionary) -> String: return t["item"])
+		assert_true(not toggled_ids.has("cleanSlate"), "never a roll toggle")
+		GameData.EVENTS = original_events
+	)
+
+	run_case("clean_slate_on_a_zero_success_attempts_check_recovers_to_success_once", func():
+		GameState.reset()
+		Crafting.inventory_add("cleanSlate", 1, 1)
+		var original_events := _install_attempts_check_event(0.0, 3)
+		GameData.EVENTS["test_check_event"]["cards"][1]["choices"][0]["check"]["tags"] = ["social"]
+		Events.start_event("test_check_event")
+		Events.advance()
+		Events.choose(0)
+		assert_true(Events.is_fail_pending())
+		assert_true(not GameState.state["flags"].get("noneTook", false))
+		Events.use_clean_slate()
+		var res: Dictionary = GameState.state["event"]["choiceResults"]["1"]
+		assert_eq(res["outcome"], "success")
+		assert_true(not res.has("attempts"))
+		assert_eq(Crafting.inventory_qty("timePearl"), 1, "one success's perSuccess")
+		assert_true(not GameState.state["flags"].get("noneTook", false))
+		assert_eq(Events.choice_record("test_check_event", "push")["successes"], 1)
+		GameData.EVENTS = original_events
+	)
+
+	run_case("clean_slate_pending_survives_save_reload_and_rewind_refunds_it", func():
+		GameState.reset()
+		Crafting.inventory_add("cleanSlate", 1, 1)
+		Crafting.inventory_add("rewind", 1, 1)
+		var original_events := _install_tagged_event(0.0, ["social"])
+		Events.start_event("test_check_event")
+		Events.advance()
+		Events.choose(0)
+		var results: Dictionary = GameState.state["event"]["choiceResults"]
+		GameState.state["event"]["choiceResults"] = JSON.parse_string(JSON.stringify(results))  # as JSON reloads it
+		assert_true(Events.is_fail_pending(), "pending after reload")
+		Events.use_clean_slate()
+		assert_eq(Crafting.inventory_qty("cleanSlate"), 0)
+		assert_true(Events.rewind("consumable")["ok"])
+		assert_eq(Crafting.inventory_qty("cleanSlate"), 1, "refunded")
+		assert_true(not Events.is_fail_pending())
+		GameData.EVENTS = original_events
+	)
+
 	run_case("auto_offer_bonus_scales_with_tier", func():
 		GameState.reset()
 		Crafting.inventory_add("enhancementPowder", 5, 1)

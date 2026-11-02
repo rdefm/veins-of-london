@@ -793,6 +793,9 @@
     "attemptsMarkerFormat": "%d of %d came off",
     "rollMarkerFormat": " · Rolled %d · needed %d+",
     "autoSuccessMarkerFormat": " · %s, no roll",
+    "cleanSlateMarker": " · Clean Slate, no roll",
+    "cleanSlateButton": "Use Clean Slate",
+    "failContinueButton": "Continue",
     "revealFormat": "Will roll %d · needed %d+",
     "revealButton": "Use %s: see this card's rolls"
   },
