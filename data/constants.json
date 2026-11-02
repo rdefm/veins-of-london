@@ -824,7 +824,8 @@
   },
   "activeEffects": {
     "durationByLevel": [0, 1, 1, 2, 2, 3],
-    "items": ["beALady", "prophetsBreath", "navvysDraught", "happyAccident"],
-    "happyAccident": { "label": "Happy Accident", "observationPerLevel": 0.05, "benchPerLevel": 0.05 }
+    "items": ["beALady", "prophetsBreath", "navvysDraught", "happyAccident", "secondImpression"],
+    "happyAccident": { "label": "Happy Accident", "observationPerLevel": 0.05, "benchPerLevel": 0.05 },
+    "secondImpression": { "label": "Second Impression", "daysByLevel": [0, 1, 1, 2, 2, 3] }
   }
 }

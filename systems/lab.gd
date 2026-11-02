@@ -880,7 +880,7 @@ static func lady_score_bonus() -> int:
 # The active effects the bench's Use item control can start from the
 # player's inventory (Prophet's Breath reveals bands, Be A Lady adds score).
 static func usable_effects() -> Array:
-	return [ActiveEffects.PROPHETS_BREATH, ActiveEffects.LADY, ActiveEffects.HAPPY_ACCIDENT]
+	return [ActiveEffects.PROPHETS_BREATH, ActiveEffects.LADY, ActiveEffects.HAPPY_ACCIDENT, ActiveEffects.SECOND_IMPRESSION]
 
 
 # An item used mid-run comes back if the run is Rewound.

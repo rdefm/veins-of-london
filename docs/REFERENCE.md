@@ -97,13 +97,13 @@ Each recipe's `ingredients` field is a dict of `{oreType: baseCalcCost}` — one
 | borrowedTime | Borrowed Time | ◷ | {time: 8} | 0.15 | [0,1,1,1,1,1] (placeholder, no mechanics yet) | 45 | false |
 | patina | Patina | ⌛ | {time: 4} | 0.45 | [0,0,0,0,0,0] (placeholder, no mechanics yet) | 20 | false |
 | ricochet | Ricochet | ↺ | {physics: 6} | 0.30 | [0,3,5,7,9,12] | 30 | false |
-| deadweight | Deadweight | ⬛ | {physics: 7} | 0.25 | [0,10,15,20,25,35] (placeholder, no mechanics yet) | 35 | false |
+| deadweight | Deadweight | ⬛ | {physics: 7} | 0.25 | [0,10,15,20,25,35] % relation gain; [0,1,1,2,2,3] days active | 35 | false |
 | signalFailure | Signal Failure | ⧗ | {physics: 5} | 0.35 | [0,1,1,2,2,3] | 25 | false |
 | trueLevel | True Level | ⊥ | {physics: 4} | 0.45 | [0,0,0,0,0,0] (placeholder, no mechanics yet) | 20 | false |
 | dejaVu | Déjà Vu | ⟳ | {fate: 5, time: 5} | 0.20 | [0,1,1,1,2,2] (placeholder, no mechanics yet) | 40 | false |
 | skeletonKey | Skeleton Key | ⚿ | {fate: 4, physics: 6} | 0.20 | [0,1,1,2,2,3] (placeholder, no mechanics yet) | 40 | false |
 | goodYear | Good Year | ❧ | {fate: 5, life: 5} | 0.20 | [0,2,3,4,5,7] (placeholder, no mechanics yet) | 40 | false |
-| secondImpression | Second Impression | ♢ | {fate: 4, emotion: 5} | 0.30 | [0,10,15,20,25,35] (placeholder, no mechanics yet) | 30 | false |
+| secondImpression | Second Impression | ♢ | {fate: 4, emotion: 5} | 0.30 | [0,10,15,20,25,35] % relation gain; [0,1,1,2,2,3] days active | 30 | false |
 | stiffUpperLip | Stiff Upper Lip | ☗ | {emotion: 4, life: 5} | 0.30 | [0,2,3,4,5,6] | 30 | false |
 | heavyMetal | Heavy Metal | ♫ | {emotion: 5, physics: 5} | 0.20 | [0,3,4,6,8,10] | 40 | false |
 | coldFeet | Cold Feet | ❄ | {emotion: 4, time: 4} | 0.35 | [0,1,1,1,1,1] | 30 | false |

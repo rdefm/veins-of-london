@@ -11,6 +11,7 @@ const LADY := "beALady"
 const PROPHETS_BREATH := "prophetsBreath"
 const NAVVYS_DRAUGHT := "navvysDraught"
 const HAPPY_ACCIDENT := "happyAccident"
+const SECOND_IMPRESSION := "secondImpression"
 # PROSE-REVIEW: preview tag on a max-rolled cultivate/harvest figure.
 const LADY_TAG := "(Lady)"
 
@@ -100,6 +101,20 @@ static func happy_bench_bonus() -> float:
 	return float(effect["level"]) * float(GameData.ACTIVE_EFFECTS[HAPPY_ACCIDENT]["benchPerLevel"])
 
 
+# Second Impression's boost on a relation gain: gain × (1 + pct/100), rounded
+# to the nearest integer; losses and zero pass through, as does any gain
+# while the effect is off. pct = the running unit's recipe effectPower.
+static func boosted_relation_gain(amount: int) -> int:
+	if amount <= 0:
+		return amount
+	var effect = find(SECOND_IMPRESSION)
+	if effect == null:
+		return amount
+	var powers: Array = GameData.RECIPES[SECOND_IMPRESSION]["effectPower"]
+	var pct: int = int(powers[clampi(int(effect["level"]), 1, powers.size() - 1)])
+	return roundi(float(amount) * (100 + pct) / 100.0)
+
+
 # Ends a running effect early (a fight spends Navvy's Draught).
 static func end(item: String) -> void:
 	var list: Array = effects()
@@ -117,14 +132,17 @@ static func use(item: String) -> Dictionary:
 		return { "ok": false, "reason": "None left." }
 	var taken: Array = Crafting.inventory_remove(item, 1)
 	var level: int = int(taken[0]["tier"]) if not taken.is_empty() else 1
-	var expires: int = absolute_block() + duration_for_level(level)
+	var blocks: int = duration_for_level(level)
+	var day_table: Array = GameData.ACTIVE_EFFECTS.get(item, {}).get("daysByLevel", [])
+	if not day_table.is_empty():
+		blocks = int(day_table[clampi(level, 1, day_table.size() - 1)]) * TimeSystem.BLOCKS_PER_DAY
+	var expires: int = absolute_block() + blocks
 	var list: Array = effects()
 	for i in range(list.size() - 1, -1, -1):
 		if list[i]["item"] == item:
 			list.remove_at(i)
 	list.append({ "item": item, "level": level, "expiresAtBlock": expires })
 	var name: String = GameData.RECIPES[item]["name"]
-	var blocks: int = duration_for_level(level)
 	# PROSE-REVIEW: active-effect start notification.
 	Notify.push("%s taken. %d block%s." % [name, blocks, "" if blocks == 1 else "s"], Notify.CATEGORY_SUCCESS)
 	EventBus.state_changed.emit()

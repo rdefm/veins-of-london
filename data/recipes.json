@@ -393,6 +393,7 @@
       "xpReward": 30,
       "eventUsable": false,
       "bagWhenHeld": true,
+      "effectText": "Every relation you gain with a contact is boosted.",
       "description": "Nobody remembers the first one. You've made sure of it."
     },
     "stiffUpperLip": {

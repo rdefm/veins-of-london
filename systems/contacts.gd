@@ -20,7 +20,7 @@ static func award_relation(contact_id: String, amount: int) -> void:
 	var contacts: Dictionary = GameState.state["contacts"]
 	if not contacts.has(contact_id):
 		return
-	contacts[contact_id]["relation"] = contacts[contact_id]["relation"] + amount
+	contacts[contact_id]["relation"] = contacts[contact_id]["relation"] + ActiveEffects.boosted_relation_gain(amount)
 	EventBus.state_changed.emit()
 
 

@@ -162,3 +162,27 @@ func run() -> void:
 		assert_eq(GameState.state["contacts"]["hakim"]["relation"], 1, "£500 crosses the personal lane's £500 rate exactly once")
 		assert_eq(GameState.state["contacts"]["hakim"]["tradeProgress"], 0, "the rate is consumed exactly, nothing left over")
 	)
+
+	# ── Second Impression: boosts gains, not losses ─────────────────────
+
+	run_case("second_impression_boosts_contact_gains_rounded_and_not_losses", func():
+		GameState.reset()
+		Crafting.inventory_add(ActiveEffects.SECOND_IMPRESSION, 3, 1)
+		assert_true(ActiveEffects.use(ActiveEffects.SECOND_IMPRESSION)["ok"], "started")
+		var start: int = GameState.state["contacts"]["hakim"]["relation"]
+		Contacts.award_relation("hakim", 10)
+		assert_eq(GameState.state["contacts"]["hakim"]["relation"], start + 12, "tier 3 = +20%: 10 -> 12")
+		Contacts.award_relation("hakim", -10)
+		assert_eq(GameState.state["contacts"]["hakim"]["relation"], start + 2, "a loss is not scaled")
+	)
+
+	run_case("second_impression_lasts_the_tiers_days_then_expires", func():
+		GameState.reset()
+		Crafting.inventory_add(ActiveEffects.SECOND_IMPRESSION, 3, 1)
+		ActiveEffects.use(ActiveEffects.SECOND_IMPRESSION)
+		var effect: Dictionary = ActiveEffects.find(ActiveEffects.SECOND_IMPRESSION)
+		assert_eq(ActiveEffects.blocks_left(effect), 2 * TimeSystem.BLOCKS_PER_DAY, "tier 3 = 2 days")
+		effect["expiresAtBlock"] = ActiveEffects.absolute_block()
+		ActiveEffects.expire()
+		assert_eq(ActiveEffects.boosted_relation_gain(10), 10, "no boost once expired")
+	)
