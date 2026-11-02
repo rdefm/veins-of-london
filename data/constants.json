@@ -79,7 +79,7 @@
     "slotCount": 2,
     "allyExcluded": ["wormhole"],
     "multiTarget": { "minTier": 3, "craftable": ["blast", "shield", "healingBurst", "panic", "panger", "pandemonium", "pansRapture"], "always": ["blackHole", "heavyMetal"] },
-    "items": ["timePearl", "enhancementPowder", "blast", "panic", "panger", "pandemonium", "pansRapture", "shield", "blackHole", "healingBurst", "prophetsBreath", "beALady", "wormhole", "failsafe", "rewind", "nearMiss", "sodsLaw", "ricochet", "heavyMetal", "smellingSalts", "stiffUpperLip"]
+    "items": ["timePearl", "enhancementPowder", "blast", "panic", "panger", "pandemonium", "pansRapture", "shield", "blackHole", "healingBurst", "prophetsBreath", "beALady", "wormhole", "failsafe", "rewind", "nearMiss", "sodsLaw", "ricochet", "heavyMetal", "smellingSalts", "stiffUpperLip", "signalFailure"]
   },
   "guardUpkeep": {
     "weeklyWage": 500,

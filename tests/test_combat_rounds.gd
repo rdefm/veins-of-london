@@ -1326,6 +1326,38 @@ func run() -> void:
 			assert_eq(you["hp"], 900, "tier %d: full damage after" % tier)
 	)
 
+	run_case("signal_failure_delays_queued_reinforcements_and_stacks", func():
+		GameState.reset()
+		var power := int(GameData.RECIPES["signalFailure"]["effectPower"][3])
+		GameState.state["player"]["loadout"]["slots"][0] = { "recipe": "signalFailure", "tier": 3 }
+		GameState.state["player"]["loadout"]["slots"][1] = { "recipe": "signalFailure", "tier": 3 }
+		var combat := _start_reinforced(4)
+		var queued: Dictionary = combat["enemyQueue"][0]
+		queued["arriveRound"] = 3
+		var beats: Array = []
+		CombatRounds._use_item(combat, CombatRounds.PLAYER_INDEX, { "move": "signalFailure", "slot": 0, "target": -1 }, CombatRounds.move("signalFailure"), RandomNumberGenerator.new(), beats)
+		assert_eq(queued["arriveRound"], 3 + power, "held past its arrival")
+		CombatRounds._use_item(combat, CombatRounds.PLAYER_INDEX, { "move": "signalFailure", "slot": 1, "target": -1 }, CombatRounds.move("signalFailure"), RandomNumberGenerator.new(), beats)
+		assert_eq(queued["arriveRound"], 3 + 2 * power, "casts stack")
+		assert_eq(beats.map(func(b): return b["kind"]), ["signalFailure", "signalFailure"])
+	)
+
+	run_case("signal_failure_holds_untimed_overflow_and_nothing_queued_fizzles", func():
+		GameState.reset()
+		GameState.state["player"]["loadout"]["slots"][0] = { "recipe": "signalFailure", "tier": 3 }
+		GameState.state["player"]["loadout"]["slots"][1] = { "recipe": "signalFailure", "tier": 3 }
+		var combat := _start_reinforced(4)
+		var power := int(GameData.RECIPES["signalFailure"]["effectPower"][3])
+		var beats: Array = []
+		CombatRounds._use_item(combat, CombatRounds.PLAYER_INDEX, { "move": "signalFailure", "slot": 0, "target": -1 }, CombatRounds.move("signalFailure"), RandomNumberGenerator.new(), beats)
+		assert_eq(combat["enemyQueue"][0]["arriveRound"], int(combat["round"]) + power, "untimed entry now timed")
+		combat["enemyQueue"].clear()
+		beats.clear()
+		CombatRounds._use_item(combat, CombatRounds.PLAYER_INDEX, { "move": "signalFailure", "slot": 1, "target": -1 }, CombatRounds.move("signalFailure"), RandomNumberGenerator.new(), beats)
+		assert_eq(beats.map(func(b): return b["kind"]), ["fizzle"], "no reinforcements pending")
+		assert_true(combat["enemyQueue"].is_empty())
+	)
+
 	run_case("carry_in_sight_and_lady_apply_from_round_1", func():
 		GameState.reset()
 		var expires := ActiveEffects.absolute_block() + 1

@@ -98,7 +98,7 @@ Each recipe's `ingredients` field is a dict of `{oreType: baseCalcCost}` — one
 | patina | Patina | ⌛ | {time: 4} | 0.45 | [0,0,0,0,0,0] (placeholder, no mechanics yet) | 20 | false |
 | ricochet | Ricochet | ↺ | {physics: 6} | 0.30 | [0,3,5,7,9,12] | 30 | false |
 | deadweight | Deadweight | ⬛ | {physics: 7} | 0.25 | [0,10,15,20,25,35] (placeholder, no mechanics yet) | 35 | false |
-| signalFailure | Signal Failure | ⧗ | {physics: 5} | 0.35 | [0,1,1,2,2,3] (placeholder, no mechanics yet) | 25 | false |
+| signalFailure | Signal Failure | ⧗ | {physics: 5} | 0.35 | [0,1,1,2,2,3] | 25 | false |
 | trueLevel | True Level | ⊥ | {physics: 4} | 0.45 | [0,0,0,0,0,0] (placeholder, no mechanics yet) | 20 | false |
 | dejaVu | Déjà Vu | ⟳ | {fate: 5, time: 5} | 0.20 | [0,1,1,1,2,2] (placeholder, no mechanics yet) | 40 | false |
 | skeletonKey | Skeleton Key | ⚿ | {fate: 4, physics: 6} | 0.20 | [0,1,1,2,2,3] (placeholder, no mechanics yet) | 40 | false |
@@ -928,6 +928,8 @@ Items and Dial casts cost 1 action and leave guard state unchanged (except Shiel
 **Smelling Salts** (`smellingSalts`, a KO'd teammate other than the player; loadout and guard-kit allowlists, repelTier weak) — revives the aimed KO'd ally at `min(power, hpMax)` hp (beat `revive`); no KO'd teammate = blocked ("Nobody's down."). Guard-kit allies and recruit slots cast it first at round start on a teammate KO'd then. A revived contact ally isn't KO'd at fight end, so no KO cooldown starts. Out of combat it's a Bag use per contact on a KO cooldown (`Contacts.use_smelling_salts()`): clears `koCooldownUntilDay`, spends one.
 
 **Stiff Upper Lip** (`stiffUpperLip`, self; loadout allowlist, Dial cast and ally slots too) — for `power` rounds from the cast round (`effectPower` = turns), the user and every standing teammate are immune to Panic, Panger, Pandemonium and Pan's Rapture (a Pan item aimed at them finds no target; multi units skip them) and take `cutPct[tier]` percent less damage (`[0,10,15,20,25,30]`, applied after anger scaling, before Shield). Any Pan status already on them is cleansed on cast. State: combatant `immuneEmotion` (last covered round, 0 none), `damageCut` (percent); both lapse with the round count.
+
+**Signal Failure** (`signalFailure`, self; loadout allowlist, ally slots too) — every entry in `enemyQueue` gets `arriveRound = max(arriveRound, current round) + power` (`effectPower` = rounds; beat `signalFailure`). Casts stack additively. It also holds overflow/wave entries (no prior `arriveRound`) back from a freed slot. An empty enemy field still admits the queue at the boundary (§3.7b Reinforcements), so the delay never stalls a fight. No queued enemy = the cast fizzles (spent for the player; an ally's unit stays), beat `fizzle`.
 
 **Carry-in effects.** An out-of-combat `player.activeEffects.prophetsBreath` active at fight start gives sight from round 1 for the whole fight (the block clock doesn't move mid-fight); it still blocks ambushes (§3.1d). An active `beALady` gives max rolls + 1/3 crit + its level's evade cut for the whole fight likewise.
 

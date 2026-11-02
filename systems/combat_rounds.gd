@@ -78,7 +78,8 @@ const ITEM_RICOCHET := "ricochet"
 const ITEM_HEAVY_METAL := "heavyMetal"
 const ITEM_REVIVE := "revive"
 const ITEM_STIFF_LIP := "stiffUpperLip"
-const ITEM_EFFECTS: Array[String] = [ITEM_FREEZE, ITEM_BLACK_HOLE, ITEM_BLAST, ITEM_SHIELD, ITEM_HEAL, ITEM_POWDER, ITEM_SIGHT, ITEM_LADY, ITEM_PANIC, ITEM_RAPTURE, ITEM_ANGER, ITEM_FURY, ITEM_WORMHOLE, ITEM_NEAR_MISS, ITEM_SODS_LAW, ITEM_RICOCHET, ITEM_HEAVY_METAL, ITEM_REVIVE, ITEM_STIFF_LIP]
+const ITEM_SIGNAL_FAILURE := "signalFailure"
+const ITEM_EFFECTS: Array[String] = [ITEM_FREEZE, ITEM_BLACK_HOLE, ITEM_BLAST, ITEM_SHIELD, ITEM_HEAL, ITEM_POWDER, ITEM_SIGHT, ITEM_LADY, ITEM_PANIC, ITEM_RAPTURE, ITEM_ANGER, ITEM_FURY, ITEM_WORMHOLE, ITEM_NEAR_MISS, ITEM_SODS_LAW, ITEM_RICOCHET, ITEM_HEAVY_METAL, ITEM_REVIVE, ITEM_STIFF_LIP, ITEM_SIGNAL_FAILURE]
 # The Pan family (R§3.7b Table 4): an enemy holds one of their statuses at a
 # time and refuses another while it runs.
 const PAN_EFFECTS: Array[String] = [ITEM_PANIC, ITEM_RAPTURE, ITEM_ANGER, ITEM_FURY]
@@ -2707,6 +2708,17 @@ static func _use_item(cp: Dictionary, actor_idx: int, action: Dictionary, m: Dic
 				covered["damageCut"] = maxi(int(covered["damageCut"]) if is_emotion_immune(cp, covered) else 0, cut)
 				_cleanse_pan(covered)
 			_beat(cp, beats, "stiffUpperLip", actor_idx, -1, move_id, {})
+		ITEM_SIGNAL_FAILURE:
+			# Every waiting enemy is held `power` rounds past its arrival (or
+			# past this round when it had none); casts stack. Nothing queued:
+			# spent, a fizzle beat. An empty field still lets the queue in.
+			var queue: Array = cp.get(QUEUE_KEYS[SIDE_ENEMY], [])
+			if queue.is_empty():
+				_beat(cp, beats, "fizzle", actor_idx, -1, move_id, {})
+			else:
+				for entry in queue:
+					entry["arriveRound"] = maxi(int(entry.get("arriveRound", 0)), int(cp["round"])) + power
+				_beat(cp, beats, "signalFailure", actor_idx, -1, move_id, {})
 		ITEM_REVIVE:
 			var risen: Dictionary = combatants[int(action["target"])]
 			risen["koed"] = false
@@ -2740,6 +2752,8 @@ static func _item_fizzles(cp: Dictionary, actor_idx: int, action: Dictionary, m:
 	var aimed := int(action["target"])
 	if m["effect"] in [ITEM_HEAL, ITEM_SHIELD]:
 		return not multi and aimed >= 0 and cp["combatants"][aimed]["koed"]
+	if m["effect"] == ITEM_SIGNAL_FAILURE:
+		return cp.get(QUEUE_KEYS[SIDE_ENEMY], []).is_empty()
 	if m["effect"] == ITEM_REVIVE:
 		return aimed < 0 or not cp["combatants"][aimed]["koed"] or aimed == PLAYER_INDEX
 	if m["effect"] in PAN_EFFECTS:
