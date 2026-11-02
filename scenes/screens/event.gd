@@ -37,6 +37,7 @@ var _fade_options: Array = []  # option indices a read just unlocked; held invis
 var _fade_nodes: Array = []  # the controls built for _fade_options on the current card
 var _context_modal: Control
 var _pick_choice := -1  # pick option the Observe sheet is open for, -1 when it's a plain read
+var _shown_rolls := {}  # "card|option" -> last revealed roll built, to pulse a change
 var _context_choice := -1 # option index whose ? modal is open, -1 when closed
 
 func _ready() -> void:
@@ -200,7 +201,7 @@ func _screen_width() -> float:
 
 # True when the Action popup has anything to list: an observation in effect or a usable item.
 static func has_action() -> bool:
-	return Observation.in_effect() != "" or EventItems.has_usable()
+	return Observation.in_effect() != "" or EventItems.has_usable() or not Events.reveal_offer().is_empty()
 
 func _build_action_button() -> Button:
 	var b := UI.icon_button(Icons.draw_bag, func(): pass)
@@ -264,6 +265,14 @@ func _toggle_item_menu(anchor: Button) -> void:
 		var reveal := Observation.reveal_toggle()
 		if not reveal.is_empty() and reveal["held"]:
 			list.add_child(_build_reveal_toggle(reveal))
+	var offer := Events.reveal_offer()
+	if not offer.is_empty():
+		var deja := UI.button(GameData.EVENT_CHECKS["revealButton"] % offer["name"], func(): _close_item_menu(); Events.reveal_card())
+		deja.name = "DejaVuEntry"
+		deja.icon = ItemIcons.texture(offer["item"])
+		deja.expand_icon = true
+		_style_action_button(deja)
+		list.add_child(deja)
 	for entry in EventItems.usable_entries():
 		var id: String = entry["id"]
 		var b := UI.button(item_entry_label(entry), func(): _on_item_picked(id))
@@ -518,15 +527,37 @@ func _build_choice_button(label: String, choice_index: int) -> Control:
 	_add_read_glyphs(b, choice)
 	var chips: Array = Observation.chips(choice)
 	var left: Control = b
-	if not chips.is_empty():
+	var seen: Dictionary = Events.revealed_roll(choice_index)
+	if not chips.is_empty() or not seen.is_empty():
 		var col := UI.vbox(2)
 		col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		col.add_child(b)
-		col.add_child(_build_explain_chips(chips))
+		if not chips.is_empty():
+			col.add_child(_build_explain_chips(chips))
+		if not seen.is_empty():
+			col.add_child(_build_revealed_roll(choice_index, seen))
 		left = col
 	if Events.check_odds(choice_index).is_empty() and chips.is_empty() and Events.item_toggles(choice_index).is_empty():
 		return b
 	return _option_row(left, choice_index)
+
+# Déjà Vu's shown roll under a check option (R§3.9a "Reveal"). A roll that
+# changed since the last build (another item toggled) pulses once.
+func _build_revealed_roll(choice_index: int, seen: Dictionary) -> Label:
+	var label := UI.muted_label(GameData.EVENT_CHECKS["revealFormat"] % [seen["roll"], seen["needed"]])
+	label.name = "RevealedRoll"
+	label.add_theme_font_size_override("font_size", EXPLAIN_CHIP_FONT_SIZE)
+	var key := "%d|%d" % [int(GameState.state["event"]["cardIndex"]), choice_index]
+	var before: Variant = _shown_rolls.get(key)
+	_shown_rolls[key] = seen["roll"]
+	if before != null and before != seen["roll"] and not _reduced_motion():
+		label.resized.connect(func(): label.pivot_offset = label.size / 2.0)
+		var tween := create_tween().bind_node(label)
+		tween.tween_property(label, "modulate", Color(1.5, 1.5, 1.5, 1.0), PULSE_SECONDS)
+		tween.parallel().tween_property(label, "scale", Vector2(1.12, 1.12), PULSE_SECONDS)
+		tween.tween_property(label, "modulate", Color(1, 1, 1, 1), PULSE_SECONDS)
+		tween.parallel().tween_property(label, "scale", Vector2.ONE, PULSE_SECONDS)
+	return label
 
 # The observation chips under an option button (R§3.9d "Why-available explainer"):
 # small muted labels that wrap as a row.

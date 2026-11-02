@@ -1099,6 +1099,67 @@ static func check_roll(choice_index: int, attempt_index: int = 0) -> float:
 	return roll
 
 
+# ── Déjà Vu reveal (R§3.9a "Reveal") ──
+
+const REVEAL_ITEM := "dejaVu"
+
+
+# True when the current card's check rolls were revealed (state.event.revealed["<cardIndex>"]).
+static func is_revealed() -> bool:
+	var event_state: Variant = GameState.state.get("event")
+	return event_state != null and bool(event_state.get("revealed", {}).get(str(int(event_state["cardIndex"])), false))
+
+
+# The reveal's offer for the screen: {item, name, source}, or {} unless the
+# choice step is up, some shown option carries a check, the card isn't already
+# revealed and Déjà Vu is on hand.
+static func reveal_offer() -> Dictionary:
+	if not is_awaiting_choice() or is_revealed():
+		return {}
+	var has_check := false
+	for i in range(current_card()["choices"].size()):
+		if current_card()["choices"][i].has("check") and option_gate(i)["display"] != "hide":
+			has_check = true
+			break
+	var source := item_source(REVEAL_ITEM)
+	if not has_check or source == "":
+		return {}
+	return { "item": REVEAL_ITEM, "name": String(GameData.RECIPES.get(REVEAL_ITEM, {}).get("name", REVEAL_ITEM)), "source": source }
+
+
+# Spends one Déjà Vu and reveals every check option on the current card. The
+# flag is not part of the roll key, so the shown roll is the committed roll.
+static func reveal_card() -> Dictionary:
+	var offer := reveal_offer()
+	if offer.is_empty():
+		return { "ok": false, "reason": "Nothing to reveal here." }
+	if _pay_item(REVEAL_ITEM, String(offer["source"])) <= 0:
+		return { "ok": false, "reason": "None on you." }
+	var event_state: Dictionary = GameState.state["event"]
+	if not event_state.has("revealed"):
+		event_state["revealed"] = {}
+	event_state["revealed"][str(int(event_state["cardIndex"]))] = true
+	EventBus.state_changed.emit()
+	return { "ok": true }
+
+
+# What a revealed check option will roll with its current loadout, or {}:
+# {roll, needed, rolls} -- d100 figures as the resolution shows them (§3.9a
+# "d100 display"), `rolls` one per attempt. Recomputed from check_roll() each
+# call, never stored.
+static func revealed_roll(choice_index: int) -> Dictionary:
+	if not is_revealed() or not is_awaiting_choice():
+		return {}
+	var choice: Dictionary = current_card()["choices"][choice_index]
+	if not choice.has("check"):
+		return {}
+	var p: float = odds_for(choice["check"], active_toggles(choice_index))["probability"]
+	var rolls: Array = []
+	for attempt in range(check_attempts(choice)):
+		rolls.append(clampi(ceili(snappedf(100.0 - check_roll(choice_index, attempt) * 100.0, 0.000001)), 1, 100))
+	return { "roll": rolls[0], "needed": floori(snappedf(100.0 - p * 100.0, 0.000001)) + 1, "rolls": rolls }
+
+
 # ── wards (R§3.12 "Wards") ──
 
 # The live raid's ward type (wards.json types[securityProfile.wardType]); {} with no ward.
@@ -1465,6 +1526,9 @@ static func rewind(source: String = "") -> Dictionary:
 	# Roll counts survive the Rewind, so a check rolled before it re-rolls
 	# with advantage (check_odds()).
 	GameState.state["event"]["rolled"] = live_rolled
+	# A reveal doesn't survive: the re-roll is best-of-two, so it must be bought again.
+	if GameState.state["event"].has("revealed"):
+		GameState.state["event"]["revealed"] = {}
 	# Reads survive the Rewind; each read observation is re-armed for one more roll.
 	if live_observations != null:
 		GameState.state["event"]["observations"] = live_observations

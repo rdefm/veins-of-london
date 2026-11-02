@@ -1052,6 +1052,40 @@ func run() -> void:
 		GameData.EVENTS = original_events
 	)
 
+	run_case("deja_vu_reveals_the_committed_roll_for_the_card_and_spends_one_unit", func():
+		GameState.reset()
+		Crafting.inventory_add("dejaVu", 1, 2)
+		Crafting.inventory_add("prophetsBreath", 1, 1)
+		GameState.state["player"]["inventory"]["rewind"] = { "1": 1 }
+		var original_events := _install_item_check_event(0.4, true)
+		Events.start_event("test_check_event")
+		Events.advance()
+		assert_eq(Events.revealed_roll(0), {}, "nothing shown before the reveal")
+		assert_eq(Events.reveal_offer()["item"], "dejaVu")
+		var roll_before := Events.check_roll(0)
+		assert_true(Events.reveal_card()["ok"])
+		assert_eq(Crafting.inventory_qty("dejaVu"), 1, "one unit per card")
+		assert_eq(GameState.state["event"]["revealed"], { "1": true }, "pure data")
+		assert_eq(Events.reveal_offer(), {}, "no second spend on the card")
+		assert_true(not Events.reveal_card()["ok"])
+		assert_eq(Events.check_roll(0), roll_before, "flag is not in the roll key")
+		assert_eq(Events.revealed_roll(1), {}, "plain option shows nothing")
+		var shown := Events.revealed_roll(0)
+		assert_eq(shown["roll"], clampi(ceili(snappedf(100.0 - Events.check_roll(0) * 100.0, 0.000001)), 1, 100))
+		# Toggling an item changes the committed roll; the display follows it.
+		Events.toggle_item(0, "prophetsBreath")
+		var shown_on := Events.revealed_roll(0)
+		assert_eq(shown_on["roll"], clampi(ceili(snappedf(100.0 - Events.check_roll(0) * 100.0, 0.000001)), 1, 100))
+		assert_eq(Crafting.inventory_qty("dejaVu"), 1, "loadout changes spend nothing")
+		Events.choose(0)
+		assert_eq(Events.choice_record("test_check_event", "push").get("outcome") == "success", shown_on["roll"] >= shown_on["needed"], "reveal matches the outcome")
+		assert_true(Events.rewind()["ok"])
+		assert_eq(GameState.state["event"]["revealed"], {}, "Rewind clears the reveal")
+		assert_eq(Events.revealed_roll(0), {})
+		assert_eq(Crafting.inventory_qty("dejaVu"), 1, "must be bought again")
+		GameData.EVENTS = original_events
+	)
+
 	run_case("powder_bonus_is_spent_on_a_failed_roll_and_not_when_merely_held", func():
 		GameState.reset()
 		Crafting.inventory_add("enhancementPowder", 1, 2)
