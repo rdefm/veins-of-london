@@ -6,6 +6,6 @@
 
 **Relevant files:** `docs/brainstorm.md`, `systems/event_items.gd`, `systems/rewind.gd`; REFERENCE §3.9a.
 
-**Status:** ready-for-human
+**Status:** done
 
-- [ ] Cap and Rewind interaction decided and written into 18
+- [x] Cap and Rewind interaction decided and written into 18
