@@ -106,6 +106,11 @@ static func powder_fx() -> Dictionary:
 	return item_fx().get("powderFx", {})
 
 
+# data/combat_visuals.json itemFx.stutterFx.
+static func stutter_fx() -> Dictionary:
+	return item_fx().get("stutterFx", {})
+
+
 # data/combat_visuals.json itemFx.invisibleFx.
 static func invisible_fx() -> Dictionary:
 	return item_fx().get("invisibleFx", {})
@@ -658,8 +663,48 @@ class StageSlot extends Control:
 		elif _rapture_on:
 			var fx := CombatStage.pan_fx("rapture")
 			tint = Color.WHITE.lerp(CombatStage.rgb(fx.get("tint", [])), float(fx.get("tintMix", 0.0)))
-		tint.a = _invisible_alpha
+		tint.a = _invisible_alpha * _blink_alpha
 		_figure_holder.modulate = tint
+
+	var _blink_alpha: float = 1.0
+	var _blink_tween: Tween
+	var _blink_timer: SceneTreeTimer
+
+	func _set_blink_alpha(value: float) -> void:
+		_blink_alpha = value
+		_refresh_pan_tint()
+
+	# Stutter: blink out, reappear at `offset` (the figure's shift to behind its
+	# target), Strike, blink back. Instant cuts under reduced motion.
+	func play_stutter(offset: Vector2) -> void:
+		reset_stutter()
+		if not is_inside_tree():
+			return
+		var fx := CombatStage.stutter_fx()
+		var blink := CombatStage.fx_seconds(float(fx.get("blinkSeconds", 0.0)))
+		var hold := CombatStage.fx_seconds(float(fx.get("strikeHoldSeconds", 0.0)))
+		if CombatStage.reduced_motion() or blink <= 0.0:
+			_figure_holder.position = offset
+			play_attack()
+			_blink_timer = get_tree().create_timer(hold)
+			_blink_timer.timeout.connect(func(): _figure_holder.position = Vector2.ZERO)
+			return
+		_blink_tween = create_tween()
+		_blink_tween.tween_method(_set_blink_alpha, 1.0, 0.0, blink)
+		_blink_tween.tween_callback(func(): _figure_holder.position = offset)
+		_blink_tween.tween_method(_set_blink_alpha, 0.0, 1.0, blink)
+		_blink_tween.tween_callback(play_attack)
+		_blink_tween.tween_interval(hold)
+		_blink_tween.tween_method(_set_blink_alpha, 1.0, 0.0, blink)
+		_blink_tween.tween_callback(func(): _figure_holder.position = Vector2.ZERO)
+		_blink_tween.tween_method(_set_blink_alpha, 0.0, 1.0, blink)
+
+	# Drops any Stutter in flight: figure home, fully visible.
+	func reset_stutter() -> void:
+		if _blink_tween != null:
+			_blink_tween.kill()
+		_figure_holder.position = Vector2.ZERO
+		_set_blink_alpha(1.0)
 
 	var _invisible_on: bool = false
 	var _invisible_alpha: float = 1.0
@@ -1175,6 +1220,7 @@ class StageSlot extends Control:
 		tween.tween_callback(reveal.queue_free)
 	# Undoes play_wormhole_vanish() or play_run_off(), and any held or running pose.
 	func restore_from_vanish() -> void:
+		reset_stutter()
 		_end_one_shot()
 		_kill_run_tween()
 		_sprite_rect.scale = Vector2.ONE

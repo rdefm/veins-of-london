@@ -81,7 +81,8 @@ const ITEM_STIFF_LIP := "stiffUpperLip"
 const ITEM_SIGNAL_FAILURE := "signalFailure"
 const ITEM_COLD_FEET := "coldFeet"
 const ITEM_INVISIBILITY := "invisibility"
-const ITEM_EFFECTS: Array[String] = [ITEM_FREEZE, ITEM_BLACK_HOLE, ITEM_BLAST, ITEM_SHIELD, ITEM_HEAL, ITEM_POWDER, ITEM_SIGHT, ITEM_LADY, ITEM_PANIC, ITEM_RAPTURE, ITEM_ANGER, ITEM_FURY, ITEM_WORMHOLE, ITEM_NEAR_MISS, ITEM_SODS_LAW, ITEM_RICOCHET, ITEM_HEAVY_METAL, ITEM_REVIVE, ITEM_STIFF_LIP, ITEM_SIGNAL_FAILURE, ITEM_COLD_FEET, ITEM_INVISIBILITY]
+const ITEM_STUTTER := "stutter"
+const ITEM_EFFECTS: Array[String] = [ITEM_FREEZE, ITEM_BLACK_HOLE, ITEM_BLAST, ITEM_SHIELD, ITEM_HEAL, ITEM_POWDER, ITEM_SIGHT, ITEM_LADY, ITEM_PANIC, ITEM_RAPTURE, ITEM_ANGER, ITEM_FURY, ITEM_WORMHOLE, ITEM_NEAR_MISS, ITEM_SODS_LAW, ITEM_RICOCHET, ITEM_HEAVY_METAL, ITEM_REVIVE, ITEM_STIFF_LIP, ITEM_SIGNAL_FAILURE, ITEM_COLD_FEET, ITEM_INVISIBILITY, ITEM_STUTTER]
 # The Pan family (R§3.7b Table 4): an enemy holds one of their statuses at a
 # time and refuses another while it runs.
 const PAN_EFFECTS: Array[String] = [ITEM_PANIC, ITEM_RAPTURE, ITEM_ANGER, ITEM_FURY]
@@ -1105,6 +1106,9 @@ static func _ally_item_action(cp: Dictionary, ally: int, plan: Array, planned: D
 	if struck.has(ally) and not is_invisible(cp, combatant):
 		for unit in _units_with(units, [ITEM_INVISIBILITY]):
 			return _unit_action(unit, ally)
+	if (struck.has(ally) or plan.is_empty()) and not opponents.is_empty():
+		for unit in _units_with(units, [ITEM_STUTTER]):
+			return _unit_action(unit, _ally_blast_target(cp, ally, 0))
 	var paused: bool = opponents.any(func(e): return combatants[e]["actionsLost"] > 0)
 	if not planned["crowd"] and not paused and opponents.size() >= int(_data()["allyCrowdEnemies"]):
 		for unit in _units_with(units, [ITEM_FREEZE, ITEM_BLACK_HOLE]):
@@ -2469,7 +2473,7 @@ static func _retarget(cp: Dictionary, actor: int, target: int) -> int:
 # it (anger_factor()). Under Be a Lady the roll is the
 # attacker's max and the crit chance its ladyCrit (R§3.7b Damage). An
 # evade (evade_chance()) misses outright, before any roll.
-static func _strike(cp: Dictionary, actor_idx: int, target_idx: int, move_id: String, rng: RandomNumberGenerator, beats: Array, free := false) -> void:
+static func _strike(cp: Dictionary, actor_idx: int, target_idx: int, move_id: String, rng: RandomNumberGenerator, beats: Array, free := false, behind := false, crit_bonus := 0.0) -> void:
 	var combatants: Array = cp["combatants"]
 	var actor: Dictionary = combatants[actor_idx]
 	var target: Dictionary = combatants[target_idx]
@@ -2492,8 +2496,8 @@ static func _strike(cp: Dictionary, actor_idx: int, target_idx: int, move_id: St
 	if int(actor["lowRolls"]) > 0:
 		actor["lowRolls"] -= 1
 		roll = roll_range[0]
-	var guarded: bool = not is_open(cp, target)
-	if not guarded and _autoguards(cp, target_idx, rng):
+	var guarded: bool = not behind and not is_open(cp, target)
+	if not behind and not guarded and _autoguards(cp, target_idx, rng):
 		guarded = true
 		_beat(cp, beats, "autoguard", target_idx, actor_idx, "feint", {})
 	var dmg := roll
@@ -2504,6 +2508,7 @@ static func _strike(cp: Dictionary, actor_idx: int, target_idx: int, move_id: St
 	var crit_chance: float = float(actor["ladyCrit"]) if lady else float(_data()["critChance"][actor["level"]])
 	if strike_level >= int(fx["critLevel"]):
 		crit_chance += float(fx["critBonus"])
+	crit_chance += crit_bonus
 	var crit := rng.randf() < crit_chance
 	if actor_idx == PLAYER_INDEX and _pearl_crits(cp):
 		crit = true
@@ -2521,7 +2526,7 @@ static func _strike(cp: Dictionary, actor_idx: int, target_idx: int, move_id: St
 		dmg *= 2
 	dmg = GameState.round_epsilon(dmg * anger_factor(actor, true))
 	_deal_damage(cp, actor_idx, target_idx, dmg, "chip" if guarded else "hit", move_id, beats, {
-		"roll": roll, "crit": crit, "guarded": guarded, "lady": lady,
+		"roll": roll, "crit": crit, "guarded": guarded, "lady": lady, "critChance": crit_chance,
 	})
 	_reflect_hit(cp, actor_idx, target_idx, move_id, beats)
 	_retaliate(cp, actor_idx, target_idx, rng, beats, free)
@@ -2766,8 +2771,16 @@ static func _use_item(cp: Dictionary, actor_idx: int, action: Dictionary, m: Dic
 			var sprayed: Dictionary = combatants[sprayed_idx]
 			sprayed["invisibleUntil"] = maxi(int(sprayed.get("invisibleUntil", 0)), int(cp["round"]) + power - 1)
 			_beat(cp, beats, "invisibility", actor_idx, sprayed_idx, move_id, {})
+		ITEM_STUTTER:
+			var behind_idx := _aim(cp, actor_idx, _retarget(cp, actor_idx, int(action["target"])))
+			if behind_idx < 0:
+				_beat(cp, beats, "fizzle", actor_idx, int(action["target"]), move_id, {})
+			else:
+				# Evasion first: the blink back is out of reach of a retaliation.
+				actor["invisibleUntil"] = maxi(int(actor.get("invisibleUntil", 0)), int(cp["round"]))
+				_strike(cp, actor_idx, behind_idx, move_id, rng, beats, false, true, float(power) / 100.0)
 		ITEM_SIGNAL_FAILURE:
-# Every waiting enemy is held `power` rounds past its arrival (or
+			# Every waiting enemy is held `power` rounds past its arrival (or
 			# past this round when it had none); casts stack. Nothing queued:
 			# spent, a fizzle beat. An empty field still lets the queue in.
 			var queue: Array = cp.get(QUEUE_KEYS[SIDE_ENEMY], [])

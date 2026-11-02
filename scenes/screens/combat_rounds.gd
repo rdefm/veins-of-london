@@ -1431,7 +1431,7 @@ static func beat_cues(beat: Dictionary, enemy: bool = false) -> Array:
 		"hit", "chip", "stun", "stunThrough", "block", "feint", "fizzle", "evade":
 			if beat.get("friendly", false):
 				cues.append({ "call": "furyLine", "who": actor, "to": target })
-			cues.append_array(_move_pose_cues(beat["move"], actor))
+			cues.append_array(_move_pose_cues(beat["move"], actor, target))
 			if kind == "fizzle" and beat["move"] == _ITEM_EFFECTS["heal"] and target >= 0:
 				cues.append({ "call": "healFizzle", "who": target })
 			elif kind == "fizzle" and beat["move"] == "stun" and target >= 0:
@@ -1625,8 +1625,10 @@ static func shield_raised(beat: Dictionary) -> Array:
 
 # The actor's pose for a move-driven beat: Strike and Stun swing, a Feint
 # swings with an afterimage, an item (a fizzled Healing Burst) is thrown.
-static func _move_pose_cues(move_id: String, actor: int) -> Array:
+static func _move_pose_cues(move_id: String, actor: int, target: int = -1) -> Array:
 	match move_id:
+		"stutter":
+			return [{ "call": "stutter", "who": actor, "to": target }]
 		CombatRounds.MOVE_STRIKE, "stun":
 			return [{ "call": "attack", "who": actor }]
 		"feint":
@@ -1661,6 +1663,19 @@ func _play_cues(cp: Dictionary, cues: Array, rewinding: bool) -> void:
 				_play_cue_later(cp, cue, wait)
 			else:
 				_play_cue(cp, cue, rewinding)
+
+
+# Stutter: the user's figure blinks to just behind `target`'s and back.
+func _play_stutter(cp: Dictionary, slot: Control, target: int) -> void:
+	var to_slot := _stage.resolve_target_slot(_stage_target(stage_roster(cp, -1), target))
+	if to_slot == null:
+		slot.play_attack()
+		return
+	var from_centre: Vector2 = slot.position + slot.size / 2.0
+	var to_centre: Vector2 = to_slot.position + to_slot.size / 2.0
+	var away := 1.0 if to_centre.x >= from_centre.x else -1.0
+	var behind := float(CombatStage.stutter_fx().get("behindPx", 0.0))
+	slot.play_stutter(to_centre - from_centre + Vector2(away * behind, 0.0))
 
 
 # A travel cue's flight; "to" an array is a multi unit's split.
@@ -1787,6 +1802,9 @@ func _play_cue(cp: Dictionary, cue: Dictionary, rewinding: bool) -> void:
 			slot.play_attack()
 		"afterimage":
 			slot.spawn_afterimage()
+		"stutter":
+			if not rewinding:
+				_play_stutter(cp, slot, int(cue["to"]))
 		"throw":
 			slot.play_throw()
 		"cast":

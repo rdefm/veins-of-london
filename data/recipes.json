@@ -399,6 +399,18 @@
       "effectText": "Every relation you gain with a contact is boosted.",
       "description": "Nobody remembers the first one. You've made sure of it."
     },
+    "stutter": {
+      "name": "Stutter",
+      "symbol": "⌁",
+      "icon": "res://assets/combat/icons/placeholder.png",
+      "ingredients": {"time": 5, "physics": 5},
+      "baseSuccess": 0.20,
+      "effectPower": [0, 15, 20, 25, 30, 40],
+      "xpReward": 40,
+      "eventUsable": true,
+      "bagWhenHeld": true,
+      "description": "A very short hop. You're behind them before they've finished looking at where you were."
+    },
     "invisibility": {
       "name": "Invisibility",
       "symbol": "◌",
@@ -535,6 +547,7 @@
     "secondImpression": 180,
     "stiffUpperLip": 180,
     "invisibility": 250,
+    "stutter": 240,
     "heavyMetal": 240,
     "coldFeet": 180,
     "nostalgia": 280,

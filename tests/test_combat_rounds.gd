@@ -1304,6 +1304,51 @@ func run() -> void:
 		assert_eq(int(GameData.CONSUMABLE_PRICES["invisibility"]), 250, "documented price exception")
 	)
 
+	run_case("stutter_strikes_past_guard_with_tier_crit_bonus", func():
+		var chances: Array = []
+		for tier in [1, 5]:
+			GameState.reset()
+			var bonus := float(GameData.RECIPES["stutter"]["effectPower"][tier]) / 100.0
+			var combat := _start_vs([_slow_mugger(200)], [[["guard", "guard"]]], [{ "recipe": "stutter", "tier": tier }])
+			combat["combatants"][1]["guard"] = CombatRounds.GUARDED
+			var beats: Array = Combat.choose_item(0, 1)["beats"]
+			var hit: Dictionary = beats.filter(func(b): return b["kind"] == "hit" and b["move"] == "stutter")[0]
+			assert_true(not hit["guarded"], "tier %d: ignores Guard, no chip" % tier)
+			assert_eq(int(hit["dmg"]), int(hit["roll"]) * (2 if hit["crit"] else 1), "tier %d: full damage" % tier)
+			var base := float(GameData.COMBAT_ROUNDS["critChance"][combat["combatants"][CombatRounds.PLAYER_INDEX]["level"]])
+			assert_almost_eq(float(hit["critChance"]), base + bonus, 0.0001, "tier %d: crit bonus" % tier)
+			chances.append(float(hit["critChance"]))
+		assert_true(chances[1] > chances[0], "higher tier, bigger bonus")
+	)
+
+	run_case("stutter_user_dodges_single_target_but_not_area_until_round_ends", func():
+		GameState.reset()
+		var combat := _start_vs([_slow_mugger(200)], [[["strike", "strike"], ["strike", "strike"]]], [{ "recipe": "stutter", "tier": 3 }])
+		var you: Dictionary = combat["combatants"][CombatRounds.PLAYER_INDEX]
+		var hp_before: int = you["hp"]
+		var beats: Array = Combat.choose_item(0, 1)["beats"]
+		assert_eq(int(you["invisibleUntil"]), 1, "evasion covers this round")
+		assert_true(beats.any(func(b): return b["kind"] == "evade" and int(b["target"]) == CombatRounds.PLAYER_INDEX), "enemy swing misses")
+		assert_eq(you["hp"], hp_before, "untouched")
+		combat["round"] = 1
+		assert_true(CombatRounds.is_invisible(combat, you), "covered in round 1")
+		combat["round"] = 2
+		assert_true(not CombatRounds.is_invisible(combat, you), "lands again next round")
+	)
+
+	run_case("stutter_in_allowlists_and_ally_ai_uses_it_not_guard_kit", func():
+		assert_true(GameData.LOADOUT["items"].has("stutter"), "loadout")
+		assert_true(not GameData.GUARD_KIT["items"].has("stutter"), "not guard kit")
+		assert_true(Combat.COMBAT_COMPLICATION_RECIPES.has("stutter"), "dial complication")
+		assert_eq(int(GameData.CONSUMABLE_PRICES["stutter"]), 240, "price")
+		GameState.reset()
+		var armed := _start_ally_armed([{ "recipe": "stutter", "tier": 3 }], [_slow_mugger(200)], [[["strike", "strike"]]])
+		var archie_idx: int = CombatRounds.side_indices(armed, CombatRounds.SIDE_ALLY).filter(func(i): return i != CombatRounds.PLAYER_INDEX)[0]
+		armed["combatants"][archie_idx]["invisibleUntil"] = 0
+		Combat.choose_move("guard")
+		assert_true(armed["combatants"][archie_idx]["plan"].any(func(a): return a["move"] == "stutter"), "ally plans Stutter from its loadout")
+	)
+
 	run_case("navvys_draught_adds_hp_for_one_fight_only", func():
 		for tier in [1, 5]:
 			GameState.reset()

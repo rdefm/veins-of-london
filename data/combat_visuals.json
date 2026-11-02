@@ -230,6 +230,12 @@
     "multiStaggerSeconds": 0.06,
     "multiSplitFraction": 0.4,
     "enemyPalette": { "steelColour": [0.55, 0.6, 0.66], "shift": 0.2 },
+    "stutterFx": {
+      "_note": "Stutter (StageSlot.play_stutter): the user blinks out over blinkSeconds, reappears behindPx past the target's centre, Strikes (strikeHoldSeconds), then blinks back the same way. Seconds halve under quick pacing; reduced motion makes instant cuts.",
+      "blinkSeconds": 0.12,
+      "behindPx": 36.0,
+      "strikeHoldSeconds": 0.45
+    },
     "invisibleFx": {
       "_note": "Invisibility (StageSlot.set_invisible_visual): the holder's figure drops to alpha while it runs and fades back over fadeSeconds (halved under quick pacing; instant under reduced motion).",
       "alpha": 0.35,

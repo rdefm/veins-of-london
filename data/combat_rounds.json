@@ -148,7 +148,8 @@
     "stiffUpperLip": { "target": "self", "effect": "stiffUpperLip", "params": { "cutPct": [0, 10, 15, 20, 25, 30] } },
     "signalFailure": { "target": "self", "effect": "signalFailure", "params": {} },
     "coldFeet": { "target": "self", "effect": "coldFeet", "params": {} },
-    "invisibility": { "target": "friend", "effect": "invisibility", "params": {} }
+    "invisibility": { "target": "friend", "effect": "invisibility", "params": {} },
+    "stutter": { "target": "enemy", "effect": "stutter", "params": {} }
   },
   "_coachComment": "Coach marks, shown only when a fight's data carries a `coach` block. hints: one line per move or loadout recipe id; notNow: the block reason for an action the round doesn't allow.",
   "coach": {
@@ -184,6 +185,7 @@
     "signalFailure": "Holds the enemy's reinforcements at a red signal for a few rounds.",
     "coldFeet": "Guaranteed Leg it for the whole squad. No roll, no parting shot.",
     "invisibility": "One friend, you included, can't be picked out for a few rounds. Anything aimed at them misses.",
+    "stutter": "Blink behind an enemy and Strike past their Guard, with a better shot at a crit. Then nothing aimed at you lands until the round ends.",
     "stiffUpperLip": "Your side shrugs off Panic and its cousins, and takes less from every hit, for a few rounds.",
     "healingBurst": "Patches up one friend.",
     "enhancementPowder": "Sniff it. Your actions hit harder for a round or two.",
@@ -303,6 +305,7 @@
     "heavyMetal": { "self": "You put Heavy Metal on. Everyone in earshot regrets it.", "other": "{actor} puts Heavy Metal on. Everyone in earshot regrets it." },
     "signalFailure": { "self": "You jam the signal. Whatever is coming is stuck behind it.", "other": "{actor} jams the signal. Whatever is coming is stuck behind it." },
     "coldFeet": { "self": "Your feet go cold, and then they go. The whole squad follows.", "other": "{actor}'s feet go cold, and then they go. The whole squad follows." },
+    "stutter": { "self": "You stutter. One blink and you're behind {target}.", "other": "{actor} stutters. One blink and they're behind {target}." },
     "invisibility": { "self": "You spray {target}. The air there stops being worth looking at.", "other": "{actor} sprays {target}. The air there stops being worth looking at." },
     "stiffUpperLip": { "self": "You crack a Stiff Upper Lip. Nobody here is frightened, officially.", "other": "{actor} cracks a Stiff Upper Lip. Nobody here is frightened, officially." },
     "revive": { "self": "You wave Smelling Salts under {target}. Back up on {amount}.", "other": "{actor} waves Smelling Salts under {target}. Back up on {amount}." },
