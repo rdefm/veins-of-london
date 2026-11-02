@@ -6,7 +6,9 @@
 
 **Relevant files:** `systems/time_system.gd`, `systems/active_effects.gd`, `systems/bag.gd`, `tests/test_time_system.gd`; REFERENCE §1.11.
 
-**Status:** needs-info
+**Spec:** see `15-borrowed-time-spec.md` (tier table, charge model, rollover debt, unlimited stacking, Rest loses unspent charges).
+
+**Status:** ready-for-agent
 
 - [ ] Loan and debt follow the 15 spec, including stacking, Rest and event rollover
 - [ ] Tests set state directly (no loops on day/time conditions)
