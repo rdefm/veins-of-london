@@ -139,7 +139,10 @@
     "pansRapture": { "target": "enemy", "effect": "rapture", "params": {} },
     "panger": { "target": "enemy", "effect": "anger", "params": {} },
     "pandemonium": { "target": "enemy", "effect": "fury", "params": {} },
-    "wormhole": { "target": "self", "effect": "wormhole", "params": {} }
+    "wormhole": { "target": "self", "effect": "wormhole", "params": {} },
+    "nearMiss": { "target": "self", "effect": "nearMiss", "params": {} },
+    "sodsLaw": { "target": "enemy", "effect": "sodsLaw", "params": {} },
+    "ricochet": { "target": "self", "effect": "ricochet", "params": {} }
   },
   "_coachComment": "Coach marks, shown only when a fight's data carries a `coach` block. hints: one line per move or loadout recipe id; notNow: the block reason for an action the round doesn't allow.",
   "coach": {
@@ -153,6 +156,7 @@
       "timePearl": "Freezes the room.",
       "healingBurst": "Patch someone up.",
       "shield": "Calc between you and the next hit.",
+      "nearMiss": "The next few swings at you miss.",
       "rewind": "Go back and do it again."
     }
   },
@@ -166,6 +170,9 @@
     "blackHole": "Drags every enemy in and chips them for it. Higher tiers hold them longer.",
     "blast": "One enemy takes a bang. Might run, might drop their weapon.",
     "shield": "A wall of calc between you and the next hit.",
+    "nearMiss": "The next few Strikes at you miss outright.",
+    "sodsLaw": "One enemy's next few Strikes roll their weakest.",
+    "ricochet": "The next Strike that lands on you hits its owner back.",
     "healingBurst": "Patches up one friend.",
     "enhancementPowder": "Sniff it. Your actions hit harder for a round or two.",
     "prophetsBreath": "See what they're about to do, a round or more ahead.",
@@ -278,6 +285,11 @@
     "pull": { "self": "The pull takes {dmg} off {target}.", "other": "The pull takes {dmg} off {target}." },
     "blast": { "self": "You let a Blast off at {target}. {dmg}, guard or no guard.", "other": "{actor} lets a Blast off at {target}. {dmg}, guard or no guard." },
     "shield": { "self": "You pop a Shield. The air goes stiff around you.", "other": "{actor} pops a Shield. The air goes stiff around them." },
+    "nearMiss": { "self": "You crack a Near Miss. The odds look elsewhere.", "other": "{actor} cracks a Near Miss. The odds look elsewhere." },
+    "sodsLaw": { "self": "You hand {target} a Sod's Law. Everything goes the way it goes.", "other": "{actor} hands {target} a Sod's Law. Everything goes the way it goes." },
+    "ricochet": { "self": "You crack a Ricochet. The air waits to give something back.", "other": "{actor} cracks a Ricochet. The air waits to give something back." },
+    "dodge": { "self": "You swing at {target}. It was never going to land.", "other": "{actor} swings at {target}. It was never going to land." },
+    "reflect": { "self": "It comes straight back. {dmg} to {target}.", "other": "It comes straight back. {dmg} to {target}." },
     "shieldOther": { "self": "You throw a Shield over {target}.", "other": "{actor} throws a Shield over {target}." },
     "healSelf": { "self": "You crack a Healing Burst. {amount} back.", "other": "{actor} cracks a Healing Burst. {amount} back." },
     "heal": { "self": "You crack a Healing Burst over {target}. {amount} back.", "other": "{actor} cracks a Healing Burst over {target}. {amount} back." },

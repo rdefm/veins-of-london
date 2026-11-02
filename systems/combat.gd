@@ -822,6 +822,12 @@ static func _start_round_combat(context: String, vein_id, enemies: Array, log_li
 	fighter["moveOwner"] = ""
 	fighter["moveLevels"] = MoveLevels.levels_of("")
 	CombatRounds.carry_in(fighter, ActiveEffects.prophets_breath_active(), ActiveEffects.lady_level())
+	# Navvy's Draught: its bonus rides this fight only (settled in _sync_round_outcome()).
+	var navvy := ActiveEffects.navvy_bonus()
+	if navvy > 0:
+		fighter["hp"] += navvy
+		fighter["hpMax"] += navvy
+		combat["navvyBonus"] = navvy
 	if mods.has("sight"):
 		fighter["sightUntil"] = maxi(int(fighter["sightUntil"]), int(mods["sight"]))
 	if mods.has("fleeBoost"):
@@ -1386,6 +1392,10 @@ static func round_item_block_reason(index: int, target: int = -1) -> String:
 # the player on R§3.7a's KO hp.
 static func _sync_round_outcome(combat: Dictionary) -> void:
 	GameState.state["player"]["hp"] = int(combat["combatants"][CombatRounds.PLAYER_INDEX]["hp"])
+	if int(combat.get("navvyBonus", 0)) > 0 and combat["outcome"] != null:
+		GameState.state["player"]["hp"] = mini(int(GameState.state["player"]["hp"]), int(GameState.state["player"]["hpMax"]))
+		combat["navvyBonus"] = 0
+		ActiveEffects.end(ActiveEffects.NAVVYS_DRAUGHT)
 	for entry in combat["combatants"][CombatRounds.PLAYER_INDEX]["loadout"]:
 		if entry["used"] and Loadout.slot(int(entry["sourceSlot"])) != null:
 			Loadout.consume(int(entry["sourceSlot"]))

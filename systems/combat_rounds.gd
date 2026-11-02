@@ -33,9 +33,9 @@ const FOG_SEED_SALT := 0x5F0C0F06
 const MOVE_LEVEL_SEED_SALT := 0x30E1E7E1
 # An action whose first beat is one of these fizzled, for move XP: a Stun
 # on a Guarded target, an evaded Strike, a failed Leg it.
-const FIZZLE_KINDS: Array[String] = ["fizzle", "evade", "fleeFailed"]
+const FIZZLE_KINDS: Array[String] = ["fizzle", "evade", "dodge", "fleeFailed"]
 # Beats that, aimed at the actor's own side, are a furious actor's friendly fire.
-const FRIENDLY_FIRE_KINDS: Array[String] = ["hit", "chip", "stun", "stunThrough", "block", "fizzle", "evade"]
+const FRIENDLY_FIRE_KINDS: Array[String] = ["hit", "chip", "stun", "stunThrough", "block", "fizzle", "evade", "dodge"]
 
 const TARGET_SELF := "self"
 const TARGET_ENEMY := "enemy"
@@ -68,7 +68,10 @@ const ITEM_RAPTURE := "rapture"
 const ITEM_ANGER := "anger"
 const ITEM_FURY := "fury"
 const ITEM_WORMHOLE := "wormhole"
-const ITEM_EFFECTS: Array[String] = [ITEM_FREEZE, ITEM_BLACK_HOLE, ITEM_BLAST, ITEM_SHIELD, ITEM_HEAL, ITEM_POWDER, ITEM_SIGHT, ITEM_LADY, ITEM_PANIC, ITEM_RAPTURE, ITEM_ANGER, ITEM_FURY, ITEM_WORMHOLE]
+const ITEM_NEAR_MISS := "nearMiss"
+const ITEM_SODS_LAW := "sodsLaw"
+const ITEM_RICOCHET := "ricochet"
+const ITEM_EFFECTS: Array[String] = [ITEM_FREEZE, ITEM_BLACK_HOLE, ITEM_BLAST, ITEM_SHIELD, ITEM_HEAL, ITEM_POWDER, ITEM_SIGHT, ITEM_LADY, ITEM_PANIC, ITEM_RAPTURE, ITEM_ANGER, ITEM_FURY, ITEM_WORMHOLE, ITEM_NEAR_MISS, ITEM_SODS_LAW, ITEM_RICOCHET]
 # The Pan family (R§3.7b Table 4): an enemy holds one of their statuses at a
 # time and refuses another while it runs.
 const PAN_EFFECTS: Array[String] = [ITEM_PANIC, ITEM_RAPTURE, ITEM_ANGER, ITEM_FURY]
@@ -91,6 +94,8 @@ const KIT_SIGHT := "prophetsBreath"
 const KIT_SHIELD := "shield"
 const KIT_BLAST := "blast"
 const KIT_POWDER := "enhancementPowder"
+const KIT_NEAR_MISS := "nearMiss"
+const KIT_RICOCHET := "ricochet"
 # The guard kit's crowd items, in rule order.
 const KIT_CROWD: Array[String] = ["blackHole", "timePearl"]
 # The ally's own reactive save (R§3.7b Rewind): never planned, so no round
@@ -582,6 +587,10 @@ static func new_combatant(side: String, name: String, level: int, hp: int, hp_ma
 		# Chance (0.0-1.0) a Strike at it misses outright (evade_chance()).
 		"evadeChance": 0.0,
 		"sightUntil": 0,
+		# Near Miss: Strikes at it still to miss outright. Sod's Law: its own
+		# Strikes still to roll their range's minimum. Ricochet: the damage
+		# the next Strike to land on it returns to the striker (0 for none).
+		"dodges": 0, "lowRolls": 0, "reflect": 0,
 		# A Blast's one-use Leg it chance for the next Leg it (0.0 for none).
 		"fleeBoost": 0.0,
 		# Pan statuses (R§3.7b Table 4), counted down on the combatant's own
@@ -868,6 +877,11 @@ static func _kit_ally_action(cp: Dictionary, ally: int, plan: Array, planned: Di
 				best = fraction
 		if shielded >= 0:
 			return _kit_action(cp, ally, KIT_SHIELD, shielded)
+	var kit_struck := _read_strike_targets(cp, ally)
+	if _kit_has(pool, KIT_NEAR_MISS) and kit_struck.has(ally) and int(combatants[ally]["dodges"]) == 0:
+		return _kit_action(cp, ally, KIT_NEAR_MISS, ally)
+	if _kit_has(pool, KIT_RICOCHET) and kit_struck.has(ally) and int(combatants[ally]["reflect"]) == 0:
+		return _kit_action(cp, ally, KIT_RICOCHET, ally)
 	var opponents := _living_opponents(cp, ally)
 	var paused: bool = opponents.any(func(e): return combatants[e]["actionsLost"] > 0)
 	if not planned["crowd"] and not paused and opponents.size() >= int(_data()["allyCrowdEnemies"]):
@@ -1007,6 +1021,12 @@ static func _ally_item_action(cp: Dictionary, ally: int, plan: Array, planned: D
 		var exposed: Array = _team(cp, ally) if unit["multi"] else [ally]
 		if exposed.any(func(f): return struck.has(f) and int(combatants[f]["shield"]) == 0 and not planned["shielded"].has(f)):
 			return _unit_action(unit, -1 if unit["multi"] else ally)
+	if struck.has(ally) and int(combatant["dodges"]) == 0:
+		for unit in _units_with(units, [ITEM_NEAR_MISS]):
+			return _unit_action(unit, ally)
+	if struck.has(ally) and int(combatant["reflect"]) == 0:
+		for unit in _units_with(units, [ITEM_RICOCHET]):
+			return _unit_action(unit, ally)
 	var paused: bool = opponents.any(func(e): return combatants[e]["actionsLost"] > 0)
 	if not planned["crowd"] and not paused and opponents.size() >= int(_data()["allyCrowdEnemies"]):
 		for unit in _units_with(units, [ITEM_FREEZE, ITEM_BLACK_HOLE]):
@@ -1017,6 +1037,11 @@ static func _ally_item_action(cp: Dictionary, ally: int, plan: Array, planned: D
 	if plan.is_empty() and not is_powered(cp, combatant) and not combatant.get("powderUsed", false):
 		for unit in _units_with(units, [ITEM_POWDER]):
 			return _unit_action(unit, ally)
+	if plan.is_empty() and not opponents.is_empty():
+		for unit in _units_with(units, [ITEM_SODS_LAW]):
+			var cursed := opponents.filter(func(e): return int(combatants[e]["lowRolls"]) == 0)
+			if not cursed.is_empty():
+				return _unit_action(unit, cursed[0])
 	if plan.is_empty() and int(cp["round"]) == 1:
 		for unit in _units_with(units, [ITEM_LADY]):
 			return _unit_action(unit, ally)
@@ -2335,6 +2360,10 @@ static func _strike(cp: Dictionary, actor_idx: int, target_idx: int, move_id: St
 	var actor: Dictionary = combatants[actor_idx]
 	var target: Dictionary = combatants[target_idx]
 	var forced := _take_forced_hit(cp, actor_idx, target_idx)
+	if forced.is_empty() and int(target["dodges"]) > 0:
+		target["dodges"] -= 1
+		_beat(cp, beats, "dodge", actor_idx, target_idx, move_id, {})
+		return
 	var evade := 0.0 if not forced.is_empty() else evade_chance(cp, actor, target)
 	if evade > 0.0 and rng.randf() < evade:
 		_beat(cp, beats, "evade", actor_idx, target_idx, move_id, {})
@@ -2344,6 +2373,9 @@ static func _strike(cp: Dictionary, actor_idx: int, target_idx: int, move_id: St
 	var fx := level_effects(MOVE_STRIKE)
 	var strike_level := move_level(actor, MOVE_STRIKE)
 	var roll := rng.randi_range(roll_range[0], roll_range[1])
+	if int(actor["lowRolls"]) > 0:
+		actor["lowRolls"] -= 1
+		roll = roll_range[0]
 	var guarded: bool = not is_open(cp, target)
 	if not guarded and _autoguards(cp, target_idx, rng):
 		guarded = true
@@ -2375,7 +2407,19 @@ static func _strike(cp: Dictionary, actor_idx: int, target_idx: int, move_id: St
 	_deal_damage(cp, actor_idx, target_idx, dmg, "chip" if guarded else "hit", move_id, beats, {
 		"roll": roll, "crit": crit, "guarded": guarded, "lady": lady,
 	})
+	_reflect_hit(cp, actor_idx, target_idx, move_id, beats)
 	_retaliate(cp, actor_idx, target_idx, rng, beats, free)
+
+
+# Ricochet: a Strike that landed on `target_idx` returns the target's stored
+# reflect damage to the striker, once (item damage, so guard-ignoring).
+static func _reflect_hit(cp: Dictionary, actor_idx: int, target_idx: int, move_id: String, beats: Array) -> void:
+	var target: Dictionary = cp["combatants"][target_idx]
+	var back := int(target["reflect"])
+	if back <= 0 or cp["outcome"] != null or cp["combatants"][actor_idx]["koed"]:
+		return
+	target["reflect"] = 0
+	_deal_damage(cp, target_idx, actor_idx, back, "reflect", move_id, beats, {})
 
 
 # Whether an Open `target` whose last resolved action was a Feint treats this
@@ -2566,6 +2610,19 @@ static func _use_item(cp: Dictionary, actor_idx: int, action: Dictionary, m: Dic
 			for target in targets:
 				_apply_pan_status(combatants[target], m["effect"], slot)
 				_beat(cp, beats, m["effect"], actor_idx, target, move_id, _multi_fields(multi, targets))
+		ITEM_NEAR_MISS:
+			actor["dodges"] = maxi(int(actor["dodges"]), power)
+			_beat(cp, beats, "nearMiss", actor_idx, -1, move_id, {})
+		ITEM_SODS_LAW:
+			var cursed := _retarget(cp, actor_idx, int(action["target"]))
+			if cursed < 0:
+				_beat(cp, beats, "fizzle", actor_idx, int(action["target"]), move_id, {})
+			else:
+				combatants[cursed]["lowRolls"] = maxi(int(combatants[cursed]["lowRolls"]), power)
+				_beat(cp, beats, "sodsLaw", actor_idx, cursed, move_id, {})
+		ITEM_RICOCHET:
+			actor["reflect"] = maxi(int(actor["reflect"]), power)
+			_beat(cp, beats, "ricochet", actor_idx, -1, move_id, {})
 		ITEM_WORMHOLE:
 			# Player only: the fight ends fled, no roll, no parting shot.
 			_beat(cp, beats, "wormhole", actor_idx, -1, move_id, {})

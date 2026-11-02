@@ -1141,6 +1141,81 @@ func run() -> void:
 		assert_true(CombatRoundsScreen.enemy_used(cp, { "actor": 1 }) and not CombatRoundsScreen.enemy_used(cp, { "actor": 0 }), "side of the actor")
 	)
 
+	run_case("near_miss_dodges_the_next_n_strikes_by_tier", func():
+		for tier in [1, 5]:
+			GameState.reset()
+			var power := int(GameData.RECIPES["nearMiss"]["effectPower"][tier])
+			var combat := _start_vs([_slow_mugger()], [[["strike", "strike"]]], [{ "recipe": "nearMiss", "tier": tier }])
+			var you: Dictionary = combat["combatants"][CombatRounds.PLAYER_INDEX]
+			var hp_before: int = you["hp"]
+			var beats: Array = Combat.choose_item(0)["beats"]
+			beats.append_array(Combat.choose_move("guard")["beats"])
+			var dodged := beats.filter(func(b): return b["kind"] == "dodge").size()
+			assert_eq(dodged, mini(power, 2), "tier %d dodges %d of the two strikes" % [tier, power])
+			assert_eq(you["dodges"], maxi(0, power - 2), "tier %d charges left" % tier)
+			if power >= 2:
+				assert_eq(you["hp"], hp_before, "every strike missed")
+			else:
+				assert_true(you["hp"] < hp_before, "the second strike lands")
+	)
+
+	run_case("sods_law_rolls_the_enemys_next_n_strikes_at_the_bottom", func():
+		for tier in [1, 5]:
+			GameState.reset()
+			var power := int(GameData.RECIPES["sodsLaw"]["effectPower"][tier])
+			var combat := _start_vs([_slow_mugger()], [[["strike", "strike"]]], [{ "recipe": "sodsLaw", "tier": tier }])
+			var foe: Dictionary = combat["combatants"][1]
+			var beats: Array = Combat.choose_item(0, 1)["beats"]
+			beats.append_array(Combat.choose_move("guard")["beats"])
+			var rolls := beats.filter(func(b): return (b["kind"] == "hit" or b["kind"] == "chip") and b["actor"] == 1).map(func(b): return int(b["roll"]))
+			assert_eq(rolls.size(), 2, "two enemy strikes")
+			var low: int = CombatRounds.damage_range(combat, 1)[0]
+			assert_eq(rolls.filter(func(r): return r == low).size() >= mini(power, 2), true, "tier %d: first %d at the minimum" % [tier, power])
+			assert_eq(foe["lowRolls"], maxi(0, power - 2), "tier %d charges left" % tier)
+	)
+
+	run_case("ricochet_returns_x_damage_to_the_first_striker_once", func():
+		for tier in [1, 5]:
+			GameState.reset()
+			var power := int(GameData.RECIPES["ricochet"]["effectPower"][tier])
+			var combat := _start_vs([_slow_mugger(60)], [[["strike", "strike"]]], [{ "recipe": "ricochet", "tier": tier }])
+			var beats: Array = Combat.choose_item(0)["beats"]
+			beats.append_array(Combat.choose_move("guard")["beats"])
+			var reflected := beats.filter(func(b): return b["kind"] == "reflect")
+			assert_eq(reflected.size(), 1, "spent on one hit")
+			assert_eq(int(reflected[0]["dmg"]), power, "tier %d returns %d" % [tier, power])
+			assert_eq(combat["combatants"][1]["hp"], 60 - power, "the mugger takes it")
+			assert_eq(combat["combatants"][CombatRounds.PLAYER_INDEX]["reflect"], 0)
+	)
+
+	run_case("near_miss_and_ricochet_items_are_spent_on_use", func():
+		GameState.reset()
+		var combat := _start_vs([_slow_mugger()], [[["guard", "guard"]]], [{ "recipe": "nearMiss", "tier": 3 }, { "recipe": "ricochet", "tier": 3 }])
+		assert_true(Combat.choose_item(0)["ok"])
+		assert_true(combat["combatants"][CombatRounds.PLAYER_INDEX]["loadout"][0]["used"], "slot spent")
+		assert_true(not combat["combatants"][CombatRounds.PLAYER_INDEX]["loadout"][1]["used"], "the other stays")
+	)
+
+	run_case("navvys_draught_adds_hp_for_one_fight_only", func():
+		for tier in [1, 5]:
+			GameState.reset()
+			var player: Dictionary = GameState.state["player"]
+			player["hpMax"] = 100
+			player["hp"] = 100
+			Crafting.inventory_add("navvysDraught", tier, 1)
+			assert_true(ActiveEffects.use("navvysDraught")["ok"], "usable from the Bag")
+			var bonus := int(GameData.RECIPES["navvysDraught"]["effectPower"][tier])
+			assert_eq(ActiveEffects.navvy_bonus(), bonus)
+			var combat := _start([["guard", "guard"]], 1, 1)
+			var you: Dictionary = combat["combatants"][CombatRounds.PLAYER_INDEX]
+			assert_eq(you["hpMax"], 100 + bonus, "tier %d max" % tier)
+			assert_eq(you["hp"], 100 + bonus, "tier %d current" % tier)
+			assert_eq(player["hpMax"], 100, "the real max is untouched")
+			assert_eq(Combat.choose_move("strike", 1)["outcome"], "win")
+			assert_eq(player["hp"], 100, "back under the real max")
+			assert_true(not ActiveEffects.is_active("navvysDraught"), "spent by the fight")
+	)
+
 	run_case("carry_in_sight_and_lady_apply_from_round_1", func():
 		GameState.reset()
 		var expires := ActiveEffects.absolute_block() + 1

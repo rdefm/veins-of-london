@@ -87,8 +87,8 @@ Each recipe's `ingredients` field is a dict of `{oreType: baseCalcCost}` — one
 | failsafe | Failsafe | ⚑ | {time: 6, life: 6} | 0.12 | [0,1,1,2,2,2] | 45 | true |
 | rejuvenation | Rejuvenation | ❀ | {time: 5, life: 5} | 0.35 | [0,0,0,0,0,0] (no gameplay effect — sale good only) | 20 | false |
 | wormhole | Wormhole | ⊗ | {time: 5, physics: 5} | 0.18 | [0,1,1,1,1,1] | 40 | true |
-| nearMiss | Near Miss | ⚐ | {fate: 5} | 0.35 | [0,1,1,2,2,3] (placeholder, no mechanics yet) | 25 | false |
-| sodsLaw | Sod's Law | ⚇ | {fate: 6} | 0.30 | [0,1,2,2,3,4] (placeholder, no mechanics yet) | 30 | false |
+| nearMiss | Near Miss | ⚐ | {fate: 5} | 0.35 | [0,1,1,2,2,3] | 25 | false |
+| sodsLaw | Sod's Law | ⚇ | {fate: 6} | 0.30 | [0,1,2,2,3,4] | 30 | false |
 | happyAccident | Happy Accident | ✧ | {fate: 6} | 0.30 | [0,1,1,1,2,2] (placeholder, no mechanics yet) | 30 | false |
 | introduction | Introduction | ⚭ | {fate: 4} | 0.45 | [0,0,0,0,0,0] (placeholder, no mechanics yet) | 20 | false |
 | smellingSalts | Smelling Salts | ⚕ | {life: 5} | 0.40 | [0,5,8,12,16,20] (placeholder, no mechanics yet) | 25 | false |
@@ -96,7 +96,7 @@ Each recipe's `ingredients` field is a dict of `{oreType: baseCalcCost}` — one
 | bloom | Bloom | ✿ | {life: 3} | 0.55 | [0,0,0,0,0,0] (placeholder, no mechanics yet) | 15 | false |
 | borrowedTime | Borrowed Time | ◷ | {time: 8} | 0.15 | [0,1,1,1,1,1] (placeholder, no mechanics yet) | 45 | false |
 | patina | Patina | ⌛ | {time: 4} | 0.45 | [0,0,0,0,0,0] (placeholder, no mechanics yet) | 20 | false |
-| ricochet | Ricochet | ↺ | {physics: 6} | 0.30 | [0,3,5,7,9,12] (placeholder, no mechanics yet) | 30 | false |
+| ricochet | Ricochet | ↺ | {physics: 6} | 0.30 | [0,3,5,7,9,12] | 30 | false |
 | deadweight | Deadweight | ⬛ | {physics: 7} | 0.25 | [0,10,15,20,25,35] (placeholder, no mechanics yet) | 35 | false |
 | signalFailure | Signal Failure | ⧗ | {physics: 5} | 0.35 | [0,1,1,2,2,3] (placeholder, no mechanics yet) | 25 | false |
 | trueLevel | True Level | ⊥ | {physics: 4} | 0.45 | [0,0,0,0,0,0] (placeholder, no mechanics yet) | 20 | false |
@@ -108,7 +108,7 @@ Each recipe's `ingredients` field is a dict of `{oreType: baseCalcCost}` — one
 | heavyMetal | Heavy Metal | ♫ | {emotion: 5, physics: 5} | 0.20 | [0,3,4,6,8,10] (placeholder, no mechanics yet) | 40 | false |
 | coldFeet | Cold Feet | ❄ | {emotion: 4, time: 4} | 0.35 | [0,1,1,1,1,1] (placeholder, no mechanics yet) | 30 | false |
 | nostalgia | Nostalgia | ☙ | {emotion: 5, time: 5} | 0.30 | [0,0,0,0,0,0] (placeholder, no mechanics yet) | 25 | false |
-| navvysDraught | Navvy's Draught | ⚒ | {life: 5, physics: 5} | 0.30 | [0,5,8,12,16,20] (placeholder, no mechanics yet) | 30 | false |
+| navvysDraught | Navvy's Draught | ⚒ | {life: 5, physics: 5} | 0.30 | [0,5,8,12,16,20] | 30 | false |
 | cleanSlate | Clean Slate | ∅ | {fate: 5, time: 5, emotion: 5} | 0.15 | [0,0,0,0,0,0] (placeholder, no mechanics yet) | 60 | false |
 | keystone | Keystone | ◈ | {time: 4, physics: 4, life: 4, fate: 4, emotion: 4} | 0.15 | [0,0,0,0,0,0] (placeholder, no mechanics yet) | 70 | false |
 
@@ -920,6 +920,8 @@ Items and Dial casts cost 1 action and leave guard state unchanged (except Shiel
 | rewind | Not an action; the Rewind command (below) |
 
 **Dial Complications.** A loaded Complication is a pick at a player pause: 1 action, guard state unchanged, `Dial.cast_complication()` cost/XP/magnitude per §3.5 (Time Pearl/Prophet's Breath add `level` actions/rounds, Black Hole its L3/L5 bonus). Ally Dial casts use the same rules inside the ally's plan (planned at round start, shown as ally intents).
+
+**Fate/physics/life item statuses.** Combat items (loadout and guard-kit allowlists, `combat_rounds.json items`; power = `effectPower` at the slot tier): **Near Miss** (`nearMiss`, self) — the next `power` Strikes at the user miss outright (`dodges`; beat `dodge`); **Sod's Law** (`sodsLaw`, one enemy) — that combatant's next `power` Strikes roll their range's minimum (`lowRolls`; crit/guard/anger still apply); **Ricochet** (`ricochet`, self) — the next Strike to land on the user (hit or chip, not a block) returns `power` damage to the striker, once (`reflect`; beat `reflect`, guard-ignoring). Blast and other item damage are neither dodged nor reflected. Guard-kit allies cast Near Miss/Ricochet when a read Strike is aimed at them; recruit slots do the same, and cast Sod's Law on a free enemy in their first action. **Navvy's Draught** (`navvysDraught`) is a Bag active effect (`activeEffects.items`): a running one adds `effectPower[level]` max and current HP to the player's next round fight (`ActiveEffects.navvy_bonus()`, `combat.navvyBonus`); when that fight's outcome settles, hp is clamped to the real `hpMax` and the effect ends.
 
 **Carry-in effects.** An out-of-combat `player.activeEffects.prophetsBreath` active at fight start gives sight from round 1 for the whole fight (the block clock doesn't move mid-fight); it still blocks ambushes (§3.1d). An active `beALady` gives max rolls + 1/3 crit + its level's evade cut for the whole fight likewise.
 

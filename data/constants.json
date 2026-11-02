@@ -63,13 +63,13 @@
   "guardRepel": { "chancePerGuard": 0.15, "cap": 0.75 },
   "archieDeals": { "chanceCashCeiling": 5000, "chanceFloor": 0.10, "tierCashStep": 5000, "tierMax": 6, "qtyBaseMin": 20, "qtyBaseMax": 100, "playerCutShare": 0.5 },
   "guardKit": {
-    "items": ["blast", "shield", "blackHole", "timePearl", "healingBurst", "prophetsBreath", "enhancementPowder", "failsafe", "rewind"],
+    "items": ["blast", "shield", "blackHole", "timePearl", "healingBurst", "prophetsBreath", "enhancementPowder", "failsafe", "rewind", "nearMiss", "ricochet"],
     "slotsPerGuard": 2,
     "hqSlotsPerGuard": 2,
     "repelBonus": { "weak": 0.03, "medium": 0.05, "strong": 0.08 },
     "repelTier": {
       "healingBurst": "weak", "prophetsBreath": "weak", "enhancementPowder": "weak", "failsafe": "weak",
-      "shield": "medium", "blast": "medium",
+      "shield": "medium", "blast": "medium", "nearMiss": "medium", "ricochet": "medium",
       "blackHole": "strong", "timePearl": "strong", "rewind": "strong"
     },
     "repelCap": 0.90,
@@ -79,7 +79,7 @@
     "slotCount": 2,
     "allyExcluded": ["wormhole"],
     "multiTarget": { "minTier": 3, "craftable": ["blast", "shield", "healingBurst", "panic", "panger", "pandemonium", "pansRapture"], "always": ["blackHole"] },
-    "items": ["timePearl", "enhancementPowder", "blast", "panic", "panger", "pandemonium", "pansRapture", "shield", "blackHole", "healingBurst", "prophetsBreath", "beALady", "wormhole", "failsafe", "rewind"]
+    "items": ["timePearl", "enhancementPowder", "blast", "panic", "panger", "pandemonium", "pansRapture", "shield", "blackHole", "healingBurst", "prophetsBreath", "beALady", "wormhole", "failsafe", "rewind", "nearMiss", "sodsLaw", "ricochet"]
   },
   "guardUpkeep": {
     "weeklyWage": 500,
@@ -824,6 +824,6 @@
   },
   "activeEffects": {
     "durationByLevel": [0, 1, 1, 2, 2, 3],
-    "items": ["beALady", "prophetsBreath"]
+    "items": ["beALady", "prophetsBreath", "navvysDraught"]
   }
 }

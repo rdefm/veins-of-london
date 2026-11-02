@@ -452,7 +452,8 @@
       "xpReward": 30,
       "eventUsable": false,
       "bagWhenHeld": true,
-      "description": "What the men who dug the Underground drank, allegedly. +Constitution, −table manners."
+      "description": "What the men who dug the Underground drank, allegedly. +Constitution, −table manners.",
+      "effectText": "Your next fight starts with extra max and current HP."
     },
     "cleanSlate": {
       "name": "Clean Slate",

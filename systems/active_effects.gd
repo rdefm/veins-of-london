@@ -9,6 +9,7 @@ extends RefCounted
 
 const LADY := "beALady"
 const PROPHETS_BREATH := "prophetsBreath"
+const NAVVYS_DRAUGHT := "navvysDraught"
 # PROSE-REVIEW: preview tag on a max-rolled cultivate/harvest figure.
 const LADY_TAG := "(Lady)"
 
@@ -63,6 +64,24 @@ static func lady_level() -> int:
 
 static func prophets_breath_active() -> bool:
 	return is_active(PROPHETS_BREATH)
+
+
+# The max and current HP a running Navvy's Draught adds to the next fight
+# (its recipe effectPower at the unit's level), 0 when none runs.
+static func navvy_bonus() -> int:
+	var effect = find(NAVVYS_DRAUGHT)
+	if effect == null:
+		return 0
+	var powers: Array = GameData.RECIPES[NAVVYS_DRAUGHT]["effectPower"]
+	return int(powers[clampi(int(effect["level"]), 1, powers.size() - 1)])
+
+
+# Ends a running effect early (a fight spends Navvy's Draught).
+static func end(item: String) -> void:
+	var list: Array = effects()
+	for i in range(list.size() - 1, -1, -1):
+		if list[i]["item"] == item:
+			list.remove_at(i)
 
 
 # Consumes one unit (lowest level first) and starts the effect, or refreshes
