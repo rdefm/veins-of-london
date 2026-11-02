@@ -178,9 +178,47 @@ static func lint_profiles(recipes: Dictionary) -> Array:
 				out.append("%s: eventProfile tag '%s' is not in eventChecks.tags" % [id, tag])
 		if String(profile.get("label", "")) == "":
 			out.append("%s: eventProfile needs a label" % id)
+		if profile.has("alert") and not (profile["alert"] is Dictionary and (profile["alert"].has("add") or profile["alert"].has("atLeast"))):
+			out.append("%s: eventProfile alert needs add or atLeast" % id)
 		if not kinds.has(profile["effect"].get("kind", "")):
 			out.append("%s: eventProfile effect kind '%s' unknown" % [id, profile["effect"].get("kind", "")])
 	return out
+
+
+const NO_ROLL_ITEMS := ["blast", "skeletonKey"]
+
+
+# Advisory findings (not violations): an authored alert raise beside Blast
+# (its profile already raises the level), an item-gated option that hides.
+static func lint_warnings(id: String, def: Dictionary) -> Array:
+	var out: Array = []
+	var cards: Array = def.get("cards", [])
+	for i in cards.size():
+		var choices: Array = cards[i].get("choices", [])
+		for j in choices.size():
+			var option: Dictionary = choices[j]
+			var where := "%s: card %d option %d" % [id, i, j]
+			var req: Variant = option.get("requires")
+			if req is Dictionary and req.get("display") == "hide" and req.has("item"):
+				out.append("%s item-gated option uses display hide; use disable" % where)
+			for entry in option.get("items", []):
+				if entry is Dictionary and entry.get("item") == "blast" and _has_alert_raise(option):
+					out.append("%s authors an alert raise beside Blast" % where)
+	return out
+
+
+static func _has_alert_raise(value: Variant) -> bool:
+	if value is Dictionary:
+		if value.get("op") == "alert" and (value.has("add") or value.has("atLeast")):
+			return true
+		for v in value.values():
+			if _has_alert_raise(v):
+				return true
+	elif value is Array:
+		for v in value:
+			if _has_alert_raise(v):
+				return true
+	return false
 
 
 static func _lint_option(id: String, i: int, j: int, option: Dictionary, cards: Array, refs: Dictionary) -> Array:
@@ -205,6 +243,18 @@ static func _lint_option(id: String, i: int, j: int, option: Dictionary, cards: 
 		for entry in option.get("items", []):
 			if entry is Dictionary and entry.get("effect", {}).get("kind") == "autoSuccess":
 				out.append("%s item '%s' has autoSuccess on a non-check option" % [where, entry.get("item", "")])
+	for entry in option.get("items", []):
+		if not entry is Dictionary or not refs["items"].has(entry.get("item", "")):
+			out.append("%s items: unknown item %s" % [where, str(entry.get("item") if entry is Dictionary else entry)])
+			continue
+		var kind: String = entry.get("effect", {}).get("kind", "")
+		if kind == "failRecovery" and not option.has("check"):
+			out.append("%s item '%s' has failRecovery on a non-check option" % [where, entry["item"]])
+		if option.has("check") and NO_ROLL_ITEMS.has(entry["item"]):
+			out.append("%s item '%s' is a no-roll bypass but the option has a check" % [where, entry["item"]])
+	for item in option.get("excludeItems", []):
+		if not refs["items"].has(item):
+			out.append("%s excludeItems: unknown item %s" % [where, str(item)])
 	if option.get("check") is Dictionary:
 		if option["check"].has("entry"):
 			out.append("%s check uses retired 'entry'; use tags" % where)

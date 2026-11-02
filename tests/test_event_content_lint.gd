@@ -154,6 +154,38 @@ func run() -> void:
 		assert_eq(EventContentLint.lint_profiles(bad).size(), 4, "tag, label, kind, shape")
 	)
 
+	run_case("lint_rejects_bad_item_refs_and_bypass_misuse", func():
+		GameState.reset()
+		var def := { "id": "bypass_probe", "cards": [
+			{ "type": "choice", "key": "c1", "label": null, "text": "", "choices": [
+				{ "label": "a", "result_text": "x", "items": [{ "item": "noSuchItem", "optional": true, "effect": { "kind": "unlock" } }], "excludeItems": ["ghostItem"] },
+				{ "label": "b", "result_text": "x", "items": [{ "item": "cleanSlate", "optional": true, "effect": { "kind": "failRecovery" } }] },
+				{ "label": "c", "check": { "base": 0.5, "mods": [] }, "items": [{ "item": "blast", "optional": true, "effect": { "kind": "unlock" } }],
+					"success": { "result_text": "s", "effects": [] }, "fail": { "result_text": "f", "effects": [] } },
+			] },
+		] }
+		var found := EventContentLint.lint_event("bypass_probe", def, EventContentLint.known_refs())
+		for fragment in ["items: unknown item noSuchItem", "excludeItems: unknown item ghostItem", "failRecovery on a non-check option", "item 'blast' is a no-roll bypass but the option has a check"]:
+			assert_true(found.any(func(v): return String(v).contains(fragment)), "expected '%s' in %s" % [fragment, found])
+		assert_eq(found.size(), 4, str(found))
+		var bad := { "x": { "eventProfile": { "tags": [], "label": "X", "effect": { "kind": "unlock" }, "alert": {} } } }
+		assert_eq(EventContentLint.lint_profiles(bad).size(), 1, "bad profile alert")
+	)
+
+	run_case("lint_warns_on_blast_alert_and_hidden_item_gate", func():
+		var def := { "id": "warn_probe", "cards": [
+			{ "type": "choice", "key": "c1", "label": null, "text": "", "choices": [
+				{ "label": "a", "result_text": "x", "requires": { "item": "blast", "display": "hide" } },
+				{ "label": "b", "result_text": "x", "requires": { "item": "blast", "display": "disable" }, "items": [{ "item": "blast", "effect": { "kind": "unlock" } }], "effects": [{ "op": "alert", "add": 1 }] },
+				{ "label": "c", "result_text": "x", "requires": { "item": "blast", "display": "disable" }, "items": [{ "item": "blast", "effect": { "kind": "unlock" } }] },
+			] },
+		] }
+		var warns := EventContentLint.lint_warnings("warn_probe", def)
+		assert_eq(warns.size(), 2, str(warns))
+		assert_true(String(warns[0]).contains("option 0") and String(warns[0]).contains("display hide"), str(warns))
+		assert_true(String(warns[1]).contains("option 1") and String(warns[1]).contains("beside Blast"), str(warns))
+	)
+
 	run_case("lint_checks_context_flag_has_a_key", func():
 		GameState.reset()
 		var def := { "id": "ctx_probe", "cards": [
