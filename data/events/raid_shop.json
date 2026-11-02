@@ -585,10 +585,10 @@
               { "observed": { "id": "lock", "ore": "physics", "atLeast": 1 }, "add": 0.05, "label": "A cheap lock" },
               { "all": [{ "flag": "sCust" }, { "security": { "feature": "cameras", "atLeast": 1 } }], "add": 0.08, "label": "Tuned for the camera" },
               { "flag": "sYard", "add": 0.08, "label": "Tuned for the long way" },
-              { "item": "enhancementPowder", "optional": true, "label": "Enhancement Powder", "effect": { "kind": "bonus", "add": 0.15, "entry": "physical" } },
+              { "item": "enhancementPowder", "optional": true, "label": "Enhancement Powder", "effect": { "kind": "bonus", "add": 0.15, "tags": ["physical"] } },
               { "alertByTier": [0, -0.1, -0.25] }
             ],
-            "entry": "physical"
+            "tags": ["physical"]
           },
           "success": {
             "result_text": "The lock turns over. You ease the door open on a flight of stone steps and go down.",
@@ -980,7 +980,7 @@
               { "security": { "feature": "tier", "is": "none" }, "add": 0.15, "label": "Rickety site" },
               { "alertByTier": [0, -0.1, -0.25] }
             ],
-            "entry": "physical"
+            "tags": ["physical"]
           },
           "success": {
             "result_text": "The pins come out with some persuasion and the door lifts off its hinges. You lean it against the wall and step into the stockroom.",
@@ -1024,9 +1024,9 @@
               { "observed": { "id": "door", "ore": "time", "atLeast": 2 }, "add": 0.05, "label": "On the latch" },
               { "security": { "feature": "tier", "is": "none" }, "add": 0.15, "label": "Rickety site" },
               { "alertByTier": [0, -0.1, -0.25] },
-              { "item": "enhancementPowder", "optional": true, "label": "Enhancement Powder", "effect": { "kind": "bonus", "add": 0.15, "entry": "physical" } }
+              { "item": "enhancementPowder", "optional": true, "label": "Enhancement Powder", "effect": { "kind": "bonus", "add": 0.15, "tags": ["physical"] } }
             ],
-            "entry": "physical"
+            "tags": ["physical"]
           },
           "success": {
             "result_text": "The lock's newer than the door and not as good as it looks. It turns, and you're in the stockroom.",
@@ -1201,10 +1201,10 @@
               { "observed": { "id": "raid", "ore": "physics", "atLeast": 2 }, "add": 0.13, "label": "A sharp read" },
               { "observed": { "id": "flap", "ore": "physics", "atLeast": 2 }, "add": 0.05, "label": "Rusted to a flake" },
               { "security": { "feature": "tier", "is": "none" }, "add": 0.15, "label": "Rickety site" },
-              { "item": "enhancementPowder", "optional": true, "label": "Enhancement Powder", "effect": { "kind": "bonus", "add": 0.15, "entry": "physical" } },
+              { "item": "enhancementPowder", "optional": true, "label": "Enhancement Powder", "effect": { "kind": "bonus", "add": 0.15, "tags": ["physical"] } },
               { "alertByTier": [0, -0.1, -0.25] }
             ],
-            "entry": "physical"
+            "tags": ["physical"]
           },
           "success": {
             "result_text": "The rotten edge gives under the bar with a soft crunch. You lift the flap, drop through and let it down over your head.",
@@ -1509,10 +1509,10 @@
             "mods": [
               { "observed": { "id": "raid", "ore": "time", "atLeast": 1 }, "add": 0.05, "label": "A read" },
               { "observed": { "id": "raid", "ore": "time", "atLeast": 2 }, "add": 0.05, "label": "A sharp read" },
-              { "item": "enhancementPowder", "optional": true, "label": "Enhancement Powder", "effect": { "kind": "bonus", "add": 0.15, "entry": "physical" } },
+              { "item": "enhancementPowder", "optional": true, "label": "Enhancement Powder", "effect": { "kind": "bonus", "add": 0.15, "tags": ["physical"] } },
               { "alertByTier": [0, -0.1, -0.25] }
             ],
-            "entry": "physical"
+            "tags": ["physical"]
           },
           "success": {
             "result_text": "You step out of their line of sight and stay out of it until they decide they imagined you.",
@@ -1582,10 +1582,10 @@
             "mods": [
               { "observed": { "id": "raid", "ore": "time", "atLeast": 1 }, "add": 0.05, "label": "A read" },
               { "observed": { "id": "raid", "ore": "time", "atLeast": 2 }, "add": 0.05, "label": "A sharp read" },
-              { "item": "enhancementPowder", "optional": true, "label": "Enhancement Powder", "effect": { "kind": "bonus", "add": 0.15, "entry": "physical" } },
+              { "item": "enhancementPowder", "optional": true, "label": "Enhancement Powder", "effect": { "kind": "bonus", "add": 0.15, "tags": ["physical"] } },
               { "alertByTier": [0, -0.1, -0.25] }
             ],
-            "entry": "physical"
+            "tags": ["physical"]
           },
           "success": {
             "result_text": "You get behind the bins and wait. He looks for a while, then decides he imagined you.",
@@ -1689,10 +1689,10 @@
             "mods": [
               { "observed": { "id": "raid", "ore": "time", "atLeast": 1 }, "add": 0.05, "label": "A read" },
               { "observed": { "id": "raid", "ore": "time", "atLeast": 2 }, "add": 0.05, "label": "A sharp read" },
-              { "item": "enhancementPowder", "optional": true, "label": "Enhancement Powder", "effect": { "kind": "bonus", "add": 0.15, "entry": "physical" } },
+              { "item": "enhancementPowder", "optional": true, "label": "Enhancement Powder", "effect": { "kind": "bonus", "add": 0.15, "tags": ["physical"] } },
               { "alertByTier": [0, -0.1, -0.25] }
             ],
-            "entry": "physical"
+            "tags": ["physical"]
           },
           "success": {
             "result_text": "You're behind the cages before he's straightened up. He stares at the gap where you were, then picks up his box.",
@@ -2245,10 +2245,10 @@
             "mods": [
               { "observed": { "id": "raid", "ore": "time", "atLeast": 1 }, "add": 0.05, "label": "A read" },
               { "observed": { "id": "raid", "ore": "time", "atLeast": 2 }, "add": 0.05, "label": "A sharp read" },
-              { "item": "enhancementPowder", "optional": true, "label": "Enhancement Powder", "effect": { "kind": "bonus", "add": 0.15, "entry": "physical" } },
+              { "item": "enhancementPowder", "optional": true, "label": "Enhancement Powder", "effect": { "kind": "bonus", "add": 0.15, "tags": ["physical"] } },
               { "alertByTier": [0, -0.1, -0.25] }
             ],
-            "entry": "physical"
+            "tags": ["physical"]
           },
           "success": {
             "result_text": "By the time he's out, you're behind the fridges. He looks along the aisles and goes back to his screen.",
@@ -2724,9 +2724,9 @@
           "requires": { "alert": { "atLeast": 2 }, "display": "hide" },
           "check": {
             "base": 0.6,
-            "entry": "physical",
+            "tags": ["physical"],
             "mods": [
-              { "item": "enhancementPowder", "optional": true, "label": "Enhancement Powder", "effect": { "kind": "bonus", "add": 0.15, "entry": "physical" } }
+              { "item": "enhancementPowder", "optional": true, "label": "Enhancement Powder", "effect": { "kind": "bonus", "add": 0.15, "tags": ["physical"] } }
             ]
           },
           "success": {
@@ -2906,9 +2906,9 @@
           "label": "Run",
           "check": {
             "base": 0.6,
-            "entry": "physical",
+            "tags": ["physical"],
             "mods": [
-              { "item": "enhancementPowder", "optional": true, "label": "Enhancement Powder", "effect": { "kind": "bonus", "add": 0.15, "entry": "physical" } }
+              { "item": "enhancementPowder", "optional": true, "label": "Enhancement Powder", "effect": { "kind": "bonus", "add": 0.15, "tags": ["physical"] } }
             ]
           },
           "success": {

@@ -362,7 +362,7 @@
           },
           "check": {
             "base": 0.45,
-            "entry": "physical",
+            "tags": ["physical"],
             "mods": [
               {
                 "observed": {
@@ -404,7 +404,7 @@
                 "effect": {
                   "kind": "bonus",
                   "add": 0.15,
-                  "entry": "physical"
+                  "tags": ["physical"]
                 }
               }
             ]
@@ -2374,7 +2374,7 @@
                 "effect": {
                   "kind": "bonus",
                   "add": 0.15,
-                  "entry": "physical"
+                  "tags": ["physical"]
                 }
               },
               {
@@ -2385,7 +2385,7 @@
                 ]
               }
             ],
-            "entry": "physical"
+            "tags": ["physical"]
           },
           "success": {
             "result_text": "The lock turns over without a sound.",
@@ -3203,7 +3203,7 @@
                 ]
               }
             ],
-            "entry": "physical"
+            "tags": ["physical"]
           },
           "success": {
             "result_text": "The blade finds the latch and lifts it. The window slides up an inch, then more.",
@@ -3363,7 +3363,7 @@
                 "effect": {
                   "kind": "bonus",
                   "add": 0.15,
-                  "entry": "physical"
+                  "tags": ["physical"]
                 }
               },
               {
@@ -3374,7 +3374,7 @@
                 ]
               }
             ],
-            "entry": "physical"
+            "tags": ["physical"]
           },
           "success": {
             "result_text": "It gives a little at a time, and you let it.",
@@ -4668,7 +4668,7 @@
                 "effect": {
                   "kind": "bonus",
                   "add": 0.15,
-                  "entry": "physical"
+                  "tags": ["physical"]
                 }
               },
               {
@@ -4679,7 +4679,7 @@
                 ]
               }
             ],
-            "entry": "physical"
+            "tags": ["physical"]
           },
           "success": {
             "result_text": "Up, rung by rung, weight on the bolts and not the rails.",
@@ -5004,7 +5004,7 @@
                 "effect": {
                   "kind": "bonus",
                   "add": 0.15,
-                  "entry": "physical"
+                  "tags": ["physical"]
                 }
               },
               {
@@ -5015,7 +5015,7 @@
                 ]
               }
             ],
-            "entry": "physical"
+            "tags": ["physical"]
           },
           "success": {
             "result_text": "The catch lets go with a small flake of rust.",
@@ -5898,7 +5898,7 @@
           },
           "check": {
             "base": 0.6,
-            "entry": "physical",
+            "tags": ["physical"],
             "mods": [
               {
                 "item": "enhancementPowder",
@@ -5907,7 +5907,7 @@
                 "effect": {
                   "kind": "bonus",
                   "add": 0.15,
-                  "entry": "physical"
+                  "tags": ["physical"]
                 }
               }
             ]
@@ -6219,7 +6219,7 @@
                 "effect": {
                   "kind": "bonus",
                   "add": 0.15,
-                  "entry": "physical"
+                  "tags": ["physical"]
                 }
               },
               {
@@ -6230,7 +6230,7 @@
                 ]
               }
             ],
-            "entry": "physical"
+            "tags": ["physical"]
           },
           "success": {
             "result_text": "You're gone before he looks.",
@@ -6493,7 +6493,7 @@
                 "effect": {
                   "kind": "bonus",
                   "add": 0.15,
-                  "entry": "physical"
+                  "tags": ["physical"]
                 }
               },
               {
@@ -6504,7 +6504,7 @@
                 ]
               }
             ],
-            "entry": "physical"
+            "tags": ["physical"]
           },
           "success": {
             "result_text": "You're gone before the torch finds you.",
@@ -8192,7 +8192,7 @@
                 "effect": {
                   "kind": "bonus",
                   "add": 0.15,
-                  "entry": "physical"
+                  "tags": ["physical"]
                 }
               },
               {
@@ -8203,7 +8203,7 @@
                 ]
               }
             ],
-            "entry": "physical"
+            "tags": ["physical"]
           },
           "success": {
             "result_text": "Gone by the time he arrives.",
@@ -9107,7 +9107,7 @@
           "label": "Run",
           "check": {
             "base": 0.6,
-            "entry": "physical",
+            "tags": ["physical"],
             "mods": [
               {
                 "item": "enhancementPowder",
@@ -9116,7 +9116,7 @@
                 "effect": {
                   "kind": "bonus",
                   "add": 0.15,
-                  "entry": "physical"
+                  "tags": ["physical"]
                 }
               }
             ]

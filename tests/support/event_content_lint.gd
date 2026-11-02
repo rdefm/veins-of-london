@@ -180,6 +180,11 @@ static func _lint_option(id: String, i: int, j: int, option: Dictionary, cards: 
 	if option.get("pick") is Dictionary:
 		out.append_array(_lint_pick(where, option, cards, i, refs))
 	if option.get("check") is Dictionary:
+		if option["check"].has("entry"):
+			out.append("%s check uses retired 'entry'; use tags" % where)
+		for tag in option["check"].get("tags", []):
+			if not (GameData.EVENT_CHECKS["tags"] as Array).has(tag):
+				out.append("%s check tag '%s' is not in eventChecks.tags" % [where, tag])
 		for mod in option["check"].get("mods", []):
 			out.append_array(_lint_condition(where + " mod", mod, refs))
 	return out

@@ -532,7 +532,7 @@
           },
           "check": {
             "base": 0.5,
-            "entry": "physical",
+            "tags": ["physical"],
             "mods": [
               {
                 "observed": {
@@ -772,7 +772,7 @@
           },
           "check": {
             "base": 0.45,
-            "entry": "physical",
+            "tags": ["physical"],
             "mods": [
               {
                 "observed": {
@@ -814,7 +814,7 @@
                 "effect": {
                   "kind": "bonus",
                   "add": 0.15,
-                  "entry": "physical"
+                  "tags": ["physical"]
                 }
               }
             ]
@@ -1978,7 +1978,7 @@
           },
           "check": {
             "base": 0.5,
-            "entry": "physical",
+            "tags": ["physical"],
             "mods": [
               {
                 "observed": {
@@ -1996,7 +1996,7 @@
                 "effect": {
                   "kind": "bonus",
                   "add": 0.15,
-                  "entry": "physical"
+                  "tags": ["physical"]
                 }
               },
               {
@@ -3090,7 +3090,7 @@
           },
           "check": {
             "base": 0.4,
-            "entry": "physical",
+            "tags": ["physical"],
             "mods": [
               {
                 "observed": {
@@ -3108,7 +3108,7 @@
                 "effect": {
                   "kind": "bonus",
                   "add": 0.15,
-                  "entry": "physical"
+                  "tags": ["physical"]
                 }
               },
               {
@@ -3748,7 +3748,7 @@
           },
           "check": {
             "base": 0.5,
-            "entry": "physical",
+            "tags": ["physical"],
             "mods": [
               {
                 "observed": {
@@ -3766,7 +3766,7 @@
                 "effect": {
                   "kind": "bonus",
                   "add": 0.15,
-                  "entry": "physical"
+                  "tags": ["physical"]
                 }
               },
               {
@@ -4629,7 +4629,7 @@
           },
           "check": {
             "base": 0.6,
-            "entry": "physical",
+            "tags": ["physical"],
             "mods": [
               {
                 "item": "enhancementPowder",
@@ -4638,7 +4638,7 @@
                 "effect": {
                   "kind": "bonus",
                   "add": 0.15,
-                  "entry": "physical"
+                  "tags": ["physical"]
                 }
               }
             ]
@@ -4970,7 +4970,7 @@
                 "effect": {
                   "kind": "bonus",
                   "add": 0.15,
-                  "entry": "physical"
+                  "tags": ["physical"]
                 }
               },
               {
@@ -4981,7 +4981,7 @@
                 ]
               }
             ],
-            "entry": "physical"
+            "tags": ["physical"]
           },
           "success": {
             "result_text": "PLACEHOLDER: Duck out of sight: success",
@@ -5244,7 +5244,7 @@
                 "effect": {
                   "kind": "bonus",
                   "add": 0.15,
-                  "entry": "physical"
+                  "tags": ["physical"]
                 }
               },
               {
@@ -5255,7 +5255,7 @@
                 ]
               }
             ],
-            "entry": "physical"
+            "tags": ["physical"]
           },
           "success": {
             "result_text": "PLACEHOLDER: Duck out of sight: success",
@@ -5506,7 +5506,7 @@
                 "effect": {
                   "kind": "bonus",
                   "add": 0.15,
-                  "entry": "physical"
+                  "tags": ["physical"]
                 }
               },
               {
@@ -5517,7 +5517,7 @@
                 ]
               }
             ],
-            "entry": "physical"
+            "tags": ["physical"]
           },
           "success": {
             "result_text": "PLACEHOLDER: Duck out of sight: success",
@@ -7011,7 +7011,7 @@
                 "effect": {
                   "kind": "bonus",
                   "add": 0.15,
-                  "entry": "physical"
+                  "tags": ["physical"]
                 }
               },
               {
@@ -7022,7 +7022,7 @@
                 ]
               }
             ],
-            "entry": "physical"
+            "tags": ["physical"]
           },
           "success": {
             "result_text": "PLACEHOLDER: Duck out of sight: success",
@@ -7901,7 +7901,7 @@
           "label": "Run",
           "check": {
             "base": 0.6,
-            "entry": "physical",
+            "tags": ["physical"],
             "mods": [
               {
                 "item": "enhancementPowder",
@@ -7910,7 +7910,7 @@
                 "effect": {
                   "kind": "bonus",
                   "add": 0.15,
-                  "entry": "physical"
+                  "tags": ["physical"]
                 }
               }
             ]

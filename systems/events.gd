@@ -1305,7 +1305,7 @@ static func _bypass_gain(base: float, item: String) -> float:
 
 # The one resolver for a toggled item's `effect` on commit: pays from `source`,
 # then applies by kind. Items never fail; the payment is spent whatever the roll
-# does. `bonus` with an `entry` tag also persists in event.lasting for the rest
+# does. `bonus` with `tags` also persists in event.lasting for the rest
 # of the event (pure data, gone when the event ends). Any kind may carry
 # `nextCheck: {add, label?}`: a lasting entry for the next check rolled in this
 # event only, labelled with the item's name unless given one. `wardPass` that
@@ -1319,10 +1319,10 @@ static func apply_item_effect(item: String, effect: Dictionary, source: String) 
 		"revealWard":
 			Observation.mark_ward_revealed()
 		"bonus":
-			if effect.has("entry"):
+			if effect.has("tags"):
 				_lasting(GameState.state["event"]).append({
 					"item": item,
-					"entry": effect["entry"],
+					"tags": effect["tags"],
 					"add": float(effect.get("add", 0.0)) * item_tier_scale(item, tier),
 					"label": effect.get("label", ""),
 				})
@@ -1349,15 +1349,22 @@ static func _clear_next_check_bonuses(event_state: Dictionary) -> void:
 
 
 # Persisted bonuses that apply to `check`: every next-check-only entry, plus
-# each `entry` bonus whose tag matches, skipping an item that is toggled on
+# each tagged bonus sharing a tag with `check`, skipping an item that is toggled on
 # this very check (already counted by its own mod).
+static func _shares_tag(a: Array, b: Array) -> bool:
+	for tag in a:
+		if b.has(tag):
+			return true
+	return false
+
+
 static func _lasting_bonuses(check: Dictionary, toggled: Array) -> Array:
 	var out: Array = []
 	var event_state: Variant = GameState.state.get("event")
 	if not (event_state is Dictionary):
 		return out
 	for entry in event_state.get("lasting", []):
-		if entry.get("next", false) or (check.has("entry") and entry["entry"] == check["entry"] and not toggled.has(entry["item"])):
+		if entry.get("next", false) or (_shares_tag(entry.get("tags", []), check.get("tags", [])) and not toggled.has(entry["item"])):
 			out.append({ "label": entry["label"], "delta": entry["add"] })
 	return out
 

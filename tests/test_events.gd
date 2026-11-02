@@ -95,9 +95,9 @@ func _load_dial_complication(recipe: String, tier: int, charge: int) -> void:
 func _install_powder_event(p: float) -> Dictionary:
 	var original_events := _install_check_event(p)
 	var check: Dictionary = GameData.EVENTS["test_check_event"]["cards"][1]["choices"][0]["check"]
-	check["entry"] = "physical"
+	check["tags"] = ["physical"]
 	check["mods"] = [
-		{ "item": "enhancementPowder", "optional": true, "label": "Powder", "effect": { "kind": "bonus", "add": 0.15, "entry": "physical", "label": "Powder" } },
+		{ "item": "enhancementPowder", "optional": true, "label": "Powder", "effect": { "kind": "bonus", "add": 0.15, "tags": ["physical"], "label": "Powder" } },
 	]
 	return original_events
 
@@ -1111,7 +1111,7 @@ func run() -> void:
 		Events.advance()
 		Events.toggle_item(0, "enhancementPowder")
 		Events.choose(0)
-		var later := { "base": 0.3, "entry": "physical", "mods": [] }
+		var later := { "base": 0.3, "tags": ["physical"], "mods": [] }
 		assert_almost_eq(Events.odds_for(later)["probability"], 0.45, 0.0001, "bonus carries to a later physical entry")
 		assert_almost_eq(Events.odds_for({ "base": 0.3, "mods": [] })["probability"], 0.3, 0.0001, "untagged check unaffected")
 		Events.start_event("test_check_event")
@@ -1145,7 +1145,7 @@ func run() -> void:
 		assert_almost_eq(Events.item_toggles(0)[0]["delta"], t3_add, 0.0001, "toggle shows the T3 value")
 		Events.choose(0)
 		assert_eq(GameState.state["player"]["inventory"]["enhancementPowder"], { "1": 1 }, "the T3 unit was spent")
-		var later := { "base": 0.3, "entry": "physical", "mods": [], "max": 1.0 }
+		var later := { "base": 0.3, "tags": ["physical"], "mods": [], "max": 1.0 }
 		assert_almost_eq(Events.odds_for(later)["probability"], 0.3 + t3_add, 0.0001, "lasting entry carries the T3 value")
 		GameData.EVENTS = original_events
 	)
@@ -1216,7 +1216,7 @@ func run() -> void:
 		var t3_add: float = 0.15 * float(GameData.EVENT_CHECKS["itemTierScale"][2])
 		assert_almost_eq(Events.check_odds(0)["mods"][0]["delta"], t3_add, 0.0001)
 		Events.choose(0)
-		var later := { "base": 0.3, "entry": "physical", "mods": [], "max": 1.0 }
+		var later := { "base": 0.3, "tags": ["physical"], "mods": [], "max": 1.0 }
 		assert_almost_eq(Events.odds_for(later)["probability"], 0.3 + t3_add, 0.0001, "lasting entry carries the stored tier")
 		GameData.EVENTS = original_events
 	)
