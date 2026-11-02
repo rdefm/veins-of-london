@@ -1,6 +1,6 @@
 # 20 — Check tags + `entry` → `tags` migration
 
-**What to build:** Checks (and no-roll options) carry `tags` from a fixed vocabulary in constants: `physical`, `social`, `discovery`, `barrier`. Every `entry: "physical"` check is migrated to `tags: ["physical"]`. Enhancement Powder's lasting bonus now applies to later checks that share its tag, so raids behave exactly as before. See spec "Check tags".
+**What to build:** Checks (and no-roll options) carry `tags` from a fixed vocabulary in constants: `physical`, `social`, `discovery`, `barrier`, `stealth` (`stealth` is used by Invisibility in 22b). Every `entry: "physical"` check is migrated to `tags: ["physical"]`. Enhancement Powder's lasting bonus now applies to later checks that share its tag, so raids behave exactly as before. See spec "Check tags".
 
 **Blocked by:** 01
 

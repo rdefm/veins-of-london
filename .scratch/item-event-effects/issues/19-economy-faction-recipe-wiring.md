@@ -6,7 +6,9 @@
 - **Recipes purchasable**: every recipe resolves to a seller under the existing rule (James for time/life, Wren as default), has a master source, and can be bought rung by rung.
 - **Crafting all 5 tiers**: every item has a Lab procedure (ideal, base, hint1/hint2/master hints) so it can be crafted from rank 1 up to rank 5 through the rung ceilings.
 
-**Blocked by:** 01, 02, 03, 04, 05, 06, 07, 08, 09, 10, 11, 13, 14, 16, 18
+Includes Stutter (`stutter`) and Invisibility (`invisibility`) from 19b/19c. Their natural crafter is the Firm; leave the Firm/Guild `raidKits` entries from 19d as they are.
+
+**Blocked by:** 01, 02, 03, 04, 05, 06, 07, 08, 09, 10, 11, 13, 14, 16, 18, 19b, 19c
 
 **Relevant files:** `data/market.json`, `data/barometer.json`, `data/factions.json`, `data/recipe_knowledge.json`, `data/lab.json`, `data/recipes.json`, `systems/market.gd`, `systems/barometer.gd`, `systems/faction_sim.gd`, `systems/recipe_knowledge.gd`, `systems/lab.gd`, `systems/crafting.gd`; REFERENCE §1.8 `data/factions.json`, §1.9 `data/barometer.json`, §3.2 Barometer.
 
