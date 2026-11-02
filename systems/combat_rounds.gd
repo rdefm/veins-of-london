@@ -44,7 +44,11 @@ const TARGET_TYPES: Array[String] = [TARGET_SELF, TARGET_ENEMY]
 # living teammate.
 const TARGET_ALL_ENEMIES := "allEnemies"
 const TARGET_FRIEND := "friend"
-const ITEM_TARGET_TYPES: Array[String] = [TARGET_SELF, TARGET_ENEMY, TARGET_ALL_ENEMIES, TARGET_FRIEND]
+# A KO'd teammate other than the player (Smelling Salts).
+const TARGET_KOED_FRIEND := "koedFriend"
+const ITEM_TARGET_TYPES: Array[String] = [TARGET_SELF, TARGET_ENEMY, TARGET_ALL_ENEMIES, TARGET_FRIEND, TARGET_KOED_FRIEND]
+# Targets the player picks from target_options().
+const AIMED_TARGETS: Array[String] = [TARGET_ENEMY, TARGET_FRIEND, TARGET_KOED_FRIEND]
 
 const EFFECT_NONE := "none"
 const EFFECT_DAMAGE := "damage"
@@ -72,12 +76,14 @@ const ITEM_NEAR_MISS := "nearMiss"
 const ITEM_SODS_LAW := "sodsLaw"
 const ITEM_RICOCHET := "ricochet"
 const ITEM_HEAVY_METAL := "heavyMetal"
-const ITEM_EFFECTS: Array[String] = [ITEM_FREEZE, ITEM_BLACK_HOLE, ITEM_BLAST, ITEM_SHIELD, ITEM_HEAL, ITEM_POWDER, ITEM_SIGHT, ITEM_LADY, ITEM_PANIC, ITEM_RAPTURE, ITEM_ANGER, ITEM_FURY, ITEM_WORMHOLE, ITEM_NEAR_MISS, ITEM_SODS_LAW, ITEM_RICOCHET, ITEM_HEAVY_METAL]
+const ITEM_REVIVE := "revive"
+const ITEM_EFFECTS: Array[String] = [ITEM_FREEZE, ITEM_BLACK_HOLE, ITEM_BLAST, ITEM_SHIELD, ITEM_HEAL, ITEM_POWDER, ITEM_SIGHT, ITEM_LADY, ITEM_PANIC, ITEM_RAPTURE, ITEM_ANGER, ITEM_FURY, ITEM_WORMHOLE, ITEM_NEAR_MISS, ITEM_SODS_LAW, ITEM_RICOCHET, ITEM_HEAVY_METAL, ITEM_REVIVE]
 # The Pan family (R§3.7b Table 4): an enemy holds one of their statuses at a
 # time and refuses another while it runs.
 const PAN_EFFECTS: Array[String] = [ITEM_PANIC, ITEM_RAPTURE, ITEM_ANGER, ITEM_FURY]
 const REASON_PAN_STATUSED := "Already out of it."
 const REASON_NO_CHARGE := "Not enough charge."
+const REASON_NOBODY_DOWN := "Nobody's down."
 # The turns Panic and Pan's Rapture play in place of an enemy's own actions
 # (the data's statusTurns).
 const STATUS_PANIC := "panic"
@@ -97,6 +103,7 @@ const KIT_BLAST := "blast"
 const KIT_POWDER := "enhancementPowder"
 const KIT_NEAR_MISS := "nearMiss"
 const KIT_RICOCHET := "ricochet"
+const KIT_REVIVE := "smellingSalts"
 # The guard kit's crowd items, in rule order.
 const KIT_CROWD: Array[String] = ["blackHole", "timePearl"]
 # The ally's own reactive save (R§3.7b Rewind): never planned, so no round
@@ -860,6 +867,10 @@ static func _kit_ally_action(cp: Dictionary, ally: int, plan: Array, planned: Di
 	if pool.get("items", {}).is_empty():
 		return {}
 	var combatants: Array = cp["combatants"]
+	if _kit_has(pool, KIT_REVIVE):
+		var fallen := _ally_revive_patient(cp, ally, planned["patients"])
+		if fallen >= 0:
+			return _kit_action(cp, ally, KIT_REVIVE, fallen)
 	if _kit_has(pool, KIT_HEAL):
 		var patient := _ally_heal_patient(cp, ally, KIT_HEAL, planned["patients"])
 		if patient >= 0:
@@ -965,7 +976,9 @@ static func _plan_allies(cp: Dictionary, rng: RandomNumberGenerator) -> void:
 				var effect: String = move(action["move"]).get("effect", "")
 				# A multi unit (target -1) covers its whole side.
 				var aimed: Array = [action["target"]] if int(action["target"]) >= 0 else []
-				if effect == ITEM_HEAL:
+				if effect == ITEM_REVIVE:
+					planned["patients"].append_array(aimed)
+				elif effect == ITEM_HEAL:
 					planned["patients"].append_array(aimed if not aimed.is_empty() else _team(cp, i))
 				elif effect == ITEM_SHIELD:
 					planned["shielded"].append_array(aimed if not aimed.is_empty() else _team(cp, i))
@@ -1010,6 +1023,10 @@ static func _ally_item_action(cp: Dictionary, ally: int, plan: Array, planned: D
 	if units.is_empty():
 		return {}
 	var opponents := _living_opponents(cp, ally)
+	for unit in _units_with(units, [ITEM_REVIVE]):
+		var fallen := _ally_revive_patient(cp, ally, planned["patients"])
+		if fallen >= 0:
+			return _unit_action(unit, fallen)
 	for unit in _units_with(units, [ITEM_HEAL]):
 		var patient := _ally_heal_patient(cp, ally, unit["move"], planned["patients"])
 		if patient >= 0:
@@ -1142,6 +1159,14 @@ static func _ally_heal_patient(cp: Dictionary, ally: int, item_id: String, patie
 			best = i
 			best_fraction = fraction
 	return best
+
+
+# The first KO'd teammate of `ally` not already in `patients`; -1 for none.
+static func _ally_revive_patient(cp: Dictionary, ally: int, patients: Array) -> int:
+	for i in _koed_teammates(cp, ally):
+		if not patients.has(i):
+			return i
+	return -1
 
 
 static func _ally_action(cp: Dictionary, ally: int, index: int, count: int, feints: Array, rng: RandomNumberGenerator) -> Dictionary:
@@ -1597,7 +1622,20 @@ static func target_options(cp: Dictionary, actor: int, move_id: String) -> Array
 			return _living_opponents(cp, actor)
 		TARGET_FRIEND:
 			return _team(cp, actor)
+		TARGET_KOED_FRIEND:
+			return _koed_teammates(cp, actor)
 	return []
+
+
+# Each KO'd teammate of `actor` but the player, who can't be woken mid-fight.
+static func _koed_teammates(cp: Dictionary, actor: int) -> Array:
+	var combatants: Array = cp["combatants"]
+	var enemy_side: bool = combatants[actor]["side"] == SIDE_ENEMY
+	var result: Array = []
+	for i in range(combatants.size()):
+		if i != actor and i != PLAYER_INDEX and (combatants[i]["side"] == SIDE_ENEMY) == enemy_side and combatants[i]["koed"]:
+			result.append(i)
+	return result
 
 
 # `actor` then each living teammate.
@@ -1624,8 +1662,8 @@ static func _action_block_reason(cp: Dictionary, action) -> String:
 		elif cp["combatants"][PLAYER_INDEX]["loadout"][action["slot"]]["used"]:
 			return "That one's spent."
 	var multi := bool(_player_unit(cp, action).get("multi", false))
-	if m["target"] in [TARGET_ENEMY, TARGET_FRIEND] and not multi and not target_options(cp, PLAYER_INDEX, action["move"]).has(action["target"]):
-		return "Pick a target."
+	if m["target"] in AIMED_TARGETS and not multi and not target_options(cp, PLAYER_INDEX, action["move"]).has(action["target"]):
+		return REASON_NOBODY_DOWN if m["target"] == TARGET_KOED_FRIEND and target_options(cp, PLAYER_INDEX, action["move"]).is_empty() else "Pick a target."
 	if m["effect"] in PAN_EFFECTS and _pan_targets(cp, PLAYER_INDEX, int(action["target"]), multi).is_empty():
 		return REASON_PAN_STATUSED
 	return ""
@@ -2639,6 +2677,11 @@ static func _use_item(cp: Dictionary, actor_idx: int, action: Dictionary, m: Dic
 			var weakest := _lowest_hp(_living_opponents(cp, actor_idx), combatants)
 			if weakest >= 0 and rng.randf() < float(m["params"]["boltChance"]):
 				_bolt_out(cp, weakest, STATUS_PANIC, beats)
+		ITEM_REVIVE:
+			var risen: Dictionary = combatants[int(action["target"])]
+			risen["koed"] = false
+			risen["hp"] = mini(power, int(risen["hpMax"]))
+			_beat(cp, beats, "revive", actor_idx, int(action["target"]), move_id, { "amount": risen["hp"], "hpAfter": risen["hp"] })
 		ITEM_WORMHOLE:
 			# Player only: the fight ends fled, no roll, no parting shot.
 			_beat(cp, beats, "wormhole", actor_idx, -1, move_id, {})
@@ -2667,6 +2710,8 @@ static func _item_fizzles(cp: Dictionary, actor_idx: int, action: Dictionary, m:
 	var aimed := int(action["target"])
 	if m["effect"] in [ITEM_HEAL, ITEM_SHIELD]:
 		return not multi and aimed >= 0 and cp["combatants"][aimed]["koed"]
+	if m["effect"] == ITEM_REVIVE:
+		return aimed < 0 or not cp["combatants"][aimed]["koed"] or aimed == PLAYER_INDEX
 	if m["effect"] in PAN_EFFECTS:
 		return _pan_targets(cp, actor_idx, aimed, multi).is_empty()
 	return false

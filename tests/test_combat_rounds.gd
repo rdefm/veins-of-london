@@ -1257,6 +1257,37 @@ func run() -> void:
 			assert_true(not ActiveEffects.is_active("navvysDraught"), "spent by the fight")
 	)
 
+	run_case("smelling_salts_revives_a_koed_ally_at_tier_hp", func():
+		for tier in [1, 5]:
+			GameState.reset()
+			_recruit("james")
+			var power := int(GameData.RECIPES["smellingSalts"]["effectPower"][tier])
+			GameState.state["player"]["loadout"]["slots"][0] = { "recipe": "smellingSalts", "tier": tier }
+			_start_with_allies([_slow_james()], [["guard", "guard"]])
+			var combat: Dictionary = GameState.state["combat"]
+			var ally_idx: int = CombatRounds.side_indices(combat, CombatRounds.SIDE_ALLY).filter(func(i): return i != CombatRounds.PLAYER_INDEX)[0]
+			var ally: Dictionary = combat["combatants"][ally_idx]
+			assert_eq(CombatRounds.item_block_reason(combat, 0), CombatRounds.REASON_NOBODY_DOWN, "nobody down yet")
+			ally["hp"] = 0
+			ally["koed"] = true
+			assert_eq(CombatRounds.target_options(combat, CombatRounds.PLAYER_INDEX, "smellingSalts"), [ally_idx], "only the KO'd ally")
+			var beats: Array = Combat.choose_item(0, ally_idx)["beats"]
+			assert_true(not ally["koed"], "tier %d: up" % tier)
+			assert_eq(ally["hp"], mini(power, int(ally["hpMax"])), "tier %d: revived at the tier's hp" % tier)
+			assert_eq(_first(beats, "revive")["amount"], ally["hp"])
+			assert_true(combat["combatants"][CombatRounds.PLAYER_INDEX]["loadout"][0]["used"], "spent")
+	)
+
+	run_case("smelling_salts_never_targets_the_player_or_a_living_ally", func():
+		GameState.reset()
+		_recruit("james")
+		GameState.state["player"]["loadout"]["slots"][0] = { "recipe": "smellingSalts", "tier": 3 }
+		_start_with_allies([_slow_james()], [["guard", "guard"]])
+		var combat: Dictionary = GameState.state["combat"]
+		combat["combatants"][CombatRounds.PLAYER_INDEX]["koed"] = true
+		assert_eq(CombatRounds.target_options(combat, CombatRounds.PLAYER_INDEX, "smellingSalts"), [], "not the player, not a living ally")
+	)
+
 	run_case("carry_in_sight_and_lady_apply_from_round_1", func():
 		GameState.reset()
 		var expires := ActiveEffects.absolute_block() + 1

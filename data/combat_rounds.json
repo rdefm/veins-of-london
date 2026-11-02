@@ -143,7 +143,8 @@
     "nearMiss": { "target": "self", "effect": "nearMiss", "params": {} },
     "sodsLaw": { "target": "enemy", "effect": "sodsLaw", "params": {} },
     "ricochet": { "target": "self", "effect": "ricochet", "params": {} },
-    "heavyMetal": { "target": "allEnemies", "effect": "heavyMetal", "params": { "boltChance": 0.5 } }
+    "heavyMetal": { "target": "allEnemies", "effect": "heavyMetal", "params": { "boltChance": 0.5 } },
+    "smellingSalts": { "target": "koedFriend", "effect": "revive", "params": {} }
   },
   "_coachComment": "Coach marks, shown only when a fight's data carries a `coach` block. hints: one line per move or loadout recipe id; notNow: the block reason for an action the round doesn't allow.",
   "coach": {
@@ -175,6 +176,7 @@
     "sodsLaw": "One enemy's next few Strikes roll their weakest.",
     "ricochet": "The next Strike that lands on you hits its owner back.",
     "heavyMetal": "Hurts every enemy. Whoever's weakest afterwards might bolt.",
+    "smellingSalts": "Wakes a knocked-out friend on some of their hp. Out of a fight, ends a knock-out cooldown.",
     "healingBurst": "Patches up one friend.",
     "enhancementPowder": "Sniff it. Your actions hit harder for a round or two.",
     "prophetsBreath": "See what they're about to do, a round or more ahead.",
@@ -291,6 +293,7 @@
     "sodsLaw": { "self": "You hand {target} a Sod's Law. Everything goes the way it goes.", "other": "{actor} hands {target} a Sod's Law. Everything goes the way it goes." },
     "ricochet": { "self": "You crack a Ricochet. The air waits to give something back.", "other": "{actor} cracks a Ricochet. The air waits to give something back." },
     "heavyMetal": { "self": "You put Heavy Metal on. Everyone in earshot regrets it.", "other": "{actor} puts Heavy Metal on. Everyone in earshot regrets it." },
+    "revive": { "self": "You wave Smelling Salts under {target}. Back up on {amount}.", "other": "{actor} waves Smelling Salts under {target}. Back up on {amount}." },
     "metalHit": { "self": "The noise takes {dmg} off {target}.", "other": "The noise takes {dmg} off {target}." },
     "dodge": { "self": "You swing at {target}. It was never going to land.", "other": "{actor} swings at {target}. It was never going to land." },
     "reflect": { "self": "It comes straight back. {dmg} to {target}.", "other": "It comes straight back. {dmg} to {target}." },

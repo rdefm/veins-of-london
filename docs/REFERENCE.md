@@ -91,7 +91,7 @@ Each recipe's `ingredients` field is a dict of `{oreType: baseCalcCost}` — one
 | sodsLaw | Sod's Law | ⚇ | {fate: 6} | 0.30 | [0,1,2,2,3,4] | 30 | false |
 | happyAccident | Happy Accident | ✧ | {fate: 6} | 0.30 | [0,1,1,1,2,2] (placeholder, no mechanics yet) | 30 | false |
 | introduction | Introduction | ⚭ | {fate: 4} | 0.45 | [0,0,0,0,0,0] (placeholder, no mechanics yet) | 20 | false |
-| smellingSalts | Smelling Salts | ⚕ | {life: 5} | 0.40 | [0,5,8,12,16,20] (placeholder, no mechanics yet) | 25 | false |
+| smellingSalts | Smelling Salts | ⚕ | {life: 5} | 0.40 | [0,5,8,12,16,20] | 25 | false |
 | rootFeed | Root Feed | ❦ | {life: 7} | 0.30 | [0,1,1,2,2,3] (placeholder, no mechanics yet) | 30 | false |
 | bloom | Bloom | ✿ | {life: 3} | 0.55 | [0,0,0,0,0,0] (placeholder, no mechanics yet) | 15 | false |
 | borrowedTime | Borrowed Time | ◷ | {time: 8} | 0.15 | [0,1,1,1,1,1] (placeholder, no mechanics yet) | 45 | false |
@@ -924,6 +924,8 @@ Items and Dial casts cost 1 action and leave guard state unchanged (except Shiel
 **Fate/physics/life item statuses.** Combat items (loadout and guard-kit allowlists, `combat_rounds.json items`; power = `effectPower` at the slot tier): **Near Miss** (`nearMiss`, self) — the next `power` Strikes at the user miss outright (`dodges`; beat `dodge`); **Sod's Law** (`sodsLaw`, one enemy) — that combatant's next `power` Strikes roll their range's minimum (`lowRolls`; crit/guard/anger still apply); **Ricochet** (`ricochet`, self) — the next Strike to land on the user (hit or chip, not a block) returns `power` damage to the striker, once (`reflect`; beat `reflect`, guard-ignoring). Blast and other item damage are neither dodged nor reflected. Guard-kit allies cast Near Miss/Ricochet when a read Strike is aimed at them; recruit slots do the same, and cast Sod's Law on a free enemy in their first action. **Navvy's Draught** (`navvysDraught`) is a Bag active effect (`activeEffects.items`): a running one adds `effectPower[level]` max and current HP to the player's next round fight (`ActiveEffects.navvy_bonus()`, `combat.navvyBonus`); when that fight's outcome settles, hp is clamped to the real `hpMax` and the effect ends.
 
 **Heavy Metal** (`heavyMetal`, all enemies, loadout and guard-kit allowlists, always multi) — deals `power` damage to every living enemy (guard-ignoring, beat `metalHit`), then the lowest-hp survivor (first on a tie) rolls Panic's `boltChance` (`items.heavyMetal.params`): a hit bolts it out as a KO (beat `bolt`). No status otherwise.
+
+**Smelling Salts** (`smellingSalts`, a KO'd teammate other than the player; loadout and guard-kit allowlists, repelTier weak) — revives the aimed KO'd ally at `min(power, hpMax)` hp (beat `revive`); no KO'd teammate = blocked ("Nobody's down."). Guard-kit allies and recruit slots cast it first at round start on a teammate KO'd then. A revived contact ally isn't KO'd at fight end, so no KO cooldown starts. Out of combat it's a Bag use per contact on a KO cooldown (`Contacts.use_smelling_salts()`): clears `koCooldownUntilDay`, spends one.
 
 **Carry-in effects.** An out-of-combat `player.activeEffects.prophetsBreath` active at fight start gives sight from round 1 for the whole fight (the block clock doesn't move mid-fight); it still blocks ambushes (§3.1d). An active `beALady` gives max rolls + 1/3 crit + its level's evade cut for the whole fight likewise.
 

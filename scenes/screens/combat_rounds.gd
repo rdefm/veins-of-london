@@ -872,7 +872,7 @@ static func _default_target(cp: Dictionary) -> int:
 # The target a row for `move_id` aims at: the tapped one when it's one of
 # the move's options, else -1 (the system's default).
 func _row_target(cp: Dictionary, move_id: String) -> int:
-	var aims: bool = CombatRounds.move(move_id)["target"] in [CombatRounds.TARGET_ENEMY, CombatRounds.TARGET_FRIEND]
+	var aims: bool = CombatRounds.move(move_id)["target"] in CombatRounds.AIMED_TARGETS
 	if aims and CombatRounds.target_options(cp, CombatRounds.PLAYER_INDEX, move_id).has(_target):
 		return _target
 	return -1
@@ -1060,7 +1060,7 @@ static func _intent_text(cp: Dictionary, intent: Dictionary) -> String:
 
 # `label`, plus " → target" when `move_id` aims at a chosen combatant.
 static func _aimed(cp: Dictionary, label: String, move_id: String, target: int) -> String:
-	var aims: bool = CombatRounds.move(move_id)["target"] in [CombatRounds.TARGET_ENEMY, CombatRounds.TARGET_FRIEND]
+	var aims: bool = CombatRounds.move(move_id)["target"] in CombatRounds.AIMED_TARGETS
 	if not aims or target < 0:
 		return label
 	return "%s → %s" % [label, CombatRounds.display_name(cp["combatants"][target])]

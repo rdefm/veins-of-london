@@ -120,6 +120,10 @@ func _add_out_of_combat_use_buttons(player: Dictionary) -> void:
 		_content.add_child(_symbol_use_button("healingSalve", "Healing Salve (%d) — 2-day heal-over-time" % Crafting.inventory_qty("healingSalve"), _on_use_healing_salve))
 	if Crafting.inventory_qty("healingBurst") > 0:
 		_content.add_child(_symbol_use_button("healingBurst", "Healing Burst (%d) — instant heal" % Crafting.inventory_qty("healingBurst"), _on_use_healing_burst))
+	if Crafting.inventory_qty("smellingSalts") > 0:
+		for contact_id in Contacts.ko_cooldown_contacts():
+			var contact_name: String = Contacts.display_name(contact_id)
+			_content.add_child(_symbol_use_button("smellingSalts", "Smelling Salts (%d) — wake %s" % [Crafting.inventory_qty("smellingSalts"), contact_name], func(): _on_use_smelling_salts(contact_id)))
 	for item in ActiveEffects.usable_items():
 		var qty: int = Crafting.inventory_qty(item)
 		if qty > 0:
@@ -144,6 +148,11 @@ func _build_dial_summary_label(player: Dictionary) -> Control:
 		return UI.label("Dial: Lv%d — no Movement seated (inert)" % dial["level"])
 	var m: Dictionary = GameData.DIAL_MOVEMENTS[movement["archetype"]]
 	return UI.symbol_row(["Dial: Lv%d — " % dial["level"], { "symbol": m["symbol"], "fallback": SymbolGlyph.generic_fallback() }, " %s, charge %d/%d" % [m["name"], int(dial["currentCharge"]), dial["maxCharge"]]])
+
+
+func _on_use_smelling_salts(contact_id: String) -> void:
+	Bag.close()
+	Contacts.use_smelling_salts(contact_id)
 
 
 func _on_use_active_effect(item: String) -> void:

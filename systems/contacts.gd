@@ -283,6 +283,32 @@ static func knock_out(contact_id: String, current_day: int) -> void:
 	EventBus.state_changed.emit()
 
 
+# Recruited contacts still on a KO cooldown (what Smelling Salts can clear).
+static func ko_cooldown_contacts() -> Array:
+	var result: Array = []
+	var day: int = GameState.state["world"]["day"]
+	var contacts: Dictionary = GameState.state["contacts"]
+	for contact_id in contacts.keys():
+		var until = contacts[contact_id]["koCooldownUntilDay"]
+		if contacts[contact_id]["recruited"] and until != null and day < until:
+			result.append(contact_id)
+	return result
+
+
+# Bag use of a Smelling Salts: clears `contact_id`'s KO cooldown and spends one.
+static func use_smelling_salts(contact_id: String) -> Dictionary:
+	if not ko_cooldown_contacts().has(contact_id):
+		return { "ok": false, "reason": "They're not knocked out." }
+	if Crafting.inventory_qty("smellingSalts") <= 0:
+		return { "ok": false, "reason": "None left." }
+	Crafting.inventory_remove("smellingSalts", 1)
+	GameState.state["contacts"][contact_id]["koCooldownUntilDay"] = null
+	# PROSE-REVIEW: Smelling Salts bag-use notification.
+	Notify.push("%s sits up. Asks what day it is." % display_name(contact_id), Notify.CATEGORY_SUCCESS)
+	EventBus.state_changed.emit()
+	return { "ok": true }
+
+
 # Called from Combat.exit_combat() once a fight involving allies ends --
 # the HP pool is within-fight stakes only, not lasting attrition. Does NOT
 # clear koCooldownUntilDay -- a knocked-out ally stays unavailable for the

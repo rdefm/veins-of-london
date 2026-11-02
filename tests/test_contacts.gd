@@ -218,6 +218,22 @@ func run() -> void:
 		assert_true(not ally["koed"], "joins alive")
 	)
 
+	run_case("smelling_salts_clears_a_ko_cooldown_and_is_spent", func():
+		GameState.reset()
+		GameState.state["contacts"]["archie"]["recruited"] = true
+		GameState.state["world"]["day"] = 10
+		assert_eq(Contacts.ko_cooldown_contacts(), [], "nobody down")
+		Crafting.inventory_add("smellingSalts", 1, 1)
+		assert_true(not Contacts.use_smelling_salts("archie")["ok"], "not on cooldown")
+		Contacts.knock_out("archie", 10)
+		assert_eq(Contacts.ko_cooldown_contacts(), ["archie"])
+		assert_true(not Contacts.can_join_combat("archie"))
+		assert_true(Contacts.use_smelling_salts("archie")["ok"])
+		assert_eq(GameState.state["contacts"]["archie"]["koCooldownUntilDay"], null)
+		assert_true(Contacts.can_join_combat("archie"), "back on call")
+		assert_eq(Crafting.inventory_qty("smellingSalts"), 0, "spent")
+	)
+
 	run_case("knock_out_sets_a_cooldown_relative_to_the_current_day", func():
 		GameState.reset()
 		Contacts.knock_out("archie", 10)
