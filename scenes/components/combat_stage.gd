@@ -106,6 +106,11 @@ static func powder_fx() -> Dictionary:
 	return item_fx().get("powderFx", {})
 
 
+# data/combat_visuals.json itemFx.invisibleFx.
+static func invisible_fx() -> Dictionary:
+	return item_fx().get("invisibleFx", {})
+
+
 # data/combat_visuals.json itemFx.removalFx.
 static func removal_fx() -> Dictionary:
 	return item_fx().get("removalFx", {})
@@ -653,7 +658,34 @@ class StageSlot extends Control:
 		elif _rapture_on:
 			var fx := CombatStage.pan_fx("rapture")
 			tint = Color.WHITE.lerp(CombatStage.rgb(fx.get("tint", [])), float(fx.get("tintMix", 0.0)))
+		tint.a = _invisible_alpha
 		_figure_holder.modulate = tint
+
+	var _invisible_on: bool = false
+	var _invisible_alpha: float = 1.0
+	var _invisible_tween: Tween
+
+	func _set_invisible_alpha(value: float) -> void:
+		_invisible_alpha = value
+		_refresh_pan_tint()
+
+	# While Invisibility holds the figure sits at invisibleFx.alpha; fades in
+	# and out over fadeSeconds when `animate`, else changes at once (always
+	# under reduced motion).
+	func set_invisible_visual(on: bool, animate: bool = false) -> void:
+		if on == _invisible_on:
+			return
+		_invisible_on = on
+		if _invisible_tween != null:
+			_invisible_tween.kill()
+		var fx := CombatStage.invisible_fx()
+		var goal: float = float(fx.get("alpha", 0.35)) if on else 1.0
+		var secs := CombatStage.fx_seconds(float(fx.get("fadeSeconds", 0.0)))
+		if not animate or CombatStage.reduced_motion() or secs <= 0.0 or not is_inside_tree():
+			_set_invisible_alpha(goal)
+			return
+		_invisible_tween = create_tween()
+		_invisible_tween.tween_method(_set_invisible_alpha, _invisible_alpha, goal, secs)
 
 	# While Panic holds: a jitterPx offset flicking at jitterHz and a greyed tint.
 	func set_panic_linger(on: bool) -> void:

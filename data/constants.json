@@ -63,13 +63,13 @@
   "guardRepel": { "chancePerGuard": 0.15, "cap": 0.75 },
   "archieDeals": { "chanceCashCeiling": 5000, "chanceFloor": 0.10, "tierCashStep": 5000, "tierMax": 6, "qtyBaseMin": 20, "qtyBaseMax": 100, "playerCutShare": 0.5 },
   "guardKit": {
-    "items": ["blast", "shield", "blackHole", "timePearl", "healingBurst", "prophetsBreath", "enhancementPowder", "failsafe", "rewind", "nearMiss", "ricochet", "smellingSalts"],
+    "items": ["blast", "shield", "blackHole", "timePearl", "healingBurst", "prophetsBreath", "enhancementPowder", "failsafe", "rewind", "nearMiss", "ricochet", "smellingSalts", "invisibility"],
     "slotsPerGuard": 2,
     "hqSlotsPerGuard": 2,
     "repelBonus": { "weak": 0.03, "medium": 0.05, "strong": 0.08 },
     "repelTier": {
       "healingBurst": "weak", "smellingSalts": "weak", "prophetsBreath": "weak", "enhancementPowder": "weak", "failsafe": "weak",
-      "shield": "medium", "blast": "medium", "nearMiss": "medium", "ricochet": "medium",
+      "shield": "medium", "blast": "medium", "nearMiss": "medium", "ricochet": "medium", "invisibility": "medium",
       "blackHole": "strong", "timePearl": "strong", "rewind": "strong"
     },
     "repelCap": 0.90,
@@ -79,7 +79,7 @@
     "slotCount": 2,
     "allyExcluded": ["wormhole", "coldFeet"],
     "multiTarget": { "minTier": 3, "craftable": ["blast", "shield", "healingBurst", "panic", "panger", "pandemonium", "pansRapture"], "always": ["blackHole", "heavyMetal"] },
-    "items": ["timePearl", "enhancementPowder", "blast", "panic", "panger", "pandemonium", "pansRapture", "shield", "blackHole", "healingBurst", "prophetsBreath", "beALady", "wormhole", "failsafe", "rewind", "nearMiss", "sodsLaw", "ricochet", "heavyMetal", "smellingSalts", "stiffUpperLip", "signalFailure", "coldFeet"]
+    "items": ["timePearl", "enhancementPowder", "blast", "panic", "panger", "pandemonium", "pansRapture", "shield", "blackHole", "healingBurst", "prophetsBreath", "beALady", "wormhole", "failsafe", "rewind", "nearMiss", "sodsLaw", "ricochet", "heavyMetal", "smellingSalts", "stiffUpperLip", "signalFailure", "coldFeet", "invisibility"]
   },
   "guardUpkeep": {
     "weeklyWage": 500,

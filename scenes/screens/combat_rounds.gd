@@ -1979,6 +1979,7 @@ func _apply_marks(cp: Dictionary, marks: Array, animate: bool = false, held_shie
 		slot.set_stunned_visual(not cp["combatants"][i]["koed"] and marks[i].get("icons", []).any(func(icon): return icon["id"] == "stunned"))
 		slot.set_open_left(int(marks[i].get("openLeft", 0)))
 		slot.set_powder_linger(bool(marks[i].get("powdered", false)), animate and not cp["combatants"][i]["koed"])
+		slot.set_invisible_visual(bool(marks[i].get("invisible", false)), animate and not cp["combatants"][i]["koed"])
 		var icon_ids: Array = marks[i].get("icons", []).map(func(icon): return icon["id"])
 		var alive: bool = not cp["combatants"][i]["koed"]
 		slot.set_panic_linger(alive and icon_ids.has("panic"))

@@ -80,7 +80,8 @@ const ITEM_REVIVE := "revive"
 const ITEM_STIFF_LIP := "stiffUpperLip"
 const ITEM_SIGNAL_FAILURE := "signalFailure"
 const ITEM_COLD_FEET := "coldFeet"
-const ITEM_EFFECTS: Array[String] = [ITEM_FREEZE, ITEM_BLACK_HOLE, ITEM_BLAST, ITEM_SHIELD, ITEM_HEAL, ITEM_POWDER, ITEM_SIGHT, ITEM_LADY, ITEM_PANIC, ITEM_RAPTURE, ITEM_ANGER, ITEM_FURY, ITEM_WORMHOLE, ITEM_NEAR_MISS, ITEM_SODS_LAW, ITEM_RICOCHET, ITEM_HEAVY_METAL, ITEM_REVIVE, ITEM_STIFF_LIP, ITEM_SIGNAL_FAILURE, ITEM_COLD_FEET]
+const ITEM_INVISIBILITY := "invisibility"
+const ITEM_EFFECTS: Array[String] = [ITEM_FREEZE, ITEM_BLACK_HOLE, ITEM_BLAST, ITEM_SHIELD, ITEM_HEAL, ITEM_POWDER, ITEM_SIGHT, ITEM_LADY, ITEM_PANIC, ITEM_RAPTURE, ITEM_ANGER, ITEM_FURY, ITEM_WORMHOLE, ITEM_NEAR_MISS, ITEM_SODS_LAW, ITEM_RICOCHET, ITEM_HEAVY_METAL, ITEM_REVIVE, ITEM_STIFF_LIP, ITEM_SIGNAL_FAILURE, ITEM_COLD_FEET, ITEM_INVISIBILITY]
 # The Pan family (R§3.7b Table 4): an enemy holds one of their statuses at a
 # time and refuses another while it runs.
 const PAN_EFFECTS: Array[String] = [ITEM_PANIC, ITEM_RAPTURE, ITEM_ANGER, ITEM_FURY]
@@ -107,6 +108,7 @@ const KIT_POWDER := "enhancementPowder"
 const KIT_NEAR_MISS := "nearMiss"
 const KIT_RICOCHET := "ricochet"
 const KIT_REVIVE := "smellingSalts"
+const KIT_INVISIBILITY := "invisibility"
 # The guard kit's crowd items, in rule order.
 const KIT_CROWD: Array[String] = ["blackHole", "timePearl"]
 # The ally's own reactive save (R§3.7b Rewind): never planned, so no round
@@ -313,6 +315,31 @@ static func is_emotion_immune(cp: Dictionary, combatant: Dictionary) -> bool:
 	return int(cp["round"]) <= int(combatant["immuneEmotion"])
 
 
+# Whether Invisibility still covers `combatant` this round: Strikes, Stuns
+# and single-target items aimed at it miss; all-enemies effects still land.
+static func is_invisible(cp: Dictionary, combatant: Dictionary) -> bool:
+	return not combatant["koed"] and int(cp["round"]) <= int(combatant.get("invisibleUntil", 0))
+
+
+# `target`, or the first visible opponent of `actor` when `target` is
+# invisible and one exists (an AI actor's aim moves off an unseen mark).
+static func _unseen_retarget(cp: Dictionary, actor: int, target: int) -> int:
+	var combatants: Array = cp["combatants"]
+	if target < 0 or not is_invisible(cp, combatants[target]):
+		return target
+	var visible := _living_opponents(cp, actor).filter(func(e): return not is_invisible(cp, combatants[e]))
+	return target if visible.is_empty() else visible[0]
+
+
+# A single-target hit on an invisible `target` swings through nothing: the
+# evade beat, true when it missed.
+static func _misses_unseen(cp: Dictionary, actor_idx: int, target_idx: int, move_id: String, beats: Array) -> bool:
+	if not is_invisible(cp, cp["combatants"][target_idx]):
+		return false
+	_beat(cp, beats, "evade", actor_idx, target_idx, move_id, {})
+	return true
+
+
 # Clears any Pan status on `combatant` (Stiff Upper Lip's cleanse).
 static func _cleanse_pan(combatant: Dictionary) -> void:
 	combatant["panicActions"] = 0
@@ -414,6 +441,8 @@ static func status_icons(cp: Dictionary, index: int) -> Array:
 		icons.append({ "id": "sight", "count": _rounds_left(cp, int(c["sightUntil"])) })
 	if has_lady(cp, c):
 		icons.append({ "id": "lady", "count": _rounds_left(cp, int(c["ladyUntil"])) })
+	if is_invisible(cp, c):
+		icons.append({ "id": "invisible", "count": _rounds_left(cp, int(c["invisibleUntil"])) })
 	if float(c["fleeBoost"]) > 0.0:
 		icons.append({ "id": "legIt", "count": 0 })
 	return icons
@@ -620,6 +649,8 @@ static func new_combatant(side: String, name: String, level: int, hp: int, hp_ma
 		# Stiff Upper Lip: last round it covers (0 for none) and the percent
 		# of incoming damage it cuts.
 		"immuneEmotion": 0, "damageCut": 0,
+		# Invisibility: last round it covers (0 for none).
+		"invisibleUntil": 0,
 		# A Blast's one-use Leg it chance for the next Leg it (0.0 for none).
 		"fleeBoost": 0.0,
 		# Pan statuses (R§3.7b Table 4), counted down on the combatant's own
@@ -760,6 +791,9 @@ static func _pick_target(cp: Dictionary, actor: int, move_id: String, rng: Rando
 	var opponents := _living_opponents(cp, actor)
 	if opponents.is_empty():
 		return -1
+	var seen := opponents.filter(func(e): return not is_invisible(cp, cp["combatants"][e]))
+	if not seen.is_empty():
+		opponents = seen
 	if opponents.size() == 1:
 		return opponents[0]
 	return opponents[rng.randi_range(0, opponents.size() - 1)]
@@ -915,6 +949,8 @@ static func _kit_ally_action(cp: Dictionary, ally: int, plan: Array, planned: Di
 		return _kit_action(cp, ally, KIT_NEAR_MISS, ally)
 	if _kit_has(pool, KIT_RICOCHET) and kit_struck.has(ally) and int(combatants[ally]["reflect"]) == 0:
 		return _kit_action(cp, ally, KIT_RICOCHET, ally)
+	if _kit_has(pool, KIT_INVISIBILITY) and kit_struck.has(ally) and not is_invisible(cp, combatants[ally]):
+		return _kit_action(cp, ally, KIT_INVISIBILITY, ally)
 	var opponents := _living_opponents(cp, ally)
 	var paused: bool = opponents.any(func(e): return combatants[e]["actionsLost"] > 0)
 	if not planned["crowd"] and not paused and opponents.size() >= int(_data()["allyCrowdEnemies"]):
@@ -1065,6 +1101,9 @@ static func _ally_item_action(cp: Dictionary, ally: int, plan: Array, planned: D
 			return _unit_action(unit, ally)
 	if struck.has(ally) and int(combatant["reflect"]) == 0:
 		for unit in _units_with(units, [ITEM_RICOCHET]):
+			return _unit_action(unit, ally)
+	if struck.has(ally) and not is_invisible(cp, combatant):
+		for unit in _units_with(units, [ITEM_INVISIBILITY]):
 			return _unit_action(unit, ally)
 	var paused: bool = opponents.any(func(e): return combatants[e]["actionsLost"] > 0)
 	if not planned["crowd"] and not paused and opponents.size() >= int(_data()["allyCrowdEnemies"]):
@@ -2160,7 +2199,7 @@ static func _resolve_action(cp: Dictionary, actor_idx: int, action: Dictionary, 
 			if target < 0:
 				target = _retarget(cp, actor_idx, int(action["target"]))
 			if target >= 0:
-				_strike(cp, actor_idx, target, move_id, rng, beats)
+				_strike(cp, actor_idx, _aim(cp, actor_idx, target), move_id, rng, beats)
 		EFFECT_OPEN:
 			var target := _retarget(cp, actor_idx, int(action["target"]))
 			if target >= 0:
@@ -2170,7 +2209,7 @@ static func _resolve_action(cp: Dictionary, actor_idx: int, action: Dictionary, 
 			if target < 0:
 				target = _retarget(cp, actor_idx, int(action["target"]))
 			if target >= 0:
-				_stun(cp, actor_idx, target, move_id, m, rng, beats)
+				_stun(cp, actor_idx, _aim(cp, actor_idx, target), move_id, m, rng, beats)
 		EFFECT_FLEE:
 			var chance := flee_chance(actor)
 			var boosted: bool = float(actor["fleeBoost"]) > 0.0
@@ -2322,6 +2361,7 @@ static func stage_marks(cp: Dictionary) -> Array:
 			"frozenLeft": 0 if c["koed"] else int(c["frozenActions"]),
 			"icons": status_icons(cp, i),
 			"powdered": not c["koed"] and is_powered(cp, c),
+			"invisible": is_invisible(cp, c),
 			"openLeft": 0 if c["koed"] else int(c.get("openActions", 0)),
 			"angerPhase": anger_phase(c),
 			"furious": anger_phase(c) != "" and bool(c["fury"]),
@@ -2384,6 +2424,8 @@ static func _feint(cp: Dictionary, actor_idx: int, target_idx: int, move_id: Str
 # (R§3.7b Removal, Move levels).
 static func _stun(cp: Dictionary, actor_idx: int, target_idx: int, move_id: String, m: Dictionary, rng: RandomNumberGenerator, beats: Array) -> void:
 	var target: Dictionary = cp["combatants"][target_idx]
+	if _misses_unseen(cp, actor_idx, target_idx, move_id, beats):
+		return
 	var fx := level_effects(move_id)
 	var level := move_level(cp["combatants"][actor_idx], move_id)
 	var through := false
@@ -2399,6 +2441,12 @@ static func _stun(cp: Dictionary, actor_idx: int, target_idx: int, move_id: Stri
 	if level >= int(fx["openLevel"]):
 		target["openActions"] = maxi(int(target.get("openActions", 0)), int(fx["openActions"]))
 	_beat(cp, beats, "stunThrough" if through else "stun", actor_idx, target_idx, move_id, {})
+
+
+# Where `actor`'s hit on `target` lands: the player's pick stands, an AI
+# actor's moves off an invisible mark to a visible one.
+static func _aim(cp: Dictionary, actor: int, target: int) -> int:
+	return target if actor == PLAYER_INDEX else _unseen_retarget(cp, actor, target)
 
 
 # An action aimed at a KO'd opponent moves to the next living one in index
@@ -2426,6 +2474,8 @@ static func _strike(cp: Dictionary, actor_idx: int, target_idx: int, move_id: St
 	var actor: Dictionary = combatants[actor_idx]
 	var target: Dictionary = combatants[target_idx]
 	var forced := _take_forced_hit(cp, actor_idx, target_idx)
+	if forced.is_empty() and _misses_unseen(cp, actor_idx, target_idx, move_id, beats):
+		return
 	if forced.is_empty() and int(target["dodges"]) > 0:
 		target["dodges"] -= 1
 		_beat(cp, beats, "dodge", actor_idx, target_idx, move_id, {})
@@ -2616,8 +2666,10 @@ static func _use_item(cp: Dictionary, actor_idx: int, action: Dictionary, m: Dic
 					return
 		ITEM_BLAST:
 			actor["fleeBoost"] = float(m["params"]["fleeChance"])
-			var targets: Array = _living_opponents(cp, actor_idx) if multi else [_retarget(cp, actor_idx, int(action["target"]))]
+			var targets: Array = _living_opponents(cp, actor_idx) if multi else [_aim(cp, actor_idx, _retarget(cp, actor_idx, int(action["target"])))]
 			for target in targets:
+				if target >= 0 and not multi and _misses_unseen(cp, actor_idx, target, move_id, beats):
+					continue
 				if target >= 0 and not combatants[target]["koed"]:
 					_deal_damage(cp, actor_idx, target, power, "blast", move_id, beats, _multi_fields(multi, targets))
 					if cp["outcome"] != null:
@@ -2682,10 +2734,10 @@ static func _use_item(cp: Dictionary, actor_idx: int, action: Dictionary, m: Dic
 			actor["dodges"] = maxi(int(actor["dodges"]), power)
 			_beat(cp, beats, "nearMiss", actor_idx, -1, move_id, {})
 		ITEM_SODS_LAW:
-			var cursed := _retarget(cp, actor_idx, int(action["target"]))
+			var cursed := _aim(cp, actor_idx, _retarget(cp, actor_idx, int(action["target"])))
 			if cursed < 0:
 				_beat(cp, beats, "fizzle", actor_idx, int(action["target"]), move_id, {})
-			else:
+			elif not _misses_unseen(cp, actor_idx, cursed, move_id, beats):
 				combatants[cursed]["lowRolls"] = maxi(int(combatants[cursed]["lowRolls"]), power)
 				_beat(cp, beats, "sodsLaw", actor_idx, cursed, move_id, {})
 		ITEM_RICOCHET:
@@ -2709,8 +2761,13 @@ static func _use_item(cp: Dictionary, actor_idx: int, action: Dictionary, m: Dic
 				covered["damageCut"] = maxi(int(covered["damageCut"]) if is_emotion_immune(cp, covered) else 0, cut)
 				_cleanse_pan(covered)
 			_beat(cp, beats, "stiffUpperLip", actor_idx, -1, move_id, {})
+		ITEM_INVISIBILITY:
+			var sprayed_idx: int = int(action["target"]) if int(action["target"]) >= 0 else actor_idx
+			var sprayed: Dictionary = combatants[sprayed_idx]
+			sprayed["invisibleUntil"] = maxi(int(sprayed.get("invisibleUntil", 0)), int(cp["round"]) + power - 1)
+			_beat(cp, beats, "invisibility", actor_idx, sprayed_idx, move_id, {})
 		ITEM_SIGNAL_FAILURE:
-			# Every waiting enemy is held `power` rounds past its arrival (or
+# Every waiting enemy is held `power` rounds past its arrival (or
 			# past this round when it had none); casts stack. Nothing queued:
 			# spent, a fizzle beat. An empty field still lets the queue in.
 			var queue: Array = cp.get(QUEUE_KEYS[SIDE_ENEMY], [])
@@ -2756,7 +2813,7 @@ static func _multi_fields(multi: bool, affected: Array) -> Dictionary:
 # aimed at a KO'd friendly, or a Pan item with no one to take its status.
 static func _item_fizzles(cp: Dictionary, actor_idx: int, action: Dictionary, m: Dictionary, multi: bool) -> bool:
 	var aimed := int(action["target"])
-	if m["effect"] in [ITEM_HEAL, ITEM_SHIELD]:
+	if m["effect"] in [ITEM_HEAL, ITEM_SHIELD, ITEM_INVISIBILITY]:
 		return not multi and aimed >= 0 and cp["combatants"][aimed]["koed"]
 	if m["effect"] == ITEM_SIGNAL_FAILURE:
 		return cp.get(QUEUE_KEYS[SIDE_ENEMY], []).is_empty()
@@ -2775,8 +2832,8 @@ static func _pan_targets(cp: Dictionary, actor_idx: int, aimed: int, multi: bool
 	var free := _living_opponents(cp, actor_idx).filter(func(e): return not has_pan_status(combatants[e]) and not is_emotion_immune(cp, combatants[e]))
 	if multi:
 		return free
-	var target := _retarget(cp, actor_idx, aimed)
-	return [target] if free.has(target) else []
+	var target := _aim(cp, actor_idx, _retarget(cp, actor_idx, aimed))
+	return [target] if free.has(target) and not is_invisible(cp, combatants[target]) else []
 
 
 # Sets the Pan item `effect`'s status from `unit` (a loadout slot or Dial

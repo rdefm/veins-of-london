@@ -399,6 +399,18 @@
       "effectText": "Every relation you gain with a contact is boosted.",
       "description": "Nobody remembers the first one. You've made sure of it."
     },
+    "invisibility": {
+      "name": "Invisibility",
+      "symbol": "◌",
+      "icon": "res://assets/combat/icons/placeholder.png",
+      "ingredients": {"physics": 6},
+      "baseSuccess": 0.30,
+      "effectPower": [0, 1, 1, 2, 2, 3],
+      "xpReward": 30,
+      "eventUsable": true,
+      "bagWhenHeld": true,
+      "description": "Does what it says on the tin. The tin is also, somehow, missing."
+    },
     "stiffUpperLip": {
       "name": "Stiff Upper Lip",
       "symbol": "☗",
@@ -522,6 +534,7 @@
     "goodYear": 240,
     "secondImpression": 180,
     "stiffUpperLip": 180,
+    "invisibility": 250,
     "heavyMetal": 240,
     "coldFeet": 180,
     "nostalgia": 280,

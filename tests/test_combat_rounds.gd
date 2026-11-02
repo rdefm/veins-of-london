@@ -1237,6 +1237,73 @@ func run() -> void:
 		assert_true(not combat["combatants"][CombatRounds.PLAYER_INDEX]["loadout"][1]["used"], "the other stays")
 	)
 
+	run_case("invisibility_makes_strikes_miss_for_n_rounds_then_lands_again", func():
+		for tier in [1, 5]:
+			GameState.reset()
+			var power := int(GameData.RECIPES["invisibility"]["effectPower"][tier])
+			var combat := _start_vs([_slow_mugger()], [[["strike", "strike"]]], [{ "recipe": "invisibility", "tier": tier }])
+			var you: Dictionary = combat["combatants"][CombatRounds.PLAYER_INDEX]
+			var hp_before: int = you["hp"]
+			var beats: Array = Combat.choose_item(0, CombatRounds.PLAYER_INDEX)["beats"]
+			beats.append_array(Combat.choose_move("guard")["beats"])
+			assert_eq(beats.filter(func(b): return b["kind"] == "evade").size(), 2, "tier %d: both strikes miss" % tier)
+			assert_eq(you["hp"], hp_before, "tier %d: untouched" % tier)
+			assert_eq(int(you["invisibleUntil"]), power, "tier %d: covers %d rounds from round 1" % [tier, power])
+			combat["round"] = int(you["invisibleUntil"])
+			assert_true(CombatRounds.is_invisible(combat, you), "tier %d: hidden through the last round" % tier)
+			combat["round"] += 1
+			assert_true(not CombatRounds.is_invisible(combat, you), "tier %d: lands again after %d rounds" % [tier, power])
+	)
+
+	run_case("invisible_holder_still_takes_area_item_damage_but_dodges_single_target_blast", func():
+		GameState.reset()
+		var combat := _start_vs([_slow_mugger(60)], [[["guard", "guard"]]], [{ "recipe": "blast", "tier": 3 }, { "recipe": "heavyMetal", "tier": 3 }])
+		combat["combatants"][1]["invisibleUntil"] = 99
+		var blast: Array = Combat.choose_item(0, 1)["beats"]
+		assert_true(blast.any(func(b): return b["kind"] == "evade"), "single-target Blast misses")
+		assert_eq(combat["combatants"][1]["hp"], 60)
+		var metal: Array = Combat.choose_item(1)["beats"]
+		assert_true(metal.any(func(b): return b["kind"] == "metalHit"), "Heavy Metal lands")
+		assert_true(combat["combatants"][1]["hp"] < 60)
+	)
+
+	run_case("enemy_retargets_to_a_visible_friend_and_swings_at_air_when_alone", func():
+		GameState.reset()
+		_start_with_allies([Contacts.build_combat_ally("archie")], [])
+		var combat: Dictionary = GameState.state["combat"]
+		combat["combatants"][CombatRounds.PLAYER_INDEX]["invisibleUntil"] = 99
+		var hp_before: int = combat["combatants"][CombatRounds.PLAYER_INDEX]["hp"]
+		var beats: Array = Combat.choose_move("guard")["beats"]
+		assert_eq(hp_before, combat["combatants"][CombatRounds.PLAYER_INDEX]["hp"], "player untouched")
+		assert_true(not beats.any(func(b): return int(b["actor"]) == 1 and int(b["target"]) == CombatRounds.PLAYER_INDEX and (b["kind"] == "hit" or b["kind"] == "chip")), "nothing hits the hidden player")
+		GameState.reset()
+		var solo := _start_vs([_slow_mugger()], [[["strike", "strike"]]], [])
+		solo["combatants"][CombatRounds.PLAYER_INDEX]["invisibleUntil"] = 99
+		var solo_beats: Array = Combat.choose_move("guard")["beats"]
+		assert_true(solo_beats.any(func(b): return b["kind"] == "evade" and int(b["actor"]) == 1), "swing-and-miss beat")
+		assert_true(not solo_beats.any(func(b): return b["kind"] == "hit" or b["kind"] == "chip"), "nothing lands")
+	)
+
+	run_case("invisibility_can_be_sprayed_on_an_ally_and_ally_ai_uses_it", func():
+		GameState.reset()
+		_start_with_allies([Contacts.build_combat_ally("archie")], [["guard", "guard"]])
+		var combat: Dictionary = GameState.state["combat"]
+		var ally_idx: int = CombatRounds.side_indices(combat, CombatRounds.SIDE_ALLY).filter(func(i): return i != CombatRounds.PLAYER_INDEX)[0]
+		assert_true(CombatRounds.target_options(combat, CombatRounds.PLAYER_INDEX, "invisibility").has(ally_idx), "ally is a legal target")
+		GameState.reset()
+		var armed := _start_ally_armed([{ "recipe": "invisibility", "tier": 3 }], [_slow_mugger()], [[["strike", "strike"]]])
+		Combat.choose_move("guard")
+		var archie_idx: int = CombatRounds.side_indices(armed, CombatRounds.SIDE_ALLY).filter(func(i): return i != CombatRounds.PLAYER_INDEX)[0]
+		assert_true(int(armed["combatants"][archie_idx]["invisibleUntil"]) > 0, "ally cast it on itself")
+	)
+
+	run_case("invisibility_is_in_loadout_guard_kit_and_dial_lists", func():
+		assert_true(GameData.LOADOUT["items"].has("invisibility"), "loadout")
+		assert_true(GameData.GUARD_KIT["items"].has("invisibility"), "guard kit")
+		assert_true(Combat.COMBAT_COMPLICATION_RECIPES.has("invisibility"), "dial complication")
+		assert_eq(int(GameData.CONSUMABLE_PRICES["invisibility"]), 250, "documented price exception")
+	)
+
 	run_case("navvys_draught_adds_hp_for_one_fight_only", func():
 		for tier in [1, 5]:
 			GameState.reset()

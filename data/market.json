@@ -61,6 +61,7 @@
       "goodYear": { "normalStock": 50, "civilianDemand": 15 },
       "secondImpression": { "normalStock": 50, "civilianDemand": 15 },
       "stiffUpperLip": { "normalStock": 50, "civilianDemand": 15 },
+      "invisibility": { "normalStock": 50, "civilianDemand": 15 },
       "heavyMetal": { "normalStock": 50, "civilianDemand": 15 },
       "coldFeet": { "normalStock": 50, "civilianDemand": 15 },
       "nostalgia": { "normalStock": 50, "civilianDemand": 15 },

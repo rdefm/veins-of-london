@@ -144,6 +144,7 @@
       "powdered": { "image": "", "chip": "buff", "colour": [0.5, 0.9, 0.45], "glyph": [".........", "....#....", "...#.#...", "..#...#..", ".........", "....#....", "...#.#...", "..#...#..", "........."] },
       "sight": { "image": "", "chip": "buff", "colour": [0.45, 0.9, 1.0], "glyph": [".........", "..#####..", ".#..#..#.", "#..###..#", ".#..#..#.", "..#####..", ".........", ".........", "........."] },
       "lady": { "image": "", "chip": "buff", "colour": [0.95, 0.8, 0.35], "glyph": ["..##.##..", ".#######.", ".#######.", "..##.##..", "....#....", "...##....", "..##.....", ".........", "........."] },
+      "invisible": { "image": "", "chip": "buff", "colour": [0.7, 0.85, 1.0], "glyph": ["..#####..", ".#.....#.", "#.......#", "#.......#", "#.......#", "#.......#", "#.#.#.#.#", ".........", "........."] },
       "legIt": { "image": "", "chip": "buff", "colour": [1.0, 0.65, 0.25], "glyph": ["#..#.....", ".#..#....", "..#..#...", "...#..#..", "..#..#...", ".#..#....", "#..#.....", ".........", "........."] }
     }
   },
@@ -229,6 +230,11 @@
     "multiStaggerSeconds": 0.06,
     "multiSplitFraction": 0.4,
     "enemyPalette": { "steelColour": [0.55, 0.6, 0.66], "shift": 0.2 },
+    "invisibleFx": {
+      "_note": "Invisibility (StageSlot.set_invisible_visual): the holder's figure drops to alpha while it runs and fades back over fadeSeconds (halved under quick pacing; instant under reduced motion).",
+      "alpha": 0.35,
+      "fadeSeconds": 0.3
+    },
     "powderFx": {
       "_note": "Enhancement Powder (StageSlot.play_powder_launch / set_powder_linger). puff*: green-gold specks at headFraction of the slot height (count at launch, exitCount at exit; sizePx square, rise px over seconds, spread px apart, colours cycle). idleSpeed: idle fps multiplier while it holds; exitSeconds: the ease back. trail*: ghosts left behind each lunge/throw (count, alpha, gapSeconds apart, fadeSeconds). Seconds halve under quick pacing; reduced motion drops puffs and trails and sets the idle speed outright.",
       "idleSpeed": 1.6,
