@@ -224,7 +224,8 @@
       "xpReward": 30,
       "eventUsable": false,
       "bagWhenHeld": true,
-      "description": "You trip on exactly the right paving stone."
+      "description": "You trip on exactly the right paving stone.",
+      "effectText": "Your next read is sharper and your crafting steadier."
     },
     "introduction": {
       "name": "Introduction",

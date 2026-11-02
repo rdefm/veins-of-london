@@ -408,6 +408,17 @@ func _register_run_cases() -> void:
 		assert_almost_eq(Lab.band_half_width("healingBurst"), skilled * (1.0 + home + perk + attunement), 0.0001, "second-ingredient attunement counts")
 	)
 
+	run_case("happy_accident_adds_tier_scaled_bench_bonus_only_while_active", func():
+		_bench("healingBurst", {})
+		assert_almost_eq(Lab.bench_bonus("healingBurst"), 0.0, 0.0001, "no bonus without the effect")
+		Crafting.inventory_add(ActiveEffects.HAPPY_ACCIDENT, 3, 1)
+		assert_true(Lab.use_effect(ActiveEffects.HAPPY_ACCIDENT)["ok"], "started from the bench")
+		var per: float = GameData.ACTIVE_EFFECTS["happyAccident"]["benchPerLevel"]
+		assert_almost_eq(Lab.bench_bonus("healingBurst"), 3.0 * per, 0.0001, "tier 3 bonus")
+		GameState.state["player"]["activeEffects"][0]["expiresAtBlock"] = 0
+		assert_almost_eq(Lab.bench_bonus("healingBurst"), 0.0, 0.0001, "expired effect gives none")
+	)
+
 	run_case("be_a_lady_adds_score_per_item_level", func():
 		_bench("timePearl", { "time": 10 })
 		Crafting.inventory_add(ActiveEffects.LADY, 2, 1)

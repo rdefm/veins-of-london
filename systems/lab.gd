@@ -272,7 +272,7 @@ static func band_half_width(recipe_key: String) -> float:
 
 # The player's existing craft bonuses, each converted by its
 # benchBonusFactors entry: the Home workshop/library bonus, the Guild perk's
-# craft bonus, and the seated Movement's attunement when its ore is one of
+# craft bonus, a running Happy Accident, and the seated Movement's attunement when its ore is one of
 # the recipe's ingredients.
 static func bench_bonus(recipe_key: String) -> float:
 	var factors: Dictionary = _data().get("benchBonusFactors", {})
@@ -281,7 +281,7 @@ static func bench_bonus(recipe_key: String) -> float:
 		attunement = maxf(attunement, Dial.attunement_bonus(ore_type))
 	return Home.get_workshop_bonus() * float(factors.get("home", 0.0)) \
 		+ Perks.craft_chance_bonus() * float(factors.get("perk", 0.0)) \
-		+ attunement * float(factors.get("attunement", 0.0))
+		+ attunement * float(factors.get("attunement", 0.0)) 		+ ActiveEffects.happy_bench_bonus()
 
 
 # What the gauge shows for a known step, clamped to the 0-100 gauge: the
@@ -880,7 +880,7 @@ static func lady_score_bonus() -> int:
 # The active effects the bench's Use item control can start from the
 # player's inventory (Prophet's Breath reveals bands, Be A Lady adds score).
 static func usable_effects() -> Array:
-	return [ActiveEffects.PROPHETS_BREATH, ActiveEffects.LADY]
+	return [ActiveEffects.PROPHETS_BREATH, ActiveEffects.LADY, ActiveEffects.HAPPY_ACCIDENT]
 
 
 # An item used mid-run comes back if the run is Rewound.

@@ -10,6 +10,7 @@ extends RefCounted
 const LADY := "beALady"
 const PROPHETS_BREATH := "prophetsBreath"
 const NAVVYS_DRAUGHT := "navvysDraught"
+const HAPPY_ACCIDENT := "happyAccident"
 # PROSE-REVIEW: preview tag on a max-rolled cultivate/harvest figure.
 const LADY_TAG := "(Lady)"
 
@@ -74,6 +75,29 @@ static func navvy_bonus() -> int:
 		return 0
 	var powers: Array = GameData.RECIPES[NAVVYS_DRAUGHT]["effectPower"]
 	return int(powers[clampi(int(effect["level"]), 1, powers.size() - 1)])
+
+
+# Happy Accident's mod on the next prospecting read: level × observationPerLevel
+# until one read spends it (the effect keeps running for crafts), else 0.
+static func happy_observation_bonus() -> float:
+	var effect = find(HAPPY_ACCIDENT)
+	if effect == null or effect.get("observationSpent", false):
+		return 0.0
+	return float(effect["level"]) * float(GameData.ACTIVE_EFFECTS[HAPPY_ACCIDENT]["observationPerLevel"])
+
+
+static func spend_happy_observation() -> void:
+	var effect = find(HAPPY_ACCIDENT)
+	if effect != null:
+		effect["observationSpent"] = true
+
+
+# Happy Accident's craft bonus while it runs: level × benchPerLevel, else 0.
+static func happy_bench_bonus() -> float:
+	var effect = find(HAPPY_ACCIDENT)
+	if effect == null:
+		return 0.0
+	return float(effect["level"]) * float(GameData.ACTIVE_EFFECTS[HAPPY_ACCIDENT]["benchPerLevel"])
 
 
 # Ends a running effect early (a fight spends Navvy's Draught).

@@ -469,6 +469,7 @@ static func _mods(def: Dictionary, ore: String) -> Array:
 	_add_mod(out, GameData.EVENT_CHECKS["ladyLabel"], float(GameData.EVENT_CHECKS["ladyBonusPerLevel"]) * ActiveEffects.lady_level())
 	if ore == "time" and ActiveEffects.prophets_breath_active():
 		_add_mod(out, GameData.OBSERVATION["breathLabel"], float(GameData.OBSERVATION["breathBonus"]))
+	_add_mod(out, GameData.ACTIVE_EFFECTS[ActiveEffects.HAPPY_ACCIDENT]["label"], ActiveEffects.happy_observation_bonus())
 	out.append_array(raid_mods())
 	return out
 
@@ -556,6 +557,7 @@ static func _roll_all(id: String) -> void:
 				results[ore]["last"] = shown
 				results[ore]["improved"] = true
 		xp += int(GameData.OBSERVATION["xpPerBlock"]) + int(GameData.OBSERVATION["xpPerTier"]) * level
+	ActiveEffects.spend_happy_observation()
 	event_state["observations"][id] = { "rollCount": roll_count + 1, "results": results }
 	if previous.get("wardRevealed", false):
 		event_state["observations"][id]["wardRevealed"] = true

@@ -250,6 +250,21 @@ func run() -> void:
 		_cleanup()
 	)
 
+	run_case("happy_accident_boosts_exactly_one_read_scaled_by_tier", func():
+		GameState.reset()
+		GameState.state["player"]["activeEffects"] = [{ "item": ActiveEffects.HAPPY_ACCIDENT, "level": 2, "expiresAtBlock": 999 }]
+		_install({
+			"a": { "blocks": { "time": { "tiers": [_tier("a", {}, 0.5)], "miss": "m" } } },
+			"b": { "blocks": { "time": { "tiers": [_tier("a", {}, 0.5)], "miss": "m" } } },
+		}, [_card({ "observe": "a" }), _card({ "observe": "b" })])
+		var per: float = GameData.ACTIVE_EFFECTS["happyAccident"]["observationPerLevel"]
+		assert_almost_eq(Observation.mods_total(Observation.read()[0]["mods"]), 2.0 * per, 0.0001, "first read gets tier-scaled bonus")
+		assert_true(ActiveEffects.is_active(ActiveEffects.HAPPY_ACCIDENT), "effect keeps running for crafts")
+		Events.advance()
+		assert_almost_eq(Observation.mods_total(Observation.read()[0]["mods"]), 0.0, 0.0001, "second read gets none")
+		_cleanup()
+	)
+
 	run_case("memory_written_on_completion_keeps_best_and_gates_event_condition", func():
 		GameState.reset()
 		_install({ "o": { "blocks": { "time": { "tiers": [_tier("hi", NEVER), _tier("lo", ALWAYS)], "miss": "m" } } } },
