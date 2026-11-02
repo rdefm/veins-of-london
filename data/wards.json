@@ -7,14 +7,14 @@
       "freezeRounds": 2,
       "onTrigger": [{ "op": "alert", "atLeast": 1 }],
       "fightStart": { "playerFrozen": 2 },
-      "counters": ["powerVsFreeze"]
+      "counters": ["powerVsFreeze", "skeletonKey"]
     },
     "generic": {
       "name": "Ward",
       "effect": "Crossing it tells someone inside that you're here.",
       "onTrigger": [{ "op": "alert", "atLeast": 1 }],
       "fightStart": {},
-      "counters": []
+      "counters": ["skeletonKey"]
     }
   }
 }

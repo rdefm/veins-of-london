@@ -117,6 +117,39 @@ func run() -> void:
 		assert_true(not GameState.state["combat"]["situational"].has("playerFrozen"))
 	)
 
+	run_case("skeleton_key_cancels_n_triggers_then_the_ward_bites", func():
+		GameState.reset()
+		var original := _install_event(0.0)
+		GameState.state["player"]["inventory"]["skeletonKey"] = { "3": 1 }
+		_start_event("time")
+		Events.advance()
+		Events.choose(0)
+		assert_eq(Events.alert_level(), 0, "first trigger cancelled")
+		assert_eq(Crafting.inventory_qty("skeletonKey"), 0, "key spent on use")
+		assert_eq(GameState.state["event"]["keyCancels"], 1, "tier 3 power 1 -> one cancel left after the first")
+		Events.trigger_ward()
+		assert_eq(Events.alert_level(), 0, "second cancel")
+		Events.trigger_ward()
+		assert_eq(Events.alert_level(), 1, "cancels spent: ward behaves normally")
+		GameData.EVENTS = original
+	)
+
+	run_case("skeleton_key_tier_scales_cancels_and_none_held_changes_nothing", func():
+		GameState.reset()
+		var original := _install_event(0.0)
+		_start_event("time")
+		Events.advance()
+		Events.trigger_ward()
+		assert_eq(Events.alert_level(), 1, "no key: ward triggers")
+		GameState.reset()
+		GameState.state["player"]["inventory"]["skeletonKey"] = { "5": 1 }
+		_start_event("time")
+		Events.advance()
+		Events.trigger_ward()
+		assert_eq(GameState.state["event"]["keyCancels"], 2, "tier 5 power 3 -> two left")
+		GameData.EVENTS = original
+	)
+
 	run_case("powder_t3_passes_a_time_ward_with_no_alert", func():
 		GameState.reset()
 		var original := _install_event(0.0)

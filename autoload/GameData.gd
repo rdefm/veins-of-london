@@ -764,7 +764,7 @@ func validate_tables(t: Dictionary) -> Array[String]:
 	return errors
 
 
-const WARD_COUNTERS: Array[String] = ["powerVsFreeze"]
+const WARD_COUNTERS: Array[String] = ["powerVsFreeze", "skeletonKey"]
 
 
 # Every ward type has a name, effect line, valid onTrigger ops and known

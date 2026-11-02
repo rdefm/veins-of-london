@@ -29,6 +29,7 @@ const FIGHT_OVERRIDE_KEYS: Array[String] = ["guards", "template", "waves"]
 
 # The fixed text box fits this many option buttons; the content lint enforces it.
 const MAX_OPTIONS := 4
+const SKELETON_KEY := "skeletonKey"
 
 
 # context: a raid's target site_id is only known at Raid-button-press time, so
@@ -1124,10 +1125,30 @@ static func trigger_ward() -> void:
 	var ward := live_ward()
 	if ward.is_empty() or ward_triggered_here() or _marked_here("wardPassed"):
 		return
+	if _skeleton_key_cancels(ward):
+		return
 	var event_state: Dictionary = GameState.state["event"]
 	event_state["wardTrigger"] = int(event_state["cardIndex"])
 	for effect in ward["onTrigger"]:
 		_apply_one(effect)
+
+
+# Skeleton Key against a ward with the skeletonKey counter: a trigger is
+# cancelled while the event holds cancels (`state.event.keyCancels`). With none
+# left, a held key (highest tier) is spent and grants effectPower[tier] cancels
+# for the rest of the event; a spent-out key lets the ward bite normally.
+static func _skeleton_key_cancels(ward: Dictionary) -> bool:
+	if not ward.get("counters", []).has("skeletonKey"):
+		return false
+	var event_state: Dictionary = GameState.state["event"]
+	if int(event_state.get("keyCancels", 0)) <= 0:
+		var tier := Crafting.highest_tier(SKELETON_KEY)
+		if tier == 0:
+			return false
+		Crafting.inventory_remove_from_tier(SKELETON_KEY, tier, 1)
+		event_state["keyCancels"] = int(Crafting.effect_power(SKELETON_KEY, tier))
+	event_state["keyCancels"] = int(event_state["keyCancels"]) - 1
+	return true
 
 
 # The triggered ward's fightStart as one situational entry gated on
