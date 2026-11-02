@@ -102,6 +102,13 @@ func _install_powder_event(p: float) -> Dictionary:
 	return original_events
 
 
+# The check event with `tags` on its check (clamp [0, 1]) and no authored mods.
+func _install_tagged_event(p: float, tags: Array) -> Dictionary:
+	var original_events := _install_check_event(p)
+	GameData.EVENTS["test_check_event"]["cards"][1]["choices"][0]["check"]["tags"] = tags
+	return original_events
+
+
 # A no-roll item option: card 1's option 0 needs a toggled Blast (unlock, plus
 # a −0.15 next-check-only mod); card 2 and card 3 are plain checks.
 func _install_no_roll_item_event() -> Dictionary:
@@ -1314,6 +1321,110 @@ func run() -> void:
 		assert_eq(Events.option_gate(0)["display"], "show", "owned unlock item is on by default")
 		assert_true(Events.item_toggles(0)[0]["on"], "shown pre-toggled")
 		assert_eq(Crafting.inventory_qty("blast"), 1, "owning and viewing spend nothing")
+		GameData.EVENTS = original_events
+	)
+
+	run_case("a_tagged_check_auto_offers_matching_items_greyed_when_none_held", func():
+		GameState.reset()
+		var original_events := _install_tagged_event(0.4, ["physical"])
+		Events.start_event("test_check_event")
+		Events.advance()
+		var toggles: Array = Events.item_toggles(0)
+		assert_eq(toggles.map(func(t: Dictionary) -> String: return t["item"]), ["enhancementPowder"])
+		assert_true(not toggles[0]["held"] and not toggles[0]["on"], "greyed, off")
+		assert_true(not Events.toggle_item(0, "enhancementPowder")["ok"], "refused with none held")
+		Crafting.inventory_add("enhancementPowder", 1, 1)
+		assert_true(not Events.item_toggles(0)[0]["on"], "starts off")
+		assert_true(Events.toggle_item(0, "enhancementPowder")["ok"])
+		assert_almost_eq(Events.check_odds(0)["probability"], 0.55, 0.0001)
+		GameData.EVENTS = original_events
+	)
+
+	run_case("an_untagged_check_offers_no_items", func():
+		GameState.reset()
+		var original_events := _install_tagged_event(0.4, [])
+		Events.start_event("test_check_event")
+		Events.advance()
+		assert_eq(Events.item_toggles(0), [])
+		GameData.EVENTS = original_events
+	)
+
+	run_case("exclude_items_and_authored_mods_suppress_the_auto_offer", func():
+		GameState.reset()
+		var original_events := _install_tagged_event(0.4, ["physical"])
+		var choice: Dictionary = GameData.EVENTS["test_check_event"]["cards"][1]["choices"][0]
+		choice["excludeItems"] = ["enhancementPowder"]
+		Events.start_event("test_check_event")
+		Events.advance()
+		assert_eq(Events.item_toggles(0), [], "excluded")
+		choice.erase("excludeItems")
+		choice["check"]["mods"] = [{ "item": "enhancementPowder", "optional": true, "add": 0.1, "label": "Mine" }]
+		assert_eq(Events.item_toggles(0).size(), 1, "authored entry only, no duplicate")
+		assert_almost_eq(Events.item_toggles(0)[0]["delta"], 0.1, 0.0001, "authored value wins")
+		GameData.EVENTS = original_events
+	)
+
+	run_case("an_auto_offered_toggle_spends_on_fail_and_rewind_refunds", func():
+		GameState.reset()
+		Crafting.inventory_add("enhancementPowder", 1, 1)
+		Crafting.inventory_add("rewind", 1, 1)
+		var original_events := _install_tagged_event(0.0, ["physical"])
+		Events.start_event("test_check_event")
+		Events.advance()
+		Events.toggle_item(0, "enhancementPowder")
+		Events.choose(0)
+		assert_eq(GameState.state["event"]["choiceResults"]["1"]["outcome"], "fail")
+		assert_eq(Crafting.inventory_qty("enhancementPowder"), 0, "spent though failed")
+		assert_true(Events.rewind("consumable")["ok"])
+		assert_eq(Crafting.inventory_qty("enhancementPowder"), 1, "Rewind refunds")
+		GameData.EVENTS = original_events
+	)
+
+	run_case("an_auto_offered_toggle_pays_from_the_dial_like_inventory", func():
+		GameState.reset()
+		_load_dial_complication("enhancementPowder", 1, 2)
+		var original_events := _install_tagged_event(0.0, ["physical"])
+		Events.start_event("test_check_event")
+		Events.advance()
+		assert_eq(Events.item_toggles(0)[0]["source"], "dial")
+		Events.toggle_item(0, "enhancementPowder")
+		Events.choose(0)
+		assert_eq(GameState.state["player"]["dial"]["currentCharge"], 1, "one charge spent")
+		GameData.EVENTS = original_events
+	)
+
+	run_case("second_impression_offered_on_social_prophets_breath_clamped_sods_law_authored_only", func():
+		GameState.reset()
+		Crafting.inventory_add("secondImpression", 1, 1)
+		Crafting.inventory_add("prophetsBreath", 1, 1)
+		Crafting.inventory_add("sodsLaw", 1, 1)
+		var original_events := _install_tagged_event(0.4, ["social"])
+		Events.start_event("test_check_event")
+		Events.advance()
+		var ids := func() -> Array: return Events.item_toggles(0).map(func(t: Dictionary) -> String: return t["item"])
+		assert_eq(ids.call(), ["secondImpression"], "social: Second Impression only; Sod's Law never auto")
+		Events.toggle_item(0, "secondImpression")
+		assert_almost_eq(Events.check_odds(0)["probability"], 0.55, 0.0001)
+		GameData.EVENTS["test_check_event"]["cards"][1]["choices"][0]["check"]["tags"] = ["discovery"]
+		assert_eq(ids.call(), ["prophetsBreath"])
+		Events.toggle_item(0, "prophetsBreath")
+		assert_almost_eq(Events.check_odds(0)["probability"], 0.9, 0.0001)
+		GameData.EVENTS["test_check_event"]["cards"][1]["choices"][0]["check"]["base"] = 0.6
+		GameData.EVENTS["test_check_event"]["cards"][1]["choices"][0]["check"].erase("max")
+		assert_almost_eq(Events.check_odds(0)["probability"], float(GameData.EVENT_CHECKS["itemBoostedMax"]), 0.0001, "clamped at 0.97")
+		GameData.EVENTS["test_check_event"]["cards"][1]["choices"][0]["check"]["mods"] = [{ "item": "sodsLaw", "optional": true, "consume": true, "label": "x", "effect": GameData.RECIPES["sodsLaw"]["eventProfile"]["effect"] }]
+		assert_true(ids.call().has("sodsLaw"), "offered where authored")
+		GameData.EVENTS = original_events
+	)
+
+	run_case("auto_offer_bonus_scales_with_tier", func():
+		GameState.reset()
+		Crafting.inventory_add("enhancementPowder", 5, 1)
+		var original_events := _install_tagged_event(0.4, ["physical"])
+		Events.start_event("test_check_event")
+		Events.advance()
+		Events.toggle_item(0, "enhancementPowder")
+		assert_almost_eq(Events.check_odds(0)["probability"], 0.4 + 0.15 * 2.2, 0.0001)
 		GameData.EVENTS = original_events
 	)
 

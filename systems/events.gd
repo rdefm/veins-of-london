@@ -469,7 +469,7 @@ static func choose(choice_index: int, pick_ore: String = "") -> void:
 	var shown_needed := 0
 	var toggled := active_toggles(choice_index)
 	if choice.has("check"):
-		var p: float = odds_for(choice["check"], toggled)["probability"]
+		var p: float = odds_for(check_with_offers(choice), toggled)["probability"]
 		attempts = check_attempts(choice)
 		for attempt in range(attempts):
 			var raw: float = check_roll(choice_index, attempt)
@@ -571,7 +571,7 @@ static func check_odds(choice_index: int) -> Dictionary:
 	var choice: Dictionary = current_card()["choices"][choice_index]
 	if not choice.has("check"):
 		return {}
-	var odds := odds_for(choice["check"], active_toggles(choice_index))
+	var odds := odds_for(check_with_offers(choice), active_toggles(choice_index))
 	odds["attempts"] = check_attempts(choice)
 	if prior_rolls(choice_index) > 0:
 		var p: float = odds["probability"]
@@ -1153,7 +1153,7 @@ static func revealed_roll(choice_index: int) -> Dictionary:
 	var choice: Dictionary = current_card()["choices"][choice_index]
 	if not choice.has("check"):
 		return {}
-	var p: float = odds_for(choice["check"], active_toggles(choice_index))["probability"]
+	var p: float = odds_for(check_with_offers(choice), active_toggles(choice_index))["probability"]
 	var rolls: Array = []
 	for attempt in range(check_attempts(choice)):
 		rolls.append(clampi(ceili(snappedf(100.0 - check_roll(choice_index, attempt) * 100.0, 0.000001)), 1, 100))
@@ -1467,8 +1467,52 @@ static func _collect_optional_items(condition: Dictionary, out: Array) -> void:
 # A check option's optional item mods, or a no-roll option's `items` (same shape).
 static func _optional_mods(choice_index: int) -> Array:
 	var choice: Dictionary = current_card()["choices"][choice_index]
-	var mods: Array = choice["check"].get("mods", []) if choice.has("check") else choice.get("items", [])
+	var mods: Array = offered_mods(choice) if choice.has("check") else choice.get("items", [])
 	return mods.filter(func(m: Dictionary) -> bool: return m.has("item") and m.get("optional", false))
+
+
+# A check option's check with its automatic item offers added (R§3.9a Automatic
+# offers): what odds, rolls and toggles read.
+static func check_with_offers(choice: Dictionary) -> Dictionary:
+	var check: Dictionary = choice["check"].duplicate()
+	check["mods"] = offered_mods(choice)
+	return check
+
+
+# The check's authored mods plus one synthesised optional, consumed item mod per
+# item whose eventProfile tags share a tag with the check. An item the option
+# already authors (a mod, or named in `requires`) or lists in `excludeItems`
+# is not offered.
+static func offered_mods(choice: Dictionary) -> Array:
+	var check: Dictionary = choice["check"]
+	var mods: Array = check.get("mods", []).duplicate()
+	var tags: Array = check.get("tags", [])
+	if tags.is_empty():
+		return mods
+	var authored: Array = []
+	for mod in mods:
+		if mod.has("item"):
+			authored.append(mod["item"])
+	if choice.get("requires") is Dictionary:
+		_collect_items(choice["requires"], authored)
+	var ids: Array = GameData.RECIPES.keys()
+	ids.sort()
+	for id in ids:
+		var profile: Variant = GameData.RECIPES[id].get("eventProfile")
+		if not profile is Dictionary or authored.has(id) or choice.get("excludeItems", []).has(id):
+			continue
+		if _shares_tag(profile.get("tags", []), tags):
+			mods.append({ "item": id, "optional": true, "consume": true, "label": profile.get("label", ""), "effect": profile["effect"] })
+	return mods
+
+
+static func _collect_items(condition: Dictionary, out: Array) -> void:
+	if condition.has("item"):
+		out.append(condition["item"])
+	for key in ["all", "any"]:
+		for part in condition.get(key, []):
+			if part is Dictionary:
+				_collect_items(part, out)
 
 
 # The committed choice at an event's card, or {} if none was made.

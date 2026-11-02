@@ -21,6 +21,7 @@
       "effectPower": [0, 1, 1, 2, 2, 3],
       "xpReward": 25,
       "eventUsable": false,
+      "eventProfile": { "tags": ["physical"], "label": "Enhancement Powder", "placeholder": true, "effect": { "kind": "bonus", "add": 0.15, "tags": ["physical"] } },
       "description": "Rub on skin before a fight. Life-type acceleration — you act faster than anyone can track."
     },
     "rewind": {
@@ -87,6 +88,7 @@
       "effectPower": [0, 1, 1, 1, 2, 2],
       "xpReward": 30,
       "eventUsable": true,
+      "eventProfile": { "tags": ["discovery"], "label": "Prophet's Breath", "placeholder": true, "effect": { "kind": "bonus", "add": 0.5 } },
       "description": "Two lungfuls buys you a few seconds of foresight. Enough to flinch correctly.",
       "effectText": "Ambushes stop finding you."
     },
@@ -212,6 +214,7 @@
       "xpReward": 30,
       "eventUsable": false,
       "bagWhenHeld": true,
+      "eventProfile": { "tags": [], "label": "Their luck turns", "placeholder": true, "effect": { "kind": "bonus", "add": 0.15 } },
       "description": "Whatever can go wrong for them now does, in order of inconvenience."
     },
     "happyAccident": {
@@ -397,6 +400,7 @@
       "eventUsable": false,
       "bagWhenHeld": true,
       "effectText": "Every relation you gain with a contact is boosted.",
+      "eventProfile": { "tags": ["social"], "label": "Second Impression", "placeholder": true, "effect": { "kind": "bonus", "add": 0.15, "tags": ["social"] } },
       "description": "Nobody remembers the first one. You've made sure of it."
     },
     "stutter": {
