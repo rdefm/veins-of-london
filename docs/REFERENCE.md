@@ -104,7 +104,7 @@ Each recipe's `ingredients` field is a dict of `{oreType: baseCalcCost}` — one
 | skeletonKey | Skeleton Key | ⚿ | {fate: 4, physics: 6} | 0.20 | [0,1,1,2,2,3] (placeholder, no mechanics yet) | 40 | false |
 | goodYear | Good Year | ❧ | {fate: 5, life: 5} | 0.20 | [0,2,3,4,5,7] (placeholder, no mechanics yet) | 40 | false |
 | secondImpression | Second Impression | ♢ | {fate: 4, emotion: 5} | 0.30 | [0,10,15,20,25,35] (placeholder, no mechanics yet) | 30 | false |
-| stiffUpperLip | Stiff Upper Lip | ☗ | {emotion: 4, life: 5} | 0.30 | [0,2,3,4,5,6] (placeholder, no mechanics yet) | 30 | false |
+| stiffUpperLip | Stiff Upper Lip | ☗ | {emotion: 4, life: 5} | 0.30 | [0,2,3,4,5,6] | 30 | false |
 | heavyMetal | Heavy Metal | ♫ | {emotion: 5, physics: 5} | 0.20 | [0,3,4,6,8,10] | 40 | false |
 | coldFeet | Cold Feet | ❄ | {emotion: 4, time: 4} | 0.35 | [0,1,1,1,1,1] (placeholder, no mechanics yet) | 30 | false |
 | nostalgia | Nostalgia | ☙ | {emotion: 5, time: 5} | 0.30 | [0,0,0,0,0,0] (placeholder, no mechanics yet) | 25 | false |
@@ -926,6 +926,8 @@ Items and Dial casts cost 1 action and leave guard state unchanged (except Shiel
 **Heavy Metal** (`heavyMetal`, all enemies, loadout and guard-kit allowlists, always multi) — deals `power` damage to every living enemy (guard-ignoring, beat `metalHit`), then the lowest-hp survivor (first on a tie) rolls Panic's `boltChance` (`items.heavyMetal.params`): a hit bolts it out as a KO (beat `bolt`). No status otherwise.
 
 **Smelling Salts** (`smellingSalts`, a KO'd teammate other than the player; loadout and guard-kit allowlists, repelTier weak) — revives the aimed KO'd ally at `min(power, hpMax)` hp (beat `revive`); no KO'd teammate = blocked ("Nobody's down."). Guard-kit allies and recruit slots cast it first at round start on a teammate KO'd then. A revived contact ally isn't KO'd at fight end, so no KO cooldown starts. Out of combat it's a Bag use per contact on a KO cooldown (`Contacts.use_smelling_salts()`): clears `koCooldownUntilDay`, spends one.
+
+**Stiff Upper Lip** (`stiffUpperLip`, self; loadout allowlist, Dial cast and ally slots too) — for `power` rounds from the cast round (`effectPower` = turns), the user and every standing teammate are immune to Panic, Panger, Pandemonium and Pan's Rapture (a Pan item aimed at them finds no target; multi units skip them) and take `cutPct[tier]` percent less damage (`[0,10,15,20,25,30]`, applied after anger scaling, before Shield). Any Pan status already on them is cleansed on cast. State: combatant `immuneEmotion` (last covered round, 0 none), `damageCut` (percent); both lapse with the round count.
 
 **Carry-in effects.** An out-of-combat `player.activeEffects.prophetsBreath` active at fight start gives sight from round 1 for the whole fight (the block clock doesn't move mid-fight); it still blocks ambushes (§3.1d). An active `beALady` gives max rolls + 1/3 crit + its level's evade cut for the whole fight likewise.
 

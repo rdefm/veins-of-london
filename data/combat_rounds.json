@@ -144,7 +144,8 @@
     "sodsLaw": { "target": "enemy", "effect": "sodsLaw", "params": {} },
     "ricochet": { "target": "self", "effect": "ricochet", "params": {} },
     "heavyMetal": { "target": "allEnemies", "effect": "heavyMetal", "params": { "boltChance": 0.5 } },
-    "smellingSalts": { "target": "koedFriend", "effect": "revive", "params": {} }
+    "smellingSalts": { "target": "koedFriend", "effect": "revive", "params": {} },
+    "stiffUpperLip": { "target": "self", "effect": "stiffUpperLip", "params": { "cutPct": [0, 10, 15, 20, 25, 30] } }
   },
   "_coachComment": "Coach marks, shown only when a fight's data carries a `coach` block. hints: one line per move or loadout recipe id; notNow: the block reason for an action the round doesn't allow.",
   "coach": {
@@ -177,6 +178,7 @@
     "ricochet": "The next Strike that lands on you hits its owner back.",
     "heavyMetal": "Hurts every enemy. Whoever's weakest afterwards might bolt.",
     "smellingSalts": "Wakes a knocked-out friend on some of their hp. Out of a fight, ends a knock-out cooldown.",
+    "stiffUpperLip": "Your side shrugs off Panic and its cousins, and takes less from every hit, for a few rounds.",
     "healingBurst": "Patches up one friend.",
     "enhancementPowder": "Sniff it. Your actions hit harder for a round or two.",
     "prophetsBreath": "See what they're about to do, a round or more ahead.",
@@ -293,6 +295,7 @@
     "sodsLaw": { "self": "You hand {target} a Sod's Law. Everything goes the way it goes.", "other": "{actor} hands {target} a Sod's Law. Everything goes the way it goes." },
     "ricochet": { "self": "You crack a Ricochet. The air waits to give something back.", "other": "{actor} cracks a Ricochet. The air waits to give something back." },
     "heavyMetal": { "self": "You put Heavy Metal on. Everyone in earshot regrets it.", "other": "{actor} puts Heavy Metal on. Everyone in earshot regrets it." },
+    "stiffUpperLip": { "self": "You crack a Stiff Upper Lip. Nobody here is frightened, officially.", "other": "{actor} cracks a Stiff Upper Lip. Nobody here is frightened, officially." },
     "revive": { "self": "You wave Smelling Salts under {target}. Back up on {amount}.", "other": "{actor} waves Smelling Salts under {target}. Back up on {amount}." },
     "metalHit": { "self": "The noise takes {dmg} off {target}.", "other": "The noise takes {dmg} off {target}." },
     "dodge": { "self": "You swing at {target}. It was never going to land.", "other": "{actor} swings at {target}. It was never going to land." },

@@ -1288,6 +1288,44 @@ func run() -> void:
 		assert_eq(CombatRounds.target_options(combat, CombatRounds.PLAYER_INDEX, "smellingSalts"), [], "not the player, not a living ally")
 	)
 
+	run_case("stiff_upper_lip_cleanses_and_blocks_pan_statuses", func():
+		GameState.reset()
+		var power := int(GameData.RECIPES["stiffUpperLip"]["effectPower"][3])
+		var combat := _start_vs([_slow_mugger()], [[["guard", "guard"]]], [{ "recipe": "stiffUpperLip", "tier": 3 }])
+		var you: Dictionary = combat["combatants"][CombatRounds.PLAYER_INDEX]
+		# Panic/Rapture on the user's own side would eat its turn first, so the
+		# cast is tested against Anger and the full cleanse directly.
+		you["angerActions"] = 4
+		you["angerPct"] = 20
+		var dazed := { "panicActions": 3, "raptureActions": 2, "angerActions": 4, "angerPct": 20, "fury": true }
+		CombatRounds._cleanse_pan(dazed)
+		assert_true(not CombatRounds.has_pan_status(dazed) and not dazed["fury"], "cleanse clears all four")
+		assert_true(Combat.choose_item(0)["ok"])
+		assert_true(not CombatRounds.has_pan_status(you), "active statuses cleansed")
+		assert_eq(you["immuneEmotion"], 1 + power - 1, "covers power rounds from this one")
+		assert_eq(CombatRounds._pan_targets(combat, 1, CombatRounds.PLAYER_INDEX, false), [], "a Pan item finds no one to take it")
+		combat["round"] = you["immuneEmotion"] + 1
+		assert_true(not CombatRounds.is_emotion_immune(combat, you), "expires")
+	)
+
+	run_case("stiff_upper_lip_cuts_incoming_damage_for_its_rounds", func():
+		for tier in [1, 5]:
+			GameState.reset()
+			var cut := int(GameData.COMBAT_ROUNDS["items"]["stiffUpperLip"]["params"]["cutPct"][tier])
+			var combat := _start_vs([_slow_mugger()], [[["guard", "guard"]]], [{ "recipe": "stiffUpperLip", "tier": tier }])
+			var you: Dictionary = combat["combatants"][CombatRounds.PLAYER_INDEX]
+			Combat.choose_item(0)
+			assert_eq(you["damageCut"], cut, "tier %d cut" % tier)
+			you["hpMax"] = 1000
+			you["hp"] = 1000
+			CombatRounds._deal_damage(combat, 1, CombatRounds.PLAYER_INDEX, 100, "blast", "blast", [], {})
+			assert_eq(you["hp"], 1000 - (100 - cut), "tier %d: cut while covered" % tier)
+			combat["round"] = you["immuneEmotion"] + 1
+			you["hp"] = 1000
+			CombatRounds._deal_damage(combat, 1, CombatRounds.PLAYER_INDEX, 100, "blast", "blast", [], {})
+			assert_eq(you["hp"], 900, "tier %d: full damage after" % tier)
+	)
+
 	run_case("carry_in_sight_and_lady_apply_from_round_1", func():
 		GameState.reset()
 		var expires := ActiveEffects.absolute_block() + 1

@@ -77,7 +77,8 @@ const ITEM_SODS_LAW := "sodsLaw"
 const ITEM_RICOCHET := "ricochet"
 const ITEM_HEAVY_METAL := "heavyMetal"
 const ITEM_REVIVE := "revive"
-const ITEM_EFFECTS: Array[String] = [ITEM_FREEZE, ITEM_BLACK_HOLE, ITEM_BLAST, ITEM_SHIELD, ITEM_HEAL, ITEM_POWDER, ITEM_SIGHT, ITEM_LADY, ITEM_PANIC, ITEM_RAPTURE, ITEM_ANGER, ITEM_FURY, ITEM_WORMHOLE, ITEM_NEAR_MISS, ITEM_SODS_LAW, ITEM_RICOCHET, ITEM_HEAVY_METAL, ITEM_REVIVE]
+const ITEM_STIFF_LIP := "stiffUpperLip"
+const ITEM_EFFECTS: Array[String] = [ITEM_FREEZE, ITEM_BLACK_HOLE, ITEM_BLAST, ITEM_SHIELD, ITEM_HEAL, ITEM_POWDER, ITEM_SIGHT, ITEM_LADY, ITEM_PANIC, ITEM_RAPTURE, ITEM_ANGER, ITEM_FURY, ITEM_WORMHOLE, ITEM_NEAR_MISS, ITEM_SODS_LAW, ITEM_RICOCHET, ITEM_HEAVY_METAL, ITEM_REVIVE, ITEM_STIFF_LIP]
 # The Pan family (R§3.7b Table 4): an enemy holds one of their statuses at a
 # time and refuses another while it runs.
 const PAN_EFFECTS: Array[String] = [ITEM_PANIC, ITEM_RAPTURE, ITEM_ANGER, ITEM_FURY]
@@ -302,6 +303,21 @@ static func carry_in(combatant: Dictionary, sight: bool, lady_tier: int) -> void
 
 static func has_pan_status(combatant: Dictionary) -> bool:
 	return int(combatant["panicActions"]) > 0 or int(combatant["raptureActions"]) > 0 or int(combatant["angerActions"]) > 0
+
+
+# Whether Stiff Upper Lip still covers `combatant` this round: immune to the
+# four Pan statuses and taking damageCut% less damage.
+static func is_emotion_immune(cp: Dictionary, combatant: Dictionary) -> bool:
+	return int(cp["round"]) <= int(combatant["immuneEmotion"])
+
+
+# Clears any Pan status on `combatant` (Stiff Upper Lip's cleanse).
+static func _cleanse_pan(combatant: Dictionary) -> void:
+	combatant["panicActions"] = 0
+	combatant["raptureActions"] = 0
+	combatant["angerActions"] = 0
+	combatant["angerPct"] = 0
+	combatant["fury"] = false
 
 
 # The status turn (STATUS_PANIC or STATUS_RAPTURE) enemy `actor` plays at
@@ -599,6 +615,9 @@ static func new_combatant(side: String, name: String, level: int, hp: int, hp_ma
 		# Strikes still to roll their range's minimum. Ricochet: the damage
 		# the next Strike to land on it returns to the striker (0 for none).
 		"dodges": 0, "lowRolls": 0, "reflect": 0,
+		# Stiff Upper Lip: last round it covers (0 for none) and the percent
+		# of incoming damage it cuts.
+		"immuneEmotion": 0, "damageCut": 0,
 		# A Blast's one-use Leg it chance for the next Leg it (0.0 for none).
 		"fleeBoost": 0.0,
 		# Pan statuses (R§3.7b Table 4), counted down on the combatant's own
@@ -1133,7 +1152,7 @@ static func _ally_pan_target(cp: Dictionary, ally: int, panned: Array, need_offe
 	var best := -1
 	var best_count := 0 if need_offence else -1
 	for e in _living_opponents(cp, ally):
-		if has_pan_status(combatants[e]) or panned.has(e):
+		if has_pan_status(combatants[e]) or is_emotion_immune(cp, combatants[e]) or panned.has(e):
 			continue
 		var plan: Array = combatants[e]["plan"]
 		var count := 0
@@ -2527,6 +2546,8 @@ static func evade_chance(cp: Dictionary, actor: Dictionary, target: Dictionary) 
 static func _deal_damage(cp: Dictionary, actor_idx: int, target_idx: int, dmg: int, kind: String, move_id: String, beats: Array, extra: Dictionary) -> void:
 	var target: Dictionary = cp["combatants"][target_idx]
 	dmg = GameState.round_epsilon(dmg * anger_factor(target, false))
+	if is_emotion_immune(cp, target):
+		dmg = GameState.round_epsilon(dmg * (100 - int(target["damageCut"])) / 100.0)
 	var absorbed: int = mini(target["shield"], dmg)
 	target["shield"] -= absorbed
 	target["hp"] = maxi(0, target["hp"] - (dmg - absorbed))
@@ -2677,6 +2698,15 @@ static func _use_item(cp: Dictionary, actor_idx: int, action: Dictionary, m: Dic
 			var weakest := _lowest_hp(_living_opponents(cp, actor_idx), combatants)
 			if weakest >= 0 and rng.randf() < float(m["params"]["boltChance"]):
 				_bolt_out(cp, weakest, STATUS_PANIC, beats)
+		ITEM_STIFF_LIP:
+			# The user's whole side, for `power` rounds from this one.
+			var cut: int = int(m["params"]["cutPct"][int(slot["tier"])])
+			for friend in _team(cp, actor_idx):
+				var covered: Dictionary = combatants[friend]
+				covered["immuneEmotion"] = maxi(int(covered["immuneEmotion"]), int(cp["round"]) + power - 1)
+				covered["damageCut"] = maxi(int(covered["damageCut"]) if is_emotion_immune(cp, covered) else 0, cut)
+				_cleanse_pan(covered)
+			_beat(cp, beats, "stiffUpperLip", actor_idx, -1, move_id, {})
 		ITEM_REVIVE:
 			var risen: Dictionary = combatants[int(action["target"])]
 			risen["koed"] = false
@@ -2722,7 +2752,7 @@ static func _item_fizzles(cp: Dictionary, actor_idx: int, action: Dictionary, m:
 # [] when that one's already under one (it refuses).
 static func _pan_targets(cp: Dictionary, actor_idx: int, aimed: int, multi: bool) -> Array:
 	var combatants: Array = cp["combatants"]
-	var free := _living_opponents(cp, actor_idx).filter(func(e): return not has_pan_status(combatants[e]))
+	var free := _living_opponents(cp, actor_idx).filter(func(e): return not has_pan_status(combatants[e]) and not is_emotion_immune(cp, combatants[e]))
 	if multi:
 		return free
 	var target := _retarget(cp, actor_idx, aimed)
