@@ -340,7 +340,7 @@ func run() -> void:
 		GameState.state["market"] = Market.new_state(true)
 		Market.record_supply("ore", "time", 104, "player")
 		_tick(1)
-		assert_eq(Market.annotations_for("ore", "time").size(), 0, "a normal day's selling leaves no annotation")
+		assert_eq(_notes_of("ore", "time", "dump").size() + _notes_of("ore", "time", "crash").size(), 0, "a normal day's selling leaves no dump or crash annotation")
 	)
 
 	run_case("forced_shortage_annotates_a_spike", func():

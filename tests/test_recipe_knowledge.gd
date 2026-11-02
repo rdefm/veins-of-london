@@ -4,7 +4,7 @@ extends "res://tests/test_base.gd"
 # RecipeKnowledge system module, § Further Notes): rung states, rank
 # ceilings, grant_rung, the grant_recipe_rung op and the collision fallback.
 
-const JAMES_RECIPES := ["timePearl", "enhancementPowder", "rewind", "healingSalve", "prophetsBreath", "healingBurst", "failsafe", "rejuvenation"]
+const JAMES_RECIPES := ["timePearl", "enhancementPowder", "rewind", "healingSalve", "prophetsBreath", "healingBurst", "failsafe", "rejuvenation", "smellingSalts", "rootFeed", "bloom", "borrowedTime", "patina"]
 
 
 func _fresh() -> void:
@@ -227,9 +227,9 @@ func _register_buying_cases() -> void:
 	run_case("seller_of_every_recipe", func():
 		var expected := {}
 		for recipe_key in GameData.RECIPES.keys():
-			if RecipeKnowledge.teachable(recipe_key):
-				expected[recipe_key] = "james" if JAMES_RECIPES.has(recipe_key) else "wren"
-		assert_eq(expected.size(), 17, "17 teachable recipes")
+			assert_true(RecipeKnowledge.teachable(recipe_key), "%s is teachable" % recipe_key)
+			expected[recipe_key] = "james" if JAMES_RECIPES.has(recipe_key) else "wren"
+		assert_eq(expected.size(), 43, "43 teachable recipes")
 		for recipe_key in expected.keys():
 			assert_eq(RecipeKnowledge.seller_of(recipe_key), expected[recipe_key], recipe_key)
 	)

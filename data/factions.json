@@ -24,7 +24,7 @@
     "cultivateSkill": 4,
     "fieldwork": { "actionsPerBlock": 2, "tendAtOrBelow": 50, "pruneFloor": 51, "pruneDepthMult": 2 },
     "craftSkill": 2,
-    "craftTargets": { "healingSalve": { "kitUse": 1, "sellQuota": 28 }, "enhancementPowder": { "kitUse": 0, "sellQuota": 31 } },
+    "craftTargets": { "healingSalve": { "kitUse": 1, "sellQuota": 28 }, "enhancementPowder": { "kitUse": 0, "sellQuota": 31 }, "bloom": { "kitUse": 0, "sellQuota": 3 }, "smellingSalts": { "kitUse": 0, "sellQuota": 3 }, "stiffUpperLip": { "kitUse": 0, "sellQuota": 3 }, "goodYear": { "kitUse": 0, "sellQuota": 3 }, "rootFeed": { "kitUse": 0, "sellQuota": 3 } },
     "primaryOre": "life",
     "secondaryOre": "emotion",
     "aggressionPersonality": 0.76,
@@ -32,10 +32,16 @@
     "claimWeights": { "base": 1, "presence": 17, "primaryOre": 6, "secondaryOre": 3 },
     "crafts": [
       "healingSalve",
-      "enhancementPowder"
+      "enhancementPowder",
+      "bloom",
+      "smellingSalts",
+      "stiffUpperLip",
+      "goodYear",
+      "rootFeed"
     ],
     "consumes": {
-      "healingSalve": 3
+      "healingSalve": 3,
+      "rootFeed": 2
     },
     "raidKits": { "attack": { "healingBurst": 1 }, "defend": { "healingBurst": 1 } },
     "speaker": "nadia",
@@ -55,7 +61,8 @@
       },
       "items": {
         "healingSalve": 8,
-        "enhancementPowder": 5
+        "enhancementPowder": 5,
+        "rootFeed": 2
       }
     }
   },
@@ -84,7 +91,7 @@
     "cultivateSkill": 3,
     "fieldwork": { "actionsPerBlock": 2, "tendAtOrBelow": 30, "pruneFloor": 51, "pruneDepthMult": 4 },
     "craftSkill": 2,
-    "craftTargets": { "blast": { "kitUse": 2, "sellQuota": 29 }, "shield": { "kitUse": 2, "sellQuota": 34 }, "healingBurst": { "kitUse": 2, "sellQuota": 34 } },
+    "craftTargets": { "blast": { "kitUse": 2, "sellQuota": 29 }, "shield": { "kitUse": 2, "sellQuota": 34 }, "healingBurst": { "kitUse": 2, "sellQuota": 34 }, "ricochet": { "kitUse": 0, "sellQuota": 3 }, "navvysDraught": { "kitUse": 0, "sellQuota": 3 }, "skeletonKey": { "kitUse": 0, "sellQuota": 3 }, "trueLevel": { "kitUse": 0, "sellQuota": 3 }, "stutter": { "kitUse": 2, "sellQuota": 3 }, "invisibility": { "kitUse": 2, "sellQuota": 3 } },
     "primaryOre": "physics",
     "secondaryOre": "life",
     "aggressionPersonality": 1.69,
@@ -93,13 +100,21 @@
     "crafts": [
       "blast",
       "shield",
-      "healingBurst"
+      "healingBurst",
+      "ricochet",
+      "navvysDraught",
+      "skeletonKey",
+      "trueLevel",
+      "stutter",
+      "invisibility"
     ],
     "consumes": {
       "blast": 3,
       "shield": 3,
       "healingBurst": 3,
-      "enhancementPowder": 3
+      "enhancementPowder": 3,
+      "smellingSalts": 2,
+      "navvysDraught": 2
     },
     "raidKits": { "attack": { "blast": 2, "healingBurst": 1, "stutter": 1, "invisibility": 1 }, "defend": { "shield": 2, "healingBurst": 1, "stutter": 1, "invisibility": 1 } },
     "speaker": "lusk",
@@ -122,7 +137,9 @@
         "healingBurst": 8,
         "enhancementPowder": 3,
         "stutter": 3,
-        "invisibility": 3
+        "invisibility": 3,
+        "smellingSalts": 2,
+        "navvysDraught": 2
       }
     }
   },
@@ -151,7 +168,7 @@
     "cultivateSkill": 2,
     "fieldwork": { "actionsPerBlock": 1, "tendAtOrBelow": 50, "pruneFloor": 51, "pruneDepthMult": 2 },
     "craftSkill": 4,
-    "craftTargets": { "timePearl": { "kitUse": 0, "sellQuota": 23 }, "rewind": { "kitUse": 0, "sellQuota": 23 }, "wormhole": { "kitUse": 0, "sellQuota": 28 }, "prophetsBreath": { "kitUse": 0, "sellQuota": 25 }, "rejuvenation": { "kitUse": 0, "sellQuota": 24 }, "blackHole": { "kitUse": 0, "sellQuota": 27 } },
+    "craftTargets": { "timePearl": { "kitUse": 0, "sellQuota": 23 }, "rewind": { "kitUse": 0, "sellQuota": 23 }, "wormhole": { "kitUse": 0, "sellQuota": 28 }, "prophetsBreath": { "kitUse": 0, "sellQuota": 25 }, "rejuvenation": { "kitUse": 0, "sellQuota": 24 }, "blackHole": { "kitUse": 0, "sellQuota": 27 }, "signalFailure": { "kitUse": 0, "sellQuota": 3 }, "patina": { "kitUse": 0, "sellQuota": 3 }, "coldFeet": { "kitUse": 0, "sellQuota": 3 }, "deadweight": { "kitUse": 0, "sellQuota": 3 }, "borrowedTime": { "kitUse": 0, "sellQuota": 3 } },
     "primaryOre": "time",
     "secondaryOre": "physics",
     "aggressionPersonality": 0.78,
@@ -163,11 +180,17 @@
       "wormhole",
       "prophetsBreath",
       "rejuvenation",
-      "blackHole"
+      "blackHole",
+      "signalFailure",
+      "patina",
+      "coldFeet",
+      "deadweight",
+      "borrowedTime"
     ],
     "consumes": {
       "timePearl": 1,
-      "enhancementPowder": 1
+      "enhancementPowder": 1,
+      "borrowedTime": 1
     },
     "raidKits": { "attack": { "stutter": 1, "invisibility": 1 }, "defend": { "stutter": 1, "invisibility": 1 } },
     "speaker": "ingram",
@@ -192,7 +215,8 @@
         "rejuvenation": 5,
         "enhancementPowder": 1,
         "stutter": 3,
-        "invisibility": 3
+        "invisibility": 3,
+        "borrowedTime": 1
       }
     }
   },
@@ -221,7 +245,7 @@
     "cultivateSkill": 2,
     "fieldwork": { "actionsPerBlock": 1, "tendAtOrBelow": 50, "pruneFloor": 51, "pruneDepthMult": 2 },
     "craftSkill": 3,
-    "craftTargets": { "panic": { "kitUse": 1, "sellQuota": 15 }, "panger": { "kitUse": 0, "sellQuota": 16 }, "pandemonium": { "kitUse": 0, "sellQuota": 16 }, "pansRapture": { "kitUse": 0, "sellQuota": 16 } },
+    "craftTargets": { "panic": { "kitUse": 1, "sellQuota": 15 }, "panger": { "kitUse": 0, "sellQuota": 16 }, "pandemonium": { "kitUse": 0, "sellQuota": 16 }, "pansRapture": { "kitUse": 0, "sellQuota": 16 }, "secondImpression": { "kitUse": 0, "sellQuota": 3 }, "heavyMetal": { "kitUse": 0, "sellQuota": 3 }, "nostalgia": { "kitUse": 0, "sellQuota": 3 }, "introduction": { "kitUse": 0, "sellQuota": 3 } },
     "primaryOre": "emotion",
     "secondaryOre": "fate",
     "aggressionPersonality": 0.84,
@@ -231,10 +255,15 @@
       "panic",
       "panger",
       "pandemonium",
-      "pansRapture"
+      "pansRapture",
+      "secondImpression",
+      "heavyMetal",
+      "nostalgia",
+      "introduction"
     ],
     "consumes": {
-      "prophetsBreath": 3
+      "prophetsBreath": 3,
+      "dejaVu": 2
     },
     "raidKits": { "attack": { "panic": 1 }, "defend": {} },
     "speaker": "handler",
@@ -256,7 +285,8 @@
         "panger": 1,
         "pandemonium": 1,
         "pansRapture": 1,
-        "prophetsBreath": 3
+        "prophetsBreath": 3,
+        "dejaVu": 2
       }
     }
   },
@@ -286,7 +316,7 @@
     "cultivateSkill": 2,
     "fieldwork": { "actionsPerBlock": 1, "tendAtOrBelow": 50, "pruneFloor": 51, "pruneDepthMult": 2 },
     "craftSkill": 3,
-    "craftTargets": { "failsafe": { "kitUse": 1, "sellQuota": 37 }, "beALady": { "kitUse": 0, "sellQuota": 56 } },
+    "craftTargets": { "failsafe": { "kitUse": 1, "sellQuota": 37 }, "beALady": { "kitUse": 0, "sellQuota": 56 }, "dejaVu": { "kitUse": 0, "sellQuota": 3 }, "nearMiss": { "kitUse": 0, "sellQuota": 3 }, "sodsLaw": { "kitUse": 0, "sellQuota": 3 }, "cleanSlate": { "kitUse": 0, "sellQuota": 3 }, "happyAccident": { "kitUse": 0, "sellQuota": 3 } },
     "primaryOre": "fate",
     "secondaryOre": "time",
     "aggressionPersonality": 0.93,
@@ -294,11 +324,18 @@
     "claimWeights": { "base": 1, "presence": 17, "primaryOre": 6, "secondaryOre": 3 },
     "crafts": [
       "failsafe",
-      "beALady"
+      "beALady",
+      "dejaVu",
+      "nearMiss",
+      "sodsLaw",
+      "cleanSlate",
+      "happyAccident"
     ],
     "consumes": {
       "failsafe": 3,
-      "rejuvenation": 3
+      "rejuvenation": 3,
+      "patina": 2,
+      "introduction": 2
     },
     "raidKits": { "attack": {}, "defend": { "failsafe": 1 } },
     "speaker": "fairweather",
@@ -318,7 +355,9 @@
       },
       "items": {
         "failsafe": 8,
-        "rejuvenation": 3
+        "rejuvenation": 3,
+        "patina": 2,
+        "introduction": 2
       }
     }
   }

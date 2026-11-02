@@ -269,6 +269,8 @@ func run() -> void:
 	run_case("a_week_of_consumption_draws_exactly_the_weekly_amount", func():
 		GameState.reset()
 		_set_item("firm", "blast", 10)
+		_set_item("firm", "smellingSalts", 10)
+		_set_item("firm", "navvysDraught", 10)
 		for i in 7:
 			FactionSim.consume()
 		assert_eq(FactionSim.item_held("firm", "blast"), 7, "Firm consumes 3 blast a week")
@@ -490,32 +492,32 @@ func run() -> void:
 	)
 
 	run_case("a_faction_sells_above_reserve_gradually", func():
-		# The Firm crafts nothing with fate, so its fate reserve is 0.
+		# The Firm crafts nothing with emotion, so its emotion reserve is 0.
 		GameState.reset()
 		_firm_at_reserve()
-		assert_eq(FactionSim.ore_reserve("firm", "fate"), 0)
-		_set_ore("firm", "fate", 100)
+		assert_eq(FactionSim.ore_reserve("firm", "emotion"), 0)
+		_set_ore("firm", "emotion", 100)
 		var cash_before: int = GameState.state["factions"]["firm"]["resources"]
-		var price: int = Market.quote("ore", "fate")
+		var price: int = Market.quote("ore", "emotion")
 		FactionSim.trade()
-		assert_eq(FactionSim.ore_held("firm", "fate"), 50, "sellFraction 0.5 of the surplus")
-		assert_eq(int(GameState.state["market"]["supply"]["ore"]["fate"]["firm"]), 50, "recorded as supply under the faction's id")
+		assert_eq(FactionSim.ore_held("firm", "emotion"), 50, "sellFraction 0.5 of the surplus")
+		assert_eq(int(GameState.state["market"]["supply"]["ore"]["emotion"]["firm"]), 50, "recorded as supply under the faction's id")
 		assert_eq(GameState.state["factions"]["firm"]["resources"], cash_before + Market.line_total("ore", price, 50), "paid at the quote")
 		FactionSim.trade()
-		assert_eq(FactionSim.ore_held("firm", "fate"), 25, "half the rest the next day")
+		assert_eq(FactionSim.ore_held("firm", "emotion"), 25, "half the rest the next day")
 	)
 
 	run_case("a_faction_holds_when_the_quote_is_under_the_floor", func():
 		GameState.reset()
 		_firm_at_reserve()
 		var cap: int = GameData.FACTIONS["firm"]["trading"]["hardCap"]["ore"]
-		_set_quote("ore", "fate", int(Market.base_price("ore", "fate") * 0.7))
-		_set_ore("firm", "fate", 20)
+		_set_quote("ore", "emotion", int(Market.base_price("ore", "emotion") * 0.7))
+		_set_ore("firm", "emotion", 20)
 		FactionSim.trade()
-		assert_eq(FactionSim.ore_held("firm", "fate"), 20, "under minSellMult × base, it holds")
-		_set_ore("firm", "fate", cap + 40)
+		assert_eq(FactionSim.ore_held("firm", "emotion"), 20, "under minSellMult × base, it holds")
+		_set_ore("firm", "emotion", cap + 40)
 		FactionSim.trade()
-		assert_eq(FactionSim.ore_held("firm", "fate"), cap + 20, "above the hard cap it sells half the excess")
+		assert_eq(FactionSim.ore_held("firm", "emotion"), cap + 20, "above the hard cap it sells half the excess")
 	)
 
 	run_case("conclave_arbitrage_buys_a_crashed_good_and_sells_a_spiked_one", func():
@@ -772,7 +774,11 @@ static func _blast_price_after_trade(blasts: int) -> int:
 # the craft gap), so a trade with nothing changed neither buys nor sells.
 static func _firm_at_reserve() -> void:
 	GameState.state["factions"]["firm"]["holdings"]["items"] = {}
-	for recipe_key in ["blast", "shield", "healingBurst", "enhancementPowder", "stutter", "invisibility"]:
+	var held: Array = GameData.FACTIONS["firm"]["crafts"].duplicate()
+	for recipe_key in GameData.FACTIONS["firm"]["consumes"]:
+		if not held.has(recipe_key):
+			held.append(recipe_key)
+	for recipe_key in held:
 		_set_item("firm", recipe_key, FactionSim.item_reserve("firm", recipe_key))
 	for ore_type in GameData.ORE_TYPES:
 		_set_ore("firm", ore_type, FactionSim.ore_reserve("firm", ore_type))

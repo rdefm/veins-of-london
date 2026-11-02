@@ -75,9 +75,9 @@ func run() -> void:
 	run_case("producible_recipes_are_those_whose_ingredients_sit_within_specialities", func():
 		GameState.reset()
 		assert_eq(Rooms.producible_recipes("james"),
-			["timePearl", "enhancementPowder", "rewind", "healingSalve", "prophetsBreath", "healingBurst", "failsafe", "rejuvenation"],
+			["timePearl", "enhancementPowder", "rewind", "healingSalve", "prophetsBreath", "healingBurst", "failsafe", "rejuvenation", "smellingSalts", "rootFeed", "bloom", "borrowedTime", "patina"],
 			"time+life: time-only, life-only and time+life recipes; never physics/fate/emotion or time+physics")
-		assert_eq(Rooms.producible_recipes("owen"), ["enhancementPowder", "healingSalve"], "life only")
+		assert_eq(Rooms.producible_recipes("owen"), ["enhancementPowder", "healingSalve", "smellingSalts", "rootFeed", "bloom"], "life only")
 		assert_eq(Rooms.producible_recipes("archie"), [], "no specialities -> crafts nothing")
 	)
 
@@ -124,7 +124,7 @@ func run() -> void:
 		assert_eq(Rooms.production_recipes(), [], "no crafter yet")
 		GameState.state["contacts"]["owen"]["recruited"] = true
 		GameState.state["flags"]["bizOwenProductionRole"] = true
-		assert_eq(Rooms.production_recipes(), ["enhancementPowder", "healingSalve"], "Owen may take Production")
+		assert_eq(Rooms.production_recipes(), ["enhancementPowder", "healingSalve", "smellingSalts", "rootFeed", "bloom"], "Owen may take Production")
 		GameState.state["contacts"]["james"]["recruited"] = true
 		GameState.state["flags"]["bizJamesProductionRole"] = true
 		assert_eq(Rooms.production_recipes(), Rooms.producible_recipes("james"), "James's list covers Owen's")

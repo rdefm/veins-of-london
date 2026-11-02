@@ -66,7 +66,7 @@ func run() -> void:
 	run_case("cards_show_archetype_ores_crafts", func():
 		GameState.reset()
 		var texts := _all_dossier_texts()
-		for expected in ["Producer", "Crafter", "Information broker", "Manipulator", "Crafts: Healing Salve, Enhancement Powder", "Primary ore:", "Secondary ore:", "Life", "Emotion"]:
+		for expected in ["Producer", "Crafter", "Information broker", "Manipulator", "Crafts: Healing Salve, Enhancement Powder, Bloom, Smelling Salts, Stiff Upper Lip, Good Year, Root Feed", "Primary ore:", "Secondary ore:", "Life", "Emotion"]:
 			assert_true(texts.has(expected), "missing %s" % expected)
 	)
 

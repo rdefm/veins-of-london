@@ -438,6 +438,630 @@
           "vague": { "note": "Finish on the heat, low. It's already gone far enough.", "offset": 8 },
           "exact": { "note": "Last of all, heat to 15." } }
       ]
+    },
+    "nearMiss": {
+      "baseTolerance": 8,
+      "ideal": [
+        { "apparatus": "heat", "target": 50, "weight": 45, "ore": "fate" },
+        { "apparatus": "compression", "target": 80, "weight": 20 },
+        { "apparatus": "grinding", "target": 70, "weight": 20 },
+        { "apparatus": "distilling", "target": 85, "weight": 15 }
+      ],
+      "base": [
+        { "apparatus": "heat", "target": 50, "calc": { "fate": 5 } },
+        { "apparatus": "compression", "target": 58 }
+      ],
+      "hints": [
+        { "id": "correctPress", "label": "Press it more", "step": 1, "rung": "hint1",
+          "vague": { "note": "Press it harder than you dare.", "offset": 7 },
+          "exact": { "note": "Press to 80." } },
+        { "id": "addDistil", "label": "Finish with a distil", "step": 3, "rung": "hint2",
+          "vague": { "note": "Finish with a distil. High, not more.", "offset": 6 },
+          "exact": { "note": "Last of all. Catch the drips later." } },
+        { "id": "betweenGrind", "label": "Grind in between", "step": 2, "rung": "master",
+          "vague": { "note": "There's a grind missing in the middle. High.", "offset": 5 },
+          "exact": { "note": "Between the press and the distil. Grind late in the swing." } }
+      ]
+    },
+    "sodsLaw": {
+      "baseTolerance": 6,
+      "ideal": [
+        { "apparatus": "heat", "target": 55, "weight": 45, "ore": "fate" },
+        { "apparatus": "grinding", "target": 50, "weight": 20 },
+        { "apparatus": "distilling", "target": 35, "weight": 15 },
+        { "apparatus": "compression", "target": 55, "weight": 20 }
+      ],
+      "base": [
+        { "apparatus": "heat", "target": 55, "calc": { "fate": 6 } },
+        { "apparatus": "grinding", "target": 28 }
+      ],
+      "hints": [
+        { "id": "correctGrind", "label": "Grind it more", "step": 1, "rung": "hint1",
+          "vague": { "note": "Grind it later in the swing.", "offset": 6 },
+          "exact": { "note": "Grind mid-swing in the swing." } },
+        { "id": "addPress", "label": "Finish with a press", "step": 3, "rung": "hint2",
+          "vague": { "note": "Finish with a press. Middling, not more.", "offset": 6 },
+          "exact": { "note": "Last of all. Press to 55." } },
+        { "id": "betweenDistil", "label": "Distil in between", "step": 2, "rung": "master",
+          "vague": { "note": "There's a distil missing in the middle. Middling.", "offset": 9 },
+          "exact": { "note": "Between the grind and the press. Catch the drips halfway." } }
+      ]
+    },
+    "happyAccident": {
+      "baseTolerance": 6,
+      "ideal": [
+        { "apparatus": "distilling", "target": 50, "weight": 45, "ore": "fate" },
+        { "apparatus": "compression", "target": 75, "weight": 20 },
+        { "apparatus": "heat", "target": 40, "weight": 20 },
+        { "apparatus": "grinding", "target": 60, "weight": 15 }
+      ],
+      "base": [
+        { "apparatus": "distilling", "target": 50, "calc": { "fate": 6 } },
+        { "apparatus": "compression", "target": 53 }
+      ],
+      "hints": [
+        { "id": "correctPress", "label": "Press it more", "step": 1, "rung": "hint1",
+          "vague": { "note": "Press it harder than you dare.", "offset": -8 },
+          "exact": { "note": "Press to 75." } },
+        { "id": "addGrind", "label": "Finish with a grind", "step": 3, "rung": "hint2",
+          "vague": { "note": "Finish with a grind. Middling, not more.", "offset": -6 },
+          "exact": { "note": "Last of all. Grind mid-swing in the swing." } },
+        { "id": "betweenHeat", "label": "Heat in between", "step": 2, "rung": "master",
+          "vague": { "note": "There's a heat missing in the middle. Middling.", "offset": 9 },
+          "exact": { "note": "Between the press and the grind. Heat to 40." } }
+      ]
+    },
+    "introduction": {
+      "baseTolerance": 6,
+      "ideal": [
+        { "apparatus": "grinding", "target": 80, "weight": 45, "ore": "fate" },
+        { "apparatus": "compression", "target": 35, "weight": 20 },
+        { "apparatus": "heat", "target": 45, "weight": 15 },
+        { "apparatus": "distilling", "target": 25, "weight": 20 }
+      ],
+      "base": [
+        { "apparatus": "grinding", "target": 80, "calc": { "fate": 4 } },
+        { "apparatus": "compression", "target": 13 }
+      ],
+      "hints": [
+        { "id": "correctPress", "label": "Press it more", "step": 1, "rung": "hint1",
+          "vague": { "note": "Press it harder than you dare.", "offset": -8 },
+          "exact": { "note": "Press to 35." } },
+        { "id": "addDistil", "label": "Finish with a distil", "step": 3, "rung": "hint2",
+          "vague": { "note": "Finish with a distil. Low, not more.", "offset": -9 },
+          "exact": { "note": "Last of all. Catch the drips sooner." } },
+        { "id": "betweenHeat", "label": "Heat in between", "step": 2, "rung": "master",
+          "vague": { "note": "There's a heat missing in the middle. Middling.", "offset": -5 },
+          "exact": { "note": "Between the press and the distil. Heat to 45." } }
+      ]
+    },
+    "smellingSalts": {
+      "baseTolerance": 5,
+      "ideal": [
+        { "apparatus": "heat", "target": 40, "weight": 40, "ore": "life" },
+        { "apparatus": "compression", "target": 30, "weight": 20 },
+        { "apparatus": "grinding", "target": 45, "weight": 25 },
+        { "apparatus": "distilling", "target": 50, "weight": 15 }
+      ],
+      "base": [
+        { "apparatus": "heat", "target": 40, "calc": { "life": 5 } },
+        { "apparatus": "compression", "target": 8 }
+      ],
+      "hints": [
+        { "id": "correctPress", "label": "Press it more", "step": 1, "rung": "hint1",
+          "vague": { "note": "Press it harder than you dare.", "offset": 5 },
+          "exact": { "note": "Press to 30." } },
+        { "id": "addDistil", "label": "Finish with a distil", "step": 3, "rung": "hint2",
+          "vague": { "note": "Finish with a distil. Middling, not more.", "offset": 7 },
+          "exact": { "note": "Last of all. Catch the drips halfway." } },
+        { "id": "betweenGrind", "label": "Grind in between", "step": 2, "rung": "master",
+          "vague": { "note": "There's a grind missing in the middle. Middling.", "offset": 6 },
+          "exact": { "note": "Between the press and the distil. Grind mid-swing in the swing." } }
+      ]
+    },
+    "rootFeed": {
+      "baseTolerance": 7,
+      "ideal": [
+        { "apparatus": "distilling", "target": 30, "weight": 45, "ore": "life" },
+        { "apparatus": "compression", "target": 80, "weight": 20 },
+        { "apparatus": "heat", "target": 60, "weight": 15 },
+        { "apparatus": "grinding", "target": 65, "weight": 20 }
+      ],
+      "base": [
+        { "apparatus": "distilling", "target": 30, "calc": { "life": 7 } },
+        { "apparatus": "compression", "target": 58 }
+      ],
+      "hints": [
+        { "id": "correctPress", "label": "Press it more", "step": 1, "rung": "hint1",
+          "vague": { "note": "Press it harder than you dare.", "offset": -5 },
+          "exact": { "note": "Press to 80." } },
+        { "id": "addGrind", "label": "Finish with a grind", "step": 3, "rung": "hint2",
+          "vague": { "note": "Finish with a grind. Middling, not more.", "offset": 5 },
+          "exact": { "note": "Last of all. Grind mid-swing in the swing." } },
+        { "id": "betweenHeat", "label": "Heat in between", "step": 2, "rung": "master",
+          "vague": { "note": "There's a heat missing in the middle. Middling.", "offset": 5 },
+          "exact": { "note": "Between the press and the grind. Heat to 60." } }
+      ]
+    },
+    "bloom": {
+      "baseTolerance": 5,
+      "ideal": [
+        { "apparatus": "heat", "target": 85, "weight": 45, "ore": "life" },
+        { "apparatus": "compression", "target": 55, "weight": 20 },
+        { "apparatus": "grinding", "target": 25, "weight": 15 },
+        { "apparatus": "distilling", "target": 40, "weight": 20 }
+      ],
+      "base": [
+        { "apparatus": "heat", "target": 85, "calc": { "life": 3 } },
+        { "apparatus": "compression", "target": 33 }
+      ],
+      "hints": [
+        { "id": "correctPress", "label": "Press it more", "step": 1, "rung": "hint1",
+          "vague": { "note": "Press it harder than you dare.", "offset": 8 },
+          "exact": { "note": "Press to 55." } },
+        { "id": "addDistil", "label": "Finish with a distil", "step": 3, "rung": "hint2",
+          "vague": { "note": "Finish with a distil. Middling, not more.", "offset": -6 },
+          "exact": { "note": "Last of all. Catch the drips halfway." } },
+        { "id": "betweenGrind", "label": "Grind in between", "step": 2, "rung": "master",
+          "vague": { "note": "There's a grind missing in the middle. Low.", "offset": 6 },
+          "exact": { "note": "Between the press and the distil. Grind early in the swing." } }
+      ]
+    },
+    "borrowedTime": {
+      "baseTolerance": 8,
+      "ideal": [
+        { "apparatus": "distilling", "target": 50, "weight": 40, "ore": "time" },
+        { "apparatus": "compression", "target": 45, "weight": 25 },
+        { "apparatus": "heat", "target": 45, "weight": 20 },
+        { "apparatus": "grinding", "target": 80, "weight": 15 }
+      ],
+      "base": [
+        { "apparatus": "distilling", "target": 50, "calc": { "time": 8 } },
+        { "apparatus": "compression", "target": 23 }
+      ],
+      "hints": [
+        { "id": "correctPress", "label": "Press it more", "step": 1, "rung": "hint1",
+          "vague": { "note": "Press it harder than you dare.", "offset": -6 },
+          "exact": { "note": "Press to 45." } },
+        { "id": "addGrind", "label": "Finish with a grind", "step": 3, "rung": "hint2",
+          "vague": { "note": "Finish with a grind. High, not more.", "offset": -6 },
+          "exact": { "note": "Last of all. Grind late in the swing." } },
+        { "id": "betweenHeat", "label": "Heat in between", "step": 2, "rung": "master",
+          "vague": { "note": "There's a heat missing in the middle. Middling.", "offset": 7 },
+          "exact": { "note": "Between the press and the grind. Heat to 45." } }
+      ]
+    },
+    "patina": {
+      "baseTolerance": 7,
+      "ideal": [
+        { "apparatus": "distilling", "target": 30, "weight": 40, "ore": "time" },
+        { "apparatus": "compression", "target": 35, "weight": 20 },
+        { "apparatus": "heat", "target": 60, "weight": 25 },
+        { "apparatus": "grinding", "target": 35, "weight": 15 }
+      ],
+      "base": [
+        { "apparatus": "distilling", "target": 30, "calc": { "time": 4 } },
+        { "apparatus": "compression", "target": 13 }
+      ],
+      "hints": [
+        { "id": "correctPress", "label": "Press it more", "step": 1, "rung": "hint1",
+          "vague": { "note": "Press it harder than you dare.", "offset": 8 },
+          "exact": { "note": "Press to 35." } },
+        { "id": "addGrind", "label": "Finish with a grind", "step": 3, "rung": "hint2",
+          "vague": { "note": "Finish with a grind. Middling, not more.", "offset": -7 },
+          "exact": { "note": "Last of all. Grind mid-swing in the swing." } },
+        { "id": "betweenHeat", "label": "Heat in between", "step": 2, "rung": "master",
+          "vague": { "note": "There's a heat missing in the middle. Middling.", "offset": -5 },
+          "exact": { "note": "Between the press and the grind. Heat to 60." } }
+      ]
+    },
+    "ricochet": {
+      "baseTolerance": 6,
+      "ideal": [
+        { "apparatus": "distilling", "target": 40, "weight": 40, "ore": "physics" },
+        { "apparatus": "compression", "target": 60, "weight": 25 },
+        { "apparatus": "heat", "target": 55, "weight": 20 },
+        { "apparatus": "grinding", "target": 75, "weight": 15 }
+      ],
+      "base": [
+        { "apparatus": "distilling", "target": 40, "calc": { "physics": 6 } },
+        { "apparatus": "compression", "target": 38 }
+      ],
+      "hints": [
+        { "id": "correctPress", "label": "Press it more", "step": 1, "rung": "hint1",
+          "vague": { "note": "Press it harder than you dare.", "offset": -7 },
+          "exact": { "note": "Press to 60." } },
+        { "id": "addGrind", "label": "Finish with a grind", "step": 3, "rung": "hint2",
+          "vague": { "note": "Finish with a grind. High, not more.", "offset": -5 },
+          "exact": { "note": "Last of all. Grind late in the swing." } },
+        { "id": "betweenHeat", "label": "Heat in between", "step": 2, "rung": "master",
+          "vague": { "note": "There's a heat missing in the middle. Middling.", "offset": -5 },
+          "exact": { "note": "Between the press and the grind. Heat to 55." } }
+      ]
+    },
+    "deadweight": {
+      "baseTolerance": 7,
+      "ideal": [
+        { "apparatus": "distilling", "target": 80, "weight": 45, "ore": "physics" },
+        { "apparatus": "compression", "target": 50, "weight": 20 },
+        { "apparatus": "heat", "target": 50, "weight": 15 },
+        { "apparatus": "grinding", "target": 35, "weight": 20 }
+      ],
+      "base": [
+        { "apparatus": "distilling", "target": 80, "calc": { "physics": 7 } },
+        { "apparatus": "compression", "target": 28 }
+      ],
+      "hints": [
+        { "id": "correctPress", "label": "Press it more", "step": 1, "rung": "hint1",
+          "vague": { "note": "Press it harder than you dare.", "offset": -6 },
+          "exact": { "note": "Press to 50." } },
+        { "id": "addGrind", "label": "Finish with a grind", "step": 3, "rung": "hint2",
+          "vague": { "note": "Finish with a grind. Middling, not more.", "offset": -6 },
+          "exact": { "note": "Last of all. Grind mid-swing in the swing." } },
+        { "id": "betweenHeat", "label": "Heat in between", "step": 2, "rung": "master",
+          "vague": { "note": "There's a heat missing in the middle. Middling.", "offset": -7 },
+          "exact": { "note": "Between the press and the grind. Heat to 50." } }
+      ]
+    },
+    "signalFailure": {
+      "baseTolerance": 5,
+      "ideal": [
+        { "apparatus": "grinding", "target": 85, "weight": 40, "ore": "physics" },
+        { "apparatus": "heat", "target": 45, "weight": 25 },
+        { "apparatus": "compression", "target": 25, "weight": 20 },
+        { "apparatus": "distilling", "target": 65, "weight": 15 }
+      ],
+      "base": [
+        { "apparatus": "grinding", "target": 85, "calc": { "physics": 5 } },
+        { "apparatus": "heat", "target": 23 }
+      ],
+      "hints": [
+        { "id": "correctHeat", "label": "Heat it more", "step": 1, "rung": "hint1",
+          "vague": { "note": "It wants more heat than that.", "offset": 6 },
+          "exact": { "note": "Heat to 45." } },
+        { "id": "addDistil", "label": "Finish with a distil", "step": 3, "rung": "hint2",
+          "vague": { "note": "Finish with a distil. Middling, not more.", "offset": 6 },
+          "exact": { "note": "Last of all. Catch the drips halfway." } },
+        { "id": "betweenPress", "label": "Press in between", "step": 2, "rung": "master",
+          "vague": { "note": "There's a press missing in the middle. Low.", "offset": 6 },
+          "exact": { "note": "Between the heat and the distil. Press to 25." } }
+      ]
+    },
+    "trueLevel": {
+      "baseTolerance": 6,
+      "ideal": [
+        { "apparatus": "grinding", "target": 65, "weight": 40, "ore": "physics" },
+        { "apparatus": "heat", "target": 85, "weight": 25 },
+        { "apparatus": "compression", "target": 65, "weight": 20 },
+        { "apparatus": "distilling", "target": 75, "weight": 15 }
+      ],
+      "base": [
+        { "apparatus": "grinding", "target": 65, "calc": { "physics": 4 } },
+        { "apparatus": "heat", "target": 63 }
+      ],
+      "hints": [
+        { "id": "correctHeat", "label": "Heat it more", "step": 1, "rung": "hint1",
+          "vague": { "note": "It wants more heat than that.", "offset": -5 },
+          "exact": { "note": "Heat to 85." } },
+        { "id": "addDistil", "label": "Finish with a distil", "step": 3, "rung": "hint2",
+          "vague": { "note": "Finish with a distil. High, not more.", "offset": -5 },
+          "exact": { "note": "Last of all. Catch the drips later." } },
+        { "id": "betweenPress", "label": "Press in between", "step": 2, "rung": "master",
+          "vague": { "note": "There's a press missing in the middle. Middling.", "offset": 6 },
+          "exact": { "note": "Between the heat and the distil. Press to 65." } }
+      ]
+    },
+    "dejaVu": {
+      "baseTolerance": 6,
+      "ideal": [
+        { "apparatus": "heat", "target": 35, "weight": 40, "ore": "time" },
+        { "apparatus": "compression", "target": 75, "weight": 25, "ore": "fate" },
+        { "apparatus": "grinding", "target": 35, "weight": 20 },
+        { "apparatus": "distilling", "target": 85, "weight": 15 }
+      ],
+      "base": [
+        { "apparatus": "heat", "target": 35, "calc": { "time": 5 } },
+        { "apparatus": "compression", "target": 53, "calc": { "fate": 5 } }
+      ],
+      "hints": [
+        { "id": "correctPress", "label": "Press it more", "step": 1, "rung": "hint1",
+          "vague": { "note": "Press it harder than you dare.", "offset": 6 },
+          "exact": { "note": "Press to 75." } },
+        { "id": "addDistil", "label": "Finish with a distil", "step": 3, "rung": "hint2",
+          "vague": { "note": "Finish with a distil. High, not more.", "offset": -5 },
+          "exact": { "note": "Last of all. Catch the drips later." } },
+        { "id": "betweenGrind", "label": "Grind in between", "step": 2, "rung": "master",
+          "vague": { "note": "There's a grind missing in the middle. Middling.", "offset": 6 },
+          "exact": { "note": "Between the press and the distil. Grind mid-swing in the swing." } }
+      ]
+    },
+    "skeletonKey": {
+      "baseTolerance": 6,
+      "ideal": [
+        { "apparatus": "distilling", "target": 85, "weight": 45, "ore": "physics" },
+        { "apparatus": "heat", "target": 75, "weight": 20, "ore": "fate" },
+        { "apparatus": "grinding", "target": 60, "weight": 15 },
+        { "apparatus": "compression", "target": 30, "weight": 20 }
+      ],
+      "base": [
+        { "apparatus": "distilling", "target": 85, "calc": { "physics": 6 } },
+        { "apparatus": "heat", "target": 53, "calc": { "fate": 4 } }
+      ],
+      "hints": [
+        { "id": "correctHeat", "label": "Heat it more", "step": 1, "rung": "hint1",
+          "vague": { "note": "It wants more heat than that.", "offset": 9 },
+          "exact": { "note": "Heat to 75." } },
+        { "id": "addPress", "label": "Finish with a press", "step": 3, "rung": "hint2",
+          "vague": { "note": "Finish with a press. Low, not more.", "offset": 6 },
+          "exact": { "note": "Last of all. Press to 30." } },
+        { "id": "betweenGrind", "label": "Grind in between", "step": 2, "rung": "master",
+          "vague": { "note": "There's a grind missing in the middle. Middling.", "offset": 5 },
+          "exact": { "note": "Between the heat and the press. Grind mid-swing in the swing." } }
+      ]
+    },
+    "goodYear": {
+      "baseTolerance": 7,
+      "ideal": [
+        { "apparatus": "heat", "target": 70, "weight": 40, "ore": "life" },
+        { "apparatus": "compression", "target": 35, "weight": 20, "ore": "fate" },
+        { "apparatus": "grinding", "target": 50, "weight": 25 },
+        { "apparatus": "distilling", "target": 65, "weight": 15 }
+      ],
+      "base": [
+        { "apparatus": "heat", "target": 70, "calc": { "life": 5 } },
+        { "apparatus": "compression", "target": 13, "calc": { "fate": 5 } }
+      ],
+      "hints": [
+        { "id": "correctPress", "label": "Press it more", "step": 1, "rung": "hint1",
+          "vague": { "note": "Press it harder than you dare.", "offset": -9 },
+          "exact": { "note": "Press to 35." } },
+        { "id": "addDistil", "label": "Finish with a distil", "step": 3, "rung": "hint2",
+          "vague": { "note": "Finish with a distil. Middling, not more.", "offset": 8 },
+          "exact": { "note": "Last of all. Catch the drips halfway." } },
+        { "id": "betweenGrind", "label": "Grind in between", "step": 2, "rung": "master",
+          "vague": { "note": "There's a grind missing in the middle. Middling.", "offset": -7 },
+          "exact": { "note": "Between the press and the distil. Grind mid-swing in the swing." } }
+      ]
+    },
+    "secondImpression": {
+      "baseTolerance": 8,
+      "ideal": [
+        { "apparatus": "distilling", "target": 70, "weight": 40, "ore": "fate" },
+        { "apparatus": "heat", "target": 85, "weight": 25, "ore": "emotion" },
+        { "apparatus": "grinding", "target": 60, "weight": 20 },
+        { "apparatus": "compression", "target": 40, "weight": 15 }
+      ],
+      "base": [
+        { "apparatus": "distilling", "target": 70, "calc": { "fate": 4 } },
+        { "apparatus": "heat", "target": 63, "calc": { "emotion": 5 } }
+      ],
+      "hints": [
+        { "id": "correctHeat", "label": "Heat it more", "step": 1, "rung": "hint1",
+          "vague": { "note": "It wants more heat than that.", "offset": -5 },
+          "exact": { "note": "Heat to 85." } },
+        { "id": "addPress", "label": "Finish with a press", "step": 3, "rung": "hint2",
+          "vague": { "note": "Finish with a press. Middling, not more.", "offset": -7 },
+          "exact": { "note": "Last of all. Press to 40." } },
+        { "id": "betweenGrind", "label": "Grind in between", "step": 2, "rung": "master",
+          "vague": { "note": "There's a grind missing in the middle. Middling.", "offset": 9 },
+          "exact": { "note": "Between the heat and the press. Grind mid-swing in the swing." } }
+      ]
+    },
+    "stutter": {
+      "baseTolerance": 5,
+      "ideal": [
+        { "apparatus": "distilling", "target": 50, "weight": 45, "ore": "time" },
+        { "apparatus": "heat", "target": 65, "weight": 20, "ore": "physics" },
+        { "apparatus": "grinding", "target": 40, "weight": 20 },
+        { "apparatus": "compression", "target": 60, "weight": 15 }
+      ],
+      "base": [
+        { "apparatus": "distilling", "target": 50, "calc": { "time": 5 } },
+        { "apparatus": "heat", "target": 43, "calc": { "physics": 5 } }
+      ],
+      "hints": [
+        { "id": "correctHeat", "label": "Heat it more", "step": 1, "rung": "hint1",
+          "vague": { "note": "It wants more heat than that.", "offset": 5 },
+          "exact": { "note": "Heat to 65." } },
+        { "id": "addPress", "label": "Finish with a press", "step": 3, "rung": "hint2",
+          "vague": { "note": "Finish with a press. Middling, not more.", "offset": 5 },
+          "exact": { "note": "Last of all. Press to 60." } },
+        { "id": "betweenGrind", "label": "Grind in between", "step": 2, "rung": "master",
+          "vague": { "note": "There's a grind missing in the middle. Middling.", "offset": -8 },
+          "exact": { "note": "Between the heat and the press. Grind mid-swing in the swing." } }
+      ]
+    },
+    "invisibility": {
+      "baseTolerance": 5,
+      "ideal": [
+        { "apparatus": "distilling", "target": 60, "weight": 45, "ore": "physics" },
+        { "apparatus": "heat", "target": 75, "weight": 20 },
+        { "apparatus": "grinding", "target": 65, "weight": 20 },
+        { "apparatus": "compression", "target": 55, "weight": 15 }
+      ],
+      "base": [
+        { "apparatus": "distilling", "target": 60, "calc": { "physics": 6 } },
+        { "apparatus": "heat", "target": 53 }
+      ],
+      "hints": [
+        { "id": "correctHeat", "label": "Heat it more", "step": 1, "rung": "hint1",
+          "vague": { "note": "It wants more heat than that.", "offset": 9 },
+          "exact": { "note": "Heat to 75." } },
+        { "id": "addPress", "label": "Finish with a press", "step": 3, "rung": "hint2",
+          "vague": { "note": "Finish with a press. Middling, not more.", "offset": -9 },
+          "exact": { "note": "Last of all. Press to 55." } },
+        { "id": "betweenGrind", "label": "Grind in between", "step": 2, "rung": "master",
+          "vague": { "note": "There's a grind missing in the middle. Middling.", "offset": -6 },
+          "exact": { "note": "Between the heat and the press. Grind mid-swing in the swing." } }
+      ]
+    },
+    "stiffUpperLip": {
+      "baseTolerance": 7,
+      "ideal": [
+        { "apparatus": "heat", "target": 85, "weight": 45, "ore": "life" },
+        { "apparatus": "compression", "target": 35, "weight": 20, "ore": "emotion" },
+        { "apparatus": "grinding", "target": 65, "weight": 20 },
+        { "apparatus": "distilling", "target": 80, "weight": 15 }
+      ],
+      "base": [
+        { "apparatus": "heat", "target": 85, "calc": { "life": 5 } },
+        { "apparatus": "compression", "target": 13, "calc": { "emotion": 4 } }
+      ],
+      "hints": [
+        { "id": "correctPress", "label": "Press it more", "step": 1, "rung": "hint1",
+          "vague": { "note": "Press it harder than you dare.", "offset": 5 },
+          "exact": { "note": "Press to 35." } },
+        { "id": "addDistil", "label": "Finish with a distil", "step": 3, "rung": "hint2",
+          "vague": { "note": "Finish with a distil. High, not more.", "offset": -7 },
+          "exact": { "note": "Last of all. Catch the drips later." } },
+        { "id": "betweenGrind", "label": "Grind in between", "step": 2, "rung": "master",
+          "vague": { "note": "There's a grind missing in the middle. Middling.", "offset": 8 },
+          "exact": { "note": "Between the press and the distil. Grind mid-swing in the swing." } }
+      ]
+    },
+    "heavyMetal": {
+      "baseTolerance": 5,
+      "ideal": [
+        { "apparatus": "compression", "target": 30, "weight": 40, "ore": "physics" },
+        { "apparatus": "heat", "target": 45, "weight": 20, "ore": "emotion" },
+        { "apparatus": "grinding", "target": 80, "weight": 25 },
+        { "apparatus": "distilling", "target": 80, "weight": 15 }
+      ],
+      "base": [
+        { "apparatus": "compression", "target": 30, "calc": { "physics": 5 } },
+        { "apparatus": "heat", "target": 23, "calc": { "emotion": 5 } }
+      ],
+      "hints": [
+        { "id": "correctHeat", "label": "Heat it more", "step": 1, "rung": "hint1",
+          "vague": { "note": "It wants more heat than that.", "offset": -8 },
+          "exact": { "note": "Heat to 45." } },
+        { "id": "addDistil", "label": "Finish with a distil", "step": 3, "rung": "hint2",
+          "vague": { "note": "Finish with a distil. High, not more.", "offset": -9 },
+          "exact": { "note": "Last of all. Catch the drips later." } },
+        { "id": "betweenGrind", "label": "Grind in between", "step": 2, "rung": "master",
+          "vague": { "note": "There's a grind missing in the middle. High.", "offset": 7 },
+          "exact": { "note": "Between the heat and the distil. Grind late in the swing." } }
+      ]
+    },
+    "coldFeet": {
+      "baseTolerance": 8,
+      "ideal": [
+        { "apparatus": "heat", "target": 65, "weight": 45, "ore": "time" },
+        { "apparatus": "compression", "target": 70, "weight": 20, "ore": "emotion" },
+        { "apparatus": "grinding", "target": 50, "weight": 15 },
+        { "apparatus": "distilling", "target": 60, "weight": 20 }
+      ],
+      "base": [
+        { "apparatus": "heat", "target": 65, "calc": { "time": 4 } },
+        { "apparatus": "compression", "target": 48, "calc": { "emotion": 4 } }
+      ],
+      "hints": [
+        { "id": "correctPress", "label": "Press it more", "step": 1, "rung": "hint1",
+          "vague": { "note": "Press it harder than you dare.", "offset": 5 },
+          "exact": { "note": "Press to 70." } },
+        { "id": "addDistil", "label": "Finish with a distil", "step": 3, "rung": "hint2",
+          "vague": { "note": "Finish with a distil. Middling, not more.", "offset": 9 },
+          "exact": { "note": "Last of all. Catch the drips halfway." } },
+        { "id": "betweenGrind", "label": "Grind in between", "step": 2, "rung": "master",
+          "vague": { "note": "There's a grind missing in the middle. Middling.", "offset": 6 },
+          "exact": { "note": "Between the press and the distil. Grind mid-swing in the swing." } }
+      ]
+    },
+    "nostalgia": {
+      "baseTolerance": 5,
+      "ideal": [
+        { "apparatus": "heat", "target": 75, "weight": 40, "ore": "time" },
+        { "apparatus": "grinding", "target": 30, "weight": 25, "ore": "emotion" },
+        { "apparatus": "distilling", "target": 30, "weight": 20 },
+        { "apparatus": "compression", "target": 30, "weight": 15 }
+      ],
+      "base": [
+        { "apparatus": "heat", "target": 75, "calc": { "time": 5 } },
+        { "apparatus": "grinding", "target": 8, "calc": { "emotion": 5 } }
+      ],
+      "hints": [
+        { "id": "correctGrind", "label": "Grind it more", "step": 1, "rung": "hint1",
+          "vague": { "note": "Grind it later in the swing.", "offset": 5 },
+          "exact": { "note": "Grind early in the swing." } },
+        { "id": "addPress", "label": "Finish with a press", "step": 3, "rung": "hint2",
+          "vague": { "note": "Finish with a press. Low, not more.", "offset": -9 },
+          "exact": { "note": "Last of all. Press to 30." } },
+        { "id": "betweenDistil", "label": "Distil in between", "step": 2, "rung": "master",
+          "vague": { "note": "There's a distil missing in the middle. Low.", "offset": -9 },
+          "exact": { "note": "Between the grind and the press. Catch the drips sooner." } }
+      ]
+    },
+    "navvysDraught": {
+      "baseTolerance": 8,
+      "ideal": [
+        { "apparatus": "heat", "target": 65, "weight": 45, "ore": "physics" },
+        { "apparatus": "compression", "target": 35, "weight": 20, "ore": "life" },
+        { "apparatus": "grinding", "target": 70, "weight": 15 },
+        { "apparatus": "distilling", "target": 35, "weight": 20 }
+      ],
+      "base": [
+        { "apparatus": "heat", "target": 65, "calc": { "physics": 5 } },
+        { "apparatus": "compression", "target": 13, "calc": { "life": 5 } }
+      ],
+      "hints": [
+        { "id": "correctPress", "label": "Press it more", "step": 1, "rung": "hint1",
+          "vague": { "note": "Press it harder than you dare.", "offset": 9 },
+          "exact": { "note": "Press to 35." } },
+        { "id": "addDistil", "label": "Finish with a distil", "step": 3, "rung": "hint2",
+          "vague": { "note": "Finish with a distil. Middling, not more.", "offset": 8 },
+          "exact": { "note": "Last of all. Catch the drips halfway." } },
+        { "id": "betweenGrind", "label": "Grind in between", "step": 2, "rung": "master",
+          "vague": { "note": "There's a grind missing in the middle. High.", "offset": 7 },
+          "exact": { "note": "Between the press and the distil. Grind late in the swing." } }
+      ]
+    },
+    "cleanSlate": {
+      "baseTolerance": 4,
+      "ideal": [
+        { "apparatus": "compression", "target": 45, "weight": 45, "ore": "time" },
+        { "apparatus": "heat", "target": 85, "weight": 20, "ore": "fate" },
+        { "apparatus": "grinding", "target": 50, "weight": 15 },
+        { "apparatus": "distilling", "target": 55, "weight": 20 }
+      ],
+      "base": [
+        { "apparatus": "compression", "target": 45, "calc": { "time": 5, "emotion": 5 } },
+        { "apparatus": "heat", "target": 63, "calc": { "fate": 5 } }
+      ],
+      "hints": [
+        { "id": "correctHeat", "label": "Heat it more", "step": 1, "rung": "hint1",
+          "vague": { "note": "It wants more heat than that.", "offset": 6 },
+          "exact": { "note": "Heat to 85." } },
+        { "id": "addDistil", "label": "Finish with a distil", "step": 3, "rung": "hint2",
+          "vague": { "note": "Finish with a distil. Middling, not more.", "offset": 5 },
+          "exact": { "note": "Last of all. Catch the drips halfway." } },
+        { "id": "betweenGrind", "label": "Grind in between", "step": 2, "rung": "master",
+          "vague": { "note": "There's a grind missing in the middle. Middling.", "offset": -5 },
+          "exact": { "note": "Between the heat and the distil. Grind mid-swing in the swing." } }
+      ]
+    },
+    "keystone": {
+      "baseTolerance": 4,
+      "ideal": [
+        { "apparatus": "compression", "target": 80, "weight": 45, "ore": "time" },
+        { "apparatus": "heat", "target": 80, "weight": 20, "ore": "physics" },
+        { "apparatus": "grinding", "target": 70, "weight": 20 },
+        { "apparatus": "distilling", "target": 25, "weight": 15 }
+      ],
+      "base": [
+        { "apparatus": "compression", "target": 80, "calc": { "time": 4, "life": 4, "emotion": 4 } },
+        { "apparatus": "heat", "target": 58, "calc": { "physics": 4, "fate": 4 } }
+      ],
+      "hints": [
+        { "id": "correctHeat", "label": "Heat it more", "step": 1, "rung": "hint1",
+          "vague": { "note": "It wants more heat than that.", "offset": 5 },
+          "exact": { "note": "Heat to 80." } },
+        { "id": "addDistil", "label": "Finish with a distil", "step": 3, "rung": "hint2",
+          "vague": { "note": "Finish with a distil. Low, not more.", "offset": -5 },
+          "exact": { "note": "Last of all. Catch the drips sooner." } },
+        { "id": "betweenGrind", "label": "Grind in between", "step": 2, "rung": "master",
+          "vague": { "note": "There's a grind missing in the middle. High.", "offset": -9 },
+          "exact": { "note": "Between the heat and the distil. Grind late in the swing." } }
+      ]
     }
   },
   "rungs": ["hint1", "hint2", "master"],
