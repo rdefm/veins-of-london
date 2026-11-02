@@ -32,11 +32,11 @@ const {
   promoteForWrite, promoteSummary, shotBoardFor, boardCut, shotOnPath, workingCopyFor, liveHash, liveDrifted,
   liveEventOptions, openOrImport, lintEvent, lintDraft, inboundRefs, inboundWarnings,
   OBS_ORES, obsIds, effectiveObservation, setCardObserve, addObservation, renameObservation, observationUses, deleteObservation, addObservationBlock, deleteObservationBlock, setObservationMiss, addObservationTier, deleteObservationTier, setObservationTier,
-  parseItemCatalogue, itemChoices, optionTags, conditionCells, optionMechanicsRows, setMechItemControl,
+  parseItemCatalogue, itemChoices, optionTags, autoOfferItems, setExcludeItem, setOptionTag, conditionCells, optionMechanicsRows, setMechItemControl,
   pickEntries, setPickOn, setPickObservation, setPickReason, addPickOre, deletePickOre, addPickTier, deletePickTier, setPickAtLeast, allLinks, obsLevels, pickQualifying, observedHolds,
 } = new Function(
   html.slice(ss, se) + html.slice(s, e) +
-    "\nfunction setMechItemControl(f) { mechItemControl = f; }\nreturn { parseItemCatalogue, itemChoices, optionTags, conditionCells, optionMechanicsRows, setMechItemControl, parseProposal, parseDraft, serialiseDraft, ensureKeys, legacyToDraft, nextPos, playOrder, flatCards, thenText," +
+    "\nfunction setMechItemControl(f) { mechItemControl = f; }\nreturn { parseItemCatalogue, itemChoices, optionTags, autoOfferItems, setExcludeItem, setOptionTag, conditionCells, optionMechanicsRows, setMechItemControl, parseProposal, parseDraft, serialiseDraft, ensureKeys, legacyToDraft, nextPos, playOrder, flatCards, thenText," +
     " jsonBlockRange, spliceDraft, writableProposal, cardByKey, makeHistory," +
     " cardPos, insertCard, deleteCard, moveCard, danglingLinks, hasCycle, buildGraph, elkGraph, placeLayout, setNodePositions, clearLayout, applyPositions," +
     " findCycle, addBranch, renameBranch, deleteBranch, inboundLinks, setCardGoto, setThen," +
@@ -2222,6 +2222,74 @@ test("item fields route through the item control with the option's tags; ids unc
   } finally { delete global.document; setMechItemControl(null); }
   assert.deepStrictEqual(seen, [["enhancementPowder", ["physical"]]]);
   assert.strictEqual(mod.item, "enhancementPowder");
+});
+
+test("setOptionTag writes check.tags (check) or tags (no-roll); empty drops the key", () => {
+  const chk = { check: { base: 0.5 } };
+  setOptionTag(chk, "social", true); setOptionTag(chk, "stealth", true);
+  assert.deepStrictEqual(chk.check.tags, ["social", "stealth"]);
+  setOptionTag(chk, "social", false);
+  assert.deepStrictEqual(chk.check.tags, ["stealth"]);
+  setOptionTag(chk, "stealth", false);
+  assert(!("tags" in chk.check));
+  const plain = { label: "x" };
+  setOptionTag(plain, "barrier", true);
+  assert.deepStrictEqual(plain.tags, ["barrier"]);
+});
+
+const offerCat = parseItemCatalogue(JSON.stringify({ recipes: {
+  invisibility: { name: "Invisibility", eventProfile: { tags: ["stealth"], effect: { kind: "autoSuccess" } } },
+  enhancementPowder: { name: "Enhancement Powder", eventProfile: { tags: ["physical"], effect: { kind: "bonus" } } },
+  blast: { name: "Blast", eventProfile: { tags: ["physical"], effect: { kind: "unlock" } } },
+  cleanSlate: { name: "Clean Slate", eventProfile: { tags: ["social"], effect: { kind: "failRecovery" } } },
+  secondImpression: { name: "Second Impression", eventProfile: { tags: ["social"], effect: { kind: "bonus" } } },
+} }));
+
+test("autoOfferItems: tag-matching items in id order; unlock skipped; failRecovery flagged", () => {
+  const opt = { check: { base: 0.5, tags: ["physical", "social"] } };
+  assert.deepStrictEqual(autoOfferItems(opt, offerCat).map((i) => [i.id, i.fail, i.excluded]),
+    [["cleanSlate", true, false], ["enhancementPowder", false, false], ["secondImpression", false, false]]);
+  assert.deepStrictEqual(autoOfferItems({ check: { base: 0.5 } }, offerCat), [], "untagged offers nothing");
+  assert.deepStrictEqual(autoOfferItems({ tags: ["social"] }, offerCat), [], "no-roll offers nothing");
+  assert.deepStrictEqual(autoOfferItems(opt, null), []);
+});
+
+test("autoOfferItems: authored mods and requires suppress an offer", () => {
+  const opt = { check: { base: 0.5, tags: ["physical", "social"], mods: [{ item: "enhancementPowder", add: 0.2 }] },
+    requires: { all: [{ any: [{ item: "secondImpression" }] }] } };
+  assert.deepStrictEqual(autoOfferItems(opt, offerCat).map((i) => i.id), ["cleanSlate"]);
+});
+
+test("setExcludeItem writes excludeItems; excluded stays listed; re-include drops the key", () => {
+  const opt = { check: { base: 0.5, tags: ["social"] } };
+  setExcludeItem(opt, "secondImpression", true);
+  assert.deepStrictEqual(opt.excludeItems, ["secondImpression"]);
+  const listed = autoOfferItems(opt, offerCat);
+  assert.deepStrictEqual(listed.map((i) => [i.id, i.excluded]), [["cleanSlate", false], ["secondImpression", true]]);
+  setExcludeItem(opt, "secondImpression", false);
+  assert(!("excludeItems" in opt));
+});
+
+test("tags and excludeItems survive setOptionMechanics, serialise, re-import and promote", () => {
+  const { draft } = parseDraft(draftText);
+  const w = JSON.parse(JSON.stringify(cardByKey(draft, "c2").choices[0]));
+  setOptionTag(w, "social", true); setExcludeItem(w, "secondImpression", true);
+  setOptionMechanics(draft, "c2", 0, w);
+  const re = parseDraft(serialiseDraft(draft)).draft;
+  const o = cardByKey(re, "c2").choices[0];
+  assert.deepStrictEqual(o.check.tags, ["social"]);
+  assert.deepStrictEqual(o.excludeItems, ["secondImpression"]);
+  const ev = promoteDraft(re).event;
+  const live = ev.cards.flatMap((c) => c.choices || []).find((x) => x.excludeItems);
+  assert(live, "promoted event keeps excludeItems");
+  assert.deepStrictEqual(live.excludeItems, ["secondImpression"]);
+  assert.deepStrictEqual(live.check.tags, ["social"]);
+  // no-roll option: option-level tags copy over
+  const j = addOption(draft, "c2");
+  const p = JSON.parse(JSON.stringify(cardByKey(draft, "c2").choices[j]));
+  setOptionTag(p, "barrier", true);
+  setOptionMechanics(draft, "c2", j, p);
+  assert.deepStrictEqual(cardByKey(draft, "c2").choices[j].tags, ["barrier"]);
 });
 
 console.log(`${passed} passed${process.exitCode ? ", some FAILED" : ""}`);

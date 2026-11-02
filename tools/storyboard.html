@@ -231,6 +231,7 @@ section { display: grid; gap: 12px; min-width: 0 }
 .mech-ed .field-row label { display: block; font-size: 11px; color: var(--muted); margin-bottom: 2px }
 .mech-ed input, .mech-ed select, .mech-ed textarea { width: 100%; background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 6px; padding: 4px 7px; font-size: 13px }
 .mech-ed .item-warn { font-size: 11px; color: #e0a040; margin-top: 2px }
+.mech-ed .tag-picker, .mech-ed .auto-offer { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center }
 .mech-ed .item-all { display: flex; gap: 4px; align-items: center; font-size: 11px; color: var(--muted); margin-top: 2px }
 .mech-ed .item-all input { width: auto }
 .mech-ed .mech-check { display: flex; gap: 6px; align-items: center; font-size: 12px; color: var(--muted); margin-bottom: 8px }
@@ -541,6 +542,49 @@ function mechItemField(obj, key, changed, tags) {
   return mechItemControl ? mechItemControl(obj, key, changed, tags || []) : mechText(obj, key, changed, "");
 }
 
+// Tag vocabulary for the tag picker (constants.json eventChecks.tags) and the item catalogue the auto-offer
+// preview reads; the storyboard installs both, unset they are empty.
+let mechTagVocab = [];
+let mechCatalogue = null;
+
+// Items a check option auto-offers [{ id, name, fail, excluded }], mirroring Events.offered_mods: items whose
+// profile tags share one with the check's, in id order, minus unlock items (authored only) and items the option
+// already authors (a mod, or named in requires). failRecovery items are offered on the fail card (fail: true).
+// Excluded items stay listed (excluded: true). [] for a no-roll or untagged option.
+function autoOfferItems(opt, catalogue) {
+  if (!opt || !opt.check || typeof opt.check !== "object" || !Array.isArray(catalogue)) return [];
+  const tags = optionTags(opt);
+  if (!tags.length) return [];
+  const authored = [];
+  const collect = (c) => {
+    if (!c || typeof c !== "object") return;
+    if (typeof c.item === "string") authored.push(c.item);
+    for (const k of ["all", "any"]) if (Array.isArray(c[k])) c[k].forEach(collect);
+  };
+  (Array.isArray(opt.check.mods) ? opt.check.mods : []).forEach((m) => { if (m && typeof m.item === "string") authored.push(m.item); });
+  collect(opt.requires);
+  const excl = Array.isArray(opt.excludeItems) ? opt.excludeItems : [];
+  return catalogue
+    .filter((it) => it.kind !== "unlock" && !authored.includes(it.id) && it.tags.some((t) => tags.includes(t)))
+    .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+    .map((it) => ({ id: it.id, name: it.name, fail: it.kind === "failRecovery", excluded: excl.includes(it.id) }));
+}
+
+// Toggles item id in opt.excludeItems; the key is dropped when the list empties.
+function setExcludeItem(opt, id, excluded) {
+  const list = Array.isArray(opt.excludeItems) ? opt.excludeItems.filter((x) => x !== id) : [];
+  if (excluded) list.push(id);
+  if (list.length) opt.excludeItems = list; else delete opt.excludeItems;
+}
+
+// Toggles tag on a check option (check.tags) or a no-roll option (opt.tags); an empty list drops the key.
+function setOptionTag(opt, tag, on) {
+  const holder = opt.check && typeof opt.check === "object" ? opt.check : opt;
+  const list = Array.isArray(holder.tags) ? holder.tags.filter((x) => x !== tag) : [];
+  if (on) list.push(tag);
+  if (list.length) holder.tags = list; else delete holder.tags;
+}
+
 // Tags an option's item pickers filter by: its check's, else its own (a no-roll option).
 function optionTags(opt) {
   const t = opt && opt.check && typeof opt.check === "object" ? opt.check.tags : opt && opt.tags;
@@ -813,6 +857,7 @@ function optionMechanicsRows(opt, changed, restructure) {
   if (check) {
     rows.push(...checkRows(opt, changed, restructure));
   } else {
+    rows.push(tagPickerRow(opt, changed, restructure));
     rows.push(mechCell("Result text", mechText(opt, "result_text", changed, "null", true), true));
     rows.push(gotoRow(opt, changed));
   }
@@ -1014,6 +1059,32 @@ function modBlock(mod, i, mods, changed, restructure, tags) {
   return row;
 }
 
+// Tag checkboxes (vocabulary order; a tag outside it stays shown) for an option.
+function tagPickerRow(opt, changed, restructure) {
+  const have = optionTags(opt);
+  const names = mechTagVocab.concat(have.filter((t) => !mechTagVocab.includes(t)));
+  const wrap = mechEl("div", "tag-picker");
+  if (!names.length) wrap.appendChild(mechEl("span", "", "No tag vocabulary (data/constants.json)."));
+  names.forEach((t) => wrap.appendChild(mechCheckbox(t, have.includes(t), (on) => { setOptionTag(opt, t, on); changed(); restructure(); })));
+  return mechCell("Tags", wrap, true);
+}
+
+// What a check will auto-offer, each with an exclude toggle (struck through when excluded).
+function autoOfferRow(opt, changed, restructure) {
+  const wrap = mechEl("div", "auto-offer");
+  const items = autoOfferItems(opt, mechCatalogue);
+  if (!mechCatalogue) wrap.appendChild(mechEl("span", "item-warn", "⚠ No item catalogue: preview unavailable."));
+  else if (!items.length) wrap.appendChild(mechEl("span", "", optionTags(opt).length ? "Nothing offered." : "Untagged: nothing offered."));
+  items.forEach((it) => {
+    const row = mechCheckbox("exclude", it.excluded, (on) => { setExcludeItem(opt, it.id, on); changed(); restructure(); });
+    const name = mechEl("span", "auto-offer-name", it.name + (it.fail ? " (on fail)" : ""));
+    if (it.excluded) name.style.textDecoration = "line-through";
+    row.prepend(name);
+    wrap.appendChild(row);
+  });
+  return mechCell("Auto-offers", wrap, true);
+}
+
 function outcomeBlock(opt, key, title, changed, restructure) {
   const box = mechEl("div", "mech-sub");
   box.appendChild(mechEl("div", "mech-heading", title));
@@ -1055,6 +1126,8 @@ function checkOddsBlock(opt, changed, restructure) {
   row.appendChild(mechCell("Max", mechNumber(check, "max", changed, true, "default")));
   row.appendChild(mechCell("Attempts", mechNumber(check, "attempts", changed, true, "1")));
   odds.appendChild(row);
+  odds.appendChild(tagPickerRow(opt, changed, restructure));
+  odds.appendChild(autoOfferRow(opt, changed, restructure));
 
   const mods = Array.isArray(check.mods) ? check.mods : [];
   mods.forEach((mod, i) => odds.appendChild(modBlock(mod, i, mods, changed, restructure, optionTags(opt))));
@@ -1774,7 +1847,11 @@ function checkOddsBlock(opt, changed, restructure) {
   function setOptionMechanics(draft, key, i, w) {
     const { o } = optionAt(draft, key, i);
     if (w.requires) o.requires = deepClone(w.requires); else delete o.requires;
-    if (!o.check) return;
+    if (Array.isArray(w.excludeItems) && w.excludeItems.length) o.excludeItems = w.excludeItems.slice(); else delete o.excludeItems;
+    if (!o.check) {
+      if (Array.isArray(w.tags) && w.tags.length) o.tags = w.tags.slice(); else delete o.tags;
+      return;
+    }
     const k = deepClone(w.check), per = o.check.perSuccess;
     delete k.perSuccess;
     if (per !== undefined) k.perSuccess = per;
@@ -3044,7 +3121,7 @@ function checkOddsBlock(opt, changed, restructure) {
     return Object.keys(r).map((id) => {
       const it = r[id] || {};
       const p = it.eventProfile && typeof it.eventProfile === "object" ? it.eventProfile : null;
-      return { id, name: typeof it.name === "string" && it.name ? it.name : id, tags: p && Array.isArray(p.tags) ? p.tags.slice() : [] };
+      return { id, name: typeof it.name === "string" && it.name ? it.name : id, tags: p && Array.isArray(p.tags) ? p.tags.slice() : [], kind: p && p.effect && typeof p.effect.kind === "string" ? p.effect.kind : "" };
     });
   }
   // Dropdown choices [{ value, label, warn? }] for an item field, or null with no catalogue (free text). Filtered to
@@ -3130,6 +3207,12 @@ function checkOddsBlock(opt, changed, restructure) {
   let itemCatalogue = null;
   async function loadItemCatalogue() {
     try { itemCatalogue = parseItemCatalogue(await readText(await dirAt(["data"]), "recipes.json")); } catch { itemCatalogue = null; }
+    mechCatalogue = itemCatalogue;
+    try {
+      const c = JSON.parse(await readText(await dirAt(["data"]), "constants.json"));
+      const t = c && c.eventChecks && c.eventChecks.tags;
+      mechTagVocab = Array.isArray(t) ? t.filter((x) => typeof x === "string") : [];
+    } catch { mechTagVocab = []; }
   }
   // Item-id field for the shared mechanics widgets: a dropdown of display name + id filtered by the option's tags
   // ("show all" lifts the filter), or a free-text box with a warning when there is no catalogue.
