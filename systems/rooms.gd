@@ -6,7 +6,7 @@ extends RefCounted
 
 # R§3.10 "Producer": a crafter makes any recipe whose ingredient ore types
 # all sit within their specialities -- independent of the player's own
-# Recipe Book. No specialities means they craft nothing. GameData.RECIPES order.
+# Recipe Book; roster-only items without a Lab procedure are skipped. No specialities means they craft nothing. GameData.RECIPES order.
 static func producible_recipes(contact_id: String) -> Array:
 	var specialities: Array = GameState.state["contacts"].get(contact_id, {}).get("specialities", [])
 	var result: Array = []
@@ -14,7 +14,7 @@ static func producible_recipes(contact_id: String) -> Array:
 		return result
 	for recipe_key in GameData.RECIPES:
 		var ingredients: Array = Crafting.recipe_ore_types(recipe_key)
-		if not ingredients.is_empty() and ingredients.all(func(ore_type: String) -> bool: return specialities.has(ore_type)):
+		if RecipeKnowledge.teachable(recipe_key) and not ingredients.is_empty() and ingredients.all(func(ore_type: String) -> bool: return specialities.has(ore_type)):
 			result.append(recipe_key)
 	return result
 

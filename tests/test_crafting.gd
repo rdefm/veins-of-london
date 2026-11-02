@@ -114,7 +114,11 @@ func run() -> void:
 		for key in expected:
 			for tier in range(1, 6):
 				assert_eq(Crafting.effect_power(key, tier), expected[key][tier - 1], "%s tier %d" % [key, tier])
-		assert_eq(expected.size(), GameData.RECIPES.size(), "every recipe has a tier table asserted")
+		var asserted_recipes := 0
+		for key in GameData.RECIPES:
+			if not GameData.RECIPES[key].get("bagWhenHeld", false):
+				asserted_recipes += 1
+		assert_eq(expected.size(), asserted_recipes, "every non-roster recipe has a tier table asserted")
 	)
 
 	run_case("file_crafted_fires_every_side_effect_once_per_item", func():

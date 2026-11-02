@@ -476,7 +476,7 @@ func _recipe_entries() -> Array:
 	var refusals: Dictionary = GameData.RECIPE_KNOWLEDGE.get("buyRefusals", {})
 	var rungs := RecipeKnowledge.rungs()
 	for recipe_key in GameData.RECIPES.keys():
-		if RecipeKnowledge.seller_of(recipe_key) != seller_id:
+		if RecipeKnowledge.seller_of(recipe_key) != seller_id or not RecipeKnowledge.teachable(recipe_key):
 			continue
 		var prev_ready := false
 		for i in rungs.size():

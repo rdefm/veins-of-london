@@ -124,6 +124,11 @@ static func _insight_text(recipe_key: String, rung: String) -> String:
 # ── Sources ──────────────────────────────────────────────────────────────
 
 # The seller id whose ores cover every ingredient ore, else defaultSeller.
+# Whether a recipe has a Lab procedure to learn; roster-only items don't yet.
+static func teachable(recipe_key: String) -> bool:
+	return not Lab.procedure_def(recipe_key).is_empty()
+
+
 static func seller_of(recipe_key: String) -> String:
 	var ores: Array = GameData.RECIPES.get(recipe_key, {}).get("ingredients", {}).keys()
 	var sellers: Dictionary = _data().get("sellers", {})
@@ -148,11 +153,14 @@ static func _resolve_source(source_id: String) -> String:
 	return str(_data().get("sourceAliases", {}).get(source_id, source_id))
 
 
-# Recipes a source sells or is master source for, in data/recipes.json order.
+# Recipes a source sells or is master source for, in data/recipes.json order;
+# recipes without a Lab procedure (roster-only items) are not teachable.
 static func _source_recipes(source_id: String) -> Array:
 	var resolved := _resolve_source(source_id)
 	var result := []
 	for recipe_key in GameData.RECIPES.keys():
+		if not teachable(recipe_key):
+			continue
 		var master = master_source(recipe_key)["source"]
 		if seller_of(recipe_key) == resolved or (master != null and _resolve_source(str(master)) == resolved):
 			result.append(recipe_key)

@@ -217,12 +217,16 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["market"] = Market.new_state(true)
 		var time_idle: int = _price("ore", "time")
-		var life_idle: int = _price("ore", "life")
+		var time_stock_idle: int = GameState.state["market"]["goods"]["ore"]["time"]["stock"]
+		var life_stock_idle: int = GameState.state["market"]["goods"]["ore"]["life"]["stock"]
 		for i in range(4):
 			Market.record_demand("consumable", "healingBurst", 50, "player")
 			_tick(1)
+		var ore_goods: Dictionary = GameState.state["market"]["goods"]["ore"]
 		assert_true(_price("ore", "time") > time_idle, "healingBurst shortage lifts time")
-		assert_true(_price("ore", "life") > life_idle, "healingBurst shortage lifts life")
+		# Life's price moves under a whole pound at the larger roster, so its stock is the signal.
+		assert_true(int(ore_goods["time"]["stock"]) < time_stock_idle, "healingBurst shortage draws down time stock")
+		assert_true(int(ore_goods["life"]["stock"]) < life_stock_idle, "healingBurst shortage draws down life stock")
 	)
 
 	run_case("demand_all_lifts_and_lowers_every_item", func():

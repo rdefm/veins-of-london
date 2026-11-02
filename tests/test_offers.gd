@@ -34,8 +34,9 @@ func run() -> void:
 			var k2: String = "%s:%s" % [t2["request"]["kind"], t2["request"]["type"]]
 			counts[k2] = int(counts.get(k2, 0)) + 1
 		assert_eq(counts.size(), late.size(), "every item appears")
+		var expected_share := 4000.0 / float(late.size())
 		for k3 in counts:
-			assert_true(int(counts[k3]) > 90 and int(counts[k3]) < 300, "uniform: %s %d" % [k3, counts[k3]])
+			assert_true(float(counts[k3]) > expected_share * 0.4 and float(counts[k3]) < expected_share * 2.5, "uniform: %s %d" % [k3, counts[k3]])
 	)
 
 	run_case("scripted_offer_snapshots_quote_and_acceptance_creates_contract", func():

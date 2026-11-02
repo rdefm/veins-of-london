@@ -44,9 +44,10 @@ func _repeat(value: float, count: int) -> Array:
 
 
 func run() -> void:
-	run_case("all_17_recipes_have_procedures", func():
-		assert_eq(GameData.RECIPES.size(), 17, "17 recipes")
-		for recipe_key in GameData.RECIPES:
+	run_case("all_17_craftable_recipes_have_procedures", func():
+		var craftable: Array = GameData.RECIPES.keys().filter(func(k): return not GameData.RECIPES[k].get("bagWhenHeld", false))
+		assert_eq(craftable.size(), 17, "17 craftable recipes (roster items have no Lab procedure yet)")
+		for recipe_key in craftable:
 			assert_true(_procedures().has(recipe_key), "%s has a procedure" % recipe_key)
 		for recipe_key in _procedures():
 			assert_true(GameData.RECIPES.has(recipe_key), "procedure %s has a recipe" % recipe_key)

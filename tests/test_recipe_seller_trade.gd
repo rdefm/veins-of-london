@@ -74,7 +74,7 @@ func run() -> void:
 		GameState.state["contacts"]["james"]["relation"] = 100
 		var view := _open("james")
 		for recipe_key in GameData.RECIPES.keys():
-			var ours := RecipeKnowledge.seller_of(recipe_key) == "james"
+			var ours := RecipeKnowledge.seller_of(recipe_key) == "james" and RecipeKnowledge.teachable(recipe_key)
 			assert_eq(_add_button(view, recipe_key, "base") != null, ours and not Lab.is_known(recipe_key), recipe_key)
 			assert_true(_add_button(view, recipe_key, "master") == null, "%s master not for sale" % recipe_key)
 		view.free()

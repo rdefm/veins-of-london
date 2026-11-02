@@ -49,6 +49,14 @@ static func add_calc(ore_type: String, amount: int) -> void:
 	EventBus.state_changed.emit()
 
 
+## Grants qty of any recipe item at the given tier.
+static func add_item(recipe_key: String, tier: int, qty: int) -> void:
+	if not GameData.RECIPES.has(recipe_key) or qty <= 0:
+		return
+	Crafting.inventory_add(recipe_key, tier, qty)
+	EventBus.state_changed.emit()
+
+
 ## Teaches recipe_key exact through rung and every rung below it, so
 ## RecipeKnowledge.rank_ceiling() reaches that rung's ceiling.
 static func learn_recipe(recipe_key: String, rung: String) -> void:

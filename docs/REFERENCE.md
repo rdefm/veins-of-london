@@ -87,8 +87,34 @@ Each recipe's `ingredients` field is a dict of `{oreType: baseCalcCost}` — one
 | failsafe | Failsafe | ⚑ | {time: 6, life: 6} | 0.12 | [0,1,1,2,2,2] | 45 | true |
 | rejuvenation | Rejuvenation | ❀ | {time: 5, life: 5} | 0.35 | [0,0,0,0,0,0] (no gameplay effect — sale good only) | 20 | false |
 | wormhole | Wormhole | ⊗ | {time: 5, physics: 5} | 0.18 | [0,1,1,1,1,1] | 40 | true |
+| nearMiss | Near Miss | ⚐ | {fate: 5} | 0.35 | [0,1,1,2,2,3] (placeholder, no mechanics yet) | 25 | false |
+| sodsLaw | Sod's Law | ⚇ | {fate: 6} | 0.30 | [0,1,2,2,3,4] (placeholder, no mechanics yet) | 30 | false |
+| happyAccident | Happy Accident | ✧ | {fate: 6} | 0.30 | [0,1,1,1,2,2] (placeholder, no mechanics yet) | 30 | false |
+| introduction | Introduction | ⚭ | {fate: 4} | 0.45 | [0,0,0,0,0,0] (placeholder, no mechanics yet) | 20 | false |
+| smellingSalts | Smelling Salts | ⚕ | {life: 5} | 0.40 | [0,5,8,12,16,20] (placeholder, no mechanics yet) | 25 | false |
+| rootFeed | Root Feed | ❦ | {life: 7} | 0.30 | [0,1,1,2,2,3] (placeholder, no mechanics yet) | 30 | false |
+| bloom | Bloom | ✿ | {life: 3} | 0.55 | [0,0,0,0,0,0] (placeholder, no mechanics yet) | 15 | false |
+| borrowedTime | Borrowed Time | ◷ | {time: 8} | 0.15 | [0,1,1,1,1,1] (placeholder, no mechanics yet) | 45 | false |
+| patina | Patina | ⌛ | {time: 4} | 0.45 | [0,0,0,0,0,0] (placeholder, no mechanics yet) | 20 | false |
+| ricochet | Ricochet | ↺ | {physics: 6} | 0.30 | [0,3,5,7,9,12] (placeholder, no mechanics yet) | 30 | false |
+| deadweight | Deadweight | ⬛ | {physics: 7} | 0.25 | [0,10,15,20,25,35] (placeholder, no mechanics yet) | 35 | false |
+| signalFailure | Signal Failure | ⧗ | {physics: 5} | 0.35 | [0,1,1,2,2,3] (placeholder, no mechanics yet) | 25 | false |
+| trueLevel | True Level | ⊥ | {physics: 4} | 0.45 | [0,0,0,0,0,0] (placeholder, no mechanics yet) | 20 | false |
+| dejaVu | Déjà Vu | ⟳ | {fate: 5, time: 5} | 0.20 | [0,1,1,1,2,2] (placeholder, no mechanics yet) | 40 | false |
+| skeletonKey | Skeleton Key | ⚿ | {fate: 4, physics: 6} | 0.20 | [0,1,1,2,2,3] (placeholder, no mechanics yet) | 40 | false |
+| goodYear | Good Year | ❧ | {fate: 5, life: 5} | 0.20 | [0,2,3,4,5,7] (placeholder, no mechanics yet) | 40 | false |
+| secondImpression | Second Impression | ♢ | {fate: 4, emotion: 5} | 0.30 | [0,10,15,20,25,35] (placeholder, no mechanics yet) | 30 | false |
+| stiffUpperLip | Stiff Upper Lip | ☗ | {emotion: 4, life: 5} | 0.30 | [0,2,3,4,5,6] (placeholder, no mechanics yet) | 30 | false |
+| heavyMetal | Heavy Metal | ♫ | {emotion: 5, physics: 5} | 0.20 | [0,3,4,6,8,10] (placeholder, no mechanics yet) | 40 | false |
+| coldFeet | Cold Feet | ❄ | {emotion: 4, time: 4} | 0.35 | [0,1,1,1,1,1] (placeholder, no mechanics yet) | 30 | false |
+| nostalgia | Nostalgia | ☙ | {emotion: 5, time: 5} | 0.30 | [0,0,0,0,0,0] (placeholder, no mechanics yet) | 25 | false |
+| navvysDraught | Navvy's Draught | ⚒ | {life: 5, physics: 5} | 0.30 | [0,5,8,12,16,20] (placeholder, no mechanics yet) | 30 | false |
+| cleanSlate | Clean Slate | ∅ | {fate: 5, time: 5, emotion: 5} | 0.15 | [0,0,0,0,0,0] (placeholder, no mechanics yet) | 60 | false |
+| keystone | Keystone | ◈ | {time: 4, physics: 4, life: 4, fate: 4, emotion: 4} | 0.15 | [0,0,0,0,0,0] (placeholder, no mechanics yet) | 70 | false |
 
 Each recipe's `ingredients` is both its calc cost per item and the calc its Lab procedure's `base` steps spend (§3.5); its `effectPower` index is the item tier (1–5) = the Lab rank it was crafted at. `baseSuccess` is read only by staff and faction crafting (§3.5) — the player has no craft chance.
+
+**Item roster (docs/brainstorm.md §3–4.1):** the 24 rows from nearMiss to keystone are roster-only for now: no mechanics, `eventUsable` false, every number a balance placeholder, descriptions PROSE-REVIEW. They share `assets/combat/icons/placeholder.png`, carry `bagWhenHeld: true` (Bag lists them only while held), and each has a market entry (normalStock 50 / civilianDemand 15) and a `recipe_knowledge.json` master-source row (null). Prices follow `xpReward × 6` except introduction 200 and nostalgia 280 (lore goods priced toward Rejuvenation); cleanSlate (0.15, xp 60) and keystone (0.15, xp 70) numbers are the human's picks.
 
 Descriptions (verbatim):
 - timePearl: "Throw at your feet. Freezes enemy for N turns. Elegant, if you ignore what it actually is."

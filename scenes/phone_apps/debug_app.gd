@@ -36,6 +36,7 @@ func build(content: VBoxContainer) -> void:
 	content.add_child(_build_board_card())
 	content.add_child(_build_learn_recipes_card())
 	content.add_child(_build_timing_log_card())
+	content.add_child(_build_add_item_card())
 
 
 func _build_timing_log_card() -> Control:
@@ -136,6 +137,25 @@ func _build_add_calc_card() -> Control:
 	c["content"].add_child(UI.button("Add", func():
 		var ore_type: String = ore_select.get_item_text(ore_select.selected)
 		DebugTools.add_calc(ore_type, amount_field.text.to_int())
+	))
+
+	return c["panel"]
+
+
+func _build_add_item_card() -> Control:
+	var c := UI.card()
+	c["content"].add_child(UI.heading("Add item", 14))
+
+	var item_select := UI.option_button(GameData.RECIPES.keys())
+	c["content"].add_child(item_select)
+
+	var amount_field := LineEdit.new()
+	amount_field.placeholder_text = "Amount"
+	c["content"].add_child(amount_field)
+
+	c["content"].add_child(UI.button("Add (tier 1)", func():
+		var recipe_key: String = item_select.get_item_text(item_select.selected)
+		DebugTools.add_item(recipe_key, 1, amount_field.text.to_int())
 	))
 
 	return c["panel"]

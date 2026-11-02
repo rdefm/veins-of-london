@@ -42,7 +42,31 @@
       "healingBurst": { "normalStock": 50, "civilianDemand": 15 },
       "failsafe": { "normalStock": 50, "civilianDemand": 15 },
       "rejuvenation": { "normalStock": 50, "civilianDemand": 15 },
-      "wormhole": { "normalStock": 50, "civilianDemand": 15 }
+      "wormhole": { "normalStock": 50, "civilianDemand": 15 },
+      "nearMiss": { "normalStock": 50, "civilianDemand": 15 },
+      "sodsLaw": { "normalStock": 50, "civilianDemand": 15 },
+      "happyAccident": { "normalStock": 50, "civilianDemand": 15 },
+      "introduction": { "normalStock": 50, "civilianDemand": 15 },
+      "smellingSalts": { "normalStock": 50, "civilianDemand": 15 },
+      "rootFeed": { "normalStock": 50, "civilianDemand": 15 },
+      "bloom": { "normalStock": 50, "civilianDemand": 15 },
+      "borrowedTime": { "normalStock": 50, "civilianDemand": 15 },
+      "patina": { "normalStock": 50, "civilianDemand": 15 },
+      "ricochet": { "normalStock": 50, "civilianDemand": 15 },
+      "deadweight": { "normalStock": 50, "civilianDemand": 15 },
+      "signalFailure": { "normalStock": 50, "civilianDemand": 15 },
+      "trueLevel": { "normalStock": 50, "civilianDemand": 15 },
+      "dejaVu": { "normalStock": 50, "civilianDemand": 15 },
+      "skeletonKey": { "normalStock": 50, "civilianDemand": 15 },
+      "goodYear": { "normalStock": 50, "civilianDemand": 15 },
+      "secondImpression": { "normalStock": 50, "civilianDemand": 15 },
+      "stiffUpperLip": { "normalStock": 50, "civilianDemand": 15 },
+      "heavyMetal": { "normalStock": 50, "civilianDemand": 15 },
+      "coldFeet": { "normalStock": 50, "civilianDemand": 15 },
+      "nostalgia": { "normalStock": 50, "civilianDemand": 15 },
+      "navvysDraught": { "normalStock": 50, "civilianDemand": 15 },
+      "cleanSlate": { "normalStock": 50, "civilianDemand": 15 },
+      "keystone": { "normalStock": 50, "civilianDemand": 15 }
     }
   }
 }

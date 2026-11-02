@@ -31,10 +31,10 @@ static func _find_buttons_by_text(root: Node, text: String) -> Array[Button]:
 	return buttons
 
 
-# Total LineEdit count on the debug screen: add-money, add-calc, then the
-# single relation card's delta field, in build order.
+# Total LineEdit count on the debug screen: add-money, add-calc, the
+# single relation card's delta field, then the add-item amount, in build order.
 static func _expected_field_count() -> int:
-	return 3
+	return 4
 
 
 static func _find_relation_label(root: Node) -> Label:
@@ -126,7 +126,7 @@ func run() -> void:
 		fields[1].text = "40"
 
 		var options := _find_option_buttons(phone)
-		assert_eq(options.size(), 8, "add-calc ore, spawn-site district/ore/terroir, the relation target selector, the event picker, then learn-recipes recipe/rung")
+		assert_eq(options.size(), 9, "add-calc ore, spawn-site district/ore/terroir, the relation target selector, the event picker, learn-recipes recipe/rung, then the add-item picker")
 		options[0].selected = 1
 		var chosen_ore := options[0].get_item_text(1)
 
@@ -166,7 +166,7 @@ func run() -> void:
 		phone._ready()
 
 		var options := _find_option_buttons(phone)
-		assert_eq(options.size(), 8, "add-calc ore, spawn-site district/ore/terroir, the relation target selector, the event picker, then learn-recipes recipe/rung")
+		assert_eq(options.size(), 9, "add-calc ore, spawn-site district/ore/terroir, the relation target selector, the event picker, learn-recipes recipe/rung, then the add-item picker")
 
 		var district_ids: Array = GameData.DISTRICTS.keys()
 		var target_index: int = district_ids.find(district_id)

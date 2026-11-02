@@ -227,8 +227,9 @@ func _register_buying_cases() -> void:
 	run_case("seller_of_every_recipe", func():
 		var expected := {}
 		for recipe_key in GameData.RECIPES.keys():
-			expected[recipe_key] = "james" if JAMES_RECIPES.has(recipe_key) else "wren"
-		assert_eq(expected.size(), 17, "17 recipes")
+			if RecipeKnowledge.teachable(recipe_key):
+				expected[recipe_key] = "james" if JAMES_RECIPES.has(recipe_key) else "wren"
+		assert_eq(expected.size(), 17, "17 teachable recipes")
 		for recipe_key in expected.keys():
 			assert_eq(RecipeKnowledge.seller_of(recipe_key), expected[recipe_key], recipe_key)
 	)
