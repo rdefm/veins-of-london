@@ -240,7 +240,7 @@ static func apply_item(vein_id: String, item: String, tier: int) -> Dictionary:
 	if not vein.has("boosts"):
 		vein["boosts"] = {}
 	var until: int = int(GameState.state["world"]["day"]) + days
-	vein["boosts"][item] = { "until": until, "power": days }
+	vein["boosts"][item] = { "until": until, "power": days, "tier": tier }
 	# PROSE-REVIEW: item-on-vein notification.
 	Notify.push("%s on the %s vein. %d day%s." % [GameData.VEIN_GROWTH["boostItems"][item]["label"], GameData.ORE_TYPES[vein["oreType"]]["name"], days, "" if days == 1 else "s"], Notify.CATEGORY_SUCCESS)
 	EventBus.state_changed.emit()
@@ -256,7 +256,8 @@ static func _tick_boosts(vein: Dictionary) -> void:
 	var day: int = GameState.state["world"]["day"]
 	if boosts.has(ROOT_FEED) and int(boosts[ROOT_FEED]["until"]) >= day:
 		var growth_before: int = vein["growth"]
-		var step: int = int(GameData.VEIN_GROWTH["boostItems"][ROOT_FEED]["growthPerDay"])
+		var steps: Array = GameData.VEIN_GROWTH["boostItems"][ROOT_FEED]["growthPerDayByTier"]
+		var step: int = int(steps[clampi(int(boosts[ROOT_FEED].get("tier", 1)), 0, steps.size() - 1)])
 		vein["growth"] = mini(ceiling(vein), growth_before + step)
 		apply_growth_change(vein, growth_before)
 	for item in boosts.keys():

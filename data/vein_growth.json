@@ -32,7 +32,7 @@
   "terroirYieldMult": { "poor": 0.6, "fair": 1.0, "rich": 1.6, "saturated": 2.4 },
   "terroirTierOrder": ["poor", "fair", "rich", "saturated"],
   "boostItems": {
-    "rootFeed": { "label": "Root Feed", "growthPerDay": 1 },
+    "rootFeed": { "label": "Root Feed", "growthPerDayByTier": [0, 5, 10, 15, 20, 25] },
     "goodYear": { "label": "Good Year", "tierBump": 1 }
   },
   "levelCapByTerroir": { "poor": 2, "fair": 3, "rich": 4, "saturated": 5 },

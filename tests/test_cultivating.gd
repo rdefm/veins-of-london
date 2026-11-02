@@ -1571,17 +1571,17 @@ func run() -> void:
 		var vein: Dictionary = GameState.state["player"]["veins"][0]
 		world["day"] = day + 1
 		Cultivating.drift_veins()
-		assert_eq(vein["growth"], 51, "tick on day+1 feeds")
+		assert_eq(vein["growth"], 65, "tier 3 feeds +15 on day+1")
 		assert_true(vein["boosts"].has("rootFeed"), "still running after the first tick")
 		# Drift now pushes the vein off neutral; isolate the boost step itself.
 		vein["growth"] = 60
 		world["day"] = day + 2
 		Cultivating._tick_boosts(vein)
-		assert_eq(vein["growth"], 61, "second and last tick feeds")
+		assert_eq(vein["growth"], 75, "second and last tick feeds")
 		assert_true(not vein["boosts"].has("rootFeed"), "expired after its last day")
 		world["day"] = day + 3
 		Cultivating._tick_boosts(vein)
-		assert_eq(vein["growth"], 61, "no feed once expired")
+		assert_eq(vein["growth"], 75, "no feed once expired")
 	)
 
 	run_case("root_feed_is_capped_at_the_ceiling", func():
