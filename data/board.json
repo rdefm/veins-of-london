@@ -836,6 +836,257 @@
           "permanent": false
         }
       ]
+    },
+    "landmark": {
+      "voice": "archie",
+      "rungs": [
+        {
+          "id": "landmark_supplier",
+          "premise": {
+            "kind": "spine_done",
+            "beat": "share_target"
+          },
+          "goal": {
+            "type": "supplier_contract_signed",
+            "params": {
+              "oreType": "$best"
+            }
+          },
+          "tiers": {
+            "base": {
+              "minCount": 1
+            },
+            "target": {
+              "minCount": 1
+            },
+            "stretch": {
+              "minCount": 2
+            }
+          },
+          "lengthWeeks": 1,
+          "rewards": {
+            "base": [
+              {
+                "kind": "cash",
+                "amount": 150
+              }
+            ],
+            "target": [
+              {
+                "kind": "cash",
+                "amount": 350
+              },
+              {
+                "kind": "item",
+                "id": "timePearl",
+                "tier": 1,
+                "qty": 1
+              }
+            ],
+            "stretch": [
+              {
+                "kind": "cash",
+                "amount": 550
+              },
+              {
+                "kind": "item",
+                "id": "timePearl",
+                "tier": 1,
+                "qty": 1
+              },
+              {
+                "kind": "item",
+                "id": "enhancementPowder",
+                "tier": 1,
+                "qty": 1
+              }
+            ]
+          },
+          "pinned": true,
+          "spine": "supplier_contract",
+          "permanent": false
+        },
+        {
+          "id": "landmark_1",
+          "premise": {
+            "kind": "spine_done",
+            "beat": "supplier_contract"
+          },
+          "goal": {
+            "type": "contracts_settled_at_least",
+            "params": {}
+          },
+          "tiers": {
+            "base": {
+              "minCount": 2
+            },
+            "target": {
+              "minCount": 3
+            },
+            "stretch": {
+              "minCount": 4
+            }
+          },
+          "lengthWeeks": 2,
+          "rewards": {
+            "base": [
+              {
+                "kind": "cash",
+                "amount": 100
+              }
+            ],
+            "target": [
+              {
+                "kind": "cash",
+                "amount": 200
+              },
+              {
+                "kind": "contract",
+                "templateId": "landmark_1"
+              }
+            ],
+            "stretch": [
+              {
+                "kind": "cash",
+                "amount": 300
+              },
+              {
+                "kind": "contract",
+                "templateId": "landmark_1"
+              },
+              {
+                "kind": "item",
+                "id": "timePearl",
+                "tier": 1,
+                "qty": 1
+              }
+            ]
+          },
+          "pinned": false,
+          "spine": null,
+          "permanent": false
+        },
+        {
+          "id": "landmark_2",
+          "premise": {
+            "kind": "spine_done",
+            "beat": "supplier_contract"
+          },
+          "goal": {
+            "type": "contracts_settled_at_least",
+            "params": {}
+          },
+          "tiers": {
+            "base": {
+              "minCount": 3
+            },
+            "target": {
+              "minCount": 4
+            },
+            "stretch": {
+              "minCount": 5
+            }
+          },
+          "lengthWeeks": 2,
+          "rewards": {
+            "base": [
+              {
+                "kind": "cash",
+                "amount": 150
+              }
+            ],
+            "target": [
+              {
+                "kind": "cash",
+                "amount": 300
+              },
+              {
+                "kind": "contract",
+                "templateId": "landmark_2"
+              }
+            ],
+            "stretch": [
+              {
+                "kind": "cash",
+                "amount": 450
+              },
+              {
+                "kind": "contract",
+                "templateId": "landmark_2"
+              },
+              {
+                "kind": "item",
+                "id": "timePearl",
+                "tier": 1,
+                "qty": 1
+              }
+            ]
+          },
+          "pinned": false,
+          "spine": null,
+          "permanent": false
+        },
+        {
+          "id": "landmark_3",
+          "premise": {
+            "kind": "spine_done",
+            "beat": "supplier_contract"
+          },
+          "goal": {
+            "type": "contracts_settled_at_least",
+            "params": {}
+          },
+          "tiers": {
+            "base": {
+              "minCount": 4
+            },
+            "target": {
+              "minCount": 5
+            },
+            "stretch": {
+              "minCount": 6
+            }
+          },
+          "lengthWeeks": 2,
+          "rewards": {
+            "base": [
+              {
+                "kind": "cash",
+                "amount": 200
+              }
+            ],
+            "target": [
+              {
+                "kind": "cash",
+                "amount": 400
+              },
+              {
+                "kind": "contract",
+                "templateId": "landmark_3"
+              }
+            ],
+            "stretch": [
+              {
+                "kind": "cash",
+                "amount": 600
+              },
+              {
+                "kind": "contract",
+                "templateId": "landmark_3"
+              },
+              {
+                "kind": "item",
+                "id": "timePearl",
+                "tier": 1,
+                "qty": 1
+              }
+            ]
+          },
+          "pinned": false,
+          "spine": null,
+          "permanent": false
+        }
+      ]
     }
   },
   "templates": {
@@ -954,6 +1205,34 @@
         "I'm sorry if this is too much. I'd like us to get a different kind of calc online. I've only worked the ones we have, so I'd learn it as I go. Another ore means more to sell, more to craft, and less hanging on one price.",
         "If it's all right, I'd like to bring a vein of a different type online. I haven't done it before, so I'm sorry if it's slow. Two kinds of calc at once is more choice for Archie's buyers and James's benches.",
         "Sorry, I know it's a lot. Could we add another ore type? It has to be healthy enough to work before it counts. I'd like the practice, and it gives the others a second calc to sell and make things with."
+      ]
+    },
+    "landmark_supplier": {
+      "label": "Supply a faction: {calc}",
+      "case": [
+        "Sign a four-week supply contract for {calc} with someone who crafts with it. They need it every week and we get paid every week. That's how you learn who depends on whom.",
+        "Find a faction that works {calc} and sign them up for four weeks. A buyer who needs you is worth ten who might."
+      ]
+    },
+    "landmark_1": {
+      "label": "Landmark deal: The Stepney standing order",
+      "case": [
+        "Settle a few more orders and a regular buyer will put their name to something longer. The Stepney standing order, if we earn it.",
+        "Keep the deliveries clean and The Stepney standing order opens up. A buyer like that pays every week without us chasing."
+      ]
+    },
+    "landmark_2": {
+      "label": "Landmark deal: The Southwark retainer",
+      "case": [
+        "Settle a few more orders and a regular buyer will put their name to something longer. The Southwark retainer, if we earn it.",
+        "Keep the deliveries clean and The Southwark retainer opens up. A buyer like that pays every week without us chasing."
+      ]
+    },
+    "landmark_3": {
+      "label": "Landmark deal: The Westminster account",
+      "case": [
+        "Settle a few more orders and a regular buyer will put their name to something longer. The Westminster account, if we earn it.",
+        "Keep the deliveries clean and The Westminster account opens up. A buyer like that pays every week without us chasing."
       ]
     }
   },
@@ -1309,7 +1588,8 @@
       {
         "id": "supplier_contract",
         "title": "Sign a supplier contract",
-        "requires": "share_target"
+        "requires": "share_target",
+        "rung": "landmark_supplier"
       },
       {
         "id": "rival_move",

@@ -94,8 +94,9 @@ static func start_period(contract: Dictionary) -> void:
 
 # R§3.10 "Term": a recurring contract runs offers.json termWeeks from
 # start_day and expires on the first Monday on or after its end.
-static func start_term(contract: Dictionary, start_day: int) -> void:
-	var term_weeks: int = GameData.OFFER_TERM_WEEKS
+static func start_term(contract: Dictionary, start_day: int, term_weeks: int = 0) -> void:
+	if term_weeks <= 0:
+		term_weeks = GameData.OFFER_TERM_WEEKS
 	contract["startDay"] = start_day
 	contract["termWeeks"] = term_weeks
 	contract["expiryDay"] = Calendar.monday_on_or_after(start_day + term_weeks * Calendar.days_per_week())

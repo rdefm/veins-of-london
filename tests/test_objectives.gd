@@ -653,6 +653,43 @@ func run() -> void:
 		assert_true(Objectives.condition_met({ "kind": "recipe_below_master", "rank": 5 }))
 	)
 
+	run_case("contracts_settled_counts_over_the_chosen_baseline", func():
+		GameState.reset()
+		var def := _objective("settled", Objectives.TYPE_CONTRACTS_SETTLED_AT_LEAST, {})
+		def["tiers"] = { "base": { "minCount": 1 }, "target": { "minCount": 2 }, "stretch": { "minCount": 3 } }
+		var progress := Objectives.initial_progress(Objectives.TYPE_CONTRACTS_SETTLED_AT_LEAST)
+		assert_eq(Objectives.tier_met(def, progress), "none")
+		assert_eq(Objectives.tier_met(def), "none", "unmet without a baseline")
+		var history: Array = GameState.state["sales"]["contractHistory"]
+		history.append({ "contract": {}, "settlement": { "complete": true } })
+		history.append({ "contract": {}, "settlement": { "complete": true } })
+		assert_eq(Objectives.tier_met(def, progress), "target")
+	)
+
+	run_case("supplier_contract_needs_recurring_term_faction_crafting_the_ore", func():
+		GameState.reset()
+		var crafter: String = Factions.factions_crafting_with_ore("time")[0]
+		var other := ""
+		for id in GameData.FACTIONS:
+			if not Factions.factions_crafting_with_ore("time").has(id):
+				other = id
+				break
+		var def := _objective("supplier", Objectives.TYPE_SUPPLIER_CONTRACT_SIGNED, { "oreType": "time" })
+		def["tiers"] = { "base": { "minCount": 1 } }
+		var progress := { "sinceDay": 3 }
+		var contract := { "id": "c1", "contractType": "recurring", "termWeeks": 4, "acceptedDay": 5, "counterparty": other, "request": { "kind": "ore", "type": "time", "qty": 3 } }
+		GameState.state["sales"]["activeContracts"].append(contract)
+		assert_eq(Objectives.tier_met(def, progress), "none", "wrong faction")
+		contract["counterparty"] = crafter
+		contract["termWeeks"] = 2
+		assert_eq(Objectives.tier_met(def, progress), "none", "term too short")
+		contract["termWeeks"] = 4
+		contract["acceptedDay"] = 2
+		assert_eq(Objectives.tier_met(def, progress), "none", "signed before the card was chosen")
+		contract["acceptedDay"] = 5
+		assert_eq(Objectives.tier_met(def, progress), "base")
+	)
+
 	run_case("crafting_active_premise_needs_the_player_to_craft_in_the_window", func():
 		GameState.reset()
 		assert_true(not (Objectives.condition_met({ "kind": "crafting_active" })))

@@ -895,6 +895,39 @@ func run() -> void:
 		assert_eq(next[0]["rung"], "craft_master")
 	)
 
+	# ── Landmark deals ladder (Archie) + supplier beat ────────────────────
+
+	run_case("supplier_beat_pins_only_after_share_beat_and_completes_spine", func():
+		_enabled_game()
+		var landmark := BoardMeetings.eligible_cards().filter(func(c): return c["ladder"] == "landmark")
+		assert_eq(landmark.size(), 0, "locked until beat 1")
+		GameState.state["boardMeetings"]["spine"]["share_target"] = "done"
+		Shares.record_ore("player", "life", 10)
+		Shares.record_ore("firm", "life", 90)
+		landmark = BoardMeetings.eligible_cards().filter(func(c): return c["ladder"] == "landmark")
+		assert_eq(landmark[0]["rung"], "landmark_supplier")
+		assert_true(landmark[0]["pinned"])
+		assert_eq(landmark[0]["voice"], "archie")
+		GameState.state["boardMeetings"]["rungs"]["landmark"] = { "landmark_supplier": { "status": "done", "day": 1 } }
+		BoardMeetings._complete_spine("supplier_contract")
+		assert_true(BoardMeetings.spine_done("supplier_contract"))
+		landmark = BoardMeetings.eligible_cards().filter(func(c): return c["ladder"] == "landmark")
+		assert_eq(landmark[0]["rung"], "landmark_1")
+	)
+
+	run_case("landmark_reward_creates_its_authored_recurring_offer", func():
+		_enabled_game()
+		BoardMeetings._pay({ "kind": "contract", "templateId": "landmark_2" })
+		var offer: Dictionary = Offers.pending_offers().back()
+		assert_eq(offer["templateId"], "landmark_2")
+		assert_eq(offer["counterparty"], "firm")
+		assert_eq(int(offer["quote"]["payment"]), 1100)
+		var accepted: Dictionary = Offers.accept_offer(offer["id"])
+		assert_true(accepted["ok"])
+		assert_eq(int(accepted["contract"]["termWeeks"]), 8)
+		assert_eq(BoardMeetings.reward_preview([{ "kind": "contract", "templateId": "landmark_2" }]), "Contract: Southwark retainer")
+	)
+
 	# ── Cultivation ladder (Owen) ────────────────────────────────────────
 
 	run_case("cultivation_ladder_is_owens_with_placeholder_yield_tiers", func():

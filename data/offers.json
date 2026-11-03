@@ -27,6 +27,9 @@
   "templates": {
     "random_time_ore": { "id": "random_time_ore", "source": "random", "contractType": "oneOff", "request": { "kind": "ore", "type": "time" } },
     "random_time_pearl": { "id": "random_time_pearl", "source": "random", "contractType": "oneOff", "request": { "kind": "consumable", "type": "timePearl" } },
+    "landmark_1": { "id": "landmark_1", "label": "Stepney standing order", "source": "scripted", "counterparty": "collective", "contractType": "recurring", "termWeeks": 6, "payment": 600, "request": { "kind": "ore", "type": "time", "qty": 20 } },
+    "landmark_2": { "id": "landmark_2", "label": "Southwark retainer", "source": "scripted", "counterparty": "firm", "contractType": "recurring", "termWeeks": 8, "payment": 1100, "request": { "kind": "ore", "type": "physics", "qty": 30 } },
+    "landmark_3": { "id": "landmark_3", "label": "Westminster account", "source": "scripted", "counterparty": "conclave", "contractType": "recurring", "termWeeks": 12, "payment": 2000, "request": { "kind": "ore", "type": "fate", "qty": 40 } },
     "scripted_physics_weekly": { "id": "scripted_physics_weekly", "source": "scripted", "counterparty": "firm", "contractType": "recurring", "request": { "kind": "ore", "type": "physics", "qty": 3 } },
     "scripted_life_order": { "id": "scripted_life_order", "source": "scripted", "counterparty": "collective", "contractType": "oneOff", "deadlineAfterDays": 4, "request": { "kind": "ore", "type": "life", "qty": 5 } },
     "biz_starter_1": { "id": "biz_starter_1", "source": "scripted", "counterparty": "collective", "contractType": "oneOff", "deadlineAfterDays": 5, "request": { "kind": "ore", "type": "time", "qty": 4 }, "nudge": "\"Put one on BizBrief for you. Four time, bloke in Stepney. He pays on the day, which is rarer than it should be.\"" },

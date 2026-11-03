@@ -229,6 +229,11 @@ static func create_offer(template: Dictionary, bypass_cap: bool = false) -> Dict
 	_fill_request_quantities(request, contract_type)
 	var source: String = template.get("source", "random")
 	var offer := _issue_offer(template.get("id", ""), source, contract_type, request, int(template.get("deadlineAfterDays", 0)), "")
+	# Authored pay / term (landmark deals) replace the market quote and global term.
+	if template.has("payment"):
+		offer["quote"]["payment"] = int(template["payment"])
+	if template.has("termWeeks"):
+		offer["termWeeks"] = int(template["termWeeks"])
 	if source == "random":
 		var contact_id: Variant = Contacts.sales_contact()
 		if contact_id != null:
@@ -402,7 +407,7 @@ static func accept_offer(offer_id: String) -> Dictionary:
 		var contract := { "id": "contract-%d" % sales["nextContractId"], "periodId": "period-%d" % sales["nextPeriodId"], "offerId": offer_id, "templateId": offer["templateId"], "contractType": offer["contractType"], "request": offer["request"].duplicate(true), "signedQuote": offer["quote"].duplicate(true), "acceptedDay": accepted_day, "dueDay": due_day, "weekday": offer["weekday"], "delivered": {}, "status": "active", "counterparty": ensure_counterparty(offer) }
 		Contracts.start_period(contract)
 		if contract["contractType"] == "recurring":
-			Contracts.start_term(contract, accepted_day)
+			Contracts.start_term(contract, accepted_day, int(offer.get("termWeeks", 0)))
 		sales["nextContractId"] += 1
 		sales["nextPeriodId"] += 1
 		pending.remove_at(index)

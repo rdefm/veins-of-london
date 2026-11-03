@@ -26,6 +26,8 @@ const TYPE_ORE_SHARE_AT_LEAST := "ore_share_at_least"
 const TYPE_CRAFTING_SHARE_AT_LEAST := "crafting_share_at_least"
 const TYPE_RECIPES_RANKED_UP_AT_LEAST := "recipes_ranked_up_at_least"
 const TYPE_RECIPES_AT_RANK_AT_LEAST := "recipes_at_rank_at_least"
+const TYPE_CONTRACTS_SETTLED_AT_LEAST := "contracts_settled_at_least"
+const TYPE_SUPPLIER_CONTRACT_SIGNED := "supplier_contract_signed"
 
 const TYPE_YIELD_MULTIPLE_AT_LEAST := "yield_multiple_at_least"
 const TYPE_NEW_VEINS_ONLINE_AT_LEAST := "new_veins_online_at_least"
@@ -158,6 +160,10 @@ static func _evaluate(def: Dictionary, progress: Dictionary) -> bool:
 			return _eval_recipes_ranked_up(params, progress)
 		TYPE_RECIPES_AT_RANK_AT_LEAST:
 			return recipes_at_rank(int(params["rank"])) >= int(params["minCount"])
+		TYPE_CONTRACTS_SETTLED_AT_LEAST:
+			return progress.has("contractBaseline") and completed_contract_count() - int(progress["contractBaseline"]) >= int(params["minCount"])
+		TYPE_SUPPLIER_CONTRACT_SIGNED:
+			return supplier_contracts_signed(str(params.get("oreType", "")), int(progress.get("sinceDay", 0)), int(params.get("minWeeks", 4))) >= int(params["minCount"])
 		TYPE_YIELD_MULTIPLE_AT_LEAST:
 			return _eval_yield_multiple(params, progress)
 		TYPE_NEW_VEINS_ONLINE_AT_LEAST:
@@ -178,9 +184,37 @@ static func initial_progress(goal_type: String) -> Dictionary:
 	var progress := { "sinceDay": day }
 	if goal_type == TYPE_YIELD_MULTIPLE_AT_LEAST:
 		progress["yieldBaseline"] = yield_baseline()
+	elif goal_type == TYPE_CONTRACTS_SETTLED_AT_LEAST:
+		progress["contractBaseline"] = completed_contract_count()
 	elif goal_type == TYPE_RECIPES_RANKED_UP_AT_LEAST:
 		progress["rankBaseline"] = GameState.deep_copy(GameState.state["lab"]["bestRanks"])
 	return progress
+
+
+# Recurring contracts of at least min_weeks term, accepted on/after since_day
+# (active or finished, not cancelled), requesting ore_type from a faction that
+# crafts with it.
+static func supplier_contracts_signed(ore_type: String, since_day: int, min_weeks: int) -> int:
+	if ore_type == "":
+		return 0
+	var crafters := Factions.factions_crafting_with_ore(ore_type)
+	var contracts: Array = GameState.state["sales"]["activeContracts"].duplicate()
+	for entry in GameState.state["sales"]["contractHistory"]:
+		if not entry.has("cancelledDay"):
+			contracts.append(entry["contract"])
+	var seen := {}
+	var count := 0
+	for contract in contracts:
+		if seen.has(contract["id"]):
+			continue
+		seen[contract["id"]] = true
+		if contract["contractType"] != "recurring" or int(contract.get("termWeeks", 0)) < min_weeks:
+			continue
+		if int(contract["acceptedDay"]) < since_day or not crafters.has(str(contract.get("counterparty", ""))):
+			continue
+		if Contracts.request_ore_types(contract["request"]).has(ore_type):
+			count += 1
+	return count
 
 
 # Recipes whose Lab best rank is at least rank.
@@ -477,6 +511,8 @@ static func condition_met(condition: Dictionary) -> bool:
 			return false
 		"recipe_rank_at_least":
 			return recipes_at_rank(int(condition["rank"])) >= 1
+		"spine_done":
+			return BoardMeetings.spine_done(str(condition["beat"]))
 		"ore_market_active":
 			return not market_ores().is_empty()
 		"yield_baseline_above":

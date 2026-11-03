@@ -16,6 +16,7 @@ const REWARD_CASH := "cash"
 const REWARD_ITEM := "item"
 const REWARD_FACTION_RELATION := "factionRelation"
 const REWARD_VIGNETTE := "vignette"
+const REWARD_CONTRACT := "contract"
 
 
 static func new_state() -> Dictionary:
@@ -411,6 +412,9 @@ static func _pay(reward: Dictionary) -> void:
 			Crafting.inventory_add(reward["id"], int(reward.get("tier", 1)), int(reward.get("qty", 1)))
 		REWARD_FACTION_RELATION:
 			Factions.adjust_player_relation(reward["factionId"], int(reward["amount"]))
+		REWARD_CONTRACT:
+			# Landmark deal: the authored recurring offer lands on BizBrief.
+			Offers.create_offer(GameData.OFFER_TEMPLATES[reward["templateId"]], true)
 		REWARD_VIGNETTE:
 			# Content hook: the vignette id rides in the history entry's
 			# reward list for the Minutes to play.
@@ -428,6 +432,8 @@ static func reward_preview(rewards: Array) -> String:
 				parts.append("%d× %s" % [int(reward.get("qty", 1)), GameData.RECIPES[reward["id"]]["name"]])
 			REWARD_FACTION_RELATION:
 				parts.append("+%d %s relation" % [int(reward["amount"]), GameData.FACTIONS[reward["factionId"]]["name"]])
+			REWARD_CONTRACT:
+				parts.append("Contract: %s" % GameData.OFFER_TEMPLATES[reward["templateId"]]["label"])
 			REWARD_VIGNETTE:
 				parts.append("A story")
 	return ", ".join(parts)
