@@ -1,0 +1,38 @@
+{
+  "template": "defuse_1",
+  "cards": [
+    {
+      "id": "defuse_1.case.1",
+      "slot": "case",
+      "voice": "james",
+      "cards": [
+        {
+          "speaker": "James",
+          "text": "{faction} are about to feel crowded by us. I'd rather settle that before it's a grievance. Favours, a gift, a fair deal, and the next call is a conversation."
+        }
+      ]
+    },
+    {
+      "id": "defuse_1.case.2",
+      "slot": "case",
+      "voice": "james",
+      "cards": [
+        {
+          "speaker": "James",
+          "text": "There's a clash coming with {faction}. We both want the same ground. Get on their good side now and it stays a disagreement."
+        }
+      ]
+    },
+    {
+      "id": "defuse_1.case.3",
+      "slot": "case",
+      "voice": "james",
+      "cards": [
+        {
+          "speaker": "James",
+          "text": "{faction} will move on us sooner or later, and it'll cost more than a courtesy does. Buy the courtesy. This fortnight."
+        }
+      ]
+    }
+  ]
+}

@@ -44,6 +44,7 @@ func _set_relation(faction_id: String, value: int) -> void:
 
 
 func run() -> void:
+	run_act2_endgame()
 	run_case("no_overlap_on_a_bare_state", func():
 		_clear()
 		assert_true(Overlaps.detect().is_empty())
@@ -166,4 +167,86 @@ func run() -> void:
 		Overlaps.update_spine()
 		assert_true(BoardMeetings.spine_done("partner"))
 		assert_true(not BoardMeetings.spine_done("share_target"))
+	)
+
+
+func _rival_played(faction_id: String = "firm") -> void:
+	var board: Dictionary = GameState.state["boardMeetings"]
+	board["rivalMove"] = { "faction": faction_id, "ore": "life" }
+	BoardMeetings.mark_spine_done("share_target")
+	BoardMeetings.meeting_context(1)
+
+
+func run_act2_endgame() -> void:
+	run_case("weather_completes_after_quiet_days", func():
+		_clear()
+		_rival_played()
+		Overlaps.update_spine()
+		assert_true(not BoardMeetings.spine_done("weather_or_soften"), "too soon")
+		GameState.state["world"]["day"] += 6
+		Overlaps.update_spine()
+		assert_true(not BoardMeetings.spine_done("weather_or_soften"), "just short")
+		GameState.state["world"]["day"] += 1
+		Overlaps.update_spine()
+		assert_true(BoardMeetings.spine_done("weather_or_soften"))
+	)
+
+	run_case("a_lost_vein_or_walked_guard_blocks_weather", func():
+		_clear()
+		_rival_played()
+		GameState.state["world"]["day"] += 8
+		GameState.state["factionEscalation"]["lastVeinLostDay"] = 12
+		Overlaps.update_spine()
+		assert_true(not BoardMeetings.spine_done("weather_or_soften"), "vein lost")
+		GameState.state["factionEscalation"]["lastVeinLostDay"] = -1
+		GameState.state["guardUpkeep"]["lastWalkDay"] = 13
+		Overlaps.update_spine()
+		assert_true(not BoardMeetings.spine_done("weather_or_soften"), "guard walked")
+	)
+
+	run_case("soften_completes_on_relation_gain", func():
+		_clear()
+		_set_relation("firm", 0)
+		_rival_played()
+		_set_relation("firm", 9)
+		Overlaps.update_spine()
+		assert_true(not BoardMeetings.spine_done("weather_or_soften"))
+		_set_relation("firm", 10)
+		Overlaps.update_spine()
+		assert_true(BoardMeetings.spine_done("weather_or_soften"))
+	)
+
+	run_case("debrief_fires_once_when_every_other_beat_is_done", func():
+		_clear()
+		for beat in ["share_target", "supplier_contract", "rival_move", "partner"]:
+			BoardMeetings.mark_spine_done(beat)
+		Overlaps.update_spine()
+		assert_true(not GameState.state["boardMeetings"]["debriefPending"], "weather_or_soften outstanding")
+		BoardMeetings.mark_spine_done("weather_or_soften")
+		Overlaps.update_spine()
+		assert_true(GameState.state["boardMeetings"]["debriefPending"])
+		assert_true(not BoardMeetings.spine_done("debrief"), "waits for the meeting")
+		assert_true(BoardMeetings.meeting_context(2)["debrief"].size() >= 1)
+		assert_true(BoardMeetings.spine_done("debrief"))
+		assert_true(BoardMeetings.meeting_context(3)["debrief"].is_empty(), "only once")
+		assert_true(Todo.get_act2_section()["status"] == "done", "Act 2 complete")
+	)
+
+	run_case("meetings_continue_after_act2", func():
+		_clear()
+		BoardMeetings.mark_spine_done("debrief")
+		GameState.state["flags"][GameData.BOARD_MEETING["enableFlag"]] = true
+		GameState.state["world"]["day"] = Calendar.next_weekday_after(10, 0)
+		BoardMeetings.monday_rollover()
+		assert_true(BoardMeetings.meeting_pending())
+	)
+
+	run_case("defuse_card_reads_clash_kinds_only", func():
+		_clear()
+		_ore_share("life", 30)
+		var cards := BoardMeetings.eligible_cards().filter(func(c: Dictionary) -> bool: return c["ladder"] == "defuse")
+		assert_true(not cards.is_empty(), "provocation overlap offers Defuse")
+		assert_eq(cards[0]["voice"], "james")
+		_clear()
+		assert_true(BoardMeetings.eligible_cards().filter(func(c: Dictionary) -> bool: return c["ladder"] == "defuse").is_empty())
 	)

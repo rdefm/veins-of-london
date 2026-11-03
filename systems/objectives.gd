@@ -534,7 +534,7 @@ static func condition_met(condition: Dictionary) -> bool:
 		"rung_done":
 			return BoardMeetings.rung_cleared(str(condition["ladder"]), str(condition["rung"]))
 		"overlap_exists":
-			return Overlaps.exists(bool(condition.get("includePartners", false)))
+			return Overlaps.exists(bool(condition.get("includePartners", false)), bool(condition.get("clash", false)))
 		"all_of":
 			for sub in condition["conditions"]:
 				if not condition_met(sub):

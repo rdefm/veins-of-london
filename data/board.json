@@ -971,8 +971,15 @@
           "premise": {
             "kind": "all_of",
             "conditions": [
-              { "kind": "spine_done", "beat": "supplier_contract" },
-              { "kind": "rung_done", "ladder": "office", "rung": "office_1" }
+              {
+                "kind": "spine_done",
+                "beat": "supplier_contract"
+              },
+              {
+                "kind": "rung_done",
+                "ladder": "office",
+                "rung": "office_1"
+              }
             ]
           },
           "goal": {
@@ -1034,8 +1041,15 @@
           "premise": {
             "kind": "all_of",
             "conditions": [
-              { "kind": "spine_done", "beat": "supplier_contract" },
-              { "kind": "rung_done", "ladder": "office", "rung": "office_2" }
+              {
+                "kind": "spine_done",
+                "beat": "supplier_contract"
+              },
+              {
+                "kind": "rung_done",
+                "ladder": "office",
+                "rung": "office_2"
+              }
             ]
           },
           "goal": {
@@ -1099,24 +1113,63 @@
       "rungs": [
         {
           "id": "office_1",
-          "premise": { "kind": "rung_done", "ladder": "landmark", "rung": "landmark_1" },
-          "goal": { "type": "home_tier_at_least", "params": {} },
+          "premise": {
+            "kind": "rung_done",
+            "ladder": "landmark",
+            "rung": "landmark_1"
+          },
+          "goal": {
+            "type": "home_tier_at_least",
+            "params": {}
+          },
           "tiers": {
-            "base": { "minTier": "studio" },
-            "target": { "minTier": "flat" },
-            "stretch": { "minTier": "townhouse" }
+            "base": {
+              "minTier": "studio"
+            },
+            "target": {
+              "minTier": "flat"
+            },
+            "stretch": {
+              "minTier": "townhouse"
+            }
           },
           "lengthWeeks": 3,
           "rewards": {
-            "base": [ { "kind": "cash", "amount": 150 } ],
+            "base": [
+              {
+                "kind": "cash",
+                "amount": 150
+              }
+            ],
             "target": [
-              { "kind": "cash", "amount": 300 },
-              { "kind": "item", "id": "enhancementPowder", "tier": 1, "qty": 1 }
+              {
+                "kind": "cash",
+                "amount": 300
+              },
+              {
+                "kind": "item",
+                "id": "enhancementPowder",
+                "tier": 1,
+                "qty": 1
+              }
             ],
             "stretch": [
-              { "kind": "cash", "amount": 500 },
-              { "kind": "item", "id": "enhancementPowder", "tier": 1, "qty": 1 },
-              { "kind": "item", "id": "timePearl", "tier": 1, "qty": 1 }
+              {
+                "kind": "cash",
+                "amount": 500
+              },
+              {
+                "kind": "item",
+                "id": "enhancementPowder",
+                "tier": 1,
+                "qty": 1
+              },
+              {
+                "kind": "item",
+                "id": "timePearl",
+                "tier": 1,
+                "qty": 1
+              }
             ]
           },
           "pinned": false,
@@ -1128,27 +1181,70 @@
           "premise": {
             "kind": "all_of",
             "conditions": [
-              { "kind": "rung_done", "ladder": "office", "rung": "office_1" },
-              { "kind": "rung_done", "ladder": "landmark", "rung": "landmark_2" }
+              {
+                "kind": "rung_done",
+                "ladder": "office",
+                "rung": "office_1"
+              },
+              {
+                "kind": "rung_done",
+                "ladder": "landmark",
+                "rung": "landmark_2"
+              }
             ]
           },
-          "goal": { "type": "home_tier_at_least", "params": {} },
+          "goal": {
+            "type": "home_tier_at_least",
+            "params": {}
+          },
           "tiers": {
-            "base": { "minTier": "flat" },
-            "target": { "minTier": "townhouse" },
-            "stretch": { "minTier": "safehouse" }
+            "base": {
+              "minTier": "flat"
+            },
+            "target": {
+              "minTier": "townhouse"
+            },
+            "stretch": {
+              "minTier": "safehouse"
+            }
           },
           "lengthWeeks": 3,
           "rewards": {
-            "base": [ { "kind": "cash", "amount": 250 } ],
+            "base": [
+              {
+                "kind": "cash",
+                "amount": 250
+              }
+            ],
             "target": [
-              { "kind": "cash", "amount": 500 },
-              { "kind": "item", "id": "enhancementPowder", "tier": 1, "qty": 1 }
+              {
+                "kind": "cash",
+                "amount": 500
+              },
+              {
+                "kind": "item",
+                "id": "enhancementPowder",
+                "tier": 1,
+                "qty": 1
+              }
             ],
             "stretch": [
-              { "kind": "cash", "amount": 800 },
-              { "kind": "item", "id": "enhancementPowder", "tier": 1, "qty": 1 },
-              { "kind": "item", "id": "timePearl", "tier": 1, "qty": 1 }
+              {
+                "kind": "cash",
+                "amount": 800
+              },
+              {
+                "kind": "item",
+                "id": "enhancementPowder",
+                "tier": 1,
+                "qty": 1
+              },
+              {
+                "kind": "item",
+                "id": "timePearl",
+                "tier": 1,
+                "qty": 1
+              }
             ]
           },
           "pinned": false,
@@ -1162,24 +1258,63 @@
       "rungs": [
         {
           "id": "partner_1",
-          "premise": { "kind": "overlap_exists" },
-          "goal": { "type": "faction_relation_at_least", "params": { "factionId": "$overlap" } },
+          "premise": {
+            "kind": "overlap_exists"
+          },
+          "goal": {
+            "type": "faction_relation_at_least",
+            "params": {
+              "factionId": "$overlap"
+            }
+          },
           "tiers": {
-            "base": { "minRelation": 15 },
-            "target": { "minRelation": 30 },
-            "stretch": { "minRelation": 45 }
+            "base": {
+              "minRelation": 15
+            },
+            "target": {
+              "minRelation": 30
+            },
+            "stretch": {
+              "minRelation": 45
+            }
           },
           "lengthWeeks": 2,
           "rewards": {
-            "base": [ { "kind": "cash", "amount": 150 } ],
+            "base": [
+              {
+                "kind": "cash",
+                "amount": 150
+              }
+            ],
             "target": [
-              { "kind": "cash", "amount": 300 },
-              { "kind": "item", "id": "enhancementPowder", "tier": 1, "qty": 1 }
+              {
+                "kind": "cash",
+                "amount": 300
+              },
+              {
+                "kind": "item",
+                "id": "enhancementPowder",
+                "tier": 1,
+                "qty": 1
+              }
             ],
             "stretch": [
-              { "kind": "cash", "amount": 500 },
-              { "kind": "item", "id": "enhancementPowder", "tier": 1, "qty": 1 },
-              { "kind": "item", "id": "timePearl", "tier": 1, "qty": 1 }
+              {
+                "kind": "cash",
+                "amount": 500
+              },
+              {
+                "kind": "item",
+                "id": "enhancementPowder",
+                "tier": 1,
+                "qty": 1
+              },
+              {
+                "kind": "item",
+                "id": "timePearl",
+                "tier": 1,
+                "qty": 1
+              }
             ]
           },
           "pinned": false,
@@ -1191,27 +1326,218 @@
           "premise": {
             "kind": "all_of",
             "conditions": [
-              { "kind": "rung_done", "ladder": "partner", "rung": "partner_1" },
-              { "kind": "overlap_exists", "includePartners": true }
+              {
+                "kind": "rung_done",
+                "ladder": "partner",
+                "rung": "partner_1"
+              },
+              {
+                "kind": "overlap_exists",
+                "includePartners": true
+              }
             ]
           },
-          "goal": { "type": "faction_relation_at_least", "params": { "factionId": "$overlap" } },
+          "goal": {
+            "type": "faction_relation_at_least",
+            "params": {
+              "factionId": "$overlap"
+            }
+          },
           "tiers": {
-            "base": { "minRelation": 40 },
-            "target": { "minRelation": 50 },
-            "stretch": { "minRelation": 70 }
+            "base": {
+              "minRelation": 40
+            },
+            "target": {
+              "minRelation": 50
+            },
+            "stretch": {
+              "minRelation": 70
+            }
           },
           "lengthWeeks": 2,
           "rewards": {
-            "base": [ { "kind": "cash", "amount": 250 } ],
+            "base": [
+              {
+                "kind": "cash",
+                "amount": 250
+              }
+            ],
             "target": [
-              { "kind": "cash", "amount": 500 },
-              { "kind": "item", "id": "enhancementPowder", "tier": 1, "qty": 1 }
+              {
+                "kind": "cash",
+                "amount": 500
+              },
+              {
+                "kind": "item",
+                "id": "enhancementPowder",
+                "tier": 1,
+                "qty": 1
+              }
             ],
             "stretch": [
-              { "kind": "cash", "amount": 800 },
-              { "kind": "item", "id": "enhancementPowder", "tier": 1, "qty": 1 },
-              { "kind": "item", "id": "timePearl", "tier": 1, "qty": 1 }
+              {
+                "kind": "cash",
+                "amount": 800
+              },
+              {
+                "kind": "item",
+                "id": "enhancementPowder",
+                "tier": 1,
+                "qty": 1
+              },
+              {
+                "kind": "item",
+                "id": "timePearl",
+                "tier": 1,
+                "qty": 1
+              }
+            ]
+          },
+          "pinned": false,
+          "spine": null,
+          "permanent": false
+        }
+      ]
+    },
+    "defuse": {
+      "voice": "james",
+      "rungs": [
+        {
+          "id": "defuse_1",
+          "premise": {
+            "kind": "overlap_exists",
+            "clash": true
+          },
+          "goal": {
+            "type": "faction_relation_at_least",
+            "params": {
+              "factionId": "$clash"
+            }
+          },
+          "tiers": {
+            "base": {
+              "minRelation": 5
+            },
+            "target": {
+              "minRelation": 15
+            },
+            "stretch": {
+              "minRelation": 30
+            }
+          },
+          "lengthWeeks": 2,
+          "rewards": {
+            "base": [
+              {
+                "kind": "cash",
+                "amount": 150
+              }
+            ],
+            "target": [
+              {
+                "kind": "cash",
+                "amount": 300
+              },
+              {
+                "kind": "item",
+                "id": "enhancementPowder",
+                "tier": 1,
+                "qty": 1
+              }
+            ],
+            "stretch": [
+              {
+                "kind": "cash",
+                "amount": 495
+              },
+              {
+                "kind": "item",
+                "id": "enhancementPowder",
+                "tier": 1,
+                "qty": 1
+              },
+              {
+                "kind": "item",
+                "id": "timePearl",
+                "tier": 1,
+                "qty": 1
+              }
+            ]
+          },
+          "pinned": false,
+          "spine": null,
+          "permanent": false
+        },
+        {
+          "id": "defuse_2",
+          "premise": {
+            "kind": "all_of",
+            "conditions": [
+              {
+                "kind": "rung_done",
+                "ladder": "defuse",
+                "rung": "defuse_1"
+              },
+              {
+                "kind": "overlap_exists",
+                "clash": true
+              }
+            ]
+          },
+          "goal": {
+            "type": "faction_relation_at_least",
+            "params": {
+              "factionId": "$clash"
+            }
+          },
+          "tiers": {
+            "base": {
+              "minRelation": 20
+            },
+            "target": {
+              "minRelation": 35
+            },
+            "stretch": {
+              "minRelation": 50
+            }
+          },
+          "lengthWeeks": 2,
+          "rewards": {
+            "base": [
+              {
+                "kind": "cash",
+                "amount": 250
+              }
+            ],
+            "target": [
+              {
+                "kind": "cash",
+                "amount": 500
+              },
+              {
+                "kind": "item",
+                "id": "enhancementPowder",
+                "tier": 1,
+                "qty": 1
+              }
+            ],
+            "stretch": [
+              {
+                "kind": "cash",
+                "amount": 825
+              },
+              {
+                "kind": "item",
+                "id": "enhancementPowder",
+                "tier": 1,
+                "qty": 1
+              },
+              {
+                "kind": "item",
+                "id": "timePearl",
+                "tier": 1,
+                "qty": 1
+              }
             ]
           },
           "pinned": false,
@@ -1284,6 +1610,12 @@
     },
     "partner_2": {
       "label": "Partner with {faction}"
+    },
+    "defuse_1": {
+      "label": "Head off {faction}"
+    },
+    "defuse_2": {
+      "label": "Keep {faction} sweet"
     }
   },
   "todo": {
@@ -1322,7 +1654,10 @@
       "_comment": "Meeting card label by HQ tier (BoardMeetings.venue_label()): the last office whose minTier the HQ has reached, else default. PROSE-REVIEW: new copy.",
       "default": "Bermondsey - James's workshop",
       "offices": [
-        { "minTier": "flat", "label": "Your HQ - the office" }
+        {
+          "minTier": "flat",
+          "label": "Your HQ - the office"
+        }
       ]
     },
     "minutesNone": "No goal on the books last week.",

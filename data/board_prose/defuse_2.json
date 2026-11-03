@@ -1,0 +1,38 @@
+{
+  "template": "defuse_2",
+  "cards": [
+    {
+      "id": "defuse_2.case.1",
+      "slot": "case",
+      "voice": "james",
+      "cards": [
+        {
+          "speaker": "James",
+          "text": "{faction} are warmer, not safe. One more push and a raid becomes an awkward phone call."
+        }
+      ]
+    },
+    {
+      "id": "defuse_2.case.2",
+      "slot": "case",
+      "voice": "james",
+      "cards": [
+        {
+          "speaker": "James",
+          "text": "We took the heat out of {faction}. Keep it out. Their patience is a lease, not a deed."
+        }
+      ]
+    },
+    {
+      "id": "defuse_2.case.3",
+      "slot": "case",
+      "voice": "james",
+      "cards": [
+        {
+          "speaker": "James",
+          "text": "Round two with {faction}. Same ground, same buyers, and they've not forgotten. Neither should we."
+        }
+      ]
+    }
+  ]
+}

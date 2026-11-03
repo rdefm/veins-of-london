@@ -33,7 +33,14 @@ static func detect() -> Array:
 	return found
 
 
-static func detect_for(faction_id: String) -> Array:
+static func detect_for(faction_id: String, clash_only: bool = false) -> Array:
+	var found: Array = _detect_all(faction_id)
+	if clash_only:
+		found = found.filter(func(entry: Dictionary) -> bool: return _cfg()["clashKinds"].has(entry["kind"]))
+	return found
+
+
+static func _detect_all(faction_id: String) -> Array:
 	var found: Array = []
 	var min_share := float(_cfg()["minShare"])
 	var district := _shared_district(faction_id)
@@ -85,7 +92,8 @@ static func _consumed_ores(faction_id: String) -> Array:
 
 # Factions with at least one overlap, most distinct kinds first, data order
 # breaking ties. A faction already Partner is left out unless include_partners.
-static func factions(include_partners: bool = false) -> Array[String]:
+# clash_only counts just the clashKinds (the Defuse framing).
+static func factions(include_partners: bool = false, clash_only: bool = false) -> Array[String]:
 	var ranked: Array = []
 	var order := 0
 	for faction_id in GameData.FACTIONS:
@@ -93,7 +101,7 @@ static func factions(include_partners: bool = false) -> Array[String]:
 		if not include_partners and FactionAI.player_stance(faction_id) == FactionAI.PARTNER:
 			continue
 		var kinds := {}
-		for entry in detect_for(faction_id):
+		for entry in detect_for(faction_id, clash_only):
 			kinds[entry["kind"]] = true
 		if not kinds.is_empty():
 			ranked.append({ "id": faction_id, "kinds": kinds.size(), "order": order })
@@ -105,26 +113,30 @@ static func factions(include_partners: bool = false) -> Array[String]:
 	return ids
 
 
-static func exists(include_partners: bool = false) -> bool:
-	return not factions(include_partners).is_empty()
+static func exists(include_partners: bool = false, clash_only: bool = false) -> bool:
+	return not factions(include_partners, clash_only).is_empty()
 
 
-# Resolves a goal's "$overlap" faction placeholder: the faction a prior rung of
-# the ladder already used, else the top overlapped faction. "" when none.
+# Resolves a goal's "$overlap" / "$clash" faction placeholder: the faction a
+# prior rung of the ladder already used, else the top overlapped faction
+# ("$clash": top by clash kinds only). "" when none.
 static func resolve_faction(placeholder: String, ladder_id: String) -> String:
 	if not placeholder.begins_with("$"):
 		return placeholder
 	for entry in GameState.state["boardMeetings"]["rungs"].get(ladder_id, {}).values():
 		if entry.has("faction"):
 			return str(entry["faction"])
-	var ranked := factions()
+	var ranked := factions(false, placeholder == "$clash")
 	return "" if ranked.is_empty() else ranked[0]
 
 
 # Completes the unordered spine beats whose condition now holds: the rival's
-# first move (queued for the next meeting once the share target is done) and
-# Partner stance with anyone.
+# first move (queued for the next meeting once the share target is done),
+# Partner stance with anyone, weathering or softening the rival's move, and
+# the closing debrief (queued for the next meeting once every other beat is).
 static func update_spine() -> void:
+	_update_weather_or_soften()
+	_queue_debrief()
 	if not BoardMeetings.spine_done("partner"):
 		for faction_id in GameData.FACTIONS:
 			if FactionAI.player_stance(faction_id) == FactionAI.PARTNER:
@@ -165,3 +177,41 @@ static func _queue_rival_move() -> void:
 	if rival == "":
 		return
 	board["rivalMove"] = { "faction": rival, "ore": ore_type }
+
+
+# Stamps the day and the rival relation when the rival's move plays, the
+# baseline weather / soften are judged against.
+static func start_rival_watch() -> void:
+	var rival: Variant = GameState.state["boardMeetings"].get("rivalMove")
+	if rival == null:
+		return
+	rival["startDay"] = int(GameState.state["world"]["day"])
+	rival["startRelation"] = Objectives.faction_relation(str(rival["faction"]))
+
+
+# Weather: weatherDays since the move with no vein lost and no guard walked
+# off. Soften: the rival's relation up softenRelation since the move.
+static func _update_weather_or_soften() -> void:
+	if BoardMeetings.spine_done("weather_or_soften") or not BoardMeetings.spine_done("rival_move"):
+		return
+	var rival: Variant = GameState.state["boardMeetings"].get("rivalMove")
+	if rival == null or not rival.has("startDay"):
+		return
+	var start := int(rival["startDay"])
+	var day := int(GameState.state["world"]["day"])
+	var weathered := day - start >= int(_cfg()["weatherDays"]) \
+		and int(GameState.state["factionEscalation"].get("lastVeinLostDay", -1)) < start \
+		and int(GameState.state["guardUpkeep"].get("lastWalkDay", -1)) < start
+	var softened := Objectives.faction_relation(str(rival["faction"])) - int(rival["startRelation"]) >= int(_cfg()["softenRelation"])
+	if weathered or softened:
+		BoardMeetings.mark_spine_done("weather_or_soften")
+
+
+static func _queue_debrief() -> void:
+	var board: Dictionary = GameState.state["boardMeetings"]
+	if BoardMeetings.spine_done("debrief") or board.get("debriefPending", false):
+		return
+	for beat in GameData.BOARD_SPINE.get("beats", []):
+		if beat["id"] != "debrief" and not BoardMeetings.spine_done(beat["id"]):
+			return
+	board["debriefPending"] = true

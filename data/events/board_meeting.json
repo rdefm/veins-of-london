@@ -11,6 +11,7 @@
     },
     { "key": "explainer", "type": "splice" },
     { "key": "rivalMove", "type": "splice" },
+    { "key": "debrief", "type": "splice" },
     { "key": "opener", "type": "splice" },
     { "key": "slot0", "type": "splice" },
     { "key": "slot1", "type": "splice" },

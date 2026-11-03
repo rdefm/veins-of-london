@@ -273,6 +273,7 @@ static func _close_shortfall(leftover_reserve: int, paid: int, kept: int, walked
 	if paid > 0:
 		Notify.push("Guard wages: -£%d for %d guard%s this week." % [paid, kept, "" if kept == 1 else "s"])
 	if not walked.is_empty():
+		GameState.state["guardUpkeep"]["lastWalkDay"] = int(GameState.state["world"]["day"])
 		Notify.push("Unpaid guards walked off: %s." % walked_text(walked), Notify.CATEGORY_WARNING)
 	EventBus.state_changed.emit()
 
