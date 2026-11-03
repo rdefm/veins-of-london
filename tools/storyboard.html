@@ -616,6 +616,7 @@ function setNextCheck(effect, on) {
 }
 
 // Alert tier names (constants.json eventChecks.alert.tiers); the live game's three tiers until the file loads.
+let mechProfileCover = { covered: "Nobody notices. The noise goes somewhere else.", uncovered: "That carried. Someone heard." };
 let mechAlertTiers = ["Unseen", "Suspicious", "Alarm"];
 
 const isAlertOp = (e) => !!e && typeof e === "object" && e.op === "alert";
@@ -662,18 +663,35 @@ function alertRaises(op) {
 
 // Warnings for an option that spends an item whose profile already raises alert (Blast) and also authors its own
 // raising alert op (option effects or either outcome). PROSE-REVIEW
-function alertWarnings(opt, catalogue) {
-  if (!opt || typeof opt !== "object" || !Array.isArray(catalogue)) return [];
+function usedItemIds(opt) {
   const used = [];
   const take = (c) => {
     if (!c || typeof c !== "object") return;
     if (typeof c.item === "string") used.push(c.item);
-    for (const k of ["all", "any"]) if (Array.isArray(c[k])) c[k].forEach(collectItem);
+    for (const k of ["all", "any"]) if (Array.isArray(c[k])) c[k].forEach(take);
   };
-  const collectItem = take;
   (Array.isArray(opt.items) ? opt.items : []).forEach(take);
   if (opt.check && Array.isArray(opt.check.mods)) opt.check.mods.forEach(take);
   take(opt.requires);
+  return used;
+}
+
+// Items the option spends whose profile alert carries a cover roll (Blast): the option may override the line shown.
+function coverItems(opt, catalogue) {
+  if (!opt || typeof opt !== "object" || !Array.isArray(catalogue)) return [];
+  const used = usedItemIds(opt);
+  return catalogue.filter((it) => used.includes(it.id) && it.alert && it.alert.cover && typeof it.alert.cover === "object");
+}
+
+// Sets (or, when blank, clears) an option's coveredText / uncoveredText override.
+function setCoverText(opt, key, text) {
+  if (key !== "coveredText" && key !== "uncoveredText") return;
+  if (text === "" || text == null) delete opt[key]; else opt[key] = String(text);
+}
+
+function alertWarnings(opt, catalogue) {
+  if (!opt || typeof opt !== "object" || !Array.isArray(catalogue)) return [];
+  const used = usedItemIds(opt);
   const lists = [opt.effects, opt.success && opt.success.effects, opt.fail && opt.fail.effects];
   const own = lists.some((l) => Array.isArray(l) && l.some((e) => isAlertOp(e) && alertRaises(e)));
   if (!own) return [];
@@ -942,6 +960,16 @@ function eventAtRows(ev, changed, restructure) {
   return [row];
 }
 
+// coveredText / uncoveredText fields for an option that spends an item with a covered profile alert; the generic
+// eventChecks.profileCover line shows as the placeholder.
+function coverTextRows(opt, catalogue, changed) {
+  if (!coverItems(opt, catalogue).length) return [];
+  const row = mechEl("div", "mech-row");
+  row.appendChild(mechCell("Covered text", mechText(opt, "coveredText", changed, "delete", true, mechProfileCover.covered), true));
+  row.appendChild(mechCell("Uncovered text", mechText(opt, "uncoveredText", changed, "delete", true, mechProfileCover.uncovered), true));
+  return [row];
+}
+
 function optionMechanicsRows(opt, changed, restructure) {
   const rows = [];
   const check = isCheckOption(opt);
@@ -959,6 +987,7 @@ function optionMechanicsRows(opt, changed, restructure) {
   if (others.length) rows.push(mechReadonly(check ? "Effects before the roll (read-only)" : "Effects (read-only)", others));
   rows.push(alertEditor(opt, check ? "Alert before the roll" : "Alert", changed, restructure));
   alertWarnings(opt, mechCatalogue).forEach((w) => rows.push(mechEl("div", "item-warn", w)));
+  rows.push(...coverTextRows(opt, mechCatalogue, changed));
   if (!check && Array.isArray(opt.items)) rows.push(...itemListRows(opt, changed, restructure));
   if (check) {
     rows.push(...checkRows(opt, changed, restructure));
@@ -2010,6 +2039,8 @@ function checkOddsBlock(opt, changed, restructure) {
     const { o } = optionAt(draft, key, i);
     if (w.requires) o.requires = deepClone(w.requires); else delete o.requires;
     if (Array.isArray(w.excludeItems) && w.excludeItems.length) o.excludeItems = w.excludeItems.slice(); else delete o.excludeItems;
+    setCoverText(o, "coveredText", w.coveredText);
+    setCoverText(o, "uncoveredText", w.uncoveredText);
     if (!o.check) {
       if (Array.isArray(w.tags) && w.tags.length) o.tags = w.tags.slice(); else delete o.tags;
       if (Array.isArray(w.items)) o.items = deepClone(w.items);
@@ -3401,6 +3432,8 @@ function checkOddsBlock(opt, changed, restructure) {
       const t = c && c.eventChecks && c.eventChecks.tags;
       mechTagVocab = Array.isArray(t) ? t.filter((x) => typeof x === "string") : [];
       const at = c && c.eventChecks && c.eventChecks.alert && c.eventChecks.alert.tiers;
+      const pc = c && c.eventChecks && c.eventChecks.profileCover;
+      if (pc && typeof pc.covered === "string" && typeof pc.uncovered === "string") mechProfileCover = { covered: pc.covered, uncovered: pc.uncovered };
       if (Array.isArray(at) && at.length) mechAlertTiers = at.filter((x) => typeof x === "string");
     } catch { mechTagVocab = []; }
   }
@@ -4405,7 +4438,7 @@ function checkOddsBlock(opt, changed, restructure) {
       editSession = true;
     };
     const restructure = () => editDraft(put, true);
-    const box = el("div", { class: "mech-ed" }, requiresBlock(w, changed, restructure), w.check ? checkOddsBlock(w, changed, restructure) : null);
+    const box = el("div", { class: "mech-ed" }, requiresBlock(w, changed, restructure), ...coverTextRows(w, mechCatalogue, changed), w.check ? checkOddsBlock(w, changed, restructure) : null);
     box.addEventListener("focusin", () => { editSession = false; });
     return box;
   }

@@ -33,11 +33,11 @@ const {
   liveEventOptions, openOrImport, lintEvent, lintDraft, inboundRefs, inboundWarnings,
   OBS_ORES, obsIds, effectiveObservation, setCardObserve, addObservation, renameObservation, observationUses, deleteObservation, addObservationBlock, deleteObservationBlock, setObservationMiss, addObservationTier, deleteObservationTier, setObservationTier,
   parseItemCatalogue, itemChoices, optionTags, autoOfferItems, setExcludeItem, setOptionTag, conditionCells, optionMechanicsRows, setMechItemControl,
-  itemEffectKind, setItemEffectKind, setEffectTag, setNextCheck, nonAlertEffects, alertMode, setAlertMode, setAlertCover, addAlertOp, removeAlertOp, alertWarnings, setAlertEffects, setOtherEffects,
+  itemEffectKind, setItemEffectKind, setEffectTag, setNextCheck, nonAlertEffects, alertMode, setAlertMode, setAlertCover, addAlertOp, removeAlertOp, alertWarnings, coverItems, setCoverText, setAlertEffects, setOtherEffects,
   pickEntries, setPickOn, setPickObservation, setPickReason, addPickOre, deletePickOre, addPickTier, deletePickTier, setPickAtLeast, allLinks, obsLevels, pickQualifying, observedHolds,
 } = new Function(
   html.slice(ss, se) + html.slice(s, e) +
-    "\nfunction setMechItemControl(f) { mechItemControl = f; }\nreturn { itemEffectKind, setItemEffectKind, setEffectTag, setNextCheck, nonAlertEffects, alertMode, setAlertMode, setAlertCover, addAlertOp, removeAlertOp, alertWarnings, setAlertEffects, setOtherEffects, parseItemCatalogue, itemChoices, optionTags, autoOfferItems, setExcludeItem, setOptionTag, conditionCells, optionMechanicsRows, setMechItemControl, parseProposal, parseDraft, serialiseDraft, ensureKeys, legacyToDraft, nextPos, playOrder, flatCards, thenText," +
+    "\nfunction setMechItemControl(f) { mechItemControl = f; }\nreturn { itemEffectKind, setItemEffectKind, setEffectTag, setNextCheck, nonAlertEffects, alertMode, setAlertMode, setAlertCover, addAlertOp, removeAlertOp, alertWarnings, coverItems, setCoverText, setAlertEffects, setOtherEffects, parseItemCatalogue, itemChoices, optionTags, autoOfferItems, setExcludeItem, setOptionTag, conditionCells, optionMechanicsRows, setMechItemControl, parseProposal, parseDraft, serialiseDraft, ensureKeys, legacyToDraft, nextPos, playOrder, flatCards, thenText," +
     " jsonBlockRange, spliceDraft, writableProposal, cardByKey, makeHistory," +
     " cardPos, insertCard, deleteCard, moveCard, danglingLinks, hasCycle, buildGraph, elkGraph, placeLayout, setNodePositions, clearLayout, applyPositions," +
     " findCycle, addBranch, renameBranch, deleteBranch, inboundLinks, setCardGoto, setThen," +
@@ -2417,6 +2417,23 @@ test("alert ops survive tags, exclusions and item effects through serialise, re-
   assert.deepStrictEqual(opt.effects, [{ op: "set_flag", flag: "seen", value: true }, { op: "alert", add: 1 }]);
   assert.deepStrictEqual(opt.success.effects, [{ op: "give_cash", amount: 3 }, { op: "alert", atLeast: 1, cover: { base: 0.5, text: "" } }]);
   assert.deepStrictEqual(opt.check.mods[0].effect, { kind: "bonus", add: 0 });
+});
+
+test("coveredText / uncoveredText: only offered for a cover-profile item; save, import and promote keep them", () => {
+  const cat = [{ id: "blast", name: "Blast", tags: [], kind: "", alert: { add: 1, cover: { base: 0.4 } } }, { id: "key", name: "Key", tags: [], kind: "", alert: null }];
+  const d = hubDraft(), opt = d.branches.main.cards[0].choices[1];
+  opt.requires = { item: "blast", optional: true, display: "disable" };
+  assert.strictEqual(coverItems(opt, cat).length, 1);
+  assert.deepStrictEqual(coverItems({ requires: { item: "key" } }, cat), []);
+  setCoverText(opt, "coveredText", "Ducked.");
+  setCoverText(opt, "uncoveredText", "Heard.");
+  setOptionMechanics(d, d.branches.main.cards[0].key, 1, { ...JSON.parse(JSON.stringify(opt)) });
+  const again = parseDraft(serialiseDraft(d)).draft;
+  const live = promoteDraft(again).event.cards.find((c) => c.text === "hub").choices[1];
+  assert.strictEqual(live.coveredText, "Ducked.");
+  assert.strictEqual(live.uncoveredText, "Heard.");
+  setCoverText(opt, "coveredText", "");
+  assert.strictEqual("coveredText" in opt, false, "blank clears the override");
 });
 
 console.log(`${passed} passed${process.exitCode ? ", some FAILED" : ""}`);
