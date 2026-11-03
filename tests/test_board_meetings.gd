@@ -139,8 +139,71 @@ func _meeting_at_hub() -> Dictionary:
 	return original
 
 
+const GOLDEN_PATH := "res://tests/fixtures/board_meeting_golden.json"
+const GOLDEN_SEEDS: Array = [1, 2]
+const GOLDEN_WEEKS: Array = [1, 2, 3, 4, 5, 6]
+const GOLDEN_AGENDAS: Dictionary = {
+	"zero": [], "one": ["a1"], "two": ["a1", "j1"], "three": ["a1", "j1", "o1"],
+}
+
+
+# The lines a player sees for one meeting: every revealed card's speaker and
+# text up to the vote, then the vote's option labels and result texts.
+func _played_run(week: int, roll_seed: int, agenda_ids: Array, clash_chance: float) -> Array:
+	_enabled_game()
+	GameState.state["world"]["rollSeed"] = roll_seed
+	GameState.state["boardMeetings"]["week"] = week - 1
+	var original := _install_ladders()
+	var ladders: Dictionary = {}
+	for id in agenda_ids:
+		ladders[id] = GameData.BOARD_LADDERS[id]
+	GameData.BOARD_LADDERS = ladders
+	var rarity := _set_owen_rarity(1.0)
+	var chance := float(GameData.BOARD_MEETING["debate"]["clashChance"])
+	GameData.BOARD_MEETING["debate"]["clashChance"] = clash_chance
+	BoardMeetings.open_week()
+	var lines: Array = []
+	if BoardMeetings.maybe_start_meeting():
+		_advance_to_choice()
+		for card in Events.revealed_cards():
+			lines.append("%s|%s" % [str(card.get("speaker", "")), card.get("text", "")])
+		for option in Events.current_card()["choices"]:
+			lines.append("opt|%s|%s" % [option["label"], option.get("result_text", "")])
+		GameState.state["event"] = null
+	GameData.BOARD_MEETING["debate"]["clashChance"] = chance
+	GameData.BOARD_LADDERS = original
+	_set_owen_rarity(rarity)
+	return lines
+
+
+func _golden_runs() -> Dictionary:
+	var runs := {}
+	for name in GOLDEN_AGENDAS:
+		for clash in [0.0, 1.0]:
+			for week in GOLDEN_WEEKS:
+				for roll_seed in GOLDEN_SEEDS:
+					runs["%s|clash%d|w%d|s%d" % [name, int(clash), week, roll_seed]] = _played_run(week, roll_seed, GOLDEN_AGENDAS[name], clash)
+	return runs
+
+
 func run() -> void:
+	if OS.get_environment("WRITE_BOARD_GOLDEN") != "":
+		var out := FileAccess.open(GOLDEN_PATH, FileAccess.WRITE)
+		out.store_string(JSON.stringify(_golden_runs(), "  ", true))
+		out.close()
+		return
+
 	# ── data ─────────────────────────────────────────────────────────────
+
+	run_case("meeting_plays_the_same_lines_as_the_captured_golden_runs", func():
+		var golden: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(GOLDEN_PATH))
+		var now := _golden_runs()
+		assert_eq(now.keys().size(), golden.keys().size(), "same run set")
+		for key in golden:
+			# Golden runs predate the splice skeleton: a 0-goal run there holds an unfilled opener card, filtered here.
+			var expected: Array = (golden[key] as Array).filter(func(l): return not String(l).begins_with("{opener_speaker}|"))
+			assert_eq(now.get(key), expected, "golden run %s" % key)
+	)
 
 	run_case("financial_placeholder_tiers_are_2_3_4_weeks", func():
 		var rung: Dictionary = GameData.BOARD_LADDERS["financial"]["rungs"][0]
@@ -708,15 +771,47 @@ func run() -> void:
 			var agenda: Array = GameState.state["boardMeetings"]["agenda"]
 			for i in agenda.size():
 				var pitcher: String = GameData.BOARD_VOICES[agenda[i]["voice"]]["name"]
-				assert_true(context["c%d_resp_speaker" % i] != pitcher, "responder is another voice")
-				var rebuttal: bool = context.has("c%d_reb" % i)
-				assert_eq(rebuttal, not context["c%d_norebut" % i], "norebut mirrors rebuttal")
-				if context["c%d_resp_speaker" % i] == "Owen":
+				var slot: Array = context["slot%d" % i]
+				assert_true(slot.size() == 2 or slot.size() == 3, "case, response, optional rebuttal")
+				assert_eq(slot[0]["speaker"], pitcher, "pitcher opens the slot")
+				assert_true(slot[1]["speaker"] != pitcher, "responder is another voice")
+				var rebuttal: bool = slot.size() == 3
+				if rebuttal:
+					assert_eq(slot[2]["speaker"], pitcher, "pitcher rebuts")
+				if slot[1]["speaker"] == "Owen":
 					assert_true(not rebuttal, "Owen wobbles, so no rebuttal")
 				seen[rebuttal] = true
 		assert_true(seen.has(true) and seen.has(false), "both a rebutted challenge and a plain response occur")
 		GameData.BOARD_LADDERS = original
 		_set_owen_rarity(rarity)
+	)
+
+	run_case("a_one_goal_meeting_plays_no_stray_or_empty_cards_and_a_zero_goal_one_goes_to_the_vote", func():
+		for clash in [0.0, 1.0]:
+			for week in [2, 3, 4, 5, 6]:
+				var one := _played_run(week, 1, ["a1"], clash)
+				# minutes, opener, case, response, [rebuttal], vote, then two options
+				assert_true(one.size() in [7, 8], "one goal plays a tight run, got %d" % one.size())
+				var none := _played_run(week, 1, [], clash)
+				assert_eq(none.size(), 3, "minutes, vote prompt, skip option only")
+	)
+
+	run_case("rewinding_to_before_a_meeting_replays_the_same_meeting", func():
+		var first := _played_run(3, 2, ["a1", "j1", "o1"], 1.0)
+		var second := _played_run(3, 2, ["a1", "j1", "o1"], 1.0)
+		assert_eq(first, second, "same meeting for the same seed and state")
+		_enabled_game()
+		var original := _install_ladders()
+		GameState.state["boardMeetings"]["week"] = 0
+		BoardMeetings.open_week()
+		assert_true(BoardMeetings.maybe_start_meeting())
+		var cards_before: Array = Events.live_cards().duplicate(true)
+		var snapshot: Dictionary = GameState.deep_copy(GameState.state)
+		GameState.state["event"] = null
+		GameState.state = GameState.deep_copy(snapshot)
+		assert_eq(Events.live_cards(), cards_before, "expanded card list survives snapshot restore")
+		GameState.state["event"] = null
+		GameData.BOARD_LADDERS = original
 	)
 
 	run_case("chosen_option_text_has_the_pitchers_line_then_a_different_voices_concede", func():

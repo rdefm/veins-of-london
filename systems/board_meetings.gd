@@ -514,32 +514,26 @@ static func maybe_start_meeting() -> bool:
 	return true
 
 
-# The meeting event's context (R§3.9a "Context options"): minutes for last
-# week, then the debate as plain data the fixed card run reads (R§3.15):
-# opener, per offered card i the case / response / optional rebuttal tokens
-# (c<i>_...), an optional clash, the vote prompt and one hub option per card.
-# Empty slots are skipped by card `goto`s on the flags set here (none,
-# c<i>_last, c<i>_norebut, noclash). Seeded by week and rollSeed, so Rewind
+# The meeting event's context (R§3.9a "Context options", "Splice"): minutes
+# for last week, then the debate as event-card lists the meeting event splices
+# in order (R§3.15): `opener`, `slot<i>` per offered card (case, response,
+# optional rebuttal), `clash`; an empty list adds nothing. Also the vote
+# prompt and one hub option per card. Seeded by week and rollSeed, so Rewind
 # shows the same scene.
 static func meeting_context(week: int) -> Dictionary:
 	var meeting: Dictionary = GameData.BOARD_MEETING
 	var debate: Dictionary = meeting["debate"]
-	var context := { "week": str(week), "minutes": minutes_line(week) }
+	var context := { "week": str(week), "minutes": minutes_line(week), "opener": [], "clash": [] }
 	var options: Array = []
 	var vote_lines: PackedStringArray = []
 	var cards := agenda(week)
-	context["none"] = cards.is_empty()
 	if not cards.is_empty():
 		var opener_voice: String = cards[0]["voice"]
-		context["opener_speaker"] = GameData.BOARD_VOICES[opener_voice]["name"]
-		context["opener"] = _debate_line(debate["opener"].get(opener_voice, []), week, "opener", {})
+		context["opener"] = [_speaker_card("opener", GameData.BOARD_VOICES[opener_voice]["name"], _debate_line(debate["opener"].get(opener_voice, []), week, "opener", {}))]
 	for i in cards.size():
 		var card: Dictionary = cards[i]
 		var tokens := card_tokens(card)
-		var prefix := "c%d_" % i
-		for key in tokens:
-			context[prefix + key] = tokens[key]
-		_add_exchange(context, card, i, week)
+		context["slot%d" % i] = _exchange_cards(card, tokens, i, week)
 		vote_lines.append(String(debate["votePrompt"]["line"]).format(tokens))
 		options.append({
 			"id": card["id"],
@@ -548,7 +542,7 @@ static func meeting_context(week: int) -> Dictionary:
 			"result_text": _result_text(card, i, week),
 			"goto": "aob",
 		})
-	_add_clash(context, cards, week)
+	context["clash"] = _clash_cards(cards, week)
 	context["agenda"] = options
 	context["aob"] = aob_line(week)
 	context["voteText"] = "%s\n\n%s" % [
@@ -558,39 +552,42 @@ static func meeting_context(week: int) -> Dictionary:
 	return context
 
 
-# Slot i's response (a seeded other voice, a stance that voice has for the
-# pitcher) and, after a `challenge`, the pitcher's rebuttal.
-static func _add_exchange(context: Dictionary, card: Dictionary, i: int, week: int) -> void:
+static func _speaker_card(key: String, speaker: String, text: String) -> Dictionary:
+	return { "key": key, "type": "speaker", "label": null, "speaker": speaker, "text": text }
+
+
+# Slot i's event cards: the pitcher's case, then a response (a seeded other
+# voice, a stance that voice has for the pitcher) and, after a `challenge`,
+# the pitcher's rebuttal.
+static func _exchange_cards(card: Dictionary, tokens: Dictionary, i: int, week: int) -> Array:
 	var debate: Dictionary = GameData.BOARD_MEETING["debate"]
-	var prefix := "c%d_" % i
 	var pitcher: String = card["voice"]
+	var pitcher_name: String = GameData.BOARD_VOICES[pitcher]["name"]
 	var ore_name := str(GameData.ORE_TYPES[card["ore"]]["name"]) if str(card.get("ore", "")) != "" else "the ore"
 	var line_tokens := { "label": card_label(card), "ore": ore_name }
-	context[prefix + "last"] = i == _board()["agenda"].size() - 1
-	context[prefix + "norebut"] = true
+	var out: Array = [_speaker_card("case", pitcher_name, tokens["case"])]
 	var responders: Array = []
 	for voice_id in debate["response"]:
 		if voice_id != pitcher and (debate["response"][voice_id] as Dictionary).has(pitcher):
 			responders.append(voice_id)
 	if responders.is_empty():
-		return
+		return out
 	var responder: String = _pick(responders, week, "responder|%d" % i)
 	var stances: Array = (debate["response"][responder][pitcher] as Dictionary).keys()
 	var stance: String = _pick(stances, week, "stance|%d" % i)
-	context[prefix + "resp_speaker"] = GameData.BOARD_VOICES[responder]["name"]
-	context[prefix + "resp"] = _debate_line(debate["response"][responder][pitcher][stance], week, "response|%d" % i, line_tokens)
+	out.append(_speaker_card("resp", GameData.BOARD_VOICES[responder]["name"], _debate_line(debate["response"][responder][pitcher][stance], week, "response|%d" % i, line_tokens)))
 	if stance == "challenge":
-		context[prefix + "reb"] = _debate_line(debate["rebuttal"].get(pitcher, []), week, "rebuttal|%d" % i, line_tokens)
-		context[prefix + "norebut"] = false
+		out.append(_speaker_card("reb", pitcher_name, _debate_line(debate["rebuttal"].get(pitcher, []), week, "rebuttal|%d" % i, line_tokens)))
+	return out
 
 
-# Once per meeting, on a seeded roll under clashChance: a two-line exchange
+# Once per meeting, on a seeded roll under clashChance: a two-card exchange
 # keyed by the first clashOrder voice pair that both have an offered card.
-static func _add_clash(context: Dictionary, cards: Array, week: int) -> void:
+# Empty when the roll fails or no pair is offered.
+static func _clash_cards(cards: Array, week: int) -> Array:
 	var debate: Dictionary = GameData.BOARD_MEETING["debate"]
-	context["noclash"] = true
 	if _seeded_unit(week, "clash") >= float(debate["clashChance"]):
-		return
+		return []
 	var offered := {}
 	for card in cards:
 		offered[card["voice"]] = true
@@ -600,14 +597,13 @@ static func _add_clash(context: Dictionary, cards: Array, week: int) -> void:
 			continue
 		var exchanges: Array = debate["clash"].get(pair, [])
 		if exchanges.is_empty():
-			return
+			return []
 		var exchange: Array = _pick(exchanges, week, "clashLines")
-		context["clash_a_speaker"] = GameData.BOARD_VOICES[voices[0]]["name"]
-		context["clash_a"] = exchange[0]
-		context["clash_b_speaker"] = GameData.BOARD_VOICES[voices[1]]["name"]
-		context["clash_b"] = exchange[1]
-		context["noclash"] = false
-		return
+		return [
+			_speaker_card("a", GameData.BOARD_VOICES[voices[0]]["name"], exchange[0]),
+			_speaker_card("b", GameData.BOARD_VOICES[voices[1]]["name"], exchange[1]),
+		]
+	return []
 
 
 # A chosen option's result: the pitcher's pleased line, then a seeded other
