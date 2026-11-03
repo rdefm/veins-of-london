@@ -8,7 +8,29 @@
       "cards": [
         {
           "speaker": "Archie",
-          "text": "{faction} work the same ground we do. That's a quarrel waiting to happen, or a friendship, and friendships are cheaper. Favours, gifts, a fair deal. Get them liking us."
+          "text": "I want {faction} on friendly terms with us, and I want it in two weeks. We trade on the same ground as them, so they're either a customer or a problem. Favours, gifts, a fair deal, and they stay a customer."
+        }
+      ]
+    },
+    {
+      "id": "partner_1.case.2",
+      "slot": "case",
+      "voice": "archie",
+      "cards": [
+        {
+          "speaker": "Archie",
+          "text": "Let's get {faction} to like us. Not love. Like. They've got the same buyers we have, and a firm that's liked gets its calls returned and its prices left alone. Disliked, it gets leaned on."
+        }
+      ]
+    },
+    {
+      "id": "partner_1.case.3",
+      "slot": "case",
+      "voice": "archie",
+      "cards": [
+        {
+          "speaker": "Archie",
+          "text": "Our next job is {faction}. I want them well disposed to us by the end of the fortnight. Cheaper to buy a friend now than to pay a rival's legal bills later."
         }
       ]
     }

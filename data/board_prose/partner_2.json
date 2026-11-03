@@ -8,7 +8,29 @@
       "cards": [
         {
           "speaker": "Archie",
-          "text": "{faction} like us well enough now. Make it official. Partners trade price favours both ways, and they warn you when the knives come out."
+          "text": "{faction} like us well enough now. I want it made official: Partners. Partners don't undercut each other, and they warn you when someone's coming for you. I'll take that over a handshake."
+        }
+      ]
+    },
+    {
+      "id": "partner_2.case.2",
+      "slot": "case",
+      "voice": "archie",
+      "cards": [
+        {
+          "speaker": "Archie",
+          "text": "I want {faction} as Partners, which means their opinion of us has to hold up. A Partner takes your side on price and tips you off when it turns nasty. We'd be a firm with friends, and that's worth money."
+        }
+      ]
+    },
+    {
+      "id": "partner_2.case.3",
+      "slot": "case",
+      "voice": "archie",
+      "cards": [
+        {
+          "speaker": "Archie",
+          "text": "Time we made {faction} Partners. They already like us, so this is only about doing it properly. More favours, a proper gift. Then we've a firm at our back when the knives come out."
         }
       ]
     }

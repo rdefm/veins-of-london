@@ -8,11 +8,11 @@
       "cards": [
         {
           "speaker": "Archie",
-          "text": "\"{faction} have noticed our {ore} numbers. Expect them to lean on us for it.\""
+          "text": "\"{faction} have clocked our {ore} numbers. They'll want a word, and I doubt they'll ask nicely.\""
         },
         {
           "speaker": "James",
-          "text": "\"Relations move on favours, gifts and a good supplier contract. Do them well and they soften. Ignore them and they go the other way.\""
+          "text": "\"Their opinion of us moves on favours, gifts and supply contracts. Do those well and it softens. Ignore them and it sours.\""
         }
       ]
     }
