@@ -29,6 +29,7 @@ const FIGHT_OVERRIDE_KEYS: Array[String] = ["guards", "template", "waves"]
 
 # The fixed text box fits this many option buttons; the content lint enforces it.
 const MAX_OPTIONS := 4
+const SPLICE_TYPE := "splice"
 const SKELETON_KEY := "skeletonKey"
 const RECOVERY_ITEM := "cleanSlate"
 
@@ -43,8 +44,88 @@ static func start_event(event_id: String, context: Dictionary = {}) -> void:
 	_apply_timing(GameData.EVENTS[event_id].get("at", {}))
 	TimingLog.begin(TimingLog.KIND_EVENT, event_id)
 	GameState.state["event"] = { "eventId": event_id, "cardIndex": 0, "path": [0], "snapshots": [], "choiceResults": {}, "jumps": {}, "rolled": {}, "toggles": {}, "context": context, "alert": _clamp_alert(int(context.get("startAlert", 0))) }
+	var authored: Array = GameData.EVENTS[event_id]["cards"]
+	if authored.any(func(c): return c.get("type") == SPLICE_TYPE):
+		GameState.state["event"]["cards"] = _expand_splices(authored, context)
 	Observation.restore_site_memory()
 	Nav.go_to("event")
+
+
+# R§3.9a "Splice": each splice card (its `key` names a context key) becomes
+# the card list at that key, in order; a missing or empty key adds nothing.
+# A spliced card's `key` is prefixed "<splice key>." and its own key links and
+# numeric gotos are re-pointed within the expanded list. Authored numeric
+# gotos count the authored list, so they are shifted past earlier expansions.
+static func _expand_splices(authored: Array, context: Dictionary) -> Array:
+	var shift := {}
+	var out: Array = []
+	var authored_slots: Array[int] = []
+	for i in authored.size():
+		shift[i] = out.size()
+		var card: Dictionary = authored[i]
+		if card.get("type") != SPLICE_TYPE:
+			authored_slots.append(out.size())
+			out.append(card.duplicate(true))
+			continue
+		var ns: String = String(card.get("key", ""))
+		var supplied: Variant = context.get(ns)
+		if not supplied is Array:
+			continue
+		var local := {}
+		for spliced in supplied:
+			if spliced is Dictionary and spliced.get("key") is String:
+				local[spliced["key"]] = true
+		var base: int = out.size()
+		for spliced in supplied:
+			if not spliced is Dictionary:
+				push_error("Events: splice '%s' holds a non-card entry" % ns)
+				continue
+			var copy: Dictionary = (spliced as Dictionary).duplicate(true)
+			if copy.get("key") is String:
+				copy["key"] = "%s.%s" % [ns, copy["key"]]
+			_map_gotos(copy, func(g): return _retarget_value(g, ns, local, base))
+			out.append(copy)
+	for slot in authored_slots:
+		_map_gotos(out[slot], func(g): return _shift_value(g, shift))
+	return out
+
+
+# Applies `fn` to the card's goto and each of its options' gotos.
+static func _map_gotos(card: Dictionary, fn: Callable) -> void:
+	if card.has("goto"):
+		card["goto"] = fn.call(card["goto"])
+	for option in card.get("choices", []):
+		if option is Dictionary and option.has("goto"):
+			option["goto"] = fn.call(option["goto"])
+
+
+static func _retarget_value(goto: Variant, ns: String, local: Dictionary, base: int) -> Variant:
+	if goto is String and local.has(goto):
+		return "%s.%s" % [ns, goto]
+	if typeof(goto) == TYPE_INT or typeof(goto) == TYPE_FLOAT:
+		return int(goto) + base
+	return _map_goto_list(goto, func(g): return _retarget_value(g, ns, local, base))
+
+
+static func _shift_value(goto: Variant, shift: Dictionary) -> Variant:
+	if typeof(goto) == TYPE_INT or typeof(goto) == TYPE_FLOAT:
+		return shift.get(int(goto), int(goto))
+	return _map_goto_list(goto, func(g): return _shift_value(g, shift))
+
+
+# A conditional goto list with `fn` applied to each entry's `card`; anything else as-is.
+static func _map_goto_list(goto: Variant, fn: Callable) -> Variant:
+	if not goto is Array:
+		return goto
+	var list: Array = []
+	for entry in goto:
+		if entry is Dictionary and entry.has("card"):
+			var copy: Dictionary = (entry as Dictionary).duplicate()
+			copy["card"] = fn.call(copy["card"])
+			list.append(copy)
+		else:
+			list.append(entry)
+	return list
 
 
 # R§3.9b "Event timing": `at.advance` moves the clock forward to `at.block`

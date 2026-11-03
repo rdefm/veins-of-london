@@ -2276,6 +2276,79 @@ func run() -> void:
 		GameState.state["event"] = null
 	)
 
+	run_case("splice_cards_expand_at_start_and_play_with_gotos_and_context_fill", func():
+		GameState.reset()
+		var original_events: Dictionary = GameData.EVENTS
+		GameData.EVENTS = GameData.EVENTS.duplicate()
+		var splices: Array = [
+			{ "type": "splice", "key": "slotA" },
+			{ "type": "splice", "key": "slotB" },
+			{ "type": "splice", "key": "slotC" },
+		]
+		GameData.EVENTS["test_splice_in"] = { "id": "test_splice_in", "fillFromContext": true, "on_complete": [], "cards": [
+			{ "type": "narration", "label": null, "speaker": null, "text": "A", "goto": "slotB.third" },
+		] + splices + [{ "type": "narration", "key": "tail", "label": null, "speaker": null, "text": "Z" }] }
+		GameData.EVENTS["test_splice_local"] = { "id": "test_splice_local", "fillFromContext": true, "on_complete": [], "cards": [
+			{ "type": "narration", "label": null, "speaker": null, "text": "A" },
+		] + splices + [{ "type": "narration", "key": "tail", "label": null, "speaker": null, "text": "Z" }] }
+		var slot_b: Array = [
+			{ "type": "speaker", "key": "first", "label": null, "speaker": "{who}", "text": "{who} one", "goto": "third" },
+			{ "type": "narration", "key": "second", "label": null, "speaker": null, "text": "two" },
+			{ "type": "narration", "key": "third", "label": null, "speaker": null, "text": "three", "goto": "tail" },
+		]
+		# slotA is absent, slotC empty: both add nothing.
+		var context := { "who": "Zed", "slotB": slot_b, "slotC": [] }
+		var runs := { "test_splice_in": ["A", "three", "Z"], "test_splice_local": ["A", "Zed one", "three", "Z"] }
+		for event_id in runs:
+			Events.start_event(event_id, context.duplicate(true))
+			assert_eq(Events.live_cards().size(), 5,"%s: expanded list" % event_id)
+			var played: Array = []
+			for _i in 12:
+				if GameState.state["event"] == null:
+					break
+				played.append(Events.current_card()["text"].format(GameState.state["event"]["context"]))
+				if played.size() == 1:
+					# Snapshot -> restore as pure data resumes on the same card with the same list.
+					var copy: Dictionary = JSON.parse_string(JSON.stringify(GameState.state["event"]))
+					assert_eq(copy["cards"].size(), Events.live_cards().size(), "%s: stored list survives a round trip" % event_id)
+				Events.advance()
+			assert_eq(played, runs[event_id], "%s: played run" % event_id)
+		var first_card: Dictionary = GameData.EVENTS["test_splice_local"]["cards"][1]
+		assert_eq(first_card["type"], "splice", "authored definition keeps its splice cards")
+		GameData.EVENTS = original_events
+		GameState.state["event"] = null
+	)
+
+	run_case("event_validation_accepts_splice_and_rejects_one_without_a_context_key", func():
+		var tables: Dictionary = GameData.snapshot().duplicate(true)
+		var ok_cards: Array = [{ "type": "splice", "key": "slotB" }, { "type": "narration", "label": null, "speaker": null, "text": "x", "key": "k" }]
+		tables["events"]["lint_splice_ok"] = { "id": "lint_splice_ok", "cards": ok_cards, "on_complete": [{ "op": "set_screen", "screen": "phone" }] }
+		tables["events"]["lint_splice_bad"] = { "id": "lint_splice_bad", "cards": [{ "type": "splice" }, ok_cards[1]], "on_complete": [{ "op": "set_screen", "screen": "phone" }] }
+		var errors: Array = GameData.validate_tables(tables).filter(func(e): return e.contains("lint_splice"))
+		assert_eq(errors.size(), 1, "only the keyless splice flagged: %s" % [errors])
+		assert_true(String(errors[0]).contains("lint_splice_bad") and String(errors[0]).contains("splice"), "names the bad event: %s" % [errors])
+	)
+
+	run_case("splice_namespaces_keys_and_fills_speaker", func():
+		GameState.reset()
+		var original_events: Dictionary = GameData.EVENTS
+		GameData.EVENTS = GameData.EVENTS.duplicate()
+		GameData.EVENTS["test_splice_ns"] = { "id": "test_splice_ns", "fillFromContext": true, "on_complete": [], "cards": [
+			{ "type": "splice", "key": "slotB" },
+		] }
+		var context := { "who": "Zed", "slotB": [
+			{ "type": "speaker", "key": "first", "label": null, "speaker": "{who}", "text": "{who} one" },
+		] }
+		Events.start_event("test_splice_ns", context)
+		var cards: Array = Events.live_cards()
+		assert_eq(cards[0]["key"], "slotB.first", "key namespaced by the splice key")
+		var revealed: Array = Events.revealed_cards()
+		assert_eq(revealed[0]["text"], "Zed one", "token filled in spliced card")
+		assert_eq(revealed[0]["speaker"], "Zed", "speaker filled in spliced card")
+		GameData.EVENTS = original_events
+		GameState.state["event"] = null
+	)
+
 	run_case("a_hub_advance_rule_of_n_opens_the_exit_after_n_questions", func():
 		GameState.reset()
 		var original_events := _install_demo_hub()

@@ -2202,7 +2202,7 @@ func _validate_contact_text_reward(reward: Dictionary, recipes: Dictionary, fact
 			errors.append("%s: intel needs a faction target and amount > 0" % path)
 
 
-const VALID_CARD_TYPES: Array[String] = ["narration", "speaker", "tension", "resolution", "craft", "choice"]
+const VALID_CARD_TYPES: Array[String] = ["narration", "speaker", "tension", "resolution", "craft", "choice", "splice"]
 const VALID_EVENT_BLOCKS: Array[String] = ["morning", "afternoon", "evening", "night"]
 const VALID_EFFECT_OPS: Array[String] = [
 	"set_flag", "add", "add_ore", "add_item", "relation", "sell_ore_at_market",
@@ -2330,6 +2330,10 @@ func _validate_events(events: Dictionary, districts: Dictionary, errors: Array[S
 			errors.append("events.%s: id field '%s' does not match filename" % [key, entry.get("id")])
 		var card_keys := {}
 		for card in entry.get("cards", []):
+			if typeof(card) == TYPE_DICTIONARY and card.get("type") == "splice":
+				if typeof(card.get("key")) != TYPE_STRING or String(card["key"]).strip_edges() == "":
+					errors.append("events.%s: splice card needs a non-empty context key in 'key'" % key)
+				continue
 			_require_keys(card, ["type", "label", "speaker", "text", "key"], "events.%s.cards" % key, errors)
 			if card.has("key"):
 				if card_keys.has(card["key"]):
