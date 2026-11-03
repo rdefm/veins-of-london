@@ -3627,6 +3627,48 @@ function checkOddsBlock(opt, changed, restructure) {
       prose.when = w;
     } else prose[field] = value;
   }
+  // Condition builder model. Facts by kind (R§3.15 "Meeting facts"); `choices` names a fixed value list.
+  const PROSE_FACT_KINDS = {
+    week: { kind: "number" }, expenses: { kind: "number" }, float: { kind: "number" }, weeks: { kind: "number" }, float_weeks: { kind: "number" },
+    share: { kind: "number" }, share_gap: { kind: "number" }, streak: { kind: "number" },
+    rival_present: { kind: "bool" },
+    last_result: { kind: "text", choices: ["hit", "miss", "skip", "none"] },
+    ore_type: { kind: "text", choices: ["time", "physics", "life", "fate", "emotion"] },
+    last_pitcher: { kind: "text", choices: "voices" },
+    rival: { kind: "text" }, contested: { kind: "text" }, ore: { kind: "text" }, calc: { kind: "text" }, label: { kind: "text" }, pitcher: { kind: "text" },
+  };
+  const PROSE_NUM_OPS = ["gt", "gte", "lt", "lte", "eq", "ne"], PROSE_EQ_OPS = ["eq", "ne"];
+  const PROSE_OP_LABEL = { gt: ">", gte: "≥", lt: "<", lte: "≤", eq: "=", ne: "≠" };
+  const proseOpsFor = (fact) => ((PROSE_FACT_KINDS[fact] || {}).kind === "number" ? PROSE_NUM_OPS : PROSE_EQ_OPS);
+  function proseDefaultValue(fact) {
+    const k = PROSE_FACT_KINDS[fact] || { kind: "text" };
+    return k.kind === "number" ? 0 : k.kind === "bool" ? true : Array.isArray(k.choices) ? k.choices[0] : "";
+  }
+  // A `when` as {mode: "all"|"any", rows: [{fact, op, value, not}]}; null when it is nested deeper than the builder shows.
+  function proseWhenToRows(when) {
+    if (when == null) return { mode: "all", rows: [] };
+    const leaf = (c) => {
+      let not = false;
+      if (c && "not" in c) { not = true; c = c.not; }
+      if (!c || typeof c !== "object" || c.all || c.any || "not" in c || typeof c.fact !== "string") return null;
+      const cmp = proseComparison(c);
+      return cmp.length ? { fact: c.fact, op: cmp[0], value: cmp[1], not } : null;
+    };
+    const group = when.all || when.any;
+    if (group) {
+      if (!Array.isArray(group) || (when.all && when.any)) return null;
+      const rows = group.map(leaf);
+      return rows.every(Boolean) ? { mode: when.all ? "all" : "any", rows } : null;
+    }
+    const one = leaf(when);
+    return one ? { mode: "all", rows: [one] } : null;
+  }
+  function proseRowsToWhen(mode, rows) {
+    const item = (r) => { const l = { fact: r.fact, op: r.op, value: r.value }; return r.not ? { not: l } : l; };
+    if (!rows.length) return undefined;
+    if (rows.length === 1) return item(rows[0]);
+    return { [mode === "any" ? "any" : "all"]: rows.map(item) };
+  }
   // Event cards of a prose card: field is speaker|text|image; blank speaker/image clears.
   function proseSetLine(pack, id, i, field, value) {
     const { prose } = proseFind(pack, id), line = (prose.cards || [])[i];
@@ -5616,7 +5658,7 @@ function checkOddsBlock(opt, changed, restructure) {
   const proseState = { packs: {}, voices: {}, debate: {}, pack: null, slot: null, seed: 1,
     items: [{ template: "", voice: "", ore: "time" }], facts: { week: 3, expenses: 400, float: 1200, share: 12, share_gap: 8, rival: "the independents",
       rival_present: true, contested: "Time", last_result: "none", streak: 0, last_pitcher: "" }, step: 0,
-    eols: {}, dirty: new Set(), sel: null, err: "" };
+    eols: {}, dirty: new Set(), sel: null, err: "", rungs: {} };
   let proseOn = false;
   async function loadProse() {
     const view = $("prose-view");
@@ -5632,6 +5674,8 @@ function checkOddsBlock(opt, changed, restructure) {
       proseState.packs = packs; proseState.dirty = new Set(); proseState.sel = null;
       const bj = await readJSON(await dirAt(["data"]), "board.json");
       proseState.voices = (bj && bj.voices) || {};
+      proseState.rungs = {};
+      for (const lad of Object.values((bj && bj.ladders) || {})) for (const r of lad.rungs || []) proseState.rungs[r.id] = r;
       proseState.debate = (bj && bj.meeting && bj.meeting.debate) || {};
     } catch (e) { setNote("Couldn't read data/board_prose/: " + e.message); }
     const names = Object.keys(proseState.packs).sort();
@@ -5679,7 +5723,13 @@ function checkOddsBlock(opt, changed, restructure) {
     const sel = st.sel ? proseSafeFind(pack, st.sel) : null;
     view.append(el("div", { class: "pp-bar" }, back, save, el("span", { class: "mono muted", text: "edits save straight to data/board_prose/ · git is the undo · last column = eligibility against the sandbox facts" })),
       st.err ? el("p", { class: "pp-warn", role: "alert", text: st.err }) : null,
-      list, el("h2", { text: st.pack }), ...proseCommentRows(pack, null), tabs, table, add, sel ? renderProseEditor(pack, sel) : null, renderSandbox(sandbox));
+      list, el("h2", { text: st.pack }), proseGoalRow(st.rungs[st.pack]), ...proseCommentRows(pack, null), tabs, table, add, sel ? renderProseEditor(pack, sel) : null, renderSandbox(sandbox));
+  }
+  // The goal's mechanics from data/board.json (read-only here): what the tiers actually ask for.
+  function proseGoalRow(rung) {
+    if (!rung) return null;
+    const tiers = Object.entries(rung.tiers || {}).map(([t, v]) => `${t}: ${Object.entries(v).map(([k, x]) => `${k} ${x}`).join(", ")}`).join("  ·  ");
+    return el("p", { class: "mono muted", text: `Goal ${rung.goal.type} — ${tiers} (set in data/board.json ladders; prose that hardcodes these numbers won't follow a change)` });
   }
   const proseSafeFind = (pack, id) => { try { return proseFind(pack, id); } catch { return null; } };
   // Runs a pack mutation, marks the pack dirty and redraws; a refused edit shows its message.
@@ -5720,6 +5770,53 @@ function checkOddsBlock(opt, changed, restructure) {
     }
     return [...out, el("div", { class: "pp-row" }, ...adds)];
   }
+  // Condition builder: one row per fact test (fact, operator, value), joined by all/any; a nested `when` shows as JSON.
+  function renderWhenBuilder(pack, prose) {
+    const st = proseState, id = prose.id, model = proseWhenToRows(prose.when);
+    const box = el("div", { class: "pp-when" }, el("b", { text: "When" }), el("span", { class: "mono muted", text: " " + proseCondText(prose.when) }));
+    if (!model) {
+      const t = el("textarea", { rows: "3", "aria-label": "when (JSON)" }); t.value = JSON.stringify(prose.when, null, 1);
+      t.addEventListener("change", () => proseEdit(() => proseSetField(pack, id, "when", t.value)));
+      const clear = el("button", { type: "button", class: "tb", text: "Clear" });
+      clear.addEventListener("click", () => proseEdit(() => proseSetField(pack, id, "when", "")));
+      box.append(el("p", { class: "muted", text: "Nested condition: edit as JSON, or clear it to use the builder." }), t, clear);
+      return box;
+    }
+    const apply = (mode, rows) => proseEdit(() => proseSetField(pack, id, "when", proseRowsToWhen(mode, rows)));
+    const sel = (label, opts, val, on) => {
+      const s2 = el("select", { "aria-label": label }, ...opts.map(([v, t]) => el("option", { value: v, text: t, ...(v === val ? { selected: true } : {}) })));
+      s2.addEventListener("change", () => on(s2.value));
+      return s2;
+    };
+    const { mode, rows } = model;
+    if (rows.length > 1) box.append(el("div", { class: "pp-row" }, "Fire when", sel("match", [["all", "all of these hold"], ["any", "any of these holds"]], mode, (v) => apply(v, rows))));
+    rows.forEach((r, i) => {
+      const meta = PROSE_FACT_KINDS[r.fact] || { kind: "text" };
+      const upd = (patch) => apply(mode, rows.map((x, j) => (j === i ? { ...x, ...patch } : x)));
+      const not = el("input", { type: "checkbox", checked: !!r.not, "aria-label": "not" });
+      not.addEventListener("change", () => upd({ not: not.checked }));
+      const facts = Object.keys(PROSE_FACT_KINDS), known = facts.includes(r.fact);
+      const factSel = sel("fact", (known ? facts : [r.fact, ...facts]).map((f) => [f, f]), r.fact,
+        (v) => upd({ fact: v, op: proseOpsFor(v)[0] === "gt" ? "gt" : "eq", value: proseDefaultValue(v) }));
+      const opSel = sel("operator", proseOpsFor(r.fact).map((o) => [o, PROSE_OP_LABEL[o]]), r.op, (v) => upd({ op: v }));
+      let val;
+      if (meta.kind === "bool") val = sel("value", [["true", "true"], ["false", "false"]], String(r.value), (v) => upd({ value: v === "true" }));
+      else if (meta.choices) {
+        const ch = meta.choices === "voices" ? ["", ...Object.keys(st.voices)] : meta.choices;
+        val = sel("value", ch.map((c) => [c, c || "(nobody)"]), String(r.value), (v) => upd({ value: v }));
+      } else {
+        val = el("input", { type: meta.kind === "number" ? "number" : "text", value: String(r.value ?? ""), "aria-label": "value" });
+        val.addEventListener("change", () => upd({ value: meta.kind === "number" ? Number(val.value) : val.value }));
+      }
+      const del = el("button", { type: "button", class: "tb", text: "✕", title: "Remove this condition" });
+      del.addEventListener("click", () => apply(mode, rows.filter((_, j) => j !== i)));
+      box.append(el("div", { class: "pp-row" }, el("label", {}, not, " not"), factSel, opSel, val, del));
+    });
+    const add = el("button", { type: "button", class: "tb", text: "+ condition" });
+    add.addEventListener("click", () => apply(mode, [...rows, { fact: "share", op: "gt", value: 0, not: false }]));
+    box.append(add);
+    return box;
+  }
   function renderProseEditor(pack, { prose, parent }) {
     const st = proseState, id = prose.id;
     const field = (label, value, key, opts) => {
@@ -5732,8 +5829,8 @@ function checkOddsBlock(opt, changed, restructure) {
     const slotOpts = parent ? ["reply", "rebuttal"] : [...new Set([...proseSlots(pack), "case", "reply", "rebuttal", "chosen", "concede", "aftermath"])];
     const box = el("section", { class: "pp-box" }, el("h3", { text: (parent ? "Reply " : "Prose card ") + id }),
       el("div", { class: "pp-facts" }, field("slot", prose.slot, "slot", slotOpts), field("voice", prose.voice, "voice", voices), field("to", prose.to, "to", [""].concat(voices)),
-        field("stance", prose.stance, "stance", ["", "back", "challenge", "wobble"]), field("weight", prose.weight ?? 1, "weight"),
-        field("when (JSON)", prose.when ? JSON.stringify(prose.when) : "", "when")));
+        field("stance", prose.stance, "stance", ["", "back", "challenge", "wobble"]), field("weight", prose.weight ?? 1, "weight")),
+      renderWhenBuilder(pack, prose));
     (prose.cards || []).forEach((line, i) => {
       const lineField = (label, key, multi) => {
         const input = multi ? el("textarea", { rows: "3", "aria-label": label }) : el("input", { type: "text", "aria-label": label });

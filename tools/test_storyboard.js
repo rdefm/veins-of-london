@@ -2439,8 +2439,8 @@ test("coveredText / uncoveredText: only offered for a cover-profile item; save, 
 // ---- Prose packs ----
 const proseStart = html.indexOf("/* ---------- Prose packs (pure) ---------- */"), proseEnd = html.indexOf("/* ---------- End prose packs ---------- */");
 assert(proseStart !== -1 && proseEnd !== -1, "could not locate prose pack markers in storyboard.html");
-const { proseCondMet, proseCondText, proseCards, proseQualifying, proseSlots, proseFill, proseUnfilled, proseUnit, assembleMeeting, proseVariantRows, proseSerialise, proseEol, proseFind, proseNewId, proseAdd, proseDuplicate, proseDelete, proseSetField, proseSetLine, proseAddLine, proseDeleteLine, proseCommentAdd, proseCommentUpdate, proseCommentDelete, proseCommentsFor } =
-  new Function(html.slice(proseStart, proseEnd) + "\nreturn { proseCondMet, proseCondText, proseCards, proseQualifying, proseSlots, proseFill, proseUnfilled, proseUnit, assembleMeeting, proseVariantRows, proseSerialise, proseEol, proseFind, proseNewId, proseAdd, proseDuplicate, proseDelete, proseSetField, proseSetLine, proseAddLine, proseDeleteLine, proseCommentAdd, proseCommentUpdate, proseCommentDelete, proseCommentsFor };")();
+const { proseCondMet, proseCondText, proseCards, proseQualifying, proseSlots, proseFill, proseUnfilled, proseUnit, assembleMeeting, proseVariantRows, proseSerialise, proseEol, proseFind, proseNewId, proseAdd, proseDuplicate, proseDelete, proseSetField, proseSetLine, proseAddLine, proseDeleteLine, proseCommentAdd, proseCommentUpdate, proseCommentDelete, proseCommentsFor, proseWhenToRows, proseRowsToWhen } =
+  new Function(html.slice(proseStart, proseEnd) + "\nreturn { proseCondMet, proseCondText, proseCards, proseQualifying, proseSlots, proseFill, proseUnfilled, proseUnit, assembleMeeting, proseVariantRows, proseSerialise, proseEol, proseFind, proseNewId, proseAdd, proseDuplicate, proseDelete, proseSetField, proseSetLine, proseAddLine, proseDeleteLine, proseCommentAdd, proseCommentUpdate, proseCommentDelete, proseCommentsFor, proseWhenToRows, proseRowsToWhen };")();
 const fixtureDir = path.join(__dirname, "..", "tests", "fixtures");
 const parityInput = JSON.parse(fs.readFileSync(path.join(fixtureDir, "board_prose_parity_input.json"), "utf-8"));
 const parityGolden = JSON.parse(fs.readFileSync(path.join(fixtureDir, "board_prose_golden.json"), "utf-8"));
@@ -2596,6 +2596,22 @@ test("an edited pack feeds the sandbox right away", () => {
   const packs = editPacks();
   proseSetLine(packs.share_first, "sf.case.1", 0, "text", "New line {share}.");
   assert.strictEqual(assembleMeeting(sandboxSpec({ packs })).cards[2].text, "New line 12.");
+});
+
+test("when builder rows round trip every shape it shows, and nested ones fall back", () => {
+  assert.deepStrictEqual(proseWhenToRows(undefined), { mode: "all", rows: [] });
+  assert.deepStrictEqual(proseWhenToRows({ fact: "share_gap", gt: 5 }), { mode: "all", rows: [{ fact: "share_gap", op: "gt", value: 5, not: false }] });
+  const two = { any: [{ fact: "float", op: "lt", value: 100 }, { not: { fact: "rival_present", op: "eq", value: true } }] };
+  const m = proseWhenToRows(two);
+  assert.strictEqual(m.mode, "any");
+  assert.deepStrictEqual(m.rows[1], { fact: "rival_present", op: "eq", value: true, not: true });
+  assert.deepStrictEqual(proseRowsToWhen(m.mode, m.rows), two);
+  assert.strictEqual(proseRowsToWhen("all", []), undefined);
+  assert.deepStrictEqual(proseRowsToWhen("all", [{ fact: "streak", op: "gte", value: 2, not: false }]), { fact: "streak", op: "gte", value: 2 });
+  assert.strictEqual(proseWhenToRows({ all: [{ any: [{ fact: "float", lt: 1 }] }] }), null, "nested falls back to JSON");
+  const packs = editPacks();
+  proseSetField(packs.share_first, "sf.case.2", "when", proseRowsToWhen("all", []));
+  assert(!("when" in packs.share_first.cards[1]), "no rows clears when");
 });
 
 console.log(`${passed} passed${process.exitCode ? ", some FAILED" : ""}`);
