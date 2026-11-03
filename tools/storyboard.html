@@ -5887,8 +5887,7 @@ function checkOddsBlock(opt, changed, restructure) {
       if (!name) return;
       try {
         const id = proseNewPack(st.packs, st.board, name, Object.keys(st.voices)[0] || "archie");
-        st.dirty.add(name); st.boardDirty = true; st.eols[name] = "
-"; st.pack = name; st.slot = "case"; st.sel = id; st.err = "";
+        st.dirty.add(name); st.boardDirty = true; st.eols[name] = "\n"; st.pack = name; st.slot = "case"; st.sel = id; st.err = "";
       } catch (e) { st.err = e.message; }
       renderProse();
     });
