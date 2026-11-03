@@ -211,7 +211,11 @@ func run() -> void:
 		for key in golden:
 			# Golden runs predate the splice skeleton: a 0-goal run there holds an unfilled opener card, filtered here.
 			var expected: Array = (golden[key] as Array).filter(func(l): return not String(l).begins_with("{opener_speaker}|"))
-			assert_eq(now.get(key), expected, "golden run %s" % key)
+			var got: Array = now.get(key)
+			# The old Week-1 event had no minutes card; the shared skeleton opens with it.
+			if "|w1|" in key:
+				got = got.slice(1)
+			assert_eq(got, expected, "golden run %s" % key)
 	)
 
 	run_case("financial_placeholder_tiers_are_2_3_4_weeks", func():
@@ -615,7 +619,7 @@ func run() -> void:
 		assert_eq(board["firstMeetingDay"], monday)
 		assert_true(BoardMeetings.meeting_pending())
 		assert_true(BoardMeetings.maybe_start_meeting())
-		assert_eq(GameState.state["event"]["eventId"], "board_meeting_week1", "Week 1 is the scripted meeting")
+		assert_eq(GameState.state["event"]["eventId"], "board_meeting")
 		assert_true(not BoardMeetings.meeting_pending(), "starting clears the pending meeting")
 	)
 
@@ -857,6 +861,17 @@ func run() -> void:
 		GameState.state["event"] = null
 	)
 
+	run_case("week1_context_carries_the_explainer_and_later_weeks_do_not", func():
+		_enabled_game()
+		var week1 := BoardMeetings.meeting_context(1)
+		var texts: Array = week1["explainer"].map(func(c: Dictionary) -> String: return str(c["text"]))
+		assert_eq(texts.size(), 6, "intro, explainer, rules, next week, Owen, poach")
+		assert_true(texts[5].contains("poached"), "Owen-poach gag")
+		assert_eq(week1["explainer"][0]["type"], "narration")
+		assert_eq(week1["explainer"][1]["speaker"], "Archie")
+		assert_true(BoardMeetings.meeting_context(2)["explainer"].is_empty(), "no explainer after Week 1")
+	)
+
 	run_case("debug_jump_starts_a_meeting_with_the_current_state", func():
 		GameState.reset()
 		var day: int = GameState.state["world"]["day"]
@@ -864,7 +879,7 @@ func run() -> void:
 		var board: Dictionary = GameState.state["boardMeetings"]
 		assert_true(board["enabled"])
 		assert_eq(board["week"], 1)
-		assert_eq(GameState.state["event"]["eventId"], "board_meeting_week1")
+		assert_eq(GameState.state["event"]["eventId"], "board_meeting")
 		assert_eq(int(GameState.state["world"]["day"]), day, "the calendar doesn't move")
 		GameState.state["event"] = null
 	)

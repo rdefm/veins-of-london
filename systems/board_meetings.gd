@@ -497,8 +497,7 @@ static func meeting_pending() -> bool:
 
 
 # Starts the pending meeting once the player is free: no event or fight
-# live (a modal flow parks it via start_or_defer). Week 1 plays the scripted
-# variant. The event has no `at`, so it spends no time block and needs no
+# live (a modal flow parks it via start_or_defer). The event has no `at`, so it spends no time block and needs no
 # travel. True when the meeting started (or was parked behind a modal).
 static func maybe_start_meeting() -> bool:
 	if not meeting_pending():
@@ -508,23 +507,26 @@ static func maybe_start_meeting() -> bool:
 	var board := _board()
 	var week := int(board["pendingWeek"])
 	board["pendingWeek"] = 0
-	var meeting: Dictionary = GameData.BOARD_MEETING
-	var event_id: String = meeting["week1EventId"] if week == 1 else meeting["eventId"]
-	Events.start_or_defer(event_id, meeting_context(week))
+	Events.start_or_defer(GameData.BOARD_MEETING["eventId"], meeting_context(week))
 	return true
 
 
 # The meeting event's context (R§3.9a "Context options", "Splice"): minutes
 # for last week, then the debate as event-card lists the meeting event splices
 # in order (R§3.15): `opener`, `slot<i>` per offered card (case, response,
-# optional rebuttal), `clash`; an empty list adds nothing. All prose comes
+# optional rebuttal), `clash`; an empty list adds nothing. `explainer` is the
+# `_week1` pack's card, Week 1 only. All prose comes
 # from the prose packs (R§3.15 "Prose packs"). Also the vote
 # prompt and one hub option per card. Seeded by week and rollSeed, so Rewind
 # shows the same scene.
 static func meeting_context(week: int) -> Dictionary:
 	var meeting: Dictionary = GameData.BOARD_MEETING
 	var debate: Dictionary = meeting["debate"]
-	var context := { "week": str(week), "minutes": minutes_line(week), "opener": [], "clash": [] }
+	var context := { "week": str(week), "minutes": minutes_line(week), "opener": [], "clash": [], "explainer": [] }
+	if week == 1:
+		var explainer := _prose(GameData.BOARD_PROSE_WEEK1, "explainer")
+		if not explainer.is_empty():
+			context["explainer"] = _prose_event_cards("explainer", explainer[0], {})
 	var options: Array = []
 	var vote_lines: PackedStringArray = []
 	var cards := agenda(week)
@@ -653,8 +655,9 @@ static func _record_prose(week: int, ids: Array) -> void:
 	board["lastProse"] = kept
 
 
-# A prose card as speaker event cards keyed `key` (`key0`, `key1`... when the
-# prose card holds several), text with `tokens` filled.
+# A prose card as event cards keyed `key` (`key0`, `key1`... when the prose
+# card holds several): speaker cards unless a line sets `type` (and `label`),
+# text with `tokens` filled.
 static func _prose_event_cards(key: String, prose: Dictionary, tokens: Dictionary) -> Array:
 	var out: Array = []
 	var lines: Array = prose.get("cards", [])
@@ -662,8 +665,8 @@ static func _prose_event_cards(key: String, prose: Dictionary, tokens: Dictionar
 		var line: Dictionary = lines[i]
 		out.append({
 			"key": key if lines.size() == 1 else "%s%d" % [key, i],
-			"type": "speaker", "label": null,
-			"speaker": line["speaker"], "text": String(line["text"]).format(tokens),
+			"type": line.get("type", "speaker"), "label": line.get("label"),
+			"speaker": line.get("speaker"), "text": String(line["text"]).format(tokens),
 		})
 	return out
 

@@ -112,7 +112,7 @@ static func prepare_event(event_id: String) -> Dictionary:
 			break
 	if context.is_empty() and "reveal_site" in ops:
 		context = { "site_id": Sites.spawn_unclaimed_site(SPAWN_DISTRICT, SPAWN_TIER, SPAWN_ORE)["id"] }
-	if event_id in [GameData.BOARD_MEETING["eventId"], GameData.BOARD_MEETING["week1EventId"]]:
+	if event_id == GameData.BOARD_MEETING["eventId"]:
 		context = BoardMeetings.meeting_context(int(GameState.state["boardMeetings"]["week"]))
 	EventBus.state_changed.emit()
 	return context

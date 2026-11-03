@@ -1,4 +1,36 @@
 {
   "template": "_week1",
-  "cards": []
+  "cards": [
+    {
+      "id": "_week1.explainer.1",
+      "slot": "explainer",
+      "voice": "archie",
+      "cards": [
+        {
+          "type": "narration",
+          "text": "Archie has pushed two benches together and set a Tesco meal deal at each place. Owen has been given a chair again."
+        },
+        {
+          "speaker": "Archie",
+          "text": "\"Board meeting. Every Monday, catering provided.\" He taps his sandwich. \"Each of us pitches a goal and we argue it out in front of you. Then you pick which one we chase this week.\""
+        },
+        {
+          "speaker": "James",
+          "text": "\"Next Monday I read the minutes and we find out whether you chose well. We'll argue. You decide. Nobody is wounded if it isn't theirs.\""
+        },
+        {
+          "speaker": "Archie",
+          "text": "\"Worst you'll get is 'next week, then'. Then I pitch again, louder.\""
+        },
+        {
+          "speaker": "Owen",
+          "text": "\"Sorry. Do I have a vote?\""
+        },
+        {
+          "speaker": "Archie",
+          "text": "\"You're getting poached, Owen. Different department. Start Friday.\" James does not look up. \"He is not.\""
+        }
+      ]
+    }
+  ]
 }

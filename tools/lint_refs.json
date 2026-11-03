@@ -68,14 +68,6 @@
 			},
 			"observations": {}
 		},
-		"board_meeting_week1": {
-			"choiceCards": {
-				"vote": [
-					"skip"
-				]
-			},
-			"observations": {}
-		},
 		"busker_greenwich": {
 			"choiceCards": {
 				"c3": [

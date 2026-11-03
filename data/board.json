@@ -1174,7 +1174,6 @@
     "_comment": "Monday meeting (BoardMeetings.meeting_context()). Text is placeholder copy; PROSE-REVIEW: every string here is new.",
     "enableFlag": "bizA1Complete",
     "eventId": "board_meeting",
-    "week1EventId": "board_meeting_week1",
     "minutesNone": "No goal on the books last week.",
     "minutes": {
       "_comment": "Minutes reaction (BoardMeetings.minutes_line()). groups maps a history result to a reaction group; variant = entry week mod list size. Tokens: {label}, {tier}. skipped = the goal Archie picked for you (tuning.skipVoice). PROSE-REVIEW: all new copy.",
