@@ -873,12 +873,21 @@ static func _mod_delta(mod: Dictionary, toggled: Array = []) -> float:
 # context holds key as true or a non-empty string, {security: {feature, atLeast?,
 # atMost?, is?}} the live raid's security profile, {all: [conditions]} every
 # part holds. Unknown shapes never hold.
-static func condition_met(condition: Dictionary, toggled: Array = []) -> bool:
+static func condition_met(condition: Dictionary, toggled: Array = [], facts: Dictionary = {}) -> bool:
 	if condition.has("all"):
 		for part in condition["all"]:
-			if not condition_met(part, toggled):
+			if not condition_met(part, toggled, facts):
 				return false
 		return true
+	if condition.has("any"):
+		for part in condition["any"]:
+			if condition_met(part, toggled, facts):
+				return true
+		return false
+	if condition.has("not"):
+		return not condition_met(condition["not"], toggled, facts)
+	if condition.has("fact"):
+		return _fact_met(condition, facts)
 	if condition.has("item"):
 		if condition.get("equipped", false):
 			return Loadout.find_slot(condition["item"]) >= 0
@@ -921,6 +930,48 @@ static func condition_met(condition: Dictionary, toggled: Array = []) -> bool:
 	if condition.has("reinforcements"):
 		return reinforcements_arrived() == bool(condition["reinforcements"])
 	return false
+
+
+const FACT_OPS := {
+	"eq": "eq", "ne": "ne", "gt": "gt", "gte": "gte", "lt": "lt", "lte": "lte",
+	"==": "eq", "!=": "ne", ">": "gt", ">=": "gte", "<": "lt", "<=": "lte",
+}
+
+
+# A fact leaf's comparison as [op, expected]: `{fact, op, value}`, or the
+# shorthand `{fact, gt: 5}` (any FACT_OPS key). [] when it names no operator.
+static func fact_comparison(leaf: Dictionary) -> Array:
+	if leaf.has("op"):
+		var op := str(leaf["op"])
+		return [FACT_OPS[op], leaf.get("value")] if FACT_OPS.has(op) and leaf.has("value") else []
+	for key in FACT_OPS:
+		if leaf.has(key):
+			return [FACT_OPS[key], leaf[key]]
+	return []
+
+
+# A meeting-facts leaf (R§3.15 "Meeting facts"): the named fact compared with
+# the value. Unknown fact or malformed leaf never holds.
+static func _fact_met(leaf: Dictionary, facts: Dictionary) -> bool:
+	var comparison := fact_comparison(leaf)
+	if comparison.is_empty() or not facts.has(str(leaf["fact"])):
+		return false
+	var actual: Variant = facts[str(leaf["fact"])]
+	var expected: Variant = comparison[1]
+	var op: String = comparison[0]
+	if op == "eq":
+		return str(actual) == str(expected) if typeof(actual) == TYPE_STRING or typeof(expected) == TYPE_STRING else actual == expected
+	if op == "ne":
+		return not (str(actual) == str(expected) if typeof(actual) == TYPE_STRING or typeof(expected) == TYPE_STRING else actual == expected)
+	if not (typeof(actual) in [TYPE_INT, TYPE_FLOAT] and typeof(expected) in [TYPE_INT, TYPE_FLOAT]):
+		return false
+	var a := float(actual)
+	var b := float(expected)
+	match op:
+		"gt": return a > b
+		"gte": return a >= b
+		"lt": return a < b
+	return a <= b
 
 
 # ── security profile (R§3.12 "Security profile") ──

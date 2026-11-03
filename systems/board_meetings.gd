@@ -27,7 +27,7 @@ static func new_state() -> Dictionary:
 		"enabled": false, "week": 0, "firstMeetingDay": 0,
 		"agenda": [], "agendaWeek": 0, "active": null,
 		"voiceWeights": weights, "rungs": {}, "spine": {},
-		"history": [], "lastCompeting": 0, "pendingWeek": 0,
+		"history": [], "lastCompeting": 0, "pendingWeek": 0, "lastProse": [],
 	}
 
 
@@ -528,13 +528,15 @@ static func meeting_context(week: int) -> Dictionary:
 	var options: Array = []
 	var vote_lines: PackedStringArray = []
 	var cards := agenda(week)
+	_picked = []
 	if not cards.is_empty():
 		var opener_voice: String = cards[0]["voice"]
-		var opener := _pick_prose(_prose(GameData.BOARD_PROSE_DEBATE, "opener", { "voice": opener_voice }), week, "opener")
-		context["opener"] = _prose_event_cards("opener", opener, {})
+		var opener_facts := meeting_facts(week, cards[0])
+		var opener := _pick_prose(_prose(GameData.BOARD_PROSE_DEBATE, "opener", { "voice": opener_voice }), week, "opener", opener_facts)
+		context["opener"] = _prose_event_cards("opener", opener, fact_tokens(opener_facts))
 	for i in cards.size():
 		var card: Dictionary = cards[i]
-		var tokens := card_tokens(card)
+		var tokens := card_tokens(card, week)
 		context["slot%d" % i] = _exchange_cards(card, i, week)
 		vote_lines.append(String(debate["votePrompt"]["line"]).format(tokens))
 		options.append({
@@ -545,6 +547,8 @@ static func meeting_context(week: int) -> Dictionary:
 			"goto": "aob",
 		})
 	context["clash"] = _clash_cards(cards, week)
+	_record_prose(week, _picked)
+	_picked = null
 	context["agenda"] = options
 	context["aob"] = aob_line(week)
 	context["voteText"] = "%s\n\n%s" % [
@@ -579,8 +583,74 @@ static func _prose_values(pool: Array, field: String) -> Array:
 	return out
 
 
-static func _pick_prose(pool: Array, week: int, salt: String) -> Dictionary:
-	return {} if pool.is_empty() else _pick(pool, week, salt)
+# Prose card ids picked while meeting_context() runs; null outside it.
+static var _picked: Variant = null
+
+
+# The prose cards whose `when` holds over `facts` (no `when` always holds).
+static func _qualifying(pool: Array, facts: Dictionary) -> Array:
+	return pool.filter(func(prose: Dictionary) -> bool:
+		return not prose.has("when") or Events.condition_met(prose["when"], [], facts))
+
+
+# R§3.15 "Selection": the qualifying prose cards, minus any picked last
+# meeting when another remains, then a weighted pick seeded by
+# rollSeed|board|week|salt. {} when none qualify.
+static func _pick_prose(pool: Array, week: int, salt: String, facts: Dictionary = {}) -> Dictionary:
+	var open := _qualifying(pool, facts)
+	if open.is_empty():
+		return {}
+	var recent := _prior_prose(week)
+	var fresh := open.filter(func(prose: Dictionary) -> bool: return not recent.has(str(prose.get("id", ""))))
+	if not fresh.is_empty():
+		open = fresh
+	var total := 0.0
+	for prose in open:
+		total += float(prose.get("weight", 1))
+	var roll := _seeded_unit(week, salt) * total
+	var picked: Dictionary = open.back()
+	for prose in open:
+		roll -= float(prose.get("weight", 1))
+		if roll < 0.0:
+			picked = prose
+			break
+	var id := str(picked.get("id", ""))
+	if _picked != null and id != "" and not _picked.has(id):
+		_picked.append(id)
+	return picked
+
+
+# The latest meeting before `week` that recorded picks: [week, [ids]].
+static func _prior_prose(week: int) -> Array:
+	var latest := 0
+	var entries: Array = _board().get("lastProse", [])
+	for entry in entries:
+		var entry_week := int(str(entry).get_slice("|", 0))
+		if entry_week < week:
+			latest = maxi(latest, entry_week)
+	var ids: Array = []
+	for entry in entries:
+		if int(str(entry).get_slice("|", 0)) == latest and latest > 0:
+			ids.append(str(entry).get_slice("|", 1))
+	return ids
+
+
+# lastProse = the previous meeting's entries plus this one's, as "<week>|<id>"
+# strings (replaces any entries already recorded for `week`).
+static func _record_prose(week: int, ids: Array) -> void:
+	var board := _board()
+	var kept: Array = []
+	var latest := 0
+	for entry in board.get("lastProse", []):
+		var entry_week := int(str(entry).get_slice("|", 0))
+		if entry_week < week:
+			latest = maxi(latest, entry_week)
+	for entry in board.get("lastProse", []):
+		if latest > 0 and int(str(entry).get_slice("|", 0)) == latest:
+			kept.append(entry)
+	for id in ids:
+		kept.append("%d|%s" % [week, id])
+	board["lastProse"] = kept
 
 
 # A prose card as speaker event cards keyed `key` (`key0`, `key1`... when the
@@ -609,26 +679,23 @@ static func _prose_text(prose: Dictionary, tokens: Dictionary) -> String:
 # the pitcher's rebuttal.
 static func _exchange_cards(card: Dictionary, i: int, week: int) -> Array:
 	var pitcher: String = card["voice"]
-	var ore_name := str(GameData.ORE_TYPES[card["ore"]]["name"]) if str(card.get("ore", "")) != "" else "the ore"
-	var line_tokens := { "label": card_label(card), "ore": ore_name }
-	var case_prose := _case_prose(card)
-	var out: Array = _prose_event_cards("case", case_prose, {})
-	for j in out.size():
-		out[j]["text"] = fill_prose(str(case_prose["cards"][j]["text"]), card)
+	var facts := meeting_facts(week, card)
+	var line_tokens := fact_tokens(facts)
+	var out: Array = _prose_event_cards("case", _case_prose(card, week), line_tokens)
 	if out.is_empty():
 		out.append({ "key": "case", "type": "speaker", "label": null, "speaker": GameData.BOARD_VOICES[pitcher]["name"], "text": "" })
-	var replies := _prose(GameData.BOARD_PROSE_DEBATE, "reply", { "to": pitcher })
+	var replies := _qualifying(_prose(GameData.BOARD_PROSE_DEBATE, "reply", { "to": pitcher }), facts)
 	var responders := _prose_values(replies, "voice")
 	responders.erase(pitcher)
 	if responders.is_empty():
 		return out
 	var responder: String = _pick(responders, week, "responder|%d" % i)
-	var stances := _prose_values(_prose(GameData.BOARD_PROSE_DEBATE, "reply", { "to": pitcher, "voice": responder }), "stance")
+	var stances := _prose_values(_qualifying(_prose(GameData.BOARD_PROSE_DEBATE, "reply", { "to": pitcher, "voice": responder }), facts), "stance")
 	var stance: String = _pick(stances, week, "stance|%d" % i)
-	var reply := _pick_prose(_prose(GameData.BOARD_PROSE_DEBATE, "reply", { "to": pitcher, "voice": responder, "stance": stance }), week, "response|%d" % i)
+	var reply := _pick_prose(_prose(GameData.BOARD_PROSE_DEBATE, "reply", { "to": pitcher, "voice": responder, "stance": stance }), week, "response|%d" % i, facts)
 	out.append_array(_prose_event_cards("resp", reply, line_tokens))
 	if stance == "challenge":
-		var rebuttal := _pick_prose(_prose(GameData.BOARD_PROSE_DEBATE, "rebuttal", { "voice": pitcher }), week, "rebuttal|%d" % i)
+		var rebuttal := _pick_prose(_prose(GameData.BOARD_PROSE_DEBATE, "rebuttal", { "voice": pitcher }), week, "rebuttal|%d" % i, facts)
 		out.append_array(_prose_event_cards("reb", rebuttal, line_tokens))
 	return out
 
@@ -641,6 +708,7 @@ static func _clash_cards(cards: Array, week: int) -> Array:
 	if _seeded_unit(week, "clash") >= float(debate["clashChance"]):
 		return []
 	var offered := {}
+	var facts := meeting_facts(week, cards[0]) if not cards.is_empty() else {}
 	for card in cards:
 		offered[card["voice"]] = true
 	for pair in debate["clashOrder"]:
@@ -648,7 +716,7 @@ static func _clash_cards(cards: Array, week: int) -> Array:
 		if not (offered.has(voices[0]) and offered.has(voices[1])):
 			continue
 		var exchanges := _prose(GameData.BOARD_PROSE_DEBATE, "clash", { "voice": voices[0], "to": voices[1] })
-		return _prose_event_cards("clash", _pick_prose(exchanges, week, "clashLines"), {})
+		return _prose_event_cards("clash", _pick_prose(exchanges, week, "clashLines", facts), fact_tokens(facts))
 	return []
 
 
@@ -656,16 +724,17 @@ static func _clash_cards(cards: Array, week: int) -> Array:
 # voice's concede line.
 static func _result_text(card: Dictionary, i: int, week: int) -> String:
 	var pitcher: String = card["voice"]
-	var line_tokens := { "label": card_label(card) }
+	var facts := meeting_facts(week, card)
+	var line_tokens := fact_tokens(facts)
 	var out: PackedStringArray = []
-	var chosen := _pick_prose(_prose(GameData.BOARD_PROSE_DEBATE, "chosen", { "voice": pitcher }), week, "chosen|%d" % i)
+	var chosen := _pick_prose(_prose(GameData.BOARD_PROSE_DEBATE, "chosen", { "voice": pitcher }), week, "chosen|%d" % i, facts)
 	if not chosen.is_empty():
 		out.append("%s: \"%s\"" % [GameData.BOARD_VOICES[pitcher]["name"], _prose_text(chosen, line_tokens)])
-	var others := _prose_values(_prose(GameData.BOARD_PROSE_DEBATE, "concede"), "voice")
+	var others := _prose_values(_qualifying(_prose(GameData.BOARD_PROSE_DEBATE, "concede"), facts), "voice")
 	others.erase(pitcher)
 	if not others.is_empty():
 		var conceder: String = _pick(others, week, "conceder|%d" % i)
-		var concede := _pick_prose(_prose(GameData.BOARD_PROSE_DEBATE, "concede", { "voice": conceder }), week, "concede|%d" % i)
+		var concede := _pick_prose(_prose(GameData.BOARD_PROSE_DEBATE, "concede", { "voice": conceder }), week, "concede|%d" % i, facts)
 		if not concede.is_empty():
 			out.append("%s: \"%s\"" % [GameData.BOARD_VOICES[conceder]["name"], _prose_text(concede, line_tokens)])
 	return "\n\n".join(out)
@@ -700,7 +769,9 @@ static func aob_line(week: int) -> String:
 # A card's display tokens: pitcher, label, case (the picked case prose, tokens
 # filled), tiers (each tier's threshold numbers) and reward (the per-tier
 # previews).
-static func card_tokens(card: Dictionary) -> Dictionary:
+static func card_tokens(card: Dictionary, week: int = -1) -> Dictionary:
+	week = _board_week(week)
+	var line_tokens := fact_tokens(meeting_facts(week, card))
 	var votes: Dictionary = GameData.BOARD_MEETING["debate"]["votePrompt"]
 	var numbers := {}
 	for tier in Objectives.TIER_ORDER:
@@ -709,8 +780,8 @@ static func card_tokens(card: Dictionary) -> Dictionary:
 			parts.append(_number(value))
 		numbers[tier] = "/".join(parts)
 	var case_lines: PackedStringArray = []
-	for line in _case_prose(card).get("cards", []):
-		case_lines.append(fill_prose(str(line["text"]), card))
+	for line in _case_prose(card, week).get("cards", []):
+		case_lines.append(String(line["text"]).format(line_tokens))
 	return {
 		"pitcher": GameData.BOARD_VOICES[card["voice"]]["name"],
 		"label": card_label(card),
@@ -720,35 +791,99 @@ static func card_tokens(card: Dictionary) -> Dictionary:
 	}
 
 
-# The card's case prose card: one of its template pack's `case` cards for the
-# pitching voice, picked by a stable hash of the card id so Rewind shows the
-# same line. {} when the pack has none.
-static func _case_prose(card: Dictionary) -> Dictionary:
+# The card's case prose card: a qualifying `case` card of its template's pack
+# for the pitching voice (R§3.15 "Selection"), seeded by week and card id so
+# Rewind shows the same line. {} when the pack has none.
+static func _case_prose(card: Dictionary, week: int = -1) -> Dictionary:
+	week = _board_week(week)
 	var pool := _prose(str(card["template"]), "case", { "voice": card["voice"] })
-	return {} if pool.is_empty() else pool[absi(str(card["id"]).hash()) % pool.size()]
+	return _pick_prose(pool, week, "case|%s" % card["id"], meeting_facts(week, card))
 
 
-# Prose text with {ore} and the live reserve / market-share tokens filled.
+static func _board_week(week: int) -> int:
+	return int(_board()["week"]) if week < 0 else week
+
+
+# Prose text with the meeting facts' tokens filled (R§3.15 "Meeting facts").
 static func fill_prose(raw: String, card: Dictionary) -> String:
-	var text := _with_ore(raw, str(card.get("ore", "")))
-	if text.contains("{expenses}") or text.contains("{float}") or text.contains("{weeks}"):
-		var expenses := BusinessStats.weekly_expenses()
-		var cash := int(GameState.state["business"]["float"])
-		text = text.format({
-			"expenses": "£%d" % expenses,
-			"float": "£%d" % cash,
-			"weeks": _number(snappedf(float(cash) / float(maxi(expenses, 1)), 0.1)),
-		})
-	if text.contains("{share}") or text.contains("{rival}") or text.contains("{contested}"):
-		var tally := "craft" if card["goal"]["type"] == Objectives.TYPE_CRAFTING_SHARE_AT_LEAST else "ore"
-		text = text.format(_share_prose_tokens(str(card.get("ore", "")), tally))
-	return text
+	if not raw.contains("{"):
+		return raw
+	return raw.format(fact_tokens(meeting_facts(_board_week(-1), card)))
 
 
-# Live market-share tokens: {share} the player's % of the card's ore, {rival}
-# its largest other producer, {contested} the ores two or more rival
-# producers each supply.
-static func _share_prose_tokens(ore_type: String, tally: String = "ore") -> Dictionary:
+# R§3.15 "Meeting facts": one flat dictionary of named facts for `week` and,
+# when given, the agenda card. The only source of both prose `when`
+# conditions and {tokens}; GameData.BOARD_FACTS lists every key.
+static func meeting_facts(week: int, card: Dictionary = {}) -> Dictionary:
+	var ore_type := str(card.get("ore", ""))
+	var goal_type := str((card.get("goal", {}) as Dictionary).get("type", ""))
+	var tally := "craft" if goal_type == Objectives.TYPE_CRAFTING_SHARE_AT_LEAST else "ore"
+	var expenses := BusinessStats.weekly_expenses()
+	var cash := int(GameState.state["business"]["float"])
+	var facts := {
+		"week": week,
+		"expenses": expenses,
+		"float": cash,
+		"weeks": snappedf(float(cash) / float(maxi(expenses, 1)), 0.1),
+		"ore": str(GameData.ORE_TYPES[ore_type]["name"]) if ore_type != "" else "the ore",
+		"ore_type": ore_type,
+		"calc": "%s calc" % ore_type if ore_type != "" else "calc",
+		"label": card_label(card) if card.has("rung") else "",
+		"pitcher": str(GameData.BOARD_VOICES[card["voice"]]["name"]) if card.has("voice") else "",
+	}
+	facts["float_weeks"] = facts["weeks"]
+	facts.merge(_share_facts(ore_type, tally))
+	facts.merge(_history_facts(week))
+	return facts
+
+
+# The facts as display strings for {tokens}: money with £, whole numbers
+# without a decimal point.
+static func fact_tokens(facts: Dictionary) -> Dictionary:
+	var out := {}
+	for key in facts:
+		var value: Variant = facts[key]
+		if key == "expenses" or key == "float":
+			out[key] = "£%d" % int(value)
+		elif typeof(value) in [TYPE_INT, TYPE_FLOAT]:
+			out[key] = _number(value)
+		else:
+			out[key] = str(value)
+	return out
+
+
+# last_result / streak / last_pitcher from `history` (R§3.15): last meeting's
+# judged result as hit (any tier above missed) / miss / skip / none, the run of
+# consecutive hit weeks ending there, and who pitched it.
+static func _history_facts(week: int) -> Dictionary:
+	var history: Array = _board()["history"]
+	var facts := { "last_result": "none", "streak": 0, "last_pitcher": "" }
+	if history.is_empty() or int(history.back()["week"]) != week - 1:
+		return facts
+	var entry: Dictionary = history.back()
+	facts["last_pitcher"] = str(entry["voice"])
+	if entry["skip"]:
+		facts["last_result"] = "skip"
+	elif entry["result"] == RESULT_MISSED:
+		facts["last_result"] = "miss"
+	else:
+		facts["last_result"] = "hit"
+		var streak := 0
+		var expected := week - 1
+		for i in range(history.size() - 1, -1, -1):
+			var past: Dictionary = history[i]
+			if past["skip"] or past["result"] == RESULT_MISSED or int(past["week"]) != expected:
+				break
+			streak += 1
+			expected -= 1
+		facts["streak"] = streak
+	return facts
+
+
+# Live market-share facts: share the player's % of the card's ore, rival its
+# largest other producer, rival_present, share_gap (rival % minus player %),
+# contested the ores two or more rival producers each supply.
+static func _share_facts(ore_type: String, tally: String) -> Dictionary:
 	var totals := Shares.window_totals(tally)
 	var rival := ""
 	var rival_qty := 0
@@ -765,8 +900,12 @@ static func _share_prose_tokens(ore_type: String, tally: String = "ore") -> Dict
 				suppliers += 1
 		if suppliers >= 2:
 			contested.append(str(GameData.ORE_TYPES[ore]["name"]))
+	var share := int(roundf(Shares.share(tally, Shares.PLAYER, ore_type) * 100.0))
+	var rival_share := int(roundf(Shares.share(tally, rival, ore_type) * 100.0)) if rival != "" else 0
 	return {
-		"share": str(int(roundf(Shares.share(tally, Shares.PLAYER, ore_type) * 100.0))),
+		"share": share,
+		"share_gap": rival_share - share,
+		"rival_present": rival != "",
 		"rival": "the independents" if rival == Shares.INDEPENDENTS or rival == "" else str(GameData.FACTIONS[rival]["name"]),
 		"contested": "nothing yet" if contested.is_empty() else " and ".join(contested) if contested.size() < 3 else ", ".join(contested),
 	}

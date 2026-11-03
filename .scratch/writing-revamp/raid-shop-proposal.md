@@ -1047,6 +1047,9 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
                       -0.25
                     ]
                   }
+                ],
+                "tags": [
+                  "social"
                 ]
               },
               "success": {
@@ -1208,6 +1211,9 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
                       -0.25
                     ]
                   }
+                ],
+                "tags": [
+                  "social"
                 ]
               },
               "success": {
@@ -1378,6 +1384,9 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
                       -0.25
                     ]
                   }
+                ],
+                "tags": [
+                  "stealth"
                 ]
               },
               "success": {
@@ -6120,6 +6129,9 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
                       -0.25
                     ]
                   }
+                ],
+                "tags": [
+                  "social"
                 ]
               },
               "success": {
@@ -6193,7 +6205,10 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
                     ]
                   }
                 ],
-                "entry": "physical"
+                "entry": "physical",
+                "tags": [
+                  "stealth"
+                ]
               },
               "success": {
                 "result_text": "You step out of their line of sight and stay out of it until they decide they imagined you.",
@@ -6282,6 +6297,9 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
                       -0.25
                     ]
                   }
+                ],
+                "tags": [
+                  "stealth"
                 ]
               },
               "success": {
@@ -6318,6 +6336,9 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
                     "add": 0.15,
                     "label": "A sharp read"
                   }
+                ],
+                "tags": [
+                  "social"
                 ]
               },
               "success": {
@@ -6400,7 +6421,7 @@ Replaces every placeholder in `data/events/raid_shop.json`. Structure, effects, 
           "text": "Or scare them off, or leave while you still can.",
           "choices": [
             {
-              "label": "Panic",
+              "label": "Use Panic",
               "requires": {
                 "item": "panic",
                 "optional": true,

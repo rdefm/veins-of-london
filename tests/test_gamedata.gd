@@ -121,6 +121,16 @@ func run() -> void:
 		assert_true(has.call(errors, "board_prose.share_leader_james: no case card without a 'when' for voice 'james'"), "alt voice needs an open case: %s" % str(errors))
 		errors = lint.call(func(p): p["share_first"]["cards"][0]["weight"] = 0)
 		assert_true(has.call(errors, "weight must be a number above 0"), "bad weight: %s" % str(errors))
+		errors = lint.call(func(p): p["share_first"]["cards"][0]["when"] = { "fact": "moon_phase", "gt": 1 })
+		assert_true(has.call(errors, "'when' names unknown fact 'moon_phase'"), "unknown fact: %s" % str(errors))
+		errors = lint.call(func(p): p["share_first"]["cards"][0]["when"] = { "all": [{ "fact": "share", "op": ">=", "value": 5 }, { "not": { "fact": "streak" } }] })
+		assert_true(has.call(errors, "'when' on 'streak' needs an operator"), "missing operator: %s" % str(errors))
+		errors = lint.call(func(p): p["share_first"]["cards"][0]["when"] = { "flag": "bizA1Complete" })
+		assert_true(has.call(errors, "'when' may only read meeting facts"), "raw state leaf: %s" % str(errors))
+		errors = lint.call(func(p): p["share_first"]["cards"][0]["when"] = { "any": [{ "fact": "share_gap", "gt": 5 }, { "fact": "last_result", "op": "==", "value": "miss" }] })
+		assert_true(errors.is_empty(), "valid when passes: %s" % str(errors))
+		errors = lint.call(func(p): p["share_first"]["cards"][0]["cards"] = [{ "speaker": "Archie", "text": "At {sahre} percent." }])
+		assert_true(has.call(errors, "{sahre} has no matching meeting fact"), "token without fact: %s" % str(errors))
 	)
 
 	run_case("corrupt_fixture_event_card_key_missing_or_duplicate_fails", func():

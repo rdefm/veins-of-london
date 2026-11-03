@@ -798,6 +798,12 @@ const BOARD_PROSE_WEEK1 := "_week1"
 const BOARD_PROSE_TEMPLATE_SLOTS: Array[String] = ["case", "reply", "rebuttal", "chosen", "concede", "aftermath"]
 const BOARD_PROSE_DEBATE_SLOTS: Array[String] = ["opener", "reply", "rebuttal", "clash", "chosen", "concede", "aftermath"]
 const BOARD_PROSE_WEEK1_SLOTS: Array[String] = ["explainer"]
+# Every key BoardMeetings.meeting_facts() returns (R§3.15 "Meeting facts"):
+# the only names a prose `when` may read and a prose {token} may use.
+const BOARD_FACTS: Array[String] = [
+	"week", "expenses", "float", "weeks", "float_weeks", "ore", "ore_type", "calc", "label", "pitcher",
+	"share", "share_gap", "rival", "rival_present", "contested", "last_result", "streak", "last_pitcher",
+]
 
 
 # Prose packs (R§3.15 "Prose packs"): known template / slot / voice, valid
@@ -849,10 +855,9 @@ func _validate_board_prose(t: Dictionary, errors: Array[String]) -> void:
 				errors.append("%s: unknown voice '%s' in 'to'" % [card_where, prose["to"]])
 			if prose.has("weight") and (not (typeof(prose["weight"]) in [TYPE_INT, TYPE_FLOAT]) or float(prose["weight"]) <= 0.0):
 				errors.append("%s: weight must be a number above 0" % card_where)
-			if prose.has("when") and typeof(prose["when"]) != TYPE_DICTIONARY:
-				errors.append("%s: 'when' must be a condition object" % card_where)
 			if prose.has("replies") and typeof(prose["replies"]) != TYPE_ARRAY:
 				errors.append("%s: 'replies' must be an array" % card_where)
+			_validate_prose_facts(prose, card_where, errors)
 			_validate_prose_event_cards(prose.get("cards"), card_where, errors)
 			if prose.get("slot") == "case" and not prose.has("when"):
 				open_cases["%s|%s" % [template, voice]] = true
@@ -860,6 +865,51 @@ func _validate_board_prose(t: Dictionary, errors: Array[String]) -> void:
 		if not open_cases.has(pair):
 			var parts: PackedStringArray = String(pair).split("|")
 			errors.append("board_prose.%s: no case card without a 'when' for voice '%s' (a meeting could come up empty)" % [parts[0], parts[1]])
+
+
+# A prose card's `when` (fact leaves under all/any/not only, naming known
+# facts) and every {token} in its text and in nested `replies`.
+func _validate_prose_facts(prose: Dictionary, where: String, errors: Array[String]) -> void:
+	if prose.has("when"):
+		if typeof(prose["when"]) != TYPE_DICTIONARY:
+			errors.append("%s: 'when' must be a condition object" % where)
+		else:
+			_validate_when(prose["when"], where, errors)
+	var token_re := RegEx.create_from_string("\\{([A-Za-z_][A-Za-z0-9_]*)\\}")
+	for card in prose.get("cards", []):
+		if typeof(card) != TYPE_DICTIONARY:
+			continue
+		for m in token_re.search_all(str(card.get("text", ""))):
+			if not BOARD_FACTS.has(m.get_string(1)):
+				errors.append("%s: {%s} has no matching meeting fact" % [where, m.get_string(1)])
+	for reply in prose.get("replies", []) if typeof(prose.get("replies")) == TYPE_ARRAY else []:
+		if typeof(reply) == TYPE_DICTIONARY:
+			_validate_prose_facts(reply, "%s.%s" % [where, reply.get("id", "reply")], errors)
+
+
+func _validate_when(condition: Dictionary, where: String, errors: Array[String]) -> void:
+	if condition.has("all") or condition.has("any"):
+		var parts: Variant = condition.get("all", condition.get("any"))
+		if typeof(parts) != TYPE_ARRAY:
+			errors.append("%s: 'when' all/any must be an array" % where)
+			return
+		for part in parts:
+			if typeof(part) == TYPE_DICTIONARY:
+				_validate_when(part, where, errors)
+			else:
+				errors.append("%s: 'when' condition must be an object" % where)
+	elif condition.has("not"):
+		if typeof(condition["not"]) == TYPE_DICTIONARY:
+			_validate_when(condition["not"], where, errors)
+		else:
+			errors.append("%s: 'when' not must be a condition object" % where)
+	elif condition.has("fact"):
+		if not BOARD_FACTS.has(str(condition["fact"])):
+			errors.append("%s: 'when' names unknown fact '%s'" % [where, condition["fact"]])
+		elif Events.fact_comparison(condition).is_empty():
+			errors.append("%s: 'when' on '%s' needs an operator (op + value, or gt/gte/lt/lte/eq/ne)" % [where, condition["fact"]])
+	else:
+		errors.append("%s: 'when' may only read meeting facts ({fact, op, value}, all, any, not)" % where)
 
 
 func _validate_prose_event_cards(cards: Variant, where: String, errors: Array[String]) -> void:

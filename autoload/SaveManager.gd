@@ -600,6 +600,8 @@ func backfill_defaults(save: Dictionary) -> Dictionary:
 	_backfill_new_business_keys(result, defaults)
 	_backfill_new_barometer_keys(result, defaults)
 	_backfill_new_morning_accounts_keys(result, defaults)
+	if result["boardMeetings"] is Dictionary and not result["boardMeetings"].has("lastProse"):
+		result["boardMeetings"]["lastProse"] = []
 	Hiring.backfill(result["hiring"])
 	_backfill_new_guard_upkeep_keys(result, defaults)
 	_backfill_new_faction_war_keys(result, defaults)

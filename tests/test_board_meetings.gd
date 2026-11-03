@@ -1207,6 +1207,132 @@ func run() -> void:
 		assert_eq(BoardMeetings.minutes_line(9), GameData.BOARD_MEETING["minutesNone"])
 	)
 
+	# ── meeting facts, `when`, weighted pick, no-repeat ──────────────────
+
+	run_case("meeting_facts_read_business_history_and_shares", func():
+		_enabled_game()
+		_set_float(250)
+		var board: Dictionary = GameState.state["boardMeetings"]
+		board["history"] = [
+			{ "week": 1, "voice": "archie", "result": "base", "skip": false },
+			{ "week": 2, "voice": "james", "result": "target", "skip": false },
+		]
+		var facts := BoardMeetings.meeting_facts(3)
+		for key in GameData.BOARD_FACTS:
+			assert_true(facts.has(key), "fact %s present" % key)
+		assert_eq(facts["float_weeks"], 2.5)
+		assert_eq(facts["last_result"], "hit")
+		assert_eq(facts["streak"], 2)
+		assert_eq(facts["last_pitcher"], "james")
+		assert_eq(facts["week"], 3)
+		assert_eq(BoardMeetings.meeting_facts(5)["last_result"], "none", "no goal judged last week")
+		board["history"][1]["result"] = BoardMeetings.RESULT_MISSED
+		assert_eq(BoardMeetings.meeting_facts(3)["last_result"], "miss")
+		assert_eq(BoardMeetings.meeting_facts(3)["streak"], 0)
+		board["history"][1]["skip"] = true
+		assert_eq(BoardMeetings.meeting_facts(3)["last_result"], "skip")
+		GameState.state["shares"]["days"] = [{ "day": 9, "ore": { "player": { "time": 2 }, "independents": { "time": 8 } }, "craft": {}, "deliveries": {} }]
+		var card := { "id": "c", "ore": "time", "goal": { "type": "reserve_weeks_at_least" } }
+		var share_facts := BoardMeetings.meeting_facts(3, card)
+		assert_eq(share_facts["share"], 20)
+		assert_eq(share_facts["share_gap"], 60)
+		assert_eq(share_facts["rival_present"], true)
+		assert_eq(share_facts["ore"], GameData.ORE_TYPES["time"]["name"])
+		assert_eq(BoardMeetings.fact_tokens(share_facts)["share"], "20")
+	)
+
+	run_case("fact_leaves_compare_meeting_facts_and_never_hold_without_them", func():
+		var facts := { "n": 3, "s": "miss", "b": true }
+		assert_true(Events.condition_met({ "fact": "n", "op": ">=", "value": 3 }, [], facts))
+		assert_true(not Events.condition_met({ "fact": "n", "gt": 3 }, [], facts))
+		assert_true(Events.condition_met({ "fact": "s", "eq": "miss" }, [], facts))
+		assert_true(Events.condition_met({ "fact": "b", "op": "==", "value": true }, [], facts))
+		assert_true(Events.condition_met({ "any": [{ "fact": "n", "lt": 1 }, { "not": { "fact": "s", "ne": "miss" } }] }, [], facts))
+		assert_true(not Events.condition_met({ "fact": "nope", "lt": 1 }, [], facts), "unknown fact")
+		assert_true(not Events.condition_met({ "fact": "n" }, [], facts), "no operator")
+		assert_true(not Events.condition_met({ "fact": "n", "lt": 9 }), "no facts in scope")
+	)
+
+	run_case("a_prose_card_plays_only_when_its_when_holds", func():
+		_enabled_game()
+		var saved: Array = GameData.BOARD_PROSE["fin_reserve"]["cards"]
+		GameData.BOARD_PROSE["fin_reserve"]["cards"] = [
+			{ "id": "t.rich", "slot": "case", "voice": "archie", "when": { "fact": "float_weeks", "op": ">=", "value": 3 }, "cards": [{ "speaker": "Archie", "text": "rich" }] },
+			{ "id": "t.poor", "slot": "case", "voice": "archie", "when": { "all": [{ "fact": "float_weeks", "lt": 3 }, { "not": { "fact": "rival_present", "eq": true } }] }, "cards": [{ "speaker": "Archie", "text": "poor" }] },
+		]
+		var card := _tokens_card({ "id": "c1", "template": "fin_reserve", "voice": "archie", "goal": { "type": "reserve_weeks_at_least" } })
+		for i in 12:
+			card["id"] = "c%d" % i
+			_set_float(500)
+			assert_eq(str(BoardMeetings._case_prose(card, 4)["id"]), "t.rich")
+			_set_float(100)
+			assert_eq(str(BoardMeetings._case_prose(card, 4)["id"]), "t.poor")
+		_set_float(100)
+		GameState.state["shares"]["days"] = [{ "day": 9, "ore": { "independents": { "time": 8 } }, "craft": {}, "deliveries": {} }]
+		card["ore"] = "time"
+		assert_eq(BoardMeetings._case_prose(card, 4), {}, "no card qualifies, none plays")
+		GameData.BOARD_PROSE["fin_reserve"]["cards"] = saved
+	)
+
+	run_case("weights_shift_the_pick_across_card_ids", func():
+		_enabled_game()
+		GameState.state["world"]["rollSeed"] = 7
+		var pool := [
+			{ "id": "t.heavy", "weight": 9, "cards": [] },
+			{ "id": "t.light", "weight": 1, "cards": [] },
+		]
+		var heavy := 0
+		for i in 200:
+			if BoardMeetings._pick_prose(pool, 4, "case|c%d" % i)["id"] == "t.heavy":
+				heavy += 1
+		assert_true(heavy > 150 and heavy < 200, "9:1 weights favour the heavy card: %d/200" % heavy)
+		pool[0]["weight"] = 1
+		heavy = 0
+		for i in 200:
+			if BoardMeetings._pick_prose(pool, 4, "case|c%d" % i)["id"] == "t.heavy":
+				heavy += 1
+		assert_true(heavy > 60 and heavy < 140, "equal weights split the pick: %d/200" % heavy)
+	)
+
+	run_case("last_meetings_prose_card_is_skipped_when_another_qualifies", func():
+		_enabled_game()
+		var board: Dictionary = GameState.state["boardMeetings"]
+		var pool := [{ "id": "t.a", "cards": [] }, { "id": "t.b", "cards": [] }]
+		board["lastProse"] = ["3|t.a"]
+		for i in 40:
+			assert_eq(BoardMeetings._pick_prose(pool, 4, "s%d" % i)["id"], "t.b", "t.a played last week")
+			assert_eq(BoardMeetings._pick_prose([pool[0]], 4, "s%d" % i)["id"], "t.a", "the only qualifier still plays")
+		board["lastProse"] = ["3|t.a", "2|t.b"]
+		BoardMeetings._record_prose(4, ["t.x"])
+		BoardMeetings._record_prose(4, ["t.x", "t.y"])
+		assert_eq(board["lastProse"], ["3|t.a", "4|t.x", "4|t.y"], "keeps last meeting, replaces this week's")
+	)
+
+	run_case("the_same_goal_does_not_repeat_its_case_prose_two_weeks_running_and_replays_on_rewind", func():
+		var rarity := _set_owen_rarity(1.0)
+		_enabled_game()
+		GameState.state["boardMeetings"]["week"] = 0
+		var original := _install_ladders()
+		GameData.BOARD_LADDERS = { "f1": { "voice": "archie", "rungs": [_rung("fin_reserve")] } }
+		var saved: Array = GameData.BOARD_PROSE["fin_reserve"]["cards"]
+		GameData.BOARD_PROSE["fin_reserve"]["cards"] = [
+			{ "id": "t.one", "slot": "case", "voice": "archie", "cards": [{ "speaker": "Archie", "text": "one" }] },
+			{ "id": "t.two", "slot": "case", "voice": "archie", "cards": [{ "speaker": "Archie", "text": "two" }] },
+		]
+		BoardMeetings.open_week()
+		var snapshot: Dictionary = GameState.deep_copy(GameState.state["boardMeetings"])
+		var first := BoardMeetings.meeting_context(1)
+		BoardMeetings.open_week()
+		var second := BoardMeetings.meeting_context(2)
+		assert_true(first["slot0"][0]["text"] != second["slot0"][0]["text"], "week 2 swaps the case card")
+		assert_true((GameState.state["boardMeetings"]["lastProse"] as Array).has("1|t.one") or (GameState.state["boardMeetings"]["lastProse"] as Array).has("1|t.two"), "week 1 picks kept")
+		GameState.state["boardMeetings"] = snapshot
+		assert_eq(BoardMeetings.meeting_context(1), first, "Rewind replays the same meeting")
+		GameData.BOARD_PROSE["fin_reserve"]["cards"] = saved
+		GameData.BOARD_LADDERS = original
+		_set_owen_rarity(rarity)
+	)
+
 	run_case("aob_line_fills_tokens_and_never_repeats_consecutive_weeks", func():
 		_enabled_game()
 		var previous := ""

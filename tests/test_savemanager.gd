@@ -19,6 +19,14 @@ func _assert_quote_lines_are_ints(quote: Dictionary, label: String) -> void:
 
 func run() -> void:
 	calendar_start_weekday = 0  # fixtures count days from a Monday day 1
+	run_case("board_meetings_backfill_an_empty_last_prose", func():
+		GameState.reset()
+		var old_save: Dictionary = GameState.deep_copy(GameState.state)
+		old_save["boardMeetings"].erase("lastProse")
+		var filled: Dictionary = SaveManager.backfill_defaults(old_save)
+		assert_eq(filled["boardMeetings"]["lastProse"], [])
+	)
+
 	run_case("move_levels_backfill_to_l1_and_round_trip_as_ints", func():
 		GameState.reset()
 		var old_save: Dictionary = GameState.deep_copy(GameState.state)
