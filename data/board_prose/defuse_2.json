@@ -8,7 +8,7 @@
       "cards": [
         {
           "speaker": "James",
-          "text": "{faction} are warmer, not safe. One more push and a raid becomes an awkward phone call."
+          "text": "I want {faction} properly settled, not just quiet. They're calmer than they were, and calmer isn't safe. A lasting good opinion in two weeks means a clash with them stays a phone call."
         }
       ]
     },
@@ -19,7 +19,7 @@
       "cards": [
         {
           "speaker": "James",
-          "text": "We took the heat out of {faction}. Keep it out. Their patience is a lease, not a deed."
+          "text": "We took the heat out of {faction}. I want it kept out: their opinion of us raised another step this fortnight. Their patience is a lease, not a deed, and I'd rather not renew it at a raid's price."
         }
       ]
     },
@@ -30,7 +30,7 @@
       "cards": [
         {
           "speaker": "James",
-          "text": "Round two with {faction}. Same ground, same buyers, and they've not forgotten. Neither should we."
+          "text": "Round two with {faction}. Same ground, same buyers, and they've not forgotten. I want them well inclined to us by the end of the fortnight. Do it once more and the ground is ours without a fight."
         }
       ]
     }

@@ -8,7 +8,7 @@
       "cards": [
         {
           "speaker": "James",
-          "text": "{faction} are about to feel crowded by us. I'd rather settle that before it's a grievance. Favours, a gift, a fair deal, and the next call is a conversation."
+          "text": "I want {faction} warmed up to us inside a fortnight. We both want the same ground, and a firm that's quarrelling over ground loses buyers. Favours, a gift, a fair deal. It's cheaper than the argument we're heading for."
         }
       ]
     },
@@ -19,7 +19,7 @@
       "cards": [
         {
           "speaker": "James",
-          "text": "There's a clash coming with {faction}. We both want the same ground. Get on their good side now and it stays a disagreement."
+          "text": "I'd like {faction} on better terms with us by the end of next week. Not friends. Civil. They'll move on us sooner or later, and a faction that has been shown a courtesy moves slower."
         }
       ]
     },
@@ -30,7 +30,7 @@
       "cards": [
         {
           "speaker": "James",
-          "text": "{faction} will move on us sooner or later, and it'll cost more than a courtesy does. Buy the courtesy. This fortnight."
+          "text": "Let's get ahead of {faction}. I want their opinion of us improved this fortnight, before our veins start overlapping with theirs in earnest. A raid costs a month. A courtesy costs an afternoon."
         }
       ]
     }
