@@ -10,6 +10,7 @@
       "text": "Monday. Archie has the minutes on his phone. {minutes}"
     },
     { "key": "explainer", "type": "splice" },
+    { "key": "rivalMove", "type": "splice" },
     { "key": "opener", "type": "splice" },
     { "key": "slot0", "type": "splice" },
     { "key": "slot1", "type": "splice" },

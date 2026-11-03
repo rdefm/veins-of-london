@@ -140,19 +140,22 @@ func run() -> void:
 		assert_eq(cards[0]["faction"], "collective")
 	)
 
-	run_case("rival_move_fires_once_after_share_target", func():
+	run_case("rival_move_queues_then_plays_once_in_the_next_meeting", func():
 		_clear()
 		_ore_share("life", 30)
 		var board: Dictionary = GameState.state["boardMeetings"]
 		board["rungs"]["market_share"] = { "share_first": { "status": "done", "day": 5, "ore": "life" } }
 		Overlaps.update_spine()
-		assert_true(not BoardMeetings.spine_done("rival_move"), "share target not done yet")
+		assert_true(board["rivalMove"] == null, "share target not done yet")
 		BoardMeetings.mark_spine_done("share_target")
 		Overlaps.update_spine()
-		Overlaps.update_spine()
+		assert_eq(board["rivalMove"]["ore"], "life")
+		assert_true(not BoardMeetings.spine_done("rival_move"), "waits for the meeting")
+		assert_eq(GameState.state["messages"].get("archie", []).size(), 0, "no live text")
+		var context := BoardMeetings.meeting_context(1)
+		assert_true(context["rivalMove"].size() >= 1, "plays in the meeting")
 		assert_true(BoardMeetings.spine_done("rival_move"))
-		var thread: Array = GameState.state["messages"].get("archie", [])
-		assert_eq(thread.size(), 1, "one live text only")
+		assert_true(BoardMeetings.meeting_context(2)["rivalMove"].is_empty(), "only once")
 	)
 
 	run_case("partner_beat_completes_in_any_order", func():

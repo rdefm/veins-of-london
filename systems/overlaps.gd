@@ -7,7 +7,7 @@ extends RefCounted
 # in a recipe the faction consumes), provocation (player ore share nearing the
 # level that provokes the faction). Feeds the Partner ladder and, later,
 # Defuse. Also the Act 2 spine beats that fire here: the rival's first move
-# (a live text) and reaching Partner. Static funcs only; reads state.
+# (a Monday meeting prose beat) and reaching Partner. Static funcs only; reads state.
 
 const KIND_DISTRICT := "district"
 const KIND_CRAFTING := "crafting"
@@ -122,7 +122,8 @@ static func resolve_faction(placeholder: String, ladder_id: String) -> String:
 
 
 # Completes the unordered spine beats whose condition now holds: the rival's
-# first move (once the share target is done) and Partner stance with anyone.
+# first move (queued for the next meeting once the share target is done) and
+# Partner stance with anyone.
 static func update_spine() -> void:
 	if not BoardMeetings.spine_done("partner"):
 		for faction_id in GameData.FACTIONS:
@@ -130,7 +131,7 @@ static func update_spine() -> void:
 				BoardMeetings.mark_spine_done("partner")
 				break
 	if BoardMeetings.spine_done("share_target") and not BoardMeetings.spine_done("rival_move"):
-		_fire_rival_move()
+		_queue_rival_move()
 
 
 # The ore the share_target beat was cleared on, "" if unknown.
@@ -153,16 +154,14 @@ static func rival_for(ore_type: String) -> String:
 	return best
 
 
-# Sends the one-off live text explaining relation levers and marks the beat.
-static func _fire_rival_move() -> void:
+# Queues the rival's first move for the next Monday meeting (its `_rival`
+# prose pack); BoardMeetings.meeting_context() plays it and marks the beat.
+static func _queue_rival_move() -> void:
+	var board: Dictionary = GameState.state["boardMeetings"]
+	if board.get("rivalMove") != null:
+		return
 	var ore_type := _share_ore()
 	var rival := rival_for(ore_type) if ore_type != "" else ""
 	if rival == "":
 		return
-	var copy: Dictionary = GameData.BOARD_SPINE["rivalMove"]
-	var text := str(copy["text"]).format({
-		"faction": GameData.FACTIONS[rival]["name"],
-		"ore": GameData.ORE_TYPES[ore_type]["name"],
-	})
-	Messages.append(str(copy["contact"]), "them", text)
-	BoardMeetings.mark_spine_done("rival_move")
+	board["rivalMove"] = { "faction": rival, "ore": ore_type }

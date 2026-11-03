@@ -1,0 +1,20 @@
+{
+  "template": "_rival",
+  "cards": [
+    {
+      "id": "_rival.rival_move.1",
+      "slot": "rival_move",
+      "voice": "archie",
+      "cards": [
+        {
+          "speaker": "Archie",
+          "text": "\"{faction} have noticed our {ore} numbers. Expect them to lean on us for it.\""
+        },
+        {
+          "speaker": "James",
+          "text": "\"Relations move on favours, gifts and a good supplier contract. Do them well and they soften. Ignore them and they go the other way.\""
+        }
+      ]
+    }
+  ]
+}

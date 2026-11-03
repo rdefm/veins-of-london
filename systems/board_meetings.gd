@@ -27,7 +27,7 @@ static func new_state() -> Dictionary:
 		"enabled": false, "week": 0, "firstMeetingDay": 0,
 		"agenda": [], "agendaWeek": 0, "active": null,
 		"voiceWeights": weights, "rungs": {}, "spine": {},
-		"history": [], "lastCompeting": 0, "pendingWeek": 0, "lastProse": [],
+		"history": [], "rivalMove": null, "lastCompeting": 0, "pendingWeek": 0, "lastProse": [],
 	}
 
 
@@ -559,11 +559,18 @@ static func maybe_start_meeting() -> bool:
 static func meeting_context(week: int) -> Dictionary:
 	var meeting: Dictionary = GameData.BOARD_MEETING
 	var debate: Dictionary = meeting["debate"]
-	var context := { "week": str(week), "venue": venue_label(), "minutes": minutes_line(week), "opener": [], "clash": [], "explainer": [] }
+	var context := { "week": str(week), "venue": venue_label(), "minutes": minutes_line(week), "opener": [], "clash": [], "explainer": [], "rivalMove": [] }
 	if week == 1:
 		var explainer := _prose(GameData.BOARD_PROSE_WEEK1, "explainer")
 		if not explainer.is_empty():
 			context["explainer"] = _prose_event_cards("explainer", explainer[0], {})
+	var rival: Variant = _board().get("rivalMove")
+	if rival != null and not spine_done("rival_move"):
+		var rival_prose := _prose(GameData.BOARD_PROSE_RIVAL, "rival_move")
+		if not rival_prose.is_empty():
+			var rival_facts := meeting_facts(week, { "faction": rival["faction"], "ore": rival["ore"] })
+			context["rivalMove"] = _prose_event_cards("rivalMove", rival_prose[0], fact_tokens(rival_facts))
+			_complete_spine("rival_move")
 	var options: Array = []
 	var vote_lines: PackedStringArray = []
 	var cards := agenda(week)

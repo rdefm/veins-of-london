@@ -800,6 +800,8 @@ const BOARD_PROSE_DEBATE := "_debate"
 const BOARD_PROSE_WEEK1 := "_week1"
 const BOARD_PROSE_TEMPLATE_SLOTS: Array[String] = ["case", "reply", "rebuttal", "chosen", "concede", "aftermath"]
 const BOARD_PROSE_DEBATE_SLOTS: Array[String] = ["opener", "reply", "rebuttal", "clash", "chosen", "concede", "aftermath"]
+const BOARD_PROSE_RIVAL := "_rival"
+const BOARD_PROSE_RIVAL_SLOTS: Array[String] = ["rival_move"]
 const BOARD_PROSE_WEEK1_SLOTS: Array[String] = ["explainer"]
 const BOARD_PROSE_REPLY_SLOTS: Array[String] = ["reply", "rebuttal"]
 const BOARD_PROSE_STANCES: Array[String] = ["back", "challenge", "wobble"]
@@ -835,6 +837,8 @@ func _validate_board_prose(t: Dictionary, errors: Array[String]) -> void:
 			slots = BOARD_PROSE_DEBATE_SLOTS
 		elif template == BOARD_PROSE_WEEK1:
 			slots = BOARD_PROSE_WEEK1_SLOTS
+		elif template == BOARD_PROSE_RIVAL:
+			slots = BOARD_PROSE_RIVAL_SLOTS
 		elif not templates.has(template):
 			errors.append("%s: pack names unknown template '%s'" % [where, template])
 		if template != str(pack_id):

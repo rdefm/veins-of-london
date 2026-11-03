@@ -1450,11 +1450,6 @@
     }
   },
   "spine": {
-    "rivalMove": {
-      "_comment": "Live text (Messages) fired once when the share_target beat is done; {faction} {ore} fill from the rival. PROSE-REVIEW: new copy.",
-      "contact": "archie",
-      "text": "{faction} have noticed your {ore} numbers. They'll lean on you for it. Gifts, favours and a good supplier contract all raise how they see you. Ignore them and it goes the other way."
-    },
     "_comment": "Act 2 beats shown in ToDo (Todo.get_act2_section()). rung = ladder rung that completes the beat; requires = beat that must be done first. PROSE-REVIEW: titles are new copy.",
     "label": "Act 2",
     "lockedText": "Not yet",
