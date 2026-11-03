@@ -95,6 +95,75 @@
         }
       ]
     },
+    "sales": {
+      "voice": "archie",
+      "rungs": [
+        {
+          "id": "sales_week",
+          "premise": {
+            "kind": "sales_baseline_above",
+            "amount": 0
+          },
+          "goal": {
+            "type": "sales_multiple_at_least",
+            "params": {}
+          },
+          "tiers": {
+            "base": {
+              "multiple": 1.1
+            },
+            "target": {
+              "multiple": 1.25
+            },
+            "stretch": {
+              "multiple": 1.4
+            }
+          },
+          "lengthWeeks": 1,
+          "rewards": {
+            "base": [
+              {
+                "kind": "cash",
+                "amount": 100
+              }
+            ],
+            "target": [
+              {
+                "kind": "cash",
+                "amount": 250
+              },
+              {
+                "kind": "item",
+                "id": "timePearl",
+                "tier": 1,
+                "qty": 1
+              }
+            ],
+            "stretch": [
+              {
+                "kind": "cash",
+                "amount": 400
+              },
+              {
+                "kind": "item",
+                "id": "timePearl",
+                "tier": 1,
+                "qty": 1
+              },
+              {
+                "kind": "item",
+                "id": "enhancementPowder",
+                "tier": 1,
+                "qty": 1
+              }
+            ]
+          },
+          "pinned": false,
+          "spine": null,
+          "permanent": false
+        }
+      ]
+    },
     "crafting": {
       "voice": "james",
       "rungs": [
@@ -1616,6 +1685,9 @@
     },
     "defuse_2": {
       "label": "Keep {faction} sweet"
+    },
+    "sales_week": {
+      "label": "A busier week at the till"
     }
   },
   "todo": {
@@ -1631,7 +1703,8 @@
     "separator": " · ",
     "progress": {
       "reserve_weeks_at_least": "{current} of {target} weeks to {tier}",
-      "ore_share_at_least": "{current}% of {target}% {ore} for {tier}"
+      "ore_share_at_least": "{current}% of {target}% {ore} for {tier}",
+      "sales_multiple_at_least": "£{current} of £{target} sold for {tier}"
     }
   },
   "tuning": {

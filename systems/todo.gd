@@ -156,14 +156,14 @@ static func _board_detail(active: Dictionary) -> String:
 		parts.append(copy["reached"].format({ "tier": copy["tierNames"][tier] }))
 	var next_index := Objectives.TIER_ORDER.find(tier) + 1
 	var goal: Dictionary = active["goal"]
-	var measured := Objectives.measure(goal)
+	var measured := Objectives.measure(goal, active["progress"])
 	if next_index < Objectives.TIER_ORDER.size() and not measured.is_empty() and copy["progress"].has(goal["type"]):
 		var next_tier: String = Objectives.TIER_ORDER[next_index]
 		var target: Variant = goal["tiers"].get(next_tier, {}).get(measured["param"])
 		if target != null:
 			parts.append(copy["progress"][goal["type"]].format({
 				"current": _num(measured["value"]),
-				"target": _num(float(target)),
+				"target": _num(float(target) * float(measured.get("scale", 1.0))),
 				"tier": copy["tierNames"][next_tier],
 				"ore": str(GameData.ORE_TYPES.get(goal["params"].get("oreType", ""), {}).get("name", "")),
 			}))

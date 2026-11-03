@@ -1,0 +1,49 @@
+{
+  "template": "sales_week",
+  "cards": [
+    {
+      "id": "sales_week.case.1",
+      "slot": "case",
+      "voice": "archie",
+      "cards": [
+        {
+          "speaker": "Archie",
+          "text": "Last week we sold {sales_week}. I want {sales_target} this week. Cash in hand means the bills stop being scary, and what's spare, I can put towards people who need it."
+        }
+      ]
+    },
+    {
+      "id": "sales_week.case.2",
+      "slot": "case",
+      "voice": "archie",
+      "cards": [
+        {
+          "speaker": "Archie",
+          "text": "Let's sell {sales_target} this week. We did {sales_week} last week, so it's a push, not a miracle. Money's how I sleep. Past that, it's money for someone else's rent."
+        }
+      ]
+    },
+    {
+      "id": "sales_week.case.3",
+      "slot": "case",
+      "voice": "archie",
+      "cards": [
+        {
+          "speaker": "Archie",
+          "text": "Sales were {sales_week} last week. Make it {sales_target}. A fat week and I stop watching the post for bills, and I can say yes to a favour without doing sums first."
+        }
+      ]
+    },
+    {
+      "id": "sales_week.case.4",
+      "slot": "case",
+      "voice": "archie",
+      "cards": [
+        {
+          "speaker": "Archie",
+          "text": "{sales_target} in sales this week, if we can. Last week was {sales_week}. More in the till is fewer bad nights for me, and a bit extra for anyone who comes asking."
+        }
+      ]
+    }
+  ]
+}

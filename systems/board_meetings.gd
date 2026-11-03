@@ -905,6 +905,8 @@ static func meeting_facts(week: int, card: Dictionary = {}) -> Dictionary:
 		"label": card_label(card) if card.has("rung") else "",
 		"pitcher": str(GameData.BOARD_VOICES[card["voice"]]["name"]) if card.has("voice") else "",
 		"faction": str(GameData.FACTIONS[card["faction"]]["name"]) if str(card.get("faction", "")) != "" else "them",
+		"sales_week": Objectives.sales_baseline(),
+		"sales_target": _sales_target(),
 	}
 	facts["float_weeks"] = facts["weeks"]
 	facts.merge(_share_facts(ore_type, tally))
@@ -912,6 +914,14 @@ static func meeting_facts(week: int, card: Dictionary = {}) -> Dictionary:
 	facts.merge(_war_facts())
 	facts["factions"] = _faction_facts(ore_type, tally)
 	return facts
+
+
+# The sales rung's target-tier £ for the current baseline week.
+static func _sales_target() -> int:
+	for rung in GameData.BOARD_LADDERS.get("sales", {}).get("rungs", []):
+		if rung["goal"]["type"] == Objectives.TYPE_SALES_MULTIPLE_AT_LEAST:
+			return ceili(float(rung["tiers"]["target"]["multiple"]) * Objectives.sales_baseline() - 0.000001)
+	return 0
 
 
 # The facts as display strings for {tokens}: money with £, whole numbers
@@ -922,7 +932,7 @@ static func fact_tokens(facts: Dictionary) -> Dictionary:
 		var value: Variant = facts[key]
 		if typeof(facts[key]) == TYPE_DICTIONARY:
 			continue
-		if key == "expenses" or key == "float":
+		if key in ["expenses", "float", "sales_week", "sales_target"]:
 			out[key] = "£%d" % int(value)
 		elif typeof(value) in [TYPE_INT, TYPE_FLOAT]:
 			out[key] = _number(value)

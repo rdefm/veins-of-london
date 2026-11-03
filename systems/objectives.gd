@@ -33,6 +33,7 @@ const TYPE_HOME_TIER_AT_LEAST := "home_tier_at_least"
 const TYPE_FACTION_RELATION_AT_LEAST := "faction_relation_at_least"
 
 const TYPE_YIELD_MULTIPLE_AT_LEAST := "yield_multiple_at_least"
+const TYPE_SALES_MULTIPLE_AT_LEAST := "sales_multiple_at_least"
 const TYPE_NEW_VEINS_ONLINE_AT_LEAST := "new_veins_online_at_least"
 const TYPE_VEIN_HEALTH_STREAK_AT_LEAST := "vein_health_streak_at_least"
 const TYPE_ORE_TYPES_ONLINE_AT_LEAST := "ore_types_online_at_least"
@@ -175,6 +176,8 @@ static func _evaluate(def: Dictionary, progress: Dictionary) -> bool:
 			return faction_relation(str(params.get("factionId", ""))) >= int(params["minRelation"])
 		TYPE_YIELD_MULTIPLE_AT_LEAST:
 			return _eval_yield_multiple(params, progress)
+		TYPE_SALES_MULTIPLE_AT_LEAST:
+			return _eval_sales_multiple(params, progress)
 		TYPE_NEW_VEINS_ONLINE_AT_LEAST:
 			return _eval_new_veins_online(params, progress)
 		TYPE_VEIN_HEALTH_STREAK_AT_LEAST:
@@ -198,6 +201,8 @@ static func initial_progress(goal_type: String) -> Dictionary:
 	var progress := { "sinceDay": day }
 	if goal_type == TYPE_YIELD_MULTIPLE_AT_LEAST:
 		progress["yieldBaseline"] = yield_baseline()
+	elif goal_type == TYPE_SALES_MULTIPLE_AT_LEAST:
+		progress["salesBaseline"] = sales_baseline()
 	elif goal_type == TYPE_CONTRACTS_SETTLED_AT_LEAST:
 		progress["contractBaseline"] = completed_contract_count()
 	elif goal_type == TYPE_RECIPES_RANKED_UP_AT_LEAST:
@@ -277,6 +282,23 @@ static func _eval_yield_multiple(params: Dictionary, progress: Dictionary) -> bo
 	for amount in Shares.ore_between(Shares.PLAYER, since, since + GOAL_WEEK_DAYS - 1).values():
 		harvest += int(amount)
 	return float(harvest) + 0.000001 >= float(params["multiple"]) * baseline * GOAL_WEEK_DAYS
+
+
+# Business sales revenue over the GOAL_WEEK_DAYS completed days before today.
+static func sales_baseline() -> int:
+	var day: int = GameState.state["world"]["day"]
+	return BusinessStats.revenue_between(day - GOAL_WEEK_DAYS, day - 1)
+
+
+# Sales revenue from progress.sinceDay through the goal week (today's tally
+# included); false (unmet) until a goal has captured a baseline, or on no
+# baseline sales.
+static func _eval_sales_multiple(params: Dictionary, progress: Dictionary) -> bool:
+	var baseline := int(progress.get("salesBaseline", 0))
+	if baseline <= 0 or not progress.has("sinceDay"):
+		return false
+	var since := int(progress["sinceDay"])
+	return BusinessStats.revenue_between(since, since + GOAL_WEEK_DAYS - 1) >= ceili(float(params["multiple"]) * baseline - 0.000001)
 
 
 # Player veins claimed since progress.sinceDay whose growth is at least
@@ -489,7 +511,11 @@ static func count_progress(def: Dictionary) -> Dictionary:
 # { "value": float, "param": String } for tiered condition types: the live
 # measured quantity and the tier param it's compared against, so ToDo can
 # show progress toward a tier. {} for types without a measure.
-static func measure(def: Dictionary) -> Dictionary:
+static func measure(def: Dictionary, progress: Dictionary = {}) -> Dictionary:
+	if def["type"] == TYPE_SALES_MULTIPLE_AT_LEAST:
+		var since := int(progress.get("sinceDay", 0))
+		var revenue := BusinessStats.revenue_between(since, since + GOAL_WEEK_DAYS - 1) if progress.has("sinceDay") else 0
+		return { "value": float(revenue), "param": "multiple", "scale": float(progress.get("salesBaseline", 0)) }
 	if def["type"] == TYPE_RESERVE_WEEKS_AT_LEAST:
 		var expenses := BusinessStats.weekly_expenses()
 		var weeks := 0.0 if expenses <= 0 else float(GameState.state["business"]["float"]) / float(expenses)
@@ -544,6 +570,8 @@ static func condition_met(condition: Dictionary) -> bool:
 			return not market_ores().is_empty()
 		"yield_baseline_above":
 			return yield_baseline() > float(condition["amount"])
+		"sales_baseline_above":
+			return sales_baseline() > int(condition["amount"])
 		"player_veins_at_least":
 			return GameState.state["player"]["veins"].size() >= int(condition["minCount"])
 		"ore_types_owned_between":

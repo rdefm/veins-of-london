@@ -810,7 +810,7 @@ const BOARD_PROSE_STANCES: Array[String] = ["back", "challenge", "wobble"]
 const BOARD_FACTS: Array[String] = [
 	"week", "expenses", "float", "weeks", "float_weeks", "ore", "ore_type", "calc", "label", "pitcher",
 	"share", "share_gap", "lead_gap", "rival", "rival_present", "contested", "last_result", "streak", "last_pitcher",
-	"at_war", "enemy", "enemy_weariness", "my_weariness", "faction",
+	"at_war", "enemy", "enemy_weariness", "my_weariness", "faction", "sales_week", "sales_target",
 ]
 # Facts read for one named faction: a `when` leaf gives `faction`; not {tokens}.
 const BOARD_FACTION_FACTS: Array[String] = ["share_vs", "share_gap_vs", "stance_vs", "at_war_vs", "weariness_vs"]

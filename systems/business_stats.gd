@@ -109,6 +109,19 @@ static func weekly_expenses() -> int:
 	return total
 
 
+# Contract revenue over from_day..to_day inclusive: the day snapshots plus
+# today's running tally when today falls in the range.
+static func revenue_between(from_day: int, to_day: int) -> int:
+	var total := 0
+	for record in _stats()["days"]:
+		if int(record["day"]) >= from_day and int(record["day"]) <= to_day:
+			total += int(record.get("revenue", 0))
+	var today: int = GameState.state["world"]["day"]
+	if today >= from_day and today <= to_day:
+		total += int(_stats()["today"].get("revenue", 0))
+	return total
+
+
 # One metric's value per window day, zero where no snapshot exists.
 static func series(metric: String) -> Array[int]:
 	var by_day := {}

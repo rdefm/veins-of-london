@@ -93,6 +93,22 @@ func _harvest(amount: int, days: int) -> void:
 	GameState.state["world"]["day"] = today
 
 
+# `amount` £ of contract revenue on each of the `days` days before today.
+func _sell_days(amount: int, days: int) -> void:
+	var today: int = GameState.state["world"]["day"]
+	for offset in range(1, days + 1):
+		GameState.state["businessStats"]["days"].append({ "day": today - offset, "revenue": amount })
+
+
+# Puts the sales card on the agenda and takes it; returns the active goal.
+func _choose_sales_card() -> Dictionary:
+	var cards := BoardMeetings.eligible_cards().filter(func(c): return c["rung"] == "sales_week")
+	assert_eq(cards.size(), 1)
+	GameState.state["boardMeetings"]["agenda"] = cards
+	assert_true(BoardMeetings.choose(cards[0]["id"])["ok"])
+	return GameState.state["boardMeetings"]["active"]
+
+
 func _mark_done(rung_id: String) -> void:
 	var board: Dictionary = GameState.state["boardMeetings"]
 	if not board["rungs"].has("cultivation"):
@@ -1154,6 +1170,52 @@ func run() -> void:
 		GameState.state["world"]["day"] = 17
 		Shares.record_ore("player", "life", 500)
 		assert_eq(Objectives.tier_met(active["goal"], active["progress"]), "none", "day 17 is past the 7-day goal week")
+	)
+
+	# ── Sales ladder (Archie) ────────────────────────────────────────────
+
+	run_case("sales_rung_needs_a_week_of_sales_to_open", func():
+		_enabled_game()
+		assert_eq(BoardMeetings.eligible_cards().filter(func(c): return c["rung"] == "sales_week").size(), 0, "no sales in the prior 7 days")
+		_sell_days(100, 7)
+		assert_eq(BoardMeetings.eligible_cards().filter(func(c): return c["rung"] == "sales_week").size(), 1)
+	)
+
+	run_case("sales_goal_judges_each_tier_and_a_miss", func():
+		_enabled_game()
+		_sell_days(100, 7)
+		var active := _choose_sales_card()
+		assert_eq(int(active["progress"]["salesBaseline"]), 700)
+		assert_eq(int(active["progress"]["sinceDay"]), 10)
+		var goal: Dictionary = active["goal"]
+		assert_eq(Objectives.tier_met(goal, active["progress"]), "none")
+		# baseline 700: base 770, target 875, stretch 980
+		BusinessStats.record_revenue(769)
+		assert_eq(Objectives.tier_met(goal, active["progress"]), "none", "769 < 770")
+		BusinessStats.record_revenue(1)
+		assert_eq(Objectives.tier_met(goal, active["progress"]), "base")
+		BusinessStats.record_revenue(105)
+		assert_eq(Objectives.tier_met(goal, active["progress"]), "target", "875")
+		BusinessStats.record_revenue(105)
+		assert_eq(Objectives.tier_met(goal, active["progress"]), "stretch", "980")
+	)
+
+	run_case("sales_goal_ignores_revenue_after_the_goal_week", func():
+		_enabled_game()
+		_sell_days(100, 7)
+		var active := _choose_sales_card()
+		GameState.state["world"]["day"] = 17
+		BusinessStats.record_revenue(5000)
+		assert_eq(Objectives.tier_met(active["goal"], active["progress"]), "none", "day 17 is past the goal week")
+	)
+
+	run_case("sales_progress_shows_pounds_toward_the_next_tier", func():
+		_enabled_game()
+		_sell_days(100, 7)
+		_choose_sales_card()
+		BusinessStats.record_revenue(300)
+		var section := Todo.get_questline_sections().filter(func(sec): return sec["questline"] == "board")
+		assert_eq(section[0]["items"][0]["detail"], "No tier yet · £300 of £770 sold for Base")
 	)
 
 	run_case("new_vein_rung_counts_only_veins_claimed_since_choose", func():
