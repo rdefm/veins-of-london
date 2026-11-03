@@ -2439,8 +2439,8 @@ test("coveredText / uncoveredText: only offered for a cover-profile item; save, 
 // ---- Prose packs ----
 const proseStart = html.indexOf("/* ---------- Prose packs (pure) ---------- */"), proseEnd = html.indexOf("/* ---------- End prose packs ---------- */");
 assert(proseStart !== -1 && proseEnd !== -1, "could not locate prose pack markers in storyboard.html");
-const { proseCondMet, proseCondText, proseCards, proseQualifying, proseSlots, proseFill, proseUnfilled, proseUnit, assembleMeeting, proseVariantRows, proseSerialise, proseEol, proseFind, proseNewId, proseAdd, proseDuplicate, proseDelete, proseSetField, proseSetLine, proseAddLine, proseDeleteLine, proseCommentAdd, proseCommentUpdate, proseCommentDelete, proseCommentsFor, proseWhenToRows, proseRowsToWhen, PROSE_HELP, PROSE_FACT_KINDS, PROSE_FACTION_FACT_KINDS, proseThresholds, proseFactRanges, proseCoverage } =
-  new Function(html.slice(proseStart, proseEnd) + "\nreturn { proseCondMet, proseCondText, proseCards, proseQualifying, proseSlots, proseFill, proseUnfilled, proseUnit, assembleMeeting, proseVariantRows, proseSerialise, proseEol, proseFind, proseNewId, proseAdd, proseDuplicate, proseDelete, proseSetField, proseSetLine, proseAddLine, proseDeleteLine, proseCommentAdd, proseCommentUpdate, proseCommentDelete, proseCommentsFor, proseWhenToRows, proseRowsToWhen, PROSE_HELP, PROSE_FACT_KINDS, PROSE_FACTION_FACT_KINDS, proseThresholds, proseFactRanges, proseCoverage };")();
+const { proseCondMet, proseCondText, proseCards, proseQualifying, proseSlots, proseFill, proseUnfilled, proseUnit, assembleMeeting, proseVariantRows, proseSerialise, proseEol, proseFind, proseNewId, proseAdd, proseDuplicate, proseDelete, proseSetField, proseSetLine, proseAddLine, proseDeleteLine, proseCommentAdd, proseCommentUpdate, proseCommentDelete, proseCommentsFor, proseWhenToRows, proseRowsToWhen, PROSE_HELP, PROSE_FACT_KINDS, PROSE_FACTION_FACT_KINDS, proseThresholds, proseFactRanges, proseCoverage, BOARD_PREMISES, boardFindRung, boardSetTier, boardSetPremiseKind, boardSetPremiseParam, boardSerialise, proseNewPack } =
+  new Function(html.slice(proseStart, proseEnd) + "\nreturn { proseCondMet, proseCondText, proseCards, proseQualifying, proseSlots, proseFill, proseUnfilled, proseUnit, assembleMeeting, proseVariantRows, proseSerialise, proseEol, proseFind, proseNewId, proseAdd, proseDuplicate, proseDelete, proseSetField, proseSetLine, proseAddLine, proseDeleteLine, proseCommentAdd, proseCommentUpdate, proseCommentDelete, proseCommentsFor, proseWhenToRows, proseRowsToWhen, PROSE_HELP, PROSE_FACT_KINDS, PROSE_FACTION_FACT_KINDS, proseThresholds, proseFactRanges, proseCoverage, BOARD_PREMISES, boardFindRung, boardSetTier, boardSetPremiseKind, boardSetPremiseParam, boardSerialise, proseNewPack };")();
 const fixtureDir = path.join(__dirname, "..", "tests", "fixtures");
 const parityInput = JSON.parse(fs.readFileSync(path.join(fixtureDir, "board_prose_parity_input.json"), "utf-8"));
 const parityGolden = JSON.parse(fs.readFileSync(path.join(fixtureDir, "board_prose_golden.json"), "utf-8"));
@@ -2663,6 +2663,41 @@ test("coverage grid: ranges from when thresholds, counts follow eligibility, 0/1
   const f = proseCoverage(packs, { week: 5, factions: {} }, th["stance_vs[g]"]);
   assert.deepStrictEqual(f.ranges.map((r) => r.label), ["hostile", "(other)"]);
   assert.deepStrictEqual(f.rows.find((r) => r.slot === "case").counts, [2, 1]);
+});
+
+test("rung editing: tiers, premise kind/params, byte-stable save", () => {
+  const text = fs.readFileSync(path.join(__dirname, "..", "data", "board.json"), "utf-8");
+  const board = JSON.parse(text);
+  assert.strictEqual(boardSerialise(board, text), text, "untouched board.json round-trips byte-for-byte");
+  boardSetTier(board, "share_leader", "target", "minPercent", 38);
+  assert.strictEqual(boardFindRung(board, "share_leader").tiers.target.minPercent, 38);
+  assert.throws(() => boardSetTier(board, "share_leader", "target", "minGap", 3), /no target\.minGap/);
+  assert.throws(() => boardSetTier(board, "share_leader", "target", "minPercent", NaN), /number/);
+  assert.throws(() => boardFindRung(board, "nope"), /no rung/);
+  const after = boardSerialise(board, text);
+  assert.strictEqual(text.split("\n").length, after.split("\n").length);
+  boardSetPremiseKind(board, "share_leader", "ore_share_leading");
+  assert.deepStrictEqual(boardFindRung(board, "share_leader").premise, { kind: "ore_share_leading" });
+  boardSetPremiseParam(board, "share_leader", "maxGap", 10);
+  assert.strictEqual(boardFindRung(board, "share_leader").premise.maxGap, 10);
+  boardSetPremiseParam(board, "share_leader", "maxGap", null);
+  assert.ok(!("maxGap" in boardFindRung(board, "share_leader").premise));
+  boardSetPremiseKind(board, "share_leader", "ore_share_any_at_least");
+  assert.deepStrictEqual(boardFindRung(board, "share_leader").premise, { kind: "ore_share_any_at_least", minPercent: 0 });
+  assert.throws(() => boardSetPremiseParam(board, "share_leader", "minPercent", null), /required/);
+  assert.throws(() => boardSetPremiseKind(board, "share_leader", "bogus"), /unknown premise/);
+  for (const lad of Object.values(JSON.parse(text).ladders)) for (const r of lad.rungs) assert(BOARD_PREMISES[r.premise.kind], "tool knows premise " + r.premise.kind);
+});
+
+test("new pack: empty pack, template label and a starter case card", () => {
+  const packs = { a: { template: "a", cards: [] } }, board = { templates: {} };
+  const id = proseNewPack(packs, board, "share_widen", "archie");
+  assert.strictEqual(id, "share_widen.case.1");
+  assert.deepStrictEqual(board.templates.share_widen, { label: "share_widen" });
+  assert.strictEqual(packs.share_widen.cards[0].slot, "case");
+  assert(!("when" in packs.share_widen.cards[0]));
+  assert.throws(() => proseNewPack(packs, board, "share_widen", "archie"), /already exists/);
+  assert.throws(() => proseNewPack(packs, board, "Bad Name", "archie"), /lowercase/);
 });
 
 console.log(`${passed} passed${process.exitCode ? ", some FAILED" : ""}`);

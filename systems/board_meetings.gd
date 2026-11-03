@@ -908,7 +908,7 @@ static func _history_facts(week: int) -> Dictionary:
 
 
 # Live market-share facts: share the player's % of the card's ore, rival its
-# largest other producer, rival_present, share_gap (rival % minus player %),
+# largest other producer, rival_present, share_gap (rival % minus player %), lead_gap (player % minus rival %, 0 when behind),
 # contested the ores two or more rival producers each supply.
 static func _share_facts(ore_type: String, tally: String) -> Dictionary:
 	var totals := Shares.window_totals(tally)
@@ -932,6 +932,7 @@ static func _share_facts(ore_type: String, tally: String) -> Dictionary:
 	return {
 		"share": share,
 		"share_gap": rival_share - share,
+		"lead_gap": maxi(share - rival_share, 0),
 		"rival_present": rival != "",
 		"rival": "the independents" if rival == Shares.INDEPENDENTS or rival == "" else str(GameData.FACTIONS[rival]["name"]),
 		"contested": "nothing yet" if contested.is_empty() else " and ".join(contested) if contested.size() < 3 else ", ".join(contested),

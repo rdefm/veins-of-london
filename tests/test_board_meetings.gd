@@ -1251,6 +1251,7 @@ func run() -> void:
 		var share_facts := BoardMeetings.meeting_facts(3, card)
 		assert_eq(share_facts["share"], 20)
 		assert_eq(share_facts["share_gap"], 60)
+		assert_eq(share_facts["lead_gap"], 0, "behind: no lead")
 		assert_eq(share_facts["rival_present"], true)
 		assert_eq(share_facts["ore"], GameData.ORE_TYPES["time"]["name"])
 		assert_eq(BoardMeetings.fact_tokens(share_facts)["share"], "20")

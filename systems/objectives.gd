@@ -24,6 +24,7 @@ const TYPE_RECIPE_KNOWN := "recipe_known"
 const TYPE_RESERVE_WEEKS_AT_LEAST := "reserve_weeks_at_least"
 const TYPE_ORE_SHARE_AT_LEAST := "ore_share_at_least"
 const TYPE_CRAFTING_SHARE_AT_LEAST := "crafting_share_at_least"
+const TYPE_ORE_SHARE_GAP_AT_LEAST := "ore_share_gap_at_least"
 const TYPE_RECIPES_RANKED_UP_AT_LEAST := "recipes_ranked_up_at_least"
 const TYPE_RECIPES_AT_RANK_AT_LEAST := "recipes_at_rank_at_least"
 const TYPE_CONTRACTS_SETTLED_AT_LEAST := "contracts_settled_at_least"
@@ -156,6 +157,8 @@ static func _evaluate(def: Dictionary, progress: Dictionary) -> bool:
 			return ore_share_met(params)
 		TYPE_CRAFTING_SHARE_AT_LEAST:
 			return ore_share_met(params, "craft")
+		TYPE_ORE_SHARE_GAP_AT_LEAST:
+			return ore_share_gap_met(params)
 		TYPE_RECIPES_RANKED_UP_AT_LEAST:
 			return _eval_recipes_ranked_up(params, progress)
 		TYPE_RECIPES_AT_RANK_AT_LEAST:
@@ -482,6 +485,8 @@ static func measure(def: Dictionary) -> Dictionary:
 		return { "value": weeks, "param": "minWeeks" }
 	if def["type"] == TYPE_ORE_SHARE_AT_LEAST:
 		return { "value": Shares.ore_share(Shares.PLAYER, str(def["params"].get("oreType", ""))) * 100.0, "param": "minPercent" }
+	if def["type"] == TYPE_ORE_SHARE_GAP_AT_LEAST:
+		return { "value": share_gap_points("ore", str(def["params"].get("oreType", ""))), "param": "minGap" }
 	if def["type"] == TYPE_CRAFTING_SHARE_AT_LEAST:
 		return { "value": Shares.crafting_share(Shares.PLAYER, str(def["params"].get("oreType", ""))) * 100.0, "param": "minPercent" }
 	return {}
@@ -527,7 +532,36 @@ static func condition_met(condition: Dictionary) -> bool:
 				if Shares.ore_share(Shares.PLAYER, ore_type) * 100.0 >= float(condition["minPercent"]):
 					return true
 			return false
+		"ore_share_leading":
+			for ore_type in market_ores():
+				if Shares.is_leader("ore", Shares.PLAYER, ore_type) and (not condition.has("maxGap") or share_gap_points("ore", ore_type) < float(condition["maxGap"])):
+					return true
+			return false
 	return false
+
+
+# Player's share minus the largest other producer's, in percentage points, of
+# one ore over the Shares 7-day window (negative when behind).
+static func share_gap_points(tally: String, ore_type: String) -> float:
+	var totals := Shares.window_totals(tally)
+	var rival := 0
+	for producer in totals:
+		if producer != Shares.PLAYER:
+			rival = maxi(rival, int((totals[producer] as Dictionary).get(ore_type, 0)))
+	var total := 0
+	for producer in totals:
+		total += int((totals[producer] as Dictionary).get(ore_type, 0))
+	if total <= 0:
+		return 0.0
+	return float(int(totals.get(Shares.PLAYER, {}).get(ore_type, 0)) - rival) * 100.0 / float(total)
+
+
+# The player leads params.oreType by at least params.minGap points.
+static func ore_share_gap_met(params: Dictionary) -> bool:
+	var ore_type := str(params.get("oreType", ""))
+	if ore_type == "" or not GameData.CANONICAL_ORE_TYPES.has(ore_type):
+		return false
+	return Shares.is_leader("ore", Shares.PLAYER, ore_type) and share_gap_points("ore", ore_type) >= float(params["minGap"])
 
 
 # Ore types with production in the Shares 7-day window: the ones whose

@@ -81,6 +81,7 @@ header.top .title { display: grid; gap: 6px; min-width: 0 }
 .pp-table { border-collapse: collapse; width: 100%; font-size: 13px }
 .pp-table th, .pp-table td { border-top: 1px solid var(--line); padding: 6px 8px; text-align: left; vertical-align: top }
 .pp-table .pp-off { opacity: .5 }
+.tb.save-dirty { background: #8a6a1c; color: #fff; font-weight: 700; border-color: #c9a227 }
 .pp-table td.cov { text-align: center; cursor: pointer; font-weight: 600 }
 .pp-table td.cov-0 { background: #7a2a2a; color: #fff }
 .pp-table td.cov-1 { background: #8a6a1c; color: #fff }
@@ -3474,6 +3475,7 @@ function checkOddsBlock(opt, changed, restructure) {
     f.label = item.template || "";
     f.weeks = Math.round((Number(f.float) / Math.max(Number(f.expenses), 1)) * 10) / 10;
     f.float_weeks = f.weeks;
+    f.lead_gap = Math.max(-Number(f.share_gap), 0);
     return f;
   }
   // Event cards of a prose card with {tokens} filled.
@@ -3640,7 +3642,7 @@ function checkOddsBlock(opt, changed, restructure) {
   // Condition builder model. Facts by kind (R§3.15 "Meeting facts"); `choices` names a fixed value list.
   const PROSE_FACT_KINDS = {
     week: { kind: "number" }, expenses: { kind: "number" }, float: { kind: "number" }, weeks: { kind: "number" }, float_weeks: { kind: "number" },
-    share: { kind: "number" }, share_gap: { kind: "number" }, streak: { kind: "number" },
+    share: { kind: "number" }, share_gap: { kind: "number" }, lead_gap: { kind: "number" }, streak: { kind: "number" },
     rival_present: { kind: "bool" },
     last_result: { kind: "text", choices: ["hit", "miss", "skip", "none"] },
     ore_type: { kind: "text", choices: ["time", "physics", "life", "fate", "emotion"] },
@@ -3656,6 +3658,7 @@ function checkOddsBlock(opt, changed, restructure) {
     weeks: ["Weeks of float", "Float ÷ expenses, to one decimal: how many weeks of running costs the cash covers."],
     float_weeks: ["Weeks of float", "Same as weeks: float ÷ expenses, to one decimal."],
     share: ["Your share (%)", "Your whole-number % of the market for this goal's ore (crafted pieces for crafting goals) over the recent sales window. 0 means none of the market."],
+    lead_gap: ["Lead gap", "Your % minus the biggest rival's %, in points. 0 when you are behind. Use it for 'we lead by {lead_gap}%' and for widen-the-gap prose."],
     share_gap: ["Share gap", "The biggest rival's % minus your %. Positive: the rival is ahead by that many points. Negative: you are ahead. 0 with no rival."],
     streak: ["Hit streak", "How many weeks in a row, ending last week, the goal was hit (any tier above missed). 0 if last week was a miss, skip or no goal."],
     rival_present: ["Rival present", "True when some other producer supplies this goal's ore. False when you are the only supplier."],
@@ -3807,6 +3810,62 @@ function checkOddsBlock(opt, changed, restructure) {
       rows.push({ pack: name, slot, counts: ranges.map((r) => proseQualifying(pool, proseWithFact(facts, t, r.value)).length) });
     }
     return { ranges, rows };
+  }
+  // ---- rung editing (data/board.json): tier numbers and premise ----
+  // Premise kinds (Objectives.condition_met) with their params: "number", "number?" (optional) or "text"; `help` says when it holds.
+  const BOARD_PREMISES = {
+    ore_market_active: { params: {}, help: "Some ore has production in the market window." },
+    crafting_active: { params: {}, help: "The player has a crafting share of some ore." },
+    ore_share_any_at_least: { params: { minPercent: "number" }, help: "The player's share of some ore is at least minPercent." },
+    ore_share_leading: { params: { maxGap: "number?" }, help: "The player is the largest producer of some ore and, if maxGap is set, leads the next producer by fewer than maxGap points. The 'widen the gap' premise." },
+    weekly_expenses_above: { params: { amount: "number" }, help: "Weekly expenses are above amount." },
+    recipe_below_master: { params: { rank: "number" }, help: "Some recipe's best rank is below rank." },
+    recipe_rank_at_least: { params: { rank: "number" }, help: "At least one recipe is at rank or better." },
+    yield_baseline_above: { params: { amount: "number" }, help: "The yield baseline is above amount." },
+    player_veins_at_least: { params: { minCount: "number" }, help: "The player owns at least minCount veins." },
+    ore_types_owned_between: { params: { minTypes: "number", maxTypes: "number" }, help: "Online ore types are at least minTypes and below maxTypes." },
+    spine_done: { params: { beat: "text" }, help: "The story beat is done." },
+  };
+  function boardFindRung(board, rungId) {
+    for (const lad of Object.values((board && board.ladders) || {})) for (const r of lad.rungs || []) if (r.id === rungId) return r;
+    throw new Error(`no rung ${rungId} in board.json`);
+  }
+  function boardSetTier(board, rungId, tier, param, value) {
+    const r = boardFindRung(board, rungId);
+    if (!Number.isFinite(value)) throw new Error(`${param} needs a number`);
+    if (!r.tiers || !r.tiers[tier] || !(param in r.tiers[tier])) throw new Error(`${rungId} has no ${tier}.${param}`);
+    r.tiers[tier][param] = value;
+  }
+  // Switches the premise to `kind` with its params at defaults (optional params left out).
+  function boardSetPremiseKind(board, rungId, kind) {
+    const r = boardFindRung(board, rungId), spec = BOARD_PREMISES[kind];
+    if (!spec) throw new Error(`unknown premise kind ${kind}`);
+    r.premise = { kind };
+    for (const [k, t] of Object.entries(spec.params)) if (t !== "number?") r.premise[k] = t === "text" ? "" : 0;
+  }
+  // value null removes an optional param.
+  function boardSetPremiseParam(board, rungId, param, value) {
+    const r = boardFindRung(board, rungId), spec = BOARD_PREMISES[(r.premise || {}).kind];
+    if (!spec || !(param in spec.params)) throw new Error(`premise has no ${param}`);
+    if (value === null) { if (spec.params[param] !== "number?") throw new Error(`${param} is required`); delete r.premise[param]; return; }
+    if (spec.params[param] !== "text" && !Number.isFinite(value)) throw new Error(`${param} needs a number`);
+    r.premise[param] = value;
+  }
+  // board.json as saved: 2-space JSON, trailing newline, the file's line ending, and whole-number floats the file wrote as N.0 kept as N.0.
+  function boardSerialise(board, origText) {
+    const orig = String(origText), eol = proseEol(orig), keep = new Set([...orig.matchAll(/"(\w+)": (-?\d+)\.0(?![\d])/g)].map((m) => m[1] + ":" + m[2]));
+    const t = JSON.stringify(board, null, 2).replace(/"(\w+)": (-?\d+)(?![\d.])/g, (m, k, n) => (keep.has(k + ":" + n) ? `"${k}": ${n}.0` : m)) + "\n";
+    return eol === "\r\n" ? t.replace(/\n/g, "\r\n") : t;
+  }
+  // A new template pack: the empty pack, a `templates.<name>` label in board.json and one unconditional starter `case` card
+  // (the load lint needs one per pitching voice). A rung in board.json that uses the template is still the writer's to add.
+  function proseNewPack(packs, board, name, voice) {
+    if (!/^[a-z][a-z0-9_]*$/.test(name)) throw new Error("pack names are lowercase letters, digits and _ (starting with a letter)");
+    if (packs[name]) throw new Error(`pack ${name} already exists`);
+    if (!board || !board.templates) throw new Error("board.json has no templates");
+    packs[name] = { template: name, cards: [] };
+    board.templates[name] = { label: name };
+    return proseAdd(packs, name, "case", voice);
   }
   /* ---------- End prose packs ---------- */
 
@@ -5758,7 +5817,7 @@ function checkOddsBlock(opt, changed, restructure) {
   const proseState = { packs: {}, voices: {}, debate: {}, pack: null, slot: null, seed: 1,
     items: [{ template: "", voice: "", ore: "time" }], facts: { week: 3, expenses: 400, float: 1200, share: 12, share_gap: 8, rival: "the independents",
       rival_present: true, contested: "Time", last_result: "none", streak: 0, last_pitcher: "", at_war: false, enemy: "nobody", enemy_weariness: 0, my_weariness: 0, factions: {} }, step: 0,
-    eols: {}, dirty: new Set(), sel: null, err: "", rungs: {}, help: "", factions: {}, covFact: "" };
+    eols: {}, dirty: new Set(), sel: null, err: "", rungs: {}, help: "", factions: {}, covFact: "", board: null, boardText: "", boardDirty: false };
   let proseOn = false;
   async function loadProse() {
     const view = $("prose-view");
@@ -5772,12 +5831,16 @@ function checkOddsBlock(opt, changed, restructure) {
         if (pack && Array.isArray(pack.cards)) { packs[name.replace(/\.json$/, "")] = pack; proseState.eols[name.replace(/\.json$/, "")] = proseEol(await readText(dir, name)); }
       }
       proseState.packs = packs; proseState.dirty = new Set(); proseState.sel = null;
-      const bj = await readJSON(await dirAt(["data"]), "board.json");
+      const bText = await readText(await dirAt(["data"]), "board.json"), bj = bText ? JSON.parse(bText) : null;
+      proseState.board = bj; proseState.boardText = bText || ""; proseState.boardDirty = false;
       proseState.voices = (bj && bj.voices) || {};
       proseState.rungs = {};
       const fj = await readJSON(await dirAt(["data"]), "factions.json");
       proseState.factions = Object.fromEntries(Object.entries(fj || {}).map(([id, f]) => [id, (f && f.name) || id]));
-      for (const lad of Object.values((bj && bj.ladders) || {})) for (const r of lad.rungs || []) proseState.rungs[r.id] = r;
+      for (const lad of Object.values((bj && bj.ladders) || {})) for (const r of lad.rungs || []) {
+        proseState.rungs[r.id] = r;
+        for (const alt of r.altVoices || []) proseState.rungs[alt.template] = r;
+      }
       proseState.debate = (bj && bj.meeting && bj.meeting.debate) || {};
     } catch (e) { setNote("Couldn't read data/board_prose/: " + e.message); }
     const names = Object.keys(proseState.packs).sort();
@@ -5818,12 +5881,25 @@ function checkOddsBlock(opt, changed, restructure) {
           el("td", { class: "mono", text: r.id + (r.replies ? ` (+${r.replies} replies)` : "") }), el("td", { text: r.voice }), el("td", { class: "mono", text: r.when }),
           el("td", { text: String(r.weight) }), el("td", { text: r.first }), el("td", { text: r.eligible ? "eligible" : "—" }), el("td", {}, edit));
       })));
+    const newPack = el("button", { type: "button", class: "tb", text: "+ new pack", title: "New template pack: file, board.json template label and a starter case card" });
+    newPack.addEventListener("click", () => {
+      const name = (window.prompt("New pack name (lowercase, digits, _), e.g. share_widen") || "").trim();
+      if (!name) return;
+      try {
+        const id = proseNewPack(st.packs, st.board, name, Object.keys(st.voices)[0] || "archie");
+        st.dirty.add(name); st.boardDirty = true; st.eols[name] = "
+"; st.pack = name; st.slot = "case"; st.sel = id; st.err = "";
+      } catch (e) { st.err = e.message; }
+      renderProse();
+    });
+    list.append(newPack);
     const add = el("button", { type: "button", class: "tb", text: "+ prose card" });
     add.addEventListener("click", () => proseEdit(() => { st.sel = proseAdd(st.packs, st.pack, st.slot, proseVoicesFor(st.pack)[0] || Object.keys(st.voices)[0] || "archie"); }));
-    const save = el("button", { type: "button", class: "tb", text: st.dirty.size ? `Save (${[...st.dirty].join(", ")})` : "Saved", disabled: !st.dirty.size });
+    const pending = [...st.dirty, ...(st.boardDirty ? ["board.json"] : [])];
+    const save = el("button", { type: "button", class: pending.length ? "tb save-dirty" : "tb", text: pending.length ? `Save (${pending.join(", ")})` : "Saved", disabled: !pending.length });
     save.addEventListener("click", saveProse);
     const sel = st.sel ? proseSafeFind(pack, st.sel) : null;
-    view.append(el("div", { class: "pp-bar" }, back, save, el("span", { class: "mono muted", text: "edits save straight to data/board_prose/ · git is the undo · last column = eligibility against the sandbox facts" })),
+    view.append(el("div", { class: "pp-bar" }, back, save, el("span", { class: "mono muted", text: "edits stay here until you Save · saves to data/board_prose/ (and data/board.json for goal edits) · git is the undo · last column = eligibility against the sandbox facts" })),
       st.err ? el("p", { class: "pp-warn", role: "alert", text: st.err }) : null,
       list, el("h2", { text: st.pack }), proseGoalRow(st.rungs[st.pack]), ...proseCommentRows(pack, null), tabs, table, add, sel ? renderProseEditor(pack, sel) : null, renderCoverage(sandbox.facts0), renderSandbox(sandbox));
   }
@@ -5856,17 +5932,39 @@ function checkOddsBlock(opt, changed, restructure) {
       const cur = (st.facts.factions || {})[t.faction] || { share_vs: 0, share_gap_vs: 0, stance_vs: "neutral", at_war_vs: false, weariness_vs: 0 };
       st.facts.factions = { ...(st.facts.factions || {}), [t.faction]: { ...cur, [t.fact]: value } };
     } else if (PROSE_FACT_FIELDS.some(([n]) => n === t.fact)) st.facts[t.fact] = value;
-    else st.err = `${t.fact} is worked out from other facts (weeks = float ÷ expenses); set float/expenses in the sandbox.`;
+    else st.err = `${t.fact} is worked out from other facts (weeks = float ÷ expenses, lead_gap = −share_gap); set those in the sandbox.`;
     st.pack = row.pack; st.slot = row.slot; st.step = 0;
     if (!row.pack.startsWith("_") && st.items[0]) st.items[0].template = row.pack;
     renderProse();
     const boxes = $("prose-view").querySelectorAll(".pp-box"); (boxes[boxes.length - 1] || $("prose-view")).scrollIntoView({ block: "start" });
   }
-  // The goal's mechanics from data/board.json (read-only here): what the tiers actually ask for.
+  // The goal's mechanics from data/board.json: premise and tier numbers are editable here (saved to board.json);
+  // the goal type and its params stay read-only.
   function proseGoalRow(rung) {
     if (!rung) return null;
-    const tiers = Object.entries(rung.tiers || {}).map(([t, v]) => `${t}: ${Object.entries(v).map(([k, x]) => `${k} ${x}`).join(", ")}`).join("  ·  ");
-    return el("p", { class: "mono muted", text: `Goal ${rung.goal.type} — ${tiers} (set in data/board.json ladders; prose that hardcodes these numbers won't follow a change)` });
+    const st = proseState, box = el("section", { class: "pp-box" });
+    const edit = (fn) => { try { fn(); st.boardDirty = true; st.err = ""; } catch (e) { st.err = e.message; } renderProse(); };
+    const num = (v, set, label, optional) => {
+      const i = el("input", { type: "number", value: v === undefined ? "" : String(v), "aria-label": label, style: "width:80px" });
+      i.addEventListener("change", () => edit(() => set(i.value === "" && optional ? null : Number(i.value))));
+      return i;
+    };
+    box.append(el("h3", { text: `Goal · ${rung.id}` }), el("p", { class: "mono muted", text: `${rung.goal.type} ${JSON.stringify(rung.goal.params || {})} (type and params: edit board.json by hand)` }));
+    const tiers = el("div", { class: "pp-row" }, el("span", { class: "mono", text: "Tiers" }));
+    for (const [tier, vals] of Object.entries(rung.tiers || {})) for (const [k, v] of Object.entries(vals))
+      tiers.append(el("label", { class: "pp-fact" }, el("span", { class: "mono", text: `${tier} ${k}` }), num(v, (x) => boardSetTier(st.board, rung.id, tier, k, x), `${tier} ${k}`)));
+    box.append(tiers);
+    const pre = rung.premise || {}, spec = BOARD_PREMISES[pre.kind];
+    const kinds = Object.keys(BOARD_PREMISES), kindSel = el("select", { "aria-label": "premise kind" }, ...(spec ? kinds : [String(pre.kind), ...kinds]).map((k) => el("option", { value: k, text: k, ...(k === pre.kind ? { selected: true } : {}) })));
+    kindSel.addEventListener("change", () => edit(() => boardSetPremiseKind(st.board, rung.id, kindSel.value)));
+    const prem = el("div", { class: "pp-row" }, el("span", { class: "mono", text: "Appears when" }), kindSel);
+    for (const [k, t] of Object.entries(spec ? spec.params : {})) {
+      if (t === "text") { const i = el("input", { type: "text", value: String(pre[k] ?? ""), "aria-label": k }); i.addEventListener("change", () => edit(() => boardSetPremiseParam(st.board, rung.id, k, i.value))); prem.append(el("label", { class: "pp-fact" }, el("span", { class: "mono", text: k }), i)); }
+      else prem.append(el("label", { class: "pp-fact" }, el("span", { class: "mono", text: k + (t === "number?" ? " (optional)" : "") }), num(pre[k], (x) => boardSetPremiseParam(st.board, rung.id, k, x), k, t === "number?")));
+    }
+    box.append(prem, el("p", { class: "mono muted", text: spec ? spec.help : "Unknown premise kind: edit board.json by hand." }),
+      el("p", { class: "mono muted", text: "Prose that hardcodes these numbers won't follow a change — use {share}, {lead_gap} etc. where the number should track the game." }));
+    return box;
   }
   const proseSafeFind = (pack, id) => { try { return proseFind(pack, id); } catch { return null; } };
   // Runs a pack mutation, marks the pack dirty and redraws; a refused edit shows its message.
@@ -5880,6 +5978,7 @@ function checkOddsBlock(opt, changed, restructure) {
     try {
       const dir = await dirAt(PROSE_DIR);
       for (const n of [...st.dirty]) { await writeFile(dir, n + ".json", proseSerialise(st.packs[n], st.eols[n] || "\n")); st.dirty.delete(n); }
+      if (st.boardDirty) { const text = boardSerialise(st.board, st.boardText); await writeFile(await dirAt(["data"]), "board.json", text); st.boardText = text; st.boardDirty = false; }
       st.err = ""; setNote("Saved prose packs.");
     } catch (e) { st.err = "Couldn't save: " + e.message; }
     renderProse();

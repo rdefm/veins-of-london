@@ -39,7 +39,12 @@
           "type": "tension",
           "label": null,
           "speaker": null,
-          "text": "You grab the nearest thing to hand - which, for better or worse, is the torch you left by the bed after last week when the power went out. After what feels like an eternity, your bedroom door slowly opens. You swing and feel the crack more than you hear it. The intruder reels, then jumps at you. Your other hand finds the two pearls Archie kept back."
+          "text": "You grab the nearest thing to hand - for better or worse, is the torch you left by the bed after last week when the power went out. After what feels like an eternity, your bedroom door slowly opens. You swing and feel the crack more than you hear it. "
+        },
+        {
+          "key": "c4",
+          "type": "narration",
+          "text": "The torch breaks into 2, and you drop it. The intruder is reeling as you gasp for something to use. Your hand falls on the time pearls Archie gave you."
         }
       ]
     }

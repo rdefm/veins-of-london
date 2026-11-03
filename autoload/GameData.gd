@@ -804,7 +804,7 @@ const BOARD_PROSE_STANCES: Array[String] = ["back", "challenge", "wobble"]
 # the only names a prose `when` may read and a prose {token} may use.
 const BOARD_FACTS: Array[String] = [
 	"week", "expenses", "float", "weeks", "float_weeks", "ore", "ore_type", "calc", "label", "pitcher",
-	"share", "share_gap", "rival", "rival_present", "contested", "last_result", "streak", "last_pitcher",
+	"share", "share_gap", "lead_gap", "rival", "rival_present", "contested", "last_result", "streak", "last_pitcher",
 	"at_war", "enemy", "enemy_weariness", "my_weariness",
 ]
 # Facts read for one named faction: a `when` leaf gives `faction`; not {tokens}.

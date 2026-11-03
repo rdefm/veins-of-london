@@ -603,6 +603,23 @@ func run() -> void:
 		assert_true(not (Objectives.evaluate(def)), "an unproduced ore has no share")
 	)
 
+	run_case("ore_share_gap_goal_and_leading_premise_read_the_lead_over_the_next_producer", func():
+		GameState.reset()
+		Shares.record_ore("player", "physics", 60)
+		Shares.record_ore("firm", "physics", 40)
+		assert_almost_eq(Objectives.share_gap_points("ore", "physics"), 20.0, 0.01)
+		var def := _objective("gap", Objectives.TYPE_ORE_SHARE_GAP_AT_LEAST, { "oreType": "physics" })
+		def["tiers"] = { "base": { "minGap": 5 }, "target": { "minGap": 20 }, "stretch": { "minGap": 30 } }
+		assert_eq(Objectives.tier_met(def), "target", "20 points ahead meets target, not stretch")
+		assert_almost_eq(float(Objectives.measure(def)["value"]), 20.0, 0.01)
+		assert_true(Objectives.condition_met({ "kind": "ore_share_leading" }), "leads physics")
+		assert_true(not Objectives.condition_met({ "kind": "ore_share_leading", "maxGap": 20 }), "gap not below 20")
+		assert_true(Objectives.condition_met({ "kind": "ore_share_leading", "maxGap": 21 }), "gap below 21")
+		Shares.record_ore("firm", "physics", 100)
+		assert_true(not Objectives.condition_met({ "kind": "ore_share_leading" }), "behind the Firm: not leading")
+		assert_eq(Objectives.tier_met(def), "none", "behind: gap goal unmet")
+	)
+
 	run_case("crafting_share_at_least_reads_the_craft_tally_not_the_ore_tally", func():
 		GameState.reset()
 		Shares.record_ore("player", "physics", 100)
