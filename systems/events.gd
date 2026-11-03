@@ -2285,6 +2285,7 @@ static func _sell_ore_at_market(effect: Dictionary, context: Dictionary) -> void
 	Market.record_supply("ore", ore_type, qty, "player")
 	GameState.state["player"]["cash"] += earned
 	Bank.record(earned, effect.get("label", "Ore sale"))
+	BusinessStats.record_sale(earned)
 
 
 # claim_faction_vein/buy_faction_vein's site: siteIdStatePath directly, or the

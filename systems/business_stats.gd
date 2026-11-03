@@ -16,6 +16,8 @@ const EXPENSE_KIND_METRICS := {
 	EXPENSE_GUARD: "expensesGuard",
 	EXPENSE_CALC: "expensesCalc",
 }
+# Days of sales totals kept; the sales goal needs two goal weeks.
+const SALES_LOG_DAYS := 21
 const TALLIES := ["revenue", "expenses", "expensesStaff", "expensesGuard", "expensesCalc", "oreCultivator", "orePlayer"]
 const METRICS := ["revenue", "expenses", "expensesStaff", "expensesGuard", "expensesCalc", "oreCultivator", "orePlayer", "items"]
 
@@ -109,16 +111,31 @@ static func weekly_expenses() -> int:
 	return total
 
 
-# Contract revenue over from_day..to_day inclusive: the day snapshots plus
-# today's running tally when today falls in the range.
-static func revenue_between(from_day: int, to_day: int) -> int:
+# Cash earned from selling: contract settlements, ore/items sold to factions
+# or via Archie, veins sold. Per-day totals in businessStats.sales
+# ({ day, amount }, oldest first), kept whether or not the business pot is
+# active.
+static func record_sale(amount: int) -> void:
+	if amount <= 0:
+		return
+	var stats := _stats()
+	if not stats.has("sales"):
+		stats["sales"] = []
+	var sales: Array = stats["sales"]
+	var day: int = GameState.state["world"]["day"]
+	if sales.is_empty() or int(sales.back()["day"]) != day:
+		sales.append({ "day": day, "amount": 0 })
+	sales.back()["amount"] = int(sales.back()["amount"]) + amount
+	while sales.size() > SALES_LOG_DAYS:
+		sales.remove_at(0)
+
+
+# Sales income over from_day..to_day inclusive.
+static func sales_between(from_day: int, to_day: int) -> int:
 	var total := 0
-	for record in _stats()["days"]:
+	for record in _stats().get("sales", []):
 		if int(record["day"]) >= from_day and int(record["day"]) <= to_day:
-			total += int(record.get("revenue", 0))
-	var today: int = GameState.state["world"]["day"]
-	if today >= from_day and today <= to_day:
-		total += int(_stats()["today"].get("revenue", 0))
+			total += int(record["amount"])
 	return total
 
 

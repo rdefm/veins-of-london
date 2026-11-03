@@ -109,6 +109,7 @@ static func accept_deal(pending_id: String) -> void:
 
 	GameState.state["player"]["cash"] += player_cut
 	Bank.record(player_cut, "Archie tag-along deal")
+	BusinessStats.record_sale(player_cut)
 	GameState.state["flags"]["archieDealActive"] = false
 	Modal.open("archie_deal_result", { "earned": player_cut, "gross": deal["gross"], "mugged": false })
 	EventBus.state_changed.emit()
@@ -131,4 +132,5 @@ static func resolve_mugging(won: bool) -> void:
 	if earned > 0:
 		GameState.state["player"]["cash"] += earned
 		Bank.record(earned, "Archie tag-along deal (contested)")
+		BusinessStats.record_sale(earned)
 	Modal.open("archie_deal_result", { "earned": earned, "gross": earned * 2, "mugged": true })

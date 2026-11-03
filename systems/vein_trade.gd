@@ -48,6 +48,7 @@ static func _sell(vein_id: String, faction_id: String, price: int, count_as_play
 
 	GameState.state["player"]["cash"] += price
 	Bank.record(price, "Sold vein to %s" % faction_id.capitalize())
+	BusinessStats.record_sale(price)
 	EventBus.state_changed.emit()
 	return { "ok": true, "price": price, "factionId": faction_id, "factionVeinId": result["factionVeinId"] }
 

@@ -93,11 +93,11 @@ func _harvest(amount: int, days: int) -> void:
 	GameState.state["world"]["day"] = today
 
 
-# `amount` £ of contract revenue on each of the `days` days before today.
+# `amount` £ of sales income on each of the `days` days before today.
 func _sell_days(amount: int, days: int) -> void:
 	var today: int = GameState.state["world"]["day"]
 	for offset in range(1, days + 1):
-		GameState.state["businessStats"]["days"].append({ "day": today - offset, "revenue": amount })
+		GameState.state["businessStats"]["sales"].append({ "day": today - offset, "amount": amount })
 
 
 # Puts the sales card on the agenda and takes it; returns the active goal.
@@ -1190,14 +1190,29 @@ func run() -> void:
 		var goal: Dictionary = active["goal"]
 		assert_eq(Objectives.tier_met(goal, active["progress"]), "none")
 		# baseline 700: base 770, target 875, stretch 980
-		BusinessStats.record_revenue(769)
+		BusinessStats.record_sale(769)
 		assert_eq(Objectives.tier_met(goal, active["progress"]), "none", "769 < 770")
-		BusinessStats.record_revenue(1)
+		BusinessStats.record_sale(1)
 		assert_eq(Objectives.tier_met(goal, active["progress"]), "base")
-		BusinessStats.record_revenue(105)
+		BusinessStats.record_sale(105)
 		assert_eq(Objectives.tier_met(goal, active["progress"]), "target", "875")
-		BusinessStats.record_revenue(105)
+		BusinessStats.record_sale(105)
 		assert_eq(Objectives.tier_met(goal, active["progress"]), "stretch", "980")
+	)
+
+	run_case("sales_income_accumulates_per_day_and_trims", func():
+		_enabled_game()
+		BusinessStats.record_sale(40)
+		BusinessStats.record_sale(60)
+		BusinessStats.record_sale(0)
+		var sales: Array = GameState.state["businessStats"]["sales"]
+		assert_eq(sales.size(), 1)
+		assert_eq(BusinessStats.sales_between(10, 10), 100)
+		assert_eq(BusinessStats.sales_between(11, 20), 0)
+		for day in range(11, 40):
+			GameState.state["world"]["day"] = day
+			BusinessStats.record_sale(1)
+		assert_eq(sales.size(), BusinessStats.SALES_LOG_DAYS)
 	)
 
 	run_case("sales_goal_ignores_revenue_after_the_goal_week", func():
@@ -1205,7 +1220,7 @@ func run() -> void:
 		_sell_days(100, 7)
 		var active := _choose_sales_card()
 		GameState.state["world"]["day"] = 17
-		BusinessStats.record_revenue(5000)
+		BusinessStats.record_sale(5000)
 		assert_eq(Objectives.tier_met(active["goal"], active["progress"]), "none", "day 17 is past the goal week")
 	)
 
@@ -1213,7 +1228,7 @@ func run() -> void:
 		_enabled_game()
 		_sell_days(100, 7)
 		_choose_sales_card()
-		BusinessStats.record_revenue(300)
+		BusinessStats.record_sale(300)
 		var section := Todo.get_questline_sections().filter(func(sec): return sec["questline"] == "board")
 		assert_eq(section[0]["items"][0]["detail"], "No tier yet · £300 of £770 sold for Base")
 	)

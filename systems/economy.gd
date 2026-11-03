@@ -147,6 +147,7 @@ static func execute_sale(items: Array) -> Dictionary:
 	else:
 		player["cash"] += player_cut
 		Bank.record(player_cut, "Archie sale")
+		BusinessStats.record_sale(player_cut)
 		Objectives.refresh()
 		Modal.open("sale_result", { "earned": player_cut, "gross": gross, "mugged": false })
 		return { "ok": true, "mugged": false, "earned": player_cut, "gross": gross }
@@ -159,6 +160,7 @@ static func complete_mugged_sale() -> Dictionary:
 	if earned > 0:
 		GameState.state["player"]["cash"] += earned
 		Bank.record(earned, "Archie sale (contested)")
+		BusinessStats.record_sale(earned)
 	Objectives.refresh()
 	Modal.open("sale_result", { "earned": earned, "gross": earned * 2, "mugged": true })
 	return { "earned": earned, "gross": earned * 2, "mugged": true }
@@ -432,6 +434,7 @@ static func execute_faction_sale(faction_id: String, items: Array, contact_id: S
 	faction["resources"] = maxi(0, int(faction["resources"]) - total_earned)
 	player["cash"] += total_earned
 	Bank.record(total_earned, "%s sale" % faction_id.capitalize())
+	BusinessStats.record_sale(total_earned)
 	RelationAccrual.accrue_faction(faction_id, total_earned)
 	if contact_id != "":
 		RelationAccrual.accrue_contact_trade(contact_id, total_earned)

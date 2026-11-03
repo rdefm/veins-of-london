@@ -284,21 +284,20 @@ static func _eval_yield_multiple(params: Dictionary, progress: Dictionary) -> bo
 	return float(harvest) + 0.000001 >= float(params["multiple"]) * baseline * GOAL_WEEK_DAYS
 
 
-# Business sales revenue over the GOAL_WEEK_DAYS completed days before today.
+# Sales income (BusinessStats.record_sale) over the GOAL_WEEK_DAYS completed days before today.
 static func sales_baseline() -> int:
 	var day: int = GameState.state["world"]["day"]
-	return BusinessStats.revenue_between(day - GOAL_WEEK_DAYS, day - 1)
+	return BusinessStats.sales_between(day - GOAL_WEEK_DAYS, day - 1)
 
 
-# Sales revenue from progress.sinceDay through the goal week (today's tally
-# included); false (unmet) until a goal has captured a baseline, or on no
+# Sales income from progress.sinceDay through the goal week; false (unmet) until a goal has captured a baseline, or on no
 # baseline sales.
 static func _eval_sales_multiple(params: Dictionary, progress: Dictionary) -> bool:
 	var baseline := int(progress.get("salesBaseline", 0))
 	if baseline <= 0 or not progress.has("sinceDay"):
 		return false
 	var since := int(progress["sinceDay"])
-	return BusinessStats.revenue_between(since, since + GOAL_WEEK_DAYS - 1) >= ceili(float(params["multiple"]) * baseline - 0.000001)
+	return BusinessStats.sales_between(since, since + GOAL_WEEK_DAYS - 1) >= ceili(float(params["multiple"]) * baseline - 0.000001)
 
 
 # Player veins claimed since progress.sinceDay whose growth is at least
@@ -514,7 +513,7 @@ static func count_progress(def: Dictionary) -> Dictionary:
 static func measure(def: Dictionary, progress: Dictionary = {}) -> Dictionary:
 	if def["type"] == TYPE_SALES_MULTIPLE_AT_LEAST:
 		var since := int(progress.get("sinceDay", 0))
-		var revenue := BusinessStats.revenue_between(since, since + GOAL_WEEK_DAYS - 1) if progress.has("sinceDay") else 0
+		var revenue := BusinessStats.sales_between(since, since + GOAL_WEEK_DAYS - 1) if progress.has("sinceDay") else 0
 		return { "value": float(revenue), "param": "multiple", "scale": float(progress.get("salesBaseline", 0)) }
 	if def["type"] == TYPE_RESERVE_WEEKS_AT_LEAST:
 		var expenses := BusinessStats.weekly_expenses()
