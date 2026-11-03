@@ -1,0 +1,416 @@
+# prologue_gym — imported from data/events/prologue_gym.json
+
+```json
+{
+  "id": "prologue_gym",
+  "on_complete": [
+    {
+      "op": "set_flag",
+      "flag": "gymUnlocked",
+      "value": true
+    },
+    {
+      "op": "queue_pending_message",
+      "contact": "archie",
+      "kind": "prologue_archie_sells_pearls",
+      "text": "Pearls are sorted. Come by when you're free."
+    },
+    {
+      "op": "set_screen",
+      "screen": "phone"
+    }
+  ],
+  "start": "main",
+  "branches": {
+    "main": {
+      "title": "Start",
+      "cards": [
+        {
+          "key": "c1",
+          "type": "narration",
+          "label": "Whitechapel — under a railway arch",
+          "speaker": null,
+          "text": "A train goes over and the whole arch hums. The sign above the roller door says REVERSE, with a clean pale patch in front of it where another word used to be."
+        },
+        {
+          "key": "c2",
+          "type": "speaker",
+          "label": null,
+          "speaker": "Archie",
+          "text": "\"Gym. Mate of mine runs it.\" He ducks under the shutter. \"Last night you stood there looking like a pain to fight. Time to be one. Don't ask about the sign.\""
+        },
+        {
+          "key": "c3",
+          "type": "narration",
+          "label": null,
+          "speaker": null,
+          "text": "Archie introduces you to Arnie, who is taping his knuckles. Wide as the door, soft round the middle, forearms that don't match. "
+        },
+        {
+          "key": "c12",
+          "type": "speaker",
+          "text": "\"This is Arnie. He's an old boxing champ, though he may not look it. Well, except for the old part.\"",
+          "speaker": "Archie"
+        },
+        {
+          "key": "c13",
+          "type": "speaker",
+          "text": "\"That's why you'd never be a champ, Archie. Looks can be deceiving. A Dad bod like this makes 'em underestimate you,\" Arnie says. \"Don't let it fool you.\"",
+          "speaker": "Arnie"
+        },
+        {
+          "key": "c4",
+          "type": "speaker",
+          "label": null,
+          "speaker": "Arnie",
+          "text": "Arnie gestures to the gym. \"Like the place? Flip Reverse, it's called. After the Blazing Squad song. Flip fell off in a storm.\" He's grinning. \"I once had a punch-up with three of the band outside a chippy. Best night of my life. Lost, mind.\""
+        },
+        {
+          "key": "c5",
+          "type": "choice",
+          "label": null,
+          "speaker": null,
+          "text": "Arnie waves Archie onto the mats. Archie heads over, rotating his shoulders to warm up. \"Watch this first,\" Arnie says. \"I'll talk you through it.\"",
+          "choices": [
+            {
+              "id": "watch",
+              "label": "Watch",
+              "effects": [
+                {
+                  "op": "start_demo_fight",
+                  "script": {
+                    "seed": 11,
+                    "rounds": 2,
+                    "label": "Sparring",
+                    "intro": [
+                      "Arnie squares up to Archie."
+                    ],
+                    "enemies": [
+                      {
+                        "name": "Arnie",
+                        "hpMax": 200,
+                        "attackMin": 6,
+                        "attackMax": 6,
+                        "level": 5,
+                        "speed": 99,
+                        "template": "mugger",
+                        "moveLevels": {
+                          "strike": 1,
+                          "guard": 1,
+                          "feint": 5,
+                          "stun": 1,
+                          "legIt": 1
+                        },
+                        "plans": [
+                          [
+                            {
+                              "move": "strike",
+                              "target": 1
+                            },
+                            {
+                              "move": "feint",
+                              "target": 1
+                            }
+                          ]
+                        ]
+                      }
+                    ],
+                    "allies": [
+                      {
+                        "name": "Archie",
+                        "hpMax": 200,
+                        "attackMin": 4,
+                        "attackMax": 4,
+                        "level": 1,
+                        "speed": 10,
+                        "sprite": "archie",
+                        "moveLevels": {
+                          "strike": 1,
+                          "guard": 1,
+                          "feint": 1,
+                          "stun": 1,
+                          "legIt": 1
+                        },
+                        "plans": [
+                          [
+                            "guard",
+                            {
+                              "move": "strike",
+                              "target": 2
+                            }
+                          ]
+                        ]
+                      }
+                    ],
+                    "procs": [
+                      {
+                        "kind": "autoguard",
+                        "target": 2
+                      },
+                      {
+                        "kind": "retaliate",
+                        "target": 2
+                      }
+                    ],
+                    "coach": {
+                      "notes": {
+                        "1": {
+                          "other.chip": [
+                            "\"He starts behind his guard, so my first one only chips him.\"",
+                            "\"That's all a punch gets through a guard. A chip.\""
+                          ],
+                          "other.guard": "\"He's covered up again. Fine. That's what the Feint's for.\"",
+                          "other.feint": "\"At level one, that's all a Feint does: his guard drops. At five, everything I land while it's down hits harder.\"",
+                          "other.autoguard": "\"I've just Feinted, so I'm Open. At five my guard comes up by itself anyway. At level one I'd have eaten that.\"",
+                          "other.retaliate": "\"And at five I sometimes get one back for free. Doesn't cost me a turn.\"",
+                          "other.hit": [
+                            "\"Straight in. He's still Open from the Feint.\"",
+                            "\"That's the Feint's extra on top. Keep him Open, keep hitting.\""
+                          ]
+                        },
+                        "2": {
+                          "other.hit": [
+                            "\"He never got his guard back, so that lands in full.\"",
+                            "\"No free one back that time. It only comes off now and then. So I just hit him.\""
+                          ],
+                          "other.guard": "\"Guard's back up. That's him reset.\"",
+                          "other.feint": "\"So I Feint again, and it's gone.\"",
+                          "other.autoguard": "\"Same again. My guard's up before he's thought about it.\"",
+                          "other.chip": "\"One point. He'd do better saving his breath.\""
+                        }
+                      }
+                    },
+                    "resumeCard": 5
+                  }
+                }
+              ],
+              "result_text": ""
+            }
+          ]
+        },
+        {
+          "key": "c6",
+          "type": "speaker",
+          "label": null,
+          "speaker": "Arnie",
+          "text": "He throws Archie a towel. \"Same Feint you've got. Just put in a bit more practice. Your go.\""
+        },
+        {
+          "key": "c7",
+          "type": "speaker",
+          "label": null,
+          "speaker": "Arnie",
+          "text": "\"House rules. There are Rewinds on the shelf, free, as many as you like. Whenever you want, break it, and go again. Means you can try out different moves, or any of the items on the shelf. Get a feel for what kind of fighting style and loadout suits you.\""
+        },
+        {
+          "key": "c8",
+          "type": "choice",
+          "label": null,
+          "speaker": null,
+          "text": "Arnie tosses you a pair of gloves. They're your size. Nobody asked him for your size.",
+          "choices": [
+            {
+              "id": "glovesOn",
+              "label": "Gloves on",
+              "effects": [
+                {
+                  "op": "start_scripted_fight",
+                  "script": {
+                    "seed": 7,
+                    "practice": true,
+                    "intro": [
+                      "Mats down. Arnie rolls his shoulders."
+                    ],
+                    "enemies": [
+                      {
+                        "name": "Arnie",
+                        "hpMax": 60,
+                        "attackMin": 3,
+                        "attackMax": 4,
+                        "level": 1,
+                        "speed": 99,
+                        "template": "mugger",
+                        "moveLevels": {
+                          "strike": 1,
+                          "guard": 1,
+                          "feint": 1,
+                          "stun": 1,
+                          "legIt": 1
+                        },
+                        "plans": [
+                          [
+                            "strike",
+                            "strike"
+                          ],
+                          [
+                            "guard",
+                            "guard"
+                          ],
+                          [
+                            "strike",
+                            "guard"
+                          ]
+                        ]
+                      }
+                    ],
+                    "coach": {
+                      "lessons": {
+                        "1": "His intent says Strike, twice. Pick Guard: while you're Guarded, a punch only chips you.",
+                        "2": "He's covering up, so a Strike would only chip him. Feint to knock his guard open, then Strike for the full hit.",
+                        "3": "He swings first, and swinging leaves him Open. Stun him while he's Open to take his next action, then Strike."
+                      },
+                      "notes": {
+                        "1": {
+                          "other.chip": "Your guard took most of that. Guarded, you only lose a chip.",
+                          "self.guard": "Still Guarded for whatever he throws next."
+                        },
+                        "2": {
+                          "other.guard": "He's Guarded. Hit him now and you'd only chip him.",
+                          "self.feint": "He bit. He's Open, and his next Guard won't hold.",
+                          "self.hit": "Open, so it landed in full."
+                        },
+                        "3": {
+                          "other.hit": "You were Open after your last Strike, so that one landed in full.",
+                          "self.stun": "Stunned. He loses his next action.",
+                          "other.lost": "That was his Guard gone. He's still Open.",
+                          "self.hit": "Full damage. Nothing between him and it."
+                        }
+                      },
+                      "allowed": {
+                        "1": [
+                          "guard"
+                        ],
+                        "2": [
+                          "feint",
+                          "strike"
+                        ],
+                        "3": [
+                          "stun",
+                          "strike"
+                        ]
+                      }
+                    },
+                    "resumeCard": 8
+                  }
+                }
+              ],
+              "result_text": ""
+            }
+          ]
+        },
+        {
+          "key": "c9",
+          "type": "speaker",
+          "label": null,
+          "speaker": "Arnie",
+          "text": "He unwraps one hand and nods at you. \"That's the gist of it. Read what they're about to do, then plan your move to match. The more you practise a move, the better you get at it. Eventually you'll be able to do much more with it too.\""
+        },
+        {
+          "key": "c10",
+          "type": "speaker",
+          "label": null,
+          "speaker": "Arnie",
+          "text": "\"First three sessions are on me. After that it's fifteen quid a session. The rent here ain't cheap, but any fiend of Archie's gets mates rates.\""
+        },
+        {
+          "key": "c11",
+          "type": "speaker",
+          "label": null,
+          "speaker": "Archie",
+          "text": "Archie nods, not really listening as his focus is on his phone. \"Told you. I've got your pearls to shift. I'll text you.\" He's through the shutter before you can thank him."
+        }
+      ]
+    }
+  },
+  "_keyOrder": {
+    "top": [
+      "id",
+      "on_complete",
+      "cards"
+    ],
+    "cards": {
+      "c1": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c2": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c3": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c4": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c5": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text",
+        "choices"
+      ],
+      "c6": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c7": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c8": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text",
+        "choices"
+      ],
+      "c9": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c10": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c11": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ]
+    }
+  },
+  "_liveSource": "prologue_gym.json",
+  "_liveHash": "634a8f80"
+}
+```

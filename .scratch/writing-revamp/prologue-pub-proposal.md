@@ -108,7 +108,7 @@
           "type": "speaker",
           "label": null,
           "speaker": "Archie",
-          "text": "\"The calc? Depends who's buying. Bit of time-type like that, seventy-odd quid a chip.\" He dabs his eyes with a napkin. \"Ten chips, you're looking at seven hundred and fifty. Which is why that lot brought a knife.\"",
+          "text": "\"The calc? Depends who's buying. Bit of time-type like that, seventy-odd quid a chip.\" He dabs his eyes with a napkin. \"Ten chips, you're looking at seven hundred and fifty. Which is why that lot wanted to fight for it.\"",
           "goto": {
             "branch": "main"
           }

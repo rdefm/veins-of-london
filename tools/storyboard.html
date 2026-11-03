@@ -3642,8 +3642,8 @@ function checkOddsBlock(opt, changed, restructure) {
     last_result: { kind: "text", choices: ["hit", "miss", "skip", "none"] },
     ore_type: { kind: "text", choices: ["time", "physics", "life", "fate", "emotion"] },
     last_pitcher: { kind: "text", choices: "voices" },
-    at_war: { kind: "bool" }, enemy_weariness: { kind: "number" }, my_weariness: { kind: "number" }, enemy: { kind: "text" },
-    rival: { kind: "text" }, contested: { kind: "text" }, ore: { kind: "text" }, calc: { kind: "text" }, label: { kind: "text" }, pitcher: { kind: "text" },
+    at_war: { kind: "bool" }, enemy_weariness: { kind: "number" }, my_weariness: { kind: "number" }, enemy: { kind: "text", choices: "factionsOrNobody" },
+    rival: { kind: "text", choices: "factionsOrIndependents" }, contested: { kind: "text" }, ore: { kind: "text" }, calc: { kind: "text" }, label: { kind: "text" }, pitcher: { kind: "text" },
   };
   // Plain-language meaning of each fact and of the builder's own controls, shown by the "?" buttons (R§3.15 "Meeting facts").
   const PROSE_HELP = {
@@ -5824,6 +5824,14 @@ function checkOddsBlock(opt, changed, restructure) {
     return [...out, el("div", { class: "pp-row" }, ...adds)];
   }
   // Condition builder: one row per fact test (fact, operator, value), joined by all/any; a nested `when` shows as JSON.
+  // A fact's fixed value list, or null for free entry: voices, faction names (as the game writes them), fixed lists.
+  function proseChoices(meta) {
+    const st = proseState, names = Object.values(st.factions);
+    if (meta.choices === "voices") return ["", ...Object.keys(st.voices)];
+    if (meta.choices === "factionsOrNobody") return ["nobody", ...names];
+    if (meta.choices === "factionsOrIndependents") return ["the independents", ...names];
+    return Array.isArray(meta.choices) ? meta.choices : null;
+  }
   function renderWhenBuilder(pack, prose) {
     const st = proseState, id = prose.id, model = proseWhenToRows(prose.when);
     const help = (key) => {
@@ -5860,14 +5868,15 @@ function checkOddsBlock(opt, changed, restructure) {
       const facts = [...Object.keys(PROSE_FACT_KINDS), ...Object.keys(PROSE_FACTION_FACT_KINDS)], known = facts.includes(r.fact);
       const factionIds = Object.keys(st.factions);
       const factSel = sel("fact", (known ? facts : [r.fact, ...facts]).map((f) => [f, f]), r.fact,
-        (v) => { const next = { fact: v, op: proseOpsFor(v)[0] === "gt" ? "gt" : "eq", value: proseDefaultValue(v) };
+        (v) => { const next = { fact: v, op: proseOpsFor(v)[0] === "gt" ? "gt" : "eq", value: (proseChoices(proseFactMeta(v)) || [proseDefaultValue(v)])[0] };
           next.faction = proseTakesFaction(v) ? (r.faction || factionIds[0]) : undefined; upd(next); });
       const facSel = proseTakesFaction(r.fact) ? sel("faction", factionIds.map((f) => [f, st.factions[f] || f]), r.faction || factionIds[0], (v) => upd({ faction: v })) : null;
       const opSel = sel("operator", proseOpsFor(r.fact).map((o) => [o, PROSE_OP_LABEL[o]]), r.op, (v) => upd({ op: v }));
       let val;
       if (meta.kind === "bool") val = sel("value", [["true", "true"], ["false", "false"]], String(r.value), (v) => upd({ value: v === "true" }));
       else if (meta.choices) {
-        const ch = meta.choices === "voices" ? ["", ...Object.keys(st.voices)] : meta.choices;
+        let ch = proseChoices(meta);
+        if (!ch.includes(String(r.value))) ch = [String(r.value), ...ch];
         val = sel("value", ch.map((c) => [c, c || "(nobody)"]), String(r.value), (v) => upd({ value: v }));
       } else {
         val = el("input", { type: meta.kind === "number" ? "number" : "text", value: String(r.value ?? ""), "aria-label": "value" });
@@ -5953,8 +5962,10 @@ function checkOddsBlock(opt, changed, restructure) {
     if (st.items.length < 3) { const add = el("button", { type: "button", class: "tb", text: "+ goal" }); add.addEventListener("click", () => { st.items.push({ template: templates[0] || "", voice: "", ore: "time" }); redo(); }); box.append(add); }
     const facts = el("div", { class: "pp-facts" });
     for (const [name, kind] of PROSE_FACT_FIELDS) {
-      const v = st.facts[name];
-      const input = kind === "bool" ? el("input", { type: "checkbox", checked: !!v }) : el("input", { type: kind === "number" ? "number" : "text", value: String(v ?? "") });
+      const v = st.facts[name], ch = kind === "text" ? proseChoices(proseFactMeta(name)) : null;
+      const input = kind === "bool" ? el("input", { type: "checkbox", checked: !!v })
+        : ch ? el("select", {}, ...(ch.includes(String(v ?? "")) ? ch : [String(v ?? ""), ...ch]).map((o) => el("option", { value: o, text: o || "(nobody)", ...(o === String(v ?? "") ? { selected: true } : {}) })))
+        : el("input", { type: kind === "number" ? "number" : "text", value: String(v ?? "") });
       input.addEventListener("change", () => { st.facts[name] = kind === "bool" ? input.checked : kind === "number" ? Number(input.value) : input.value; redo(); });
       facts.append(el("label", { class: "pp-fact" }, el("span", { class: "mono", text: name }), input));
     }

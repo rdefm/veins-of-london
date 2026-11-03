@@ -70,7 +70,7 @@
           "key": "c11",
           "label": null,
           "type": "speaker",
-          "text": "\"Some offence>\"",
+          "text": "\"Some offence.\"",
           "speaker": "You"
         },
         {
@@ -396,7 +396,7 @@
           "type": "speaker",
           "label": null,
           "speaker": "Archie",
-          "text": "\"See? Professional, prompt, no Stanley knife. Most of them are like Marcus. That's the market we're after.\""
+          "text": "\"See? Professional, prompt, no teeth knocked out. Most of them are like Marcus. That's the market we're after.\""
         },
         {
           "key": "c10",
