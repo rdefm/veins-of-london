@@ -129,7 +129,7 @@ static func lint_event(id: String, def: Dictionary, refs: Dictionary) -> Array:
 		if card.has("observe") and card["observe"] != null and not def.get("observations", {}).has(card["observe"]):
 			out.append("%s: card %d observe '%s' is not defined" % [id, i, str(card["observe"])])
 		if card.get("label") is String:
-			out.append_array(_lint_label(id, i, card["label"], at_block))
+			out.append_array(_lint_label(id, i, card["label"], at_block, bool(def.get("fillFromContext", false))))
 		out.append_array(_lint_card_route(id, i, card, cards, refs))
 		var option_count: int = (card.get("choices", []) as Array).size()
 		if option_count > MAX_OPTIONS:
@@ -139,12 +139,12 @@ static func lint_event(id: String, def: Dictionary, refs: Dictionary) -> Array:
 	return out
 
 
-static func _lint_label(id: String, i: int, label: String, at_block: Variant) -> Array:
+static func _lint_label(id: String, i: int, label: String, at_block: Variant, context_filled: bool = false) -> Array:
 	var out: Array = []
 	var where := "%s: card %d label '%s'" % [id, i, label]
 	var token_re := RegEx.create_from_string("\\{([^}]*)\\}")
 	for m in token_re.search_all(label):
-		if not LABEL_TOKENS.has(m.get_string(1)):
+		if not context_filled and not LABEL_TOKENS.has(m.get_string(1)):
 			out.append("%s has unknown token {%s}" % [where, m.get_string(1)])
 	var words := token_re.sub(label, "", true).to_lower()
 	for pattern in DAY_PATTERNS:

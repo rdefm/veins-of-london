@@ -969,8 +969,11 @@
         {
           "id": "landmark_2",
           "premise": {
-            "kind": "spine_done",
-            "beat": "supplier_contract"
+            "kind": "all_of",
+            "conditions": [
+              { "kind": "spine_done", "beat": "supplier_contract" },
+              { "kind": "rung_done", "ladder": "office", "rung": "office_1" }
+            ]
           },
           "goal": {
             "type": "contracts_settled_at_least",
@@ -1029,8 +1032,11 @@
         {
           "id": "landmark_3",
           "premise": {
-            "kind": "spine_done",
-            "beat": "supplier_contract"
+            "kind": "all_of",
+            "conditions": [
+              { "kind": "spine_done", "beat": "supplier_contract" },
+              { "kind": "rung_done", "ladder": "office", "rung": "office_2" }
+            ]
           },
           "goal": {
             "type": "contracts_settled_at_least",
@@ -1080,6 +1086,69 @@
                 "tier": 1,
                 "qty": 1
               }
+            ]
+          },
+          "pinned": false,
+          "spine": null,
+          "permanent": false
+        }
+      ]
+    },
+    "office": {
+      "voice": "archie",
+      "rungs": [
+        {
+          "id": "office_1",
+          "premise": { "kind": "rung_done", "ladder": "landmark", "rung": "landmark_1" },
+          "goal": { "type": "home_tier_at_least", "params": {} },
+          "tiers": {
+            "base": { "minTier": "studio" },
+            "target": { "minTier": "flat" },
+            "stretch": { "minTier": "townhouse" }
+          },
+          "lengthWeeks": 3,
+          "rewards": {
+            "base": [ { "kind": "cash", "amount": 150 } ],
+            "target": [
+              { "kind": "cash", "amount": 300 },
+              { "kind": "item", "id": "enhancementPowder", "tier": 1, "qty": 1 }
+            ],
+            "stretch": [
+              { "kind": "cash", "amount": 500 },
+              { "kind": "item", "id": "enhancementPowder", "tier": 1, "qty": 1 },
+              { "kind": "item", "id": "timePearl", "tier": 1, "qty": 1 }
+            ]
+          },
+          "pinned": false,
+          "spine": null,
+          "permanent": false
+        },
+        {
+          "id": "office_2",
+          "premise": {
+            "kind": "all_of",
+            "conditions": [
+              { "kind": "rung_done", "ladder": "office", "rung": "office_1" },
+              { "kind": "rung_done", "ladder": "landmark", "rung": "landmark_2" }
+            ]
+          },
+          "goal": { "type": "home_tier_at_least", "params": {} },
+          "tiers": {
+            "base": { "minTier": "flat" },
+            "target": { "minTier": "townhouse" },
+            "stretch": { "minTier": "safehouse" }
+          },
+          "lengthWeeks": 3,
+          "rewards": {
+            "base": [ { "kind": "cash", "amount": 250 } ],
+            "target": [
+              { "kind": "cash", "amount": 500 },
+              { "kind": "item", "id": "enhancementPowder", "tier": 1, "qty": 1 }
+            ],
+            "stretch": [
+              { "kind": "cash", "amount": 800 },
+              { "kind": "item", "id": "enhancementPowder", "tier": 1, "qty": 1 },
+              { "kind": "item", "id": "timePearl", "tier": 1, "qty": 1 }
             ]
           },
           "pinned": false,
@@ -1140,6 +1209,12 @@
     },
     "landmark_3": {
       "label": "Landmark deal: The Westminster account"
+    },
+    "office_1": {
+      "label": "Get a proper office"
+    },
+    "office_2": {
+      "label": "An address worth signing to"
     }
   },
   "todo": {
@@ -1174,6 +1249,13 @@
     "_comment": "Monday meeting (BoardMeetings.meeting_context()). Text is placeholder copy; PROSE-REVIEW: every string here is new.",
     "enableFlag": "bizA1Complete",
     "eventId": "board_meeting",
+    "venue": {
+      "_comment": "Meeting card label by HQ tier (BoardMeetings.venue_label()): the last office whose minTier the HQ has reached, else default. PROSE-REVIEW: new copy.",
+      "default": "Bermondsey - James's workshop",
+      "offices": [
+        { "minTier": "flat", "label": "Your HQ - the office" }
+      ]
+    },
     "minutesNone": "No goal on the books last week.",
     "minutes": {
       "_comment": "Minutes reaction (BoardMeetings.minutes_line()). groups maps a history result to a reaction group; variant = entry week mod list size. Tokens: {label}, {tier}. skipped = the goal Archie picked for you (tuning.skipVoice). PROSE-REVIEW: all new copy.",

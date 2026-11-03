@@ -1,0 +1,27 @@
+{
+  "template": "office_1",
+  "cards": [
+    {
+      "id": "office_1.case.1",
+      "slot": "case",
+      "voice": "archie",
+      "cards": [
+        {
+          "speaker": "Archie",
+          "text": "The next buyers up won't do business out of a spare room. Get a proper office and they'll take the meeting."
+        }
+      ]
+    },
+    {
+      "id": "office_1.case.2",
+      "slot": "case",
+      "voice": "archie",
+      "cards": [
+        {
+          "speaker": "Archie",
+          "text": "A better class of client wants a door that's a bit more impressive than yours. A proper office. Then we talk landmark deals."
+        }
+      ]
+    }
+  ]
+}

@@ -73,6 +73,24 @@ static func rung_status(ladder_id: String, rung_id: String) -> String:
 	return str(_board()["rungs"].get(ladder_id, {}).get(rung_id, {}).get("status", ""))
 
 
+# A rung counts as cleared once done (target+) or skipped (target already met).
+static func rung_cleared(ladder_id: String, rung_id: String) -> bool:
+	var status := rung_status(ladder_id, rung_id)
+	return status == RUNG_DONE or status == RUNG_SKIPPED
+
+
+# Meeting venue label from the home tier: the last data entry whose minTier
+# the HQ has reached, else the default (board.json meeting.venue).
+static func venue_label() -> String:
+	var venue: Dictionary = GameData.BOARD_MEETING["venue"]
+	var rank := Objectives.home_tier_rank(GameState.state["home"]["tier"])
+	var label := str(venue["default"])
+	for entry in venue["offices"]:
+		if rank >= Objectives.home_tier_rank(str(entry["minTier"])):
+			label = str(entry["label"])
+	return label
+
+
 static func _set_rung_status(ladder_id: String, rung_id: String, status: String, ore_type: String = "") -> void:
 	var rungs: Dictionary = _board()["rungs"]
 	if not rungs.has(ladder_id):
@@ -522,7 +540,7 @@ static func maybe_start_meeting() -> bool:
 static func meeting_context(week: int) -> Dictionary:
 	var meeting: Dictionary = GameData.BOARD_MEETING
 	var debate: Dictionary = meeting["debate"]
-	var context := { "week": str(week), "minutes": minutes_line(week), "opener": [], "clash": [], "explainer": [] }
+	var context := { "week": str(week), "venue": venue_label(), "minutes": minutes_line(week), "opener": [], "clash": [], "explainer": [] }
 	if week == 1:
 		var explainer := _prose(GameData.BOARD_PROSE_WEEK1, "explainer")
 		if not explainer.is_empty():

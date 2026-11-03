@@ -5,7 +5,7 @@
     {
       "key": "minutes",
       "type": "narration",
-      "label": "Bermondsey - James's workshop",
+      "label": "{venue}",
       "speaker": null,
       "text": "Monday. Archie has the minutes on his phone. {minutes}"
     },

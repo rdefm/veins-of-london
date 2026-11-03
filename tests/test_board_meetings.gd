@@ -1051,6 +1051,55 @@ func run() -> void:
 		assert_eq(BoardMeetings.reward_preview([{ "kind": "contract", "templateId": "landmark_2" }]), "Contract: Southwark retainer")
 	)
 
+	# ── Office ladder (Archie) ───────────────────────────────────────────
+
+	run_case("office_rung_opens_after_landmark_1_and_gates_landmark_2", func():
+		_enabled_game()
+		GameState.state["boardMeetings"]["spine"]["supplier_contract"] = "done"
+		var rungs: Dictionary = GameState.state["boardMeetings"]["rungs"]
+		rungs["landmark"] = { "landmark_supplier": { "status": "done", "day": 1 } }
+		var office := BoardMeetings.eligible_cards().filter(func(c): return c["ladder"] == "office")
+		assert_eq(office.size(), 0, "locked until landmark_1 cleared")
+		rungs["landmark"]["landmark_1"] = { "status": "done", "day": 2 }
+		office = BoardMeetings.eligible_cards().filter(func(c): return c["ladder"] == "office")
+		assert_eq(office[0]["rung"], "office_1")
+		assert_eq(office[0]["voice"], "archie")
+		var landmark := BoardMeetings.eligible_cards().filter(func(c): return c["ladder"] == "landmark")
+		assert_eq(landmark.size(), 0, "landmark_2 waits for the office")
+		rungs["office"] = { "office_1": { "status": "done", "day": 3 } }
+		landmark = BoardMeetings.eligible_cards().filter(func(c): return c["ladder"] == "landmark")
+		assert_eq(landmark[0]["rung"], "landmark_2")
+		rungs["landmark"]["landmark_2"] = { "status": "done", "day": 4 }
+		landmark = BoardMeetings.eligible_cards().filter(func(c): return c["ladder"] == "landmark")
+		assert_eq(landmark.size(), 0, "landmark_3 waits for office_2")
+		var second := BoardMeetings.eligible_cards().filter(func(c): return c["rung"] == "office_2")
+		assert_eq(second.size(), 1)
+	)
+
+	run_case("office_goal_reads_home_tier_and_met_target_skips_the_rung", func():
+		_enabled_game()
+		GameState.state["boardMeetings"]["spine"]["supplier_contract"] = "done"
+		GameState.state["boardMeetings"]["rungs"]["landmark"] = { "landmark_1": { "status": "done", "day": 1 } }
+		GameState.state["home"]["tier"] = "studio"
+		var card: Dictionary = BoardMeetings.eligible_cards().filter(func(c): return c["rung"] == "office_1")[0]
+		assert_eq(Objectives.tier_met(card["goal"]), "base")
+		GameState.state["home"]["tier"] = "flat"
+		assert_eq(Objectives.tier_met(card["goal"]), "target")
+		var after := BoardMeetings.eligible_cards().filter(func(c): return c["rung"] == "office_1")
+		assert_eq(after.size(), 0, "already at target")
+		assert_eq(BoardMeetings.rung_status("office", "office_1"), "skipped")
+		assert_true(BoardMeetings.rung_cleared("office", "office_1"))
+	)
+
+	run_case("meeting_venue_follows_home_tier", func():
+		_enabled_game()
+		GameState.state["home"]["tier"] = "studio"
+		assert_eq(BoardMeetings.venue_label(), "Bermondsey - James's workshop")
+		GameState.state["home"]["tier"] = "flat"
+		assert_eq(BoardMeetings.venue_label(), "Your HQ - the office")
+		assert_eq(BoardMeetings.meeting_context(1)["venue"], "Your HQ - the office")
+	)
+
 	# ── Cultivation ladder (Owen) ────────────────────────────────────────
 
 	run_case("cultivation_ladder_is_owens_with_placeholder_yield_tiers", func():

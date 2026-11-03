@@ -1,0 +1,27 @@
+{
+  "template": "office_2",
+  "cards": [
+    {
+      "id": "office_2.case.1",
+      "slot": "case",
+      "voice": "archie",
+      "cards": [
+        {
+          "speaker": "Archie",
+          "text": "The Westminster account won't sign in a flat. They want an address worth putting on the paperwork."
+        }
+      ]
+    },
+    {
+      "id": "office_2.case.2",
+      "slot": "case",
+      "voice": "archie",
+      "cards": [
+        {
+          "speaker": "Archie",
+          "text": "One more step up and the big names will sit down with us. Somewhere with a bit of weight to it."
+        }
+      ]
+    }
+  ]
+}

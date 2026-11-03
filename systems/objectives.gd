@@ -29,6 +29,7 @@ const TYPE_RECIPES_RANKED_UP_AT_LEAST := "recipes_ranked_up_at_least"
 const TYPE_RECIPES_AT_RANK_AT_LEAST := "recipes_at_rank_at_least"
 const TYPE_CONTRACTS_SETTLED_AT_LEAST := "contracts_settled_at_least"
 const TYPE_SUPPLIER_CONTRACT_SIGNED := "supplier_contract_signed"
+const TYPE_HOME_TIER_AT_LEAST := "home_tier_at_least"
 
 const TYPE_YIELD_MULTIPLE_AT_LEAST := "yield_multiple_at_least"
 const TYPE_NEW_VEINS_ONLINE_AT_LEAST := "new_veins_online_at_least"
@@ -167,6 +168,8 @@ static func _evaluate(def: Dictionary, progress: Dictionary) -> bool:
 			return progress.has("contractBaseline") and completed_contract_count() - int(progress["contractBaseline"]) >= int(params["minCount"])
 		TYPE_SUPPLIER_CONTRACT_SIGNED:
 			return supplier_contracts_signed(str(params.get("oreType", "")), int(progress.get("sinceDay", 0)), int(params.get("minWeeks", 4))) >= int(params["minCount"])
+		TYPE_HOME_TIER_AT_LEAST:
+			return home_tier_rank(GameState.state["home"]["tier"]) >= home_tier_rank(str(params["minTier"]))
 		TYPE_YIELD_MULTIPLE_AT_LEAST:
 			return _eval_yield_multiple(params, progress)
 		TYPE_NEW_VEINS_ONLINE_AT_LEAST:
@@ -177,6 +180,11 @@ static func _evaluate(def: Dictionary, progress: Dictionary) -> bool:
 			return _online_ore_types(int(params["minGrowth"])) >= int(params["minTypes"])
 		_:
 			return false
+
+
+# Position of a home tier along home.json tierOrder (-1 if unknown).
+static func home_tier_rank(tier_id: String) -> int:
+	return GameData.HOME_TIER_ORDER.find(tier_id)
 
 
 # Progress a generated goal needs captured at the moment it is chosen: the
@@ -518,6 +526,13 @@ static func condition_met(condition: Dictionary) -> bool:
 			return recipes_at_rank(int(condition["rank"])) >= 1
 		"spine_done":
 			return BoardMeetings.spine_done(str(condition["beat"]))
+		"rung_done":
+			return BoardMeetings.rung_cleared(str(condition["ladder"]), str(condition["rung"]))
+		"all_of":
+			for sub in condition["conditions"]:
+				if not condition_met(sub):
+					return false
+			return true
 		"ore_market_active":
 			return not market_ores().is_empty()
 		"yield_baseline_above":

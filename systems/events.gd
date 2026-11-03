@@ -240,7 +240,9 @@ static func revealed_cards() -> Array:
 		var card: Dictionary = _with_context_choices(_with_label_tokens(cards[i]))
 		if fill:
 			card = card.duplicate()
-			card["text"] = String(card["text"]).format(event_state.get("context", {}))
+			if card.get("label") is String:
+				card["label"] = String(card["label"]).format(event_state.get("context", {}))
+			card["text"] =String(card["text"]).format(event_state.get("context", {}))
 			if card.get("speaker") is String:
 				card["speaker"] = String(card["speaker"]).format(event_state.get("context", {}))
 		result.append(card)
