@@ -1,0 +1,1068 @@
+# stockpile_raid_stash — imported from data/events/stockpile_raid_stash.json
+
+```json
+{
+  "id": "stockpile_raid_stash",
+  "observations": {
+    "raid": {
+      "name": "Raid",
+      "mods": [],
+      "blocks": {
+        "physics": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "A loading hatch at the side, hinges rusted to paste. One shove and it's open."
+            },
+            {
+              "base": 0.55,
+              "text": "There's a service hatch at the back. It might give. It might not be quiet."
+            }
+          ],
+          "miss": "Steel door, steel frame. Nothing here moves."
+        },
+        "life": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "The man on the door is half asleep. He props his head on one fist and loses the argument with it."
+            },
+            {
+              "base": 0.55,
+              "text": "The man on the door keeps yawning. He's been on too long."
+            }
+          ],
+          "miss": "A figure behind the glass. You can't tell if he's awake."
+        },
+        "emotion": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "The guard is wound tight. He checks the same lock three times."
+            },
+            {
+              "base": 0.55,
+              "text": "The guard keeps glancing at the street, then at his phone, then at the street."
+            }
+          ],
+          "miss": "Blank faces. They've done this before."
+        },
+        "time": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "A delivery van comes at the half hour and the door stands open for ninety seconds. Every time."
+            },
+            {
+              "base": 0.55,
+              "text": "Someone comes and goes at roughly the same times. Roughly."
+            }
+          ],
+          "miss": "No pattern in the comings and goings that you can pin down."
+        },
+        "fate": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "You feel the moment the door guard looks away. A second before he does."
+            },
+            {
+              "base": 0.55,
+              "text": "Something is about to go wrong for someone here. Not necessarily you."
+            }
+          ],
+          "miss": "No chances you can see. It's a door on a street."
+        }
+      }
+    }
+  },
+  "on_complete": [
+    {
+      "op": "set_screen",
+      "screen": "map"
+    }
+  ],
+  "start": "main",
+  "branches": {
+    "main": {
+      "title": "Start",
+      "cards": [
+        {
+          "key": "c1",
+          "type": "tension",
+          "label": "Their stores",
+          "speaker": null,
+          "observe": "raid",
+          "text": "It took money to learn where they keep it. It cost even more to learn where they keep the hidden stash. The door looks like every other door on the street, which is the point. Someone is paid to sit behind it."
+        },
+        {
+          "key": "c2",
+          "type": "choice",
+          "label": null,
+          "speaker": null,
+          "text": "In and out before anyone counts.",
+          "choices": [
+            {
+              "label": "Just go in",
+              "check": {
+                "base": 0.15,
+                "raidFactors": true,
+                "mods": []
+              },
+              "success": {
+                "result_text": "You walk in like you belong. Nobody asks.",
+                "effects": [
+                  {
+                    "op": "notify",
+                    "text": "No alarms. You're in clean."
+                  }
+                ],
+                "goto": {
+                  "branch": "b5"
+                }
+              },
+              "fail": {
+                "result_text": "You walk in. Someone asks.",
+                "effects": [
+                  {
+                    "op": "notify",
+                    "text": "The one on the door wasn't asleep. You've been seen."
+                  },
+                  {
+                    "op": "start_stockpile_raid_combat",
+                    "situational": [
+                      {
+                        "if": {
+                          "observed": {
+                            "id": "raid",
+                            "ore": "physics",
+                            "atLeast": 1
+                          }
+                        },
+                        "fleeBoost": 0.25
+                      },
+                      {
+                        "if": {
+                          "observed": {
+                            "id": "raid",
+                            "ore": "life",
+                            "atLeast": 1
+                          }
+                        },
+                        "oneAtATime": true
+                      },
+                      {
+                        "if": {
+                          "observed": {
+                            "id": "raid",
+                            "ore": "time",
+                            "atLeast": 1
+                          }
+                        },
+                        "sight": 2
+                      },
+                      {
+                        "if": {
+                          "observed": {
+                            "id": "raid",
+                            "ore": "fate",
+                            "atLeast": 1
+                          }
+                        },
+                        "firstStrike": true
+                      }
+                    ]
+                  }
+                ],
+                "goto": {
+                  "branch": "b5"
+                }
+              }
+            },
+            {
+              "label": "Go in loud",
+              "effects": [
+                {
+                  "op": "start_stockpile_raid_combat",
+                  "situational": [
+                    {
+                      "if": {
+                        "observed": {
+                          "id": "raid",
+                          "ore": "physics",
+                          "atLeast": 1
+                        }
+                      },
+                      "fleeBoost": 0.25
+                    },
+                    {
+                      "if": {
+                        "observed": {
+                          "id": "raid",
+                          "ore": "life",
+                          "atLeast": 1
+                        }
+                      },
+                      "oneAtATime": true
+                    },
+                    {
+                      "if": {
+                        "observed": {
+                          "id": "raid",
+                          "ore": "time",
+                          "atLeast": 1
+                        }
+                      },
+                      "sight": 2
+                    },
+                    {
+                      "if": {
+                        "observed": {
+                          "id": "raid",
+                          "ore": "fate",
+                          "atLeast": 1
+                        }
+                      },
+                      "firstStrike": true
+                    }
+                  ]
+                }
+              ],
+              "result_text": "No point creeping. You put your shoulder to the door and go in hard.",
+              "goto": {
+                "branch": "b5"
+              }
+            },
+            {
+              "label": "Weigh the quiet ways in",
+              "reselectable": true,
+              "effects": [],
+              "result_text": null,
+              "goto": {
+                "branch": "b3"
+              }
+            }
+          ]
+        }
+      ],
+      "then": {
+        "branch": "b3"
+      }
+    },
+    "b3": {
+      "title": "From card 3",
+      "cards": [
+        {
+          "key": "c3",
+          "type": "choice",
+          "label": null,
+          "speaker": null,
+          "text": "What you read, and what it buys you.",
+          "choices": [
+            {
+              "label": "Take the hatch",
+              "requires": {
+                "observed": {
+                  "id": "raid",
+                  "ore": "physics",
+                  "atLeast": 1
+                }
+              },
+              "check": {
+                "base": 0.6,
+                "mods": [
+                  {
+                    "observed": {
+                      "id": "raid",
+                      "ore": "physics",
+                      "atLeast": 2
+                    },
+                    "add": 0.15,
+                    "label": "A sharp read"
+                  }
+                ]
+              },
+              "success": {
+                "result_text": "The hatch gives with a little flake of rust. You're in without a sound.",
+                "effects": [
+                  {
+                    "op": "notify",
+                    "text": "No alarms. You're in clean."
+                  }
+                ],
+                "goto": {
+                  "branch": "b5"
+                }
+              },
+              "fail": {
+                "result_text": "The hatch sticks. Then it shrieks.",
+                "effects": [
+                  {
+                    "op": "notify",
+                    "text": "The one on the door wasn't asleep. You've been seen."
+                  },
+                  {
+                    "op": "start_stockpile_raid_combat",
+                    "situational": [
+                      {
+                        "if": {
+                          "observed": {
+                            "id": "raid",
+                            "ore": "physics",
+                            "atLeast": 1
+                          }
+                        },
+                        "fleeBoost": 0.25
+                      },
+                      {
+                        "if": {
+                          "observed": {
+                            "id": "raid",
+                            "ore": "life",
+                            "atLeast": 1
+                          }
+                        },
+                        "oneAtATime": true
+                      },
+                      {
+                        "if": {
+                          "observed": {
+                            "id": "raid",
+                            "ore": "time",
+                            "atLeast": 1
+                          }
+                        },
+                        "sight": 2
+                      },
+                      {
+                        "if": {
+                          "observed": {
+                            "id": "raid",
+                            "ore": "fate",
+                            "atLeast": 1
+                          }
+                        },
+                        "firstStrike": true
+                      }
+                    ]
+                  }
+                ],
+                "goto": {
+                  "branch": "b5"
+                }
+              }
+            },
+            {
+              "label": "Wait out the sleepy guard",
+              "requires": {
+                "observed": {
+                  "id": "raid",
+                  "ore": "life",
+                  "atLeast": 1
+                }
+              },
+              "check": {
+                "base": 0.6,
+                "mods": [
+                  {
+                    "observed": {
+                      "id": "raid",
+                      "ore": "life",
+                      "atLeast": 2
+                    },
+                    "add": 0.15,
+                    "label": "A sharp read"
+                  }
+                ]
+              },
+              "success": {
+                "result_text": "His chin hits his chest. You step past before he finishes the thought.",
+                "effects": [
+                  {
+                    "op": "reduce_raid_guards",
+                    "count": 1
+                  },
+                  {
+                    "op": "start_stockpile_raid_combat",
+                    "situational": [
+                      {
+                        "if": {
+                          "observed": {
+                            "id": "raid",
+                            "ore": "physics",
+                            "atLeast": 1
+                          }
+                        },
+                        "fleeBoost": 0.25
+                      },
+                      {
+                        "if": {
+                          "observed": {
+                            "id": "raid",
+                            "ore": "life",
+                            "atLeast": 1
+                          }
+                        },
+                        "oneAtATime": true
+                      },
+                      {
+                        "if": {
+                          "observed": {
+                            "id": "raid",
+                            "ore": "time",
+                            "atLeast": 1
+                          }
+                        },
+                        "sight": 2
+                      },
+                      {
+                        "if": {
+                          "observed": {
+                            "id": "raid",
+                            "ore": "fate",
+                            "atLeast": 1
+                          }
+                        },
+                        "firstStrike": true
+                      }
+                    ]
+                  }
+                ],
+                "goto": {
+                  "branch": "b5"
+                }
+              },
+              "fail": {
+                "result_text": "He shakes himself awake and looks up.",
+                "effects": [
+                  {
+                    "op": "notify",
+                    "text": "The one on the door wasn't asleep. You've been seen."
+                  },
+                  {
+                    "op": "start_stockpile_raid_combat",
+                    "situational": [
+                      {
+                        "if": {
+                          "observed": {
+                            "id": "raid",
+                            "ore": "physics",
+                            "atLeast": 1
+                          }
+                        },
+                        "fleeBoost": 0.25
+                      },
+                      {
+                        "if": {
+                          "observed": {
+                            "id": "raid",
+                            "ore": "life",
+                            "atLeast": 1
+                          }
+                        },
+                        "oneAtATime": true
+                      },
+                      {
+                        "if": {
+                          "observed": {
+                            "id": "raid",
+                            "ore": "time",
+                            "atLeast": 1
+                          }
+                        },
+                        "sight": 2
+                      },
+                      {
+                        "if": {
+                          "observed": {
+                            "id": "raid",
+                            "ore": "fate",
+                            "atLeast": 1
+                          }
+                        },
+                        "firstStrike": true
+                      }
+                    ]
+                  }
+                ],
+                "goto": {
+                  "branch": "b5"
+                }
+              }
+            },
+            {
+              "label": "Rattle the guard",
+              "requires": {
+                "observed": {
+                  "id": "raid",
+                  "ore": "emotion",
+                  "atLeast": 1
+                }
+              },
+              "check": {
+                "base": 0.6,
+                "mods": [
+                  {
+                    "observed": {
+                      "id": "raid",
+                      "ore": "emotion",
+                      "atLeast": 2
+                    },
+                    "add": 0.15,
+                    "label": "A sharp read"
+                  }
+                ]
+              },
+              "success": {
+                "result_text": "You mention the lock sounds wrong. He goes to check it again.",
+                "effects": [
+                  {
+                    "op": "reduce_raid_guards",
+                    "count": 1
+                  },
+                  {
+                    "op": "start_stockpile_raid_combat",
+                    "situational": [
+                      {
+                        "if": {
+                          "observed": {
+                            "id": "raid",
+                            "ore": "physics",
+                            "atLeast": 1
+                          }
+                        },
+                        "fleeBoost": 0.25
+                      },
+                      {
+                        "if": {
+                          "observed": {
+                            "id": "raid",
+                            "ore": "life",
+                            "atLeast": 1
+                          }
+                        },
+                        "oneAtATime": true
+                      },
+                      {
+                        "if": {
+                          "observed": {
+                            "id": "raid",
+                            "ore": "time",
+                            "atLeast": 1
+                          }
+                        },
+                        "sight": 2
+                      },
+                      {
+                        "if": {
+                          "observed": {
+                            "id": "raid",
+                            "ore": "fate",
+                            "atLeast": 1
+                          }
+                        },
+                        "firstStrike": true
+                      }
+                    ]
+                  }
+                ],
+                "goto": {
+                  "branch": "b5"
+                }
+              },
+              "fail": {
+                "result_text": "He doesn't scare. He does look at you.",
+                "effects": [
+                  {
+                    "op": "notify",
+                    "text": "The one on the door wasn't asleep. You've been seen."
+                  },
+                  {
+                    "op": "start_stockpile_raid_combat",
+                    "situational": [
+                      {
+                        "if": {
+                          "observed": {
+                            "id": "raid",
+                            "ore": "physics",
+                            "atLeast": 1
+                          }
+                        },
+                        "fleeBoost": 0.25
+                      },
+                      {
+                        "if": {
+                          "observed": {
+                            "id": "raid",
+                            "ore": "life",
+                            "atLeast": 1
+                          }
+                        },
+                        "oneAtATime": true
+                      },
+                      {
+                        "if": {
+                          "observed": {
+                            "id": "raid",
+                            "ore": "time",
+                            "atLeast": 1
+                          }
+                        },
+                        "sight": 2
+                      },
+                      {
+                        "if": {
+                          "observed": {
+                            "id": "raid",
+                            "ore": "fate",
+                            "atLeast": 1
+                          }
+                        },
+                        "firstStrike": true
+                      }
+                    ]
+                  }
+                ],
+                "goto": {
+                  "branch": "b5"
+                }
+              }
+            },
+            {
+              "label": "Look further",
+              "reselectable": true,
+              "effects": [],
+              "result_text": null,
+              "goto": {
+                "branch": "b4"
+              }
+            }
+          ]
+        }
+      ],
+      "then": {
+        "branch": "b4"
+      }
+    },
+    "b4": {
+      "title": "From card 4",
+      "cards": [
+        {
+          "key": "c4",
+          "type": "choice",
+          "label": null,
+          "speaker": null,
+          "text": "More ways in, if you saw them.",
+          "choices": [
+            {
+              "label": "Slip in with the delivery",
+              "requires": {
+                "observed": {
+                  "id": "raid",
+                  "ore": "time",
+                  "atLeast": 1
+                }
+              },
+              "check": {
+                "base": 0.6,
+                "mods": [
+                  {
+                    "observed": {
+                      "id": "raid",
+                      "ore": "time",
+                      "atLeast": 2
+                    },
+                    "add": 0.15,
+                    "label": "A sharp read"
+                  }
+                ]
+              },
+              "success": {
+                "result_text": "Ninety seconds, as advertised. You use eighty.",
+                "effects": [
+                  {
+                    "op": "notify",
+                    "text": "No alarms. You're in clean."
+                  }
+                ],
+                "goto": {
+                  "branch": "b5"
+                }
+              },
+              "fail": {
+                "result_text": "The van is early. So much for the schedule.",
+                "effects": [
+                  {
+                    "op": "notify",
+                    "text": "The one on the door wasn't asleep. You've been seen."
+                  },
+                  {
+                    "op": "start_stockpile_raid_combat",
+                    "situational": [
+                      {
+                        "if": {
+                          "observed": {
+                            "id": "raid",
+                            "ore": "physics",
+                            "atLeast": 1
+                          }
+                        },
+                        "fleeBoost": 0.25
+                      },
+                      {
+                        "if": {
+                          "observed": {
+                            "id": "raid",
+                            "ore": "life",
+                            "atLeast": 1
+                          }
+                        },
+                        "oneAtATime": true
+                      },
+                      {
+                        "if": {
+                          "observed": {
+                            "id": "raid",
+                            "ore": "time",
+                            "atLeast": 1
+                          }
+                        },
+                        "sight": 2
+                      },
+                      {
+                        "if": {
+                          "observed": {
+                            "id": "raid",
+                            "ore": "fate",
+                            "atLeast": 1
+                          }
+                        },
+                        "firstStrike": true
+                      }
+                    ]
+                  }
+                ],
+                "goto": {
+                  "branch": "b5"
+                }
+              }
+            },
+            {
+              "label": "Move as he turns",
+              "requires": {
+                "observed": {
+                  "id": "raid",
+                  "ore": "fate",
+                  "atLeast": 1
+                }
+              },
+              "check": {
+                "base": 0.6,
+                "mods": [
+                  {
+                    "observed": {
+                      "id": "raid",
+                      "ore": "fate",
+                      "atLeast": 2
+                    },
+                    "add": 0.15,
+                    "label": "A sharp read"
+                  }
+                ]
+              },
+              "success": {
+                "result_text": "He turns to check his phone. You go.",
+                "effects": [
+                  {
+                    "op": "notify",
+                    "text": "No alarms. You're in clean."
+                  }
+                ],
+                "goto": {
+                  "branch": "b5"
+                }
+              },
+              "fail": {
+                "result_text": "He doesn't turn. He's looking right at you.",
+                "effects": [
+                  {
+                    "op": "notify",
+                    "text": "The one on the door wasn't asleep. You've been seen."
+                  },
+                  {
+                    "op": "start_stockpile_raid_combat",
+                    "situational": [
+                      {
+                        "if": {
+                          "observed": {
+                            "id": "raid",
+                            "ore": "physics",
+                            "atLeast": 1
+                          }
+                        },
+                        "fleeBoost": 0.25
+                      },
+                      {
+                        "if": {
+                          "observed": {
+                            "id": "raid",
+                            "ore": "life",
+                            "atLeast": 1
+                          }
+                        },
+                        "oneAtATime": true
+                      },
+                      {
+                        "if": {
+                          "observed": {
+                            "id": "raid",
+                            "ore": "time",
+                            "atLeast": 1
+                          }
+                        },
+                        "sight": 2
+                      },
+                      {
+                        "if": {
+                          "observed": {
+                            "id": "raid",
+                            "ore": "fate",
+                            "atLeast": 1
+                          }
+                        },
+                        "firstStrike": true
+                      }
+                    ]
+                  }
+                ],
+                "goto": {
+                  "branch": "b5"
+                }
+              }
+            },
+            {
+              "label": "Just go in",
+              "check": {
+                "base": 0.15,
+                "raidFactors": true,
+                "mods": []
+              },
+              "success": {
+                "result_text": "You walk in like you belong. Nobody asks.",
+                "effects": [
+                  {
+                    "op": "notify",
+                    "text": "No alarms. You're in clean."
+                  }
+                ],
+                "goto": {
+                  "branch": "b5"
+                }
+              },
+              "fail": {
+                "result_text": "You walk in. Someone asks.",
+                "effects": [
+                  {
+                    "op": "notify",
+                    "text": "The one on the door wasn't asleep. You've been seen."
+                  },
+                  {
+                    "op": "start_stockpile_raid_combat",
+                    "situational": [
+                      {
+                        "if": {
+                          "observed": {
+                            "id": "raid",
+                            "ore": "physics",
+                            "atLeast": 1
+                          }
+                        },
+                        "fleeBoost": 0.25
+                      },
+                      {
+                        "if": {
+                          "observed": {
+                            "id": "raid",
+                            "ore": "life",
+                            "atLeast": 1
+                          }
+                        },
+                        "oneAtATime": true
+                      },
+                      {
+                        "if": {
+                          "observed": {
+                            "id": "raid",
+                            "ore": "time",
+                            "atLeast": 1
+                          }
+                        },
+                        "sight": 2
+                      },
+                      {
+                        "if": {
+                          "observed": {
+                            "id": "raid",
+                            "ore": "fate",
+                            "atLeast": 1
+                          }
+                        },
+                        "firstStrike": true
+                      }
+                    ]
+                  }
+                ],
+                "goto": {
+                  "branch": "b5"
+                }
+              }
+            },
+            {
+              "label": "Go in loud",
+              "effects": [
+                {
+                  "op": "start_stockpile_raid_combat",
+                  "situational": [
+                    {
+                      "if": {
+                        "observed": {
+                          "id": "raid",
+                          "ore": "physics",
+                          "atLeast": 1
+                        }
+                      },
+                      "fleeBoost": 0.25
+                    },
+                    {
+                      "if": {
+                        "observed": {
+                          "id": "raid",
+                          "ore": "life",
+                          "atLeast": 1
+                        }
+                      },
+                      "oneAtATime": true
+                    },
+                    {
+                      "if": {
+                        "observed": {
+                          "id": "raid",
+                          "ore": "time",
+                          "atLeast": 1
+                        }
+                      },
+                      "sight": 2
+                    },
+                    {
+                      "if": {
+                        "observed": {
+                          "id": "raid",
+                          "ore": "fate",
+                          "atLeast": 1
+                        }
+                      },
+                      "firstStrike": true
+                    }
+                  ]
+                }
+              ],
+              "result_text": "No point creeping. You put your shoulder to the door and go in hard.",
+              "goto": {
+                "branch": "b5"
+              }
+            }
+          ]
+        }
+      ],
+      "then": {
+        "branch": "b5"
+      }
+    },
+    "b5": {
+      "title": "From card 5",
+      "cards": [
+        {
+          "key": "c5",
+          "type": "choice",
+          "label": null,
+          "speaker": null,
+          "text": "Crates, jars, a ledger nobody will be reading tonight. And behind the false wall you paid to hear about, the rest of it.",
+          "choices": [
+            {
+              "label": "Take what you can carry",
+              "effects": [
+                {
+                  "op": "loot_stockpile"
+                }
+              ],
+              "result_text": "You fill everything you brought and leave the rest stacked. They'll move what's left by morning. They'll also know who to thank."
+            },
+            {
+              "label": "Take everything",
+              "effects": [
+                {
+                  "op": "loot_stockpile",
+                  "all": true
+                }
+              ],
+              "result_text": "The shelves, the false wall, the tin under the floorboard. You leave them the ledger."
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "_keyOrder": {
+    "top": [
+      "id",
+      "observations",
+      "cards",
+      "on_complete"
+    ],
+    "cards": {
+      "c1": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "observe",
+        "text"
+      ],
+      "c2": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text",
+        "choices"
+      ],
+      "c3": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text",
+        "choices"
+      ],
+      "c4": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text",
+        "choices"
+      ],
+      "c5": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text",
+        "choices"
+      ]
+    }
+  },
+  "_liveSource": "stockpile_raid_stash.json",
+  "_liveHash": "7908ec28"
+}
+```

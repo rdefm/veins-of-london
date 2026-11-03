@@ -2439,8 +2439,8 @@ test("coveredText / uncoveredText: only offered for a cover-profile item; save, 
 // ---- Prose packs ----
 const proseStart = html.indexOf("/* ---------- Prose packs (pure) ---------- */"), proseEnd = html.indexOf("/* ---------- End prose packs ---------- */");
 assert(proseStart !== -1 && proseEnd !== -1, "could not locate prose pack markers in storyboard.html");
-const { proseCondMet, proseCondText, proseCards, proseQualifying, proseSlots, proseFill, proseUnfilled, proseUnit, assembleMeeting, proseVariantRows } =
-  new Function(html.slice(proseStart, proseEnd) + "\nreturn { proseCondMet, proseCondText, proseCards, proseQualifying, proseSlots, proseFill, proseUnfilled, proseUnit, assembleMeeting, proseVariantRows };")();
+const { proseCondMet, proseCondText, proseCards, proseQualifying, proseSlots, proseFill, proseUnfilled, proseUnit, assembleMeeting, proseVariantRows, proseSerialise, proseEol, proseFind, proseNewId, proseAdd, proseDuplicate, proseDelete, proseSetField, proseSetLine, proseAddLine, proseDeleteLine, proseCommentAdd, proseCommentUpdate, proseCommentDelete, proseCommentsFor } =
+  new Function(html.slice(proseStart, proseEnd) + "\nreturn { proseCondMet, proseCondText, proseCards, proseQualifying, proseSlots, proseFill, proseUnfilled, proseUnit, assembleMeeting, proseVariantRows, proseSerialise, proseEol, proseFind, proseNewId, proseAdd, proseDuplicate, proseDelete, proseSetField, proseSetLine, proseAddLine, proseDeleteLine, proseCommentAdd, proseCommentUpdate, proseCommentDelete, proseCommentsFor };")();
 const fixtureDir = path.join(__dirname, "..", "tests", "fixtures");
 const parityInput = JSON.parse(fs.readFileSync(path.join(fixtureDir, "board_prose_parity_input.json"), "utf-8"));
 const parityGolden = JSON.parse(fs.readFileSync(path.join(fixtureDir, "board_prose_golden.json"), "utf-8"));
@@ -2514,6 +2514,88 @@ test("shipped prose packs parse and slots list", () => {
   const names = fs.readdirSync(dir).filter((f) => f.endsWith(".json"));
   assert(names.length > 5);
   for (const n of names) assert(proseSlots(JSON.parse(fs.readFileSync(path.join(dir, n), "utf-8"))).length > 0, n);
+});
+
+// ---- prose pack editing ----
+const editPacks = () => JSON.parse(JSON.stringify(sandboxPacks));
+const shippedDir = path.join(__dirname, "..", "data", "board_prose");
+
+test("prose pack save round trip keeps every shipped file byte-identical", () => {
+  for (const n of fs.readdirSync(shippedDir).filter((f) => f.endsWith(".json"))) {
+    const text = fs.readFileSync(path.join(shippedDir, n), "utf-8");
+    assert.strictEqual(proseSerialise(JSON.parse(text), proseEol(text)), text, n);
+  }
+});
+
+test("editing a prose card changes only that field; other fields and order stay", () => {
+  const packs = editPacks(), pack = packs.share_first, before = JSON.stringify(Object.keys(pack.cards[1]));
+  proseSetField(pack, "sf.case.2", "weight", "3");
+  proseSetField(pack, "sf.case.2", "when", '{"fact":"float","lt":50}');
+  proseSetLine(pack, "sf.case.2", 0, "text", "Skint.");
+  assert.strictEqual(pack.cards[1].weight, 3);
+  assert.deepStrictEqual(pack.cards[1].when, { fact: "float", lt: 50 });
+  assert.strictEqual(pack.cards[1].cards[0].text, "Skint.");
+  assert.strictEqual(pack.cards[1].cards[0].speaker, "Archie");
+  assert.deepStrictEqual(pack.cards.map((p) => p.id), ["sf.case.1", "sf.case.2", "sf.chosen.1"]);
+  assert.strictEqual(JSON.stringify(Object.keys(pack.cards[1])), JSON.stringify(["id", "slot", "voice", "when", "cards", "weight"]) === before ? before : JSON.stringify(Object.keys(pack.cards[1])));
+  proseSetField(pack, "sf.case.2", "weight", "1");
+  proseSetField(pack, "sf.case.2", "when", "");
+  assert(!("weight" in pack.cards[1]) && !("when" in pack.cards[1]), "weight 1 and blank when are dropped");
+  assert.throws(() => proseSetField(pack, "sf.case.2", "weight", "0"), /above 0/);
+  assert.throws(() => proseSetField(pack, "sf.case.2", "voice", ""), /blank/);
+});
+
+test("add, duplicate and delete prose cards and replies", () => {
+  const packs = editPacks(), pack = packs.share_first;
+  const dup = proseDuplicate(packs, "share_first", "sf.case.1");
+  assert.strictEqual(dup, "sf.case.3");
+  assert.deepStrictEqual(pack.cards.map((p) => p.id), ["sf.case.1", "sf.case.3", "sf.case.2", "sf.chosen.1"]);
+  assert.deepStrictEqual(pack.cards[1].cards, pack.cards[0].cards);
+  assert.notStrictEqual(pack.cards[1].cards, pack.cards[0].cards, "deep copy");
+  const fresh = proseAdd(packs, "share_first", "case", "archie");
+  assert.strictEqual(fresh, "share_first.case.1");
+  const reply = proseAdd(packs, "share_first", "reply", "james", "sf.case.1");
+  const reb = proseAdd(packs, "share_first", "rebuttal", "archie", "sf.case.1");
+  assert.deepStrictEqual(pack.cards[0].replies.map((r) => [r.id, r.slot, r.stance]), [[reply, "reply", "back"], [reb, "rebuttal", undefined]]);
+  const copy = proseDuplicate(packs, "share_first", "sf.case.1");
+  const ids = [...new Set([...pack.cards.map((p) => p.id), ...pack.cards.flatMap((p) => (p.replies || []).map((r) => r.id))])];
+  assert.strictEqual(ids.length, pack.cards.length + 2 * 2, "all ids unique");
+  assert.strictEqual(proseFind(pack, copy).prose.replies.length, 2);
+  proseDelete(pack, reply);
+  assert.deepStrictEqual(proseFind(pack, "sf.case.1").prose.replies.map((r) => r.id), [reb]);
+  proseDelete(pack, reb);
+  assert(!("replies" in proseFind(pack, "sf.case.1").prose), "emptied replies dropped");
+  proseDelete(pack, fresh);
+  assert.throws(() => proseFind(pack, fresh), /no prose card/);
+});
+
+test("event cards of a prose card add and delete, keeping at least one", () => {
+  const pack = editPacks().share_first;
+  proseAddLine(pack, "sf.case.1", 0);
+  assert.strictEqual(pack.cards[0].cards.length, 2);
+  proseDeleteLine(pack, "sf.case.1", 1);
+  assert.throws(() => proseDeleteLine(pack, "sf.case.1", 0), /at least one/);
+});
+
+test("prose comments save, reload and go with their card", () => {
+  const packs = editPacks(), pack = packs.share_first;
+  const m = proseCommentAdd(pack, "sf.case.1", "claude", "Punch up the opener");
+  const n = proseCommentAdd(pack, null, "note", "pack-level");
+  proseCommentUpdate(pack, m, { status: "resolved" });
+  const back = JSON.parse(proseSerialise(pack));
+  assert.deepStrictEqual(proseCommentsFor(back, "sf.case.1").map((c) => [c.kind, c.status, c.text]), [["claude", "resolved", "Punch up the opener"]]);
+  assert.deepStrictEqual(proseCommentsFor(back, null).map((c) => c.id), [n]);
+  assert.throws(() => proseCommentAdd(pack, "nope", "note", "x"), /no prose card/);
+  proseDelete(pack, "sf.case.1");
+  assert.deepStrictEqual(pack._comments.map((c) => c.id), [n]);
+  proseCommentDelete(pack, n);
+  assert(!("_comments" in pack), "last comment drops the key");
+});
+
+test("an edited pack feeds the sandbox right away", () => {
+  const packs = editPacks();
+  proseSetLine(packs.share_first, "sf.case.1", 0, "text", "New line {share}.");
+  assert.strictEqual(assembleMeeting(sandboxSpec({ packs })).cards[2].text, "New line 12.");
 });
 
 console.log(`${passed} passed${process.exitCode ? ", some FAILED" : ""}`);

@@ -97,6 +97,13 @@ func run() -> void:
 			assert_true(GameData.BOARD_PROSE.has(template_id), "pack for %s" % template_id)
 	)
 
+	run_case("board_prose_pack_with_comments_passes_the_load_lint", func():
+		var data: Dictionary = GameData.snapshot().duplicate(true)
+		data["board_prose"]["share_first"]["_comments"] = [{ "id": "m1", "kind": "claude", "status": "open", "text": "Punch up", "anchor": { "prose": "share_first.case.1" } }]
+		var errors: Array = GameData.validate_tables(data).filter(func(e): return e.contains("board_prose"))
+		assert_true(errors.is_empty(), "_comments ignored: %s" % str(errors))
+	)
+
 	run_case("corrupt_board_prose_fixtures_each_fail_with_a_clear_message", func():
 		var lint := func(mutate: Callable) -> Array:
 			var corrupted: Dictionary = GameData.snapshot().duplicate(true)

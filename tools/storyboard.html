@@ -3551,6 +3551,121 @@ function checkOddsBlock(opt, changed, restructure) {
     return proseCards(pack, slot).map((p) => ({ id: p.id, voice: p.voice || "", when: proseCondText(p.when), weight: Number(p.weight ?? 1),
       first: proseFirstLine(p), replies: Array.isArray(p.replies) ? p.replies.length : 0, eligible: facts ? !p.when || proseCondMet(p.when, facts) : null }));
   }
+  // ---- editing (in place; unknown fields and key order are left as found) ----
+  // A pack file as saved: 2-space JSON, trailing newline, the line ending it was read with.
+  function proseSerialise(pack, eol = "\n") {
+    const t = JSON.stringify(pack, null, 2) + "\n";
+    return eol === "\r\n" ? t.replace(/\n/g, "\r\n") : t;
+  }
+  const proseEol = (text) => (String(text).includes("\r\n") ? "\r\n" : "\n");
+  // The prose card (or reply) with this id in a pack: {prose, list, parent}; parent is the case card for a reply.
+  function proseFind(pack, id) {
+    for (const p of pack.cards || []) {
+      if (p.id === id) return { prose: p, list: pack.cards, parent: null };
+      const r = (p.replies || []).find((x) => x.id === id);
+      if (r) return { prose: r, list: p.replies, parent: p };
+    }
+    throw new Error(`no prose card ${id}`);
+  }
+  function proseAllIds(packs) {
+    const ids = new Set();
+    for (const pack of Object.values(packs)) for (const p of pack.cards || []) { ids.add(p.id); for (const r of p.replies || []) ids.add(r.id); }
+    return ids;
+  }
+  // base + ".1", ".2", ... — the first not used by any pack.
+  function proseNewId(packs, base) {
+    const used = proseAllIds(packs), stem = String(base).replace(/\.\d+$/, "");
+    let n = 1;
+    while (used.has(`${stem}.${n}`)) n++;
+    return `${stem}.${n}`;
+  }
+  // A blank prose card; a reply (parent given) takes slot reply|rebuttal and a stance on replies.
+  function proseAdd(packs, packName, slot, voice, parentId) {
+    const pack = packs[packName];
+    if (!pack) throw new Error(`no pack ${packName}`);
+    const reply = !!parentId;
+    const parent = reply ? proseFind(pack, parentId).prose : null;
+    const id = proseNewId(packs, reply ? parentId.replace(/\.\d+$/, "") + "." + slot : `${packName}.${slot}`);
+    const p = { id, slot, voice, ...(reply && slot === "reply" ? { stance: "back" } : {}), cards: [{ speaker: null, text: "" }] };
+    if (reply) (parent.replies = parent.replies || []).push(p); else pack.cards.push(p);
+    return id;
+  }
+  // A copy straight after the original, with a new unique id (its replies get new ids too).
+  function proseDuplicate(packs, packName, id) {
+    const pack = packs[packName], { prose, list } = proseFind(pack, id);
+    const copy = JSON.parse(JSON.stringify(prose));
+    const stemOf = (x) => x.replace(/\.\d+$/, "");
+    copy.id = proseNewId(packs, stemOf(id));
+    const taken = new Set([copy.id]);
+    for (const r of copy.replies || []) {
+      let n = 1;
+      while (taken.has(`${stemOf(r.id)}.${n}`) || proseAllIds(packs).has(`${stemOf(r.id)}.${n}`)) n++;
+      r.id = `${stemOf(r.id)}.${n}`; taken.add(r.id);
+    }
+    list.splice(list.indexOf(prose) + 1, 0, copy);
+    return copy.id;
+  }
+  function proseDelete(pack, id) {
+    const { prose, list } = proseFind(pack, id);
+    list.splice(list.indexOf(prose), 1);
+    for (const p of pack.cards) if (p.replies && !p.replies.length) delete p.replies;
+    pack._comments = (pack._comments || []).filter((c) => c.anchor && c.anchor.prose !== id);
+    if (!pack._comments.length) delete pack._comments;
+  }
+  // Sets slot|voice|to|stance|weight|when; blank (or empty) clears an optional field. `when` takes JSON text or an object.
+  function proseSetField(pack, id, field, value) {
+    const { prose } = proseFind(pack, id);
+    if (!["slot", "voice", "to", "stance", "weight", "when"].includes(field)) throw new Error(`unknown field ${field}`);
+    if (value === "" || value == null) { if (field === "slot" || field === "voice") throw new Error(`${field} can't be blank`); delete prose[field]; return; }
+    if (field === "weight") {
+      const n = Number(value);
+      if (!(n > 0)) throw new Error("weight must be a number above 0");
+      if (n === 1) delete prose.weight; else prose.weight = n;
+    } else if (field === "when") {
+      const w = typeof value === "string" ? JSON.parse(value) : value;
+      if (!w || typeof w !== "object" || Array.isArray(w)) throw new Error("when must be an object");
+      prose.when = w;
+    } else prose[field] = value;
+  }
+  // Event cards of a prose card: field is speaker|text|image; blank speaker/image clears.
+  function proseSetLine(pack, id, i, field, value) {
+    const { prose } = proseFind(pack, id), line = (prose.cards || [])[i];
+    if (!line) throw new Error(`prose card ${id} has no event card ${i + 1}`);
+    if (!["speaker", "text", "image"].includes(field)) throw new Error(`unknown field ${field}`);
+    if (field === "text") line.text = value; else if (value === "" || value == null) { if (field === "speaker") line.speaker = null; else delete line.image; } else line[field] = value;
+  }
+  function proseAddLine(pack, id, afterIdx) {
+    const { prose } = proseFind(pack, id);
+    prose.cards = prose.cards || [];
+    prose.cards.splice(afterIdx == null ? prose.cards.length : afterIdx + 1, 0, { speaker: null, text: "" });
+  }
+  function proseDeleteLine(pack, id, i) {
+    const { prose } = proseFind(pack, id);
+    if ((prose.cards || []).length <= 1) throw new Error("a prose card needs at least one event card");
+    prose.cards.splice(i, 1);
+  }
+  // "For Claude" comments, stored on the pack as `_comments`, each anchored to a prose card id (or the pack: {}).
+  function proseCommentAdd(pack, anchorId, kind, text) {
+    if (kind !== "claude" && kind !== "note") throw new Error(`unknown comment kind ${JSON.stringify(kind)}`);
+    if (anchorId) proseFind(pack, anchorId);
+    const used = new Set((pack._comments || []).map((c) => c.id));
+    let n = 1;
+    while (used.has("m" + n)) n++;
+    const c = { id: "m" + n, kind, ...(kind === "claude" ? { status: "open" } : {}), text, anchor: anchorId ? { prose: anchorId } : {} };
+    (pack._comments = pack._comments || []).push(c);
+    return c.id;
+  }
+  function proseCommentUpdate(pack, id, patch) {
+    const c = (pack._comments || []).find((x) => x.id === id);
+    if (!c) throw new Error(`no comment ${id}`);
+    if ("text" in patch) c.text = patch.text;
+    if ("status" in patch) { if (c.kind !== "claude") throw new Error("only a comment for Claude has a status"); c.status = patch.status; }
+  }
+  function proseCommentDelete(pack, id) {
+    pack._comments = (pack._comments || []).filter((x) => x.id !== id);
+    if (!pack._comments.length) delete pack._comments;
+  }
+  const proseCommentsFor = (pack, anchorId) => (pack._comments || []).filter((c) => (c.anchor && c.anchor.prose || null) === (anchorId || null));
   /* ---------- End prose packs ---------- */
 
 
@@ -5500,7 +5615,8 @@ function checkOddsBlock(opt, changed, restructure) {
     ["rival", "text"], ["rival_present", "bool"], ["contested", "text"], ["last_result", "text"], ["streak", "number"], ["last_pitcher", "text"]];
   const proseState = { packs: {}, voices: {}, debate: {}, pack: null, slot: null, seed: 1,
     items: [{ template: "", voice: "", ore: "time" }], facts: { week: 3, expenses: 400, float: 1200, share: 12, share_gap: 8, rival: "the independents",
-      rival_present: true, contested: "Time", last_result: "none", streak: 0, last_pitcher: "" }, step: 0 };
+      rival_present: true, contested: "Time", last_result: "none", streak: 0, last_pitcher: "" }, step: 0,
+    eols: {}, dirty: new Set(), sel: null, err: "" };
   let proseOn = false;
   async function loadProse() {
     const view = $("prose-view");
@@ -5511,9 +5627,9 @@ function checkOddsBlock(opt, changed, restructure) {
       for await (const [name, h] of dir.entries()) {
         if (h.kind !== "file" || !name.endsWith(".json")) continue;
         const pack = await readJSON(dir, name);
-        if (pack && Array.isArray(pack.cards)) packs[name.replace(/\.json$/, "")] = pack;
+        if (pack && Array.isArray(pack.cards)) { packs[name.replace(/\.json$/, "")] = pack; proseState.eols[name.replace(/\.json$/, "")] = proseEol(await readText(dir, name)); }
       }
-      proseState.packs = packs;
+      proseState.packs = packs; proseState.dirty = new Set(); proseState.sel = null;
       const bj = await readJSON(await dirAt(["data"]), "board.json");
       proseState.voices = (bj && bj.voices) || {};
       proseState.debate = (bj && bj.meeting && bj.meeting.debate) || {};
@@ -5548,12 +5664,107 @@ function checkOddsBlock(opt, changed, restructure) {
       tabs.append(b);
     }
     const rows = proseVariantRows(pack, st.slot, sandbox.facts0);
-    const table = el("table", { class: "pp-table" }, el("thead", {}, el("tr", {}, ...["id", "voice", "when", "weight", "first line", "now"].map((h) => el("th", { text: h })))),
-      el("tbody", {}, ...rows.map((r) => el("tr", { class: r.eligible ? "" : "pp-off" },
-        el("td", { class: "mono", text: r.id + (r.replies ? ` (+${r.replies} replies)` : "") }), el("td", { text: r.voice }), el("td", { class: "mono", text: r.when }),
-        el("td", { text: String(r.weight) }), el("td", { text: r.first }), el("td", { text: r.eligible ? "eligible" : "—" })))));
-    view.append(el("div", { class: "pp-bar" }, back, el("span", { class: "mono muted", text: "read-only · last column = eligibility against the sandbox facts" })),
-      list, el("h2", { text: st.pack }), tabs, table, renderSandbox(sandbox));
+    const table = el("table", { class: "pp-table" }, el("thead", {}, el("tr", {}, ...["id", "voice", "when", "weight", "first line", "now", ""].map((h) => el("th", { text: h })))),
+      el("tbody", {}, ...rows.map((r) => {
+        const edit = el("button", { type: "button", class: "tb", text: st.sel === r.id ? "editing" : "edit", "aria-pressed": String(st.sel === r.id) });
+        edit.addEventListener("click", () => { st.sel = st.sel === r.id ? null : r.id; renderProse(); });
+        return el("tr", { class: r.eligible ? "" : "pp-off" },
+          el("td", { class: "mono", text: r.id + (r.replies ? ` (+${r.replies} replies)` : "") }), el("td", { text: r.voice }), el("td", { class: "mono", text: r.when }),
+          el("td", { text: String(r.weight) }), el("td", { text: r.first }), el("td", { text: r.eligible ? "eligible" : "—" }), el("td", {}, edit));
+      })));
+    const add = el("button", { type: "button", class: "tb", text: "+ prose card" });
+    add.addEventListener("click", () => proseEdit(() => { st.sel = proseAdd(st.packs, st.pack, st.slot, proseVoicesFor(st.pack)[0] || Object.keys(st.voices)[0] || "archie"); }));
+    const save = el("button", { type: "button", class: "tb", text: st.dirty.size ? `Save (${[...st.dirty].join(", ")})` : "Saved", disabled: !st.dirty.size });
+    save.addEventListener("click", saveProse);
+    const sel = st.sel ? proseSafeFind(pack, st.sel) : null;
+    view.append(el("div", { class: "pp-bar" }, back, save, el("span", { class: "mono muted", text: "edits save straight to data/board_prose/ · git is the undo · last column = eligibility against the sandbox facts" })),
+      st.err ? el("p", { class: "pp-warn", role: "alert", text: st.err }) : null,
+      list, el("h2", { text: st.pack }), ...proseCommentRows(pack, null), tabs, table, add, sel ? renderProseEditor(pack, sel) : null, renderSandbox(sandbox));
+  }
+  const proseSafeFind = (pack, id) => { try { return proseFind(pack, id); } catch { return null; } };
+  // Runs a pack mutation, marks the pack dirty and redraws; a refused edit shows its message.
+  function proseEdit(fn) {
+    const st = proseState;
+    try { fn(); st.dirty.add(st.pack); st.err = ""; } catch (e) { st.err = e.message; }
+    renderProse();
+  }
+  async function saveProse() {
+    const st = proseState;
+    try {
+      const dir = await dirAt(PROSE_DIR);
+      for (const n of [...st.dirty]) { await writeFile(dir, n + ".json", proseSerialise(st.packs[n], st.eols[n] || "\n")); st.dirty.delete(n); }
+      st.err = ""; setNote("Saved prose packs.");
+    } catch (e) { st.err = "Couldn't save: " + e.message; }
+    renderProse();
+  }
+  function proseCommentRows(pack, anchorId) {
+    const out = [];
+    for (const c of proseCommentsFor(pack, anchorId)) {
+      const text = el("textarea", { rows: "2", "aria-label": "comment" }); text.value = c.text;
+      text.addEventListener("change", () => proseEdit(() => proseCommentUpdate(pack, c.id, { text: text.value })));
+      const kids = [el("b", { text: c.kind === "claude" ? "For Claude" : "Note" }), text];
+      if (c.kind === "claude") {
+        const b = el("button", { type: "button", class: "tb", text: c.status === "open" ? "Resolve" : "Reopen" });
+        b.addEventListener("click", () => proseEdit(() => proseCommentUpdate(pack, c.id, { status: c.status === "open" ? "resolved" : "open" })));
+        kids.push(el("span", { class: "mono", text: c.status }), b);
+      }
+      const del = el("button", { type: "button", class: "tb", text: "✕", title: "Delete comment" });
+      del.addEventListener("click", () => proseEdit(() => proseCommentDelete(pack, c.id)));
+      out.push(el("div", { class: "pp-row" }, ...kids, del));
+    }
+    const adds = [];
+    for (const [kind, label] of [["claude", "+ For Claude"], ["note", "+ Note"]]) {
+      const b = el("button", { type: "button", class: "tb", text: label });
+      b.addEventListener("click", () => proseEdit(() => proseCommentAdd(pack, anchorId, kind, "")));
+      adds.push(b);
+    }
+    return [...out, el("div", { class: "pp-row" }, ...adds)];
+  }
+  function renderProseEditor(pack, { prose, parent }) {
+    const st = proseState, id = prose.id;
+    const field = (label, value, key, opts) => {
+      const input = opts ? el("select", { "aria-label": label }, ...opts.map((o) => el("option", { value: o, text: o || "(none)", ...(o === (value ?? "") ? { selected: true } : {}) })))
+        : el("input", { type: "text", value: String(value ?? ""), "aria-label": label });
+      input.addEventListener("change", () => proseEdit(() => proseSetField(pack, id, key, input.value)));
+      return el("label", { class: "pp-fact" }, el("span", { class: "mono", text: label }), input);
+    };
+    const voices = Object.keys(st.voices);
+    const slotOpts = parent ? ["reply", "rebuttal"] : [...new Set([...proseSlots(pack), "case", "reply", "rebuttal", "chosen", "concede", "aftermath"])];
+    const box = el("section", { class: "pp-box" }, el("h3", { text: (parent ? "Reply " : "Prose card ") + id }),
+      el("div", { class: "pp-facts" }, field("slot", prose.slot, "slot", slotOpts), field("voice", prose.voice, "voice", voices), field("to", prose.to, "to", [""].concat(voices)),
+        field("stance", prose.stance, "stance", ["", "back", "challenge", "wobble"]), field("weight", prose.weight ?? 1, "weight"),
+        field("when (JSON)", prose.when ? JSON.stringify(prose.when) : "", "when")));
+    (prose.cards || []).forEach((line, i) => {
+      const lineField = (label, key, multi) => {
+        const input = multi ? el("textarea", { rows: "3", "aria-label": label }) : el("input", { type: "text", "aria-label": label });
+        input.value = line[key] ?? "";
+        input.addEventListener("change", () => proseEdit(() => proseSetLine(pack, id, i, key, input.value)));
+        return el("label", { class: "pp-fact" }, el("span", { class: "mono", text: label }), input);
+      };
+      const addB = el("button", { type: "button", class: "tb", text: "+ card after" }), delB = el("button", { type: "button", class: "tb", text: "✕ card" });
+      addB.addEventListener("click", () => proseEdit(() => proseAddLine(pack, id, i)));
+      delB.addEventListener("click", () => proseEdit(() => proseDeleteLine(pack, id, i)));
+      box.append(el("div", { class: "pp-row" }, el("b", { text: `Event card ${i + 1}` }), lineField("speaker", "speaker"), lineField("image", "image"), addB, delB), lineField("text", "text", true));
+    });
+    const dup = el("button", { type: "button", class: "tb", text: "Duplicate" }), del = el("button", { type: "button", class: "tb", text: "Delete" });
+    dup.addEventListener("click", () => proseEdit(() => { st.sel = proseDuplicate(st.packs, st.pack, id); }));
+    del.addEventListener("click", () => { if (confirm(`Delete ${id}?`)) proseEdit(() => { proseDelete(pack, id); st.sel = null; }); });
+    const acts = [dup, del];
+    if (!parent && prose.slot === "case") {
+      for (const sl of ["reply", "rebuttal"]) {
+        const b = el("button", { type: "button", class: "tb", text: "+ " + sl });
+        b.addEventListener("click", () => proseEdit(() => { st.sel = proseAdd(st.packs, st.pack, sl, voices[0] || "james", id); }));
+        acts.push(b);
+      }
+      for (const r of prose.replies || []) {
+        const b = el("button", { type: "button", class: "tb", text: `${r.slot}: ${r.id}` });
+        b.addEventListener("click", () => { st.sel = r.id; renderProse(); });
+        acts.push(b);
+      }
+    }
+    if (parent) { const b = el("button", { type: "button", class: "tb", text: "↑ " + parent.id }); b.addEventListener("click", () => { st.sel = parent.id; renderProse(); }); acts.push(b); }
+    box.append(el("div", { class: "pp-row" }, ...acts), ...proseCommentRows(pack, id));
+    return box;
   }
   function runSandbox() {
     const st = proseState, oreNames = Object.fromEntries(PROSE_ORES.map((o) => [o, o[0].toUpperCase() + o.slice(1)]));
