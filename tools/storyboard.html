@@ -85,6 +85,9 @@ header.top .title { display: grid; gap: 6px; min-width: 0 }
 .pp-facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px }
 .pp-fact { display: grid; gap: 2px }
 .pp-fact input { padding: 4px 6px; border: 1px solid var(--line); border-radius: 4px; background: var(--surface) }
+.pp-q { border-radius: 50%; width: 22px; height: 22px; padding: 0; line-height: 20px; font-size: 12px }
+.pp-pop-wrap { position: relative; display: inline-block }
+.pp-pop { position: absolute; z-index: 5; left: 0; top: 28px; width: 260px; display: grid; gap: 6px; padding: 10px; background: var(--surface); border: 1px solid var(--fg); border-radius: 6px; font-size: 13px; box-shadow: 0 4px 14px rgba(0,0,0,.25) }
 .pp-warn { color: #b00020; font-weight: 600; margin: 0 }
 .cuts { display: grid; gap: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden }
 .cut { display: grid; grid-template-columns: 34px 72px minmax(0, 1fr); gap: 10px; padding: 10px 12px; border-top: 1px solid var(--line); text-align: left; background: none; border-left: 0; border-right: 0; border-bottom: 0; width: 100% }
@@ -3637,6 +3640,31 @@ function checkOddsBlock(opt, changed, restructure) {
     last_pitcher: { kind: "text", choices: "voices" },
     rival: { kind: "text" }, contested: { kind: "text" }, ore: { kind: "text" }, calc: { kind: "text" }, label: { kind: "text" }, pitcher: { kind: "text" },
   };
+  // Plain-language meaning of each fact and of the builder's own controls, shown by the "?" buttons (R§3.15 "Meeting facts").
+  const PROSE_HELP = {
+    week: ["Week", "The board week this meeting is held in. Week 1 is the first meeting."],
+    expenses: ["Expenses (£)", "The firm's weekly running costs in pounds, as of the meeting."],
+    float: ["Float (£)", "Cash on hand in pounds at the meeting."],
+    weeks: ["Weeks of float", "Float ÷ expenses, to one decimal: how many weeks of running costs the cash covers."],
+    float_weeks: ["Weeks of float", "Same as weeks: float ÷ expenses, to one decimal."],
+    share: ["Your share (%)", "Your whole-number % of the market for this goal's ore (crafted pieces for crafting goals) over the recent sales window. 0 means none of the market."],
+    share_gap: ["Share gap", "The biggest rival's % minus your %. Positive: the rival is ahead by that many points. Negative: you are ahead. 0 with no rival."],
+    streak: ["Hit streak", "How many weeks in a row, ending last week, the goal was hit (any tier above missed). 0 if last week was a miss, skip or no goal."],
+    rival_present: ["Rival present", "True when some other producer supplies this goal's ore. False when you are the only supplier."],
+    rival: ["Rival", "Name of the largest other producer of this ore. \"the independents\" when it is the independent traders or nobody."],
+    contested: ["Contested ores", "Ores that two or more rival producers each supply right now, as ore names. \"nothing yet\" when none."],
+    last_result: ["Last result", "How last week's goal was judged: hit (any tier above missed), miss, skip (the meeting was skipped), none (no goal was judged last week)."],
+    last_pitcher: ["Last pitcher", "Who pitched last week's goal (a voice id). (nobody) when no goal was judged last week."],
+    ore_type: ["Ore type", "The goal's ore id: time, physics, life, fate or emotion. Empty for goals not tied to one ore."],
+    ore: ["Ore name", "The goal's ore as written in prose, e.g. Time. \"the ore\" when the goal has none."],
+    calc: ["Calc", "The goal's ore as slang, e.g. \"time calc\"."],
+    label: ["Goal label", "The goal template's id."],
+    pitcher: ["Pitcher", "The pitching voice's display name, e.g. Archie."],
+    _not: ["not", "Ticked: this test is turned around, so the row holds when the comparison is false."],
+    _op: ["Operator", "How the fact is compared with the value: > greater, ≥ at least, < less, ≤ at most, = equal, ≠ not equal."],
+    _mode: ["All / any", "all: every row must hold for the card to be eligible. any: one row holding is enough."],
+    _when: ["When", "Decides when this prose card can play. With no rows the card is always eligible. Facts are worked out once per meeting; the card is one of the eligible cards for its slot, picked by weight."],
+  };
   const PROSE_NUM_OPS = ["gt", "gte", "lt", "lte", "eq", "ne"], PROSE_EQ_OPS = ["eq", "ne"];
   const PROSE_OP_LABEL = { gt: ">", gte: "≥", lt: "<", lte: "≤", eq: "=", ne: "≠" };
   const proseOpsFor = (fact) => ((PROSE_FACT_KINDS[fact] || {}).kind === "number" ? PROSE_NUM_OPS : PROSE_EQ_OPS);
@@ -5658,7 +5686,7 @@ function checkOddsBlock(opt, changed, restructure) {
   const proseState = { packs: {}, voices: {}, debate: {}, pack: null, slot: null, seed: 1,
     items: [{ template: "", voice: "", ore: "time" }], facts: { week: 3, expenses: 400, float: 1200, share: 12, share_gap: 8, rival: "the independents",
       rival_present: true, contested: "Time", last_result: "none", streak: 0, last_pitcher: "" }, step: 0,
-    eols: {}, dirty: new Set(), sel: null, err: "", rungs: {} };
+    eols: {}, dirty: new Set(), sel: null, err: "", rungs: {}, help: "" };
   let proseOn = false;
   async function loadProse() {
     const view = $("prose-view");
@@ -5773,7 +5801,16 @@ function checkOddsBlock(opt, changed, restructure) {
   // Condition builder: one row per fact test (fact, operator, value), joined by all/any; a nested `when` shows as JSON.
   function renderWhenBuilder(pack, prose) {
     const st = proseState, id = prose.id, model = proseWhenToRows(prose.when);
-    const box = el("div", { class: "pp-when" }, el("b", { text: "When" }), el("span", { class: "mono muted", text: " " + proseCondText(prose.when) }));
+    const help = (key) => {
+      const [title, body] = PROSE_HELP[key] || [key, "No description yet."], open = st.help === key + "|" + id;
+      const b = el("button", { type: "button", class: "tb pp-q", text: "?", "aria-label": "What is " + title + "?", "aria-expanded": String(open) });
+      b.addEventListener("click", () => { st.help = open ? "" : key + "|" + id; renderProse(); });
+      if (!open) return b;
+      const close = el("button", { type: "button", class: "tb", text: "Close" });
+      close.addEventListener("click", () => { st.help = ""; renderProse(); });
+      return el("span", { class: "pp-pop-wrap" }, b, el("span", { class: "pp-pop", role: "dialog", "aria-label": title }, el("b", { text: title }), el("span", { text: body }), close));
+    };
+    const box = el("div", { class: "pp-when" }, el("b", { text: "When" }), help("_when"), el("span", { class: "mono muted", text: " " + proseCondText(prose.when) }));
     if (!model) {
       const t = el("textarea", { rows: "3", "aria-label": "when (JSON)" }); t.value = JSON.stringify(prose.when, null, 1);
       t.addEventListener("change", () => proseEdit(() => proseSetField(pack, id, "when", t.value)));
@@ -5789,7 +5826,7 @@ function checkOddsBlock(opt, changed, restructure) {
       return s2;
     };
     const { mode, rows } = model;
-    if (rows.length > 1) box.append(el("div", { class: "pp-row" }, "Fire when", sel("match", [["all", "all of these hold"], ["any", "any of these holds"]], mode, (v) => apply(v, rows))));
+    if (rows.length > 1) box.append(el("div", { class: "pp-row" }, "Fire when", sel("match", [["all", "all of these hold"], ["any", "any of these holds"]], mode, (v) => apply(v, rows)), help("_mode")));
     rows.forEach((r, i) => {
       const meta = PROSE_FACT_KINDS[r.fact] || { kind: "text" };
       const upd = (patch) => apply(mode, rows.map((x, j) => (j === i ? { ...x, ...patch } : x)));
@@ -5810,7 +5847,7 @@ function checkOddsBlock(opt, changed, restructure) {
       }
       const del = el("button", { type: "button", class: "tb", text: "✕", title: "Remove this condition" });
       del.addEventListener("click", () => apply(mode, rows.filter((_, j) => j !== i)));
-      box.append(el("div", { class: "pp-row" }, el("label", {}, not, " not"), factSel, opSel, val, del));
+      box.append(el("div", { class: "pp-row" }, el("label", {}, not, " not"), help("_not"), factSel, help(r.fact), opSel, help("_op"), val, del));
     });
     const add = el("button", { type: "button", class: "tb", text: "+ condition" });
     add.addEventListener("click", () => apply(mode, [...rows, { fact: "share", op: "gt", value: 0, not: false }]));
