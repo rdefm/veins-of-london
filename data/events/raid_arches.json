@@ -1162,30 +1162,12 @@
               "value": false
             },
             {
-              "op": "alert",
-              "atLeast": 2,
-              "cover": {
-                "base": 0.35,
-                "mods": [
-                  {
-                    "observed": {
-                      "id": "raid",
-                      "ore": "time",
-                      "atLeast": 2
-                    },
-                    "add": 0.35,
-                    "label": "On the train"
-                  }
-                ],
-                "text": "PLACEHOLDER: the train covers the noise"
-              }
-            },
-            {
               "op": "set_flag",
               "flag": "aReinfOpen",
               "value": true
             }
           ],
+          "coveredText": "PLACEHOLDER: the train covers the noise",
           "result_text": "PLACEHOLDER: Blast the shutter",
           "goto": "post"
         },
@@ -2562,30 +2544,12 @@
               "value": false
             },
             {
-              "op": "alert",
-              "atLeast": 2,
-              "cover": {
-                "base": 0.35,
-                "mods": [
-                  {
-                    "observed": {
-                      "id": "raid",
-                      "ore": "time",
-                      "atLeast": 2
-                    },
-                    "add": 0.35,
-                    "label": "On the train"
-                  }
-                ],
-                "text": "PLACEHOLDER: the train covers the noise"
-              }
-            },
-            {
               "op": "set_flag",
               "flag": "aReinfOpen",
               "value": true
             }
           ],
+          "coveredText": "PLACEHOLDER: the train covers the noise",
           "result_text": "PLACEHOLDER: Blast the door",
           "goto": "a_inside"
         },
@@ -3296,30 +3260,12 @@
               "value": true
             },
             {
-              "op": "alert",
-              "atLeast": 2,
-              "cover": {
-                "base": 0.35,
-                "mods": [
-                  {
-                    "observed": {
-                      "id": "raid",
-                      "ore": "time",
-                      "atLeast": 2
-                    },
-                    "add": 0.35,
-                    "label": "On the train"
-                  }
-                ],
-                "text": "PLACEHOLDER: the train covers the noise"
-              }
-            },
-            {
               "op": "set_flag",
               "flag": "aReinfOpen",
               "value": true
             }
           ],
+          "coveredText": "PLACEHOLDER: the train covers the noise",
           "result_text": "PLACEHOLDER: Blast through the wall",
           "goto": "a_room"
         },
@@ -4105,30 +4051,12 @@
               "value": false
             },
             {
-              "op": "alert",
-              "atLeast": 2,
-              "cover": {
-                "base": 0.35,
-                "mods": [
-                  {
-                    "observed": {
-                      "id": "raid",
-                      "ore": "time",
-                      "atLeast": 2
-                    },
-                    "add": 0.35,
-                    "label": "On the train"
-                  }
-                ],
-                "text": "PLACEHOLDER: the train covers the noise"
-              }
-            },
-            {
               "op": "set_flag",
               "flag": "aReinfOpen",
               "value": true
             }
           ],
+          "coveredText": "PLACEHOLDER: the train covers the noise",
           "result_text": "PLACEHOLDER: Blast the vent",
           "goto": "a_crawl"
         },
@@ -5074,10 +5002,6 @@
           ],
           "effects": [
             {
-              "op": "alert",
-              "atLeast": 2
-            },
-            {
               "op": "set_flag",
               "flag": "aReinfOpen",
               "value": true
@@ -5347,10 +5271,6 @@
             }
           ],
           "effects": [
-            {
-              "op": "alert",
-              "atLeast": 2
-            },
             {
               "op": "set_flag",
               "flag": "aReinfOpen",
@@ -6892,19 +6812,12 @@
               "value": true
             },
             {
-              "op": "alert",
-              "atLeast": 2,
-              "cover": {
-                "base": 0.35,
-                "text": "PLACEHOLDER: the train covers the noise"
-              }
-            },
-            {
               "op": "set_flag",
               "flag": "aReinfOpen",
               "value": true
             }
           ],
+          "coveredText": "PLACEHOLDER: the train covers the noise",
           "result_text": "PLACEHOLDER: Blast it",
           "goto": "a_threshold"
         },
@@ -7202,10 +7115,6 @@
               "op": "set_flag",
               "flag": "aAt_room",
               "value": true
-            },
-            {
-              "op": "alert",
-              "atLeast": 2
             },
             {
               "op": "set_flag",

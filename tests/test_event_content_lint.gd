@@ -186,6 +186,15 @@ func run() -> void:
 		assert_true(String(warns[1]).contains("option 1") and String(warns[1]).contains("beside Blast"), str(warns))
 	)
 
+	run_case("no_live_event_authors_an_alert_raise_beside_blast", func():
+		var found: Array = []
+		for id in GameData.EVENTS:
+			for w in EventContentLint.lint_warnings(String(id), GameData.EVENTS[id]):
+				if String(w).contains("beside Blast"):
+					found.append(w)
+		assert_eq(found, [], str(found))
+	)
+
 	run_case("lint_checks_context_flag_has_a_key", func():
 		GameState.reset()
 		var def := { "id": "ctx_probe", "cards": [

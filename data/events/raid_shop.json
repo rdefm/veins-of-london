@@ -749,9 +749,9 @@
             { "op": "set_flag", "flag": "sAt_flap", "value": false },
             { "op": "set_flag", "flag": "sAt_cellar", "value": false },
             { "op": "set_flag", "flag": "sAt_room", "value": true },
-            { "op": "alert", "atLeast": 2, "cover": { "base": 0.35, "text": "Out front, the fridges hum and the radio keeps playing. Nobody comes to look." } },
             { "op": "set_flag", "flag": "sReinfOpen", "value": true }
           ],
+          "coveredText": "Out front, the fridges hum and the radio keeps playing. Nobody comes to look.",
           "result_text": "The door comes off and goes down the stairs ahead of you.",
           "goto": "s_room"
         },
@@ -1146,9 +1146,9 @@
             { "op": "set_flag", "flag": "sAt_flap", "value": false },
             { "op": "set_flag", "flag": "sAt_cellar", "value": false },
             { "op": "set_flag", "flag": "sAt_room", "value": false },
-            { "op": "alert", "atLeast": 2, "cover": { "base": 0.35, "text": "Out front, the fridges hum and the radio keeps playing. Nobody comes to look." } },
             { "op": "set_flag", "flag": "sReinfOpen", "value": true }
           ],
+          "coveredText": "Out front, the fridges hum and the radio keeps playing. Nobody comes to look.",
           "result_text": "What was left of the door lands in the stockroom ahead of you. Loudly.",
           "goto": "s_back_loud"
         },
@@ -1305,9 +1305,9 @@
             { "op": "set_flag", "flag": "sAt_flap", "value": false },
             { "op": "set_flag", "flag": "sAt_cellar", "value": true },
             { "op": "set_flag", "flag": "sAt_room", "value": false },
-            { "op": "alert", "atLeast": 2, "cover": { "base": 0.35, "text": "A bus pulls away from the stop at the same moment and takes the noise with it." } },
             { "op": "set_flag", "flag": "sReinfOpen", "value": true }
           ],
+          "coveredText": "A bus pulls away from the stop at the same moment and takes the noise with it.",
           "result_text": "The flap goes up in two pieces and comes down in more. You're down the hole before the street has finished turning round.",
           "goto": "s_cellar"
         },
@@ -1629,7 +1629,6 @@
           "requires": { "item": "blast", "optional": true, "display": "disable" },
           "items": [{ "item": "blast", "optional": true, "label": "Blast", "effect": { "kind": "unlock" } }],
           "effects": [
-            { "op": "alert", "atLeast": 2 },
             { "op": "set_flag", "flag": "sReinfOpen", "value": true },
             { "op": "start_raid_combat", "preset": "veinGuards", "waves": 1, "situational": [{ "if": { "cash": { "atLeast": 0 } }, "enemyStartsHurt": 0.5 }] }
           ],
@@ -1736,7 +1735,6 @@
           "requires": { "item": "blast", "optional": true, "display": "disable" },
           "items": [{ "item": "blast", "optional": true, "label": "Blast", "effect": { "kind": "unlock" } }],
           "effects": [
-            { "op": "alert", "atLeast": 2 },
             { "op": "set_flag", "flag": "sReinfOpen", "value": true },
             { "op": "start_raid_combat", "preset": "veinGuards", "waves": 1, "situational": [{ "if": { "cash": { "atLeast": 0 } }, "enemyStartsHurt": 0.5 }] }
           ],
@@ -2194,9 +2192,9 @@
             { "op": "set_flag", "flag": "sAt_flap", "value": false },
             { "op": "set_flag", "flag": "sAt_cellar", "value": false },
             { "op": "set_flag", "flag": "sAt_room", "value": false },
-            { "op": "alert", "atLeast": 2, "cover": { "base": 0.35, "text": "Out front, a lorry goes by at the same moment. People look at the road, not the ceiling." } },
             { "op": "set_flag", "flag": "sReinfOpen", "value": true }
           ],
+          "coveredText": "Out front, a lorry goes by at the same moment. People look at the road, not the ceiling.",
           "result_text": "The camera comes off its bracket in pieces. The queue ducks.",
           "goto": "s_till"
         },
@@ -2295,7 +2293,6 @@
             { "op": "set_flag", "flag": "sAt_flap", "value": false },
             { "op": "set_flag", "flag": "sAt_cellar", "value": false },
             { "op": "set_flag", "flag": "sAt_room", "value": false },
-            { "op": "alert", "atLeast": 2 },
             { "op": "set_flag", "flag": "sReinfOpen", "value": true },
             { "op": "start_raid_combat", "preset": "veinGuards", "waves": 1, "situational": [{ "if": { "cash": { "atLeast": 0 } }, "enemyStartsHurt": 0.5 }] }
           ],

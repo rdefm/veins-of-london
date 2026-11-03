@@ -1280,14 +1280,6 @@
           },
           "effects": [
             {
-              "op": "alert",
-              "atLeast": 2,
-              "cover": {
-                "base": 0.35,
-                "text": "The noise goes unremarked."
-              }
-            },
-            {
               "op": "set_flag",
               "flag": "yReinfOpen",
               "value": true
@@ -1343,6 +1335,7 @@
               "value": false
             }
           ],
+          "coveredText": "The noise goes unremarked.",
           "result_text": "The gate leaves its hinges in one piece and lands flat. Every head in the hut turns.",
           "goto": "post",
           "items": [
@@ -3072,14 +3065,6 @@
           },
           "effects": [
             {
-              "op": "alert",
-              "atLeast": 2,
-              "cover": {
-                "base": 0.35,
-                "text": "The noise goes unremarked."
-              }
-            },
-            {
               "op": "set_flag",
               "flag": "yReinfOpen",
               "value": true
@@ -3135,6 +3120,7 @@
               "value": false
             }
           ],
+          "coveredText": "The noise goes unremarked.",
           "result_text": "The door is a hole now, and the handle is somewhere in the yard.",
           "goto": "y_inside_f",
           "items": [
@@ -3820,14 +3806,6 @@
           },
           "effects": [
             {
-              "op": "alert",
-              "atLeast": 2,
-              "cover": {
-                "base": 0.35,
-                "text": "The noise goes unremarked."
-              }
-            },
-            {
               "op": "set_flag",
               "flag": "yReinfOpen",
               "value": true
@@ -3883,6 +3861,7 @@
               "value": false
             }
           ],
+          "coveredText": "The noise goes unremarked.",
           "result_text": "The window is a different shape now, and so is the quiet.",
           "goto": "y_corridor",
           "items": [
@@ -5295,14 +5274,6 @@
           },
           "effects": [
             {
-              "op": "alert",
-              "atLeast": 2,
-              "cover": {
-                "base": 0.35,
-                "text": "The noise goes unremarked."
-              }
-            },
-            {
               "op": "set_flag",
               "flag": "yReinfOpen",
               "value": true
@@ -5358,6 +5329,7 @@
               "value": false
             }
           ],
+          "coveredText": "The noise goes unremarked.",
           "result_text": "The skylight is not a skylight any more, only a frame with some glass left in it.",
           "goto": "y_drop",
           "items": [
@@ -6313,10 +6285,6 @@
           },
           "effects": [
             {
-              "op": "alert",
-              "atLeast": 2
-            },
-            {
               "op": "set_flag",
               "flag": "yReinfOpen",
               "value": true
@@ -6586,10 +6554,6 @@
             "display": "disable"
           },
           "effects": [
-            {
-              "op": "alert",
-              "atLeast": 2
-            },
             {
               "op": "set_flag",
               "flag": "yReinfOpen",
@@ -8008,14 +7972,6 @@
           },
           "effects": [
             {
-              "op": "alert",
-              "atLeast": 2,
-              "cover": {
-                "base": 0.35,
-                "text": "The noise goes unremarked."
-              }
-            },
-            {
               "op": "set_flag",
               "flag": "yReinfOpen",
               "value": true
@@ -8071,6 +8027,7 @@
               "value": true
             }
           ],
+          "coveredText": "The noise goes unremarked.",
           "result_text": "The camera is no longer a camera. It is a lot of small parts on the floor.",
           "goto": "y_threshold",
           "items": [
@@ -8339,10 +8296,6 @@
             "display": "disable"
           },
           "effects": [
-            {
-              "op": "alert",
-              "atLeast": 2
-            },
             {
               "op": "set_flag",
               "flag": "yReinfOpen",
