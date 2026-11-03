@@ -1156,6 +1156,69 @@
           "permanent": false
         }
       ]
+    },
+    "partner": {
+      "voice": "archie",
+      "rungs": [
+        {
+          "id": "partner_1",
+          "premise": { "kind": "overlap_exists" },
+          "goal": { "type": "faction_relation_at_least", "params": { "factionId": "$overlap" } },
+          "tiers": {
+            "base": { "minRelation": 15 },
+            "target": { "minRelation": 30 },
+            "stretch": { "minRelation": 45 }
+          },
+          "lengthWeeks": 2,
+          "rewards": {
+            "base": [ { "kind": "cash", "amount": 150 } ],
+            "target": [
+              { "kind": "cash", "amount": 300 },
+              { "kind": "item", "id": "enhancementPowder", "tier": 1, "qty": 1 }
+            ],
+            "stretch": [
+              { "kind": "cash", "amount": 500 },
+              { "kind": "item", "id": "enhancementPowder", "tier": 1, "qty": 1 },
+              { "kind": "item", "id": "timePearl", "tier": 1, "qty": 1 }
+            ]
+          },
+          "pinned": false,
+          "spine": null,
+          "permanent": false
+        },
+        {
+          "id": "partner_2",
+          "premise": {
+            "kind": "all_of",
+            "conditions": [
+              { "kind": "rung_done", "ladder": "partner", "rung": "partner_1" },
+              { "kind": "overlap_exists", "includePartners": true }
+            ]
+          },
+          "goal": { "type": "faction_relation_at_least", "params": { "factionId": "$overlap" } },
+          "tiers": {
+            "base": { "minRelation": 40 },
+            "target": { "minRelation": 50 },
+            "stretch": { "minRelation": 70 }
+          },
+          "lengthWeeks": 2,
+          "rewards": {
+            "base": [ { "kind": "cash", "amount": 250 } ],
+            "target": [
+              { "kind": "cash", "amount": 500 },
+              { "kind": "item", "id": "enhancementPowder", "tier": 1, "qty": 1 }
+            ],
+            "stretch": [
+              { "kind": "cash", "amount": 800 },
+              { "kind": "item", "id": "enhancementPowder", "tier": 1, "qty": 1 },
+              { "kind": "item", "id": "timePearl", "tier": 1, "qty": 1 }
+            ]
+          },
+          "pinned": false,
+          "spine": null,
+          "permanent": false
+        }
+      ]
     }
   },
   "templates": {
@@ -1215,6 +1278,12 @@
     },
     "office_2": {
       "label": "An address worth signing to"
+    },
+    "partner_1": {
+      "label": "Get on with {faction}"
+    },
+    "partner_2": {
+      "label": "Partner with {faction}"
     }
   },
   "todo": {
@@ -1381,6 +1450,11 @@
     }
   },
   "spine": {
+    "rivalMove": {
+      "_comment": "Live text (Messages) fired once when the share_target beat is done; {faction} {ore} fill from the rival. PROSE-REVIEW: new copy.",
+      "contact": "archie",
+      "text": "{faction} have noticed your {ore} numbers. They'll lean on you for it. Gifts, favours and a good supplier contract all raise how they see you. Ignore them and it goes the other way."
+    },
     "_comment": "Act 2 beats shown in ToDo (Todo.get_act2_section()). rung = ladder rung that completes the beat; requires = beat that must be done first. PROSE-REVIEW: titles are new copy.",
     "label": "Act 2",
     "lockedText": "Not yet",

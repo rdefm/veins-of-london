@@ -270,6 +270,8 @@ var FACTION_RIVALRY: bool = false
 # Relation clamp, stance bands, hysteresis, starting stances and stance-change
 # prose, R§3.1 "Stances".
 var FACTION_STANCES: Dictionary = {}
+# Partner/Defuse overlap detector thresholds (systems/overlaps.gd).
+var OVERLAP: Dictionary = {}
 
 # Threat/dependence weights, daily drift cap and pressure-label bands,
 # R§3.1 "Pressure".
@@ -555,6 +557,7 @@ const MANIFEST: Array[Dictionary] = [
 		{"field": "SHARES_WINDOW_DAYS", "key": "sharesWindowDays", "type": TYPE_INT},
 		{"field": "FACTION_RIVALRY", "key": "factionRivalry", "type": TYPE_BOOL},
 		{"field": "FACTION_STANCES", "key": "factionStances", "type": TYPE_DICTIONARY},
+		{"field": "OVERLAP", "key": "overlap", "type": TYPE_DICTIONARY},
 		{"field": "FACTION_PRESSURE", "key": "factionPressure", "type": TYPE_DICTIONARY},
 		{"field": "FACTION_GRUDGE", "key": "factionGrudge", "type": TYPE_DICTIONARY},
 		{"field": "WARMONGER", "key": "warmonger", "type": TYPE_DICTIONARY},
@@ -805,7 +808,7 @@ const BOARD_PROSE_STANCES: Array[String] = ["back", "challenge", "wobble"]
 const BOARD_FACTS: Array[String] = [
 	"week", "expenses", "float", "weeks", "float_weeks", "ore", "ore_type", "calc", "label", "pitcher",
 	"share", "share_gap", "lead_gap", "rival", "rival_present", "contested", "last_result", "streak", "last_pitcher",
-	"at_war", "enemy", "enemy_weariness", "my_weariness",
+	"at_war", "enemy", "enemy_weariness", "my_weariness", "faction",
 ]
 # Facts read for one named faction: a `when` leaf gives `faction`; not {tokens}.
 const BOARD_FACTION_FACTS: Array[String] = ["share_vs", "share_gap_vs", "stance_vs", "at_war_vs", "weariness_vs"]

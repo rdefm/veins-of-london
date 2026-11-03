@@ -1,0 +1,16 @@
+{
+  "template": "partner_2",
+  "cards": [
+    {
+      "id": "partner_2.case.1",
+      "slot": "case",
+      "voice": "archie",
+      "cards": [
+        {
+          "speaker": "Archie",
+          "text": "{faction} like us well enough now. Make it official. Partners trade price favours both ways, and they warn you when the knives come out."
+        }
+      ]
+    }
+  ]
+}

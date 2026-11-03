@@ -30,6 +30,7 @@ const TYPE_RECIPES_AT_RANK_AT_LEAST := "recipes_at_rank_at_least"
 const TYPE_CONTRACTS_SETTLED_AT_LEAST := "contracts_settled_at_least"
 const TYPE_SUPPLIER_CONTRACT_SIGNED := "supplier_contract_signed"
 const TYPE_HOME_TIER_AT_LEAST := "home_tier_at_least"
+const TYPE_FACTION_RELATION_AT_LEAST := "faction_relation_at_least"
 
 const TYPE_YIELD_MULTIPLE_AT_LEAST := "yield_multiple_at_least"
 const TYPE_NEW_VEINS_ONLINE_AT_LEAST := "new_veins_online_at_least"
@@ -170,6 +171,8 @@ static func _evaluate(def: Dictionary, progress: Dictionary) -> bool:
 			return supplier_contracts_signed(str(params.get("oreType", "")), int(progress.get("sinceDay", 0)), int(params.get("minWeeks", 4))) >= int(params["minCount"])
 		TYPE_HOME_TIER_AT_LEAST:
 			return home_tier_rank(GameState.state["home"]["tier"]) >= home_tier_rank(str(params["minTier"]))
+		TYPE_FACTION_RELATION_AT_LEAST:
+			return faction_relation(str(params.get("factionId", ""))) >= int(params["minRelation"])
 		TYPE_YIELD_MULTIPLE_AT_LEAST:
 			return _eval_yield_multiple(params, progress)
 		TYPE_NEW_VEINS_ONLINE_AT_LEAST:
@@ -495,6 +498,8 @@ static func measure(def: Dictionary) -> Dictionary:
 		return { "value": Shares.ore_share(Shares.PLAYER, str(def["params"].get("oreType", ""))) * 100.0, "param": "minPercent" }
 	if def["type"] == TYPE_ORE_SHARE_GAP_AT_LEAST:
 		return { "value": share_gap_points("ore", str(def["params"].get("oreType", ""))), "param": "minGap" }
+	if def["type"] == TYPE_FACTION_RELATION_AT_LEAST:
+		return { "value": float(faction_relation(str(def["params"].get("factionId", "")))), "param": "minRelation" }
 	if def["type"] == TYPE_CRAFTING_SHARE_AT_LEAST:
 		return { "value": Shares.crafting_share(Shares.PLAYER, str(def["params"].get("oreType", ""))) * 100.0, "param": "minPercent" }
 	return {}
@@ -528,6 +533,8 @@ static func condition_met(condition: Dictionary) -> bool:
 			return BoardMeetings.spine_done(str(condition["beat"]))
 		"rung_done":
 			return BoardMeetings.rung_cleared(str(condition["ladder"]), str(condition["rung"]))
+		"overlap_exists":
+			return Overlaps.exists(bool(condition.get("includePartners", false)))
 		"all_of":
 			for sub in condition["conditions"]:
 				if not condition_met(sub):
@@ -553,6 +560,11 @@ static func condition_met(condition: Dictionary) -> bool:
 					return true
 			return false
 	return false
+
+
+# The player's relation with a faction, 0 for an unknown id.
+static func faction_relation(faction_id: String) -> int:
+	return int(GameState.state["factions"].get(faction_id, {}).get("relation", 0))
 
 
 # Player's share minus the largest other producer's, in percentage points, of

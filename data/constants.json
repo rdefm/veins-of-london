@@ -95,6 +95,13 @@
   "sharesDays": 14,
   "sharesWindowDays": 7,
   "factionRivalry": false,
+  "overlap": {
+    "_comment": "Overlap detector (systems/overlaps.gd). minShare: player ore/crafting share (0..1) that counts as an overlap. minDistrictVeins: player veins in a district the faction also holds. provocationShare/provocationMargin: share within margin below the level that provokes a faction.",
+    "minShare": 0.10,
+    "minDistrictVeins": 1,
+    "provocationShare": 0.25,
+    "provocationMargin": 0.10
+  },
   "factionStances": {
     "relationMin": -100,
     "relationMax": 100,

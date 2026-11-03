@@ -59,7 +59,7 @@ static func eligible_cards() -> Array:
 			if card.is_empty():
 				continue
 			if _tier_rank(Objectives.tier_met(card["goal"])) >= _tier_rank("target"):
-				_set_rung_status(ladder_id, rung_id, RUNG_SKIPPED, card["ore"])
+				_set_rung_status(ladder_id, rung_id, RUNG_SKIPPED, card["ore"], card.get("faction", ""))
 				_complete_spine(rung.get("spine"))
 				continue
 			cards.append(card)
@@ -91,13 +91,15 @@ static func venue_label() -> String:
 	return label
 
 
-static func _set_rung_status(ladder_id: String, rung_id: String, status: String, ore_type: String = "") -> void:
+static func _set_rung_status(ladder_id: String, rung_id: String, status: String, ore_type: String = "", faction_id: String = "") -> void:
 	var rungs: Dictionary = _board()["rungs"]
 	if not rungs.has(ladder_id):
 		rungs[ladder_id] = {}
 	var entry := { "status": status, "day": int(GameState.state["world"]["day"]) }
 	if ore_type != "":
 		entry["ore"] = ore_type
+	if faction_id != "":
+		entry["faction"] = faction_id
 	rungs[ladder_id][rung_id] = entry
 
 
@@ -112,6 +114,11 @@ static func spine_unlocked(beat_id: String) -> bool:
 		if beat["id"] == beat_id:
 			return not beat.has("requires") or spine_done(beat["requires"])
 	return false
+
+
+static func mark_spine_done(beat_id: String) -> void:
+	_complete_spine(beat_id)
+	EventBus.state_changed.emit()
 
 
 static func _complete_spine(beat_id: Variant) -> void:
@@ -158,6 +165,12 @@ static func _build_card(ladder_id: String, ladder: Dictionary, rung: Dictionary,
 		if ore_type == "":
 			return {}
 		goal["params"]["oreType"] = ore_type
+	var faction_id := ""
+	if goal["params"].has("factionId"):
+		faction_id = Overlaps.resolve_faction(str(goal["params"]["factionId"]), ladder_id)
+		if faction_id == "":
+			return {}
+		goal["params"]["factionId"] = faction_id
 	var preview := {}
 	for tier in Objectives.TIER_ORDER:
 		preview[tier] = reward_preview(rung["rewards"].get(tier, []))
@@ -169,6 +182,7 @@ static func _build_card(ladder_id: String, ladder: Dictionary, rung: Dictionary,
 		"pinned": bool(rung.get("pinned", false)),
 		"spine": rung.get("spine"),
 		"ore": ore_type,
+		"faction": faction_id,
 	}
 
 
@@ -340,7 +354,7 @@ static func _take(id: String, is_skip: bool) -> Dictionary:
 	board["active"] = {
 		"cardId": card["id"], "ladder": card["ladder"], "rung": card["rung"],
 		"template": card["template"],
-		"voice": card["voice"], "ore": card.get("ore", ""), "goal": GameState.deep_copy(card["goal"]),
+		"voice": card["voice"], "ore": card.get("ore", ""), "faction": card.get("faction", ""), "goal": GameState.deep_copy(card["goal"]),
 		"rewards": GameState.deep_copy(card["rewards"]),
 		"lengthWeeks": card["lengthWeeks"], "week": int(board["week"]),
 		"chosenDay": int(GameState.state["world"]["day"]),
@@ -363,6 +377,8 @@ static func _take(id: String, is_skip: bool) -> Dictionary:
 # Called at the action boundaries Objectives.refresh() runs on: locks the
 # stretch tier the moment it's met, so a later dip can't take it away.
 static func note_progress() -> void:
+	if _board()["enabled"]:
+		Overlaps.update_spine()
 	var active: Variant = GameState.state.get("boardMeetings", {}).get("active")
 	if active != null:
 		_lock_stretch(active)
@@ -403,7 +419,7 @@ static func judge_week() -> Dictionary:
 		for reward in paid:
 			_pay(reward)
 	if _tier_rank(tier) >= _tier_rank("target"):
-		_set_rung_status(active["ladder"], active["rung"], RUNG_DONE, str(active.get("ore", "")))
+		_set_rung_status(active["ladder"], active["rung"], RUNG_DONE, str(active.get("ore", "")), str(active.get("faction", "")))
 		_complete_spine(_rung_spine(active["ladder"], active["rung"]))
 	var entry := {
 		"week": int(active["week"]), "voice": active["voice"], "ladder": active["ladder"],
@@ -460,6 +476,9 @@ static func reward_preview(rewards: Array) -> String:
 # An agenda card's or the active goal's label (both carry template + rung).
 static func card_label(card: Dictionary) -> String:
 	var label := str(GameData.BOARD_TEMPLATES.get(card.get("template", card["rung"]), {}).get("label", card["rung"]))
+	var faction_id := str(card.get("faction", ""))
+	if faction_id != "":
+		label = label.replace("{faction}", str(GameData.FACTIONS[faction_id]["shortName"]))
 	return _with_ore(label, str(card.get("ore", "")))
 
 
@@ -871,6 +890,7 @@ static func meeting_facts(week: int, card: Dictionary = {}) -> Dictionary:
 		"calc": "%s calc" % ore_type if ore_type != "" else "calc",
 		"label": card_label(card) if card.has("rung") else "",
 		"pitcher": str(GameData.BOARD_VOICES[card["voice"]]["name"]) if card.has("voice") else "",
+		"faction": str(GameData.FACTIONS[card["faction"]]["name"]) if str(card.get("faction", "")) != "" else "them",
 	}
 	facts["float_weeks"] = facts["weeks"]
 	facts.merge(_share_facts(ore_type, tally))

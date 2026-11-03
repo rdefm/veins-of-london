@@ -1,0 +1,16 @@
+{
+  "template": "partner_1",
+  "cards": [
+    {
+      "id": "partner_1.case.1",
+      "slot": "case",
+      "voice": "archie",
+      "cards": [
+        {
+          "speaker": "Archie",
+          "text": "{faction} work the same ground we do. That's a quarrel waiting to happen, or a friendship, and friendships are cheaper. Favours, gifts, a fair deal. Get them liking us."
+        }
+      ]
+    }
+  ]
+}
