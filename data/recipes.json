@@ -54,7 +54,7 @@
       "baseSuccess": 0.40,
       "effectPower": [0, 4, 6, 8, 10, 12],
       "xpReward": 25,
-      "eventProfile": { "tags": ["barrier"], "label": "Blast", "placeholder": true, "effect": { "kind": "unlock" }, "alert": { "add": 1 } },
+      "eventProfile": { "tags": ["barrier"], "label": "Blast", "placeholder": true, "effect": { "kind": "unlock" }, "alert": { "add": 1, "cover": { "base": 0.4 } } },
       "eventUsable": false,
       "description": "A concentrated shove of physics calc. Knocks them back, occasionally knocks the gun out of their hand. Mostly the former."
     },

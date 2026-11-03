@@ -3248,6 +3248,42 @@ func run() -> void:
 			GameState.state["event"] = null
 	)
 
+	run_case("profile_alert_cover_rolls_per_use_and_shows_a_line", func():
+		var alert: Dictionary = GameData.RECIPES["blast"]["eventProfile"]["alert"]
+		var original_cover: Variant = alert["cover"]
+		var lines: Dictionary = GameData.EVENT_CHECKS["profileCover"]
+		for lady in [false, true]:
+			GameState.reset()
+			Crafting.inventory_add("blast", 1, 1)
+			var original_events := _install_no_roll_item_event()
+			Events.start_event("test_no_roll_item")
+			Events.advance()
+			var roll := Events.cover_roll()
+			alert["cover"] = { "base": roll - 0.01, "min": 0.0, "max": 1.0 }
+			if lady:
+				GameState.state["player"]["activeEffects"] = [{ "item": ActiveEffects.LADY, "level": 2, "expiresAtBlock": 99999 }]
+			Events.choose(0)
+			var text: String = GameState.state["event"]["choiceResults"]["1"]["text"]
+			assert_eq(Events.alert_level(), 0 if lady else 1, "Lady %s" % str(lady))
+			assert_true(text.ends_with(lines["covered" if lady else "uncovered"]), "line shown, Lady %s" % str(lady))
+			assert_eq(GameState.state["event"]["covers"]["1"], 1, "one roll")
+			GameData.EVENTS = original_events
+			GameState.state["event"] = null
+		# Option overrides replace the generic lines.
+		GameState.reset()
+		Crafting.inventory_add("blast", 1, 1)
+		var original := _install_no_roll_item_event()
+		GameData.EVENTS["test_no_roll_item"]["cards"][1]["choices"][0]["uncoveredText"] = "Custom loud."
+		alert["cover"] = { "base": 0.0, "min": 0.0, "max": 0.0 }
+		Events.start_event("test_no_roll_item")
+		Events.advance()
+		Events.choose(0)
+		assert_true(str(GameState.state["event"]["choiceResults"]["1"]["text"]).ends_with("Custom loud."))
+		alert["cover"] = original_cover
+		GameData.EVENTS = original
+		GameState.state["event"] = null
+	)
+
 	run_case("an_authored_observation_mod_applies_to_cover", func():
 		for read in [false, true]:
 			GameState.reset()

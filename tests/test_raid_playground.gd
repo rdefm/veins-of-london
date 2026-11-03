@@ -65,8 +65,12 @@ func run() -> void:
 		_start()
 		_pick("Look for a way in via the hall")
 		Crafting.inventory_add("blast", 1, 1)
+		var alert: Dictionary = GameData.RECIPES["blast"]["eventProfile"]["alert"]
+		var original_cover: Variant = alert["cover"]
+		alert["cover"] = { "base": 0.0, "min": 0.0, "max": 0.0 }
 		var i := RaidingTests._option_index("Blast the door open")
 		Events.choose(i)
+		alert["cover"] = original_cover
 		assert_eq(Crafting.inventory_qty("blast"), 0)
 		assert_eq(Events.alert_level(), 1)
 	)

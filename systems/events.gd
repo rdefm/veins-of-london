@@ -495,6 +495,7 @@ static func choose(choice_index: int, pick_ore: String = "") -> void:
 	# A toggled consumable is spent only here, on committing its own option,
 	# rolled or not.
 	var spent: Array = []
+	var cover_lines: Array = []
 	# An exit-item option (R§3.9a Exit item) spends its item on commit.
 	if choice.has("exitItem"):
 		_pay_item(String(choice["exitItem"]), item_source(String(choice["exitItem"])))
@@ -504,13 +505,16 @@ static func choose(choice_index: int, pick_ore: String = "") -> void:
 		if mod.has("effect"):
 			spent.append(mod["item"])
 			apply_item_effect(mod["item"], mod["effect"], item_source(mod["item"]))
-			_apply_profile_alert(mod["item"])
+			cover_lines.append(_apply_profile_alert(mod["item"], choice))
 		elif mod.get("consume", false):
 			spent.append(mod["item"])
 			_pay_item(mod["item"], item_source(mod["item"]))
-			_apply_profile_alert(mod["item"])
+			cover_lines.append(_apply_profile_alert(mod["item"], choice))
 
 	var resolution: Dictionary = { "text": source["result_text"] }
+	for line in cover_lines:
+		if line != "":
+			resolution["text"] = line if is_silent_text(resolution["text"]) else "%s\n\n%s" % [resolution["text"], line]
 	if source.has("image"):
 		resolution["image"] = source["image"]
 	elif choice.has("image"):
@@ -941,18 +945,25 @@ static func reinforcements_pending() -> bool:
 # text joins the current card's resolution (or becomes it, when silent).
 static func _roll_cover(cover: Dictionary) -> bool:
 	var event_state: Dictionary = GameState.state["event"]
-	var roll := cover_roll()
-	var covers: Dictionary = event_state.get("covers", {})
 	var card := str(int(event_state["cardIndex"]))
-	covers[card] = int(covers.get(card, 0)) + 1
-	event_state["covers"] = covers
-	if roll >= float(odds_for(cover, [], false)["probability"]):
+	if not _cover_passes(cover):
 		return false
 	var resolution: Variant = event_state["choiceResults"].get(card)
 	if resolution != null:
 		var text: Variant = resolution.get("text")
 		resolution["text"] = cover.get("text", "") if is_silent_text(text) else "%s\n\n%s" % [text, cover.get("text", "")]
 	return true
+
+
+# One cover roll: counts it against the card and returns whether it passed.
+static func _cover_passes(cover: Dictionary) -> bool:
+	var event_state: Dictionary = GameState.state["event"]
+	var roll := cover_roll()
+	var covers: Dictionary = event_state.get("covers", {})
+	var card := str(int(event_state["cardIndex"]))
+	covers[card] = int(covers.get(card, 0)) + 1
+	event_state["covers"] = covers
+	return roll < float(odds_for(cover, [], false)["probability"])
 
 
 # The next cover roll on the current card in [0,1): a stable hash of
@@ -1630,10 +1641,25 @@ static func offered_mods(choice: Dictionary) -> Array:
 
 # The spent item's eventProfile `alert` (an `alert` op without cover), applied as
 # it is spent, so before the option's own effects (R§3.9a No-roll bypasses).
-static func _apply_profile_alert(item: String) -> void:
+static func _apply_profile_alert(item: String, choice: Dictionary = {}) -> String:
 	var profile: Variant = GameData.RECIPES.get(item, {}).get("eventProfile")
-	if profile is Dictionary and profile.has("alert"):
-		_apply_alert(profile["alert"])
+	if not profile is Dictionary or not profile.has("alert"):
+		return ""
+	var alert: Dictionary = profile["alert"]
+	if GameState.state.get("event") == null:
+		return ""
+	if not alert.has("cover"):
+		_apply_alert(alert)
+		return ""
+	# A profile cover rolls on its own; the covered/uncovered line goes on the card.
+	var covered := _cover_passes(alert["cover"])
+	if not covered:
+		var raise := alert.duplicate()
+		raise.erase("cover")
+		_apply_alert(raise)
+	var key := "coveredText" if covered else "uncoveredText"
+	var generic: Dictionary = GameData.EVENT_CHECKS["profileCover"]
+	return str(choice.get(key, generic["covered" if covered else "uncovered"]))
 
 
 static func _collect_items(condition: Dictionary, out: Array) -> void:

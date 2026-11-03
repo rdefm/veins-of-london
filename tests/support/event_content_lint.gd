@@ -180,6 +180,10 @@ static func lint_profiles(recipes: Dictionary) -> Array:
 			out.append("%s: eventProfile needs a label" % id)
 		if profile.has("alert") and not (profile["alert"] is Dictionary and (profile["alert"].has("add") or profile["alert"].has("atLeast"))):
 			out.append("%s: eventProfile alert needs add or atLeast" % id)
+		if profile.has("alert") and profile["alert"] is Dictionary and profile["alert"].has("cover"):
+			var cover: Variant = profile["alert"]["cover"]
+			if not cover is Dictionary or not (cover.get("base") is float or cover.get("base") is int) or float(cover["base"]) < 0.0 or float(cover["base"]) > 1.0:
+				out.append("%s: eventProfile alert cover needs base in 0..1" % id)
 		if not kinds.has(profile["effect"].get("kind", "")):
 			out.append("%s: eventProfile effect kind '%s' unknown" % [id, profile["effect"].get("kind", "")])
 	return out
