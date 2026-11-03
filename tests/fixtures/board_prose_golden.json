@@ -1,0 +1,45 @@
+{
+  "broke_miss": {
+    "demo": {
+      "case": [
+        "demo.case.a",
+        "demo.case.low",
+        "demo.case.miss",
+        "demo.case.rival"
+      ],
+      "chosen": [
+        "demo.chosen.b"
+      ]
+    }
+  },
+  "edge": {
+    "demo": {
+      "case": [
+        "demo.case.a",
+        "demo.case.rich",
+        "demo.case.norival",
+        "demo.case.gap",
+        "demo.case.ore"
+      ],
+      "chosen": [
+        "demo.chosen.b"
+      ]
+    }
+  },
+  "rich_hit": {
+    "demo": {
+      "case": [
+        "demo.case.a",
+        "demo.case.rich",
+        "demo.case.hit",
+        "demo.case.norival",
+        "demo.case.gap",
+        "demo.case.ore"
+      ],
+      "chosen": [
+        "demo.chosen.a",
+        "demo.chosen.b"
+      ]
+    }
+  }
+}

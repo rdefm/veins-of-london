@@ -1,0 +1,28 @@
+{
+  "packs": {
+    "demo": {
+      "template": "demo",
+      "cards": [
+        { "id": "demo.case.a", "slot": "case", "voice": "archie" },
+        { "id": "demo.case.low", "slot": "case", "voice": "archie", "when": { "fact": "float", "op": "lt", "value": 500 } },
+        { "id": "demo.case.rich", "slot": "case", "voice": "archie", "when": { "fact": "weeks", "gte": 3 } },
+        { "id": "demo.case.miss", "slot": "case", "voice": "archie", "when": { "all": [ { "fact": "last_result", "op": "==", "value": "miss" }, { "fact": "streak", "op": "eq", "value": 0 } ] } },
+        { "id": "demo.case.hit", "slot": "case", "voice": "archie", "when": { "any": [ { "fact": "last_result", "op": "eq", "value": "hit" }, { "fact": "streak", "op": ">", "value": 2 } ] } },
+        { "id": "demo.case.rival", "slot": "case", "voice": "archie", "when": { "fact": "rival_present", "op": "eq", "value": true } },
+        { "id": "demo.case.norival", "slot": "case", "voice": "archie", "when": { "not": { "fact": "rival_present", "op": "eq", "value": true } } },
+        { "id": "demo.case.gap", "slot": "case", "voice": "james", "when": { "fact": "share_gap", "op": "<=", "value": -5 } },
+        { "id": "demo.case.ore", "slot": "case", "voice": "james", "when": { "fact": "ore_type", "op": "ne", "value": "time" } },
+        { "id": "demo.case.unknown", "slot": "case", "voice": "james", "when": { "fact": "no_such_fact", "op": "eq", "value": 1 } },
+        { "id": "demo.case.noop", "slot": "case", "voice": "james", "when": { "fact": "week" } },
+        { "id": "demo.case.strnum", "slot": "case", "voice": "james", "when": { "fact": "ore", "op": "gt", "value": 1 } },
+        { "id": "demo.chosen.a", "slot": "chosen", "voice": "archie", "when": { "fact": "week", "op": "lte", "value": 1 } },
+        { "id": "demo.chosen.b", "slot": "chosen", "voice": "archie" }
+      ]
+    }
+  },
+  "factSets": {
+    "broke_miss": { "week": 4, "expenses": 400, "float": 300, "weeks": 0.8, "ore": "Time", "ore_type": "time", "calc": "time calc", "label": "x", "pitcher": "Archie", "share": 10, "share_gap": 12, "rival": "the Guild", "rival_present": true, "contested": "Time", "last_result": "miss", "streak": 0, "last_pitcher": "archie" },
+    "rich_hit": { "week": 1, "expenses": 400, "float": 2000, "weeks": 5, "ore": "Fate", "ore_type": "fate", "calc": "fate calc", "label": "x", "pitcher": "James", "share": 30, "share_gap": -8, "rival": "the independents", "rival_present": false, "contested": "nothing yet", "last_result": "hit", "streak": 3, "last_pitcher": "james" },
+    "edge": { "week": 2, "expenses": 400, "float": 500, "weeks": 3, "ore": "Life", "ore_type": "life", "calc": "life calc", "label": "", "pitcher": "", "share": 0, "share_gap": -5, "rival": "the independents", "rival_present": false, "contested": "nothing yet", "last_result": "none", "streak": 0, "last_pitcher": "" }
+  }
+}

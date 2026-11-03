@@ -2436,4 +2436,84 @@ test("coveredText / uncoveredText: only offered for a cover-profile item; save, 
   assert.strictEqual("coveredText" in opt, false, "blank clears the override");
 });
 
+// ---- Prose packs ----
+const proseStart = html.indexOf("/* ---------- Prose packs (pure) ---------- */"), proseEnd = html.indexOf("/* ---------- End prose packs ---------- */");
+assert(proseStart !== -1 && proseEnd !== -1, "could not locate prose pack markers in storyboard.html");
+const { proseCondMet, proseCondText, proseCards, proseQualifying, proseSlots, proseFill, proseUnfilled, proseUnit, assembleMeeting, proseVariantRows } =
+  new Function(html.slice(proseStart, proseEnd) + "\nreturn { proseCondMet, proseCondText, proseCards, proseQualifying, proseSlots, proseFill, proseUnfilled, proseUnit, assembleMeeting, proseVariantRows };")();
+const fixtureDir = path.join(__dirname, "..", "tests", "fixtures");
+const parityInput = JSON.parse(fs.readFileSync(path.join(fixtureDir, "board_prose_parity_input.json"), "utf-8"));
+const parityGolden = JSON.parse(fs.readFileSync(path.join(fixtureDir, "board_prose_golden.json"), "utf-8"));
+
+test("prose eligibility matches the Godot golden file", () => {
+  for (const [setId, facts] of Object.entries(parityInput.factSets)) {
+    for (const [packId, pack] of Object.entries(parityInput.packs)) {
+      for (const slot of proseSlots(pack)) {
+        const ids = proseQualifying(proseCards(pack, slot), facts).map((p) => p.id);
+        assert.deepStrictEqual(ids, parityGolden[setId][packId][slot], `${setId}/${packId}/${slot}`);
+      }
+    }
+  }
+});
+
+test("prose tokens fill and unfilled ones are flagged", () => {
+  const facts = { float: 1200, share: 25, ore: "Time" };
+  assert.strictEqual(proseFill("{float} at {share}% of {ore} {nope}", facts), "£1200 at 25% of Time {nope}");
+  assert.deepStrictEqual(proseUnfilled("{share} {nope} {nope} {zip}", facts), ["nope", "zip"]);
+});
+
+test("prose condition text is readable", () => {
+  assert.strictEqual(proseCondText(undefined), "always");
+  assert.strictEqual(proseCondText({ all: [{ fact: "streak", gt: 2 }, { not: { fact: "rival_present", op: "eq", value: true } }] }), 'streak > 2 and not rival_present = true');
+});
+
+const sandboxPacks = {
+  share_first: { cards: [
+    { id: "sf.case.1", slot: "case", voice: "archie", cards: [{ speaker: "Archie", text: "Take {share}% of {calc}. {oops}" }] },
+    { id: "sf.case.2", slot: "case", voice: "archie", when: { fact: "float", lt: 100 }, cards: [{ speaker: "Archie", text: "Broke." }] },
+    { id: "sf.chosen.1", slot: "chosen", voice: "archie", cards: [{ speaker: "Archie", text: "Good." }] },
+  ] },
+  _debate: { cards: [
+    { id: "d.opener.a", slot: "opener", voice: "archie", cards: [{ speaker: "Archie", text: "Right." }] },
+    { id: "d.reply.j", slot: "reply", voice: "james", to: "archie", stance: "back", cards: [{ speaker: "James", text: "Fine." }] },
+    { id: "d.concede.j", slot: "concede", voice: "james", cards: [{ speaker: "James", text: "Fair." }] },
+  ] },
+};
+const sandboxSpec = (over = {}) => ({ packs: sandboxPacks, items: [{ template: "share_first", voice: "archie", ore: "time" }],
+  facts: { week: 3, expenses: 400, float: 1000, share: 12, last_result: "none", streak: 0 }, seed: 1, week: 3,
+  voices: { archie: { name: "Archie" }, james: { name: "James" } }, oreNames: { time: "Time" }, clashChance: 0, clashOrder: [], ...over });
+
+test("sandbox assembles a meeting and explains each pick", () => {
+  const m = assembleMeeting(sandboxSpec());
+  assert.deepStrictEqual(m.cards.map((c) => c.slot), ["minutes", "opener", "slot 0 case", "slot 0 reply", "vote"]);
+  const why = m.why.find((w) => w.slot === "slot 0 case");
+  assert.strictEqual(why.eligible, 1, "the float<100 variant is not eligible");
+  assert.strictEqual(why.prose, "sf.case.1");
+  assert.strictEqual(m.cards[2].text, "Take 12% of time calc. {oops}");
+  assert.deepStrictEqual(m.unfilled, ["oops"]);
+  assert.deepStrictEqual(m.results.map((r) => r.slot), ["slot 0 chosen", "slot 0 concede"]);
+});
+
+test("sandbox condition changes who is eligible; reroll can change the pick", () => {
+  const broke = assembleMeeting(sandboxSpec({ facts: { week: 3, expenses: 400, float: 50, share: 1 } }));
+  assert.strictEqual(broke.why.find((w) => w.slot === "slot 0 case").eligible, 2);
+  const picks = new Set();
+  for (let seed = 0; seed < 40; seed++) picks.add(assembleMeeting(sandboxSpec({ seed, facts: { week: 3, expenses: 400, float: 50, share: 1 } })).why.find((w) => w.slot === "slot 0 case").prose);
+  assert.strictEqual(picks.size, 2, "different seeds reach both variants");
+  assert.strictEqual(proseUnit(5, 3, "x"), proseUnit(5, 3, "x"));
+});
+
+test("prose variant rows show condition, weight, first line and eligibility", () => {
+  const rows = proseVariantRows(sandboxPacks.share_first, "case", { float: 50 });
+  assert.deepStrictEqual(rows.map((r) => [r.id, r.when, r.weight, r.eligible]), [["sf.case.1", "always", 1, true], ["sf.case.2", "float < 100", 1, true]]);
+  assert.strictEqual(rows[0].first, "Archie: Take {share}% of {calc}. {oops}");
+});
+
+test("shipped prose packs parse and slots list", () => {
+  const dir = path.join(__dirname, "..", "data", "board_prose");
+  const names = fs.readdirSync(dir).filter((f) => f.endsWith(".json"));
+  assert(names.length > 5);
+  for (const n of names) assert(proseSlots(JSON.parse(fs.readFileSync(path.join(dir, n), "utf-8"))).length > 0, n);
+});
+
 console.log(`${passed} passed${process.exitCode ? ", some FAILED" : ""}`);

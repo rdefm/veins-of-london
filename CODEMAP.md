@@ -365,6 +365,7 @@ infrastructure, excluded from discovery.
 
 `check_all.sh` syntax-checks .gd files, then runs `lint_tokens.sh` (row-cap + comment-vocab ban).
 `export_lint_refs.gd` writes `tools/lint_refs.json` (lint reference lists + GDScript lint violations per event) for the storyboard tool; regenerate: `godot --headless -s scripts/export_lint_refs.gd`.
+`storyboard.html` "Prose packs" button: read-only view of `data/board_prose/*` (slot tabs; condition, weight, first line, eligibility) plus a meeting sandbox (1-3 goals, facts, seed reroll, phone playback, why-it-fired, unfilled `{tokens}`); pure "Prose packs" section tested by `test_storyboard.js` against `tests/fixtures/board_prose_golden.json`, written from `board_prose_parity_input.json` by `scripts/export_board_prose_golden.gd`.
 `run_tests.sh` runs the headless suite. `setup_godot.sh`/`setup_godot_ai.sh` set up the headless
 binary and the godot-ai MCP server; `soak.sh` repeats the playthrough test.
 `diagnose_115_timing.gd` is a hang-timing probe; `verify_map_camera_persistence.gd` is a

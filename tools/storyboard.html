@@ -76,6 +76,16 @@ header.top .title { display: grid; gap: 6px; min-width: 0 }
 .nav button:disabled { opacity: .35; cursor: default }
 
 /* Cut list: one row per card, grouped into shot runs. */
+.pp-list, .pp-bar, .pp-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0 }
+.pp-list [aria-pressed="true"] { background: var(--fg); color: var(--bg) }
+.pp-table { border-collapse: collapse; width: 100%; font-size: 13px }
+.pp-table th, .pp-table td { border-top: 1px solid var(--line); padding: 6px 8px; text-align: left; vertical-align: top }
+.pp-table .pp-off { opacity: .5 }
+.pp-box { display: grid; gap: 12px; margin-top: 24px }
+.pp-facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px }
+.pp-fact { display: grid; gap: 2px }
+.pp-fact input { padding: 4px 6px; border: 1px solid var(--line); border-radius: 4px; background: var(--surface) }
+.pp-warn { color: #b00020; font-weight: 600; margin: 0 }
 .cuts { display: grid; gap: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden }
 .cut { display: grid; grid-template-columns: 34px 72px minmax(0, 1fr); gap: 10px; padding: 10px 12px; border-top: 1px solid var(--line); text-align: left; background: none; border-left: 0; border-right: 0; border-bottom: 0; width: 100% }
 .cut:first-child { border-top: 0 }
@@ -326,6 +336,7 @@ section { display: grid; gap: 12px; min-width: 0 }
     <div class="picker" id="toolbar">
       <button type="button" class="tb" id="open">Open repo folder</button>
       <button type="button" class="tb" id="refresh" hidden>Reload</button>
+      <button type="button" class="tb" id="prose-open" hidden title="View the board-meeting prose packs in data/board_prose/ and play a sample meeting">Prose packs</button>
       <button type="button" class="tb" id="new-board" hidden title="Start a new proposal in .scratch/writing-revamp/">New board</button>
       <span class="mono muted" id="folder-name"></span>
       <label class="eyebrow" for="board-select">Event</label>
@@ -338,6 +349,8 @@ section { display: grid; gap: 12px; min-width: 0 }
     <p>Open the veins-of-london repo folder (Chrome or Edge on desktop). Boards come from <code>.scratch/event-art/&lt;event&gt;/board.json</code>; uploads save into <code>assets/reference-plates/</code>; verdicts save to the board's <code>feedback.json</code>. Writing proposals (any <code>.scratch/writing-revamp/*.md</code> with an event JSON block) appear under "Proposals"; edits save back into that file's JSON block.</p>
     <p class="muted" id="db-note">Click "Open repo folder" and pick the veins-of-london folder.</p>
   </div>
+
+  <div id="prose-view" hidden></div>
 
   <div id="board" hidden>
     <div style="display:grid; gap:28px">
@@ -1445,6 +1458,7 @@ function checkOddsBlock(opt, changed, restructure) {
     $("folder-name").textContent = h.name;
     $("refresh").hidden = false;
     $("new-board").hidden = false;
+    $("prose-open").hidden = false;
     await loadAll();
   }
   async function openFolder() {
@@ -3366,6 +3380,180 @@ function checkOddsBlock(opt, changed, restructure) {
 
   /* ---------- End draft model ---------- */
 
+  /* ---------- Prose packs (pure) ---------- */
+  // No DOM, no file access: tools/test_storyboard.js extracts everything between this marker and
+  // "End prose packs". Mirrors the game's prose `when` grammar and eligibility (R§3.15 "Prose when",
+  // "Prose selection"); the pick itself is the tool's own seeded roll, not the game's.
+  const PROSE_FACT_OPS = { eq: "eq", ne: "ne", gt: "gt", gte: "gte", lt: "lt", lte: "lte", "==": "eq", "!=": "ne", ">": "gt", ">=": "gte", "<": "lt", "<=": "lte" };
+  const PROSE_MONEY_FACTS = ["expenses", "float"];
+  // A fact leaf's comparison as [op, expected] ({fact, op, value} or the {fact, gt: 5} shorthand); [] for none.
+  function proseComparison(leaf) {
+    if ("op" in leaf) return PROSE_FACT_OPS[leaf.op] && "value" in leaf ? [PROSE_FACT_OPS[leaf.op], leaf.value] : [];
+    for (const k of Object.keys(PROSE_FACT_OPS)) if (k in leaf) return [PROSE_FACT_OPS[k], leaf[k]];
+    return [];
+  }
+  const proseIsNum = (v) => typeof v === "number";
+  function proseCondMet(cond, facts) {
+    if (cond.all) return cond.all.every((c) => proseCondMet(c, facts));
+    if (cond.any) return cond.any.some((c) => proseCondMet(c, facts));
+    if ("not" in cond) return !proseCondMet(cond.not, facts);
+    if (!("fact" in cond)) return false;
+    const cmp = proseComparison(cond);
+    if (!cmp.length || !Object.prototype.hasOwnProperty.call(facts, String(cond.fact))) return false;
+    const actual = facts[cond.fact], [op, expected] = cmp;
+    const same = typeof actual === "string" || typeof expected === "string" ? String(actual) === String(expected) : actual === expected;
+    if (op === "eq") return same;
+    if (op === "ne") return !same;
+    if (!proseIsNum(actual) || !proseIsNum(expected)) return false;
+    return op === "gt" ? actual > expected : op === "gte" ? actual >= expected : op === "lt" ? actual < expected : actual <= expected;
+  }
+  // A condition as a short readable line.
+  function proseCondText(cond) {
+    if (!cond) return "always";
+    if (cond.all) return cond.all.map(proseCondText).join(" and ");
+    if (cond.any) return "(" + cond.any.map(proseCondText).join(" or ") + ")";
+    if ("not" in cond) return "not " + proseCondText(cond.not);
+    if ("fact" in cond) {
+      const cmp = proseComparison(cond);
+      const sym = { eq: "=", ne: "≠", gt: ">", gte: "≥", lt: "<", lte: "≤" };
+      return cmp.length ? `${cond.fact} ${sym[cmp[0]]} ${JSON.stringify(cmp[1])}` : `${cond.fact} ?`;
+    }
+    return JSON.stringify(cond);
+  }
+  // The pack's cards for a slot in file order, keeping those whose fields equal every filter entry.
+  function proseCards(pack, slot, filters = {}) {
+    return ((pack && pack.cards) || []).filter((p) => p.slot === slot && Object.entries(filters).every(([k, v]) => String(p[k] ?? "") === String(v)));
+  }
+  const proseQualifying = (pool, facts) => pool.filter((p) => !p.when || proseCondMet(p.when, facts));
+  const proseSlots = (pack) => [...new Set(((pack && pack.cards) || []).map((p) => p.slot))];
+  const proseFirstLine = (p) => { const l = (p.cards || [])[0]; return l ? (l.speaker ? l.speaker + ": " : "") + l.text : ""; };
+  // {token} display strings, as the game formats them: money with £, numbers as written.
+  function proseTokens(facts) {
+    const out = {};
+    for (const [k, v] of Object.entries(facts)) out[k] = PROSE_MONEY_FACTS.includes(k) ? "£" + Math.trunc(Number(v)) : String(v);
+    return out;
+  }
+  const proseTokenNames = (text) => [...String(text).matchAll(/\{(\w+)\}/g)].map((m) => m[1]);
+  // The text with every {token} that has a fact filled; the rest stay as written (as the game leaves them).
+  const proseFill = (text, facts) => { const t = proseTokens(facts); return String(text).replace(/\{(\w+)\}/g, (m, k) => (k in t ? t[k] : m)); };
+  const proseUnfilled = (text, facts) => [...new Set(proseTokenNames(text).filter((k) => !Object.prototype.hasOwnProperty.call(facts, k)))];
+  // The tool's own seeded unit in [0, 1): FNV-1a of seed|board|week|salt through one mulberry32 step.
+  function proseUnit(seed, week, salt) {
+    let h = 2166136261;
+    for (const ch of `${seed}|board|${week}|${salt}`) { h ^= ch.codePointAt(0); h = Math.imul(h, 16777619) >>> 0; }
+    let t = (h + 0x6D2B79F5) >>> 0;
+    t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  }
+  // Weighted pick over the qualifying cards; {prose, why} (prose null when none qualify).
+  function proseChoose(pool, facts, seed, week, salt) {
+    const open = proseQualifying(pool, facts);
+    if (!open.length) return { prose: null, why: { eligible: 0, of: pool.length } };
+    const total = open.reduce((s, p) => s + Number(p.weight ?? 1), 0);
+    let roll = proseUnit(seed, week, salt) * total, picked = open[open.length - 1];
+    for (const p of open) { roll -= Number(p.weight ?? 1); if (roll < 0) { picked = p; break; } }
+    return { prose: picked, why: { eligible: open.length, of: pool.length, when: proseCondText(picked.when), weight: Number(picked.weight ?? 1) } };
+  }
+  const proseSeededIndex = (n, seed, week, salt) => Math.min(n - 1, Math.floor(proseUnit(seed, week, salt) * n));
+  const proseValues = (pool, field) => [...new Set(pool.map((p) => p[field]))];
+  // Facts for one agenda card: the shared facts plus its ore, pitching voice and template.
+  function proseCardFacts(base, item, voices, oreNames) {
+    const ore = item.ore || base.ore_type || "";
+    const f = { ...base, ore_type: ore, ore: ore ? (oreNames[ore] || ore) : "the ore", calc: ore ? ore + " calc" : "calc" };
+    f.pitcher = (voices[item.voice] || {}).name || item.voice || "";
+    f.label = item.template || "";
+    f.weeks = Math.round((Number(f.float) / Math.max(Number(f.expenses), 1)) * 10) / 10;
+    f.float_weeks = f.weeks;
+    return f;
+  }
+  // Event cards of a prose card with {tokens} filled.
+  function proseLines(key, prose, facts) {
+    if (!prose) return [];
+    const lines = prose.cards || [];
+    return lines.map((l, i) => ({ key: lines.length === 1 ? key : key + i, speaker: l.speaker || null, text: proseFill(l.text, facts), prose: prose.id, unfilled: proseUnfilled(l.text, facts) }));
+  }
+  // The meeting a sandbox spec plays: {cards, why, results, unfilled}.
+  // spec = {packs, items: [{template, voice, ore}], facts, seed, week, voices, oreNames, clashChance, clashOrder}.
+  function assembleMeeting(spec) {
+    const { packs, items, seed, week } = spec, debate = packs._debate || { cards: [] };
+    const voices = spec.voices || {}, oreNames = spec.oreNames || {};
+    const cards = [], why = [], results = [];
+    const take = (slot, lines, w, note) => {
+      why.push({ slot, ...w, prose: lines.length ? lines[0].prose : "", note: note || "" });
+      for (const l of lines) cards.push({ ...l, slot });
+    };
+    const factsFor = items.map((it) => proseCardFacts(spec.facts, it, voices, oreNames));
+    cards.push({ key: "minutes", speaker: null, text: "(The minutes: the game builds this line from last week's result.)", slot: "minutes", prose: "", unfilled: [] });
+    if (items.length) {
+      const f = factsFor[0];
+      const o = proseChoose(proseCards(debate, "opener", { voice: items[0].voice }), f, seed, week, "opener");
+      take("opener", proseLines("opener", o.prose, f), o.why);
+    }
+    items.forEach((it, i) => {
+      const f = factsFor[i], pack = packs[it.template] || { cards: [] };
+      const cs = proseChoose(proseCards(pack, "case", { voice: it.voice }), f, seed, week, "case|" + it.template);
+      take(`slot ${i} case`, proseLines("case", cs.prose, f), cs.why);
+      const own = cs.prose && Array.isArray(cs.prose.replies) ? cs.prose.replies : [];
+      const ownReply = proseChoose(own.filter((r) => r.slot === "reply"), f, seed, week, "response|" + i);
+      if (ownReply.prose) {
+        take(`slot ${i} reply`, proseLines("resp", ownReply.prose, f), ownReply.why, "own mini-scene");
+        if (ownReply.prose.stance === "challenge") {
+          let reb = proseChoose(own.filter((r) => r.slot === "rebuttal"), f, seed, week, "rebuttal|" + i), note = "own mini-scene";
+          if (!reb.prose) { reb = proseChoose(proseCards(debate, "rebuttal", { voice: it.voice }), f, seed, week, "rebuttal|" + i); note = "fallback: generic _debate rebuttal"; }
+          take(`slot ${i} rebuttal`, proseLines("reb", reb.prose, f), reb.why, note);
+        }
+        return;
+      }
+      const replies = proseQualifying(proseCards(debate, "reply", { to: it.voice }), f);
+      const responders = proseValues(replies, "voice").filter((v) => v !== it.voice);
+      if (!responders.length) { why.push({ slot: `slot ${i} reply`, eligible: 0, of: 0, prose: "", note: "no generic reply qualifies" }); return; }
+      const responder = responders[proseSeededIndex(responders.length, seed, week, "responder|" + i)];
+      const stances = proseValues(proseQualifying(proseCards(debate, "reply", { to: it.voice, voice: responder }), f), "stance");
+      const stance = stances[proseSeededIndex(stances.length, seed, week, "stance|" + i)];
+      const rp = proseChoose(proseCards(debate, "reply", { to: it.voice, voice: responder, stance }), f, seed, week, "response|" + i);
+      take(`slot ${i} reply`, proseLines("resp", rp.prose, f), rp.why, "fallback: generic _debate reply");
+      if (stance === "challenge") {
+        const reb = proseChoose(proseCards(debate, "rebuttal", { voice: it.voice }), f, seed, week, "rebuttal|" + i);
+        take(`slot ${i} rebuttal`, proseLines("reb", reb.prose, f), reb.why, "fallback: generic _debate rebuttal");
+      }
+    });
+    if (items.length && proseUnit(seed, week, "clash") < Number(spec.clashChance ?? 0.5)) {
+      const offered = new Set(items.map((it) => it.voice));
+      for (const pair of spec.clashOrder || []) {
+        const [a, b] = pair.split("|");
+        if (!(offered.has(a) && offered.has(b))) continue;
+        const f = factsFor[0];
+        const c = proseChoose(proseCards(debate, "clash", { voice: a, to: b }), f, seed, week, "clashLines");
+        take("clash", proseLines("clash", c.prose, f), c.why);
+        break;
+      }
+    }
+    cards.push({ key: "vote", speaker: null, text: "Over to you.\n\n" + items.map((it, i) => `${factsFor[i].label} (${factsFor[i].pitcher})`).join("\n\n"), slot: "vote", prose: "", unfilled: [] });
+    items.forEach((it, i) => {
+      const f = factsFor[i], pack = packs[it.template] || { cards: [] };
+      let ch = proseChoose(proseCards(pack, "chosen", { voice: it.voice }), f, seed, week, "chosen|" + i), note = "";
+      if (!ch.prose) { ch = proseChoose(proseCards(debate, "chosen", { voice: it.voice }), f, seed, week, "chosen|" + i); note = "fallback: generic _debate chosen"; }
+      if (ch.prose) results.push({ slot: `slot ${i} chosen`, lines: proseLines("chosen", ch.prose, f), why: ch.why, note });
+      let src = pack, cnote = "";
+      let others = proseValues(proseQualifying(proseCards(pack, "concede"), f), "voice").filter((v) => v !== it.voice);
+      if (!others.length) { src = debate; others = proseValues(proseQualifying(proseCards(debate, "concede"), f), "voice").filter((v) => v !== it.voice); cnote = "fallback: generic _debate concede"; }
+      if (others.length) {
+        const who = others[proseSeededIndex(others.length, seed, week, "conceder|" + i)];
+        const cd = proseChoose(proseCards(src, "concede", { voice: who }), f, seed, week, "concede|" + i);
+        if (cd.prose) results.push({ slot: `slot ${i} concede`, lines: proseLines("concede", cd.prose, f), why: cd.why, note: cnote });
+      }
+    });
+    const lines = cards.concat(...results.map((r) => r.lines));
+    return { cards, why, results, unfilled: [...new Set(lines.flatMap((l) => l.unfilled || []))] };
+  }
+  // Variant-list rows for one pack slot; `eligible` is set against `facts` when given.
+  function proseVariantRows(pack, slot, facts) {
+    return proseCards(pack, slot).map((p) => ({ id: p.id, voice: p.voice || "", when: proseCondText(p.when), weight: Number(p.weight ?? 1),
+      first: proseFirstLine(p), replies: Array.isArray(p.replies) ? p.replies.length : 0, eligible: facts ? !p.when || proseCondMet(p.when, facts) : null }));
+  }
+  /* ---------- End prose packs ---------- */
+
+
   // Image per card, as the event screen resolves it: an explicit "image" key (null clears), else (legacy flat
   // proposals only) the convention asset assets/events/<id>/<id>_card<N>.*, else hold the previous image.
   async function loadConventionImages(b) {
@@ -5254,6 +5442,7 @@ function checkOddsBlock(opt, changed, restructure) {
   }
 
   function renderBoard() {
+    if (proseOn) return;
     const b = board();
     $("empty").hidden = !!b; $("board").hidden = !b;
     renderEditBar();
@@ -5304,6 +5493,121 @@ function checkOddsBlock(opt, changed, restructure) {
   }
 
   const typing = () => { const a = document.activeElement; return !!a && (a.tagName === "TEXTAREA" || a.isContentEditable || (a.tagName === "INPUT" && a.type === "text")); };
+  /* ---------- Prose pack mode (view + sandbox; read-only) ---------- */
+  const PROSE_DIR = ["data", "board_prose"];
+  const PROSE_ORES = ["time", "physics", "life", "fate", "emotion"];
+  const PROSE_FACT_FIELDS = [["week", "number"], ["expenses", "number"], ["float", "number"], ["share", "number"], ["share_gap", "number"],
+    ["rival", "text"], ["rival_present", "bool"], ["contested", "text"], ["last_result", "text"], ["streak", "number"], ["last_pitcher", "text"]];
+  const proseState = { packs: {}, voices: {}, debate: {}, pack: null, slot: null, seed: 1,
+    items: [{ template: "", voice: "", ore: "time" }], facts: { week: 3, expenses: 400, float: 1200, share: 12, share_gap: 8, rival: "the independents",
+      rival_present: true, contested: "Time", last_result: "none", streak: 0, last_pitcher: "" }, step: 0 };
+  let proseOn = false;
+  async function loadProse() {
+    const view = $("prose-view");
+    $("board").hidden = true; $("empty").hidden = true; view.hidden = false;
+    $("h-title").textContent = "Prose packs";
+    try {
+      const dir = await dirAt(PROSE_DIR), packs = {};
+      for await (const [name, h] of dir.entries()) {
+        if (h.kind !== "file" || !name.endsWith(".json")) continue;
+        const pack = await readJSON(dir, name);
+        if (pack && Array.isArray(pack.cards)) packs[name.replace(/\.json$/, "")] = pack;
+      }
+      proseState.packs = packs;
+      const bj = await readJSON(await dirAt(["data"]), "board.json");
+      proseState.voices = (bj && bj.voices) || {};
+      proseState.debate = (bj && bj.meeting && bj.meeting.debate) || {};
+    } catch (e) { setNote("Couldn't read data/board_prose/: " + e.message); }
+    const names = Object.keys(proseState.packs).sort();
+    if (!proseState.pack || !proseState.packs[proseState.pack]) proseState.pack = names.find((n) => !n.startsWith("_")) || names[0] || null;
+    const templates = names.filter((n) => !n.startsWith("_"));
+    proseState.items.forEach((it) => { if (!templates.includes(it.template)) it.template = templates[0] || ""; });
+    renderProse();
+  }
+  const proseVoicesFor = (template) => [...new Set(proseCards(proseState.packs[template], "case").map((p) => p.voice))];
+  function renderProse() {
+    const view = $("prose-view"), st = proseState, names = Object.keys(st.packs).sort();
+    view.replaceChildren();
+    const back = el("button", { type: "button", class: "tb", text: "← Back to events" });
+    back.addEventListener("click", () => { proseOn = false; view.hidden = true; renderAll(); });
+    if (!names.length) { view.append(back, el("p", { class: "muted", text: "No prose packs found in data/board_prose/." })); return; }
+    for (const it of st.items) { const v = proseVoicesFor(it.template); if (!v.includes(it.voice)) it.voice = v[0] || ""; }
+    const sandbox = runSandbox();
+    const list = el("div", { class: "pp-list" });
+    for (const n of names) {
+      const b = el("button", { type: "button", class: "tb", text: `${n} (${st.packs[n].cards.length})`, "aria-pressed": String(n === st.pack) });
+      b.addEventListener("click", () => { st.pack = n; st.slot = null; renderProse(); });
+      list.append(b);
+    }
+    const pack = st.packs[st.pack], slots = proseSlots(pack);
+    if (!slots.includes(st.slot)) st.slot = slots[0];
+    const tabs = el("div", { class: "pp-list", role: "tablist" });
+    for (const sl of slots) {
+      const b = el("button", { type: "button", class: "tb", role: "tab", text: `${sl} (${proseCards(pack, sl).length})`, "aria-pressed": String(sl === st.slot) });
+      b.addEventListener("click", () => { st.slot = sl; renderProse(); });
+      tabs.append(b);
+    }
+    const rows = proseVariantRows(pack, st.slot, sandbox.facts0);
+    const table = el("table", { class: "pp-table" }, el("thead", {}, el("tr", {}, ...["id", "voice", "when", "weight", "first line", "now"].map((h) => el("th", { text: h })))),
+      el("tbody", {}, ...rows.map((r) => el("tr", { class: r.eligible ? "" : "pp-off" },
+        el("td", { class: "mono", text: r.id + (r.replies ? ` (+${r.replies} replies)` : "") }), el("td", { text: r.voice }), el("td", { class: "mono", text: r.when }),
+        el("td", { text: String(r.weight) }), el("td", { text: r.first }), el("td", { text: r.eligible ? "eligible" : "—" })))));
+    view.append(el("div", { class: "pp-bar" }, back, el("span", { class: "mono muted", text: "read-only · last column = eligibility against the sandbox facts" })),
+      list, el("h2", { text: st.pack }), tabs, table, renderSandbox(sandbox));
+  }
+  function runSandbox() {
+    const st = proseState, oreNames = Object.fromEntries(PROSE_ORES.map((o) => [o, o[0].toUpperCase() + o.slice(1)]));
+    const spec = { packs: st.packs, items: st.items, facts: st.facts, seed: st.seed, week: Number(st.facts.week) || 1, voices: st.voices, oreNames,
+      clashChance: st.debate.clashChance, clashOrder: st.debate.clashOrder };
+    return { meeting: assembleMeeting(spec), facts0: proseCardFacts(st.facts, st.items[0] || {}, st.voices, oreNames) };
+  }
+  function renderSandbox({ meeting }) {
+    const st = proseState, templates = Object.keys(st.packs).filter((n) => !n.startsWith("_"));
+    const box = el("section", { class: "pp-box" }, el("h2", { text: "Meeting sandbox" }));
+    const redo = () => { st.step = 0; renderProse(); };
+    const sel = (opts, val, set, label) => {
+      const s = el("select", { "aria-label": label }, ...opts.map((o) => el("option", { value: o, text: o, ...(o === val ? { selected: true } : {}) })));
+      s.addEventListener("change", () => { set(s.value); redo(); });
+      return s;
+    };
+    st.items.forEach((it, i) => {
+      const row = el("div", { class: "pp-row" }, el("span", { class: "mono", text: `Goal ${i + 1}` }),
+        sel(templates, it.template, (v) => { it.template = v; }, "template"), sel(proseVoicesFor(it.template), it.voice, (v) => { it.voice = v; }, "pitching voice"),
+        sel(PROSE_ORES, it.ore, (v) => { it.ore = v; }, "ore"));
+      if (st.items.length > 1) { const x = el("button", { type: "button", class: "tb", text: "✕", title: "Remove this goal" }); x.addEventListener("click", () => { st.items.splice(i, 1); redo(); }); row.append(x); }
+      box.append(row);
+    });
+    if (st.items.length < 3) { const add = el("button", { type: "button", class: "tb", text: "+ goal" }); add.addEventListener("click", () => { st.items.push({ template: templates[0] || "", voice: "", ore: "time" }); redo(); }); box.append(add); }
+    const facts = el("div", { class: "pp-facts" });
+    for (const [name, kind] of PROSE_FACT_FIELDS) {
+      const v = st.facts[name];
+      const input = kind === "bool" ? el("input", { type: "checkbox", checked: !!v }) : el("input", { type: kind === "number" ? "number" : "text", value: String(v ?? "") });
+      input.addEventListener("change", () => { st.facts[name] = kind === "bool" ? input.checked : kind === "number" ? Number(input.value) : input.value; redo(); });
+      facts.append(el("label", { class: "pp-fact" }, el("span", { class: "mono", text: name }), input));
+    }
+    const reroll = el("button", { type: "button", class: "tb", text: `Reroll seed (${st.seed})` });
+    reroll.addEventListener("click", () => { st.seed = Math.floor(Math.random() * 100000); redo(); });
+    box.append(facts, reroll);
+    if (meeting.unfilled.length) box.append(el("p", { class: "pp-warn", role: "alert", text: "Unfilled tokens: " + meeting.unfilled.map((t) => `{${t}}`).join(", ") }));
+    const cards = meeting.cards;
+    if (st.step >= cards.length) st.step = cards.length - 1;
+    const c = cards[st.step];
+    const prev = el("button", { type: "button", text: "◀ Prev", disabled: st.step === 0 }), next = el("button", { type: "button", text: "Next ▶", disabled: st.step >= cards.length - 1 });
+    prev.addEventListener("click", () => { st.step--; renderProse(); });
+    next.addEventListener("click", () => { st.step++; renderProse(); });
+    const phone = el("div", { class: "phone", style: "position:static" }, el("div", { class: "textpanel", style: "min-height:200px" },
+      el("span", { class: "eyebrow", text: c.slot + (c.prose ? " · " + c.prose : "") }), el("span", { class: "who", text: c.speaker || "Narration" }),
+      el("p", { text: c.text }), c.unfilled && c.unfilled.length ? el("p", { class: "pp-warn", text: "Unfilled: " + c.unfilled.map((t) => `{${t}}`).join(" ") }) : null),
+      el("div", { class: "nav" }, prev, el("span", { class: "mono", text: `${st.step + 1}/${cards.length}` }), next));
+    const whyTable = el("table", { class: "pp-table" }, el("thead", {}, el("tr", {}, ...["slot", "prose card", "when", "weight", "eligible", "note"].map((h) => el("th", { text: h })))),
+      el("tbody", {}, ...meeting.why.map((w) => el("tr", {}, el("td", { text: w.slot }), el("td", { class: "mono", text: w.prose || "(none)" }), el("td", { class: "mono", text: w.when || "" }),
+        el("td", { text: w.weight != null ? String(w.weight) : "" }), el("td", { text: w.of != null ? `${w.eligible} of ${w.of}` : "" }), el("td", { text: w.note || "" })))));
+    const results = el("div", {}, el("h3", { text: "If chosen" }), ...meeting.results.map((r) => el("p", {}, el("b", { text: r.slot + ": " }),
+      r.lines.map((l) => (l.speaker ? l.speaker + ": " : "") + l.text).join(" "), r.note ? el("i", { class: "muted", text: " (" + r.note + ")" }) : null)));
+    box.append(el("div", { class: "preview" }, phone, el("div", {}, el("h3", { text: "Why it fired" }), whyTable, results)));
+    return box;
+  }
+
   function renderAll() { renderPicker(); if (!typing()) renderBoard(); }
   function selectBoard(id, keepCard) {
     if (!keepCard) { cardIdx = 0; trail = []; trailImg = []; asked.clear(); pick = null; outcomeKey = null; obsReads = {}; obsCursor.clear(); obsOpen = false; }
@@ -5458,7 +5762,8 @@ function checkOddsBlock(opt, changed, restructure) {
   setGameView((() => { try { return localStorage.getItem("vein-sb-gameview") === "1"; } catch { return false; } })());
   $("gameview").addEventListener("click", () => setGameView($("gameview").getAttribute("aria-pressed") !== "true"));
   $("open").addEventListener("click", openFolder);
-  $("refresh").addEventListener("click", () => root && loadAll());
+  $("refresh").addEventListener("click", () => { if (!root) return; if (proseOn) loadProse(); else loadAll(); });
+  $("prose-open").addEventListener("click", () => { proseOn = true; loadProse(); });
   $("new-board").addEventListener("click", openNewBoard);
   for (const btn of $("nb-modes").children) btn.addEventListener("click", () => { nbMode = btn.dataset.mode; $("nb-note").textContent = ""; renderNewBoard(); });
   $("nb-create").addEventListener("click", createBoard);
