@@ -1,0 +1,516 @@
+# prologue_buyer — imported from data/events/prologue_buyer.json
+
+```json
+{
+  "id": "prologue_buyer",
+  "at": {
+    "block": "evening",
+    "advance": true
+  },
+  "on_complete": [
+    {
+      "op": "set_flag",
+      "flag": "buyerEventSeen",
+      "value": true
+    },
+    {
+      "op": "set_stage",
+      "value": "sms_archie"
+    },
+    {
+      "op": "push_message",
+      "contact": "archie",
+      "text": "James says yes. SE1 4YA, storage unit beside the halal supermarket. He's always in."
+    },
+    {
+      "op": "queue_pending_message",
+      "contact": "archie",
+      "kind": "prologue_james_meeting",
+      "text": "Fair warning: James is the best craftsman I know and also the worst person I know. Don't take it personally. He's like that with everyone."
+    },
+    {
+      "op": "set_screen",
+      "screen": "phone"
+    }
+  ],
+  "start": "main",
+  "branches": {
+    "main": {
+      "title": "Start",
+      "cards": [
+        {
+          "key": "c1",
+          "type": "narration",
+          "label": "{today} — Shoreditch",
+          "speaker": null,
+          "text": "Archie is outside a café full of people in a rush. Archie is looking at the place the way you'd look at a parking fine. One hand stays on his inside pocket."
+        },
+        {
+          "key": "c2",
+          "type": "speaker",
+          "label": null,
+          "speaker": "Archie",
+          "text": "\"Buyer's inside. Marcus. Finance. Wants some emotion-type, for his mood, apparently. Don't ask. Just be normal.\""
+        },
+        {
+          "key": "c3",
+          "type": "speaker",
+          "label": null,
+          "speaker": "You",
+          "text": "\"That's the calc they pulled a knife over.\""
+        },
+        {
+          "key": "c4",
+          "type": "speaker",
+          "label": null,
+          "speaker": "Archie",
+          "text": "\"Correct. Which is why there's two of us. You're a deterrent. Like a scarecrow.\" He considers you. \"No offence.\""
+        },
+        {
+          "key": "c11",
+          "label": null,
+          "type": "speaker",
+          "text": "\"Some offence>\"",
+          "speaker": "You"
+        },
+        {
+          "key": "c12",
+          "label": null,
+          "type": "speaker",
+          "text": "\"Fair enough,\" he says with a half smile.",
+          "speaker": "Archie"
+        },
+        {
+          "key": "c5",
+          "type": "choice",
+          "label": null,
+          "speaker": "Marcus",
+          "text": "Fleece, Patagonia, very clean trainers. Marcus examines the calc with the careful enthusiasm of someone who has recently read about it online. He puts it down. \"Eighty.\"",
+          "image": "res://assets/events/prologue_buyer/prologue_buyer_card7.jpg",
+          "choices": [
+            {
+              "id": "takeIt",
+              "label": "Take the £80",
+              "effects": [],
+              "result_text": "You nod. Marcus counts out four twenties and slides them across. Archie pockets them before Marcus can change his mind."
+            },
+            {
+              "id": "pushMore",
+              "label": "Push for more",
+              "check": {
+                "base": 0.4,
+                "mods": [
+                  {
+                    "flag": "introAskedQuestions",
+                    "add": 0.15,
+                    "label": "You asked who buys this stuff"
+                  },
+                  {
+                    "flag": "introBrave",
+                    "add": 0.1,
+                    "label": "You stood in front of a knife"
+                  }
+                ],
+                "show": "odds"
+              },
+              "success": {
+                "result_text": "\"It's emotion-type. Nobody's selling it this side of the river.\" Marcus looks at the chip, then at Archie, who says nothing at all. \"A hundred and twenty.\" He pays it.",
+                "effects": [],
+                "goto": {
+                  "branch": "b9"
+                }
+              },
+              "fail": {
+                "result_text": "Marcus's face closes. \"Sixty. Or I've got a guy in Hackney.\" Archie takes the sixty, and gives you a look that costs more.",
+                "effects": [
+                  {
+                    "op": "relation",
+                    "contact": "archie",
+                    "value": -3
+                  }
+                ],
+                "goto": {
+                  "branch": "b10"
+                }
+              }
+            },
+            {
+              "id": "archieTalks",
+              "label": "Let Archie talk",
+              "effects": [
+                {
+                  "op": "relation",
+                  "contact": "archie",
+                  "value": 3
+                }
+              ],
+              "result_text": "Archie talks. Provenance, rarity, a duke you're fairly sure he's made up. Marcus pays eighty and looks pleased to."
+            }
+          ]
+        },
+        {
+          "key": "c6",
+          "type": "choice",
+          "label": "Walking back — Shoreditch High Street",
+          "speaker": null,
+          "text": "Archie splits the eighty on the pavement outside a Pret. The city walks round you both.",
+          "image": "res://assets/events/prologue_buyer/prologue_buyer_card9.jpg",
+          "choices": [
+            {
+              "id": "split",
+              "label": "Pocket £40",
+              "requires": {
+                "choice": {
+                  "event": "prologue_cold_open",
+                  "card": "c4",
+                  "option": "stand"
+                }
+              },
+              "effects": [
+                {
+                  "op": "add",
+                  "path": "player.cash",
+                  "value": 40
+                }
+              ],
+              "result_text": "Two twenties. Rent's still due Monday, but it's closer.",
+              "goto": {
+                "branch": "b11"
+              }
+            },
+            {
+              "id": "splitAsked",
+              "label": "Pocket £40",
+              "requires": {
+                "choice": {
+                  "event": "prologue_cold_open",
+                  "card": "c4",
+                  "option": "askBuyers"
+                }
+              },
+              "effects": [
+                {
+                  "op": "add",
+                  "path": "player.cash",
+                  "value": 40
+                }
+              ],
+              "result_text": "Two twenties. Rent's still due Monday, but it's closer.",
+              "goto": {
+                "branch": "b11"
+              }
+            },
+            {
+              "id": "splitHalf",
+              "label": "Pocket £48",
+              "requires": {
+                "choice": {
+                  "event": "prologue_cold_open",
+                  "card": "c4",
+                  "option": "wantHalf"
+                }
+              },
+              "effects": [
+                {
+                  "op": "add",
+                  "path": "player.cash",
+                  "value": 48
+                }
+              ],
+              "result_text": "He counts out forty-eight, slowly, so you can watch him do it. \"Sixty-forty. Your way. As agreed.\"",
+              "goto": {
+                "branch": "b11"
+              }
+            }
+          ]
+        }
+      ],
+      "then": {
+        "branch": "b9"
+      }
+    },
+    "b9": {
+      "title": "Walking back — Shoreditch High Street",
+      "cards": [
+        {
+          "key": "c7",
+          "type": "choice",
+          "label": "Walking back — Shoreditch High Street",
+          "speaker": null,
+          "text": "Archie splits the hundred and twenty on the pavement outside a Pret. The city walks round you both.",
+          "image": "res://assets/events/prologue_buyer/prologue_buyer_card9.jpg",
+          "choices": [
+            {
+              "id": "split",
+              "label": "Pocket £60",
+              "requires": {
+                "choice": {
+                  "event": "prologue_cold_open",
+                  "card": "c4",
+                  "option": "stand"
+                }
+              },
+              "effects": [
+                {
+                  "op": "add",
+                  "path": "player.cash",
+                  "value": 60
+                }
+              ],
+              "result_text": "Three twenties. Rent's still due Monday, but it's closer.",
+              "goto": {
+                "branch": "b11"
+              }
+            },
+            {
+              "id": "splitAsked",
+              "label": "Pocket £60",
+              "requires": {
+                "choice": {
+                  "event": "prologue_cold_open",
+                  "card": "c4",
+                  "option": "askBuyers"
+                }
+              },
+              "effects": [
+                {
+                  "op": "add",
+                  "path": "player.cash",
+                  "value": 60
+                }
+              ],
+              "result_text": "Three twenties. Rent's still due Monday, but it's closer.",
+              "goto": {
+                "branch": "b11"
+              }
+            },
+            {
+              "id": "splitHalf",
+              "label": "Pocket £72",
+              "requires": {
+                "choice": {
+                  "event": "prologue_cold_open",
+                  "card": "c4",
+                  "option": "wantHalf"
+                }
+              },
+              "effects": [
+                {
+                  "op": "add",
+                  "path": "player.cash",
+                  "value": 72
+                }
+              ],
+              "result_text": "He counts out seventy-two, slowly, so you can watch him do it. \"Sixty-forty. Your way. As agreed.\"",
+              "goto": {
+                "branch": "b11"
+              }
+            }
+          ]
+        }
+      ],
+      "then": {
+        "branch": "b10"
+      }
+    },
+    "b10": {
+      "title": "Walking back — Shoreditch High Street",
+      "cards": [
+        {
+          "key": "c8",
+          "type": "choice",
+          "label": "Walking back — Shoreditch High Street",
+          "speaker": null,
+          "text": "Archie splits the cash on the pavement outside a Pret. The city walks round you both.",
+          "image": "res://assets/events/prologue_buyer/prologue_buyer_card9.jpg",
+          "choices": [
+            {
+              "id": "split",
+              "label": "Pocket £30",
+              "requires": {
+                "choice": {
+                  "event": "prologue_cold_open",
+                  "card": "c4",
+                  "option": "stand"
+                }
+              },
+              "effects": [
+                {
+                  "op": "add",
+                  "path": "player.cash",
+                  "value": 30
+                }
+              ],
+              "result_text": "A twenty and a ten. Rent's still due Monday."
+            },
+            {
+              "id": "splitAsked",
+              "label": "Pocket £30",
+              "requires": {
+                "choice": {
+                  "event": "prologue_cold_open",
+                  "card": "c4",
+                  "option": "askBuyers"
+                }
+              },
+              "effects": [
+                {
+                  "op": "add",
+                  "path": "player.cash",
+                  "value": 30
+                }
+              ],
+              "result_text": "A twenty and a ten. Rent's still due Monday."
+            },
+            {
+              "id": "splitHalf",
+              "label": "Pocket £36",
+              "requires": {
+                "choice": {
+                  "event": "prologue_cold_open",
+                  "card": "c4",
+                  "option": "wantHalf"
+                }
+              },
+              "effects": [
+                {
+                  "op": "add",
+                  "path": "player.cash",
+                  "value": 36
+                }
+              ],
+              "result_text": "He counts out thirty-six, slowly, so you can watch him do it. \"Sixty-forty. Your way. Of sixty.\""
+            }
+          ]
+        }
+      ],
+      "then": {
+        "branch": "b11"
+      }
+    },
+    "b11": {
+      "title": "From card 11",
+      "cards": [
+        {
+          "key": "c9",
+          "type": "speaker",
+          "label": null,
+          "speaker": "Archie",
+          "text": "\"See? Professional, prompt, no Stanley knife. Most of them are like Marcus. That's the market we're after.\""
+        },
+        {
+          "key": "c10",
+          "type": "speaker",
+          "label": null,
+          "speaker": "Archie",
+          "text": "\"Next thing. Bloke called James, Bermondsey. Takes raw calc and makes it do things, like that thing I threw in the alley. I'll set it up.\" He's texting before you've answered."
+        }
+      ]
+    }
+  },
+  "_keyOrder": {
+    "top": [
+      "id",
+      "at",
+      "on_complete",
+      "cards"
+    ],
+    "cards": {
+      "c1": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c2": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c3": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c4": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c11": [
+        "key",
+        "label",
+        "type",
+        "text",
+        "speaker"
+      ],
+      "c12": [
+        "key",
+        "label",
+        "type",
+        "text",
+        "speaker"
+      ],
+      "c5": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text",
+        "image",
+        "choices"
+      ],
+      "c6": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text",
+        "image",
+        "choices"
+      ],
+      "c7": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text",
+        "image",
+        "choices"
+      ],
+      "c8": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text",
+        "image",
+        "choices"
+      ],
+      "c9": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c10": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ]
+    }
+  },
+  "_liveSource": "prologue_buyer.json",
+  "_liveHash": "eb1e460b"
+}
+```

@@ -2439,8 +2439,8 @@ test("coveredText / uncoveredText: only offered for a cover-profile item; save, 
 // ---- Prose packs ----
 const proseStart = html.indexOf("/* ---------- Prose packs (pure) ---------- */"), proseEnd = html.indexOf("/* ---------- End prose packs ---------- */");
 assert(proseStart !== -1 && proseEnd !== -1, "could not locate prose pack markers in storyboard.html");
-const { proseCondMet, proseCondText, proseCards, proseQualifying, proseSlots, proseFill, proseUnfilled, proseUnit, assembleMeeting, proseVariantRows, proseSerialise, proseEol, proseFind, proseNewId, proseAdd, proseDuplicate, proseDelete, proseSetField, proseSetLine, proseAddLine, proseDeleteLine, proseCommentAdd, proseCommentUpdate, proseCommentDelete, proseCommentsFor, proseWhenToRows, proseRowsToWhen } =
-  new Function(html.slice(proseStart, proseEnd) + "\nreturn { proseCondMet, proseCondText, proseCards, proseQualifying, proseSlots, proseFill, proseUnfilled, proseUnit, assembleMeeting, proseVariantRows, proseSerialise, proseEol, proseFind, proseNewId, proseAdd, proseDuplicate, proseDelete, proseSetField, proseSetLine, proseAddLine, proseDeleteLine, proseCommentAdd, proseCommentUpdate, proseCommentDelete, proseCommentsFor, proseWhenToRows, proseRowsToWhen };")();
+const { proseCondMet, proseCondText, proseCards, proseQualifying, proseSlots, proseFill, proseUnfilled, proseUnit, assembleMeeting, proseVariantRows, proseSerialise, proseEol, proseFind, proseNewId, proseAdd, proseDuplicate, proseDelete, proseSetField, proseSetLine, proseAddLine, proseDeleteLine, proseCommentAdd, proseCommentUpdate, proseCommentDelete, proseCommentsFor, proseWhenToRows, proseRowsToWhen, PROSE_HELP, PROSE_FACT_KINDS, PROSE_FACTION_FACT_KINDS } =
+  new Function(html.slice(proseStart, proseEnd) + "\nreturn { proseCondMet, proseCondText, proseCards, proseQualifying, proseSlots, proseFill, proseUnfilled, proseUnit, assembleMeeting, proseVariantRows, proseSerialise, proseEol, proseFind, proseNewId, proseAdd, proseDuplicate, proseDelete, proseSetField, proseSetLine, proseAddLine, proseDeleteLine, proseCommentAdd, proseCommentUpdate, proseCommentDelete, proseCommentsFor, proseWhenToRows, proseRowsToWhen, PROSE_HELP, PROSE_FACT_KINDS, PROSE_FACTION_FACT_KINDS };")();
 const fixtureDir = path.join(__dirname, "..", "tests", "fixtures");
 const parityInput = JSON.parse(fs.readFileSync(path.join(fixtureDir, "board_prose_parity_input.json"), "utf-8"));
 const parityGolden = JSON.parse(fs.readFileSync(path.join(fixtureDir, "board_prose_golden.json"), "utf-8"));
@@ -2612,6 +2612,37 @@ test("when builder rows round trip every shape it shows, and nested ones fall ba
   const packs = editPacks();
   proseSetField(packs.share_first, "sf.case.2", "when", proseRowsToWhen("all", []));
   assert(!("when" in packs.share_first.cards[1]), "no rows clears when");
+});
+
+test("per-faction leaves read facts.factions[faction][fact]", () => {
+  const facts = { share: 10, factions: { guild: { share_gap_vs: 15, at_war_vs: true, weariness_vs: 42, stance_vs: "hostile" }, firm: { share_gap_vs: -5, at_war_vs: false, weariness_vs: 0, stance_vs: "neutral" } } };
+  assert(proseCondMet({ fact: "share_gap_vs", faction: "guild", gt: 0 }, facts), "guild ahead");
+  assert(proseCondMet({ fact: "share_gap_vs", faction: "firm", op: "lt", value: 0 }, facts), "ahead of firm");
+  assert(proseCondMet({ fact: "weariness_vs", faction: "guild", op: "gte", value: 40 }, facts));
+  assert(!proseCondMet({ fact: "weariness_vs", faction: "guild", op: "lt", value: 40 }, facts));
+  assert(proseCondMet({ fact: "stance_vs", faction: "guild", eq: "hostile" }, facts));
+  assert(!proseCondMet({ fact: "at_war_vs", faction: "firm", eq: true }, facts));
+  assert(!proseCondMet({ fact: "at_war_vs", faction: "nobody", eq: true }, facts), "unknown faction");
+  assert(!proseCondMet({ fact: "at_war_vs", eq: true }, facts), "no faction");
+  assert.strictEqual(proseCondText({ fact: "share_gap_vs", faction: "guild", lt: 0 }), "share_gap_vs[guild] < 0");
+});
+
+test("when builder keeps the faction on a row and drops it when the fact changes", () => {
+  const w = { all: [{ fact: "at_war_vs", faction: "guild", op: "eq", value: true }, { fact: "my_weariness", op: "gte", value: 50 }] };
+  const m = proseWhenToRows(w);
+  assert.strictEqual(m.rows[0].faction, "guild");
+  assert(!("faction" in m.rows[1]));
+  assert.deepStrictEqual(proseRowsToWhen(m.mode, m.rows), w);
+  assert.deepStrictEqual(proseRowsToWhen("all", [{ fact: "share", faction: undefined, op: "gt", value: 1, not: false }]), { fact: "share", op: "gt", value: 1 });
+});
+
+test("every condition fact has a help entry; game fact names match the tool", () => {
+  for (const f of [...Object.keys(PROSE_FACT_KINDS), ...Object.keys(PROSE_FACTION_FACT_KINDS), "_not", "_op", "_mode", "_when", "_faction"]) assert(PROSE_HELP[f] && PROSE_HELP[f][1], "help for " + f);
+  const gd = fs.readFileSync(path.join(__dirname, "..", "autoload", "GameData.gd"), "utf-8");
+  const flat = gd.match(/const BOARD_FACTS[^=]*=\s*\[([\s\S]*?)\]/)[1].match(/"(\w+)"/g).map((x) => x.slice(1, -1));
+  const per = gd.match(/const BOARD_FACTION_FACTS[^=]*=\s*\[([\s\S]*?)\]/)[1].match(/"(\w+)"/g).map((x) => x.slice(1, -1));
+  for (const f of flat) assert(f in PROSE_FACT_KINDS, "tool knows fact " + f);
+  assert.deepStrictEqual([...per].sort(), Object.keys(PROSE_FACTION_FACT_KINDS).sort());
 });
 
 console.log(`${passed} passed${process.exitCode ? ", some FAILED" : ""}`);

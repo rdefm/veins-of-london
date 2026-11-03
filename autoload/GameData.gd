@@ -805,7 +805,10 @@ const BOARD_PROSE_STANCES: Array[String] = ["back", "challenge", "wobble"]
 const BOARD_FACTS: Array[String] = [
 	"week", "expenses", "float", "weeks", "float_weeks", "ore", "ore_type", "calc", "label", "pitcher",
 	"share", "share_gap", "rival", "rival_present", "contested", "last_result", "streak", "last_pitcher",
+	"at_war", "enemy", "enemy_weariness", "my_weariness",
 ]
+# Facts read for one named faction: a `when` leaf gives `faction`; not {tokens}.
+const BOARD_FACTION_FACTS: Array[String] = ["share_vs", "share_gap_vs", "stance_vs", "at_war_vs", "weariness_vs"]
 
 
 # Prose packs (R§3.15 "Prose packs"): known template / slot / voice, valid
@@ -934,7 +937,12 @@ func _validate_when(condition: Dictionary, where: String, errors: Array[String])
 		else:
 			errors.append("%s: 'when' not must be a condition object" % where)
 	elif condition.has("fact"):
-		if not BOARD_FACTS.has(str(condition["fact"])):
+		if BOARD_FACTION_FACTS.has(str(condition["fact"])):
+			if not GameData.FACTIONS.has(str(condition.get("faction", ""))):
+				errors.append("%s: 'when' on '%s' needs a known 'faction' (got '%s')" % [where, condition["fact"], condition.get("faction", "")])
+		elif condition.has("faction"):
+			errors.append("%s: 'when' fact '%s' does not take a 'faction'" % [where, condition["fact"]])
+		if not BOARD_FACTS.has(str(condition["fact"])) and not BOARD_FACTION_FACTS.has(str(condition["fact"])):
 			errors.append("%s: 'when' names unknown fact '%s'" % [where, condition["fact"]])
 		elif Events.fact_comparison(condition).is_empty():
 			errors.append("%s: 'when' on '%s' needs an operator (op + value, or gt/gte/lt/lte/eq/ne)" % [where, condition["fact"]])

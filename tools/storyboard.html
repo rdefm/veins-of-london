@@ -3402,8 +3402,11 @@ function checkOddsBlock(opt, changed, restructure) {
     if ("not" in cond) return !proseCondMet(cond.not, facts);
     if (!("fact" in cond)) return false;
     const cmp = proseComparison(cond);
-    if (!cmp.length || !Object.prototype.hasOwnProperty.call(facts, String(cond.fact))) return false;
-    const actual = facts[cond.fact], [op, expected] = cmp;
+    if (!cmp.length) return false;
+    // A per-faction leaf reads facts.factions[faction][fact].
+    const pool = "faction" in cond ? ((facts.factions || {})[cond.faction] || {}) : facts;
+    if (!Object.prototype.hasOwnProperty.call(pool, String(cond.fact))) return false;
+    const actual = pool[cond.fact], [op, expected] = cmp;
     const same = typeof actual === "string" || typeof expected === "string" ? String(actual) === String(expected) : actual === expected;
     if (op === "eq") return same;
     if (op === "ne") return !same;
@@ -3419,7 +3422,8 @@ function checkOddsBlock(opt, changed, restructure) {
     if ("fact" in cond) {
       const cmp = proseComparison(cond);
       const sym = { eq: "=", ne: "≠", gt: ">", gte: "≥", lt: "<", lte: "≤" };
-      return cmp.length ? `${cond.fact} ${sym[cmp[0]]} ${JSON.stringify(cmp[1])}` : `${cond.fact} ?`;
+      const name = "faction" in cond ? `${cond.fact}[${cond.faction}]` : cond.fact;
+      return cmp.length ? `${name} ${sym[cmp[0]]} ${JSON.stringify(cmp[1])}` : `${name} ?`;
     }
     return JSON.stringify(cond);
   }
@@ -3433,7 +3437,7 @@ function checkOddsBlock(opt, changed, restructure) {
   // {token} display strings, as the game formats them: money with £, numbers as written.
   function proseTokens(facts) {
     const out = {};
-    for (const [k, v] of Object.entries(facts)) out[k] = PROSE_MONEY_FACTS.includes(k) ? "£" + Math.trunc(Number(v)) : String(v);
+    for (const [k, v] of Object.entries(facts)) if (typeof v !== "object") out[k] = PROSE_MONEY_FACTS.includes(k) ? "£" + Math.trunc(Number(v)) : String(v);
     return out;
   }
   const proseTokenNames = (text) => [...String(text).matchAll(/\{(\w+)\}/g)].map((m) => m[1]);
@@ -3638,6 +3642,7 @@ function checkOddsBlock(opt, changed, restructure) {
     last_result: { kind: "text", choices: ["hit", "miss", "skip", "none"] },
     ore_type: { kind: "text", choices: ["time", "physics", "life", "fate", "emotion"] },
     last_pitcher: { kind: "text", choices: "voices" },
+    at_war: { kind: "bool" }, enemy_weariness: { kind: "number" }, my_weariness: { kind: "number" }, enemy: { kind: "text" },
     rival: { kind: "text" }, contested: { kind: "text" }, ore: { kind: "text" }, calc: { kind: "text" }, label: { kind: "text" }, pitcher: { kind: "text" },
   };
   // Plain-language meaning of each fact and of the builder's own controls, shown by the "?" buttons (R§3.15 "Meeting facts").
@@ -3660,16 +3665,34 @@ function checkOddsBlock(opt, changed, restructure) {
     calc: ["Calc", "The goal's ore as slang, e.g. \"time calc\"."],
     label: ["Goal label", "The goal template's id."],
     pitcher: ["Pitcher", "The pitching voice's display name, e.g. Archie."],
+    at_war: ["At war", "True when you are at war with at least one faction."],
+    enemy: ["Enemy", "Name of the faction you are at war with that has the highest weariness. \"nobody\" when you are at peace."],
+    enemy_weariness: ["Enemy weariness", "Weariness (0-100, whole number) of that worst-off enemy. 0 when you are at peace. For one specific faction use 'Faction weariness'."],
+    my_weariness: ["Your weariness", "Your own war weariness, 0-100 whole number: worn down by losses, spending and wars at once. Archie and James nag as it climbs."],
+    share_gap_vs: ["Share gap vs faction", "That faction's % of this goal's ore minus yours. Positive: it is ahead of you. Negative: you are ahead. To say 'I have a bigger share than the Guild', use < 0."],
+    share_vs: ["Faction's share (%)", "That faction's whole-number % of this goal's ore (crafted pieces for crafting goals) over the recent sales window."],
+    stance_vs: ["Stance with faction", "How you stand with that faction: partner, neutral, businessRival or hostile. Hostile is the stance wars start from."],
+    at_war_vs: ["At war with faction", "True when you and that faction are at war right now (a truce ends it)."],
+    weariness_vs: ["Faction weariness", "That faction's war weariness, 0-100 whole number, whether or not it is at war with you. Combine with 'At war with faction' for 'its enemy side is worn down'."],
+    _faction: ["Faction", "Which faction this test is about."],
     _not: ["not", "Ticked: this test is turned around, so the row holds when the comparison is false."],
     _op: ["Operator", "How the fact is compared with the value: > greater, ≥ at least, < less, ≤ at most, = equal, ≠ not equal."],
     _mode: ["All / any", "all: every row must hold for the card to be eligible. any: one row holding is enough."],
     _when: ["When", "Decides when this prose card can play. With no rows the card is always eligible. Facts are worked out once per meeting; the card is one of the eligible cards for its slot, picked by weight."],
   };
+  // Facts read for one chosen faction (leaf carries `faction`).
+  const PROSE_FACTION_FACT_KINDS = {
+    share_gap_vs: { kind: "number" }, share_vs: { kind: "number" },
+    stance_vs: { kind: "text", choices: ["partner", "neutral", "businessRival", "hostile"] },
+    at_war_vs: { kind: "bool" }, weariness_vs: { kind: "number" },
+  };
+  const proseFactMeta = (fact) => PROSE_FACT_KINDS[fact] || PROSE_FACTION_FACT_KINDS[fact] || { kind: "text" };
+  const proseTakesFaction = (fact) => fact in PROSE_FACTION_FACT_KINDS;
   const PROSE_NUM_OPS = ["gt", "gte", "lt", "lte", "eq", "ne"], PROSE_EQ_OPS = ["eq", "ne"];
   const PROSE_OP_LABEL = { gt: ">", gte: "≥", lt: "<", lte: "≤", eq: "=", ne: "≠" };
-  const proseOpsFor = (fact) => ((PROSE_FACT_KINDS[fact] || {}).kind === "number" ? PROSE_NUM_OPS : PROSE_EQ_OPS);
+  const proseOpsFor = (fact) => (proseFactMeta(fact).kind === "number" ? PROSE_NUM_OPS : PROSE_EQ_OPS);
   function proseDefaultValue(fact) {
-    const k = PROSE_FACT_KINDS[fact] || { kind: "text" };
+    const k = proseFactMeta(fact);
     return k.kind === "number" ? 0 : k.kind === "bool" ? true : Array.isArray(k.choices) ? k.choices[0] : "";
   }
   // A `when` as {mode: "all"|"any", rows: [{fact, op, value, not}]}; null when it is nested deeper than the builder shows.
@@ -3680,7 +3703,7 @@ function checkOddsBlock(opt, changed, restructure) {
       if (c && "not" in c) { not = true; c = c.not; }
       if (!c || typeof c !== "object" || c.all || c.any || "not" in c || typeof c.fact !== "string") return null;
       const cmp = proseComparison(c);
-      return cmp.length ? { fact: c.fact, op: cmp[0], value: cmp[1], not } : null;
+      return cmp.length ? { fact: c.fact, ...("faction" in c ? { faction: c.faction } : {}), op: cmp[0], value: cmp[1], not } : null;
     };
     const group = when.all || when.any;
     if (group) {
@@ -3692,7 +3715,7 @@ function checkOddsBlock(opt, changed, restructure) {
     return one ? { mode: "all", rows: [one] } : null;
   }
   function proseRowsToWhen(mode, rows) {
-    const item = (r) => { const l = { fact: r.fact, op: r.op, value: r.value }; return r.not ? { not: l } : l; };
+    const item = (r) => { const l = { fact: r.fact, ...(r.faction ? { faction: r.faction } : {}), op: r.op, value: r.value }; return r.not ? { not: l } : l; };
     if (!rows.length) return undefined;
     if (rows.length === 1) return item(rows[0]);
     return { [mode === "any" ? "any" : "all"]: rows.map(item) };
@@ -5682,11 +5705,11 @@ function checkOddsBlock(opt, changed, restructure) {
   const PROSE_DIR = ["data", "board_prose"];
   const PROSE_ORES = ["time", "physics", "life", "fate", "emotion"];
   const PROSE_FACT_FIELDS = [["week", "number"], ["expenses", "number"], ["float", "number"], ["share", "number"], ["share_gap", "number"],
-    ["rival", "text"], ["rival_present", "bool"], ["contested", "text"], ["last_result", "text"], ["streak", "number"], ["last_pitcher", "text"]];
+    ["rival", "text"], ["rival_present", "bool"], ["at_war", "bool"], ["enemy", "text"], ["enemy_weariness", "number"], ["my_weariness", "number"], ["contested", "text"], ["last_result", "text"], ["streak", "number"], ["last_pitcher", "text"]];
   const proseState = { packs: {}, voices: {}, debate: {}, pack: null, slot: null, seed: 1,
     items: [{ template: "", voice: "", ore: "time" }], facts: { week: 3, expenses: 400, float: 1200, share: 12, share_gap: 8, rival: "the independents",
-      rival_present: true, contested: "Time", last_result: "none", streak: 0, last_pitcher: "" }, step: 0,
-    eols: {}, dirty: new Set(), sel: null, err: "", rungs: {}, help: "" };
+      rival_present: true, contested: "Time", last_result: "none", streak: 0, last_pitcher: "", at_war: false, enemy: "nobody", enemy_weariness: 0, my_weariness: 0, factions: {} }, step: 0,
+    eols: {}, dirty: new Set(), sel: null, err: "", rungs: {}, help: "", factions: {} };
   let proseOn = false;
   async function loadProse() {
     const view = $("prose-view");
@@ -5703,6 +5726,8 @@ function checkOddsBlock(opt, changed, restructure) {
       const bj = await readJSON(await dirAt(["data"]), "board.json");
       proseState.voices = (bj && bj.voices) || {};
       proseState.rungs = {};
+      const fj = await readJSON(await dirAt(["data"]), "factions.json");
+      proseState.factions = Object.fromEntries(Object.entries(fj || {}).map(([id, f]) => [id, (f && f.name) || id]));
       for (const lad of Object.values((bj && bj.ladders) || {})) for (const r of lad.rungs || []) proseState.rungs[r.id] = r;
       proseState.debate = (bj && bj.meeting && bj.meeting.debate) || {};
     } catch (e) { setNote("Couldn't read data/board_prose/: " + e.message); }
@@ -5828,13 +5853,16 @@ function checkOddsBlock(opt, changed, restructure) {
     const { mode, rows } = model;
     if (rows.length > 1) box.append(el("div", { class: "pp-row" }, "Fire when", sel("match", [["all", "all of these hold"], ["any", "any of these holds"]], mode, (v) => apply(v, rows)), help("_mode")));
     rows.forEach((r, i) => {
-      const meta = PROSE_FACT_KINDS[r.fact] || { kind: "text" };
+      const meta = proseFactMeta(r.fact);
       const upd = (patch) => apply(mode, rows.map((x, j) => (j === i ? { ...x, ...patch } : x)));
       const not = el("input", { type: "checkbox", checked: !!r.not, "aria-label": "not" });
       not.addEventListener("change", () => upd({ not: not.checked }));
-      const facts = Object.keys(PROSE_FACT_KINDS), known = facts.includes(r.fact);
+      const facts = [...Object.keys(PROSE_FACT_KINDS), ...Object.keys(PROSE_FACTION_FACT_KINDS)], known = facts.includes(r.fact);
+      const factionIds = Object.keys(st.factions);
       const factSel = sel("fact", (known ? facts : [r.fact, ...facts]).map((f) => [f, f]), r.fact,
-        (v) => upd({ fact: v, op: proseOpsFor(v)[0] === "gt" ? "gt" : "eq", value: proseDefaultValue(v) }));
+        (v) => { const next = { fact: v, op: proseOpsFor(v)[0] === "gt" ? "gt" : "eq", value: proseDefaultValue(v) };
+          next.faction = proseTakesFaction(v) ? (r.faction || factionIds[0]) : undefined; upd(next); });
+      const facSel = proseTakesFaction(r.fact) ? sel("faction", factionIds.map((f) => [f, st.factions[f] || f]), r.faction || factionIds[0], (v) => upd({ faction: v })) : null;
       const opSel = sel("operator", proseOpsFor(r.fact).map((o) => [o, PROSE_OP_LABEL[o]]), r.op, (v) => upd({ op: v }));
       let val;
       if (meta.kind === "bool") val = sel("value", [["true", "true"], ["false", "false"]], String(r.value), (v) => upd({ value: v === "true" }));
@@ -5847,7 +5875,7 @@ function checkOddsBlock(opt, changed, restructure) {
       }
       const del = el("button", { type: "button", class: "tb", text: "✕", title: "Remove this condition" });
       del.addEventListener("click", () => apply(mode, rows.filter((_, j) => j !== i)));
-      box.append(el("div", { class: "pp-row" }, el("label", {}, not, " not"), help("_not"), factSel, help(r.fact), opSel, help("_op"), val, del));
+      box.append(el("div", { class: "pp-row" }, el("label", {}, not, " not"), help("_not"), factSel, help(r.fact), facSel, facSel ? help("_faction") : null, opSel, help("_op"), val, del));
     });
     const add = el("button", { type: "button", class: "tb", text: "+ condition" });
     add.addEventListener("click", () => apply(mode, [...rows, { fact: "share", op: "gt", value: 0, not: false }]));
@@ -5930,9 +5958,24 @@ function checkOddsBlock(opt, changed, restructure) {
       input.addEventListener("change", () => { st.facts[name] = kind === "bool" ? input.checked : kind === "number" ? Number(input.value) : input.value; redo(); });
       facts.append(el("label", { class: "pp-fact" }, el("span", { class: "mono", text: name }), input));
     }
+    const facEls = [];
+    for (const [fid, fname] of Object.entries(st.factions)) {
+      const cur = (st.facts.factions || {})[fid] || { share_vs: 0, share_gap_vs: 0, stance_vs: "neutral", at_war_vs: false, weariness_vs: 0 };
+      for (const [name, meta] of Object.entries(PROSE_FACTION_FACT_KINDS)) {
+        const v = cur[name];
+        const input = meta.kind === "bool" ? el("input", { type: "checkbox", checked: !!v }) : meta.choices ? el("select", {}, ...meta.choices.map((o) => el("option", { value: o, text: o, ...(o === v ? { selected: true } : {}) })))
+          : el("input", { type: "number", value: String(v ?? 0) });
+        input.addEventListener("change", () => {
+          st.facts.factions = st.facts.factions || {};
+          st.facts.factions[fid] = { ...cur, [name]: meta.kind === "bool" ? input.checked : meta.kind === "number" ? Number(input.value) : input.value };
+          redo();
+        });
+        facEls.push(el("label", { class: "pp-fact" }, el("span", { class: "mono", text: `${name} · ${fname}` }), input));
+      }
+    }
     const reroll = el("button", { type: "button", class: "tb", text: `Reroll seed (${st.seed})` });
     reroll.addEventListener("click", () => { st.seed = Math.floor(Math.random() * 100000); redo(); });
-    box.append(facts, reroll);
+    box.append(facts, el("div", { class: "pp-facts" }, ...facEls), reroll);
     if (meeting.unfilled.length) box.append(el("p", { class: "pp-warn", role: "alert", text: "Unfilled tokens: " + meeting.unfilled.map((t) => `{${t}}`).join(", ") }));
     const cards = meeting.cards;
     if (st.step >= cards.length) st.step = cards.length - 1;

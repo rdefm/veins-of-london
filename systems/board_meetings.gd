@@ -857,6 +857,8 @@ static func meeting_facts(week: int, card: Dictionary = {}) -> Dictionary:
 	facts["float_weeks"] = facts["weeks"]
 	facts.merge(_share_facts(ore_type, tally))
 	facts.merge(_history_facts(week))
+	facts.merge(_war_facts())
+	facts["factions"] = _faction_facts(ore_type, tally)
 	return facts
 
 
@@ -866,6 +868,8 @@ static func fact_tokens(facts: Dictionary) -> Dictionary:
 	var out := {}
 	for key in facts:
 		var value: Variant = facts[key]
+		if typeof(facts[key]) == TYPE_DICTIONARY:
+			continue
 		if key == "expenses" or key == "float":
 			out[key] = "£%d" % int(value)
 		elif typeof(value) in [TYPE_INT, TYPE_FLOAT]:
@@ -932,6 +936,46 @@ static func _share_facts(ore_type: String, tally: String) -> Dictionary:
 		"rival": "the independents" if rival == Shares.INDEPENDENTS or rival == "" else str(GameData.FACTIONS[rival]["name"]),
 		"contested": "nothing yet" if contested.is_empty() else " and ".join(contested) if contested.size() < 3 else ", ".join(contested),
 	}
+
+
+# at_war / enemy / enemy_weariness / my_weariness (R§3.15): the player's wars.
+# `enemy` is the faction at war with the player that has the highest weariness
+# ("nobody" with none), `enemy_weariness` its weariness; `my_weariness` the
+# player's. Weariness is whole numbers 0-100.
+static func _war_facts() -> Dictionary:
+	var enemy := ""
+	var worst := -1.0
+	for war in FactionAI.wars_of(Shares.PLAYER):
+		var other := FactionAI.war_enemy(war, Shares.PLAYER)
+		var w := FactionAI.weariness(other)
+		if w > worst:
+			worst = w
+			enemy = other
+	return {
+		"at_war": enemy != "",
+		"enemy": str(GameData.FACTIONS[enemy]["name"]) if enemy != "" else "nobody",
+		"enemy_weariness": int(roundf(worst)) if enemy != "" else 0,
+		"my_weariness": int(roundf(FactionAI.weariness(Shares.PLAYER))),
+	}
+
+
+# Per-faction facts, by faction id (R§3.15): share_vs (its % of the card's ore),
+# share_gap_vs (its % minus yours), stance_vs (your stance with it: partner /
+# neutral / businessRival / hostile), at_war_vs, weariness_vs (its weariness,
+# whole number, whether or not you are at war).
+static func _faction_facts(ore_type: String, tally: String) -> Dictionary:
+	var me := int(roundf(Shares.share(tally, Shares.PLAYER, ore_type) * 100.0))
+	var out := {}
+	for faction_id in GameData.FACTIONS.keys():
+		var theirs := int(roundf(Shares.share(tally, str(faction_id), ore_type) * 100.0))
+		out[faction_id] = {
+			"share_vs": theirs,
+			"share_gap_vs": theirs - me,
+			"stance_vs": FactionAI.player_stance(str(faction_id)),
+			"at_war_vs": FactionAI.at_war(Shares.PLAYER, str(faction_id)),
+			"weariness_vs": int(roundf(FactionAI.weariness(str(faction_id)))),
+		}
+	return out
 
 
 # Minutes for the week before `week`: a reaction from the pitcher (or Archie's

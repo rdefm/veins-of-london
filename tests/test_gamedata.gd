@@ -104,6 +104,21 @@ func run() -> void:
 		assert_true(errors.is_empty(), "_comments ignored: %s" % str(errors))
 	)
 
+	run_case("faction_when_leaves_are_linted", func():
+		var lint := func(when: Dictionary) -> Array:
+			var data: Dictionary = GameData.snapshot().duplicate(true)
+			data["board_prose"]["share_first"]["cards"][0]["when"] = when
+			return GameData.validate_tables(data).filter(func(e): return e.contains("board_prose"))
+		assert_true((lint.call({ "fact": "weariness_vs", "faction": "guild", "gte": 40 }) as Array).is_empty(), "valid faction leaf")
+		assert_true((lint.call({ "fact": "my_weariness", "gt": 40 }) as Array).is_empty(), "flat war fact")
+		var no_faction: Array = lint.call({ "fact": "at_war_vs", "eq": true })
+		assert_true(no_faction.any(func(e): return e.contains("needs a known 'faction'")), str(no_faction))
+		var bad_faction: Array = lint.call({ "fact": "at_war_vs", "faction": "nope", "eq": true })
+		assert_true(bad_faction.any(func(e): return e.contains("needs a known 'faction'")), str(bad_faction))
+		var stray: Array = lint.call({ "fact": "share", "faction": "guild", "gt": 1 })
+		assert_true(stray.any(func(e): return e.contains("does not take a 'faction'")), str(stray))
+	)
+
 	run_case("corrupt_board_prose_fixtures_each_fail_with_a_clear_message", func():
 		var lint := func(mutate: Callable) -> Array:
 			var corrupted: Dictionary = GameData.snapshot().duplicate(true)

@@ -1256,6 +1256,42 @@ func run() -> void:
 		assert_eq(BoardMeetings.fact_tokens(share_facts)["share"], "20")
 	)
 
+	run_case("war_and_faction_facts_read_wars_weariness_stance_and_share", func():
+		_enabled_game()
+		var calm := BoardMeetings.meeting_facts(3)
+		assert_eq(calm["at_war"], false)
+		assert_eq(calm["enemy"], "nobody")
+		assert_eq(calm["enemy_weariness"], 0)
+		assert_eq(calm["my_weariness"], 0)
+		assert_eq(BoardMeetings.fact_tokens(calm).has("factions"), false, "per-faction facts are not tokens")
+		var war: Dictionary = GameState.state["factionWar"]
+		war["wars"].append({ "parties": ["player", "guild"], "startDay": 1, "lastHostileDay": 1, "weariness": {} })
+		war["wars"].append({ "parties": ["player", "firm"], "startDay": 1, "lastHostileDay": 1, "weariness": {} })
+		war["weariness"]["guild"] = 42.0
+		war["weariness"]["firm"] = 70.0
+		war["weariness"]["player"] = 55.0
+		GameState.state["factionStances"]["player"]["guild"]["stance"] = FactionAI.HOSTILE
+		GameState.state["shares"]["days"] = [{ "day": 9, "ore": { "player": { "time": 2 }, "guild": { "time": 6 }, "independents": { "time": 2 } }, "craft": {}, "deliveries": {} }]
+		var facts := BoardMeetings.meeting_facts(3, { "id": "c", "ore": "time", "goal": { "type": "reserve_weeks_at_least" } })
+		assert_eq(facts["at_war"], true)
+		assert_eq(facts["enemy"], GameData.FACTIONS["firm"]["name"], "worst-off enemy")
+		assert_eq(facts["enemy_weariness"], 70)
+		assert_eq(facts["my_weariness"], 55)
+		var guild: Dictionary = facts["factions"]["guild"]
+		assert_eq(guild["share_vs"], 60)
+		assert_eq(guild["share_gap_vs"], 40)
+		assert_eq(guild["stance_vs"], "hostile")
+		assert_eq(guild["at_war_vs"], true)
+		assert_eq(guild["weariness_vs"], 42)
+		assert_eq(facts["factions"]["network"]["at_war_vs"], false)
+		assert_true(Events.condition_met({ "fact": "weariness_vs", "faction": "guild", "op": "gte", "value": 40 }, [], facts))
+		assert_true(not Events.condition_met({ "fact": "weariness_vs", "faction": "guild", "op": "lt", "value": 40 }, [], facts))
+		assert_true(Events.condition_met({ "fact": "share_gap_vs", "faction": "guild", "gt": 0 }, [], facts), "guild ahead of you")
+		assert_true(not Events.condition_met({ "fact": "at_war_vs", "faction": "network", "eq": true }, [], facts))
+		assert_true(not Events.condition_met({ "fact": "at_war_vs", "faction": "nope", "eq": true }, [], facts), "unknown faction never holds")
+		assert_true(not Events.condition_met({ "fact": "at_war_vs", "eq": true }, [], facts), "faction fact without a faction never holds")
+	)
+
 	run_case("fact_leaves_compare_meeting_facts_and_never_hold_without_them", func():
 		var facts := { "n": 3, "s": "miss", "b": true }
 		assert_true(Events.condition_met({ "fact": "n", "op": ">=", "value": 3 }, [], facts))

@@ -950,13 +950,23 @@ static func fact_comparison(leaf: Dictionary) -> Array:
 	return []
 
 
-# A meeting-facts leaf (R§3.15 "Meeting facts"): the named fact compared with
-# the value. Unknown fact or malformed leaf never holds.
+# A meeting-facts leaf (R§3.15 "Meeting facts"): the named fact (of the
+# leaf's `faction` for a per-faction fact) compared with the value. Unknown fact or malformed leaf never holds.
 static func _fact_met(leaf: Dictionary, facts: Dictionary) -> bool:
 	var comparison := fact_comparison(leaf)
-	if comparison.is_empty() or not facts.has(str(leaf["fact"])):
+	if comparison.is_empty():
 		return false
-	var actual: Variant = facts[str(leaf["fact"])]
+	var actual: Variant
+	if leaf.has("faction"):
+		# Per-faction fact: facts.factions[<faction>][<fact>].
+		var by_faction: Dictionary = (facts.get("factions", {}) as Dictionary).get(str(leaf["faction"]), {})
+		if not by_faction.has(str(leaf["fact"])):
+			return false
+		actual = by_faction[str(leaf["fact"])]
+	else:
+		if not facts.has(str(leaf["fact"])):
+			return false
+		actual = facts[str(leaf["fact"])]
 	var expected: Variant = comparison[1]
 	var op: String = comparison[0]
 	if op == "eq":
