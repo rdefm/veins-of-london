@@ -83,10 +83,19 @@ static func _event_def() -> Dictionary:
 	return GameData.EVENTS[event_state["eventId"]]
 
 
+# The live event's card list: the event state's own "cards" when it holds one,
+# else the authored definition's. Every live-card read goes through here.
+static func live_cards() -> Array:
+	var event_state: Dictionary = GameState.state["event"]
+	if event_state.has("cards"):
+		return event_state["cards"]
+	return _event_def()["cards"]
+
+
 # The card at the runner's current position -- awaiting a Continue tap, or (for a "choice" card) a pick.
 static func current_card() -> Dictionary:
 	var event_state: Dictionary = GameState.state["event"]
-	var cards: Array = _event_def()["cards"]
+	var cards: Array = live_cards()
 	return _with_context_choices(_with_label_tokens(cards[event_state["cardIndex"]]))
 
 
@@ -140,7 +149,7 @@ static func is_choosing() -> bool:
 # card, without consuming its own cardIndex slot.
 static func revealed_cards() -> Array:
 	var event_state: Dictionary = GameState.state["event"]
-	var cards: Array = _event_def()["cards"]
+	var cards: Array = live_cards()
 	var choice_results: Dictionary = event_state["choiceResults"]
 
 	# fillFromContext: card text's {key} placeholders read the event's context.
@@ -197,7 +206,7 @@ static func current_image_path() -> Variant:
 	var result: Variant = null
 	var event_state: Dictionary = GameState.state["event"]
 	var event_id: String = event_state["eventId"]
-	var cards: Array = _event_def()["cards"]
+	var cards: Array = live_cards()
 	var choice_results: Dictionary = event_state["choiceResults"]
 	for i in _visited_indices():
 		var card: Dictionary = cards[i]
@@ -231,7 +240,7 @@ static func _convention_image_path(event_id: String, card_number: int) -> Varian
 static func is_last_card() -> bool:
 	var event_state: Dictionary = GameState.state["event"]
 	var index: int = int(event_state["cardIndex"])
-	var cards: Array = _event_def()["cards"]
+	var cards: Array = live_cards()
 	if index >= cards.size() - 1:
 		return true
 	var resolution: Dictionary = event_state["choiceResults"].get(str(index), {})
@@ -315,7 +324,7 @@ static func _continue() -> void:
 		if resolution.has("goto"):
 			dest = int(resolution["goto"])
 		else:
-			dest = _goto_target(_card_goto(_event_def()["cards"][here]))
+			dest = _goto_target(_card_goto(live_cards()[here]))
 			if dest > here:
 				if not event_state.has("jumps"):
 					event_state["jumps"] = {}
@@ -346,7 +355,7 @@ static func _arrive(event_state: Dictionary, card: int) -> void:
 				if dropped.has(int(String(entry).split("|")[0])):
 					table.erase(entry)
 		path.resize(at + 1)
-		if _event_def()["cards"][card]["type"] == "choice":
+		if live_cards()[card]["type"] == "choice":
 			event_state["choosing"] = true  # the prompt was already read; land on the options
 	else:
 		path.append(card)
@@ -375,7 +384,7 @@ static func _goto_target(goto: Variant) -> int:
 	if goto == null:
 		return -1
 	var here: int = int(GameState.state["event"]["cardIndex"])
-	var cards: Array = _event_def()["cards"]
+	var cards: Array = live_cards()
 	var target := _goto_index(goto, cards)
 	if goto is String and target < 0:
 		push_error("Events: goto '%s' from card %d of '%s' names no card key" % [goto, here, GameState.state["event"]["eventId"]])
@@ -1164,7 +1173,7 @@ static func _spent_one_shot(choice_index: int) -> bool:
 # earlier one (a hub loop).
 static func _is_back_edge(choice: Dictionary) -> bool:
 	var here: int = int(GameState.state["event"]["cardIndex"])
-	var cards: Array = _event_def()["cards"]
+	var cards: Array = live_cards()
 	var sources: Array = [choice, choice.get("success"), choice.get("fail")]
 	sources.append_array(choice.get("bySuccesses", {}).values())
 	for source in sources:

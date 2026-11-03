@@ -2257,6 +2257,25 @@ func run() -> void:
 		GameState.state["event"] = null
 	)
 
+	run_case("a_card_list_stored_in_event_state_is_the_live_card_list", func():
+		GameState.reset()
+		var original_events := _install_context_hub()
+		Events.start_event("test_context_hub", {})
+		assert_eq(Events.live_cards().size(), 3, "no stored list: authored cards")
+		var stored: Array = [
+			{ "type": "narration", "label": null, "speaker": null, "text": "Stored one." },
+			{ "type": "narration", "label": null, "speaker": null, "text": "Stored two." },
+		]
+		GameState.state["event"]["cards"] = stored
+		GameState.state["event"]["cardIndex"] = 0
+		assert_eq(Events.live_cards().size(), 2, "stored list wins")
+		assert_eq(Events.current_card()["text"], "Stored one.", "current_card reads stored list")
+		Events.advance()
+		assert_eq(Events.current_card()["text"], "Stored two.", "advance walks stored list")
+		GameData.EVENTS = original_events
+		GameState.state["event"] = null
+	)
+
 	run_case("a_hub_advance_rule_of_n_opens_the_exit_after_n_questions", func():
 		GameState.reset()
 		var original_events := _install_demo_hub()

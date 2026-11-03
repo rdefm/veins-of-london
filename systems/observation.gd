@@ -14,7 +14,7 @@ static func in_effect() -> String:
 	var event_state: Variant = GameState.state["event"]
 	if event_state == null or not Events.has_live_definition():
 		return ""
-	var cards: Array = GameData.EVENTS[event_state["eventId"]]["cards"]
+	var cards: Array = Events.live_cards()
 	var id := ""
 	for i in range(mini(int(event_state["cardIndex"]) + 1, cards.size())):
 		if cards[i].has("observe"):
