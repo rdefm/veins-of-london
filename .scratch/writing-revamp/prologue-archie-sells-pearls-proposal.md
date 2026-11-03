@@ -74,7 +74,25 @@
           "type": "speaker",
           "label": null,
           "speaker": "Archie",
-          "text": "He holds two more pearls out at arm's length, eyes streaming. \"Just in case. Loadout's what you carry into a fight. Anything you want kept off the market goes in the stash.\""
+          "text": "He holds two more pearls out at arm's length, eyes streaming. \"Keep 'em on you, just in case.\""
+        },
+        {
+          "key": "c4",
+          "type": "speaker",
+          "text": "\"Listen, I did a favour for a guy, he gave me a Time vein as payment. It's only a small one, but with my allergy I've not been able to do much with it.\"",
+          "speaker": "Archie"
+        },
+        {
+          "key": "c5",
+          "type": "speaker",
+          "text": "\"I don't want to sell it; I want you to manage it, and craft time pearls with it. I'll then line up the buyers, and we split everything 50/50.\"",
+          "speaker": "Archie"
+        },
+        {
+          "key": "c6",
+          "type": "speaker",
+          "text": "\"Let me check on the vein, then I'll bring you there tomorrow, show you the ropes.\"",
+          "speaker": "Archie"
         }
       ]
     }

@@ -81,6 +81,9 @@ header.top .title { display: grid; gap: 6px; min-width: 0 }
 .pp-table { border-collapse: collapse; width: 100%; font-size: 13px }
 .pp-table th, .pp-table td { border-top: 1px solid var(--line); padding: 6px 8px; text-align: left; vertical-align: top }
 .pp-table .pp-off { opacity: .5 }
+.pp-table td.cov { text-align: center; cursor: pointer; font-weight: 600 }
+.pp-table td.cov-0 { background: #7a2a2a; color: #fff }
+.pp-table td.cov-1 { background: #8a6a1c; color: #fff }
 .pp-box { display: grid; gap: 12px; margin-top: 24px }
 .pp-facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px }
 .pp-fact { display: grid; gap: 2px }
@@ -3759,6 +3762,52 @@ function checkOddsBlock(opt, changed, restructure) {
     if (!pack._comments.length) delete pack._comments;
   }
   const proseCommentsFor = (pack, anchorId) => (pack._comments || []).filter((c) => (c.anchor && c.anchor.prose || null) === (anchorId || null));
+  // ---- coverage grid: how many cards can fire per template × slot × fact range ----
+  // Facts compared by any `when` in the packs (cards and nested replies): {key: {fact, faction, values}}.
+  function proseThresholds(packs) {
+    const out = {};
+    const walk = (c) => {
+      if (!c || typeof c !== "object") return;
+      if (c.all || c.any) { (c.all || c.any).forEach(walk); return; }
+      if ("not" in c) { walk(c.not); return; }
+      if (!("fact" in c)) return;
+      const cmp = proseComparison(c);
+      if (!cmp.length) return;
+      const faction = "faction" in c ? c.faction : null, key = faction ? `${c.fact}[${faction}]` : String(c.fact);
+      (out[key] = out[key] || { key, fact: String(c.fact), faction, values: [] }).values.push(cmp[1]);
+    };
+    for (const pack of Object.values(packs)) for (const p of pack.cards || []) { walk(p.when); for (const r of p.replies || []) walk(r.when); }
+    for (const t of Object.values(out)) t.values = [...new Set(t.values.map((v) => JSON.stringify(v)))].map((s) => JSON.parse(s));
+    return out;
+  }
+  // The fact's ranges as [{label, value}]: each threshold, each gap between and beyond (numbers); each compared value + "other" (text/bool).
+  function proseFactRanges(t) {
+    const vs = t.values;
+    if (vs.length && vs.every(proseIsNum)) {
+      const c = [...vs].sort((a, b) => a - b), out = [{ label: `< ${c[0]}`, value: c[0] - 1 }];
+      c.forEach((v, i) => {
+        out.push({ label: `= ${v}`, value: v });
+        if (i + 1 < c.length) out.push({ label: `${v} < x < ${c[i + 1]}`, value: (v + c[i + 1]) / 2 });
+      });
+      out.push({ label: `> ${c[c.length - 1]}`, value: c[c.length - 1] + 1 });
+      return out;
+    }
+    const out = vs.map((v) => ({ label: String(v), value: v }));
+    if (!vs.every((v) => typeof v === "boolean")) out.push({ label: "(other)", value: "\u0000other" });
+    return out;
+  }
+  const proseWithFact = (facts, t, value) => t.faction
+    ? { ...facts, factions: { ...(facts.factions || {}), [t.faction]: { ...((facts.factions || {})[t.faction] || {}), [t.fact]: value } } }
+    : { ...facts, [t.fact]: value };
+  // Grid for one threshold fact: {ranges, rows: [{pack, slot, counts}]}; other facts stay as in `facts`.
+  function proseCoverage(packs, facts, t) {
+    const ranges = proseFactRanges(t), rows = [];
+    for (const name of Object.keys(packs).sort()) for (const slot of proseSlots(packs[name])) {
+      const pool = proseCards(packs[name], slot);
+      rows.push({ pack: name, slot, counts: ranges.map((r) => proseQualifying(pool, proseWithFact(facts, t, r.value)).length) });
+    }
+    return { ranges, rows };
+  }
   /* ---------- End prose packs ---------- */
 
 
@@ -5709,7 +5758,7 @@ function checkOddsBlock(opt, changed, restructure) {
   const proseState = { packs: {}, voices: {}, debate: {}, pack: null, slot: null, seed: 1,
     items: [{ template: "", voice: "", ore: "time" }], facts: { week: 3, expenses: 400, float: 1200, share: 12, share_gap: 8, rival: "the independents",
       rival_present: true, contested: "Time", last_result: "none", streak: 0, last_pitcher: "", at_war: false, enemy: "nobody", enemy_weariness: 0, my_weariness: 0, factions: {} }, step: 0,
-    eols: {}, dirty: new Set(), sel: null, err: "", rungs: {}, help: "", factions: {} };
+    eols: {}, dirty: new Set(), sel: null, err: "", rungs: {}, help: "", factions: {}, covFact: "" };
   let proseOn = false;
   async function loadProse() {
     const view = $("prose-view");
@@ -5776,7 +5825,42 @@ function checkOddsBlock(opt, changed, restructure) {
     const sel = st.sel ? proseSafeFind(pack, st.sel) : null;
     view.append(el("div", { class: "pp-bar" }, back, save, el("span", { class: "mono muted", text: "edits save straight to data/board_prose/ · git is the undo · last column = eligibility against the sandbox facts" })),
       st.err ? el("p", { class: "pp-warn", role: "alert", text: st.err }) : null,
-      list, el("h2", { text: st.pack }), proseGoalRow(st.rungs[st.pack]), ...proseCommentRows(pack, null), tabs, table, add, sel ? renderProseEditor(pack, sel) : null, renderSandbox(sandbox));
+      list, el("h2", { text: st.pack }), proseGoalRow(st.rungs[st.pack]), ...proseCommentRows(pack, null), tabs, table, add, sel ? renderProseEditor(pack, sel) : null, renderCoverage(sandbox.facts0), renderSandbox(sandbox));
+  }
+  // Coverage grid: cards that can fire per template × slot × range of one `when` fact (others as in the sandbox).
+  // A cell click sets the sandbox to that range and jumps to it.
+  function renderCoverage(facts0) {
+    const st = proseState, th = proseThresholds(st.packs), keys = Object.keys(th).sort();
+    const box = el("section", { class: "pp-box" }, el("h2", { text: "Coverage grid" }));
+    if (!keys.length) { box.append(el("p", { class: "muted", text: "No `when` conditions in the packs yet." })); return box; }
+    if (!th[st.covFact]) st.covFact = keys[0];
+    const t = th[st.covFact];
+    const pick = el("select", { "aria-label": "fact" }, ...keys.map((k) => el("option", { value: k, text: k, ...(k === st.covFact ? { selected: true } : {}) })));
+    pick.addEventListener("change", () => { st.covFact = pick.value; renderProse(); });
+    box.append(el("div", { class: "pp-row" }, el("span", { class: "mono", text: "Fact range" }), pick,
+      el("span", { class: "mono muted", text: "ranges come from the thresholds in the packs' when conditions · red = 0 cards · amber = 1 · other facts as in the sandbox · click a cell to load it" })));
+    const cov = proseCoverage(st.packs, facts0, t);
+    box.append(el("table", { class: "pp-table" }, el("thead", {}, el("tr", {}, el("th", { text: "template" }), el("th", { text: "slot" }), ...cov.ranges.map((r) => el("th", { class: "mono", text: r.label })))),
+      el("tbody", {}, ...cov.rows.map((row) => el("tr", {}, el("td", { text: row.pack }), el("td", { text: row.slot }), ...row.counts.map((n, i) => {
+        const td = el("td", { class: `cov${n <= 1 ? " cov-" + n : ""}`, text: String(n), role: "button", tabindex: "0", title: "Open the sandbox with this range" });
+        const go = () => proseCoverageGo(row, cov.ranges[i].value, t);
+        td.addEventListener("click", go);
+        td.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); } });
+        return td;
+      }))))));
+    return box;
+  }
+  function proseCoverageGo(row, value, t) {
+    const st = proseState;
+    if (t.faction) {
+      const cur = (st.facts.factions || {})[t.faction] || { share_vs: 0, share_gap_vs: 0, stance_vs: "neutral", at_war_vs: false, weariness_vs: 0 };
+      st.facts.factions = { ...(st.facts.factions || {}), [t.faction]: { ...cur, [t.fact]: value } };
+    } else if (PROSE_FACT_FIELDS.some(([n]) => n === t.fact)) st.facts[t.fact] = value;
+    else st.err = `${t.fact} is worked out from other facts (weeks = float ÷ expenses); set float/expenses in the sandbox.`;
+    st.pack = row.pack; st.slot = row.slot; st.step = 0;
+    if (!row.pack.startsWith("_") && st.items[0]) st.items[0].template = row.pack;
+    renderProse();
+    const boxes = $("prose-view").querySelectorAll(".pp-box"); (boxes[boxes.length - 1] || $("prose-view")).scrollIntoView({ block: "start" });
   }
   // The goal's mechanics from data/board.json (read-only here): what the tiers actually ask for.
   function proseGoalRow(rung) {

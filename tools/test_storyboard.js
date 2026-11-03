@@ -2439,8 +2439,8 @@ test("coveredText / uncoveredText: only offered for a cover-profile item; save, 
 // ---- Prose packs ----
 const proseStart = html.indexOf("/* ---------- Prose packs (pure) ---------- */"), proseEnd = html.indexOf("/* ---------- End prose packs ---------- */");
 assert(proseStart !== -1 && proseEnd !== -1, "could not locate prose pack markers in storyboard.html");
-const { proseCondMet, proseCondText, proseCards, proseQualifying, proseSlots, proseFill, proseUnfilled, proseUnit, assembleMeeting, proseVariantRows, proseSerialise, proseEol, proseFind, proseNewId, proseAdd, proseDuplicate, proseDelete, proseSetField, proseSetLine, proseAddLine, proseDeleteLine, proseCommentAdd, proseCommentUpdate, proseCommentDelete, proseCommentsFor, proseWhenToRows, proseRowsToWhen, PROSE_HELP, PROSE_FACT_KINDS, PROSE_FACTION_FACT_KINDS } =
-  new Function(html.slice(proseStart, proseEnd) + "\nreturn { proseCondMet, proseCondText, proseCards, proseQualifying, proseSlots, proseFill, proseUnfilled, proseUnit, assembleMeeting, proseVariantRows, proseSerialise, proseEol, proseFind, proseNewId, proseAdd, proseDuplicate, proseDelete, proseSetField, proseSetLine, proseAddLine, proseDeleteLine, proseCommentAdd, proseCommentUpdate, proseCommentDelete, proseCommentsFor, proseWhenToRows, proseRowsToWhen, PROSE_HELP, PROSE_FACT_KINDS, PROSE_FACTION_FACT_KINDS };")();
+const { proseCondMet, proseCondText, proseCards, proseQualifying, proseSlots, proseFill, proseUnfilled, proseUnit, assembleMeeting, proseVariantRows, proseSerialise, proseEol, proseFind, proseNewId, proseAdd, proseDuplicate, proseDelete, proseSetField, proseSetLine, proseAddLine, proseDeleteLine, proseCommentAdd, proseCommentUpdate, proseCommentDelete, proseCommentsFor, proseWhenToRows, proseRowsToWhen, PROSE_HELP, PROSE_FACT_KINDS, PROSE_FACTION_FACT_KINDS, proseThresholds, proseFactRanges, proseCoverage } =
+  new Function(html.slice(proseStart, proseEnd) + "\nreturn { proseCondMet, proseCondText, proseCards, proseQualifying, proseSlots, proseFill, proseUnfilled, proseUnit, assembleMeeting, proseVariantRows, proseSerialise, proseEol, proseFind, proseNewId, proseAdd, proseDuplicate, proseDelete, proseSetField, proseSetLine, proseAddLine, proseDeleteLine, proseCommentAdd, proseCommentUpdate, proseCommentDelete, proseCommentsFor, proseWhenToRows, proseRowsToWhen, PROSE_HELP, PROSE_FACT_KINDS, PROSE_FACTION_FACT_KINDS, proseThresholds, proseFactRanges, proseCoverage };")();
 const fixtureDir = path.join(__dirname, "..", "tests", "fixtures");
 const parityInput = JSON.parse(fs.readFileSync(path.join(fixtureDir, "board_prose_parity_input.json"), "utf-8"));
 const parityGolden = JSON.parse(fs.readFileSync(path.join(fixtureDir, "board_prose_golden.json"), "utf-8"));
@@ -2643,6 +2643,26 @@ test("every condition fact has a help entry; game fact names match the tool", ()
   const per = gd.match(/const BOARD_FACTION_FACTS[^=]*=\s*\[([\s\S]*?)\]/)[1].match(/"(\w+)"/g).map((x) => x.slice(1, -1));
   for (const f of flat) assert(f in PROSE_FACT_KINDS, "tool knows fact " + f);
   assert.deepStrictEqual([...per].sort(), Object.keys(PROSE_FACTION_FACT_KINDS).sort());
+});
+
+test("coverage grid: ranges from when thresholds, counts follow eligibility, 0/1 flagged", () => {
+  const packs = { t: { cards: [
+    { id: "a", slot: "case", voice: "x", when: { fact: "week", op: "lt", value: 3 }, cards: [] },
+    { id: "b", slot: "case", voice: "x", when: { all: [{ fact: "week", gte: 3 }, { fact: "stance_vs", faction: "g", eq: "hostile" }] }, cards: [] },
+    { id: "c", slot: "case", voice: "x", cards: [], replies: [{ id: "r", slot: "reply", when: { fact: "week", gt: 6 } }] },
+    { id: "d", slot: "chosen", voice: "x", when: { fact: "week", gt: 6 }, cards: [] } ] } };
+  const th = proseThresholds(packs);
+  assert.deepStrictEqual(Object.keys(th).sort(), ["stance_vs[g]", "week"]);
+  assert.deepStrictEqual(th.week.values.sort(), [3, 6]);
+  const rs = proseFactRanges(th.week);
+  assert.deepStrictEqual(rs.map((r) => r.value), [2, 3, 4.5, 6, 7]);
+  const cov = proseCoverage(packs, { week: 1, factions: {} }, th.week);
+  const caseRow = cov.rows.find((r) => r.slot === "case"), chosen = cov.rows.find((r) => r.slot === "chosen");
+  assert.deepStrictEqual(caseRow.counts, [2, 1, 1, 1, 1]); // a+c, then b needs hostile (not met) so c only
+  assert.deepStrictEqual(chosen.counts, [0, 0, 0, 0, 1]);
+  const f = proseCoverage(packs, { week: 5, factions: {} }, th["stance_vs[g]"]);
+  assert.deepStrictEqual(f.ranges.map((r) => r.label), ["hostile", "(other)"]);
+  assert.deepStrictEqual(f.rows.find((r) => r.slot === "case").counts, [2, 1]);
 });
 
 console.log(`${passed} passed${process.exitCode ? ", some FAILED" : ""}`);
