@@ -798,6 +798,8 @@ const BOARD_PROSE_WEEK1 := "_week1"
 const BOARD_PROSE_TEMPLATE_SLOTS: Array[String] = ["case", "reply", "rebuttal", "chosen", "concede", "aftermath"]
 const BOARD_PROSE_DEBATE_SLOTS: Array[String] = ["opener", "reply", "rebuttal", "clash", "chosen", "concede", "aftermath"]
 const BOARD_PROSE_WEEK1_SLOTS: Array[String] = ["explainer"]
+const BOARD_PROSE_REPLY_SLOTS: Array[String] = ["reply", "rebuttal"]
+const BOARD_PROSE_STANCES: Array[String] = ["back", "challenge", "wobble"]
 # Every key BoardMeetings.meeting_facts() returns (R§3.15 "Meeting facts"):
 # the only names a prose `when` may read and a prose {token} may use.
 const BOARD_FACTS: Array[String] = [
@@ -855,8 +857,13 @@ func _validate_board_prose(t: Dictionary, errors: Array[String]) -> void:
 				errors.append("%s: unknown voice '%s' in 'to'" % [card_where, prose["to"]])
 			if prose.has("weight") and (not (typeof(prose["weight"]) in [TYPE_INT, TYPE_FLOAT]) or float(prose["weight"]) <= 0.0):
 				errors.append("%s: weight must be a number above 0" % card_where)
-			if prose.has("replies") and typeof(prose["replies"]) != TYPE_ARRAY:
-				errors.append("%s: 'replies' must be an array" % card_where)
+			if prose.has("replies"):
+				if typeof(prose["replies"]) != TYPE_ARRAY:
+					errors.append("%s: 'replies' must be an array" % card_where)
+				else:
+					_validate_prose_replies(prose["replies"], card_where, voices, seen_ids, errors)
+			if prose.has("stance") and not BOARD_PROSE_STANCES.has(str(prose["stance"])):
+				errors.append("%s: unknown stance '%s' (allowed: %s)" % [card_where, prose["stance"], BOARD_PROSE_STANCES])
 			_validate_prose_facts(prose, card_where, errors)
 			_validate_prose_event_cards(prose.get("cards"), card_where, errors)
 			if prose.get("slot") == "case" and not prose.has("when"):
@@ -865,6 +872,29 @@ func _validate_board_prose(t: Dictionary, errors: Array[String]) -> void:
 		if not open_cases.has(pair):
 			var parts: PackedStringArray = String(pair).split("|")
 			errors.append("board_prose.%s: no case card without a 'when' for voice '%s' (a meeting could come up empty)" % [parts[0], parts[1]])
+
+
+# A case card's own `replies` (R§3.15 "Mini-scenes"): reply / rebuttal prose
+# cards with a known voice, a known stance on replies, valid event cards and
+# unique ids.
+func _validate_prose_replies(replies: Array, where: String, voices: Dictionary, seen_ids: Dictionary, errors: Array[String]) -> void:
+	for reply in replies:
+		if typeof(reply) != TYPE_DICTIONARY:
+			errors.append("%s: reply must be an object" % where)
+			continue
+		var id := str(reply.get("id", ""))
+		var reply_where := "%s.%s" % [where, id if id != "" else "reply"]
+		if id != "":
+			if seen_ids.has(id):
+				errors.append("%s: duplicate prose card id '%s'" % [where, id])
+			seen_ids[id] = where
+		if not BOARD_PROSE_REPLY_SLOTS.has(str(reply.get("slot", ""))):
+			errors.append("%s: unknown reply slot '%s' (allowed: %s)" % [reply_where, reply.get("slot"), BOARD_PROSE_REPLY_SLOTS])
+		if not voices.has(str(reply.get("voice", ""))):
+			errors.append("%s: unknown voice '%s'" % [reply_where, reply.get("voice")])
+		if reply.get("slot") == "reply" and not BOARD_PROSE_STANCES.has(str(reply.get("stance", ""))):
+			errors.append("%s: unknown stance '%s' (allowed: %s)" % [reply_where, reply.get("stance"), BOARD_PROSE_STANCES])
+		_validate_prose_event_cards(reply.get("cards"), reply_where, errors)
 
 
 # A prose card's `when` (fact leaves under all/any/not only, naming known

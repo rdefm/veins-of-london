@@ -681,9 +681,21 @@ static func _exchange_cards(card: Dictionary, i: int, week: int) -> Array:
 	var pitcher: String = card["voice"]
 	var facts := meeting_facts(week, card)
 	var line_tokens := fact_tokens(facts)
-	var out: Array = _prose_event_cards("case", _case_prose(card, week), line_tokens)
+	var case_prose := _case_prose(card, week)
+	var out: Array = _prose_event_cards("case", case_prose, line_tokens)
 	if out.is_empty():
 		out.append({ "key": "case", "type": "speaker", "label": null, "speaker": GameData.BOARD_VOICES[pitcher]["name"], "text": "" })
+	var authored: Array = case_prose.get("replies", [])
+	var own_reply := _pick_prose(_qualifying(authored.filter(func(r: Dictionary) -> bool: return r.get("slot") == "reply"), facts), week, "response|%d" % i, facts)
+	if not own_reply.is_empty():
+		out.append_array(_prose_event_cards("resp", own_reply, line_tokens))
+		if own_reply.get("stance") == "challenge":
+			var own_pool := authored.filter(func(r: Dictionary) -> bool: return r.get("slot") == "rebuttal")
+			var own_rebuttal := _pick_prose(own_pool, week, "rebuttal|%d" % i, facts)
+			if own_rebuttal.is_empty():
+				own_rebuttal = _pick_prose(_prose(GameData.BOARD_PROSE_DEBATE, "rebuttal", { "voice": pitcher }), week, "rebuttal|%d" % i, facts)
+			out.append_array(_prose_event_cards("reb", own_rebuttal, line_tokens))
+		return out
 	var replies := _qualifying(_prose(GameData.BOARD_PROSE_DEBATE, "reply", { "to": pitcher }), facts)
 	var responders := _prose_values(replies, "voice")
 	responders.erase(pitcher)
@@ -727,14 +739,22 @@ static func _result_text(card: Dictionary, i: int, week: int) -> String:
 	var facts := meeting_facts(week, card)
 	var line_tokens := fact_tokens(facts)
 	var out: PackedStringArray = []
-	var chosen := _pick_prose(_prose(GameData.BOARD_PROSE_DEBATE, "chosen", { "voice": pitcher }), week, "chosen|%d" % i, facts)
+	var goal := str(card["template"])
+	var chosen := _pick_prose(_prose(goal, "chosen", { "voice": pitcher }), week, "chosen|%d" % i, facts)
+	if chosen.is_empty():
+		chosen = _pick_prose(_prose(GameData.BOARD_PROSE_DEBATE, "chosen", { "voice": pitcher }), week, "chosen|%d" % i, facts)
 	if not chosen.is_empty():
 		out.append("%s: \"%s\"" % [GameData.BOARD_VOICES[pitcher]["name"], _prose_text(chosen, line_tokens)])
-	var others := _prose_values(_qualifying(_prose(GameData.BOARD_PROSE_DEBATE, "concede"), facts), "voice")
+	var pack := goal
+	var others := _prose_values(_qualifying(_prose(pack, "concede"), facts), "voice")
 	others.erase(pitcher)
+	if others.is_empty():
+		pack = GameData.BOARD_PROSE_DEBATE
+		others = _prose_values(_qualifying(_prose(pack, "concede"), facts), "voice")
+		others.erase(pitcher)
 	if not others.is_empty():
 		var conceder: String = _pick(others, week, "conceder|%d" % i)
-		var concede := _pick_prose(_prose(GameData.BOARD_PROSE_DEBATE, "concede", { "voice": conceder }), week, "concede|%d" % i, facts)
+		var concede := _pick_prose(_prose(pack, "concede", { "voice": conceder }), week, "concede|%d" % i, facts)
 		if not concede.is_empty():
 			out.append("%s: \"%s\"" % [GameData.BOARD_VOICES[conceder]["name"], _prose_text(concede, line_tokens)])
 	return "\n\n".join(out)

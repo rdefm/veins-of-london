@@ -44,6 +44,42 @@
           "text": "The target is 30% of London's crafted {calc}. At present it's {share}%. The Guild's work is the standard buyers know. Every piece of ours they see is a chance to show we're better, and {rival} isn't taking that chance."
         }
       ]
+    },
+    {
+      "id": "craft_first.case.5",
+      "slot": "case",
+      "voice": "james",
+      "cards": [
+        {
+          "speaker": "James",
+          "text": "I want 30% of the {calc} crafted in London to be ours. We're on {share}%. Every piece we finish is one fewer sold raw to someone who'll make it badly. Buyers pay more for good work, and they come back for it."
+        }
+      ],
+      "replies": [
+        {
+          "id": "craft_first.case.5.reply.1",
+          "slot": "reply",
+          "voice": "archie",
+          "stance": "challenge",
+          "cards": [
+            {
+              "speaker": "Archie",
+              "text": "Crafting takes days, James. Raw {calc} sells this week and pays the rent this week. A pile of unfinished pieces pays nothing."
+            }
+          ]
+        },
+        {
+          "id": "craft_first.case.5.rebuttal.1",
+          "slot": "rebuttal",
+          "voice": "james",
+          "cards": [
+            {
+              "speaker": "James",
+              "text": "It does take days. A finished piece sells for more than the raw {calc} does, so the wait pays for itself. The rent will still get paid."
+            }
+          ]
+        }
+      ]
     }
   ]
 }

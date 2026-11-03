@@ -1333,6 +1333,43 @@ func run() -> void:
 		_set_owen_rarity(rarity)
 	)
 
+	run_case("case_card_with_replies_plays_its_own_exchange_else_generic", func():
+		_enabled_game()
+		var card := { "id": "c1", "template": "craft_first", "voice": "james", "ore": "time", "goal": { "type": "craftShare", "tiers": {} } }
+		var saved: Array = GameData.BOARD_PROSE["craft_first"]["cards"]
+		var case_card := {
+			"id": "t.case", "slot": "case", "voice": "james",
+			"cards": [{ "speaker": "James", "text": "case" }],
+			"replies": [
+				{ "id": "t.rep", "slot": "reply", "voice": "archie", "stance": "challenge", "cards": [{ "speaker": "Archie", "text": "own reply" }] },
+				{ "id": "t.reb", "slot": "rebuttal", "voice": "james", "cards": [{ "speaker": "James", "text": "own rebuttal" }] },
+			],
+		}
+		GameData.BOARD_PROSE["craft_first"]["cards"] = [case_card]
+		var texts: Array = BoardMeetings._exchange_cards(card, 0, 4).map(func(c): return c["text"])
+		assert_eq(texts, ["case", "own reply", "own rebuttal"], "authored exchange plays")
+		case_card.erase("replies")
+		texts = BoardMeetings._exchange_cards(card, 0, 4).map(func(c): return c["text"])
+		assert_eq(texts[0], "case")
+		assert_true(not texts.has("own reply"), "no replies falls back to the generic pack")
+		GameData.BOARD_PROSE["craft_first"]["cards"] = saved
+	)
+
+	run_case("goal_pack_chosen_and_concede_win_over_generic", func():
+		_enabled_game()
+		var card := { "id": "c1", "template": "craft_first", "voice": "james", "ore": "time", "goal": { "type": "craftShare", "tiers": {} } }
+		var saved: Array = GameData.BOARD_PROSE["craft_first"]["cards"]
+		GameData.BOARD_PROSE["craft_first"]["cards"] = saved + [
+			{ "id": "t.ch", "slot": "chosen", "voice": "james", "cards": [{ "speaker": "James", "text": "goal chosen" }] },
+			{ "id": "t.co", "slot": "concede", "voice": "archie", "cards": [{ "speaker": "Archie", "text": "goal concede" }] },
+		]
+		var text := BoardMeetings._result_text(card, 0, 4)
+		assert_true(text.contains("goal chosen") and text.contains("goal concede"), "goal lines used: %s" % text)
+		GameData.BOARD_PROSE["craft_first"]["cards"] = saved
+		text = BoardMeetings._result_text(card, 0, 4)
+		assert_true(text != "" and not text.contains("goal "), "generic when goal pack has none: %s" % text)
+	)
+
 	run_case("aob_line_fills_tokens_and_never_repeats_consecutive_weeks", func():
 		_enabled_game()
 		var previous := ""

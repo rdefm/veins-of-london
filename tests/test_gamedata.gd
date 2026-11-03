@@ -129,6 +129,18 @@ func run() -> void:
 		assert_true(has.call(errors, "'when' may only read meeting facts"), "raw state leaf: %s" % str(errors))
 		errors = lint.call(func(p): p["share_first"]["cards"][0]["when"] = { "any": [{ "fact": "share_gap", "gt": 5 }, { "fact": "last_result", "op": "==", "value": "miss" }] })
 		assert_true(errors.is_empty(), "valid when passes: %s" % str(errors))
+		var with_reply := func(p, change: Callable):
+			var reply := { "id": "t.r", "slot": "reply", "voice": "archie", "stance": "back", "cards": [{ "speaker": "Archie", "text": "ok" }] }
+			change.call(reply)
+			p["share_first"]["cards"][0]["replies"] = [reply]
+		errors = lint.call(func(p): with_reply.call(p, func(r): pass))
+		assert_true(errors.is_empty(), "valid reply passes: %s" % str(errors))
+		errors = lint.call(func(p): with_reply.call(p, func(r): r["slot"] = "case"))
+		assert_true(has.call(errors, "unknown reply slot 'case'"), "reply slot: %s" % str(errors))
+		errors = lint.call(func(p): with_reply.call(p, func(r): r["voice"] = "nobody"))
+		assert_true(has.call(errors, "unknown voice 'nobody'"), "reply voice: %s" % str(errors))
+		errors = lint.call(func(p): with_reply.call(p, func(r): r["stance"] = "sulk"))
+		assert_true(has.call(errors, "unknown stance 'sulk'"), "reply stance: %s" % str(errors))
 		errors = lint.call(func(p): p["share_first"]["cards"][0]["cards"] = [{ "speaker": "Archie", "text": "At {sahre} percent." }])
 		assert_true(has.call(errors, "{sahre} has no matching meeting fact"), "token without fact: %s" % str(errors))
 	)
