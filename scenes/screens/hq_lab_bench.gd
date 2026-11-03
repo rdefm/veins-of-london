@@ -788,6 +788,10 @@ func _build_notebook_controls(lesson: Variant) -> Control:
 		var effect_row := UI.hbox(6)
 		for e in effects:
 			e.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			# Min width follows the screen, not the text: the card must never outgrow it.
+			if e is Button:
+				e.clip_text = true
+			e.custom_minimum_size.x = 0.0
 			effect_row.add_child(e)
 		content.add_child(effect_row)
 
@@ -800,6 +804,7 @@ func _build_notebook_controls(lesson: Variant) -> Control:
 	nav.add_child(MapCardStyle.text_button("Finish", _on_finish, lesson != null and run == null))
 	for b in nav.get_children():
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.clip_text = true
 	content.add_child(nav)
 	return c["panel"]
 

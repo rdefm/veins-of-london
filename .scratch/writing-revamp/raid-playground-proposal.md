@@ -166,9 +166,20 @@
                     "label": ""
                   },
                   {
-                    "activeEffect": "prophetsBreath",
+                    "item": "prophetsBreath",
+                    "optional": true,
                     "add": 1,
-                    "label": "Prophet's Breath"
+                    "label": "Prophet's Breath",
+                    "consume": true
+                  },
+                  {
+                    "observed": {
+                      "id": "",
+                      "ore": "physics",
+                      "atLeast": 2
+                    },
+                    "add": 1,
+                    "label": ""
                   }
                 ],
                 "max": 1
@@ -196,6 +207,9 @@
                     "perPoint": 0.1,
                     "label": "Body"
                   }
+                ],
+                "tags": [
+                  "physical"
                 ]
               },
               "success": {
@@ -313,7 +327,9 @@
               "requires": {
                 "item": "blast",
                 "optional": true,
-                "display": "disable"
+                "display": "disable",
+                "consume": true,
+                "reason": "Requires 1 Blast"
               },
               "goto": {
                 "branch": "shrubbery"
