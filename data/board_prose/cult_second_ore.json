@@ -1,0 +1,49 @@
+{
+  "template": "cult_second_ore",
+  "cards": [
+    {
+      "id": "cult_second_ore.case.1",
+      "slot": "case",
+      "voice": "owen",
+      "cards": [
+        {
+          "speaker": "Owen",
+          "text": "Sorry, could we try a second kind of calc? Right now we lean on one or two. A new ore type, healthy and working, gives Archie another thing to sell and James another thing to craft."
+        }
+      ]
+    },
+    {
+      "id": "cult_second_ore.case.2",
+      "slot": "case",
+      "voice": "owen",
+      "cards": [
+        {
+          "speaker": "Owen",
+          "text": "I'm sorry if this is too much. I'd like us to get a different kind of calc online. I've only worked the ones we have, so I'd learn it as I go. Another ore means more to sell, more to craft, and less hanging on one price."
+        }
+      ]
+    },
+    {
+      "id": "cult_second_ore.case.3",
+      "slot": "case",
+      "voice": "owen",
+      "cards": [
+        {
+          "speaker": "Owen",
+          "text": "If it's all right, I'd like to bring a vein of a different type online. I haven't done it before, so I'm sorry if it's slow. Two kinds of calc at once is more choice for Archie's buyers and James's benches."
+        }
+      ]
+    },
+    {
+      "id": "cult_second_ore.case.4",
+      "slot": "case",
+      "voice": "owen",
+      "cards": [
+        {
+          "speaker": "Owen",
+          "text": "Sorry, I know it's a lot. Could we add another ore type? It has to be healthy enough to work before it counts. I'd like the practice, and it gives the others a second calc to sell and make things with."
+        }
+      ]
+    }
+  ]
+}

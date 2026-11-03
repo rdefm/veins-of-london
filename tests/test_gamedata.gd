@@ -89,6 +89,40 @@ func run() -> void:
 		assert_eq(loaded_ids, files_on_disk, "GameData.EVENTS should be exactly the event files on disk")
 	)
 
+	run_case("shipped_board_prose_packs_pass_the_load_lint", func():
+		var errors := GameData.validate_tables(GameData.snapshot())
+		assert_true(errors.filter(func(e): return e.contains("board_prose")).is_empty(), "no prose pack errors: %s" % str(errors))
+		assert_true(GameData.BOARD_PROSE.has("_debate") and GameData.BOARD_PROSE.has("_week1"), "special packs load")
+		for template_id in GameData.BOARD_TEMPLATES:
+			assert_true(GameData.BOARD_PROSE.has(template_id), "pack for %s" % template_id)
+	)
+
+	run_case("corrupt_board_prose_fixtures_each_fail_with_a_clear_message", func():
+		var lint := func(mutate: Callable) -> Array:
+			var corrupted: Dictionary = GameData.snapshot().duplicate(true)
+			mutate.call(corrupted["board_prose"])
+			return GameData.validate_tables(corrupted).filter(func(e): return e.contains("board_prose"))
+		var has := func(errors: Array, needle: String) -> bool: return errors.any(func(e): return e.contains(needle))
+		var errors: Array = lint.call(func(p): p["share_first"]["cards"][0]["slot"] = "monologue")
+		assert_true(has.call(errors, "unknown slot 'monologue'"), "unknown slot: %s" % str(errors))
+		errors = lint.call(func(p): p["share_first"]["cards"][0]["voice"] = "nobody")
+		assert_true(has.call(errors, "unknown voice 'nobody'"), "unknown voice: %s" % str(errors))
+		errors = lint.call(func(p): p["share_first"]["cards"][0]["cards"] = [{ "speaker": "Archie" }])
+		assert_true(has.call(errors, "event card needs non-empty 'text'"), "invalid event card: %s" % str(errors))
+		errors = lint.call(func(p): p["share_first"]["cards"][0]["cards"] = [])
+		assert_true(has.call(errors, "non-empty array of event cards"), "empty cards: %s" % str(errors))
+		errors = lint.call(func(p): p["share_first"]["cards"][1]["id"] = p["share_first"]["cards"][0]["id"])
+		assert_true(has.call(errors, "duplicate prose card id"), "duplicate id: %s" % str(errors))
+		errors = lint.call(func(p): p["share_first"]["template"] = "no_such_template")
+		assert_true(has.call(errors, "unknown template 'no_such_template'"), "unknown template: %s" % str(errors))
+		errors = lint.call(func(p):
+			for prose in p["share_leader_james"]["cards"]:
+				prose["when"] = { "fact": "share_gap", "gt": 5 })
+		assert_true(has.call(errors, "board_prose.share_leader_james: no case card without a 'when' for voice 'james'"), "alt voice needs an open case: %s" % str(errors))
+		errors = lint.call(func(p): p["share_first"]["cards"][0]["weight"] = 0)
+		assert_true(has.call(errors, "weight must be a number above 0"), "bad weight: %s" % str(errors))
+	)
+
 	run_case("corrupt_fixture_event_card_key_missing_or_duplicate_fails", func():
 		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
 		corrupted["events"]["intro"]["cards"][1].erase("key")

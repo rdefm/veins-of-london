@@ -1,0 +1,49 @@
+{
+  "template": "craft_first",
+  "cards": [
+    {
+      "id": "craft_first.case.1",
+      "slot": "case",
+      "voice": "james",
+      "cards": [
+        {
+          "speaker": "James",
+          "text": "I'd rather we craft 30% of the {calc} made in London. We're on {share}%. The Guild still sets the standard for a good piece. The more we make, the more buyers set ours beside theirs. I'm not worried about that comparison."
+        }
+      ]
+    },
+    {
+      "id": "craft_first.case.2",
+      "slot": "case",
+      "voice": "james",
+      "cards": [
+        {
+          "speaker": "James",
+          "text": "Let's craft 30% of London's {calc}. Our share is {share}%, and {rival} makes the most besides us. Buyers can only judge our work if they see plenty of it. More of it on the market means more of them comparing it with the Guild's."
+        }
+      ]
+    },
+    {
+      "id": "craft_first.case.3",
+      "slot": "case",
+      "voice": "james",
+      "cards": [
+        {
+          "speaker": "James",
+          "text": "Aim for 30% of the {calc} crafted in London. You're on {share}%. Raw ore sells on price alone, and I don't like that. Crafted {calc} sells on quality, which is where we beat the Guild, so I want more of it out there."
+        }
+      ]
+    },
+    {
+      "id": "craft_first.case.4",
+      "slot": "case",
+      "voice": "james",
+      "cards": [
+        {
+          "speaker": "James",
+          "text": "The target is 30% of London's crafted {calc}. At present it's {share}%. The Guild's work is the standard buyers know. Every piece of ours they see is a chance to show we're better, and {rival} isn't taking that chance."
+        }
+      ]
+    }
+  ]
+}

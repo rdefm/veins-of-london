@@ -1091,149 +1091,55 @@
   },
   "templates": {
     "fin_reserve": {
-      "label": "Build a cash reserve",
-      "case": [
-        "I want three weeks of running costs sitting in the float. Costs are {expenses} a week and the float is {float}, so we're on {weeks} weeks. With three, a late payer doesn't scare me, and I can say yes when someone needs a hand.",
-        "Let's get the float up to three weeks of costs. Running costs are {expenses} a week, the float is {float}, which is {weeks} weeks. I'm tired of working out which bill waits. Cover the bills and the spare is ours to spend on people who need it.",
-        "The target is three weeks of costs held back. We spend {expenses} a week and hold {float}, so that's {weeks} weeks. One slow week shouldn't be a crisis. With that cushion I can sell when the price is right, not when I'm desperate.",
-        "I'd like three weeks of costs in the float. Costs are {expenses} a week, float is {float}, so {weeks} weeks. Short of that, one bad week and we're begging. Past it, we can lend a few quid to someone who's short and not feel it."
-      ]
+      "label": "Build a cash reserve"
     },
     "craft_first": {
-      "label": "Craft more {calc}",
-      "case": [
-        "I'd rather we craft 30% of the {calc} made in London. We're on {share}%. The Guild still sets the standard for a good piece. The more we make, the more buyers set ours beside theirs. I'm not worried about that comparison.",
-        "Let's craft 30% of London's {calc}. Our share is {share}%, and {rival} makes the most besides us. Buyers can only judge our work if they see plenty of it. More of it on the market means more of them comparing it with the Guild's.",
-        "Aim for 30% of the {calc} crafted in London. You're on {share}%. Raw ore sells on price alone, and I don't like that. Crafted {calc} sells on quality, which is where we beat the Guild, so I want more of it out there.",
-        "The target is 30% of London's crafted {calc}. At present it's {share}%. The Guild's work is the standard buyers know. Every piece of ours they see is a chance to show we're better, and {rival} isn't taking that chance."
-      ]
+      "label": "Craft more {calc}"
     },
     "craft_rankup": {
-      "label": "Better work at the bench",
-      "case": [
-        "Take one recipe you already know and push it past your best rank. I'd like at least one recipe higher than it stands today, two if you can manage. A higher rank means a better piece, and a better piece is what lets us name a price the Guild can't undercut.",
-        "Raise a recipe's rank this week, any recipe. Two would be better. The firm is only as good as its best bench work. Higher rank means better pieces, and better pieces are how we show the Guild's standard isn't the ceiling.",
-        "I want at least one recipe ranked up by Sunday, and two if the ore allows. Same recipe, finer result. Buyers pay for quality they can see, and the Guild has relied on them not looking closely at ours.",
-        "Rank up a recipe, then another. It's the one thing here that doesn't depend on the market. A higher rank makes a better piece, a better piece sells for more, and I'd like to meet the Guild's standard from above."
-      ]
+      "label": "Better work at the bench"
     },
     "craft_master": {
-      "label": "Master a recipe",
-      "case": [
-        "I want a recipe at rank five. You have recipes at rank three or better, so the last two ranks are the only gap. Rank five is the best a piece can be made, and a firm that has one can fairly say it's passed the Guild's standard, not met it.",
-        "Master a recipe, take it to rank five. Two, if you can. You've already got work at rank three or above, so you know the cost of those last steps. A mastered recipe gives us pieces the Guild's own benches can't beat, and I'd like that on the record.",
-        "Bring one recipe to rank five this week. It's the top of the scale. Mastery is what lets us say we're better than the Guild and have a bench to prove it. You're close enough that it would be a waste to stop at three.",
-        "Take a recipe to rank five. We have work at rank three or better, so this is finishing, not starting. The Guild calls its masters a standard. I'd like us to be the standard, and one mastered recipe is the proof."
-      ]
+      "label": "Master a recipe"
     },
     "share_first": {
-      "label": "A slice of {calc}",
-      "case": [
-        "I want 25% of London's {calc} this week. You're on {share}%. While we're small, any firm that cuts its price drags ours down with it. At 25% we start moving the price ourselves. James says the contested ore right now is {contested}.",
-        "Let's take a quarter of the {calc} market. We're on {share}%. Right now other firms' price swings decide our week. A quarter and we stop being pushed around by them. James's note: the factions are scrapping over {contested}.",
-        "Aim for 25% of London's {calc}. We hold {share}%. A bigger share means a steadier price, and a steadier price means I can pay the bills without checking the market first. James says {contested} is the contested ore at the moment.",
-        "A quarter of London's {calc}, that's the ask. You're at {share}%. Once we're that size, the price swings are partly ours, and spare cash gets easier to find for people who need it. James reckons {contested} is where the fighting is."
-      ]
+      "label": "A slice of {calc}"
     },
     "share_higher": {
-      "label": "Push {calc} higher",
-      "case": [
-        "Let's take {calc} up to 40%. We're on {share}%, and the biggest other seller is {rival}. At that size we stop reacting to other firms' price drops and start causing them. That's the security I want for the bills.",
-        "I want 40% of London's {calc}. You're on {share}% and {rival} is the next biggest. A firm that size sets the price and the others follow. I'd rather follow nobody. Steadier income means more spare for people who need it.",
-        "Push {calc} to 40%. We're at {share}% and {rival} is the one we'd be taking it from. Right now their price swings land on us. At 40% it works the other way round, and I sleep better.",
-        "The next step is 40% of {calc}. You're on {share}%, {rival} is next down. Once we're big enough, a price swing is something we cause. That's worth more to me than the extra sales."
-      ]
+      "label": "Push {calc} higher"
     },
     "share_leader": {
-      "label": "Lead the {calc} market",
-      "case": [
-        "I want us the biggest seller of {calc} in London, 35% at least. You're on {share}% and {rival} is the one to beat. The biggest seller sets the price and everyone else follows. I'd rather set it than follow it.",
-        "Take first place on {calc}, with a 35% share. We're at {share}% and {rival} is in the way. The top seller doesn't get pushed around by anyone's price swing. That's the security I want.",
-        "Be the largest seller of {calc}, at 35% or better. You're on {share}%, and {rival} is the biggest other name. First place means the price is partly ours to move, and we'll have more spare to give away.",
-        "First place on {calc}: 35% and the biggest share in town. You hold {share}%. {rival} sits just behind. Whoever leads decides what the market does, so I'd like it to be us, not them."
-      ]
+      "label": "Lead the {calc} market"
     },
     "share_leader_james": {
-      "label": "Lead the {calc} market",
-      "case": [
-        "I want us the leading seller of {calc} in London, at 35% or better. We're on {share}%, and {rival} is the one to pass. The Guild's standard for a leading house is the biggest share of an ore. Meeting it is the least I'll accept.",
-        "Take first place on {calc}, at a 35% share. You hold {share}% and {rival} is ahead. A house that leads its ore is one the Guild has to deal with as an equal. Then they can't say we're beneath them.",
-        "Be the largest seller of {calc}, with 35% or more. You're at {share}%, and {rival} is the name above yours. First place is how the Guild measures a house. I'd like the measure to come out in our favour for once.",
-        "First place on {calc}, 35% at least. Your share is {share}% and {rival} stands in the way. The Guild counts a house that leads its ore as a real one. Sell more {calc} than anyone and it has to count us."
-      ]
+      "label": "Lead the {calc} market"
     },
     "share_second": {
-      "label": "Second ore: {calc}",
-      "case": [
-        "Let's take 25% of {calc} as well. You're at {share}%. One ore means one bad price week can sink us. A second one means a swing in one is covered by the other. That's bills paid without panic.",
-        "I want a second ore, {calc}, at 25% of London's supply. You hold {share}%. With two lines, one bad week doesn't take everything. Steady money is what lets me help people out.",
-        "Get {calc} up to 25%. You're on {share}% now. If all our income rides on one ore, other firms' price swings decide our week. Two ores and they only decide half of it.",
-        "A second ore: 25% of {calc}. We're at {share}%. It's small now, which is the point. It's cheap to grow while nobody's watching, and it means we're not leaning on one price to pay the bills."
-      ]
+      "label": "Second ore: {calc}"
     },
     "cult_yield": {
-      "label": "A bit more yield",
-      "case": [
-        "Sorry to bring it up. Could the veins beat our usual ten-day yield, just over it? Archie has more calc to sell and James has more to craft with, and it's the quickest way I know to give them both.",
-        "I'm sorry, I know it's not my place. I'd like the yield to finish this week above our ten-day average. Not by much. Every bit over is calc Archie can sell and James can work, so it's worth a try.",
-        "If it's all right, I'd like to try for a yield past our ten-day average. I'm sorry, I'll say it plainly: just over. More calc out of the veins means more on Archie's table and more on James's bench.",
-        "Sorry, this might be daft. Could we aim for a little above our ten-day yield? I'd tend the veins closer to get it. Extra calc is something Archie and James would both use."
-      ]
+      "label": "A bit more yield"
     },
     "cult_new_vein": {
-      "label": "Bring a vein online",
-      "case": [
-        "I'm sorry, could I bring a vein online? We own one that isn't earning yet, and I'd like to get it healthy enough to work. A new line means more calc for Archie to sell and James to craft.",
-        "Sorry to ask. I'd like to get one of our idle veins up and working this week. It only counts once it's healthy enough, so I'd be looking in on it most days. More veins, more calc for the others.",
-        "If nobody minds, I'd like to bring another vein online. I know it's more work for me. That's rather the point, I think. Another working vein is more calc for Archie to sell and James to put on the bench.",
-        "Sorry. Archie says I should aim higher, so: one more working vein. We've got one that's only on paper, and I'd like it healthy enough to earn. Then there's more calc for everyone."
-      ]
+      "label": "Bring a vein online"
     },
     "cult_health_streak": {
-      "label": "Keep a vein healthy",
-      "case": [
-        "Sorry, this is a long one. Could I keep a vein in good health every night this week? One bad night and the count starts again. A vein that's always well gives steady calc, and Archie and James can plan around steady.",
-        "I'd like to keep one vein healthy night after night. I'm sorry, it isn't exciting. The count resets after any bad night, so I'd check on it late as well. Steady calc is easier to sell and easier to craft with.",
-        "If it's all right, I'd like to try for a run of good nights on one vein. Each healthy night adds one; a bad one wipes it. I'm sorry, I know that's harsh. Reliable calc is what Archie and James keep asking me for.",
-        "Could one vein go the whole week without a bad night? I'm sorry to make it a project. A vein that never slips yields evenly, and that gives Archie something to promise and James something to rely on."
-      ]
+      "label": "Keep a vein healthy"
     },
     "cult_second_ore": {
-      "label": "A second ore",
-      "case": [
-        "Sorry, could we try a second kind of calc? Right now we lean on one or two. A new ore type, healthy and working, gives Archie another thing to sell and James another thing to craft.",
-        "I'm sorry if this is too much. I'd like us to get a different kind of calc online. I've only worked the ones we have, so I'd learn it as I go. Another ore means more to sell, more to craft, and less hanging on one price.",
-        "If it's all right, I'd like to bring a vein of a different type online. I haven't done it before, so I'm sorry if it's slow. Two kinds of calc at once is more choice for Archie's buyers and James's benches.",
-        "Sorry, I know it's a lot. Could we add another ore type? It has to be healthy enough to work before it counts. I'd like the practice, and it gives the others a second calc to sell and make things with."
-      ]
+      "label": "A second ore"
     },
     "landmark_supplier": {
-      "label": "Supply a faction: {calc}",
-      "case": [
-        "Sign a four-week supply contract for {calc} with someone who crafts with it. They need it every week and we get paid every week. That's how you learn who depends on whom.",
-        "Find a faction that works {calc} and sign them up for four weeks. A buyer who needs you is worth ten who might."
-      ]
+      "label": "Supply a faction: {calc}"
     },
     "landmark_1": {
-      "label": "Landmark deal: The Stepney standing order",
-      "case": [
-        "Settle a few more orders and a regular buyer will put their name to something longer. The Stepney standing order, if we earn it.",
-        "Keep the deliveries clean and The Stepney standing order opens up. A buyer like that pays every week without us chasing."
-      ]
+      "label": "Landmark deal: The Stepney standing order"
     },
     "landmark_2": {
-      "label": "Landmark deal: The Southwark retainer",
-      "case": [
-        "Settle a few more orders and a regular buyer will put their name to something longer. The Southwark retainer, if we earn it.",
-        "Keep the deliveries clean and The Southwark retainer opens up. A buyer like that pays every week without us chasing."
-      ]
+      "label": "Landmark deal: The Southwark retainer"
     },
     "landmark_3": {
-      "label": "Landmark deal: The Westminster account",
-      "case": [
-        "Settle a few more orders and a regular buyer will put their name to something longer. The Westminster account, if we earn it.",
-        "Keep the deliveries clean and The Westminster account opens up. A buyer like that pays every week without us chasing."
-      ]
+      "label": "Landmark deal: The Westminster account"
     }
   },
   "todo": {
@@ -1377,201 +1283,19 @@
     "optionLabel": "{pitcher}: {label}",
     "chosenText": "{pitcher} writes it on the whiteboard.",
     "debate": {
-      "_comment": "Debate scene (BoardMeetings.meeting_context()). PROSE-REVIEW: all copy is real prose (ticket 32). response[responder][pitcher][stance]: stances present are the ones the responder can take (Owen only wobbles); tokens {label}, {ore}. rebuttal plays only after a challenge, so it answers either challenger. clashOrder = voice pairs by how opposed their levers are; clash[pair] = list of 2-line exchanges [first voice, second voice]. chosen/concede tokens {label}.",
+      "_comment": "Debate mechanics (BoardMeetings.meeting_context()): clashChance, clashOrder = voice pairs by how opposed their levers are, votePrompt copy. The debate lines themselves live in data/board_prose/_debate.json (R§3.15 'Prose packs').",
       "clashChance": 0.5,
       "clashOrder": [
         "james|archie",
         "archie|owen",
         "james|owen"
       ],
-      "opener": {
-        "james": [
-          "The firm needs to be better than it is. That's the whole agenda, whatever the rest of you call it.",
-          "I'll be plain. We'll be judged on the work, and the work isn't good enough yet.",
-          "Whatever we choose this week, it should leave us ahead of the Guild's standard, not behind it."
-        ],
-        "archie": [
-          "Right. What we need is money in the bank, so a bad week stops being a crisis.",
-          "Simple question: what gets us more cash and less worry? That's what I'm after.",
-          "Rent doesn't care how good our calc is. I want us comfortable first, then we can be proud."
-        ],
-        "owen": [
-          "Um. Sorry. I think the business needs the veins to keep giving, and I can't see a good week without that.",
-          "I don't want to say the wrong thing. I think we need more coming out of the veins, and the rest follows.",
-          "Sorry, can I start? I think we should be sure of what we've got first. The veins, I mean."
-        ]
-      },
-      "response": {
-        "james": {
-          "archie": {
-            "back": [
-              "Money buys us a better bench. I'll give you that, Archie.",
-              "A firm afraid of its bills makes rushed work. You're right about the cash.",
-              "Fine. If it stops us worrying about the rent, I can work in peace. I'll back it."
-            ],
-            "challenge": [
-              "Selling more doesn't make it good. You're counting pounds, I'm counting quality.",
-              "Cash isn't standing, Archie. Buyers who only want the cheap one leave when someone is cheaper.",
-              "You keep saying safe. A safe firm that makes forgettable work is just closing slowly."
-            ]
-          },
-          "owen": {
-            "back": [
-              "More from the veins means more on the bench. Sensible, Owen.",
-              "Yes. I can't craft what we haven't got. Carry on.",
-              "That, at least, I can find no fault with."
-            ],
-            "challenge": [
-              "More of the same ore doesn't improve it, Owen. Yield without craft is a bigger pile.",
-              "Quantity is the easy part, Owen. What would we do with it?",
-              "That's what you always propose. Why is this week different?"
-            ]
-          }
-        },
-        "archie": {
-          "james": {
-            "back": [
-              "Better work means we can ask more for it. I like that, James.",
-              "If it's good enough, buyers pay more. Fair enough.",
-              "Go on, then, make it better. Just make sure someone's buying it."
-            ],
-            "challenge": [
-              "Lovely work, James. Does it sell? Rent's due either way.",
-              "Being proud of it doesn't pay the bills. Who's buying?",
-              "It's the Guild this and the Guild that every week. I'm trying to pay for things, not win an argument."
-            ]
-          },
-          "owen": {
-            "back": [
-              "More from the veins is more to sell. Good call, Owen.",
-              "Can't argue with that. More stock, more sales, and nobody has to worry.",
-              "You picked a good one, Owen. I'll back it."
-            ],
-            "challenge": [
-              "More stock's no use if it sits there, Owen. Who's selling it?",
-              "Yeah, but more of what? If nobody wants it, it's just more to store.",
-              "I like it, Owen, but I want the plan to include the part where it turns into money."
-            ]
-          }
-        },
-        "owen": {
-          "james": {
-            "wobble": [
-              "Sorry, James, that sounds right. Could the veins come into it somehow?",
-              "I'm not sure I know enough to say. Would it need more from the veins, do you think?",
-              "That sounds sensible, I think. Though the veins would have to supply it. Sorry."
-            ]
-          },
-          "archie": {
-            "wobble": [
-              "Sorry, Archie, that makes sense. Could the veins come into it somehow?",
-              "I'm not sure I can judge the money. Would it need more from the veins, do you think?",
-              "That sounds sensible, I think. The veins would have to bring in the stock, though. Sorry."
-            ]
-          }
-        }
-      },
-      "rebuttal": {
-        "james": [
-          "Buyers pay more for good work, and they come back for it. That's all I'm asking us to be.",
-          "I'll grant it takes longer. It also lasts longer, and so does our name.",
-          "You may be right about the timing. I'm still right about the work."
-        ],
-        "archie": [
-          "Fine, but cash is what lets us fix everything else. Bills first, then the nice stuff.",
-          "I hear you. But the bank doesn't take pride, it takes pounds.",
-          "Fair point, and I'll watch that. But money's still what keeps the lights on."
-        ],
-        "owen": [
-          "Sorry, I know. But it all starts with the veins. If they give more, everything else has more to work with.",
-          "You're right, I didn't think about that. I still think it's worth doing, though. If that's all right.",
-          "I just think it's the safe bit. We know the veins. We don't have to guess."
-        ]
-      },
-      "clash": {
-        "james|archie": [
-          [
-            "You'd sell anything someone would pay for, Archie.",
-            "Anything decent, and nobody's complained yet. Pride's lovely, James, but I can't pay the rent with it."
-          ],
-          [
-            "The Guild wouldn't put its name on a rushed job for the sake of cash.",
-            "The Guild has money behind it. We don't, so I'd like some of that first."
-          ],
-          [
-            "You think every problem is a shortage of money.",
-            "Name one that's easier with less of it."
-          ]
-        ],
-        "archie|owen": [
-          [
-            "Owen, more yield is great, but the extra's only worth something if we sell it.",
-            "Yes, sorry, you're right. I just thought that with more of it, selling would be easier."
-          ],
-          [
-            "You pitch the same thing every time, Owen. Veins, veins, veins.",
-            "I know. Sorry. It's what I understand, and I'd rather be right about a small thing than wrong about a big one."
-          ],
-          [
-            "Do you ever want to try a bigger number, Owen?",
-            "Sometimes. Then I think about what happens if I'm wrong, and I'd rather not find out."
-          ]
-        ],
-        "james|owen": [
-          [
-            "Owen, you can't keep proposing more as if more were an answer.",
-            "Sorry, James. It's just that I can see more, and I'm not sure I can see better."
-          ],
-          [
-            "Tell me you'd at least like the work to be good.",
-            "I would! I'd just like to be sure there's something to make it from first."
-          ],
-          [
-            "You know the veins better than any of us. Why do you apologise for it?",
-            "Habit, I think. Sorry. Sorry about saying sorry."
-          ]
-        ]
-      },
       "votePrompt": {
         "lead": "Over to you.",
         "line": "{label} ({pitcher})\n{tiers}\nPays: {reward}",
         "tierFormat": "Base {base} · Target {target} · Stretch {stretch}",
         "rewardFormat": "{base} / {target} / {stretch}",
         "separator": "\n\n"
-      },
-      "chosen": {
-        "james": [
-          "{label}. Good. Now we do it properly.",
-          "{label}, then. I'll hold us to the standard.",
-          "Sensible choice. {label}, and no corners cut."
-        ],
-        "archie": [
-          "{label}. Lovely. That'll help the books.",
-          "Good. {label}. I'll start on it today.",
-          "{label}, then. Nice and simple, how I like it."
-        ],
-        "owen": [
-          "Oh. {label}? Thank you. I'll do my best.",
-          "Really? {label}. Right. I'll get it right, I promise.",
-          "{label}, then. Thanks. Sorry, I mean, thank you."
-        ]
-      },
-      "concede": {
-        "james": [
-          "Very well. Do it properly, though.",
-          "Not what I'd have picked. I'll live.",
-          "Acceptable. Don't mistake that for enthusiasm."
-        ],
-        "archie": [
-          "Fair enough. Your call. I'll sort the money side.",
-          "Not my pick, but fine. We'll see what it brings in.",
-          "Go on, then. I'll find a way to make it pay."
-        ],
-        "owen": [
-          "Oh, good. I mean, whatever you think is best.",
-          "That's all right. I wasn't sure about mine anyway.",
-          "Sorry, I'll help however I can."
-        ]
       }
     }
   },

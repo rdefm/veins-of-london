@@ -1,0 +1,49 @@
+{
+  "template": "fin_reserve",
+  "cards": [
+    {
+      "id": "fin_reserve.case.1",
+      "slot": "case",
+      "voice": "archie",
+      "cards": [
+        {
+          "speaker": "Archie",
+          "text": "I want three weeks of running costs sitting in the float. Costs are {expenses} a week and the float is {float}, so we're on {weeks} weeks. With three, a late payer doesn't scare me, and I can say yes when someone needs a hand."
+        }
+      ]
+    },
+    {
+      "id": "fin_reserve.case.2",
+      "slot": "case",
+      "voice": "archie",
+      "cards": [
+        {
+          "speaker": "Archie",
+          "text": "Let's get the float up to three weeks of costs. Running costs are {expenses} a week, the float is {float}, which is {weeks} weeks. I'm tired of working out which bill waits. Cover the bills and the spare is ours to spend on people who need it."
+        }
+      ]
+    },
+    {
+      "id": "fin_reserve.case.3",
+      "slot": "case",
+      "voice": "archie",
+      "cards": [
+        {
+          "speaker": "Archie",
+          "text": "The target is three weeks of costs held back. We spend {expenses} a week and hold {float}, so that's {weeks} weeks. One slow week shouldn't be a crisis. With that cushion I can sell when the price is right, not when I'm desperate."
+        }
+      ]
+    },
+    {
+      "id": "fin_reserve.case.4",
+      "slot": "case",
+      "voice": "archie",
+      "cards": [
+        {
+          "speaker": "Archie",
+          "text": "I'd like three weeks of costs in the float. Costs are {expenses} a week, float is {float}, so {weeks} weeks. Short of that, one bad week and we're begging. Past it, we can lend a few quid to someone who's short and not feel it."
+        }
+      ]
+    }
+  ]
+}

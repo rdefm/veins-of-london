@@ -1,0 +1,49 @@
+{
+  "template": "share_leader",
+  "cards": [
+    {
+      "id": "share_leader.case.1",
+      "slot": "case",
+      "voice": "archie",
+      "cards": [
+        {
+          "speaker": "Archie",
+          "text": "I want us the biggest seller of {calc} in London, 35% at least. You're on {share}% and {rival} is the one to beat. The biggest seller sets the price and everyone else follows. I'd rather set it than follow it."
+        }
+      ]
+    },
+    {
+      "id": "share_leader.case.2",
+      "slot": "case",
+      "voice": "archie",
+      "cards": [
+        {
+          "speaker": "Archie",
+          "text": "Take first place on {calc}, with a 35% share. We're at {share}% and {rival} is in the way. The top seller doesn't get pushed around by anyone's price swing. That's the security I want."
+        }
+      ]
+    },
+    {
+      "id": "share_leader.case.3",
+      "slot": "case",
+      "voice": "archie",
+      "cards": [
+        {
+          "speaker": "Archie",
+          "text": "Be the largest seller of {calc}, at 35% or better. You're on {share}%, and {rival} is the biggest other name. First place means the price is partly ours to move, and we'll have more spare to give away."
+        }
+      ]
+    },
+    {
+      "id": "share_leader.case.4",
+      "slot": "case",
+      "voice": "archie",
+      "cards": [
+        {
+          "speaker": "Archie",
+          "text": "First place on {calc}: 35% and the biggest share in town. You hold {share}%. {rival} sits just behind. Whoever leads decides what the market does, so I'd like it to be us, not them."
+        }
+      ]
+    }
+  ]
+}

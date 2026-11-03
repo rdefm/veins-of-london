@@ -1,0 +1,49 @@
+{
+  "template": "share_leader_james",
+  "cards": [
+    {
+      "id": "share_leader_james.case.1",
+      "slot": "case",
+      "voice": "james",
+      "cards": [
+        {
+          "speaker": "James",
+          "text": "I want us the leading seller of {calc} in London, at 35% or better. We're on {share}%, and {rival} is the one to pass. The Guild's standard for a leading house is the biggest share of an ore. Meeting it is the least I'll accept."
+        }
+      ]
+    },
+    {
+      "id": "share_leader_james.case.2",
+      "slot": "case",
+      "voice": "james",
+      "cards": [
+        {
+          "speaker": "James",
+          "text": "Take first place on {calc}, at a 35% share. You hold {share}% and {rival} is ahead. A house that leads its ore is one the Guild has to deal with as an equal. Then they can't say we're beneath them."
+        }
+      ]
+    },
+    {
+      "id": "share_leader_james.case.3",
+      "slot": "case",
+      "voice": "james",
+      "cards": [
+        {
+          "speaker": "James",
+          "text": "Be the largest seller of {calc}, with 35% or more. You're at {share}%, and {rival} is the name above yours. First place is how the Guild measures a house. I'd like the measure to come out in our favour for once."
+        }
+      ]
+    },
+    {
+      "id": "share_leader_james.case.4",
+      "slot": "case",
+      "voice": "james",
+      "cards": [
+        {
+          "speaker": "James",
+          "text": "First place on {calc}, 35% at least. Your share is {share}% and {rival} stands in the way. The Guild counts a house that leads its ore as a real one. Sell more {calc} than anyone and it has to count us."
+        }
+      ]
+    }
+  ]
+}

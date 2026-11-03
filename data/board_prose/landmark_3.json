@@ -1,0 +1,27 @@
+{
+  "template": "landmark_3",
+  "cards": [
+    {
+      "id": "landmark_3.case.1",
+      "slot": "case",
+      "voice": "archie",
+      "cards": [
+        {
+          "speaker": "Archie",
+          "text": "Settle a few more orders and a regular buyer will put their name to something longer. The Westminster account, if we earn it."
+        }
+      ]
+    },
+    {
+      "id": "landmark_3.case.2",
+      "slot": "case",
+      "voice": "archie",
+      "cards": [
+        {
+          "speaker": "Archie",
+          "text": "Keep the deliveries clean and The Westminster account opens up. A buyer like that pays every week without us chasing."
+        }
+      ]
+    }
+  ]
+}

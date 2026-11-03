@@ -1,0 +1,49 @@
+{
+  "template": "craft_master",
+  "cards": [
+    {
+      "id": "craft_master.case.1",
+      "slot": "case",
+      "voice": "james",
+      "cards": [
+        {
+          "speaker": "James",
+          "text": "I want a recipe at rank five. You have recipes at rank three or better, so the last two ranks are the only gap. Rank five is the best a piece can be made, and a firm that has one can fairly say it's passed the Guild's standard, not met it."
+        }
+      ]
+    },
+    {
+      "id": "craft_master.case.2",
+      "slot": "case",
+      "voice": "james",
+      "cards": [
+        {
+          "speaker": "James",
+          "text": "Master a recipe, take it to rank five. Two, if you can. You've already got work at rank three or above, so you know the cost of those last steps. A mastered recipe gives us pieces the Guild's own benches can't beat, and I'd like that on the record."
+        }
+      ]
+    },
+    {
+      "id": "craft_master.case.3",
+      "slot": "case",
+      "voice": "james",
+      "cards": [
+        {
+          "speaker": "James",
+          "text": "Bring one recipe to rank five this week. It's the top of the scale. Mastery is what lets us say we're better than the Guild and have a bench to prove it. You're close enough that it would be a waste to stop at three."
+        }
+      ]
+    },
+    {
+      "id": "craft_master.case.4",
+      "slot": "case",
+      "voice": "james",
+      "cards": [
+        {
+          "speaker": "James",
+          "text": "Take a recipe to rank five. We have work at rank three or better, so this is finishing, not starting. The Guild calls its masters a standard. I'd like us to be the standard, and one mastered recipe is the proof."
+        }
+      ]
+    }
+  ]
+}

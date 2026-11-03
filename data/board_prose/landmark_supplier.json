@@ -1,0 +1,27 @@
+{
+  "template": "landmark_supplier",
+  "cards": [
+    {
+      "id": "landmark_supplier.case.1",
+      "slot": "case",
+      "voice": "archie",
+      "cards": [
+        {
+          "speaker": "Archie",
+          "text": "Sign a four-week supply contract for {calc} with someone who crafts with it. They need it every week and we get paid every week. That's how you learn who depends on whom."
+        }
+      ]
+    },
+    {
+      "id": "landmark_supplier.case.2",
+      "slot": "case",
+      "voice": "archie",
+      "cards": [
+        {
+          "speaker": "Archie",
+          "text": "Find a faction that works {calc} and sign them up for four weeks. A buyer who needs you is worth ten who might."
+        }
+      ]
+    }
+  ]
+}

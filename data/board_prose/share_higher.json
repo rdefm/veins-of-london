@@ -1,0 +1,49 @@
+{
+  "template": "share_higher",
+  "cards": [
+    {
+      "id": "share_higher.case.1",
+      "slot": "case",
+      "voice": "archie",
+      "cards": [
+        {
+          "speaker": "Archie",
+          "text": "Let's take {calc} up to 40%. We're on {share}%, and the biggest other seller is {rival}. At that size we stop reacting to other firms' price drops and start causing them. That's the security I want for the bills."
+        }
+      ]
+    },
+    {
+      "id": "share_higher.case.2",
+      "slot": "case",
+      "voice": "archie",
+      "cards": [
+        {
+          "speaker": "Archie",
+          "text": "I want 40% of London's {calc}. You're on {share}% and {rival} is the next biggest. A firm that size sets the price and the others follow. I'd rather follow nobody. Steadier income means more spare for people who need it."
+        }
+      ]
+    },
+    {
+      "id": "share_higher.case.3",
+      "slot": "case",
+      "voice": "archie",
+      "cards": [
+        {
+          "speaker": "Archie",
+          "text": "Push {calc} to 40%. We're at {share}% and {rival} is the one we'd be taking it from. Right now their price swings land on us. At 40% it works the other way round, and I sleep better."
+        }
+      ]
+    },
+    {
+      "id": "share_higher.case.4",
+      "slot": "case",
+      "voice": "archie",
+      "cards": [
+        {
+          "speaker": "Archie",
+          "text": "The next step is 40% of {calc}. You're on {share}%, {rival} is next down. Once we're big enough, a price swing is something we cause. That's worth more to me than the extra sales."
+        }
+      ]
+    }
+  ]
+}

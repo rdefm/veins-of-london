@@ -517,7 +517,8 @@ static func maybe_start_meeting() -> bool:
 # The meeting event's context (R§3.9a "Context options", "Splice"): minutes
 # for last week, then the debate as event-card lists the meeting event splices
 # in order (R§3.15): `opener`, `slot<i>` per offered card (case, response,
-# optional rebuttal), `clash`; an empty list adds nothing. Also the vote
+# optional rebuttal), `clash`; an empty list adds nothing. All prose comes
+# from the prose packs (R§3.15 "Prose packs"). Also the vote
 # prompt and one hub option per card. Seeded by week and rollSeed, so Rewind
 # shows the same scene.
 static func meeting_context(week: int) -> Dictionary:
@@ -529,11 +530,12 @@ static func meeting_context(week: int) -> Dictionary:
 	var cards := agenda(week)
 	if not cards.is_empty():
 		var opener_voice: String = cards[0]["voice"]
-		context["opener"] = [_speaker_card("opener", GameData.BOARD_VOICES[opener_voice]["name"], _debate_line(debate["opener"].get(opener_voice, []), week, "opener", {}))]
+		var opener := _pick_prose(_prose(GameData.BOARD_PROSE_DEBATE, "opener", { "voice": opener_voice }), week, "opener")
+		context["opener"] = _prose_event_cards("opener", opener, {})
 	for i in cards.size():
 		var card: Dictionary = cards[i]
 		var tokens := card_tokens(card)
-		context["slot%d" % i] = _exchange_cards(card, tokens, i, week)
+		context["slot%d" % i] = _exchange_cards(card, i, week)
 		vote_lines.append(String(debate["votePrompt"]["line"]).format(tokens))
 		options.append({
 			"id": card["id"],
@@ -552,38 +554,88 @@ static func meeting_context(week: int) -> Dictionary:
 	return context
 
 
-static func _speaker_card(key: String, speaker: String, text: String) -> Dictionary:
-	return { "key": key, "type": "speaker", "label": null, "speaker": speaker, "text": text }
+# Prose pack lookups. `_prose` lists a pack's cards for a slot in file order,
+# keeping those whose fields equal every entry of `filters` (voice, to, stance).
+static func _prose(pack_id: String, slot: String, filters: Dictionary = {}) -> Array:
+	var out: Array = []
+	for prose in GameData.BOARD_PROSE.get(pack_id, {}).get("cards", []):
+		if prose["slot"] != slot:
+			continue
+		var matches := true
+		for field in filters:
+			if str(prose.get(field, "")) != str(filters[field]):
+				matches = false
+		if matches:
+			out.append(prose)
+	return out
+
+
+# The distinct values of `field` over `pool`, in first-seen order.
+static func _prose_values(pool: Array, field: String) -> Array:
+	var out: Array = []
+	for prose in pool:
+		if not out.has(prose[field]):
+			out.append(prose[field])
+	return out
+
+
+static func _pick_prose(pool: Array, week: int, salt: String) -> Dictionary:
+	return {} if pool.is_empty() else _pick(pool, week, salt)
+
+
+# A prose card as speaker event cards keyed `key` (`key0`, `key1`... when the
+# prose card holds several), text with `tokens` filled.
+static func _prose_event_cards(key: String, prose: Dictionary, tokens: Dictionary) -> Array:
+	var out: Array = []
+	var lines: Array = prose.get("cards", [])
+	for i in lines.size():
+		var line: Dictionary = lines[i]
+		out.append({
+			"key": key if lines.size() == 1 else "%s%d" % [key, i],
+			"type": "speaker", "label": null,
+			"speaker": line["speaker"], "text": String(line["text"]).format(tokens),
+		})
+	return out
+
+
+# The first line of a prose card, `tokens` filled; "" for no prose card.
+static func _prose_text(prose: Dictionary, tokens: Dictionary) -> String:
+	var lines: Array = prose.get("cards", [])
+	return "" if lines.is_empty() else String(lines[0]["text"]).format(tokens)
 
 
 # Slot i's event cards: the pitcher's case, then a response (a seeded other
 # voice, a stance that voice has for the pitcher) and, after a `challenge`,
 # the pitcher's rebuttal.
-static func _exchange_cards(card: Dictionary, tokens: Dictionary, i: int, week: int) -> Array:
-	var debate: Dictionary = GameData.BOARD_MEETING["debate"]
+static func _exchange_cards(card: Dictionary, i: int, week: int) -> Array:
 	var pitcher: String = card["voice"]
-	var pitcher_name: String = GameData.BOARD_VOICES[pitcher]["name"]
 	var ore_name := str(GameData.ORE_TYPES[card["ore"]]["name"]) if str(card.get("ore", "")) != "" else "the ore"
 	var line_tokens := { "label": card_label(card), "ore": ore_name }
-	var out: Array = [_speaker_card("case", pitcher_name, tokens["case"])]
-	var responders: Array = []
-	for voice_id in debate["response"]:
-		if voice_id != pitcher and (debate["response"][voice_id] as Dictionary).has(pitcher):
-			responders.append(voice_id)
+	var case_prose := _case_prose(card)
+	var out: Array = _prose_event_cards("case", case_prose, {})
+	for j in out.size():
+		out[j]["text"] = fill_prose(str(case_prose["cards"][j]["text"]), card)
+	if out.is_empty():
+		out.append({ "key": "case", "type": "speaker", "label": null, "speaker": GameData.BOARD_VOICES[pitcher]["name"], "text": "" })
+	var replies := _prose(GameData.BOARD_PROSE_DEBATE, "reply", { "to": pitcher })
+	var responders := _prose_values(replies, "voice")
+	responders.erase(pitcher)
 	if responders.is_empty():
 		return out
 	var responder: String = _pick(responders, week, "responder|%d" % i)
-	var stances: Array = (debate["response"][responder][pitcher] as Dictionary).keys()
+	var stances := _prose_values(_prose(GameData.BOARD_PROSE_DEBATE, "reply", { "to": pitcher, "voice": responder }), "stance")
 	var stance: String = _pick(stances, week, "stance|%d" % i)
-	out.append(_speaker_card("resp", GameData.BOARD_VOICES[responder]["name"], _debate_line(debate["response"][responder][pitcher][stance], week, "response|%d" % i, line_tokens)))
+	var reply := _pick_prose(_prose(GameData.BOARD_PROSE_DEBATE, "reply", { "to": pitcher, "voice": responder, "stance": stance }), week, "response|%d" % i)
+	out.append_array(_prose_event_cards("resp", reply, line_tokens))
 	if stance == "challenge":
-		out.append(_speaker_card("reb", pitcher_name, _debate_line(debate["rebuttal"].get(pitcher, []), week, "rebuttal|%d" % i, line_tokens)))
+		var rebuttal := _pick_prose(_prose(GameData.BOARD_PROSE_DEBATE, "rebuttal", { "voice": pitcher }), week, "rebuttal|%d" % i)
+		out.append_array(_prose_event_cards("reb", rebuttal, line_tokens))
 	return out
 
 
-# Once per meeting, on a seeded roll under clashChance: a two-card exchange
-# keyed by the first clashOrder voice pair that both have an offered card.
-# Empty when the roll fails or no pair is offered.
+# Once per meeting, on a seeded roll under clashChance: an exchange prose card
+# for the first clashOrder voice pair that both have an offered card. Empty
+# when the roll fails or no pair is offered.
 static func _clash_cards(cards: Array, week: int) -> Array:
 	var debate: Dictionary = GameData.BOARD_MEETING["debate"]
 	if _seeded_unit(week, "clash") >= float(debate["clashChance"]):
@@ -595,48 +647,32 @@ static func _clash_cards(cards: Array, week: int) -> Array:
 		var voices: PackedStringArray = String(pair).split("|")
 		if not (offered.has(voices[0]) and offered.has(voices[1])):
 			continue
-		var exchanges: Array = debate["clash"].get(pair, [])
-		if exchanges.is_empty():
-			return []
-		var exchange: Array = _pick(exchanges, week, "clashLines")
-		return [
-			_speaker_card("a", GameData.BOARD_VOICES[voices[0]]["name"], exchange[0]),
-			_speaker_card("b", GameData.BOARD_VOICES[voices[1]]["name"], exchange[1]),
-		]
+		var exchanges := _prose(GameData.BOARD_PROSE_DEBATE, "clash", { "voice": voices[0], "to": voices[1] })
+		return _prose_event_cards("clash", _pick_prose(exchanges, week, "clashLines"), {})
 	return []
 
 
 # A chosen option's result: the pitcher's pleased line, then a seeded other
 # voice's concede line.
 static func _result_text(card: Dictionary, i: int, week: int) -> String:
-	var debate: Dictionary = GameData.BOARD_MEETING["debate"]
 	var pitcher: String = card["voice"]
 	var line_tokens := { "label": card_label(card) }
 	var out: PackedStringArray = []
-	var chosen := _debate_line(debate["chosen"].get(pitcher, []), week, "chosen|%d" % i, line_tokens)
-	if chosen != "":
-		out.append("%s: \"%s\"" % [GameData.BOARD_VOICES[pitcher]["name"], chosen])
-	var others: Array = []
-	for voice_id in debate["concede"]:
-		if voice_id != pitcher:
-			others.append(voice_id)
+	var chosen := _pick_prose(_prose(GameData.BOARD_PROSE_DEBATE, "chosen", { "voice": pitcher }), week, "chosen|%d" % i)
+	if not chosen.is_empty():
+		out.append("%s: \"%s\"" % [GameData.BOARD_VOICES[pitcher]["name"], _prose_text(chosen, line_tokens)])
+	var others := _prose_values(_prose(GameData.BOARD_PROSE_DEBATE, "concede"), "voice")
+	others.erase(pitcher)
 	if not others.is_empty():
 		var conceder: String = _pick(others, week, "conceder|%d" % i)
-		var concede := _debate_line(debate["concede"][conceder], week, "concede|%d" % i, line_tokens)
-		if concede != "":
-			out.append("%s: \"%s\"" % [GameData.BOARD_VOICES[conceder]["name"], concede])
+		var concede := _pick_prose(_prose(GameData.BOARD_PROSE_DEBATE, "concede", { "voice": conceder }), week, "concede|%d" % i)
+		if not concede.is_empty():
+			out.append("%s: \"%s\"" % [GameData.BOARD_VOICES[conceder]["name"], _prose_text(concede, line_tokens)])
 	return "\n\n".join(out)
 
 
 static func _pick(list: Array, week: int, salt: String) -> Variant:
 	return list[_seeded_index(list.size(), week, salt)]
-
-
-# A seeded variant of `lines` with `tokens` filled; "" for an empty list.
-static func _debate_line(lines: Array, week: int, salt: String, tokens: Dictionary) -> String:
-	if lines.is_empty():
-		return ""
-	return String(_pick(lines, week, salt)).format(tokens)
 
 
 # Closing aside: the competing line when two offered cards share an ore, else
@@ -661,36 +697,40 @@ static func aob_line(week: int) -> String:
 	return "%s %s" % [lead, lines[index]]
 
 
-# A card's display tokens: pitcher, label, case (template prose), tiers (each
-# tier's threshold numbers) and reward (the per-tier previews).
+# A card's display tokens: pitcher, label, case (the picked case prose, tokens
+# filled), tiers (each tier's threshold numbers) and reward (the per-tier
+# previews).
 static func card_tokens(card: Dictionary) -> Dictionary:
 	var votes: Dictionary = GameData.BOARD_MEETING["debate"]["votePrompt"]
-	var template: Dictionary = GameData.BOARD_TEMPLATES.get(card["template"], {})
 	var numbers := {}
 	for tier in Objectives.TIER_ORDER:
 		var parts: PackedStringArray = []
 		for value in (card["goal"]["tiers"][tier] as Dictionary).values():
 			parts.append(_number(value))
 		numbers[tier] = "/".join(parts)
+	var case_lines: PackedStringArray = []
+	for line in _case_prose(card).get("cards", []):
+		case_lines.append(fill_prose(str(line["text"]), card))
 	return {
 		"pitcher": GameData.BOARD_VOICES[card["voice"]]["name"],
 		"label": card_label(card),
-		"case": card_tokens_prose(template, "case", card),
+		"case": "\n\n".join(case_lines),
 		"tiers": String(votes["tierFormat"]).format(numbers),
 		"reward": String(votes["rewardFormat"]).format(card["preview"]),
 	}
 
 
-# A template's prose (`case`): a string or a list of variants (picked by a
-# stable hash of the card id, so Rewind shows the same line), with {ore} and
-# the live reserve tokens filled.
-static func card_tokens_prose(template: Dictionary, key: String, card: Dictionary) -> String:
-	var raw: Variant = template.get(key, "")
-	var text := str(raw)
-	if raw is Array:
-		var variants: Array = raw
-		text = str(variants[absi(str(card["id"]).hash()) % variants.size()])
-	text = _with_ore(text, str(card.get("ore", "")))
+# The card's case prose card: one of its template pack's `case` cards for the
+# pitching voice, picked by a stable hash of the card id so Rewind shows the
+# same line. {} when the pack has none.
+static func _case_prose(card: Dictionary) -> Dictionary:
+	var pool := _prose(str(card["template"]), "case", { "voice": card["voice"] })
+	return {} if pool.is_empty() else pool[absi(str(card["id"]).hash()) % pool.size()]
+
+
+# Prose text with {ore} and the live reserve / market-share tokens filled.
+static func fill_prose(raw: String, card: Dictionary) -> String:
+	var text := _with_ore(raw, str(card.get("ore", "")))
 	if text.contains("{expenses}") or text.contains("{float}") or text.contains("{weeks}"):
 		var expenses := BusinessStats.weekly_expenses()
 		var cash := int(GameState.state["business"]["float"])

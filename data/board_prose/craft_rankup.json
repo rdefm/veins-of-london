@@ -1,0 +1,49 @@
+{
+  "template": "craft_rankup",
+  "cards": [
+    {
+      "id": "craft_rankup.case.1",
+      "slot": "case",
+      "voice": "james",
+      "cards": [
+        {
+          "speaker": "James",
+          "text": "Take one recipe you already know and push it past your best rank. I'd like at least one recipe higher than it stands today, two if you can manage. A higher rank means a better piece, and a better piece is what lets us name a price the Guild can't undercut."
+        }
+      ]
+    },
+    {
+      "id": "craft_rankup.case.2",
+      "slot": "case",
+      "voice": "james",
+      "cards": [
+        {
+          "speaker": "James",
+          "text": "Raise a recipe's rank this week, any recipe. Two would be better. The firm is only as good as its best bench work. Higher rank means better pieces, and better pieces are how we show the Guild's standard isn't the ceiling."
+        }
+      ]
+    },
+    {
+      "id": "craft_rankup.case.3",
+      "slot": "case",
+      "voice": "james",
+      "cards": [
+        {
+          "speaker": "James",
+          "text": "I want at least one recipe ranked up by Sunday, and two if the ore allows. Same recipe, finer result. Buyers pay for quality they can see, and the Guild has relied on them not looking closely at ours."
+        }
+      ]
+    },
+    {
+      "id": "craft_rankup.case.4",
+      "slot": "case",
+      "voice": "james",
+      "cards": [
+        {
+          "speaker": "James",
+          "text": "Rank up a recipe, then another. It's the one thing here that doesn't depend on the market. A higher rank makes a better piece, a better piece sells for more, and I'd like to meet the Guild's standard from above."
+        }
+      ]
+    }
+  ]
+}

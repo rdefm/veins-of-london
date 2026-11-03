@@ -1,0 +1,49 @@
+{
+  "template": "cult_yield",
+  "cards": [
+    {
+      "id": "cult_yield.case.1",
+      "slot": "case",
+      "voice": "owen",
+      "cards": [
+        {
+          "speaker": "Owen",
+          "text": "Sorry to bring it up. Could the veins beat our usual ten-day yield, just over it? Archie has more calc to sell and James has more to craft with, and it's the quickest way I know to give them both."
+        }
+      ]
+    },
+    {
+      "id": "cult_yield.case.2",
+      "slot": "case",
+      "voice": "owen",
+      "cards": [
+        {
+          "speaker": "Owen",
+          "text": "I'm sorry, I know it's not my place. I'd like the yield to finish this week above our ten-day average. Not by much. Every bit over is calc Archie can sell and James can work, so it's worth a try."
+        }
+      ]
+    },
+    {
+      "id": "cult_yield.case.3",
+      "slot": "case",
+      "voice": "owen",
+      "cards": [
+        {
+          "speaker": "Owen",
+          "text": "If it's all right, I'd like to try for a yield past our ten-day average. I'm sorry, I'll say it plainly: just over. More calc out of the veins means more on Archie's table and more on James's bench."
+        }
+      ]
+    },
+    {
+      "id": "cult_yield.case.4",
+      "slot": "case",
+      "voice": "owen",
+      "cards": [
+        {
+          "speaker": "Owen",
+          "text": "Sorry, this might be daft. Could we aim for a little above our ten-day yield? I'd tend the veins closer to get it. Extra calc is something Archie and James would both use."
+        }
+      ]
+    }
+  ]
+}

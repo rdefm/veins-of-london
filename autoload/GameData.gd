@@ -362,6 +362,11 @@ var BOARD_TODO: Dictionary = {}
 var BOARD_SPINE: Dictionary = {}
 var BOARD_MEETING: Dictionary = {}
 
+# data/board_prose/*.json (R§3.15 "Prose packs"): one pack per board template
+# plus `_debate` and `_week1`, keyed by pack id (the file's basename). Each
+# pack is { template, cards: [prose card, ...] }.
+var BOARD_PROSE: Dictionary = {}
+
 var loaded := false
 var _load_errors: Array[String] = []
 var _errors: Array[String] = []
@@ -627,6 +632,7 @@ func load_all() -> void:
 
 	_load_palette()
 	_load_events()
+	_load_board_prose()
 	_scan_territorial_variants()
 	_merge_candidate_contacts()
 
@@ -708,6 +714,28 @@ func _load_events() -> void:
 			EVENTS[event_id] = event_def
 
 
+# Bespoke: every *.json under data/board_prose/, keyed by basename.
+func _load_board_prose() -> void:
+	BOARD_PROSE = {}
+	var dir := DirAccess.open("res://data/board_prose/")
+	if dir == null:
+		_load_errors.append("Could not open directory: res://data/board_prose/")
+		return
+	var names: Array[String] = []
+	dir.list_dir_begin()
+	var file_name := dir.get_next()
+	while file_name != "":
+		if not dir.current_is_dir() and file_name.ends_with(".json"):
+			names.append(file_name.get_basename())
+		file_name = dir.get_next()
+	dir.list_dir_end()
+	names.sort()
+	for pack_id in names:
+		var pack := _load_json("res://data/board_prose/%s.json" % pack_id, "board_prose.%s" % pack_id)
+		if not pack.is_empty():
+			BOARD_PROSE[pack_id] = pack
+
+
 func validate() -> bool:
 	_errors = _load_errors + validate_tables(snapshot())
 	return _errors.is_empty()
@@ -760,8 +788,111 @@ func validate_tables(t: Dictionary) -> Array[String]:
 	_validate_daily_brief(t.get("daily_brief", {}), errors)
 	_validate_map_palette(t.get("map_palette", {}), t.get("factions", {}), t.get("ore_types", {}), errors)
 	_validate_wards(t.get("wards", {}), errors)
+	_validate_board_prose(t, errors)
 
 	return errors
+
+
+const BOARD_PROSE_DEBATE := "_debate"
+const BOARD_PROSE_WEEK1 := "_week1"
+const BOARD_PROSE_TEMPLATE_SLOTS: Array[String] = ["case", "reply", "rebuttal", "chosen", "concede", "aftermath"]
+const BOARD_PROSE_DEBATE_SLOTS: Array[String] = ["opener", "reply", "rebuttal", "clash", "chosen", "concede", "aftermath"]
+const BOARD_PROSE_WEEK1_SLOTS: Array[String] = ["explainer"]
+
+
+# Prose packs (R§3.15 "Prose packs"): known template / slot / voice, valid
+# event cards, unique card ids, and a meeting that can never come up empty
+# (every template + pitching voice has an unconditional case card).
+func _validate_board_prose(t: Dictionary, errors: Array[String]) -> void:
+	var packs: Dictionary = t.get("board_prose", {})
+	var templates: Dictionary = t.get("board_templates", {})
+	var voices: Dictionary = t.get("board_voices", {})
+	var seen_ids := {}
+	var open_cases := {}  # "template|voice" -> true
+	for pack_id in packs.keys():
+		var pack: Variant = packs[pack_id]
+		var where := "board_prose.%s" % pack_id
+		if typeof(pack) != TYPE_DICTIONARY:
+			errors.append("%s: pack must be an object" % where)
+			continue
+		var template := str(pack.get("template", ""))
+		var slots: Array[String] = BOARD_PROSE_TEMPLATE_SLOTS
+		if template == BOARD_PROSE_DEBATE:
+			slots = BOARD_PROSE_DEBATE_SLOTS
+		elif template == BOARD_PROSE_WEEK1:
+			slots = BOARD_PROSE_WEEK1_SLOTS
+		elif not templates.has(template):
+			errors.append("%s: pack names unknown template '%s'" % [where, template])
+		if template != str(pack_id):
+			errors.append("%s: template '%s' does not match the file name" % [where, template])
+		if typeof(pack.get("cards")) != TYPE_ARRAY:
+			errors.append("%s: 'cards' must be an array" % where)
+			continue
+		for prose in pack["cards"]:
+			if typeof(prose) != TYPE_DICTIONARY:
+				errors.append("%s: prose card must be an object" % where)
+				continue
+			var id := str(prose.get("id", ""))
+			var card_where := "%s.%s" % [where, id]
+			if id == "":
+				errors.append("%s: prose card has no id" % where)
+			elif seen_ids.has(id):
+				errors.append("%s: duplicate prose card id '%s' (also in %s)" % [where, id, seen_ids[id]])
+			else:
+				seen_ids[id] = pack_id
+			if not slots.has(str(prose.get("slot", ""))):
+				errors.append("%s: unknown slot '%s' for pack '%s' (allowed: %s)" % [card_where, prose.get("slot"), pack_id, slots])
+			var voice := str(prose.get("voice", ""))
+			if not voices.has(voice):
+				errors.append("%s: unknown voice '%s'" % [card_where, voice])
+			if prose.has("to") and not voices.has(str(prose["to"])):
+				errors.append("%s: unknown voice '%s' in 'to'" % [card_where, prose["to"]])
+			if prose.has("weight") and (not (typeof(prose["weight"]) in [TYPE_INT, TYPE_FLOAT]) or float(prose["weight"]) <= 0.0):
+				errors.append("%s: weight must be a number above 0" % card_where)
+			if prose.has("when") and typeof(prose["when"]) != TYPE_DICTIONARY:
+				errors.append("%s: 'when' must be a condition object" % card_where)
+			if prose.has("replies") and typeof(prose["replies"]) != TYPE_ARRAY:
+				errors.append("%s: 'replies' must be an array" % card_where)
+			_validate_prose_event_cards(prose.get("cards"), card_where, errors)
+			if prose.get("slot") == "case" and not prose.has("when"):
+				open_cases["%s|%s" % [template, voice]] = true
+	for pair in _board_pitch_pairs(t):
+		if not open_cases.has(pair):
+			var parts: PackedStringArray = String(pair).split("|")
+			errors.append("board_prose.%s: no case card without a 'when' for voice '%s' (a meeting could come up empty)" % [parts[0], parts[1]])
+
+
+func _validate_prose_event_cards(cards: Variant, where: String, errors: Array[String]) -> void:
+	if typeof(cards) != TYPE_ARRAY or (cards as Array).is_empty():
+		errors.append("%s: 'cards' must be a non-empty array of event cards" % where)
+		return
+	for card in cards:
+		if typeof(card) != TYPE_DICTIONARY:
+			errors.append("%s: event card must be an object" % where)
+			continue
+		if card.has("type") and not VALID_CARD_TYPES.has(card["type"]):
+			errors.append("%s: unknown event card type '%s'" % [where, card["type"]])
+		if typeof(card.get("text")) != TYPE_STRING or String(card["text"]).strip_edges() == "":
+			errors.append("%s: event card needs non-empty 'text'" % where)
+		if card.get("type", "speaker") == "speaker" and (typeof(card.get("speaker")) != TYPE_STRING or String(card["speaker"]).strip_edges() == ""):
+			errors.append("%s: speaker card needs a 'speaker'" % where)
+
+
+# "template|voice" for every voice that can pitch a template: the ladder's
+# voice for the rung's own template, and each rung's alt voices.
+func _board_pitch_pairs(t: Dictionary) -> Array[String]:
+	var pairs: Array[String] = []
+	var templates: Dictionary = t.get("board_templates", {})
+	var ladders: Dictionary = t.get("board_ladders", {})
+	for ladder_id in ladders:
+		var ladder: Dictionary = ladders[ladder_id]
+		for rung in ladder.get("rungs", []):
+			var rung_id := str(rung.get("id", ""))
+			if templates.has(rung_id):
+				pairs.append("%s|%s" % [rung_id, ladder.get("voice", "")])
+			for alt in rung.get("altVoices", []):
+				pairs.append("%s|%s" % [alt.get("template", ""), alt.get("voice", "")])
+	return pairs
 
 
 const WARD_COUNTERS: Array[String] = ["powerVsFreeze", "skeletonKey"]
@@ -921,6 +1052,7 @@ func snapshot() -> Dictionary:
 			result[snapshot_key] = get(field_entry["field"])
 	result["palette"] = PALETTE
 	result["events"] = EVENTS
+	result["board_prose"] = BOARD_PROSE
 	return result
 
 

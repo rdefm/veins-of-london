@@ -113,7 +113,7 @@
           "tiers": [
             {
               "base": 0.25,
-              "text": "A door to the south leads to a corridor with another door, traces of mud and dirt in front of it. Seems to lead outside."
+              "text": "A door on the south side has traces of mud and dirt in front of it. Seems to lead outside."
             },
             {
               "base": 0.55,
@@ -222,7 +222,8 @@
             }
           ],
           "label": null,
-          "speaker": null
+          "speaker": null,
+          "image": "res://assets/events/raid_playground/raid_playground_main_2.png"
         }
       ],
       "then": {
@@ -259,7 +260,7 @@
                       "ore": "physics",
                       "atLeast": 2
                     },
-                    "add": 0.5,
+                    "add": 0.7,
                     "label": ""
                   },
                   {
@@ -268,7 +269,7 @@
                       "ore": "life",
                       "atLeast": 2
                     },
-                    "add": 0.5,
+                    "add": 0.7,
                     "label": ""
                   },
                   {
@@ -277,7 +278,7 @@
                       "ore": "time",
                       "atLeast": 2
                     },
-                    "add": 0.5,
+                    "add": 0.6,
                     "label": ""
                   },
                   {
@@ -286,7 +287,7 @@
                       "ore": "physics",
                       "atLeast": 1
                     },
-                    "add": 0.35,
+                    "add": 0.5,
                     "label": ""
                   }
                 ]
@@ -330,42 +331,18 @@
         {
           "key": "c2",
           "type": "choice",
-          "text": "Door lock has a code; prophets breath lets player figure it out otherwise low % chance. Observation; through the window can see a noticeboard with the code on it.\nImage: C:\\Users\\Richard\\projects\\veins-of-london\\.scratch\\playground_raid\\hall_approach.png (needs editing to match game visual style)",
+          "text": "The church hall has a lock with a keypad. The bushes to the side prevent you going around the hall; you'll need to find a way inside.",
           "choices": [
             {
-              "label": "Guess the door code",
+              "label": "Use a Skeleton Key",
               "id": "option1",
               "effects": [],
-              "check": {
-                "base": 0.05,
-                "mods": [
-                  {
-                    "observed": {
-                      "id": "hall_approach",
-                      "ore": "physics",
-                      "atLeast": 1
-                    },
-                    "add": 0.5,
-                    "label": ""
-                  },
-                  {
-                    "activeEffect": "prophetsBreath",
-                    "add": 1,
-                    "label": "Prophet's Breath"
-                  }
-                ],
-                "max": 1
+              "result_text": "",
+              "goto": {
+                "branch": "b5"
               },
-              "success": {
-                "result_text": "",
-                "effects": [],
-                "goto": {
-                  "branch": "b5"
-                }
-              },
-              "fail": {
-                "result_text": null,
-                "effects": []
+              "requires": {
+                "item": "skeletonKey"
               }
             },
             {
@@ -412,14 +389,14 @@
                 "goto": {
                   "branch": "main"
                 }
-              }
+              },
+              "effects": []
             },
             {
               "id": "option4",
               "label": "Blast the door open",
               "requires": {
                 "item": "blast",
-                "optional": true,
                 "display": "disable"
               },
               "items": [
@@ -471,7 +448,8 @@
           ],
           "observe": "hall_approach",
           "label": null,
-          "speaker": null
+          "speaker": null,
+          "image": "res://assets/events/raid_playground/raid_playground_b3_2.png"
         }
       ],
       "then": "end"
@@ -491,7 +469,6 @@
               "result_text": "",
               "requires": {
                 "item": "blast",
-                "optional": true,
                 "display": "disable"
               },
               "goto": {
@@ -521,8 +498,12 @@
                     "effect": {
                       "kind": "bonus",
                       "add": 0.4
-                    }
+                    },
+                    "consume": true
                   }
+                ],
+                "tags": [
+                  "physical"
                 ]
               },
               "success": {
@@ -533,7 +514,7 @@
                 }
               },
               "fail": {
-                "result_text": "You get a run up and jump, aiming for the top of the fence. You don't even get close, and barely avoid faceplanting into the fence.",
+                "result_text": "You run up and jump. You don't even get close tot he top of the fence, and barely avoid faceplanting into the fence.",
                 "effects": []
               }
             },
@@ -563,22 +544,59 @@
           "text": "Once inside hall, can see shrubbery with vein underneath.\n\nCan try to get window open to sneak through, or break window.\nVery low observation roll tells player which door leads there from church; option to go via the church and find your way through.\n\nShrubbery description: Monty Python reference.\n",
           "choices": [
             {
-              "id": "option1",
               "label": "Try to open the window",
-              "result_text": "",
-              "goto": {
-                "branch": "b9"
+              "id": "option1",
+              "effects": [],
+              "check": {
+                "base": 0.4,
+                "mods": [],
+                "tags": [
+                  "physical"
+                ]
               },
-              "effects": []
+              "success": {
+                "result_text": "",
+                "effects": [],
+                "goto": {
+                  "branch": "b9"
+                }
+              },
+              "fail": {
+                "result_text": null,
+                "effects": []
+              }
             },
             {
-              "id": "option2",
               "label": "Break the window",
-              "result_text": "",
-              "goto": {
-                "branch": "b9"
+              "id": "option2",
+              "effects": [],
+              "check": {
+                "base": 0.6,
+                "mods": [],
+                "tags": [
+                  "physical"
+                ]
               },
-              "effects": []
+              "success": {
+                "result_text": "",
+                "effects": [],
+                "goto": {
+                  "branch": "b9"
+                }
+              },
+              "fail": {
+                "result_text": null,
+                "effects": [
+                  {
+                    "op": "alert",
+                    "add": 1,
+                    "cover": {
+                      "base": 0.5,
+                      "text": "That was VERY loud. You hope no one heard that, but aren't holding your breath."
+                    }
+                  }
+                ]
+              }
             },
             {
               "id": "option3",
@@ -663,6 +681,17 @@
                 "branch": "b7"
               },
               "effects": []
+            },
+            {
+              "id": "option4",
+              "label": "Use a Skeleton Key",
+              "result_text": "",
+              "requires": {
+                "item": "skeletonKey"
+              },
+              "goto": {
+                "branch": "b9"
+              }
             }
           ],
           "observe": null,
@@ -686,7 +715,10 @@
               "id": "option1",
               "check": {
                 "base": 0.5,
-                "mods": []
+                "mods": [],
+                "tags": [
+                  "social"
+                ]
               },
               "success": {
                 "result_text": "You say you're a council surveyor and need to check the integrity of the south wall. He looks at the pile of unsorted books and sighs. \"Come along then, I'll take you there.\"",
@@ -747,39 +779,18 @@
         {
           "key": "c6",
           "type": "choice",
-          "text": "Player is at the vein. There's a camera that can be noticed. If it's triggered, silent alarm triggers, guards come in 2 turns.\n\nCamera can be observed with physics roll. Options to deal with it:\n - Hope it's broken (low roll, but very high if Be A Lady is present)\n - Trace the wires, realise its controlled from a room in the church, go back to the church to disable the camera\n - Just go anyway (alarm triggers, and guards arrive before player can harvest the vein.\n - Destroy the camera (normal roll, can also use blast for guaranteed success). Silent alarm  they triggers, player has 2 turns until they arrive. When leaving the vein they fight the player, if player can't talk their way past them. If player claims vein, encounter is different where they either fight, or tell guards that player now owns this vein and the guards back down.\n\n",
+          "text": "You sense the vein underneath the shrubbery. Glancing around you spot a camera high up on the wall, pointing down at the vein.",
           "choices": [
             {
-              "label": "Hope the camera is broken",
+              "label": "Blast the camera",
               "id": "option1",
-              "check": {
-                "base": 0.05,
-                "mods": [
-                  {
-                    "activeEffect": "beALady",
-                    "add": 0.9,
-                    "label": "Be a Lady"
-                  }
-                ]
+              "effects": [],
+              "result_text": "",
+              "goto": {
+                "branch": "b10"
               },
-              "success": {
-                "result_text": "",
-                "effects": [],
-                "goto": {
-                  "branch": "b10"
-                }
-              },
-              "fail": {
-                "result_text": null,
-                "effects": [
-                  {
-                    "op": "alert",
-                    "atLeast": 2
-                  }
-                ],
-                "goto": {
-                  "branch": "b11"
-                }
+              "requires": {
+                "item": "blast"
               }
             },
             {
@@ -787,7 +798,10 @@
               "id": "option2",
               "check": {
                 "base": 0.5,
-                "mods": []
+                "mods": [],
+                "tags": [
+                  "physical"
+                ]
               },
               "success": {
                 "result_text": "The camera is no longer recording. You head over to the vein.",
@@ -810,18 +824,45 @@
               }
             },
             {
-              "id": "option3",
               "label": "Ignore the camera, just get to the vein",
-              "result_text": "",
-              "goto": {
-                "branch": "b11"
-              },
+              "id": "option3",
               "effects": [
                 {
                   "op": "alert",
                   "atLeast": 2
                 }
-              ]
+              ],
+              "check": {
+                "base": 0.05,
+                "mods": [],
+                "tags": [
+                  "stealth"
+                ]
+              },
+              "success": {
+                "result_text": "",
+                "effects": [],
+                "goto": {
+                  "branch": "b11"
+                }
+              },
+              "fail": {
+                "result_text": null,
+                "effects": []
+              }
+            },
+            {
+              "id": "option4",
+              "label": "Cut the camera signal",
+              "result_text": "You trigger the Signal Failure. The camera's light is still on, but you know that it won't be sending data anytime soon.",
+              "requires": {
+                "item": "signalFailure",
+                "display": "disable",
+                "reason": "You don't have a Signal Failure"
+              },
+              "goto": {
+                "branch": "b10"
+              }
             }
           ],
           "label": null,
@@ -838,7 +879,7 @@
         {
           "key": "c7",
           "type": "choice",
-          "text": "Player has option to harvest the vein, or claim it, as when a normal raid ends.",
+          "text": "You can sense the vein underneath the shrubbery. You can't hear anyone coming; you're free to use the vein as you see fit.",
           "choices": [
             {
               "id": "option1",
@@ -881,7 +922,7 @@
         {
           "key": "c8",
           "type": "choice",
-          "text": "Player has option to harvest the vein, or claim it, as when a normal raid ends.",
+          "text": "You can sense the vein underneath the shrubbery. You can't hear anyone coming - yet. It's yours to harvest or claim, as long as you're quick.",
           "choices": [
             {
               "id": "option1",
@@ -924,7 +965,7 @@
         {
           "key": "c9",
           "type": "choice",
-          "text": "Player sees 2 guards turn up, and head in the player's direction. Player can fight or try to talk their way out of it. \nHigh observation roll means player spots them first and can escape unseen",
+          "text": "You see 2 men walking through the church grounds. Heavyset, actively looking for something or someone. ",
           "observe": "harvested_seen",
           "choices": [
             {
@@ -942,6 +983,9 @@
                     "add": 0.5,
                     "label": ""
                   }
+                ],
+                "tags": [
+                  "stealth"
                 ]
               },
               "success": {
@@ -970,7 +1014,10 @@
               "id": "option3",
               "check": {
                 "base": 0.25,
-                "mods": []
+                "mods": [],
+                "tags": [
+                  "social"
+                ]
               },
               "success": {
                 "result_text": "You act like you're from the church and talk to them about Jesus. They don't have time for time for a God botherer, and walk off quickly to the vein. You're free to go.",
@@ -1032,6 +1079,9 @@
                     "add": 0.3,
                     "label": ""
                   }
+                ],
+                "tags": [
+                  "stealth"
                 ]
               },
               "success": {
@@ -1088,6 +1138,9 @@
                     "add": 0.3,
                     "label": ""
                   }
+                ],
+                "tags": [
+                  "social"
                 ]
               },
               "success": {
@@ -1173,6 +1226,9 @@
                     "add": 0.2,
                     "label": ""
                   }
+                ],
+                "tags": [
+                  "social"
                 ]
               },
               "success": {

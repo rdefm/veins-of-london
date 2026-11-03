@@ -1,0 +1,27 @@
+{
+  "template": "landmark_2",
+  "cards": [
+    {
+      "id": "landmark_2.case.1",
+      "slot": "case",
+      "voice": "archie",
+      "cards": [
+        {
+          "speaker": "Archie",
+          "text": "Settle a few more orders and a regular buyer will put their name to something longer. The Southwark retainer, if we earn it."
+        }
+      ]
+    },
+    {
+      "id": "landmark_2.case.2",
+      "slot": "case",
+      "voice": "archie",
+      "cards": [
+        {
+          "speaker": "Archie",
+          "text": "Keep the deliveries clean and The Southwark retainer opens up. A buyer like that pays every week without us chasing."
+        }
+      ]
+    }
+  ]
+}

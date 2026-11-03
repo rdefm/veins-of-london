@@ -1,0 +1,49 @@
+{
+  "template": "cult_health_streak",
+  "cards": [
+    {
+      "id": "cult_health_streak.case.1",
+      "slot": "case",
+      "voice": "owen",
+      "cards": [
+        {
+          "speaker": "Owen",
+          "text": "Sorry, this is a long one. Could I keep a vein in good health every night this week? One bad night and the count starts again. A vein that's always well gives steady calc, and Archie and James can plan around steady."
+        }
+      ]
+    },
+    {
+      "id": "cult_health_streak.case.2",
+      "slot": "case",
+      "voice": "owen",
+      "cards": [
+        {
+          "speaker": "Owen",
+          "text": "I'd like to keep one vein healthy night after night. I'm sorry, it isn't exciting. The count resets after any bad night, so I'd check on it late as well. Steady calc is easier to sell and easier to craft with."
+        }
+      ]
+    },
+    {
+      "id": "cult_health_streak.case.3",
+      "slot": "case",
+      "voice": "owen",
+      "cards": [
+        {
+          "speaker": "Owen",
+          "text": "If it's all right, I'd like to try for a run of good nights on one vein. Each healthy night adds one; a bad one wipes it. I'm sorry, I know that's harsh. Reliable calc is what Archie and James keep asking me for."
+        }
+      ]
+    },
+    {
+      "id": "cult_health_streak.case.4",
+      "slot": "case",
+      "voice": "owen",
+      "cards": [
+        {
+          "speaker": "Owen",
+          "text": "Could one vein go the whole week without a bad night? I'm sorry to make it a project. A vein that never slips yields evenly, and that gives Archie something to promise and James something to rely on."
+        }
+      ]
+    }
+  ]
+}

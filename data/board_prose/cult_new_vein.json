@@ -1,0 +1,49 @@
+{
+  "template": "cult_new_vein",
+  "cards": [
+    {
+      "id": "cult_new_vein.case.1",
+      "slot": "case",
+      "voice": "owen",
+      "cards": [
+        {
+          "speaker": "Owen",
+          "text": "I'm sorry, could I bring a vein online? We own one that isn't earning yet, and I'd like to get it healthy enough to work. A new line means more calc for Archie to sell and James to craft."
+        }
+      ]
+    },
+    {
+      "id": "cult_new_vein.case.2",
+      "slot": "case",
+      "voice": "owen",
+      "cards": [
+        {
+          "speaker": "Owen",
+          "text": "Sorry to ask. I'd like to get one of our idle veins up and working this week. It only counts once it's healthy enough, so I'd be looking in on it most days. More veins, more calc for the others."
+        }
+      ]
+    },
+    {
+      "id": "cult_new_vein.case.3",
+      "slot": "case",
+      "voice": "owen",
+      "cards": [
+        {
+          "speaker": "Owen",
+          "text": "If nobody minds, I'd like to bring another vein online. I know it's more work for me. That's rather the point, I think. Another working vein is more calc for Archie to sell and James to put on the bench."
+        }
+      ]
+    },
+    {
+      "id": "cult_new_vein.case.4",
+      "slot": "case",
+      "voice": "owen",
+      "cards": [
+        {
+          "speaker": "Owen",
+          "text": "Sorry. Archie says I should aim higher, so: one more working vein. We've got one that's only on paper, and I'd like it healthy enough to earn. Then there's more calc for everyone."
+        }
+      ]
+    }
+  ]
+}

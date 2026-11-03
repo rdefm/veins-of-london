@@ -1,0 +1,49 @@
+{
+  "template": "share_first",
+  "cards": [
+    {
+      "id": "share_first.case.1",
+      "slot": "case",
+      "voice": "archie",
+      "cards": [
+        {
+          "speaker": "Archie",
+          "text": "I want 25% of London's {calc} this week. You're on {share}%. While we're small, any firm that cuts its price drags ours down with it. At 25% we start moving the price ourselves. James says the contested ore right now is {contested}."
+        }
+      ]
+    },
+    {
+      "id": "share_first.case.2",
+      "slot": "case",
+      "voice": "archie",
+      "cards": [
+        {
+          "speaker": "Archie",
+          "text": "Let's take a quarter of the {calc} market. We're on {share}%. Right now other firms' price swings decide our week. A quarter and we stop being pushed around by them. James's note: the factions are scrapping over {contested}."
+        }
+      ]
+    },
+    {
+      "id": "share_first.case.3",
+      "slot": "case",
+      "voice": "archie",
+      "cards": [
+        {
+          "speaker": "Archie",
+          "text": "Aim for 25% of London's {calc}. We hold {share}%. A bigger share means a steadier price, and a steadier price means I can pay the bills without checking the market first. James says {contested} is the contested ore at the moment."
+        }
+      ]
+    },
+    {
+      "id": "share_first.case.4",
+      "slot": "case",
+      "voice": "archie",
+      "cards": [
+        {
+          "speaker": "Archie",
+          "text": "A quarter of London's {calc}, that's the ask. You're at {share}%. Once we're that size, the price swings are partly ours, and spare cash gets easier to find for people who need it. James reckons {contested} is where the fighting is."
+        }
+      ]
+    }
+  ]
+}

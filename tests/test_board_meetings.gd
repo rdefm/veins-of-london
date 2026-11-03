@@ -48,6 +48,15 @@ func _install_ladders() -> Dictionary:
 	return original
 
 
+# A card with the keys card_tokens() reads, filled out for fixtures.
+func _tokens_card(card: Dictionary) -> Dictionary:
+	var full := card.duplicate(true)
+	full["rung"] = full["template"]
+	full["goal"]["tiers"] = { "base": { "minWeeks": 2 }, "target": { "minWeeks": 3 }, "stretch": { "minWeeks": 4 } }
+	full["preview"] = { "base": "", "target": "", "stretch": "" }
+	return full
+
+
 func _set_owen_rarity(value: float) -> float:
 	var original := float(GameData.BOARD_VOICES["owen"]["pitchRarity"])
 	GameData.BOARD_VOICES["owen"]["pitchRarity"] = value
@@ -311,14 +320,14 @@ func run() -> void:
 	run_case("financial_card_prose_fills_live_reserve_tokens", func():
 		_enabled_game()
 		_set_float(250)
-		var template: Dictionary = GameData.BOARD_TEMPLATES["fin_reserve"]
-		assert_true(template["case"] is Array, "variant list")
-		for i in template["case"].size():
-			var card := { "id": "c%d" % i, "template": "fin_reserve" }
-			var prose: String = BoardMeetings.card_tokens_prose(template, "case", card)
+		var pack: Dictionary = GameData.BOARD_PROSE["fin_reserve"]
+		assert_true((pack["cards"] as Array).size() > 1, "variant list")
+		for i in 8:
+			var card := { "id": "c%d" % i, "template": "fin_reserve", "voice": "archie", "goal": { "type": "reserve_weeks_at_least" } }
+			var prose: String = str(BoardMeetings.card_tokens(_tokens_card(card))["case"])
 			assert_true(not prose.contains("{"), "tokens filled: " + prose)
-			assert_eq(BoardMeetings.card_tokens_prose(template, "case", card), prose, "stable per card")
-		var text: String = BoardMeetings.card_tokens_prose({ "case": "{expenses} {float} {weeks}" }, "case", { "id": "x" })
+			assert_eq(str(BoardMeetings.card_tokens(_tokens_card(card))["case"]), prose, "stable per card")
+		var text: String = BoardMeetings.fill_prose("{expenses} {float} {weeks}", { "id": "x", "goal": { "type": "reserve_weeks_at_least" } })
 		assert_eq(text, "£100 £250 2.5")
 	)
 
@@ -687,22 +696,26 @@ func run() -> void:
 	run_case("every_template_has_case_prose_and_the_debate_data_is_complete", func():
 		for id in GameData.BOARD_TEMPLATES:
 			var template: Dictionary = GameData.BOARD_TEMPLATES[id]
-			assert_true(template.get("case") is Array and not (template["case"] as Array).is_empty(), "%s has case" % id)
-			assert_true(not template.has("pitch") and not template.has("why"), "%s: pitch/why merged" % id)
+			assert_true(GameData.BOARD_PROSE.has(id), "%s has a prose pack" % id)
+			assert_true(not template.has("case") and not template.has("pitch") and not template.has("why"), "%s: prose lives in the pack" % id)
 		var debate: Dictionary = GameData.BOARD_MEETING["debate"]
+		for key in ["opener", "response", "rebuttal", "clash", "chosen", "concede"]:
+			assert_true(not debate.has(key), "debate.%s moved to the _debate pack" % key)
+		var pool := func(slot: String, filters: Dictionary) -> Array: return BoardMeetings._prose(GameData.BOARD_PROSE_DEBATE, slot, filters)
 		for voice_id in GameData.BOARD_VOICES:
-			assert_true(not (debate["opener"][voice_id] as Array).is_empty(), "opener %s" % voice_id)
-			assert_true(not (debate["rebuttal"][voice_id] as Array).is_empty(), "rebuttal %s" % voice_id)
-			assert_true(not (debate["chosen"][voice_id] as Array).is_empty(), "chosen %s" % voice_id)
-			assert_true(not (debate["concede"][voice_id] as Array).is_empty(), "concede %s" % voice_id)
+			for slot in ["opener", "rebuttal", "chosen", "concede"]:
+				assert_true(not pool.call(slot, { "voice": voice_id }).is_empty(), "%s %s" % [slot, voice_id])
 			for pitcher in GameData.BOARD_VOICES:
 				if pitcher != voice_id:
-					assert_true(not (debate["response"][voice_id][pitcher] as Dictionary).is_empty(), "response %s to %s" % [voice_id, pitcher])
-		assert_eq(debate["response"]["owen"]["james"].keys(), ["wobble"], "Owen only wobbles")
+					assert_true(not pool.call("reply", { "voice": voice_id, "to": pitcher }).is_empty(), "reply %s to %s" % [voice_id, pitcher])
+		var owen_stances := BoardMeetings._prose_values(pool.call("reply", { "voice": "owen", "to": "james" }), "stance")
+		assert_eq(owen_stances, ["wobble"], "Owen only wobbles")
 		for pair in debate["clashOrder"]:
-			assert_true(not (debate["clash"][pair] as Array).is_empty(), "clash %s" % pair)
-			for exchange in debate["clash"][pair]:
-				assert_eq((exchange as Array).size(), 2, "clash %s is a two-line pair" % pair)
+			var voices: PackedStringArray = String(pair).split("|")
+			var exchanges: Array = pool.call("clash", { "voice": voices[0], "to": voices[1] })
+			assert_true(not exchanges.is_empty(), "clash %s" % pair)
+			for exchange in exchanges:
+				assert_eq((exchange["cards"] as Array).size(), 2, "clash %s is a two-line pair" % pair)
 		assert_true(not GameData.BOARD_MEETING.has("agendaCard") and not GameData.BOARD_MEETING.has("agendaSeparator"))
 	)
 
@@ -734,9 +747,9 @@ func run() -> void:
 				# opener + (case + response) per goal, plus the clash pair when it fires.
 				assert_true(speakers >= 1 + 2 * count, "%d goals: %d spoken cards" % [count, speakers])
 				var clash_lines: Array = []
-				for exchanges in GameData.BOARD_MEETING["debate"]["clash"].values():
-					for exchange in exchanges:
-						clash_lines.append_array(exchange)
+				for exchange in BoardMeetings._prose(GameData.BOARD_PROSE_DEBATE, "clash"):
+					for line in exchange["cards"]:
+						clash_lines.append(line["text"])
 				var clashed := cards.any(func(c): return clash_lines.has(str(c["text"])))
 				assert_eq(clashed, chance == 1.0 and count >= 2, "%d goals, clash chance %s" % [count, str(chance)])
 				assert_eq(Events.current_card()["choices"].size(), count + 1, "options + skip")

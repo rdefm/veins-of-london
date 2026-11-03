@@ -1,0 +1,49 @@
+{
+  "template": "share_second",
+  "cards": [
+    {
+      "id": "share_second.case.1",
+      "slot": "case",
+      "voice": "archie",
+      "cards": [
+        {
+          "speaker": "Archie",
+          "text": "Let's take 25% of {calc} as well. You're at {share}%. One ore means one bad price week can sink us. A second one means a swing in one is covered by the other. That's bills paid without panic."
+        }
+      ]
+    },
+    {
+      "id": "share_second.case.2",
+      "slot": "case",
+      "voice": "archie",
+      "cards": [
+        {
+          "speaker": "Archie",
+          "text": "I want a second ore, {calc}, at 25% of London's supply. You hold {share}%. With two lines, one bad week doesn't take everything. Steady money is what lets me help people out."
+        }
+      ]
+    },
+    {
+      "id": "share_second.case.3",
+      "slot": "case",
+      "voice": "archie",
+      "cards": [
+        {
+          "speaker": "Archie",
+          "text": "Get {calc} up to 25%. You're on {share}% now. If all our income rides on one ore, other firms' price swings decide our week. Two ores and they only decide half of it."
+        }
+      ]
+    },
+    {
+      "id": "share_second.case.4",
+      "slot": "case",
+      "voice": "archie",
+      "cards": [
+        {
+          "speaker": "Archie",
+          "text": "A second ore: 25% of {calc}. We're at {share}%. It's small now, which is the point. It's cheap to grow while nobody's watching, and it means we're not leaning on one price to pay the bills."
+        }
+      ]
+    }
+  ]
+}
