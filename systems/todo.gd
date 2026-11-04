@@ -54,7 +54,8 @@ static func get_questline_sections() -> Array[Dictionary]:
 			if not config.has("emptyText"):
 				continue
 			status = "placeholder"
-		elif flags.get(config.get("doneFlag"), false) and ledger.is_empty():
+		elif flags.get(config.get("doneFlag"), false) and ledger.is_empty() \
+				and not items.any(func(i: Dictionary) -> bool: return not i["done"]):
 			status = "done"
 		sections.append({
 			"questline": questline,

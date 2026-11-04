@@ -132,7 +132,12 @@ func run() -> void:
 
 		GameState.state["flags"]["colA1Complete"] = true
 		sections = Todo.get_questline_sections()
-		assert_eq(_section(sections, "collective")["status"], "done", "the whole section should turn done on the questline's gate flag, not item-by-item")
+		assert_eq(_section(sections, "collective")["status"], "active", "gate flag alone doesn't finish a section with an undone active goal")
+
+		GameState.state["flags"]["synB"] = true
+		Objectives.refresh()
+		sections = Todo.get_questline_sections()
+		assert_eq(_section(sections, "collective")["status"], "done", "gate flag + every goal complete turns the section done")
 
 		GameData.OBJECTIVES = original
 	)
@@ -258,14 +263,45 @@ func run() -> void:
 	run_case("pages_order_started_then_placeholder_then_board_then_finished", func():
 		GameState.reset()
 		GameState.state["flags"]["prologueDone"] = true
+		for oid in GameData.OBJECTIVES.keys():
+			var odef: Dictionary = GameData.OBJECTIVES[oid]
+			if odef["questline"] == "tutorial" and odef.has("completeFlag"):
+				GameState.state["flags"][odef["completeFlag"]] = true
 		Objectives.refresh()
 		_activate_board_goal()
+		for oid in GameState.state["objectives"].keys():
+			if GameData.OBJECTIVES[oid]["questline"] == "tutorial":
+				GameState.state["objectives"][oid]["complete"] = true
 		var ids := Todo.get_pages().map(func(p): return p["id"])
 		assert_eq(ids, ["act2", "business_empire", "board", "tutorial"], "started, placeholder, board, finished")
 		GameState.state["flags"]["prologueDone"] = false
 		Objectives.refresh()
 		ids = Todo.get_pages().map(func(p): return p["id"])
 		assert_eq(ids, ["tutorial", "act2", "business_empire", "board"], "started, placeholder, board")
+	)
+
+	run_case("done_flag_with_undone_active_goal_stays_active_then_done_when_all_complete", func():
+		GameState.reset()
+		GameState.state["flags"]["bizA1Proposed"] = true
+		GameState.state["flags"]["bizA1Complete"] = true
+		Objectives.refresh()
+		var page: Dictionary = _page(Todo.get_pages(), "business_empire")
+		assert_eq(page["status"], "active", "open goal keeps page active despite done flag")
+		assert_true(page["active"].size() > 0)
+		for id in GameData.OBJECTIVES.keys():
+			var def: Dictionary = GameData.OBJECTIVES[id]
+			if def["questline"] == "business_empire" and def.has("completeFlag"):
+				GameState.state["flags"][def["completeFlag"]] = true
+		Objectives.refresh()
+		var done_ids := []
+		for id in GameData.OBJECTIVES.keys():
+			if GameData.OBJECTIVES[id]["questline"] == "business_empire" \
+					and GameState.state["objectives"].get(id, {}).get("active", false) \
+					and not GameState.state["objectives"][id].get("complete", false):
+				done_ids.append(id)
+		if done_ids.is_empty():
+			page = _page(Todo.get_pages(), "business_empire")
+			assert_eq(page["status"], "done", "all goals complete + flag = done")
 	)
 
 	run_case("placeholder_page_carries_empty_text", func():

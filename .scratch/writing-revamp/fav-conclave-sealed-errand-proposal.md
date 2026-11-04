@@ -1,0 +1,160 @@
+# fav_conclave_sealed_errand — imported from data/events/fav_conclave_sealed_errand.json
+
+```json
+{
+  "id": "fav_conclave_sealed_errand",
+  "on_complete": [
+    {
+      "op": "set_screen",
+      "screen": "phone"
+    }
+  ],
+  "start": "main",
+  "branches": {
+    "main": {
+      "title": "Start",
+      "cards": [
+        {
+          "key": "c1",
+          "type": "narration",
+          "label": null,
+          "speaker": null,
+          "text": "The envelope is heavy for paper and cream-coloured. The address is a Firm-owned betting shop in Soho. Nobody there will be pleased to see it."
+        },
+        {
+          "key": "c2",
+          "type": "speaker",
+          "label": null,
+          "speaker": "Fairweather",
+          "text": "\"Hand it over the counter. Say nothing. If they open it in front of you, that's their business.\""
+        },
+        {
+          "key": "c3",
+          "type": "choice",
+          "label": null,
+          "speaker": null,
+          "text": "The counter is a long way from the door.",
+          "choices": [
+            {
+              "id": "walkIn",
+              "label": "Walk in and hand it over",
+              "check": {
+                "base": 0.6,
+                "mods": [
+                  {
+                    "cash": {
+                      "atLeast": 500
+                    },
+                    "add": 0.1,
+                    "label": "A tip for the cashier"
+                  }
+                ],
+                "min": 0.15
+              },
+              "success": {
+                "result_text": "The cashier takes it without looking up. You are three streets away before anyone looks at you.",
+                "effects": [
+                  {
+                    "op": "favour_kept",
+                    "relation": 8,
+                    "memberRelation": 3
+                  }
+                ],
+                "goto": {
+                  "branch": "b4"
+                }
+              },
+              "fail": {
+                "result_text": "A man by the fruit machine recognises the envelope, then you. The envelope arrives. You leave faster than it did.",
+                "effects": [
+                  {
+                    "op": "favour_failed",
+                    "relation": -3,
+                    "rival": "firm",
+                    "rivalRelation": -2
+                  }
+                ],
+                "goto": {
+                  "branch": "b4"
+                }
+              }
+            },
+            {
+              "id": "sellItOut",
+              "label": "Take it to the Firm's man, unopened, and ask what it's worth",
+              "result_text": "Lusk's man holds it up to the light and smiles. \"Tell them we said thank you.\" The Conclave will hear about this by lunch.",
+              "effects": [
+                {
+                  "op": "favour_failed",
+                  "relation": -8,
+                  "memberRelation": -4,
+                  "rival": "firm",
+                  "rivalRelation": 5
+                }
+              ],
+              "goto": {
+                "branch": "b4"
+              }
+            }
+          ]
+        }
+      ],
+      "then": {
+        "branch": "b4"
+      }
+    },
+    "b4": {
+      "title": "From card 4",
+      "cards": [
+        {
+          "key": "c4",
+          "type": "resolution",
+          "label": null,
+          "speaker": null,
+          "text": "Soho carries on, as it does."
+        }
+      ]
+    }
+  },
+  "_keyOrder": {
+    "top": [
+      "id",
+      "cards",
+      "on_complete"
+    ],
+    "cards": {
+      "c1": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c2": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c3": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text",
+        "choices"
+      ],
+      "c4": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ]
+    }
+  },
+  "_liveSource": "fav_conclave_sealed_errand.json",
+  "_liveHash": "8b449c0e"
+}
+```
