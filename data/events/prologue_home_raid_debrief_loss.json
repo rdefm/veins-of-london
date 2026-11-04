@@ -1,8 +1,8 @@
 {
   "id": "prologue_home_raid_debrief_loss",
   "cards": [
-    { "key": "c1", "type": "tension", "label": "Later", "speaker": null, "text": "You come round on the floor. Your ore is gone. The window is open. The rest of the place looks ransacked, though in hindsight it isn't too dissimilar to how it was before; you should probably tidy up a bit more often." },
-    { "key": "c2", "type": "narration", "label": null, "speaker": null, "text": "Archie arrives at seven in the morning. He takes one look at you and puts the coffees down without saying anything for a moment." },
+    { "key": "c1", "type": "tension", "label": "Later", "speaker": null, "text": "You come round on the floor. Your ore is gone. The front door is open. The rest of the place looks ransacked, though in hindsight it isn't too dissimilar to how it was before; you should probably tidy up a bit more often." },
+    { "key": "c2", "type": "narration", "label": null, "speaker": null, "text": "Archie arrives at seven in the morning with two coffees. He takes one look at you and puts the coffees down without saying anything for a moment.", "observe": "prologue_raid_loss1" },
     { "key": "c3", "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Right. How much did they get?\"" },
     { "key": "c4", "type": "speaker", "label": null, "speaker": "You", "text": "\"Most of it.\"" },
     { "key": "c5", "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Yeah.\" He sits down. \"You alright, though? Properly?\"" },
@@ -10,7 +10,7 @@
     { "key": "c7", "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Good. You fought back, and that counts. I've worked with people who'd have handed it over.\" He pauses. \"Some of them were me, early on.\"" },
     { "key": "c8", "type": "speaker", "label": null, "speaker": "Archie", "text": "\"But this place is a liability. One lock, a window that doesn't close. It's a service entrance.\"" },
     { "key": "c9", "type": "speaker", "label": null, "speaker": "Archie", "text": "\"You need to move. Somewhere with a proper door. That means a deposit, and a deposit means cash. Rent first, obviously. Then the deposit.\"" },
-    { "key": "c10", "type": "speaker", "label": null, "speaker": "Archie", "text": "\"I'll line you up some help. Des. Best prospector I know, and he's got a use for you. Don't mention the twenty quid.\"" },
+    { "key": "c10", "type": "speaker", "label": null, "speaker": "Archie", "text": "\"I'll line you up some help. Des. Best prospector I know, and he's got a use for you." },
     { "key": "c11", "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Partners, while I'm here. Security bloke, reasonable price, no paperwork. And the vein I promised: time, Whitechapel. Yours. It needs work before it pays.\"" },
     { "key": "c12", "type": "resolution", "label": null, "speaker": null, "text": "He stays until you've eaten something, which you didn't ask for and didn't expect. Then he leaves. You check your phone. There's a pin location. The vein." }
   ],
@@ -26,5 +26,25 @@
     { "op": "grant_vein_with_site", "vein": { "oreType": "time", "growth": 20, "rampantDays": 0, "security": "none", "alarmUpgrades": [], "location": "Whitechapel, behind the old brewery", "district": "whitechapel", "hospitability": { "tier": "fair", "bonuses": [] } } },
     { "op": "notify", "text": "HQ's workbench is open now." },
     { "op": "set_screen", "screen": "phone" }
-  ]
+  ],
+  "observations": {
+    "prologue_raid_loss1": {
+      "blocks": {
+        "physics": {
+          "tiers": [
+            { "base": 0.25, "text": "His lips were pursed and eyebrows furrowed until he got a good look at you. They only eased up when he saw that, in the grand scheme of things, you're alright." },
+            { "base": 0.55, "text": "Archie's expression and body language was tense. It only eases up now that he's seen that, ultimately, you're ok." }
+          ],
+          "miss": "Archie seemed upset, but now that he's seen you he seems a bit better. He must be going through something."
+        },
+        "emotion": {
+          "tiers": [
+            { "base": 0.25, "text": "It's subtle, but the masked tension and fear leave Archie's face when he sees that you're not seriously hurt." },
+            { "base": 0.55, "text": "Archie usually masks his feelings, but you can see worry slowly disappear as he clocks that you're in one piece and, really, you're ok." }
+          ],
+          "miss": "Archie's face changes. You can't quite tell how; maybe he burned his tongue on the coffee?"
+        }
+      }
+    }
+  }
 }

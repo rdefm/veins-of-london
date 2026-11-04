@@ -205,18 +205,21 @@ static func boost_active(vein: Dictionary, item: String) -> bool:
 # Bag stacks the player can apply: [{ item, tier, qty, days }] in boost_items()
 # (or `only`) then tier order. days = the unit's duration at its tier.
 static func usable_boost_stacks(only: Array = []) -> Array:
-	var inventory: Dictionary = GameState.state["player"]["inventory"]
+	var player: Dictionary = GameState.state["player"]
 	var stacks: Array = []
 	for item in boost_items():
 		if not only.is_empty() and not only.has(item):
 			continue
-		var buckets: Dictionary = inventory.get(item, {})
-		var tiers: Array = buckets.keys()
-		tiers.sort_custom(func(a, b): return int(a) < int(b))
-		for tier_key in tiers:
-			var qty: int = buckets[tier_key]
+		var tier_set := {}
+		for pool in [player["inventory"], player["stash"]["inventory"]]:
+			for tier_key in pool.get(item, {}):
+				tier_set[int(tier_key)] = true
+		var tiers: Array = tier_set.keys()
+		tiers.sort()
+		for tier in tiers:
+			var qty: int = Stash.player_item_tier_qty(item, tier)
 			if qty > 0:
-				stacks.append({ "item": item, "tier": int(tier_key), "qty": qty, "days": boost_days_for(item, int(tier_key)) })
+				stacks.append({ "item": item, "tier": tier, "qty": qty, "days": boost_days_for(item, tier) })
 	return stacks
 
 
@@ -249,10 +252,9 @@ static func spend_and_record_boost(place: Dictionary, item: String, tier: int) -
 	var days: int = boost_days_for(item, tier)
 	if days <= 0:
 		return { "ok": false, "reason": "Too weak to take." }
-	var have: int = int(GameState.state["player"]["inventory"].get(item, {}).get(str(tier), 0))
-	if have <= 0:
+	if Stash.player_item_tier_qty(item, tier) <= 0:
 		return { "ok": false, "reason": "None left." }
-	Crafting.inventory_remove_from_tier(item, tier, 1)
+	Stash.player_item_remove_from_tier(item, tier, 1)
 	if not place.has("boosts"):
 		place["boosts"] = {}
 	var until: int = int(GameState.state["world"]["day"]) + days

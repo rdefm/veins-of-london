@@ -141,6 +141,63 @@ func run() -> void:
 		assert_eq(Stash.get_item_move_qty("time"), 1, "an ore key and an item key of the same string never collide")
 	)
 
+	run_case("player_item_remove_spends_shared_then_stash_preserving_tiers", func():
+		GameState.reset()
+		Crafting.inventory_add("timePearl", 2, 1)
+		Crafting.inventory_add("timePearl", 4, 1)
+		Stash.move_item_to_stash("timePearl", 1)  # tier 2 -> stash
+		assert_eq(Stash.player_item_qty("timePearl"), 2, "total includes stashed")
+		var taken: Array = Stash.player_item_remove("timePearl", 2)
+		assert_eq(taken, [{ "tier": 4, "qty": 1 }, { "tier": 2, "qty": 1 }], "shared tier 4 first, then stashed tier 2")
+		assert_eq(Stash.player_item_qty("timePearl"), 0, "all spent")
+		assert_eq(Stash.stashed_item_qty("timePearl"), 0, "stash pruned")
+	)
+
+	run_case("stashed_only_item_is_usable_from_bag", func():
+		GameState.reset()
+		GameState.state["player"]["hp"] = 1
+		Crafting.inventory_add("healingBurst", 1, 1)
+		Stash.move_item_to_stash("healingBurst", 1)
+		var result: Dictionary = Consumables.use_healing_burst()
+		assert_true(result["ok"], "used from stash")
+		assert_eq(Stash.player_item_qty("healingBurst"), 0, "unit consumed")
+	)
+
+	run_case("stashed_only_vein_item_is_listed_and_spent_by_hand", func():
+		GameState.reset()
+		var item: String = Cultivating.boost_items()[0]
+		Crafting.inventory_add(item, 3, 1)
+		Stash.move_item_to_stash(item, 1)
+		var stacks: Array = Cultivating.usable_boost_stacks([item])
+		assert_eq(stacks.size(), 1, "stashed stack listed")
+		assert_eq(stacks[0]["tier"], 3, "tier preserved")
+		var place := {}
+		var result: Dictionary = Cultivating.spend_and_record_boost(place, item, 3)
+		assert_true(result["ok"], "spent from stash")
+		assert_eq(Stash.stashed_item_qty(item), 0, "stash debited")
+	)
+
+	run_case("player_spend_ore_takes_shared_then_stash", func():
+		GameState.reset()
+		GameState.state["player"]["orichalchum"]["time"] = 5
+		Stash.move_ore_to_stash("time", 3)  # 2 shared, 3 stash
+		assert_eq(Stash.player_ore_qty("time"), 5, "total includes stash")
+		assert_eq(Stash.player_spend_ore("time", 4), 4, "spent 4")
+		assert_eq(GameState.state["player"]["orichalchum"]["time"], 0, "shared drained first")
+		assert_eq(Stash.stashed_ore_qty("time"), 1, "stash covers the rest")
+		assert_eq(Stash.player_spend_ore("time", 9), 1, "clamped to what exists")
+	)
+
+	run_case("shared_only_readers_ignore_the_stash", func():
+		GameState.reset()
+		Crafting.inventory_add("timePearl", 2, 1)
+		Stash.move_item_to_stash("timePearl", 1)
+		GameState.state["player"]["orichalchum"]["time"] = 2
+		Stash.move_ore_to_stash("time", 2)
+		assert_eq(Crafting.inventory_qty("timePearl"), 0, "automated systems see no stashed items")
+		assert_eq(Lab.calc_available("time"), 0, "Lab sees no stashed ore")
+	)
+
 	run_case("new_game_starts_with_an_empty_stash", func():
 		GameState.reset()
 		assert_eq(GameState.state["player"]["stash"]["orichalchum"], {}, "empty ore stash by default")

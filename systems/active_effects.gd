@@ -128,9 +128,9 @@ static func end(item: String) -> void:
 static func use(item: String) -> Dictionary:
 	if not usable_items().has(item):
 		return { "ok": false, "reason": "Can't use that here." }
-	if Crafting.inventory_qty(item) <= 0:
+	if Stash.player_item_qty(item) <= 0:
 		return { "ok": false, "reason": "None left." }
-	var taken: Array = Crafting.inventory_remove(item, 1)
+	var taken: Array = Stash.player_item_remove(item, 1)
 	var level: int = int(taken[0]["tier"]) if not taken.is_empty() else 1
 	var blocks: int = duration_for_level(level)
 	var day_table: Array = GameData.ACTIVE_EFFECTS.get(item, {}).get("daysByLevel", [])

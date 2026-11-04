@@ -517,7 +517,16 @@ state = {
     # it's a transfer destination, not a second view -- and is the sole
     # reserve mechanism (no other per-item reserve flag exists anywhere).
     # Moves are instant/reversible/tier-preserving, clamped to whatever's
-    # actually available on the source side.
+    # actually available on the source side. Player-facing pools read
+    # "Shared" and "Stash"; moves live on the HQ ore slip only.
+    # Player spend seam (Stash.player_*): the player's own actions -- Bag
+    # use (healing, Smelling Salts, Clean Slate, Borrowed Time, timed
+    # effects) and applying a vein item by hand -- check, count and spend
+    # shared first, then stash, tiers preserved; Bag totals include stashed
+    # units. Lowest-tier-first vs exact-tier stays with each caller.
+    # Contracts, Sales, Production, Procurement, cultivators, manual selling,
+    # gifting, guard-kit stocking, the Lab and raids stay shared-only and
+    # never touch the stash, even when shared stock is empty.
     stash: { orichalchum: {}, inventory: {} },
     # personal consumable slots (§3.7 "Player loadout"): slots[i] null | { recipe, tier };
     # lastRecipe[i] = recipe last assigned to slot i ("" never). Old saves backfill empty.

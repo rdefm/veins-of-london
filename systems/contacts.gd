@@ -299,9 +299,9 @@ static func ko_cooldown_contacts() -> Array:
 static func use_smelling_salts(contact_id: String) -> Dictionary:
 	if not ko_cooldown_contacts().has(contact_id):
 		return { "ok": false, "reason": "They're not knocked out." }
-	if Crafting.inventory_qty("smellingSalts") <= 0:
+	if Stash.player_item_qty("smellingSalts") <= 0:
 		return { "ok": false, "reason": "None left." }
-	Crafting.inventory_remove("smellingSalts", 1)
+	Stash.player_item_remove("smellingSalts", 1)
 	GameState.state["contacts"][contact_id]["koCooldownUntilDay"] = null
 	# PROSE-REVIEW: Smelling Salts bag-use notification.
 	Notify.push("%s sits up. Asks what day it is." % display_name(contact_id), Notify.CATEGORY_SUCCESS)

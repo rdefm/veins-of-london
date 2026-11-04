@@ -3,14 +3,14 @@ extends RefCounted
 
 # The two out-of-combat healing uses: healingSalve (a 2-day heal-over-time
 # timer TimeSystem.daily_tick() ticks down) and healingBurst (an instant
-# heal).
+# heal). Both draw shared then stash stock.
 
 
 # Refreshes rather than stacks: using a second salve while one is already
 # active resets the timer to 2 days at the new activation's daily amount.
 static func use_healing_salve() -> Dictionary:
 	var player: Dictionary = GameState.state["player"]
-	if Crafting.inventory_qty("healingSalve") <= 0:
+	if Stash.player_item_qty("healingSalve") <= 0:
 		return { "ok": false, "reason": "No healing salve." }
 
 	var power = Crafting.use_one("healingSalve")
@@ -26,7 +26,7 @@ static func use_healing_salve() -> Dictionary:
 # the player off shared inventory.
 static func use_healing_burst() -> Dictionary:
 	var player: Dictionary = GameState.state["player"]
-	if Crafting.inventory_qty("healingBurst") <= 0:
+	if Stash.player_item_qty("healingBurst") <= 0:
 		return { "ok": false, "reason": "No healing burst." }
 	var power = Crafting.use_one("healingBurst")
 	var old_hp: int = player["hp"]

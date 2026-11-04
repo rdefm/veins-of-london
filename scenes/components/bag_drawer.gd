@@ -73,23 +73,25 @@ func _build() -> void:
 	_content.add_child(UI.heading("Ore", 14))
 	for ore_type in GameData.ORE_TYPES.keys():
 		var ore: Dictionary = GameData.ORE_TYPES[ore_type]
-		var qty: int = player["orichalchum"].get(ore_type, 0)
-		_content.add_child(UI.symbol_row([{ "symbol": ore["symbol"], "fallback": SymbolGlyph.ore_fallback(ore_type) }, "%s: %d" % [ore["name"], qty]]))
+		var qty: int = Stash.player_ore_qty(ore_type)
+		var split: String = _pool_split(int(player["orichalchum"].get(ore_type, 0)), Stash.stashed_ore_qty(ore_type))
+		_content.add_child(UI.symbol_row([{ "symbol": ore["symbol"], "fallback": SymbolGlyph.ore_fallback(ore_type) }, "%s: %d%s" % [ore["name"], qty, split]]))
 
 	_content.add_child(UI.heading("Consumables", 14))
 	for recipe_key in CONSUMABLE_KEYS:
 		var recipe: Dictionary = GameData.RECIPES[recipe_key]
-		var qty: int = Crafting.inventory_qty(recipe_key)
-		_content.add_child(UI.symbol_row([ItemIcons.part(recipe_key), "%s: %d" % [recipe["name"], qty]]))
-		var multi_qty: int = Crafting.inventory_qty(Crafting.inventory_key(recipe_key, true))
+		var qty: int = Stash.player_item_qty(recipe_key)
+		_content.add_child(UI.symbol_row([ItemIcons.part(recipe_key), "%s: %d%s" % [recipe["name"], qty, _pool_split(Crafting.inventory_qty(recipe_key), Stash.stashed_item_qty(recipe_key))]]))
+		var multi_key: String = Crafting.inventory_key(recipe_key, true)
+		var multi_qty: int = Stash.player_item_qty(multi_key)
 		if multi_qty > 0:
-			_content.add_child(UI.symbol_row([ItemIcons.part(recipe_key), "%s (multi): %d" % [recipe["name"], multi_qty]]))
+			_content.add_child(UI.symbol_row([ItemIcons.part(recipe_key), "%s (multi): %d%s" % [recipe["name"], multi_qty, _pool_split(Crafting.inventory_qty(multi_key), Stash.stashed_item_qty(multi_key))]]))
 	for recipe_key in GameData.RECIPES.keys():
 		if CONSUMABLE_KEYS.has(recipe_key) or not GameData.RECIPES[recipe_key].get("bagWhenHeld", false):
 			continue
-		var held: int = Crafting.inventory_qty(recipe_key)
+		var held: int = Stash.player_item_qty(recipe_key)
 		if held > 0:
-			_content.add_child(UI.symbol_row([ItemIcons.part(recipe_key), "%s: %d" % [GameData.RECIPES[recipe_key]["name"], held]]))
+			_content.add_child(UI.symbol_row([ItemIcons.part(recipe_key), "%s: %d%s" % [GameData.RECIPES[recipe_key]["name"], held, _pool_split(Crafting.inventory_qty(recipe_key), Stash.stashed_item_qty(recipe_key))]]))
 
 	if player["healingSalveDaysLeft"] > 0:
 		_content.add_child(UI.symbol_row([ItemIcons.part("healingSalve"), "Healing Salve active — %d HP/day, %d day(s) left" % [player["healingSalveDailyAmount"], player["healingSalveDaysLeft"]]], { "muted": true }))
@@ -101,6 +103,11 @@ func _build() -> void:
 		_content.add_child(_build_dial_summary_label(player))
 
 	_content.add_child(MapCardStyle.footer([MapCardStyle.text_button("Close", func(): Bag.close())]))
+
+
+# PROSE-REVIEW: " (Shared a / Stash b)" suffix, shown only when something is stashed.
+func _pool_split(shared: int, stashed: int) -> String:
+	return " (Shared %d / Stash %d)" % [shared, stashed] if stashed > 0 else ""
 
 
 func _is_management_mode() -> bool:
@@ -116,22 +123,22 @@ func _is_management_mode() -> bool:
 
 
 func _add_out_of_combat_use_buttons(player: Dictionary) -> void:
-	if Crafting.inventory_qty("healingSalve") > 0:
-		_content.add_child(_symbol_use_button("healingSalve", "Healing Salve (%d) — 2-day heal-over-time" % Crafting.inventory_qty("healingSalve"), _on_use_healing_salve))
-	if Crafting.inventory_qty("healingBurst") > 0:
-		_content.add_child(_symbol_use_button("healingBurst", "Healing Burst (%d) — instant heal" % Crafting.inventory_qty("healingBurst"), _on_use_healing_burst))
-	if Crafting.inventory_qty("smellingSalts") > 0:
+	if Stash.player_item_qty("healingSalve") > 0:
+		_content.add_child(_symbol_use_button("healingSalve", "Healing Salve (%d) — 2-day heal-over-time" % Stash.player_item_qty("healingSalve"), _on_use_healing_salve))
+	if Stash.player_item_qty("healingBurst") > 0:
+		_content.add_child(_symbol_use_button("healingBurst", "Healing Burst (%d) — instant heal" % Stash.player_item_qty("healingBurst"), _on_use_healing_burst))
+	if Stash.player_item_qty("smellingSalts") > 0:
 		for contact_id in Contacts.ko_cooldown_contacts():
 			var contact_name: String = Contacts.display_name(contact_id)
-			_content.add_child(_symbol_use_button("smellingSalts", "Smelling Salts (%d) — wake %s" % [Crafting.inventory_qty("smellingSalts"), contact_name], func(): _on_use_smelling_salts(contact_id)))
-	if Crafting.inventory_qty("cleanSlate") > 0:
+			_content.add_child(_symbol_use_button("smellingSalts", "Smelling Salts (%d) — wake %s" % [Stash.player_item_qty("smellingSalts"), contact_name], func(): _on_use_smelling_salts(contact_id)))
+	if Stash.player_item_qty("cleanSlate") > 0:
 		for faction_id in Grudges.clearable_factions():
 			var faction_name: String = GameData.FACTIONS[faction_id]["shortName"]
-			_content.add_child(_symbol_use_button("cleanSlate", "Clean Slate (%d) — clear %s grudge" % [Crafting.inventory_qty("cleanSlate"), faction_name], func(): _on_use_clean_slate(faction_id)))
-	if Crafting.inventory_qty(TimeSystem.BORROWED_TIME) > 0:
-		_content.add_child(_symbol_use_button(TimeSystem.BORROWED_TIME, "Use Borrowed Time (%d) — an extra block today, paid back tomorrow" % Crafting.inventory_qty(TimeSystem.BORROWED_TIME), _on_use_borrowed_time))
+			_content.add_child(_symbol_use_button("cleanSlate", "Clean Slate (%d) — clear %s grudge" % [Stash.player_item_qty("cleanSlate"), faction_name], func(): _on_use_clean_slate(faction_id)))
+	if Stash.player_item_qty(TimeSystem.BORROWED_TIME) > 0:
+		_content.add_child(_symbol_use_button(TimeSystem.BORROWED_TIME, "Use Borrowed Time (%d) — an extra block today, paid back tomorrow" % Stash.player_item_qty(TimeSystem.BORROWED_TIME), _on_use_borrowed_time))
 	for item in ActiveEffects.usable_items():
-		var qty: int = Crafting.inventory_qty(item)
+		var qty: int = Stash.player_item_qty(item)
 		if qty > 0:
 			_content.add_child(_symbol_use_button(item, "Use %s (%d) — %s" % [GameData.RECIPES[item]["name"], qty, ACTIVE_EFFECT_BLURBS.get(item, "")], func(): _on_use_active_effect(item)))
 

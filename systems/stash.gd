@@ -84,6 +84,100 @@ static func _move_item(source: Dictionary, dest: Dictionary, recipe_key: String,
 		EventBus.state_changed.emit()
 
 
+# --- Player spend seam -------------------------------------------------
+# What the player's own hands can reach: shared stock first, then the stash,
+# tiers preserved. Only player-initiated actions (Bag use, applying a vein
+# item) call these; contracts, Sales, Production, Procurement, cultivators,
+# selling, gifting, guard-kit stocking and raids read the shared pool alone.
+# Which tier to take stays with the caller (lowest-first, or an exact tier).
+
+static func player_ore_qty(ore_type: String) -> int:
+	return int(GameState.state["player"]["orichalchum"].get(ore_type, 0)) + stashed_ore_qty(ore_type)
+
+
+# Spends up to qty ore, shared before stash; returns the amount spent.
+static func player_spend_ore(ore_type: String, qty: int) -> int:
+	var player: Dictionary = GameState.state["player"]
+	var from_shared: int = mini(maxi(qty, 0), int(player["orichalchum"].get(ore_type, 0)))
+	var from_stash: int = mini(maxi(qty, 0) - from_shared, stashed_ore_qty(ore_type))
+	if from_shared > 0:
+		player["orichalchum"][ore_type] = int(player["orichalchum"][ore_type]) - from_shared
+	if from_stash > 0:
+		player["stash"]["orichalchum"][ore_type] = stashed_ore_qty(ore_type) - from_stash
+	return from_shared + from_stash
+
+
+# Units held at min_tier or above, shared plus stash.
+static func player_item_qty(recipe_key: String, min_tier: int = 0) -> int:
+	return Crafting.inventory_qty(recipe_key, min_tier) + _stash_item_qty_at_or_above(recipe_key, min_tier)
+
+
+static func player_item_tier_qty(recipe_key: String, tier: int) -> int:
+	var shared: int = int(GameState.state["player"]["inventory"].get(recipe_key, {}).get(str(tier), 0))
+	var stashed: int = int(GameState.state["player"]["stash"]["inventory"].get(recipe_key, {}).get(str(tier), 0))
+	return shared + stashed
+
+
+# Removes qty units lowest tier first, shared before stash (tiers below
+# min_tier untouched). Returns [{ tier, qty }, ...] like Crafting.inventory_remove.
+static func player_item_remove(recipe_key: String, qty: int, min_tier: int = 0) -> Array:
+	var taken: Array = Crafting.inventory_remove(recipe_key, qty, min_tier)
+	var got := 0
+	for entry in taken:
+		got += int(entry["qty"])
+	if got < qty:
+		taken.append_array(_stash_item_remove(recipe_key, qty - got, min_tier))
+	return taken
+
+
+# Removes qty units of one exact tier, shared before stash.
+static func player_item_remove_from_tier(recipe_key: String, tier: int, qty: int) -> void:
+	var shared: int = int(GameState.state["player"]["inventory"].get(recipe_key, {}).get(str(tier), 0))
+	var from_shared: int = mini(qty, shared)
+	if from_shared > 0:
+		Crafting.inventory_remove_from_tier(recipe_key, tier, from_shared)
+	if qty > from_shared:
+		var buckets: Dictionary = GameState.state["player"]["stash"]["inventory"].get(recipe_key, {})
+		var key := str(tier)
+		var left: int = int(buckets.get(key, 0)) - (qty - from_shared)
+		if left > 0:
+			buckets[key] = left
+		else:
+			buckets.erase(key)
+
+
+static func _stash_item_qty_at_or_above(recipe_key: String, min_tier: int) -> int:
+	var buckets: Dictionary = GameState.state["player"]["stash"]["inventory"].get(recipe_key, {})
+	var total := 0
+	for tier_key in buckets:
+		if int(tier_key) >= min_tier:
+			total += int(buckets[tier_key])
+	return total
+
+
+static func _stash_item_remove(recipe_key: String, qty: int, min_tier: int) -> Array:
+	var buckets: Dictionary = GameState.state["player"]["stash"]["inventory"].get(recipe_key, {})
+	var tier_keys: Array = buckets.keys()
+	tier_keys.sort_custom(func(a, b): return int(a) < int(b))
+	var remaining: int = qty
+	var taken: Array = []
+	for tier_key in tier_keys:
+		if remaining <= 0:
+			break
+		if int(tier_key) < min_tier:
+			continue
+		var take: int = mini(int(buckets[tier_key]), remaining)
+		if take <= 0:
+			continue
+		buckets[tier_key] = int(buckets[tier_key]) - take
+		remaining -= take
+		taken.append({ "tier": int(tier_key), "qty": take })
+	for tier_key in buckets.keys().duplicate():
+		if int(buckets[tier_key]) <= 0:
+			buckets.erase(tier_key)
+	return taken
+
+
 # Transient per-row move-qty stepper (state.stashQty, not restored on
 # load), one shared qty per row floored at 1.
 static func get_ore_move_qty(ore_type: String) -> int:

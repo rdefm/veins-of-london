@@ -120,7 +120,7 @@ Data file per system: see `data/*.json` below.
 | sense.gd | Sense skill XP award (level-up notify) via `Progression.award_xp` |
 | sites.gd | Sites & prospecting; each prospect awards Cultivating and Sense XP |
 | loadout.gd | Two personal consumable slots for the player (`player.loadout`) and combat recruits (`contacts[id].loadout`): equip/unequip (refused in combat; allies refuse Wormhole), consume, settlement refill (player, then recruits in roster order), equippable stock; multi-target units (`multi` flag, refilled as the same variant); `debug_grant()` for the debug setup |
-| stash.gd | Personal stash vs. shared pools |
+| stash.gd | Shared vs. Stash pools: instant tier-preserving moves, plus the player spend seam (`player_*` qty/spend/remove, shared then stash) used by Bag use and hand-applied vein items |
 | station_bubble.gd | Site/vein-stop tap-bubble decision |
 | calendar.gd | Pure `world.day` → calendar date (`MON 3 JAN`, `Y2`+ suffix) per R§3.1 "Calendar"; day 1's weekday from `calendar.startWeekday`; every player-facing date string uses `Calendar.format_day`; `widget_date` for the phone widget/Today card; weekday/Monday helpers for the weekly cadence |
 | time_system.gd | Time blocks (staff step + LodedInnit post), forward-only `advance_to_block()` (R§3.9b), rest, Borrowed Time charges/debt (`use_borrowed_time`, shared `_roll_day`), daily tick (weekly home bill, arrears, forced downgrade per ADR 0006), Prologue day triggers |

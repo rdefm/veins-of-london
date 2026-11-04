@@ -82,8 +82,9 @@ static func _apply_deadweight(tier: int) -> void:
 static func _personal_stash_section() -> Control:
 	var card := MapCardStyle.card()
 	var content: VBoxContainer = card["content"]
-	content.add_child(MapCardStyle.label("Personal stash", 15, MapCardStyle.ink()))
-	content.add_child(MapCardStyle.section_label("Stashed stock is off-limits to contracts and staff — and to a raid."))
+	content.add_child(MapCardStyle.label("Stash", 15, MapCardStyle.ink()))
+	# PROSE-REVIEW: Shared/Stash labels; stash is player-use-only.
+	content.add_child(MapCardStyle.section_label("Stash is yours alone — off-limits to contracts and staff, and to a raid. Shared stock is spent first."))
 
 	var player: Dictionary = GameState.state["player"]
 	var any_ore_row := false
@@ -95,7 +96,7 @@ static func _personal_stash_section() -> Control:
 		any_ore_row = true
 		var ore: Dictionary = GameData.ORE_TYPES[ore_type]
 		content.add_child(_move_row(
-			_ink_row(ore["symbol"], SymbolGlyph.ore_fallback(ore_type), "%s — shared %d / stashed %d" % [ore["name"], shared, stashed]),
+			_ink_row(ore["symbol"], SymbolGlyph.ore_fallback(ore_type), "%s — Shared %d / Stash %d" % [ore["name"], shared, stashed]),
 			shared, stashed, Stash.get_ore_move_qty(ore_type),
 			func(delta: int, limit: int): Stash.adjust_ore_move_qty(ore_type, delta, limit),
 			func(): Stash.move_ore_to_stash(ore_type, Stash.get_ore_move_qty(ore_type)),
@@ -113,7 +114,7 @@ static func _personal_stash_section() -> Control:
 		any_item_row = true
 		var recipe: Dictionary = GameData.RECIPES[recipe_key]
 		content.add_child(_move_row(
-			_ink_row(recipe["symbol"], SymbolGlyph.generic_fallback(), "%s — shared %d / stashed %d" % [recipe["name"], shared_qty, stashed_qty], ItemIcons.texture(recipe_key)),
+			_ink_row(recipe["symbol"], SymbolGlyph.generic_fallback(), "%s — Shared %d / Stash %d" % [recipe["name"], shared_qty, stashed_qty], ItemIcons.texture(recipe_key)),
 			shared_qty, stashed_qty, Stash.get_item_move_qty(recipe_key),
 			func(delta: int, limit: int): Stash.adjust_item_move_qty(recipe_key, delta, limit),
 			func(): Stash.move_item_to_stash(recipe_key, Stash.get_item_move_qty(recipe_key)),

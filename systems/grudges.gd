@@ -77,9 +77,9 @@ static func clearable_factions() -> Array:
 static func use_clean_slate(faction_id: String) -> Dictionary:
 	if not has_grudge(faction_id):
 		return { "ok": false, "reason": "No grudge to clear." }
-	if Crafting.inventory_qty("cleanSlate") <= 0:
+	if Stash.player_item_qty("cleanSlate") <= 0:
 		return { "ok": false, "reason": "None left." }
-	Crafting.inventory_remove("cleanSlate", 1)
+	Stash.player_item_remove("cleanSlate", 1)
 	var grudge: Dictionary = GameState.state["grudges"][faction_id]
 	GameState.state["grudges"].erase(faction_id)
 	if grudge.has("siteId"):
