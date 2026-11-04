@@ -50,7 +50,8 @@ static func equipped_units() -> Array:
 	return units
 
 
-# Moves one unit of recipe_key at `tier` from shared inventory into the slot.
+# Moves one unit of recipe_key at `tier` from shared inventory, else the stash,
+# into the slot (the player spend seam).
 # An occupied slot is refused; unequip first.
 static func equip(index: int, recipe_key: String, tier: int, contact_id: String = "", multi: bool = false) -> Dictionary:
 	var loadout: Dictionary = _loadout(contact_id)
@@ -63,10 +64,9 @@ static func equip(index: int, recipe_key: String, tier: int, contact_id: String 
 	if loadout["slots"][index] != null:
 		return { "ok": false, "reason": "Slot already filled." }
 	var inventory_key := Crafting.inventory_key(recipe_key, multi)
-	var buckets: Dictionary = GameState.state["player"]["inventory"].get(inventory_key, {})
-	if int(buckets.get(str(tier), 0)) <= 0:
+	if Stash.player_item_tier_qty(inventory_key, tier) <= 0:
 		return { "ok": false, "reason": "None in stock." }
-	Crafting.inventory_remove_from_tier(inventory_key, tier, 1)
+	Stash.player_item_remove_from_tier(inventory_key, tier, 1)
 	loadout["slots"][index] = { "recipe": recipe_key, "tier": tier }
 	if multi:
 		loadout["slots"][index]["multi"] = true
@@ -104,21 +104,26 @@ static func debug_grant(units: Array) -> void:
 	EventBus.state_changed.emit()
 
 
-# Equippable shared-inventory stock as [{ recipe, tier, qty, multi }, ...]:
+# Equippable stock the player can reach (shared plus stash) as [{ recipe, tier, qty, multi }, ...]:
 # allowlist order, single-target then multi-target, then ascending tier.
 static func equippable_stock(contact_id: String = "") -> Array:
 	var stock: Array = []
 	var inventory: Dictionary = GameState.state["player"]["inventory"]
+	var stashed: Dictionary = GameState.state["player"]["stash"]["inventory"]
 	for recipe_key in GameData.LOADOUT["items"]:
 		if not is_equippable(recipe_key, contact_id):
 			continue
 		for multi in [false, true]:
-			var buckets: Dictionary = inventory.get(Crafting.inventory_key(recipe_key, multi), {})
-			var tier_keys: Array = buckets.keys()
+			var key := Crafting.inventory_key(recipe_key, multi)
+			var tier_keys: Array = inventory.get(key, {}).keys()
+			for tier_key in stashed.get(key, {}).keys():
+				if not tier_keys.has(tier_key):
+					tier_keys.append(tier_key)
 			tier_keys.sort_custom(func(a, b): return int(a) < int(b))
 			for tier_key in tier_keys:
-				if int(buckets[tier_key]) > 0:
-					stock.append({ "recipe": recipe_key, "tier": int(tier_key), "qty": int(buckets[tier_key]), "multi": multi })
+				var qty := Stash.player_item_tier_qty(key, int(tier_key))
+				if qty > 0:
+					stock.append({ "recipe": recipe_key, "tier": int(tier_key), "qty": qty, "multi": multi })
 	return stock
 
 

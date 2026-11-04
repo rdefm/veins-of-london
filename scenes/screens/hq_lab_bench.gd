@@ -925,7 +925,7 @@ func _effect_buttons() -> Array[Control]:
 			left.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			out.append(left)
 		else:
-			var qty := Crafting.inventory_qty(item)
+			var qty := Stash.player_item_qty(item)
 			out.append(MapCardStyle.text_button("Use %s (%d)" % [item_name, qty], func(): Lab.use_effect(item), qty <= 0))
 	return out
 

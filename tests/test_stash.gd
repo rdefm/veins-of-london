@@ -110,11 +110,11 @@ func run() -> void:
 		assert_true(not received[0], "no-op move should not emit state_changed")
 	)
 
-	run_case("stashed_calc_is_invisible_to_the_lab", func():
+	run_case("stashed_calc_counts_for_the_lab", func():
 		GameState.reset()
 		GameState.state["player"]["orichalchum"]["time"] = 5
 		Stash.move_ore_to_stash("time", 5)
-		assert_eq(Lab.calc_available("time"), 0, "the Lab reads player.orichalchum, which the stash move already emptied")
+		assert_eq(Lab.calc_available("time"), 5, "the Lab draws on the stash through the player seam")
 	)
 
 	run_case("ore_move_qty_defaults_to_1_and_steps_clamp_to_1_and_max", func():
@@ -192,10 +192,34 @@ func run() -> void:
 		GameState.reset()
 		Crafting.inventory_add("timePearl", 2, 1)
 		Stash.move_item_to_stash("timePearl", 1)
-		GameState.state["player"]["orichalchum"]["time"] = 2
-		Stash.move_ore_to_stash("time", 2)
 		assert_eq(Crafting.inventory_qty("timePearl"), 0, "automated systems see no stashed items")
-		assert_eq(Lab.calc_available("time"), 0, "Lab sees no stashed ore")
+	)
+
+	run_case("lab_calc_draws_shared_then_stash_and_rewind_restores_pools", func():
+		GameState.reset()
+		var player: Dictionary = GameState.state["player"]
+		player["orichalchum"]["time"] = 8
+		Stash.move_ore_to_stash("time", 6)  # 2 shared, 6 stash
+		Lab.grant_recipe("timePearl")
+		assert_eq(Lab.calc_available("time"), 8, "Lab counts shared plus stash")
+		var cost: int = Lab.jar_amount("timePearl", "time")
+		assert_true(Lab.add_ore("timePearl", "time")["ok"], "tap works from stash-backed stock")
+		assert_eq(player["orichalchum"]["time"], maxi(2 - cost, 0), "shared first")
+		assert_eq(Stash.stashed_ore_qty("time"), 6 - maxi(cost - 2, 0), "stash covers the rest")
+		var point: Dictionary = Lab._root()["lastCraft"]
+		assert_eq(int(point["calcSpent"]["time"]), cost, "net spend noted")
+		assert_eq(int(point["stashSpent"].get("time", 0)), maxi(cost - 2, 0), "stash part noted")
+	)
+
+	run_case("loadout_equips_from_stashed_only_stock_keeping_tier", func():
+		GameState.reset()
+		var recipe: String = GameData.LOADOUT["items"].keys()[0] if GameData.LOADOUT["items"] is Dictionary else GameData.LOADOUT["items"][0]
+		Crafting.inventory_add(recipe, 3, 1)
+		Stash.move_item_to_stash(recipe, 1)
+		assert_eq(Loadout.equippable_stock()[0]["tier"], 3, "stashed stock listed")
+		assert_true(Loadout.equip(0, recipe, 3)["ok"], "equips from stash")
+		assert_eq(int(Loadout.slot(0)["tier"]), 3, "tier kept")
+		assert_eq(Stash.stashed_item_qty(recipe), 0, "stash debited")
 	)
 
 	run_case("new_game_starts_with_an_empty_stash", func():

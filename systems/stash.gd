@@ -87,7 +87,7 @@ static func _move_item(source: Dictionary, dest: Dictionary, recipe_key: String,
 # --- Player spend seam -------------------------------------------------
 # What the player's own hands can reach: shared stock first, then the stash,
 # tiers preserved. Only player-initiated actions (Bag use, applying a vein
-# item) call these; contracts, Sales, Production, Procurement, cultivators,
+# item, equipping a loadout slot, hand-crafting at the Lab) call these; contracts, Sales, Production, Procurement, cultivators,
 # selling, gifting, guard-kit stocking and raids read the shared pool alone.
 # Which tier to take stays with the caller (lowest-first, or an exact tier).
 
@@ -176,6 +176,19 @@ static func _stash_item_remove(recipe_key: String, qty: int, min_tier: int) -> A
 		if int(buckets[tier_key]) <= 0:
 			buckets.erase(tier_key)
 	return taken
+
+
+# Rewind: puts spent units back into the stash without the Contracts supply note.
+static func restore_ore_to_stash(ore_type: String, qty: int) -> void:
+	var held: Dictionary = GameState.state["player"]["stash"]["orichalchum"]
+	held[ore_type] = int(held.get(ore_type, 0)) + qty
+
+
+static func restore_item_to_stash(recipe_key: String, tier: int) -> void:
+	var inventory: Dictionary = GameState.state["player"]["stash"]["inventory"]
+	if not (inventory.get(recipe_key) is Dictionary):
+		inventory[recipe_key] = {}
+	inventory[recipe_key][str(tier)] = int(inventory[recipe_key].get(str(tier), 0)) + 1
 
 
 # Transient per-row move-qty stepper (state.stashQty, not restored on

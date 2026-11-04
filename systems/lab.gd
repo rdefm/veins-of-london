@@ -45,8 +45,9 @@ static func new_state() -> Dictionary:
 		"performedOnce": [],
 		# The Rewind point for the last run or batch, or null: { activeEffects
 		# (player.activeEffects before it), calcSpent (net ore type -> n),
+		# stashSpent (the part of it taken from the stash),
 		# filed ([{ key, tier, qty }] items it filed), used ([{ item, tier }]
-		# effect items used mid-run) }.
+		# effect items used mid-run, each flagged "stash" if taken from the stash) }.
 		"lastCraft": null,
 		# Debug app only: a crafting skill the Lab uses in place of the
 		# player's, or null to use the player's.
@@ -484,25 +485,32 @@ static func jar_amount(recipe_key: String, ore_type: String) -> int:
 	return int(base_calc(recipe_key).get(ore_type, 0))
 
 
-# Where run calc comes from: a running lesson's pool, else the player's
-# unstashed orichalchum.
+# Where run calc is held: a running lesson's pool, else the player's shared
+# orichalchum (the stash is reached only through the player spend seam).
 static func _calc_store() -> Dictionary:
 	if LessonSession.is_running():
 		return LessonSession.pool()
 	return GameState.state["player"]["orichalchum"]
 
 
-# The calc a run can draw on.
+# The calc a run can draw on: a lesson's pool, else shared plus stash.
 static func calc_available(ore_type: String) -> int:
-	return int(_calc_store().get(ore_type, 0))
+	if LessonSession.is_running():
+		return int(LessonSession.pool().get(ore_type, 0))
+	return Stash.player_ore_qty(ore_type)
 
 
 # Every run calc spend goes through here. False (nothing spent) when short.
 static func _spend_calc(ore_type: String, amount: int) -> bool:
 	if calc_available(ore_type) < amount:
 		return false
-	_calc_store()[ore_type] = calc_available(ore_type) - amount
-	_note_calc(ore_type, amount)
+	if LessonSession.is_running():
+		LessonSession.pool()[ore_type] = calc_available(ore_type) - amount
+		_note_calc(ore_type, amount)
+		return true
+	var shared := int(_calc_store().get(ore_type, 0))
+	Stash.player_spend_ore(ore_type, amount)
+	_note_calc(ore_type, amount, maxi(amount - shared, 0))
 	return true
 
 
@@ -757,7 +765,7 @@ static func _refund_calc(spent: Dictionary, fraction: float) -> Dictionary:
 	for ore_type in spent.keys():
 		var amount := floori(int(spent[ore_type]) * fraction)
 		if amount > 0:
-			orichalchum[ore_type] = calc_available(ore_type) + amount
+			orichalchum[ore_type] = int(orichalchum.get(ore_type, 0)) + amount
 			refunded[ore_type] = amount
 			_note_calc(ore_type, -amount)
 	return refunded
@@ -887,10 +895,11 @@ static func usable_effects() -> Array:
 static func use_effect(item: String) -> Dictionary:
 	if not usable_effects().has(item):
 		return { "ok": false, "reason": "Can't use that here." }
+	var from_stash := Crafting.inventory_qty(item) <= 0
 	var result := ActiveEffects.use(item)
 	var point = _root()["lastCraft"]
 	if result["ok"] and active_run() != null and point != null and not LessonSession.is_open():
-		point["used"].append({ "item": item, "tier": int(result["level"]) })
+		point["used"].append({ "item": item, "tier": int(result["level"]), "stash": from_stash })
 	return result
 
 
@@ -962,14 +971,18 @@ static func _open_rewind_point() -> void:
 		return
 	_root()["lastCraft"] = {
 		"activeEffects": GameState.deep_copy(ActiveEffects.effects()),
-		"calcSpent": {}, "filed": [], "used": [],
+		"calcSpent": {}, "stashSpent": {}, "filed": [], "used": [],
 	}
 
 
-static func _note_calc(ore_type: String, amount: int) -> void:
+# Notes calc on the Rewind point; from_stash is the part of a spend that came
+# out of the stash.
+static func _note_calc(ore_type: String, amount: int, from_stash: int = 0) -> void:
 	var point = _root()["lastCraft"]
 	if point != null and not LessonSession.is_open():
 		point["calcSpent"][ore_type] = int(point["calcSpent"].get(ore_type, 0)) + amount
+		if from_stash > 0:
+			point["stashSpent"][ore_type] = int(point["stashSpent"].get(ore_type, 0)) + from_stash
 
 
 static func has_rewind_point() -> bool:
@@ -999,10 +1012,19 @@ static func rewind(source: String = "") -> Dictionary:
 	var player: Dictionary = GameState.state["player"]
 	for filed in point["filed"]:
 		Crafting.inventory_remove_from_tier(filed["key"], int(filed["tier"]), int(filed["qty"]))
+	# Net calc goes back to the pools it came from: the stash up to what it
+	# gave, the rest shared.
 	for ore_type in point["calcSpent"].keys():
-		player["orichalchum"][ore_type] = calc_available(ore_type) + int(point["calcSpent"][ore_type])
+		var net := int(point["calcSpent"][ore_type])
+		var to_stash := mini(net, int(point.get("stashSpent", {}).get(ore_type, 0)))
+		player["orichalchum"][ore_type] = int(player["orichalchum"].get(ore_type, 0)) + net - to_stash
+		if to_stash > 0:
+			Stash.restore_ore_to_stash(ore_type, to_stash)
 	for used in point["used"]:
-		Crafting.inventory_add(used["item"], int(used["tier"]), 1)
+		if used.get("stash", false):
+			Stash.restore_item_to_stash(used["item"], int(used["tier"]))
+		else:
+			Crafting.inventory_add(used["item"], int(used["tier"]), 1)
 	player["activeEffects"] = GameState.deep_copy(point["activeEffects"])
 	_root()["activeRun"] = null
 	_root()["lastCraft"] = null
@@ -1073,5 +1095,5 @@ static func refill_calc() -> void:
 	var target := int(_data()["debug"]["refillCalc"])
 	var orichalchum: Dictionary = GameState.state["player"]["orichalchum"]
 	for ore_type in GameData.ORE_TYPES.keys():
-		orichalchum[ore_type] = maxi(calc_available(ore_type), target)
+		orichalchum[ore_type] = maxi(int(orichalchum.get(ore_type, 0)), target)
 	EventBus.state_changed.emit()
