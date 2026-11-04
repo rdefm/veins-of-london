@@ -20,8 +20,10 @@ const KIND_STREET_MUGGING := "street_mugging"
 const KIND_FACTION_AMBUSH := "faction_ambush"
 const KIND_HOME_RAID := "home_raid"
 const KIND_SPAR := "spar"
+# An event's start_fight op; args: { groups, winCard, loseCard, allyIds, situational }.
+const KIND_EVENT_FIGHT := "event_fight"
 
-const FORCED_KINDS: Array[String] = [KIND_MUGGING, KIND_ARCHIE_DEAL_MUGGING, KIND_STREET_MUGGING, KIND_FACTION_AMBUSH, KIND_HOME_RAID]
+const FORCED_KINDS: Array[String] = [KIND_MUGGING, KIND_ARCHIE_DEAL_MUGGING, KIND_STREET_MUGGING, KIND_FACTION_AMBUSH, KIND_HOME_RAID, KIND_EVENT_FIGHT]
 
 
 static func is_pending() -> bool:
@@ -103,6 +105,8 @@ static func _dispatch(kind: String, args: Dictionary) -> Dictionary:
 			Combat.start_faction_ambush(str(args["factionId"]), str(args.get("district", "")))
 		KIND_HOME_RAID:
 			Combat.start_home_raid_combat(args)
+		KIND_EVENT_FIGHT:
+			Combat.start_event_fight(args["groups"], int(args["winCard"]), int(args["loseCard"]), args.get("allyIds", []), args.get("situational", []))
 		KIND_DEBUG:
 			Combat.start_debug_combat(args)
 		KIND_SPAR:
@@ -182,7 +186,7 @@ static func _ally_contact_ids(kind: String, args: Dictionary) -> Array:
 	match kind:
 		KIND_MUGGING, KIND_ARCHIE_DEAL_MUGGING:
 			return ["archie"]
-		KIND_DEBUG:
+		KIND_DEBUG, KIND_EVENT_FIGHT:
 			return args.get("allyIds", []).filter(Contacts.can_join_combat)
 	return chosen_recruits(kind, args)
 
@@ -363,9 +367,20 @@ static func foe_label(prep: Dictionary) -> String:
 			return "%s squad" % GameData.FACTIONS[str(args["factionId"])]["shortName"]
 		KIND_DEBUG:
 			return "Raid guards"
+		KIND_EVENT_FIGHT:
+			return _event_fight_label(args.get("groups", []))
 		KIND_SPAR:
 			return str(Sparring.partner(str(args.get("partnerId", ""))).get("name", "Sparring partner"))
 	return "Muggers"
+
+
+# "Name ×N" per group, joined; a squad group is named for its faction.
+static func _event_fight_label(groups: Array) -> String:
+	var parts: Array = []
+	for group in groups:
+		var name: String = "%s squad" % GameData.FACTIONS[str(group["squad"])]["shortName"] if group.has("squad") else str(GameData.ENEMY_RAID_GUARDS[str(group["template"])]["name"])
+		parts.append(name if int(group["count"]) <= 1 else "%s ×%d" % [name, int(group["count"])])
+	return ", ".join(parts)
 
 
 static func title(prep: Dictionary) -> String:

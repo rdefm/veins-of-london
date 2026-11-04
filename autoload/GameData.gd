@@ -2457,6 +2457,8 @@ const VALID_EFFECT_OPS: Array[String] = [
 	"start_stockpile_raid_combat", "loot_stockpile", "start_faction_ambush_combat",
 	# start_scripted_fight opens an event's scripted fight (Combat.start_scripted_fight()).
 	"start_scripted_fight", "start_demo_fight",
+	# start_fight opens a data-driven fight (Events._start_fight()) through a forced Preparation.
+	"start_fight",
 	# unlock_contact flips contacts.<id>.unlocked; push_message appends
 	# a plain unread text (no follow-up action); queue_pending_message
 	# is push_message's follow-up-action cousin (Messages.queue_pending()).
@@ -2727,6 +2729,50 @@ func _validate_coach(coach: Variant, context: String, errors: Array[String]) -> 
 				errors.append("%s.notes.%s.%s: must not be empty" % [context, round_key, key])
 
 
+# Keys of a start_fight op and of one of its enemy groups. Stat blocks (hp,
+# attack, plans...) are start_scripted_fight's alone, so they fail as unknown keys.
+const START_FIGHT_KEYS: Array[String] = ["op", "enemies", "win", "lose", "situational", "ally_ids"]
+const START_FIGHT_GROUP_KEYS: Array[String] = ["template", "squad", "count", "level"]
+
+
+# start_fight: `enemies` is a non-empty list of groups, each exactly one of a
+# raidGuards `template` or a factionSquads `squad` (faction id), with a whole
+# `count` >= 1 and `level`; `win` / `lose` name cards (an index or a card key).
+func _validate_start_fight(effect: Dictionary, context: String, errors: Array[String]) -> void:
+	_require_keys(effect, ["enemies", "win", "lose"], context, errors)
+	for key in effect.keys():
+		if not START_FIGHT_KEYS.has(key):
+			errors.append("%s: start_fight has unknown key '%s' (stat blocks belong to start_scripted_fight)" % [context, key])
+	for key in ["win", "lose"]:
+		if effect.has(key) and typeof(effect[key]) != TYPE_STRING and typeof(effect[key]) != TYPE_FLOAT and typeof(effect[key]) != TYPE_INT:
+			errors.append("%s: start_fight %s must be a card index or key" % [context, key])
+	var groups: Variant = effect.get("enemies")
+	if not groups is Array or groups.is_empty():
+		errors.append("%s: start_fight enemies must be a non-empty list" % context)
+		return
+	for i in range(groups.size()):
+		var group: Variant = groups[i]
+		var where := "%s.enemies[%d]" % [context, i]
+		if not group is Dictionary:
+			errors.append("%s: must be an object" % where)
+			continue
+		for key in group.keys():
+			if not START_FIGHT_GROUP_KEYS.has(key):
+				errors.append("%s: unknown key '%s' (stat blocks belong to start_scripted_fight)" % [where, key])
+		if group.has("template") == group.has("squad"):
+			errors.append("%s: needs exactly one of template or squad" % where)
+		elif group.has("template") and not ENEMY_RAID_GUARDS.has(group["template"]):
+			errors.append("%s: unknown template '%s'" % [where, group["template"]])
+		elif group.has("squad") and not ENEMY_FACTION_SQUADS.has(group["squad"]):
+			errors.append("%s: unknown squad faction '%s'" % [where, group["squad"]])
+		for key in ["count", "level"]:
+			var n: Variant = group.get(key)
+			if (typeof(n) != TYPE_INT and typeof(n) != TYPE_FLOAT) or n != floor(n) or n < 1:
+				errors.append("%s: %s must be a whole number of at least 1" % [where, key])
+		if group.has("level") and typeof(group["level"]) in [TYPE_INT, TYPE_FLOAT] and int(group["level"]) > CombatRounds.level_max():
+			errors.append("%s: level above the maximum %d" % [where, CombatRounds.level_max()])
+
+
 func _validate_effect_list(effects: Array, context: String, errors: Array[String]) -> void:
 	for effect in effects:
 		_require_keys(effect, ["op"], context, errors)
@@ -2766,6 +2812,8 @@ func _validate_effect_list(effects: Array, context: String, errors: Array[String
 				if effect["script"].has("practice") and typeof(effect["script"]["practice"]) != TYPE_BOOL:
 					errors.append("%s.script: practice must be true or false" % context)
 				_validate_coach(effect["script"].get("coach"), "%s.script.coach" % context, errors)
+		if effect["op"] == "start_fight":
+			_validate_start_fight(effect, context, errors)
 		if effect["op"] == "start_home_raid_combat" and effect.has("pearlLock"):
 			if effect["pearlLock"] is Dictionary:
 				_require_keys(effect["pearlLock"], ["item", "enemyBelowHp", "prompt"], "%s.pearlLock" % context, errors)

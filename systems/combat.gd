@@ -24,6 +24,9 @@ const CONTEXT_DEFEND_VEIN: String = "defend_vein"
 const CONTEXT_ARCHIE_DEAL_MUGGING: String = "archie_deal_mugging"
 # An event's scripted fight (start_scripted_fight()); exits back to its event.
 const CONTEXT_SCRIPTED: String = "scripted"
+# A data-driven event fight (start_event_fight()); a win, a loss or a flight
+# resumes its event at the win or lose card (combat.eventFight).
+const CONTEXT_EVENT_FIGHT: String = "event_fight"
 # A practice fight at the calc gym (Sparring.spar()).
 const CONTEXT_SPAR: String = "spar"
 
@@ -31,7 +34,7 @@ const CANONICAL_CONTEXTS: Array[String] = [
 	CONTEXT_SPAR,
 	CONTEXT_RAID, CONTEXT_MUGGING, CONTEXT_EVENT_MUGGING, CONTEXT_FACTION_AMBUSH,
 	CONTEXT_HOME_RAID, CONTEXT_EVENT_RAID, CONTEXT_DEFEND_VEIN,
-	CONTEXT_ARCHIE_DEAL_MUGGING, CONTEXT_HOME_ALARM_DEFEND, CONTEXT_SCRIPTED,
+	CONTEXT_ARCHIE_DEAL_MUGGING, CONTEXT_HOME_ALARM_DEFEND, CONTEXT_SCRIPTED, CONTEXT_EVENT_FIGHT,
 ]
 
 # Contexts that are a mugging or ambush in flavour (no vein at stake) rather than a
@@ -363,13 +366,9 @@ static func start_street_mugging() -> void:
 		"")
 
 
-# Faction-ambush intro event's fight (Ambush): a weighted pick from the
-# faction's data/enemies.json factionSquads, built from raidGuards templates,
-# at the level of the faction's Turf tier in `district_id` (the ambush's;
-# "" = the current district).
-static func start_faction_ambush(faction_id: String, district_id: String = "") -> void:
-	if district_id == "":
-		district_id = GameState.state["world"]["currentDistrict"]
+# One weighted pick from `faction_id`'s data/enemies.json factionSquads, built
+# from raidGuards templates, every member at `level`.
+static func faction_squad_enemies(faction_id: String, level: int) -> Array:
 	var squads: Array = GameData.ENEMY_FACTION_SQUADS[faction_id]
 	var total := 0.0
 	for s in squads:
@@ -381,12 +380,53 @@ static func start_faction_ambush(faction_id: String, district_id: String = "") -
 		if roll < 0.0:
 			squad = s
 			break
-	var level := enemy_level_for_ambush(district_id, faction_id)
 	var enemies: Array = []
 	for template_key in squad["enemies"]:
 		var entry: Dictionary = generate_raid_enemy(null, 1, 1, template_key)[0]
 		entry["level"] = level
 		enemies.append(entry)
+	return enemies
+
+
+# Fighter entries for an event fight's `groups` ([{ template | squad, count,
+# level }]): `count` guards of a raidGuards template, or `count` weighted
+# squads of a faction, each at the group's level.
+static func event_fight_enemies(groups: Array) -> Array:
+	var enemies: Array = []
+	for group in groups:
+		var level := int(group["level"])
+		for _i in range(int(group["count"])):
+			if group.has("squad"):
+				enemies.append_array(faction_squad_enemies(str(group["squad"]), level))
+			else:
+				var entry: Dictionary = generate_raid_enemy(null, 1, 1, str(group["template"]))[0]
+				entry["level"] = level
+				enemies.append(entry)
+	return enemies
+
+
+# A data-driven event fight (events.gd "start_fight", entered through
+# CombatPrep): `groups` as event_fight_enemies(). `win_card` / `lose_card` are
+# the card indexes the event resumes at; a flight takes the lose route.
+# `ally_ids` / `situational` follow an event raid fight's rules.
+static func start_event_fight(groups: Array, win_card: int, lose_card: int, ally_ids: Array = [], situational: Array = []) -> void:
+	var enemies := event_fight_enemies(groups)
+	var log_lines := ["%s steps out to meet you." % _guard_group_name(enemies)]
+	var allies := _gather_raid_allies(ally_ids, log_lines)
+	_add_hired_muscle(allies, log_lines)
+	_start_combat(CONTEXT_EVENT_FIGHT, null, enemies, log_lines, "", allies, null, {}, {},
+		{ "situational": situational_active(situational), "eventFight": { "winCard": win_card, "loseCard": lose_card } })
+
+
+# Faction-ambush intro event's fight (Ambush): a weighted pick from the
+# faction's data/enemies.json factionSquads, built from raidGuards templates,
+# at the level of the faction's Turf tier in `district_id` (the ambush's;
+# "" = the current district).
+static func start_faction_ambush(faction_id: String, district_id: String = "") -> void:
+	if district_id == "":
+		district_id = GameState.state["world"]["currentDistrict"]
+	var level := enemy_level_for_ambush(district_id, faction_id)
+	var enemies := faction_squad_enemies(faction_id, level)
 	# PROSE-REVIEW: ambush intro line.
 	var log_lines := ["%s squad closes in. This was planned." % GameData.FACTIONS[faction_id]["shortName"]]
 	_start_combat(CONTEXT_FACTION_AMBUSH, null, enemies, log_lines, "")
@@ -1660,7 +1700,10 @@ static func exit_combat() -> Dictionary:
 	var stockpile_faction_id: String = combat.get("stockpileFactionId", "")
 	var ambush_faction_id: String = combat.get("ambushFactionId", "")
 	var script_resume := -1
-	if combat.get("script") is Dictionary:
+	if combat.get("eventFight") is Dictionary:
+		var route: Dictionary = combat["eventFight"]
+		script_resume = int(route["winCard"]) if outcome == "win" else int(route["loseCard"])
+	elif combat.get("script") is Dictionary:
 		script_resume = int(combat["script"]["resumeCard"])
 	elif CombatRounds.is_demo(combat):
 		script_resume = int(combat["demo"]["resumeCard"])
@@ -1713,7 +1756,7 @@ static func exit_combat() -> Dictionary:
 		return _exit_archie_deal_mugging(outcome)
 	if context == CONTEXT_EVENT_MUGGING:
 		return _exit_event_mugging()
-	if context == CONTEXT_SCRIPTED:
+	if context == CONTEXT_SCRIPTED or context == CONTEXT_EVENT_FIGHT:
 		return _exit_scripted(script_resume)
 	if context == CONTEXT_FACTION_AMBUSH:
 		Ambush.resolve(ambush_faction_id, outcome == "win")

@@ -2010,6 +2010,8 @@ static func _apply_one(effect: Dictionary, context: Dictionary = {}) -> void:
 			Combat.start_scripted_fight(script)
 		"start_demo_fight":
 			Combat.start_demo_fight(effect["script"])
+		"start_fight":
+			_start_fight(effect)
 		"start_faction_ambush_combat":
 			CombatPrep.request(CombatPrep.KIND_FACTION_AMBUSH, { "factionId": _event_faction_id(effect), "district": _event_district() })
 		"npc_claim_best_unclaimed_site":
@@ -2379,6 +2381,22 @@ static func _event_district() -> String:
 	var event_state: Variant = GameState.state.get("event")
 	var district: String = "" if event_state == null else str(event_state.get("context", {}).get("district", ""))
 	return district if district != "" else str(GameState.state["world"]["currentDistrict"])
+
+
+# The `start_fight` op (R§3.7b Event fights): parks the fight in a forced
+# Preparation with its win / lose destinations resolved to card indexes now
+# (a card key or an index; a flight takes the lose card).
+static func _start_fight(effect: Dictionary) -> void:
+	var cards: Array = live_cards()
+	var args := {
+		"groups": effect["enemies"].duplicate(true),
+		"winCard": _goto_index(effect["win"], cards), "loseCard": _goto_index(effect["lose"], cards),
+		"allyIds": _event_ally_ids(effect), "situational": effect.get("situational", []),
+	}
+	if int(args["winCard"]) < 0 or int(args["loseCard"]) < 0:
+		push_error("Events: start_fight in '%s' names a win or lose card that does not exist" % GameState.state["event"]["eventId"])
+		return
+	CombatPrep.request(CombatPrep.KIND_EVENT_FIGHT, args)
 
 
 # A caught stockpile raid's fight: one enemy per stockpile guard, at the
