@@ -1586,7 +1586,15 @@
 		},
 		"wren_introduction": {
 			"choiceCards": {},
-			"observations": {}
+			"observations": {
+				"wren_intro_obs1": {
+					"physics": 2
+				},
+				"wren_intro_obs2": {
+					"emotion": 2,
+					"physics": 2
+				}
+			}
 		}
 	},
 	"flags": [
