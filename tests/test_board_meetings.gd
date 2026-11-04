@@ -228,7 +228,7 @@ func run() -> void:
 			# Golden runs predate the splice skeleton: a 0-goal run there holds an unfilled opener card, filtered here.
 			var expected: Array = (golden[key] as Array).filter(func(l): return not String(l).begins_with("{opener_speaker}|"))
 			var got: Array = now.get(key)
-			# The old Week-1 event had no minutes card; the shared skeleton opens with it.
+			# Golden Week-1 runs have no minutes card; the shared skeleton opens with it, so it is sliced off.
 			if "|w1|" in key:
 				got = got.slice(1)
 			assert_eq(got, expected, "golden run %s" % key)
