@@ -814,6 +814,11 @@ func run() -> void:
 		assert_true(found, "the two notebook regions must not overlap, same rule any room's regions follow (docs/hq-diorama-vision.md §3.2)")
 	)
 
+	run_case("every_recipe_has_effect_text", func():
+		for key in GameData.RECIPES:
+			assert_true(str(GameData.RECIPES[key].get("effectText", "")).strip_edges() != "", "%s has effectText" % key)
+	)
+
 	run_case("spot_check_values", func():
 		assert_eq(GameData.ORE_TYPES["fate"]["basePrice"], 113, "fate basePrice (per 10-unit lot)")
 		assert_eq(GameData.ORE_TYPES["emotion"]["symbol"], "❋", "emotion symbol")

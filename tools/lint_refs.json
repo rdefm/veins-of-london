@@ -1764,6 +1764,7 @@
 		"businessQuest.starterIndex",
 		"businessStats",
 		"businessStats.days",
+		"businessStats.sales",
 		"businessStats.today",
 		"businessStats.today.expenses",
 		"businessStats.today.expensesCalc",

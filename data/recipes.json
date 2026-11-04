@@ -10,7 +10,8 @@
       "effectPower": [0, 1, 2, 3, 4, 5],
       "xpReward": 20,
       "eventUsable": false,
-      "description": "Throw at your feet. Freezes enemy for N turns. Elegant, if you ignore what it actually is."
+      "description": "Throw at your feet. Freezes enemy for N turns. Elegant, if you ignore what it actually is.",
+      "effectText": "Freezes every enemy for 1–5 turns."
     },
     "enhancementPowder": {
       "name": "Enhancement Powder",
@@ -22,7 +23,8 @@
       "xpReward": 25,
       "eventUsable": false,
       "eventProfile": { "tags": ["physical"], "label": "Enhancement Powder", "placeholder": true, "effect": { "kind": "bonus", "add": 0.15, "tags": ["physical"] } },
-      "description": "Rub on skin before a fight. Life-type acceleration — you act faster than anyone can track."
+      "description": "Rub on skin before a fight. Life-type acceleration — you act faster than anyone can track.",
+      "effectText": "An extra action each round for 1 round (2 at top power)."
     },
     "rewind": {
       "name": "Rewind",
@@ -33,7 +35,8 @@
       "effectPower": [0, 1, 2, 3, 4, 5],
       "xpReward": 35,
       "eventUsable": true,
-      "description": "Shaped like an hourglass. Briefly unspools time — only you remember what happened. Difficult and expensive to produce."
+      "description": "Shaped like an hourglass. Briefly unspools time — only you remember what happened. Difficult and expensive to produce.",
+      "effectText": "Rewinds a fight 1–5 rounds (top tier: to its start), an event one card, or the last bench craft."
     },
     "healingSalve": {
       "name": "Healing Salve",
@@ -44,7 +47,8 @@
       "effectPower": [0, 2, 3, 4, 5, 6],
       "xpReward": 20,
       "eventUsable": false,
-      "description": "Rubbed on the worst of it. Speeds up what your body was doing anyway. No drama, mildly less itching."
+      "description": "Rubbed on the worst of it. Speeds up what your body was doing anyway. No drama, mildly less itching.",
+      "effectText": "Heals 2–6 HP a day for 2 days."
     },
     "blast": {
       "name": "Blast",
@@ -56,7 +60,8 @@
       "xpReward": 25,
       "eventProfile": { "tags": ["barrier"], "label": "Blast", "placeholder": true, "effect": { "kind": "unlock" }, "alert": { "add": 1, "cover": { "base": 0.4 } } },
       "eventUsable": false,
-      "description": "A concentrated shove of physics calc. Knocks them back, occasionally knocks the gun out of their hand. Mostly the former."
+      "description": "A concentrated shove of physics calc. Knocks them back, occasionally knocks the gun out of their hand. Mostly the former.",
+      "effectText": "4–12 damage to one enemy, ignoring guard."
     },
     "shield": {
       "name": "Shield",
@@ -67,7 +72,8 @@
       "effectPower": [0, 3, 4, 5, 6, 8],
       "xpReward": 30,
       "eventUsable": false,
-      "description": "Absorbs the next couple of hits, then quietly stops working. Recharges itself if you're lucky, which is not a policy."
+      "description": "Absorbs the next couple of hits, then quietly stops working. Recharges itself if you're lucky, which is not a policy.",
+      "effectText": "Absorbs 3–8 damage and keeps you Guarded while it lasts."
     },
     "blackHole": {
       "name": "Black Hole",
@@ -78,7 +84,8 @@
       "effectPower": [0, 6, 8, 10, 13, 16],
       "xpReward": 35,
       "eventUsable": false,
-      "description": "A localised gravity fault, contained mostly to the size of a dinner plate. Everything nearby gets pulled toward the middle — you keep your distance and let it do the work."
+      "description": "A localised gravity fault, contained mostly to the size of a dinner plate. Everything nearby gets pulled toward the middle — you keep your distance and let it do the work.",
+      "effectText": "6–16 damage to every enemy; each loses 1–3 actions."
     },
     "prophetsBreath": {
       "name": "Prophet's Breath",
@@ -114,7 +121,8 @@
       "effectPower": [0, 2, 2, 3, 4, 5],
       "xpReward": 30,
       "eventUsable": true,
-      "description": "Fear, pressed down until it keeps. Aimed at a crowd, it does not stay a crowd for long."
+      "description": "Fear, pressed down until it keeps. Aimed at a crowd, it does not stay a crowd for long.",
+      "effectText": "One enemy panics for 2–5 actions: each, it cowers or bolts (50%)."
     },
     "panger": {
       "name": "Panger",
@@ -125,7 +133,8 @@
       "effectPower": [0, 2, 2, 3, 4, 5],
       "xpReward": 30,
       "eventUsable": true,
-      "description": "Anger, ground fine. The target stops being careful and starts being loud."
+      "description": "Anger, ground fine. The target stops being careful and starts being loud.",
+      "effectText": "One enemy deals more and takes less for 2 turns, then the reverse for 2."
     },
     "pandemonium": {
       "name": "Pandemonium",
@@ -137,7 +146,8 @@
       "xpReward": 30,
       "eventProfile": { "tags": [], "label": "Pandemonium", "placeholder": true, "effect": { "kind": "unlock" } },
       "eventUsable": true,
-      "description": "Fury, brought to the boil. Nobody in range remembers whose side they were on."
+      "description": "Fury, brought to the boil. Nobody in range remembers whose side they were on.",
+      "effectText": "As Panger, and the enemy attacks another enemy instead."
     },
     "pansRapture": {
       "name": "Pan's Rapture",
@@ -149,7 +159,8 @@
       "xpReward": 30,
       "eventProfile": { "tags": [], "label": "Pan's Rapture", "placeholder": true, "effect": { "kind": "unlock" } },
       "eventUsable": true,
-      "description": "Joy, distilled to the last clear drop. Pleasant until you notice nobody is going home."
+      "description": "Joy, distilled to the last clear drop. Pleasant until you notice nobody is going home.",
+      "effectText": "One enemy skips its next 2–5 actions."
     },
     "healingBurst": {
       "name": "Healing Burst",
@@ -160,7 +171,8 @@
       "effectPower": [0, 6, 8, 10, 12, 15],
       "xpReward": 30,
       "eventUsable": false,
-      "description": "Faster than the salve, weaker than patience. Time and life calc, for when you don't have either."
+      "description": "Faster than the salve, weaker than patience. Time and life calc, for when you don't have either.",
+      "effectText": "Heals you or an ally 6–15 HP."
     },
     "failsafe": {
       "name": "Failsafe",
@@ -171,7 +183,8 @@
       "effectPower": [0, 1, 1, 2, 2, 2],
       "xpReward": 45,
       "eventUsable": true,
-      "description": "Reverses your death, administratively. Expensive because dying is expensive to undo, and everyone in the trade knows it."
+      "description": "Reverses your death, administratively. Expensive because dying is expensive to undo, and everyone in the trade knows it.",
+      "effectText": "On a lethal hit, rewinds the fight 1–2 rounds."
     },
     "rejuvenation": {
       "name": "Rejuvenation",
@@ -182,7 +195,8 @@
       "effectPower": [0, 0, 0, 0, 0, 0],
       "xpReward": 20,
       "eventUsable": false,
-      "description": "Does nothing you'd notice. Sells for more than anything else on this bench, which tells you who's buying it."
+      "description": "Does nothing you'd notice. Sells for more than anything else on this bench, which tells you who's buying it.",
+      "effectText": "No effect. Sale good only."
     },
     "wormhole": {
       "name": "Wormhole",
@@ -193,7 +207,8 @@
       "effectPower": [0, 1, 1, 1, 1, 1],
       "xpReward": 40,
       "eventUsable": true,
-      "description": "Folds the distance between two points until there isn't any. Costs what you'd expect for something that ignores geography."
+      "description": "Folds the distance between two points until there isn't any. Costs what you'd expect for something that ignores geography.",
+      "effectText": "Flees any fight at once, or travels to a district with no ambush."
     },
     "nearMiss": {
       "name": "Near Miss",
@@ -205,7 +220,8 @@
       "xpReward": 25,
       "eventUsable": false,
       "bagWhenHeld": true,
-      "description": "The bullet had somewhere else to be. You will not get an explanation, and neither will it."
+      "description": "The bullet had somewhere else to be. You will not get an explanation, and neither will it.",
+      "effectText": "The next 1–3 strikes at you miss."
     },
     "sodsLaw": {
       "name": "Sod's Law",
@@ -218,7 +234,8 @@
       "eventUsable": false,
       "bagWhenHeld": true,
       "eventProfile": { "tags": [], "label": "Their luck turns", "placeholder": true, "effect": { "kind": "bonus", "add": 0.15 } },
-      "description": "Whatever can go wrong for them now does, in order of inconvenience."
+      "description": "Whatever can go wrong for them now does, in order of inconvenience.",
+      "effectText": "One enemy's next 1–4 strikes roll their minimum damage."
     },
     "happyAccident": {
       "name": "Happy Accident",
@@ -243,7 +260,8 @@
       "xpReward": 20,
       "eventUsable": false,
       "bagWhenHeld": true,
-      "description": "Arranges for two people to be in the same queue at the same time. What happens next is not covered."
+      "description": "Arranges for two people to be in the same queue at the same time. What happens next is not covered.",
+      "effectText": "No effect. Sale good only."
     },
     "smellingSalts": {
       "name": "Smelling Salts",
@@ -255,7 +273,8 @@
       "xpReward": 25,
       "eventUsable": false,
       "bagWhenHeld": true,
-      "description": "Wakes anyone who is still technically in there. Ask them how they feel later."
+      "description": "Wakes anyone who is still technically in there. Ask them how they feel later.",
+      "effectText": "Revives a downed ally at 5–20 HP; out of combat, clears a contact's KO cooldown."
     },
     "rootFeed": {
       "name": "Root Feed",
@@ -280,7 +299,8 @@
       "xpReward": 15,
       "eventUsable": false,
       "bagWhenHeld": true,
-      "description": "Keeps cut flowers fresh for a month. Covent Garden buys it by the crate and nobody asks why."
+      "description": "Keeps cut flowers fresh for a month. Covent Garden buys it by the crate and nobody asks why.",
+      "effectText": "No effect. Sale good only."
     },
     "borrowedTime": {
       "name": "Borrowed Time",
@@ -292,7 +312,8 @@
       "xpReward": 45,
       "eventUsable": false,
       "bagWhenHeld": true,
-      "description": "Gives you back an afternoon. The afternoon will want it back."
+      "description": "Gives you back an afternoon. The afternoon will want it back.",
+      "effectText": "Banks 1–2 extra time blocks; low tiers owe blocks back."
     },
     "patina": {
       "name": "Patina",
@@ -304,7 +325,8 @@
       "xpReward": 20,
       "eventUsable": false,
       "bagWhenHeld": true,
-      "description": "Ages anything about a century overnight. The Bermondsey antiques trade's best-kept open secret."
+      "description": "Ages anything about a century overnight. The Bermondsey antiques trade's best-kept open secret.",
+      "effectText": "No effect. Sale good only."
     },
     "ricochet": {
       "name": "Ricochet",
@@ -316,7 +338,8 @@
       "xpReward": 30,
       "eventUsable": false,
       "bagWhenHeld": true,
-      "description": "The next thing that hits you keeps going, back the way it came."
+      "description": "The next thing that hits you keeps going, back the way it came.",
+      "effectText": "The next strike that lands on you returns 3–12 damage."
     },
     "deadweight": {
       "name": "Deadweight",
@@ -342,7 +365,8 @@
       "eventProfile": { "tags": [], "label": "Signal Failure", "placeholder": true, "effect": { "kind": "unlock" } },
       "eventUsable": false,
       "bagWhenHeld": true,
-      "description": "The target's reinforcements are held at a red signal. They are not told why."
+      "description": "The target's reinforcements are held at a red signal. They are not told why.",
+      "effectText": "Holds back all reinforcements 1–3 rounds."
     },
     "trueLevel": {
       "name": "True Level",
@@ -354,7 +378,8 @@
       "xpReward": 20,
       "eventUsable": false,
       "bagWhenHeld": true,
-      "description": "Makes a crooked house straight on a survey. The house stays crooked. Surveyors pay well."
+      "description": "Makes a crooked house straight on a survey. The house stays crooked. Surveyors pay well.",
+      "effectText": "No effect. Sale good only."
     },
     "dejaVu": {
       "name": "Déjà Vu",
@@ -366,7 +391,8 @@
       "xpReward": 40,
       "eventUsable": false,
       "bagWhenHeld": true,
-      "description": "You have done this before. It went differently. You remember how."
+      "description": "You have done this before. It went differently. You remember how.",
+      "effectText": "On an event check, shows the exact roll before you commit."
     },
     "skeletonKey": {
       "name": "Skeleton Key",
@@ -379,7 +405,8 @@
       "eventProfile": { "tags": ["barrier"], "label": "Skeleton Key", "placeholder": true, "effect": { "kind": "unlock" } },
       "eventUsable": false,
       "bagWhenHeld": true,
-      "description": "Not a key. A strong opinion about which way a lock should be."
+      "description": "Not a key. A strong opinion about which way a lock should be.",
+      "effectText": "Opens a barrier option in an event: no roll, no alert."
     },
     "goodYear": {
       "name": "Good Year",
@@ -419,7 +446,8 @@
       "eventUsable": true,
       "bagWhenHeld": true,
       "eventProfile": { "tags": [], "label": "Stutter", "placeholder": true, "effect": { "kind": "unlock" } },
-      "description": "A very short hop. You're behind them before they've finished looking at where you were."
+      "description": "A very short hop. You're behind them before they've finished looking at where you were.",
+      "effectText": "Strikes an enemy from behind, ignoring guard, +15–40% crit; nothing single-target hits you that round."
     },
     "invisibility": {
       "name": "Invisibility",
@@ -432,7 +460,8 @@
       "eventUsable": true,
       "bagWhenHeld": true,
       "eventProfile": { "tags": ["stealth"], "label": "Invisibility", "placeholder": true, "effect": { "kind": "autoSuccess" } },
-      "description": "Does what it says on the tin. The tin is also, somehow, missing."
+      "description": "Does what it says on the tin. The tin is also, somehow, missing.",
+      "effectText": "Single-target attacks miss you for 1–3 rounds; passes a stealth check in an event."
     },
     "stiffUpperLip": {
       "name": "Stiff Upper Lip",
@@ -444,7 +473,8 @@
       "xpReward": 30,
       "eventUsable": false,
       "bagWhenHeld": true,
-      "description": "Fear is noted and filed for later. Much later."
+      "description": "Fear is noted and filed for later. Much later.",
+      "effectText": "For 2–6 rounds you and allies resist Pan effects and take 10–30% less damage."
     },
     "heavyMetal": {
       "name": "Heavy Metal",
@@ -456,7 +486,8 @@
       "xpReward": 40,
       "eventUsable": false,
       "bagWhenHeld": true,
-      "description": "Every enemy in range hears it. Most of them wish they hadn't."
+      "description": "Every enemy in range hears it. Most of them wish they hadn't.",
+      "effectText": "3–10 damage to every enemy; the weakest may bolt."
     },
     "coldFeet": {
       "name": "Cold Feet",
@@ -468,7 +499,8 @@
       "xpReward": 30,
       "eventUsable": false,
       "bagWhenHeld": true,
-      "description": "Regret, applied in advance."
+      "description": "Regret, applied in advance.",
+      "effectText": "Holding one opens a way out of certain events."
     },
     "nostalgia": {
       "name": "Nostalgia",
@@ -480,7 +512,8 @@
       "xpReward": 25,
       "eventUsable": false,
       "bagWhenHeld": true,
-      "description": "A bottled afternoon from 1987. People pay to cry at it."
+      "description": "A bottled afternoon from 1987. People pay to cry at it.",
+      "effectText": "No effect. Sale good only."
     },
     "navvysDraught": {
       "name": "Navvy's Draught",
@@ -506,7 +539,8 @@
       "eventUsable": false,
       "eventProfile": { "tags": ["social"], "label": "Clean Slate", "placeholder": true, "effect": { "kind": "failRecovery" } },
       "bagWhenHeld": true,
-      "description": "Everyone involved remembers it differently, and slightly in your favour."
+      "description": "Everyone involved remembers it differently, and slightly in your favour.",
+      "effectText": "Turns a failed social check into a success."
     },
     "keystone": {
       "name": "Keystone",
@@ -518,7 +552,8 @@
       "xpReward": 70,
       "eventUsable": false,
       "bagWhenHeld": true,
-      "description": "Holds the arch up by being exactly where it is. Proof you can work every ore, which is a short list of people."
+      "description": "Holds the arch up by being exactly where it is. Proof you can work every ore, which is a short list of people.",
+      "effectText": "No effect. Sale good only."
     }
   },
   "craftingXpLevels": [0, 0, 80, 220, 500, 1000],
