@@ -26,7 +26,8 @@ static func close() -> void:
 
 const CONSUMABLE_KEYS := ["timePearl", "enhancementPowder", "rewind", "healingSalve", "blast", "shield", "blackHole", "healingBurst", "prophetsBreath", "beALady", "wormhole"]
 const OTHER_CATEGORY := ""
-const TARGET_ITEMS := ["smellingSalts", "cleanSlate"]
+const TARGET_ITEMS := ["smellingSalts", "cleanSlate", "rootFeed", "goodYear", "deadweight"]
+const HQ_TARGET := "hq"
 const SIMPLE_USE_ITEMS := ["healingSalve", "healingBurst"]
 
 
@@ -69,6 +70,26 @@ static func categories_for(recipe_key: String) -> Array:
 	return ores if not ores.is_empty() else [OTHER_CATEGORY]
 
 
+# Valid targets for a target item: [{ id, label }]. Empty = nothing to use it on.
+static func targets(recipe_key: String) -> Array:
+	var result: Array = []
+	match recipe_key:
+		"smellingSalts":
+			for contact_id in Contacts.ko_cooldown_contacts():
+				result.append({ "id": contact_id, "label": Contacts.display_name(contact_id) })
+		"cleanSlate":
+			for faction_id in Grudges.clearable_factions():
+				result.append({ "id": faction_id, "label": "%s grudge" % GameData.FACTIONS[faction_id]["shortName"] })
+		_:
+			if not Cultivating.boost_items().has(recipe_key):
+				return result
+			for vein in GameState.state["player"]["veins"]:
+				result.append({ "id": vein["id"], "label": "%s vein — %s" % [GameData.ORE_TYPES[vein["oreType"]]["name"], vein["location"]] })
+			if recipe_key == Cultivating.DEADWEIGHT:
+				result.append({ "id": HQ_TARGET, "label": "HQ" })
+	return result
+
+
 # Rows for every held listed item. management gates `usable`: only no-target
 # single-target stock, and never mid-combat or an item-hook card.
 static func rows(management: bool) -> Array:
@@ -81,6 +102,7 @@ static func rows(management: bool) -> Array:
 			if total <= 0:
 				continue
 			var action: String = "" if multi else use_action(recipe_key)
+			var targeted: bool = management and not multi and not targets(recipe_key).is_empty()
 			result.append({
 				"key": recipe_key,
 				"inventoryKey": inv_key,
@@ -90,8 +112,8 @@ static func rows(management: bool) -> Array:
 				"stash": Stash.stashed_item_qty(inv_key),
 				"tiers": held_tiers(inv_key),
 				"useAction": action,
-				"usable": management and action != "",
-				"targeted": management and not multi and TARGET_ITEMS.has(recipe_key),
+				"usable": (management and action != "") or targeted,
+				"targeted": targeted,
 				"categories": categories_for(recipe_key),
 			})
 	return result
@@ -141,3 +163,25 @@ static func use(recipe_key: String, tier: int = 0) -> Dictionary:
 	if recipe_key == TimeSystem.BORROWED_TIME:
 		return TimeSystem.use_borrowed_time(tier)
 	return ActiveEffects.use(recipe_key, tier)
+
+
+# Uses one unit of a target item on `target_id` (tier 0 = lowest held for boosts).
+# Closes the drawer.
+static func use_on(recipe_key: String, target_id: String, tier: int = 0) -> Dictionary:
+	if not is_management_mode() or not TARGET_ITEMS.has(recipe_key):
+		return { "ok": false, "reason": "Can't use that here." }
+	var valid := false
+	for target in targets(recipe_key):
+		valid = valid or target["id"] == target_id
+	if not valid:
+		return { "ok": false, "reason": "Not a valid target." }
+	close()
+	match recipe_key:
+		"smellingSalts":
+			return Contacts.use_smelling_salts(target_id)
+		"cleanSlate":
+			return Grudges.use_clean_slate(target_id)
+	var use_tier: int = tier if tier > 0 else int(held_tiers(recipe_key).front())
+	if target_id == HQ_TARGET:
+		return Home.apply_deadweight(use_tier)
+	return Cultivating.apply_item(target_id, recipe_key, use_tier)

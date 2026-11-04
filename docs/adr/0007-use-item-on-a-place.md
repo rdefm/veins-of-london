@@ -24,4 +24,7 @@ Decision record for `item-event-effects` ticket 12. **Approved 2026-11-02.**
 - Ticket 13 (Root Feed, Good Year) builds the shared apply function and the
   Vein list / mini card entry points.
 - Ticket 14 (Deadweight) reuses it and adds the HQ ore readout modal option.
-- Bag drawer stays a viewer; it gains no targeting flow.
+- Superseded in part (authoring pass ticket 08): the Bag drawer also offers a
+  target picker (veins; HQ for Deadweight; contacts for Smelling Salts;
+  grudges for Clean Slate) calling the same apply functions. Place-side
+  entry points remain.

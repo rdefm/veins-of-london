@@ -18,6 +18,7 @@ var _info_overlay: Control
 var _ore_filter := ""
 var _collapsed: Dictionary = {}
 var _tier_picker := ""
+var _picked_target := ""
 var _info_key := ""
 
 
@@ -59,6 +60,7 @@ func _refresh() -> void:
 	visible = open
 	if not open:
 		_tier_picker = ""
+		_picked_target = ""
 		_info_key = ""
 		return
 
@@ -91,8 +93,6 @@ func _build() -> void:
 		_add_category(category)
 
 	_add_active_effect_lines(player)
-	if management:
-		_add_target_use_buttons()
 	_content.add_child(UI.heading("Equipped", 14))
 	_content.add_child(_build_dial_summary_label(player))
 
@@ -136,6 +136,7 @@ func _build_filter_chips(ores: Array) -> Control:
 func _set_ore_filter(ore_type: String) -> void:
 	_ore_filter = ore_type
 	_tier_picker = ""
+	_picked_target = ""
 	_refresh()
 
 
@@ -147,7 +148,7 @@ func _add_category(category: Dictionary) -> void:
 	for row in rows:
 		section["content"].add_child(_build_row(row))
 		if _tier_picker == row["inventoryKey"] and row["usable"]:
-			section["content"].add_child(_build_tier_picker(row))
+			section["content"].add_child(_build_target_picker(row) if row["targeted"] and _picked_target == "" else _build_tier_picker(row))
 
 
 func _build_row(row: Dictionary) -> Control:
@@ -175,11 +176,30 @@ func _in_stash_text(stashed: int) -> String:
 
 
 func _on_use_pressed(row: Dictionary) -> void:
-	if row["tiers"].size() > 1:
+	_picked_target = ""
+	if row["targeted"] or row["tiers"].size() > 1:
 		_tier_picker = "" if _tier_picker == row["inventoryKey"] else row["inventoryKey"]
 		_refresh()
 		return
 	Bag.use(row["key"])
+
+
+# One button per valid target for a target item.
+func _build_target_picker(row: Dictionary) -> Control:
+	var box := UI.vbox(4)
+	for target in Bag.targets(row["key"]):
+		var target_id: String = target["id"]
+		box.add_child(MapCardStyle.text_button(target["label"], _on_target_picked.bind(row, target_id)))
+	return box
+
+
+# A boost on a target asks for a tier when several are held; otherwise it applies.
+func _on_target_picked(row: Dictionary, target_id: String) -> void:
+	if row["tiers"].size() > 1 and Cultivating.boost_items().has(row["key"]):
+		_picked_target = target_id
+		_refresh()
+		return
+	Bag.use_on(row["key"], target_id)
 
 
 # PROSE-REVIEW: tier picker button text.
@@ -188,7 +208,8 @@ func _build_tier_picker(row: Dictionary) -> Control:
 	flow.add_theme_constant_override("h_separation", 6)
 	for tier in row["tiers"]:
 		var qty: int = Stash.player_item_tier_qty(row["inventoryKey"], int(tier))
-		flow.add_child(MapCardStyle.text_button("Tier %d (%d)" % [tier, qty], Bag.use.bind(row["key"], int(tier))))
+		var callback: Callable = Bag.use_on.bind(row["key"], _picked_target, int(tier)) if row["targeted"] else Bag.use.bind(row["key"], int(tier))
+		flow.add_child(MapCardStyle.text_button("Tier %d (%d)" % [tier, qty], callback))
 	return flow
 
 
@@ -252,22 +273,6 @@ func _pool_split(shared: int, stashed: int) -> String:
 	return " (Shared %d / Stash %d)" % [shared, stashed] if stashed > 0 else ""
 
 
-# Target-picking items keep their per-target Use rows.
-func _add_target_use_buttons() -> void:
-	if Stash.player_item_qty("smellingSalts") > 0:
-		for contact_id in Contacts.ko_cooldown_contacts():
-			var contact_name: String = Contacts.display_name(contact_id)
-			_content.add_child(_symbol_use_button("smellingSalts", "Smelling Salts (%d) — wake %s" % [Stash.player_item_qty("smellingSalts"), contact_name], func(): _on_use_smelling_salts(contact_id)))
-	if Stash.player_item_qty("cleanSlate") > 0:
-		for faction_id in Grudges.clearable_factions():
-			var faction_name: String = GameData.FACTIONS[faction_id]["shortName"]
-			_content.add_child(_symbol_use_button("cleanSlate", "Clean Slate (%d) — clear %s grudge" % [Stash.player_item_qty("cleanSlate"), faction_name], func(): _on_use_clean_slate(faction_id)))
-
-
-func _symbol_use_button(recipe_key: String, rest_text: String, callback: Callable, disabled: bool = false) -> Button:
-	return MapCardStyle.symbol_option_row([ItemIcons.part(recipe_key), rest_text], callback, disabled)
-
-
 func _build_dial_summary_label(player: Dictionary) -> Control:
 	var dial: Variant = player["dial"]
 	if dial == null:
@@ -277,13 +282,3 @@ func _build_dial_summary_label(player: Dictionary) -> Control:
 		return UI.label("Dial: Lv%d — no Movement seated (inert)" % dial["level"])
 	var m: Dictionary = GameData.DIAL_MOVEMENTS[movement["archetype"]]
 	return UI.symbol_row(["Dial: Lv%d — " % dial["level"], { "symbol": m["symbol"], "fallback": SymbolGlyph.generic_fallback() }, " %s, charge %d/%d" % [m["name"], int(dial["currentCharge"]), dial["maxCharge"]]])
-
-
-func _on_use_smelling_salts(contact_id: String) -> void:
-	Bag.close()
-	Contacts.use_smelling_salts(contact_id)
-
-
-func _on_use_clean_slate(faction_id: String) -> void:
-	Bag.close()
-	Grudges.use_clean_slate(faction_id)

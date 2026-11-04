@@ -5,6 +5,7 @@ extends "res://tests/test_base.gd"
 
 func run() -> void:
 	run_projection()
+	run_targets()
 	run_case("open_sets_bagDrawerOpen_and_emits", func():
 		GameState.reset()
 		var received := [false]
@@ -103,4 +104,37 @@ func run_projection() -> void:
 		assert_true(result["ok"], "used")
 		assert_eq(Stash.player_item_tier_qty("healingSalve", 3), 0, "tier 3 spent")
 		assert_eq(Stash.player_item_tier_qty("healingSalve", 1), 1, "tier 1 kept")
+	)
+
+
+func run_targets() -> void:
+	run_case("targeted_rows_need_a_valid_target_and_use_stashed_stock", func():
+		GameState.reset()
+		GameState.state["player"]["veins"].clear()
+		_give("rootFeed", 2, 1)
+		Stash.move_item_to_stash("rootFeed", 1)
+		var row: Dictionary = _find_row(Bag.projection("", true), "rootFeed")
+		assert_true(not row["usable"] and not row["targeted"], "no veins -> no Use")
+		GameState.state["player"]["veins"].append({ "id": "vt", "oreType": "life", "location": "Elm St, X" })
+		row = _find_row(Bag.projection("", true), "rootFeed")
+		assert_true(row["usable"] and row["targeted"], "vein -> Use")
+		var result: Dictionary = Bag.use_on("rootFeed", "vt")
+		assert_true(result["ok"], "applied from stash-only stock")
+		assert_true(GameState.state["player"]["veins"][0]["boosts"].has("rootFeed"), "boost recorded")
+	)
+
+	run_case("deadweight_offers_hq_and_applies_to_it", func():
+		GameState.reset()
+		_give("deadweight", 3, 1)
+		var ids: Array = Bag.targets("deadweight").map(func(t): return t["id"])
+		assert_eq(ids, ["hq"], "HQ only")
+		assert_true(Bag.use_on("deadweight", "hq")["ok"], "applied")
+		assert_true(GameState.state["home"]["boosts"].has("deadweight"), "home boost")
+		assert_true(not Bag.use_on("deadweight", "nope")["ok"], "invalid target refused")
+	)
+
+	run_case("clean_slate_targets_grudges", func():
+		GameState.reset()
+		_give("cleanSlate", 1, 1)
+		assert_eq(Bag.targets("cleanSlate").size(), GameState.state["grudges"].size(), "one per grudge")
 	)
