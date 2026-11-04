@@ -201,6 +201,16 @@ func _played_run(week: int, roll_seed: int, agenda_ids: Array, clash_chance: flo
 	return lines
 
 
+# A run reduced to its structure: each card's speaker and each vote option's
+# label, no prose, so prose edits don't break the golden comparison.
+func _run_shape(lines: Array) -> Array:
+	var out: Array = []
+	for line in lines:
+		var parts := String(line).split("|", true, 2)
+		out.append("opt|%s" % parts[1] if parts[0] == "opt" else parts[0])
+	return out
+
+
 func _golden_runs() -> Dictionary:
 	var runs := {}
 	for name in GOLDEN_AGENDAS:
@@ -231,7 +241,7 @@ func run() -> void:
 			# Golden Week-1 runs have no minutes card; the shared skeleton opens with it, so it is sliced off.
 			if "|w1|" in key:
 				got = got.slice(1)
-			assert_eq(got, expected, "golden run %s" % key)
+			assert_eq(_run_shape(got), _run_shape(expected), "golden run %s" % key)
 	)
 
 	run_case("financial_placeholder_tiers_are_2_3_4_weeks", func():

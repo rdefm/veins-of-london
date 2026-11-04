@@ -834,10 +834,16 @@ static func aob_line(week: int) -> String:
 			"ore": GameData.ORE_TYPES[card["ore"]]["name"],
 		})]
 	var lines: Array = aob["lines"]
-	var index := _seeded_index(lines.size(), week, "aob")
-	if week > 1 and index == _seeded_index(lines.size(), week - 1, "aob"):
-		index = (index + 1) % lines.size()
-	return "%s %s" % [lead, lines[index]]
+	return "%s %s" % [lead, lines[_aob_index(lines.size(), week)]]
+
+
+# The pool index shown in `week`: the seeded pick, bumped one when it matches
+# the index shown the week before (that week's own bump included).
+static func _aob_index(size: int, week: int) -> int:
+	var index := _seeded_index(size, week, "aob")
+	if week > 1 and index == _aob_index(size, week - 1):
+		index = (index + 1) % size
+	return index
 
 
 # A card's display tokens: pitcher, label, case (the picked case prose, tokens

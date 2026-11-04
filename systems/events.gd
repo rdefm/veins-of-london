@@ -988,10 +988,23 @@ static func _fact_met(leaf: Dictionary, facts: Dictionary) -> bool:
 
 # ── security profile (R§3.12 "Security profile") ──
 
-# The live event's security profile (context.securityProfile); {} with none.
+# The live event's security profile: context.securityProfile, else one built
+# from the context site's vein (faction or player); {} with no site or vein.
+# `guards` is the vein's count less the event's guardsDown (signed, floor 0).
 static func security_profile() -> Dictionary:
 	var event_state: Variant = GameState.state.get("event")
-	return event_state.get("context", {}).get("securityProfile", {}) if event_state != null else {}
+	if event_state == null:
+		return {}
+	var context: Dictionary = event_state.get("context", {})
+	var profile: Dictionary = context.get("securityProfile", {})
+	if profile.is_empty():
+		var vein: Variant = Raiding.vein_at_site(String(context.get("site_id", "")))
+		if vein == null:
+			return {}
+		profile = Raiding.security_profile(vein)
+	profile = profile.duplicate()
+	profile["guards"] = maxi(int(profile.get("guards", 0)) - int(context.get("guardsDown", 0)), 0)
+	return profile
 
 
 # {feature, atLeast?, atMost?, is?}: `is` matches a string feature exactly;
@@ -2010,6 +2023,8 @@ static func _apply_one(effect: Dictionary, context: Dictionary = {}) -> void:
 			_start_raid_combat(effect)
 		"reduce_raid_guards":
 			_reduce_raid_guards(effect)
+		"adjust_guards":
+			_adjust_guards(effect)
 		"alert":
 			_apply_alert(effect)
 		"ward_trigger":
@@ -2435,14 +2450,25 @@ static func _reduce_raid_guards(effect: Dictionary) -> void:
 	add_raid_guards_down(int(effect.get("count", 1)))
 
 
+# The `adjust_guards` op: signed `count` (positive adds guards, negative removes)
+# on the live event's guard count only; the vein is never edited.
+static func _adjust_guards(effect: Dictionary) -> void:
+	_shift_guards_down(-int(effect.get("count", 0)))
+
+
 # Adds `count` to the live event's guardsDown (R§3.7b Guard carry-over):
 # the reduce_raid_guards op, and Combat.exit_combat() for a won raid fight.
 static func add_raid_guards_down(count: int) -> void:
+	if count > 0:
+		_shift_guards_down(count)
+
+
+static func _shift_guards_down(delta: int) -> void:
 	var event_state: Variant = GameState.state.get("event")
-	if event_state == null or count <= 0:
+	if event_state == null or delta == 0:
 		return
 	var context: Dictionary = event_state.get("context", {})
-	context["guardsDown"] = int(context.get("guardsDown", 0)) + count
+	context["guardsDown"] = int(context.get("guardsDown", 0)) + delta
 	event_state["context"] = context
 
 

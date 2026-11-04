@@ -229,6 +229,19 @@ static func security_profile(vein: Dictionary) -> Dictionary:
 	return profile
 
 
+# The vein on a site: its faction vein, else a player vein; null with none.
+static func vein_at_site(site_id: String) -> Variant:
+	if site_id == "":
+		return null
+	var site: Variant = Sites.find_site(site_id)
+	if site != null and site.get("factionVein") != null:
+		return site["factionVein"]
+	for vein in GameState.state["player"]["veins"]:
+		if String(vein.get("siteId", "")) == site_id:
+			return vein
+	return null
+
+
 # A site's seeded raid details (constants.json raidSecurity.siteDetails): each
 # detail true when a stable hash of rollSeed, site id and detail name falls under
 # its chance, plus the cameraZone the site's camera covers. Same site, same

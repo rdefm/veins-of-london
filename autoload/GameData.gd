@@ -2445,6 +2445,8 @@ const VALID_EFFECT_OPS: Array[String] = [
 	# forces one free successful cultivate.
 	"grant_vein_with_site", "tutorial_cultivate",
 	"start_raid_combat", "reduce_raid_guards", "claim_raid_vein", "loot_raid_vein",
+	# adjust_guards: signed event-scoped guard change (Events._adjust_guards()).
+	"adjust_guards",
 	# alert shifts the live event's alert level (Events._apply_alert(), R§3.9a "Alert").
 	"alert",
 	# ward_trigger sets off the live raid's ward (Events.trigger_ward(), R§3.12 "Wards").

@@ -491,6 +491,34 @@ func run() -> void:
 		assert_true(not GameState.state["combat"]["active"])
 	)
 
+	run_case("adjust_guards_is_signed_event_scoped_and_seen_by_security_conditions", func():
+		GameState.reset()
+		var vein := _faction_vein_of_growth(10, "time", "guarded", "firm")
+		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", vein)]
+		var real: int = Cultivating.vein_guard_count(vein)
+		Events.start_event(Raiding.RAID_EVENT_ID, { "site_id": "s1" })
+		assert_eq(int(Events.security_profile()["guards"]), real, "built from the vein")
+		Events._adjust_guards({ "count": 2 })
+		assert_eq(int(Events.security_profile()["guards"]), real + 2)
+		Events._adjust_guards({ "count": -99 })
+		assert_eq(int(Events.security_profile()["guards"]), 0, "floored at 0")
+		assert_true(not Events._security_met({ "feature": "guards", "atLeast": 1 }))
+		assert_eq(Cultivating.vein_guard_count(vein), real, "vein untouched")
+	)
+
+	run_case("security_profile_covers_player_veins_and_bare_sites", func():
+		GameState.reset()
+		var pv := _faction_vein_of_growth(10, "time", "guarded", "firm")
+		pv.erase("factionId")
+		pv["siteId"] = "p1"
+		GameState.state["player"]["veins"] = [pv]
+		GameState.state["world"]["sites"] = []
+		Events.start_event(Raiding.RAID_EVENT_ID, { "site_id": "p1" })
+		assert_eq(String(Events.security_profile()["tier"]), "guarded")
+		Events.start_event(Raiding.RAID_EVENT_ID, { "site_id": "nowhere" })
+		assert_true(Events.security_profile().is_empty(), "no vein reads as no security")
+	)
+
 	run_case("a_preset_only_fight_equals_its_inline_equivalent", func():
 		var preset: Dictionary = GameData.EVENTS[Raiding.RAID_EVENT_ID]["fightPresets"]["veinGuards"]
 		var fights: Array = []
