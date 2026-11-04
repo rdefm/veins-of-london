@@ -1043,9 +1043,12 @@ func _restore_int_types(state: Dictionary) -> void:
 	_int_dict_values(business_stats.get("today", {}))
 	for record in business_stats.get("days", []):
 		_int_dict_values(record)
+	for sale in business_stats.get("sales", []):
+		_int_dict_values(sale)
 	for record in state.get("guardUpkeep", {}).get("history", []):
 		_int_key(record, "day")
 		_int_dict_values(record.get("places", {}))
+	_int_key(state.get("guardUpkeep", {}), "lastWalkDay")
 	var shortfall = state.get("guardUpkeep", {}).get("pendingShortfall")
 	if shortfall != null:
 		for key in ["day", "deadline", "reserve"]:

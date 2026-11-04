@@ -745,7 +745,7 @@ func run() -> void:
 		GameState.reset()
 		var legacy: Dictionary = GameState.deep_copy(GameState.state)
 		legacy.erase("guardUpkeep")
-		assert_eq(SaveManager.backfill_defaults(legacy)["guardUpkeep"], { "history": [], "pendingShortfall": null }, "old saves start with empty history")
+		assert_eq(SaveManager.backfill_defaults(legacy)["guardUpkeep"], { "history": [], "pendingShortfall": null, "lastWalkDay": -1 }, "old saves start with empty history")
 
 		GameState.state["world"]["day"] = 3
 		GuardUpkeep.record_payment("home", 71)
