@@ -83,7 +83,7 @@ const GROUP_ORDER := { "active": 0, "placeholder": 1, "board": 2, "done": 3 }
 # id to the clock value at its last change / last view; "sig" is the page's
 # last-seen content signature (see refresh_marks()).
 static func new_state() -> Dictionary:
-	return { "clock": 0, "changed": {}, "seen": {}, "sig": {} }
+	return { "changed": {}, "clock": 0, "seen": {}, "sig": {} }
 
 
 # One page per questline plus Act 2 and Board, ordered started first, then

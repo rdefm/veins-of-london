@@ -1357,6 +1357,12 @@ func _restore_int_types(state: Dictionary) -> void:
 		for entry in barometer.get("pushes", []):
 			_int_key(entry, "strength")
 
+	if state.get("todo") is Dictionary:
+		var todo: Dictionary = state["todo"]
+		_int_key(todo, "clock")
+		_int_dict_values(todo.get("changed", {}))
+		_int_dict_values(todo.get("seen", {}))
+
 	if state.has("combat"):
 		_restore_combat_int_types(state["combat"])
 

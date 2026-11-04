@@ -1,10 +1,11 @@
 {
-  "_comment": "ToDo app page presentation (systems/todo.gd). questlines: data order = display order within a status group; doneFlag marks the whole questline done. emptyText = placeholder page until its first objective activates. accent is a hex colour. PROSE-REVIEW: subtitles are new copy.",
+  "_comment": "ToDo app page presentation (systems/todo.gd). questlines: data order = display order within a status group; doneFlag marks the whole questline done. emptyText = placeholder page until its first objective activates. accent is a hex colour. PROSE-REVIEW: subtitles and copy block are new copy.",
   "questlines": {
     "tutorial": { "label": "Tutorial", "subtitle": "Learning the trade", "accent": "#c9a227", "doneFlag": "prologueDone" },
     "collective": { "label": "Collective", "subtitle": "The people who count calc", "accent": "#7a8fa6", "doneFlag": "colA1Complete" },
     "business_empire": { "label": "Business Empire", "subtitle": "Building something that lasts", "accent": "#5f9e78", "doneFlag": "bizA1Complete", "emptyText": "Nothing on the books yet." }
   },
+  "copy": { "locked": "Locked", "doneStamp": "DONE", "doneHeader": "Done", "ledgerHeader": "Ledger" },
   "act2": { "subtitle": "What the Board expects", "accent": "#9b6bb0" },
   "board": { "subtitle": "This week's goal", "accent": "#b5543c" }
 }
