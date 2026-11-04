@@ -8,10 +8,12 @@
   "cards": [
     { "key": "c1", "type": "narration", "label": "Whitechapel — under a railway arch", "speaker": null, "text": "A train goes over and the whole arch hums. The sign above the roller door says REVERSE, with a clean pale patch in front of it where another word used to be." },
     { "key": "c2", "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Gym. Mate of mine runs it.\" He ducks under the shutter. \"Last night you stood there looking like a pain to fight. Time to be one. Don't ask about the sign.\"" },
-    { "key": "c3", "type": "narration", "label": null, "speaker": null, "text": "Arnie is taping his knuckles: wide as the door, soft round the middle, forearms that don't match. \"Dad bod,\" he says, before you've said anything. \"Don't let it fool you.\"" },
-    { "key": "c4", "type": "speaker", "label": null, "speaker": "Arnie", "text": "\"Flip Reverse, it's called. After the Blazing Squad song. Flip fell off in a storm.\" He's grinning. \"I once had a punch-up with two of the band outside a chippy. Best night of my life. Lost, mind.\"" },
+    { "key": "c3", "type": "narration", "label": null, "speaker": null, "text": "Archie introduces you to Arnie, who is taping his knuckles. Wide as the door, soft round the middle, forearms that don't match. ", "observe": "prologue_gym1" },
+    { "key": "c12", "type": "speaker", "text": "\"This is Arnie. He's an old boxing champ, though he may not look it. Well, except for the old part.\"", "speaker": "Archie" },
+    { "key": "c13", "type": "speaker", "text": "\"That's why you'd never be a champ, Archie. Looks can be deceiving. A Dad bod like this makes 'em underestimate you,\" Arnie says. \"Don't let it fool you.\"", "speaker": "Arnie" },
+    { "key": "c4", "type": "speaker", "label": null, "speaker": "Arnie", "text": "Arnie gestures to the gym. \"Like the place? Flip Reverse, it's called. After the Blazing Squad song. Flip fell off in a storm.\" He's grinning. \"I once had a punch-up with three of the band outside a chippy. Best night of my life. Lost, mind.\"" },
     {
-      "key": "c5", "type": "choice", "label": null, "speaker": null, "text": "Arnie waves Archie onto the mats. Archie takes his jacket off and folds it. \"Watch this first,\" Arnie says. \"I'll talk you through it.\"",
+      "key": "c5", "type": "choice", "label": null, "speaker": null, "text": "Arnie waves Archie onto the mats. Archie heads over, rotating his shoulders to warm up. \"Watch this first,\" Arnie says. \"I'll talk you through it.\"",
       "choices": [
         {
           "id": "watch",
@@ -23,8 +25,8 @@
         }
       ]
     },
-    { "key": "c6", "type": "speaker", "label": null, "speaker": "Arnie", "text": "He throws Archie a towel. \"Same Feint you've got. Just more hours on it. Your go.\"" },
-    { "key": "c7", "type": "speaker", "label": null, "speaker": "Arnie", "text": "\"House rules. There's a Rewind on the shelf, free, as many as you like. Go wrong, break it, go again. Walk out and I wind you back to the morning anyway. Leg it whenever you want. Nobody's marking you.\"" },
+    { "key": "c6", "type": "speaker", "label": null, "speaker": "Arnie", "text": "He throws Archie a towel. \"Same Feint you've got. Just put in a bit more practice. Your go.\"" },
+    { "key": "c7", "type": "speaker", "label": null, "speaker": "Arnie", "text": "\"House rules. There are Rewinds on the shelf, free, as many as you like. Whenever you want, break it, and go again. Means you can try out different moves, or any of the items on the shelf. Get a feel for what kind of fighting style and loadout suits you.\"" },
     {
       "key": "c8", "type": "choice", "label": null, "speaker": null, "text": "Arnie tosses you a pair of gloves. They're your size. Nobody asked him for your size.",
       "choices": [
@@ -38,8 +40,35 @@
         }
       ]
     },
-    { "key": "c9", "type": "speaker", "label": null, "speaker": "Arnie", "text": "He unwraps one hand and nods at you. \"That's the whole job. Read what they're about to do, then do something about it. And the more you practise a move, the better you get at it. Eventually you'll be able to do much more with it too.\"" },
-    { "key": "c10", "type": "speaker", "label": null, "speaker": "Arnie", "text": "\"First three sessions are on me. After that it's fifteen quid, and the rent on this place isn't cheap.\"" },
-    { "key": "c11", "type": "speaker", "label": null, "speaker": "Archie", "text": "He pulls his jacket back on, checking his phone. \"Told you. I've got your pearls to shift. I'll text you.\" He's through the shutter before you can thank him." }
-  ]
+    { "key": "c9", "type": "speaker", "label": null, "speaker": "Arnie", "text": "He unwraps one hand and nods at you. \"That's the gist of it. Read what they're about to do, then plan your move to match. The more you practise a move, the better you get at it. Eventually you'll be able to do much more with it too.\"" },
+    { "key": "c10", "type": "speaker", "label": null, "speaker": "Arnie", "text": "\"First three sessions are on me. After that it's fifteen quid a session. The rent here ain't cheap, but any friend of Archie's gets mates rates.\"" },
+    { "key": "c11", "type": "speaker", "label": null, "speaker": "Archie", "text": "Archie nods, not really listening as his focus is on his phone. He turns to you. \"Right. I've got your pearls to shift. I'll text you.\" He's through the shutter before you can thank him." }
+  ],
+  "observations": {
+    "prologue_gym1": {
+      "blocks": {
+        "physics": {
+          "tiers": [
+            { "base": 0.25, "text": "The equipment isn't new but is well taken care of. There's good spaces for sparring, and a rack of strange items on the side. This is gym that knows what it does well, and excels at it." },
+            { "base": 0.55, "text": "The gym looks a bit run down, but the equipment is all functional and well cared for. This place has had a lot of love invested in it." }
+          ],
+          "miss": "This isn't exactly a luxury gym, which is probably good given you wouldn't be able to afford it. Or even let in the door."
+        },
+        "life": {
+          "tiers": [
+            { "base": 0.25, "text": "Arnie's past his prime years, but beneath his belly there's plenty of muscle, and the confidence of someone who knows how to handle themselves." },
+            { "base": 0.55, "text": "Arnie looks super friendly, and out of shape. But he's still pretty big and intimidating." }
+          ],
+          "miss": "He looks a bit like a mate, Kevin, who everyone called 'Double Oh Kevin' - due to his round head and tummy, rather than being dangerous."
+        },
+        "emotion": {
+          "tiers": [
+            { "base": 0.25, "text": "Arnie seems incredibly solid, and not just his size. Despite being the size of a bear, you feel at ease and welcome." },
+            { "base": 0.55, "text": "You've never met this guy, but something about him makes him feel trustworthy." }
+          ],
+          "miss": "This guy is massive, and literally preparing his hands to punch stuff. Somehow, though, you don't feel worried. "
+        }
+      }
+    }
+  }
 }

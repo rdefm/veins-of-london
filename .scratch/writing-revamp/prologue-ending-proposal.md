@@ -1,0 +1,145 @@
+# prologue_ending — imported from data/events/prologue_ending.json
+
+```json
+{
+  "id": "prologue_ending",
+  "on_complete": [
+    {
+      "op": "set_flag",
+      "flag": "rentGoal",
+      "value": false
+    },
+    {
+      "op": "set_flag",
+      "flag": "prologueDone",
+      "value": true
+    },
+    {
+      "op": "set_flag",
+      "flag": "prologueNudgePending",
+      "value": true
+    },
+    {
+      "op": "post_story",
+      "story": "prologueSqueeze"
+    },
+    {
+      "op": "set_stage",
+      "value": "free"
+    },
+    {
+      "op": "queue_pending_message",
+      "contact": "archie",
+      "kind": "col_a1_intro",
+      "text": "Des can see you tomorrow. Lock-up, same time. Don't make a thing of it."
+    },
+    {
+      "op": "set_screen",
+      "screen": "phone"
+    }
+  ],
+  "start": "main",
+  "branches": {
+    "main": {
+      "title": "Start",
+      "cards": [
+        {
+          "key": "c1",
+          "type": "narration",
+          "label": "Shoreditch — the lock-up",
+          "speaker": null,
+          "text": "Archie has the shutter half down and a laptop open on an upturned crate. He looks up when you come in and does not say well done."
+        },
+        {
+          "key": "c2",
+          "type": "speaker",
+          "label": null,
+          "speaker": "Archie",
+          "text": "\"Rent's paid. Good. Next Monday's already in the calendar, same sum, so don't get comfortable.\""
+        },
+        {
+          "key": "c3",
+          "type": "narration",
+          "label": null,
+          "speaker": null,
+          "text": "He turns the laptop round. The Ticker, a column of grey headlines, with one of them smeared by a thumbprint."
+        },
+        {
+          "key": "c4",
+          "type": "speaker",
+          "label": null,
+          "speaker": "Archie",
+          "text": "\"Emotion calc. Four buyers rang me this morning, all after the same stock, none of them wanting to say why.\" He shuts the lid. \"Buyers are twitchy.\""
+        },
+        {
+          "key": "c5",
+          "type": "speaker",
+          "label": null,
+          "speaker": "Archie",
+          "text": "\"Keep an eye on the Ticker. It'll tell you what's moving in the calc world before anyone texts you about it. Usually.\""
+        },
+        {
+          "key": "c6",
+          "type": "resolution",
+          "label": null,
+          "speaker": null,
+          "text": "He's already looking at his phone. \"I'll text you about someone. Don't make a thing of it.\""
+        }
+      ]
+    }
+  },
+  "_keyOrder": {
+    "top": [
+      "id",
+      "on_complete",
+      "cards"
+    ],
+    "cards": {
+      "c1": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c2": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c3": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c4": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c5": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c6": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ]
+    }
+  },
+  "_liveSource": "prologue_ending.json",
+  "_liveHash": "484b8cab"
+}
+```

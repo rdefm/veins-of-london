@@ -15,6 +15,15 @@ const TEXT := Color("#ededee")
 const MUTED := Color("#a6a7ab")
 const BUTTON_BG := Color("#3b3b40")
 
+# One live ore glyph, centred in its control.
+class _OreChipGlyph extends Control:
+	var ore_type := ""
+	var colour := Color.WHITE
+
+	func _draw() -> void:
+		OreGlyphs.draw(self, size * 0.5, ore_type, colour, size.x * 0.38)
+
+
 var _data: Dictionary = {}
 var _direction := "sell"
 var _category := "ore"
@@ -386,7 +395,22 @@ func _build_ore_filter(body: VBoxContainer) -> void:
 		var picked := ore_type == _ore_filter
 		var chip := _button(title, _set_ore_filter.bind(ore_type), UI.action_colour() if picked else BUTTON_BG, 36)
 		chip.accessibility_name = "%s filter" % title
+		chip.clip_text = false
+		chip.custom_minimum_size = Vector2(96 if ore_type.is_empty() else 112, 40)
 		flow.add_child(chip)
+		if not ore_type.is_empty():
+			for state in ["normal", "hover", "pressed"]:
+				var box: StyleBoxFlat = chip.get_theme_stylebox(state).duplicate()
+				box.content_margin_left = 34
+				chip.add_theme_stylebox_override(state, box)
+			var glyph := _OreChipGlyph.new()
+			glyph.ore_type = ore_type
+			glyph.colour = MapPalette.ore_colour_in(ore_type, false)
+			glyph.set_anchors_preset(Control.PRESET_LEFT_WIDE)
+			glyph.offset_left = 6
+			glyph.offset_right = 32
+			glyph.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			chip.add_child(glyph)
 	body.add_child(_divider())
 
 

@@ -44,7 +44,8 @@
           "type": "narration",
           "label": null,
           "speaker": null,
-          "text": "Archie introduces you to Arnie, who is taping his knuckles. Wide as the door, soft round the middle, forearms that don't match. "
+          "text": "Archie introduces you to Arnie, who is taping his knuckles. Wide as the door, soft round the middle, forearms that don't match. ",
+          "observe": "prologue_gym1"
         },
         {
           "key": "c12",
@@ -310,14 +311,14 @@
           "type": "speaker",
           "label": null,
           "speaker": "Arnie",
-          "text": "\"First three sessions are on me. After that it's fifteen quid a session. The rent here ain't cheap, but any fiend of Archie's gets mates rates.\""
+          "text": "\"First three sessions are on me. After that it's fifteen quid a session. The rent here ain't cheap, but any friend of Archie's gets mates rates.\""
         },
         {
           "key": "c11",
           "type": "speaker",
           "label": null,
           "speaker": "Archie",
-          "text": "Archie nods, not really listening as his focus is on his phone. \"Told you. I've got your pearls to shift. I'll text you.\" He's through the shutter before you can thank him."
+          "text": "Archie nods, not really listening as his focus is on his phone. He turns to you. \"Right. I've got your pearls to shift. I'll text you.\" He's through the shutter before you can thank him."
         }
       ]
     }
@@ -411,6 +412,51 @@
     }
   },
   "_liveSource": "prologue_gym.json",
-  "_liveHash": "634a8f80"
+  "_liveHash": "952d9be9",
+  "observations": {
+    "prologue_gym1": {
+      "blocks": {
+        "physics": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "The equipment isn't new but is well taken care of. There's good spaces for sparring, and a rack of strange items on the side. This is gym that knows what it does well, and excels at it."
+            },
+            {
+              "base": 0.55,
+              "text": "The gym looks a bit run down, but the equipment is all functional and well cared for. This place has had a lot of love invested in it."
+            }
+          ],
+          "miss": "This isn't exactly a luxury gym, which is probably good given you wouldn't be able to afford it. Or even let in the door."
+        },
+        "life": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "Arnie's past his prime years, but beneath his belly there's plenty of muscle, and the confidence of someone who knows how to handle themselves."
+            },
+            {
+              "base": 0.55,
+              "text": "Arnie looks super friendly, and out of shape. But he's still pretty big and intimidating."
+            }
+          ],
+          "miss": "He looks a bit like a mate, Kevin, who everyone called 'Double Oh Kevin' - due to his round head and tummy, rather than being dangerous."
+        },
+        "emotion": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "Arnie seems incredibly solid, and not just his size. Despite being the size of a bear, you feel at ease and welcome."
+            },
+            {
+              "base": 0.55,
+              "text": "You've never met this guy, but something about him makes him feel trustworthy."
+            }
+          ],
+          "miss": "This guy is massive, and literally preparing his hands to punch stuff. Somehow, though, you don't feel worried. "
+        }
+      }
+    }
+  }
 }
 ```
