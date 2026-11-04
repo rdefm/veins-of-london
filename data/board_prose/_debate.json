@@ -8,7 +8,7 @@
       "cards": [
         {
           "speaker": "James",
-          "text": "The firm needs to be better than it is. That's the whole agenda, whatever the rest of you call it."
+          "text": "The business needs to be better than it is. We need to be recognised as experts producing quality products."
         }
       ]
     },
@@ -74,7 +74,7 @@
       "cards": [
         {
           "speaker": "Owen",
-          "text": "Um. Sorry. I think the business needs the veins to keep giving, and I can't see a good week without that."
+          "text": "Um. Sorry. I think the business needs to focus on the veins right now. Without them, we can't sell ore, or craft items."
         }
       ]
     },
@@ -161,7 +161,7 @@
       "cards": [
         {
           "speaker": "James",
-          "text": "Cash isn't standing, Archie. Buyers who only want the cheap one leave when someone is cheaper."
+          "text": "Chasing cash alone won't reduce your worries, Archie. Buyers who only want the cheap stuff leave when someone is cheaper."
         }
       ]
     },
@@ -174,7 +174,7 @@
       "cards": [
         {
           "speaker": "James",
-          "text": "You keep saying safe. A safe firm that makes forgettable work is just closing slowly."
+          "text": "You keep saying safe. A business that makes forgettable or sub-par work is never safe."
         }
       ]
     },
@@ -187,7 +187,7 @@
       "cards": [
         {
           "speaker": "James",
-          "text": "More from the veins means more on the bench. Sensible, Owen."
+          "text": "More from the veins means more to craft. Sensible, Owen."
         }
       ]
     },
@@ -200,7 +200,7 @@
       "cards": [
         {
           "speaker": "James",
-          "text": "Yes. I can't craft what we haven't got. Carry on."
+          "text": "Agreed. I can't craft what we haven't got."
         }
       ]
     },
@@ -226,7 +226,7 @@
       "cards": [
         {
           "speaker": "James",
-          "text": "More of the same ore doesn't improve it, Owen. Yield without craft is a bigger pile."
+          "text": "More of the same ore doesn't improve our situation, Owen. Yield without craft simply results in a bigger pile."
         }
       ]
     },
@@ -447,7 +447,7 @@
       "cards": [
         {
           "speaker": "Owen",
-          "text": "That sounds sensible, I think. Though the veins would have to supply it. Sorry."
+          "text": "That sounds sensible, I think. Though the veins would have to supply it."
         }
       ]
     },
@@ -497,7 +497,7 @@
       "cards": [
         {
           "speaker": "James",
-          "text": "Buyers pay more for good work, and they come back for it. That's all I'm asking us to be."
+          "text": "Buyers pay more for good work, and they come back for it. Improving quality is the right way forward."
         }
       ]
     },
@@ -784,7 +784,7 @@
       "cards": [
         {
           "speaker": "Archie",
-          "text": "Good. {label}. I'll start on it today."
+          "text": "Good. {label}. Let's start on it today."
         }
       ]
     },
@@ -850,7 +850,7 @@
       "cards": [
         {
           "speaker": "James",
-          "text": "Not what I'd have picked. I'll live."
+          "text": "Not what I'd have picked. But I'll live."
         }
       ]
     },

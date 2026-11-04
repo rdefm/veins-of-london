@@ -1372,6 +1372,12 @@ func run() -> void:
 		Events.start_event("test_check_event")
 		Events.advance()
 		Events.toggle_item(0, "enhancementPowder")
+		# The toggle lifts p above 0, so pin a rollSeed whose roll misses it (reset draws a random one).
+		for seed_value in range(1, 200):
+			GameState.state["world"]["rollSeed"] = seed_value
+			if Events.check_roll(0) >= 0.5:
+				break
+		assert_true(Events.check_roll(0) >= 0.5, "found a missing roll seed")
 		Events.choose(0)
 		assert_eq(GameState.state["event"]["choiceResults"]["1"]["outcome"], "fail")
 		assert_eq(Crafting.inventory_qty("enhancementPowder"), 0, "spent though failed")
@@ -1724,6 +1730,10 @@ func run() -> void:
 	run_case("blast_raises_alert_one_tier_from_its_profile_clamped_and_skeleton_key_does_not", func():
 		var original_events := _install_no_roll_item_event()
 		var top: int = (GameData.EVENT_CHECKS["alert"]["tiers"] as Array).size() - 1
+		# Blast's profile alert has a cover roll (random rollSeed per reset); zero it so the raise is certain.
+		var cover: Dictionary = GameData.RECIPES["blast"]["eventProfile"]["alert"]["cover"]
+		var original_cover_base: float = cover["base"]
+		cover["base"] = 0.0
 		for start in [0, top]:
 			GameState.reset()
 			Crafting.inventory_add("blast", 1, 1)
@@ -1743,6 +1753,7 @@ func run() -> void:
 		Events.choose(0)
 		assert_eq(Events.alert_level(), 0, "Skeleton Key leaves the alert alone")
 		assert_eq(Crafting.inventory_qty("skeletonKey"), 0, "spent")
+		cover["base"] = original_cover_base
 		GameData.EVENTS = original_events
 	)
 

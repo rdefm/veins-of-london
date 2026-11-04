@@ -99,7 +99,7 @@
           "type": "speaker",
           "label": null,
           "speaker": "You",
-          "text": "\"Yeah. They didn't get anything. Used one of the pearls.\""
+          "text": "\"Yeah. They didn't get anything. I used one of the pearls.\""
         },
         {
           "key": "c5",
