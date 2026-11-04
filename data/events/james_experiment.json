@@ -10,7 +10,7 @@
     { "type": "speaker", "label": null, "speaker": "James", "text": "\"I want to frame it accurately. You would not be a partner, a student, or a colleague. You would handle simple orders. I would retain all complex work. You would not advertise yourself as my associate.\"", "key": "c7" },
     { "type": "speaker", "label": null, "speaker": "You", "text": "\"That's fine.\"", "key": "c8" },
     { "type": "speaker", "label": null, "speaker": "James", "text": "\"Hm. Then there's a problem. I've seen your pearls. Archie sells them. They're mediocre.\" He lets that sit. ", "key": "c9" },
-    { "key": "c19", "type": "speaker", "text": "\"The same recipe can be made better. The trade calls it rank. You've made Time Pearls at rank two. Rank three needs something your current recipe is missing.\"", "speaker": "James", "goto": [{ "if": { "recipeRung": { "recipe": "timePearl", "rung": "hint1" } }, "card": 11 }] },
+    { "key": "c19", "type": "speaker", "label": null, "text": "\"The same recipe can be made better. The trade calls it rank. You've made Time Pearls at rank two. Rank three needs something your current recipe is missing.\"", "speaker": "James", "goto": [{ "if": { "recipeRung": { "recipe": "timePearl", "rung": "hint1" } }, "card": 11 }] },
     { "type": "speaker", "label": null, "speaker": "James", "text": "\"I can sell you a higher tier recipe, but let's see if you can experiment to figure it out yourself. I'll give you a hint; you let go of the press too early.\"", "goto": 13, "key": "c10" },
     { "type": "speaker", "label": null, "speaker": "You", "text": "\"You compress it longer. I'd worked that out.\"", "key": "c11" },
     { "type": "speaker", "label": null, "speaker": "James", "text": "\"Had you.\" He doesn't make it a question. \"Knowing a thing and doing it are separate skills, and most people stop at the first. I don't hand out overflow on anyone's say-so. Including yours.\"", "key": "c12" },
@@ -33,7 +33,7 @@
     { "type": "speaker", "label": null, "speaker": "You", "text": "\"What about the other recipes? Archie says you know about forty.\"", "key": "c15" },
     { "type": "speaker", "label": null, "speaker": "James", "text": "\"Archie says a great deal. I work time and life calc. Those recipes I'll sell you, at a price that reflects the indignity of teaching. The rest belong to the Guild. I'll write to someone there. They answer letters at their own pace.\"", "key": "c16", "image": "res://assets/events/james_experiment/james_experiment_b13_4.png" },
     { "type": "speaker", "label": null, "speaker": "James", "text": "\"Practise. Get good enough and I may have a use for you beyond pearls.\" His thumb finds the brass case at his desk, the way some people check a watch they don't need. He doesn't explain. ", "key": "c17", "observe": "james_experiment" },
-    { "key": "c20", "type": "speaker", "text": "\"I'll send you overflow work occasionally. Don't expect it to be glamorous. And don't be late.\"", "speaker": "James" },
+    { "key": "c20", "type": "speaker", "label": null, "text": "\"I'll send you overflow work occasionally. Don't expect it to be glamorous. And don't be late.\"", "speaker": "James" },
     { "type": "resolution", "label": null, "speaker": null, "text": "You leave with one decent pearl and the firm sense that James considers this arrangement a concession rather than a collaboration. You suspect that won't change.", "key": "c18", "image": "res://assets/events/james_experiment/james_experiment_b13_7.png" }
   ],
   "on_complete": [

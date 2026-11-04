@@ -6,12 +6,12 @@
     { "key": "c3", "type": "speaker", "label": null, "speaker": "Archie", "text": "\"You alright?\"" },
     { "key": "c4", "type": "speaker", "label": null, "speaker": "You", "text": "\"Yeah. They didn't get anything. I used one of the pearls.\"" },
     { "key": "c5", "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Did you now.\" He looks at you. \"Nice.\" ", "observe": "home_raid_archie_impressed" },
-    { "key": "c11", "type": "narration", "text": "The first fight outside the chicken shop was brutal and terrifying. This time you won with something you made. " },
+    { "key": "c11", "type": "narration", "label": null, "speaker": null, "text": "The first fight outside the chicken shop was brutal and terrifying. This time you won with something you made. " },
     { "key": "c6", "type": "speaker", "label": null, "speaker": "Archie", "text": "Archie looks around. \"This place is a liability. One lock, a window that doesn't close. You might as well put a sign up.\"" },
     { "key": "c7", "type": "speaker", "label": null, "speaker": "Archie", "text": "\"You need to move. Somewhere with a proper door. That means a deposit, and a deposit means cash. Rent first, obviously. Then the deposit.\"" },
     { "key": "c8", "type": "speaker", "label": null, "speaker": "Archie", "text": "\"To make cash, you need to make pearls. To make pearls, you need to know how to handle the vein. I'll line you up some help. Des. Best prospector I know.\"" },
     { "key": "c9", "type": "speaker", "label": null, "speaker": "Archie", "text": "\"And as your place is going to be our partnership's HQ, what with you crafting the stock and all, you need better security. I know a bloke who does security installs. Reasonable price, no questions.\"" },
-    { "key": "c12", "type": "speaker", "text": "\"And the vein I promised: it's yours. Time type, in Whitechapel. I'll text you the address. It needs work before it pays; that's where Des'll help.\"", "speaker": "Archie" },
+    { "key": "c12", "type": "speaker", "label": null, "text": "\"And the vein I promised: it's yours. Time type, in Whitechapel. I'll text you the address. It needs work before it pays; that's where Des'll help.\"", "speaker": "Archie" },
     { "key": "c10", "type": "resolution", "label": null, "speaker": null, "text": "He finishes his coffee and leaves before you can thank him. You check your phone. There's a pin location. The vein." }
   ],
   "on_complete": [
