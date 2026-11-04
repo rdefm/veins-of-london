@@ -185,6 +185,16 @@ func run() -> void:
 
 	# ── loot_vein ───────────────────────────────────────────────────────
 
+	run_case("loot_vein_depth_lowers_growth_floored_and_pays_prune_yield", func():
+		GameState.reset()
+		var vein := _faction_vein_of_growth(10, "life", "none", "collective")
+		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", vein)]
+		var expected: int = Cultivating.prune_yield(vein, 24)
+		Raiding.loot_vein("s1", false, 24)
+		assert_eq(GameState.state["player"]["orichalchum"].get("life", 0), expected, "pays prune yield for cleared points")
+		assert_eq(GameState.state["world"]["sites"][0]["factionVein"]["growth"], 0, "growth floored at 0")
+	)
+
 	run_case("loot_vein_grants_ore_and_leaves_ownership_with_the_faction", func():
 		GameState.reset()
 		var vein := _faction_vein_of_growth(30, "life", "none", "network")
@@ -193,7 +203,8 @@ func run() -> void:
 
 		Raiding.loot_vein("s1", false)
 
-		assert_eq(GameState.state["player"]["orichalchum"]["life"], ore_before + Raiding.LOOT_ORE_QTY, "loot grants ore")
+		assert_eq(GameState.state["player"]["orichalchum"]["life"], ore_before + 8, "default loot grants ~8 ore")
+		assert_eq(GameState.state["world"]["sites"][0]["factionVein"]["growth"], 27, "default loot drains growth by raidLootDefaultDepth")
 		var site: Dictionary = GameState.state["world"]["sites"][0]
 		assert_true(site["factionVein"] != null, "ownership should stay with the faction")
 		assert_eq(GameState.state["player"]["veins"].size(), 0, "no player vein should be created")

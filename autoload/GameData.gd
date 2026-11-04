@@ -198,6 +198,7 @@ var OBSERVATION: Dictionary = {}
 var EVENT_LABELS: Dictionary = {}
 var DAILY_CYCLE: Dictionary = {}
 var ARCHIE_ORE_GOAL: int = 0
+var RAID_LOOT_DEFAULT_DEPTH: int = 0
 var CONTACTS_DEFAULTS: Dictionary = {}
 var JAMES_JOB_TRUST_BANDS: Array = []
 
@@ -534,6 +535,7 @@ const MANIFEST: Array[Dictionary] = [
 		{"field": "OBSERVATION", "key": "observation", "type": TYPE_DICTIONARY},
 		{"field": "EVENT_LABELS", "key": "eventLabels", "type": TYPE_DICTIONARY},
 		{"field": "ARCHIE_ORE_GOAL", "key": "archieOreGoal", "type": TYPE_INT},
+		{"field": "RAID_LOOT_DEFAULT_DEPTH", "key": "raidLootDefaultDepth", "type": TYPE_INT},
 		{"field": "BUCKET_XP_SHARE", "key": "bucketXpShare", "type": TYPE_FLOAT},
 		{"field": "STUDY", "key": "study", "type": TYPE_DICTIONARY},
 		{"field": "MEDITATE", "key": "meditate", "type": TYPE_DICTIONARY},

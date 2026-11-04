@@ -2034,7 +2034,7 @@ static func _apply_one(effect: Dictionary, context: Dictionary = {}) -> void:
 		"claim_raid_vein":
 			Raiding.claim_vein(_event_site_id(effect))
 		"loot_raid_vein":
-			Raiding.loot_vein(_event_site_id(effect), _event_caught(effect))
+			Raiding.loot_vein(_event_site_id(effect), _event_caught(effect), int(effect.get("depth", -1)))
 		# Stockpile raid ops: the raided faction comes from start_event()'s
 		# context (Raiding.begin_stockpile_raid()), like a vein raid's site_id.
 		"start_stockpile_raid_combat":

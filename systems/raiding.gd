@@ -65,7 +65,6 @@ static func _add_factor(out: Array, label: String, delta: float) -> void:
 # the map regardless of how clean the entry was; loot only bites if caught.
 const CLAIM_RELATION_HIT := -40
 const LOOT_RELATION_HIT := -15
-const LOOT_ORE_QTY := 8
 
 
 # Transfers a faction-owned vein to player ownership (all fields carried
@@ -104,19 +103,23 @@ static func claim_vein(site_id: String) -> void:
 	EventBus.state_changed.emit()
 
 
-# One-time ore payoff -- ownership stays with the faction, the vein itself is
-# untouched. Relation hit only applies when `caught` is true (a clean
+# One-time ore payoff -- ownership stays with the faction. Lowers the vein's
+# growth by `depth` (< 0 = GameData.RAID_LOOT_DEFAULT_DEPTH), floored at 0, and
+# pays Cultivating.prune_yield() for it. Relation hit only applies when `caught` is true (a clean
 # entry leaves relation untouched). No-op if the site has no
 # factionVein.
-static func loot_vein(site_id: String, caught: bool) -> void:
+static func loot_vein(site_id: String, caught: bool, depth: int = -1) -> void:
 	var site: Variant = Sites.find_site(site_id)
 	if site == null or site["factionVein"] == null:
 		return
 
 	var vein: Dictionary = site["factionVein"]
 	clear_wary(site_id)
+	var loot_depth: int = GameData.RAID_LOOT_DEFAULT_DEPTH if depth < 0 else depth
+	var qty: int = Cultivating.prune_yield(vein, loot_depth)
+	vein["growth"] = Cultivating.prune_resulting_growth(vein, loot_depth)
 	var ore: Dictionary = GameState.state["player"]["orichalchum"]
-	ore[vein["oreType"]] = ore.get(vein["oreType"], 0) + LOOT_ORE_QTY
+	ore[vein["oreType"]] = ore.get(vein["oreType"], 0) + qty
 	Intel.gain(Shares.PLAYER, vein["factionId"], Intel.SOURCE_RAID)
 
 	Grudges.answer(vein["factionId"])
@@ -124,7 +127,7 @@ static func loot_vein(site_id: String, caught: bool) -> void:
 		Warmonger.record(Warmonger.ACT_RAID_LOOT)
 		Factions.adjust_player_relation(vein["factionId"], LOOT_RELATION_HIT)
 		FactionAI.note_hostile_act(Shares.PLAYER, vein["factionId"])
-		FactionAI.note_loss(vein["factionId"], Shares.PLAYER, float(Market.line_total("ore", Market.quote("ore", vein["oreType"]), LOOT_ORE_QTY)))
+		FactionAI.note_loss(vein["factionId"], Shares.PLAYER, float(Market.line_total("ore", Market.quote("ore", vein["oreType"]), qty)))
 
 	EventBus.state_changed.emit()
 

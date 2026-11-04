@@ -1,6 +1,7 @@
 {
   "timeBlocks": ["Morning", "Afternoon", "Evening"],
   "archieOreGoal": 10,
+  "raidLootDefaultDepth": 3,
   "bucketXpShare": 0.2,
   "study": { "xp": 10, "libraryXp": 30 },
   "meditate": { "xp": 10, "gardenXp": 30 },

@@ -3504,6 +3504,19 @@ func run() -> void:
 	)
 
 
+	run_case("loot_and_claim_work_in_non_raid_event_with_site_context", func():
+		GameState.reset()
+		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", _faction_vein_of_level(1, "life"))]
+		var original_events := _install_check_event(0.5)
+		Events.start_event("test_check_event", { "site_id": "s1" })
+		Events.apply_effects([{ "op": "loot_raid_vein", "depth": 5, "caught": false }])
+		assert_true(GameState.state["player"]["orichalchum"].get("life", 0) > 0, "loot pays via context site")
+		Events.apply_effects([{ "op": "claim_raid_vein" }])
+		assert_eq(GameState.state["player"]["veins"].size(), 1, "claim goes to the player")
+		GameData.EVENTS = original_events
+		GameState.state["event"] = null
+	)
+
 # A hub whose options come from context["agenda"], with one authored exit.
 func _install_context_hub() -> Dictionary:
 	var original_events: Dictionary = GameData.EVENTS
