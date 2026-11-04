@@ -57,10 +57,10 @@ static func _roll_day() -> void:
 # Borrowed Time (data constants activeEffects.borrowedTime): the unit's tier
 # adds charges now and sets the debt each spent charge books. Returns
 # { ok, charges } or { ok: false, reason }.
-static func use_borrowed_time() -> Dictionary:
+static func use_borrowed_time(tier: int = 0) -> Dictionary:
 	if Stash.player_item_qty(BORROWED_TIME) <= 0:
 		return { "ok": false, "reason": "None left." }
-	var taken: Array = Stash.player_item_remove(BORROWED_TIME, 1)
+	var taken: Array = Stash.player_item_take_one(BORROWED_TIME, tier)
 	var level: int = int(taken[0]["tier"]) if not taken.is_empty() else 1
 	var table: Dictionary = GameData.ACTIVE_EFFECTS["borrowedTime"]
 	var charges: int = int(_tier_value(table["chargesByLevel"], level))

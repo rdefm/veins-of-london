@@ -45,8 +45,8 @@ static func effect_power(recipe_key: String, tier: int) -> Variant:
 
 # Direct personal use: removes one unit (lowest tier first) and returns its
 # effect power at the unit's stored tier. No Dial amplification.
-static func use_one(recipe_key: String) -> Variant:
-	var taken: Array = Stash.player_item_remove(recipe_key, 1)
+static func use_one(recipe_key: String, want_tier: int = 0) -> Variant:
+	var taken: Array = Stash.player_item_take_one(recipe_key, want_tier)
 	var tier: int = int(taken[0]["tier"]) if not taken.is_empty() else 1
 	return effect_power(recipe_key, clampi(tier, 1, GameData.RECIPES[recipe_key]["effectPower"].size() - 1))
 

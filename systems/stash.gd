@@ -213,3 +213,12 @@ static func adjust_item_move_qty(recipe_key: String, delta: int, max_qty: int) -
 	var current: int = clampi(get_item_move_qty(recipe_key), 1, maxi(max_qty, 1))
 	GameState.state["stashQty"][key] = clampi(current + delta, 1, maxi(max_qty, 1))
 	EventBus.state_changed.emit()
+
+
+# Removes one unit: the exact tier when tier > 0 (and held), else lowest tier first.
+# Returns [{ tier, qty }] like player_item_remove.
+static func player_item_take_one(recipe_key: String, tier: int = 0) -> Array:
+	if tier > 0 and player_item_tier_qty(recipe_key, tier) > 0:
+		player_item_remove_from_tier(recipe_key, tier, 1)
+		return [{ "tier": tier, "qty": 1 }]
+	return player_item_remove(recipe_key, 1)

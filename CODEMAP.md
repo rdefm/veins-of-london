@@ -21,7 +21,7 @@ Data file per system: see `data/*.json` below.
 | File | Domain |
 |---|---|
 | archie_deals.gd | Archie's daily side-deal roll |
-| bag.gd | Bag-drawer toggle |
+| bag.gd | Bag-drawer toggle; pure `projection(ore_filter, management)` (filters, ore categories, rows: key, total, stash, tiers, usable, use action); `use(key, tier)` for no-target items; `is_management_mode()` |
 | bank.gd | Cash transaction log |
 | barometer.gd | Economic/social/political barometer (Ticker) + faction prefs; active-state change recency and News order; merged effects incl. item-demand multipliers; structured faction headlines (`push_headline`) and dated wire-article text (`wire_article`); one-off queued faction pushes (`queue_push`) |
 | business_quest.gd | business_empire questline side effects (state.businessQuest): Beat 1/3/5/6/7/8 trigger texts, Beat 2 starter-offer chain, recurring offers (ore from Beat 3, Time Pearl from Beat 6; reissued a day after lapse), Beat 8 closing payload from the latest payday record, James's crafting-skill set, Owen's crafting-event trigger. Rules: REFERENCE.md "Business Empire questline" |
@@ -120,7 +120,7 @@ Data file per system: see `data/*.json` below.
 | sense.gd | Sense skill XP award (level-up notify) via `Progression.award_xp` |
 | sites.gd | Sites & prospecting; each prospect awards Cultivating and Sense XP |
 | loadout.gd | Two personal consumable slots for the player (`player.loadout`) and combat recruits (`contacts[id].loadout`): equip/unequip (refused in combat; allies refuse Wormhole), consume, settlement refill (player, then recruits in roster order), equippable stock; multi-target units (`multi` flag, refilled as the same variant); `debug_grant()` for the debug setup |
-| stash.gd | Shared vs. Stash pools: instant tier-preserving moves, plus the player spend seam (`player_*` qty/spend/remove, shared then stash) used by Bag use, hand-applied vein items, loadout equip and Lab crafting |
+| stash.gd | Shared vs. Stash pools: instant tier-preserving moves, plus the player spend seam (`player_*` qty/spend/remove, shared then stash) used by Bag use (`player_item_take_one` by tier), hand-applied vein items, loadout equip and Lab crafting |
 | station_bubble.gd | Site/vein-stop tap-bubble decision |
 | calendar.gd | Pure `world.day` → calendar date (`MON 3 JAN`, `Y2`+ suffix) per R§3.1 "Calendar"; day 1's weekday from `calendar.startWeekday`; every player-facing date string uses `Calendar.format_day`; `widget_date` for the phone widget/Today card; weekday/Monday helpers for the weekly cadence |
 | time_system.gd | Time blocks (staff step + LodedInnit post), forward-only `advance_to_block()` (R§3.9b), rest, Borrowed Time charges/debt (`use_borrowed_time`, shared `_roll_day`), daily tick (weekly home bill, arrears, forced downgrade per ADR 0006), Prologue day triggers |
@@ -162,7 +162,7 @@ overlays; hides the top board on title/intro/combat and the nav dock per screen.
 |---|---|
 | alarm_presentation.gd | Detects raid alarms; Phone pulse + vibration |
 | app_tile.gd | Normalised icon+label+numeric-count-badge+lock tile for phone launchers |
-| bag_drawer.gd | Global bottom-sheet bag drawer; read-only stock/consumable listing (also during combat; no use buttons, no loadout change); out-of-combat heal + timed-effect + Smelling Salts Use buttons in management mode; Clean Slate Use per grudge; lists `bagWhenHeld` recipe items while held |
+| bag_drawer.gd | Global bottom-sheet bag drawer rendering `Bag.projection`: raw ore row, ore filter chips, collapsible ore categories of item rows (icon, name, `?` info overlay, qty, stash line, Use with tier picker); active-effect lines, Dial summary. Combat/item-hook cards: no Use. Smelling Salts/Clean Slate keep per-target rows |
 | combat_command_dock.gd | Combat's bottom command region: right-hand menu picks a left panel of ruled rows ("?" tooltip, red "!" block reason, long-press `peek` card) or the Dial + Complication readout; Panels slide (pacing.menuPanel). Dock is row-height; the Dial page grows it to overlay the transcript. `configure()`, `show_view()`, `set_rows_height()` |
 | combat_director.gd | Combat beat-queue playback director; holds a data-driven pause (combat_visuals pacing.turnPause) between combatants' turns and plays a Rewind back pacing.rewindSpeed times faster; an optional per-beat hold override (multi-target land stagger); emits `playing_changed` so screens lock commands during playback; reads the persisted pacing mode (set in the Settings app) |
 | combat_transcript.gd | Fight play-by-play between stage and dock, event-card text styling: heading + demo hp above, one line per state.combat.transcript entry pinned to the newest, refusal/prompt/coach note below; append/remove-by-text for beat playback and Rewind |

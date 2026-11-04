@@ -42,6 +42,8 @@ func run() -> void:
 
 	run_case("bag_consumable_rows_bind_icons", func():
 		GameState.reset()
+		for key in Bag.CONSUMABLE_KEYS:
+			Crafting.inventory_add(key, 1, 1)
 		Bag.open()
 		var drawer := BagDrawer.new()
 		drawer._ready()
@@ -49,7 +51,7 @@ func run() -> void:
 		for g in drawer.find_children("", "Control", true, false):
 			if g is SymbolGlyph and g.icon != null:
 				bound[g.icon.resource_path] = true
-		for key in BagDrawer.CONSUMABLE_KEYS:
+		for key in Bag.CONSUMABLE_KEYS:
 			assert_true(bound.has(ItemIcons.texture(key).resource_path), "bag row for %s shows its icon" % key)
 		drawer.free()
 	)

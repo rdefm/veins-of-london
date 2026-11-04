@@ -33,15 +33,16 @@
           "type": "narration",
           "label": "The City — the Guild registry",
           "speaker": null,
-          "text": "The door on the third floor does say STATIONERY. Behind it: a counter, a brass bell, a coat stand with no coats, and a woman writing in a ledger with a fountain pen.",
+          "text": "The door on the third floor says STATIONERY. Behind it: a counter, a brass bell, a coat stand with no coats, and a woman writing in a ledger with a fountain pen.",
           "key": "c1"
         },
         {
           "type": "speaker",
           "label": null,
           "speaker": "Wren",
-          "text": "She finishes the line before she looks up. \"You'll be James's letter. He used the word 'adequate'. From James, that's practically a reference.\"",
-          "key": "c2"
+          "text": "She finishes the line before she looks up. \"Ah, you must be the one James wrote about. He used the word 'adequate'. From James, that's practically a reference.\"",
+          "key": "c2",
+          "observe": "wren_intro_obs1"
         }
       ],
       "then": [
@@ -78,7 +79,7 @@
           "type": "speaker",
           "label": null,
           "speaker": "Wren",
-          "text": "She turns the ledger round to face you. \"I'm registering you as an associate, not a member. Members need a sponsor, a vote and a dinner nobody enjoys. Associates need a signature.\"",
+          "text": "She turns the ledger round to face you. \"I'm registering you as a Guild associate, not a member. Members need a sponsor, a vote and a dinner nobody enjoys. Associates only need a signature.\"",
           "key": "c4"
         },
         {
@@ -92,42 +93,55 @@
           "type": "speaker",
           "label": null,
           "speaker": "Wren",
-          "text": "\"Recipes. James said he's helping you with Time and Life. Everything else can be supplied by the Guild, and I keep the catalogue. The basic procedures are for sale to any associate; more advanced recipes depend on your standing.\"",
+          "text": "\"Recipes. James said he's helping you with Time and Life. Everything else can be supplied by the Guild. The basic procedures are for sale to any associate; more advanced recipes depend on your standing.\"",
           "key": "c6"
         },
         {
           "type": "speaker",
           "label": null,
           "speaker": "Ingram",
-          "text": "A door opens behind the counter. A tall man in a grey suit reads the ledger upside down without slowing. He gives you a quick glance \"Associate. Hm. Perhaps best to write their name in pencil, Registrar.\"",
-          "key": "c7"
+          "text": "A door opens behind the counter. A tall man in a grey suit reads the ledger upside down while he places some folders onto Wren's desk. He gives you a quick glance \"Associate. Hm. Perhaps best to write their name in pencil, Registrar.\"",
+          "key": "c7",
+          "observe": "wren_intro_obs2"
         },
         {
           "type": "narration",
           "label": null,
           "speaker": null,
-          "text": "Wren waits for the door to close. Then she uncaps the pen again and writes your name in ink.",
+          "text": "Wren waits for the door to close. Then she uncaps the fountain pen and writes your name in ink.",
           "key": "c8"
         },
         {
           "type": "speaker",
           "label": null,
           "speaker": "Wren",
-          "text": "\"Dr Ingram runs the Assay department. The Guild trusts what it has tested, so you'll need to work hard to become more than an Associate. I'll send you commissions for items. Deliver well and we may consider selling more advanced recipes to you.\"",
+          "text": "\"That was Dr Ingram, who runs the Assay department. Generally Assay departments run tests to check for the presence of a given substance - such as orichalcum.\"\n",
           "key": "c9"
+        },
+        {
+          "key": "c13",
+          "type": "speaker",
+          "text": "\"Here, however, the Assay department has expanded to oversee the entire Guild. Dr. Ingram jokes that he must check that the Guild contains sufficient quality.\"",
+          "speaker": "Wren"
+        },
+        {
+          "key": "c12",
+          "type": "speaker",
+          "text": "\"The Guild trusts what it has tested, so you'll need to work hard to become more than an Associate. I'll send you commissions for items. Deliver well and we may consider selling more advanced recipes to you.\"",
+          "speaker": "Wren"
         },
         {
           "type": "speaker",
           "label": null,
           "speaker": "Wren",
-          "text": "She blots the page. \"I've spent eleven years getting an associate register past the Court. You're the fourth name in it. Please don't be the reason it closes.\"",
+          "text": "She blots the page. \"I've spent eleven years getting approval for an associate register. You're the fourth name in it. Please don't be the reason it closes.\"",
           "key": "c10"
         },
         {
           "type": "resolution",
           "label": null,
           "speaker": null,
-          "text": "She files the page under A, behind three others. You head out, wondering when your first commission will arrive. On your way out you pass a door marked ASSAY. It's shut, and the light is on.",
+          "text": "She closes the register. You head out, wondering when your first commission will arrive. On your way out you pass a door marked ASSAY. It's shut, and the light is on.",
           "key": "c11"
         }
       ]
@@ -210,6 +224,55 @@
     }
   },
   "_liveSource": "wren_introduction.json",
-  "_liveHash": "81077dff"
+  "_liveHash": "50ab2e8b",
+  "observations": {
+    "wren_intro_obs1": {
+      "blocks": {
+        "physics": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "Immaculate business-wear. Custom fountain pen yet no ink stains on the fingers. Everything in its place. This person thrives on order and organisation."
+            },
+            {
+              "base": 0.55,
+              "text": "Everything in this room, the woman included, is very tidy and orderly."
+            }
+          ],
+          "miss": "You suddenly have flashbacks to school, and fight the urge to start calling her \"Miss\"."
+        }
+      }
+    },
+    "wren_intro_obs2": {
+      "blocks": {
+        "physics": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "His tone of voice is dismissive. He looks down on the idea of Guild associates as a parent does to a child who thinks they know better."
+            },
+            {
+              "base": 0.55,
+              "text": "From his body language, you suspect he may have a pencil on him. Or rather, in him. Either that or a stick."
+            }
+          ],
+          "miss": "This guy seems to work here. Either that, or he's a very over-dressed Deliveroo driver."
+        },
+        "emotion": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "A sense of arrogance wafts in along with the man. This man pushes for quality out of snobbishness, where Wren does so from a drive to excel."
+            },
+            {
+              "base": 0.55,
+              "text": "There's some barely-unspoken friction between these two. They don't see eye to eye."
+            }
+          ],
+          "miss": "There's something between these two. Do you think they've got a thing going on? You know, bow-chicka-wow-wow?"
+        }
+      }
+    }
+  }
 }
 ```

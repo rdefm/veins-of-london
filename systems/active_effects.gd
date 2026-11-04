@@ -125,12 +125,12 @@ static func end(item: String) -> void:
 
 # Consumes one unit (lowest level first) and starts the effect, or refreshes
 # it to that unit's level and full duration if already running.
-static func use(item: String) -> Dictionary:
+static func use(item: String, tier: int = 0) -> Dictionary:
 	if not usable_items().has(item):
 		return { "ok": false, "reason": "Can't use that here." }
 	if Stash.player_item_qty(item) <= 0:
 		return { "ok": false, "reason": "None left." }
-	var taken: Array = Stash.player_item_remove(item, 1)
+	var taken: Array = Stash.player_item_take_one(item, tier)
 	var level: int = int(taken[0]["tier"]) if not taken.is_empty() else 1
 	var blocks: int = duration_for_level(level)
 	var day_table: Array = GameData.ACTIVE_EFFECTS.get(item, {}).get("daysByLevel", [])

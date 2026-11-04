@@ -142,9 +142,10 @@ func run() -> void:
 		drawer._ready()
 
 		var labels := _non_button_texts(drawer)
-		assert_true(labels.contains("Consumables"), "combat drawer still lists stock")
+		assert_true(labels.contains("Time Pearl"), "combat drawer still lists stock")
 		var buttons := _button_effective_texts(drawer)
-		assert_eq(buttons, ["Close"], "no combat use buttons: %s" % [buttons])
+		assert_true(not buttons.has("Use"), "no combat use buttons: %s" % [buttons])
+		assert_true(buttons.has("?"), "combat keeps the ? button")
 		assert_true(Loadout.equip(0, "timePearl", 1)["ok"] == false, "no loadout change mid-fight")
 		assert_eq(Loadout.slot(0), null)
 
@@ -161,8 +162,8 @@ func run() -> void:
 		drawer._ready()
 
 		var labels := NodeQuery.label_texts_with_symbols(drawer)
-		assert_true(labels.has("Ore"), "Ore section outside combat")
-		assert_true(labels.has("Consumables"), "Consumables section outside combat")
+		assert_true("\n".join(labels).contains("Time Orichalchum: 0"), "raw ore row outside combat")
+		assert_true(labels.has("Equipped"), "Equipped heading")
 		assert_true(labels.has("Equipped"), "read-only equipped summary outside combat")
 		assert_true(labels.has("Dial: none"), "read-only Dial summary outside combat")
 
@@ -200,8 +201,8 @@ func run() -> void:
 		var drawer := BagDrawer.new()
 		drawer._ready()
 
-		assert_true(NodeQuery.find_button_by_effective_text(drawer, "♥Healing Salve (1) — 2-day heal-over-time") != null, "healingSalve should get a Use button outside combat/events")
-		assert_true(NodeQuery.find_button_by_effective_text(drawer, "✚Healing Burst (1) — instant heal") != null, "healingBurst should get a Use button outside combat/events")
+		assert_true(NodeQuery.find_button_by_effective_text(drawer, "Use") != null, "healingSalve should get a Use button outside combat/events")
+		assert_true(NodeQuery.find_button_by_effective_text(drawer, "Use") != null, "healingBurst should get a Use button outside combat/events")
 
 		drawer.free()
 	)
@@ -217,7 +218,7 @@ func run() -> void:
 		var drawer := BagDrawer.new()
 		drawer._ready()
 
-		assert_true(NodeQuery.find_button_by_effective_text(drawer, "♥Healing Salve (1) — 2-day heal-over-time") == null, "no out-of-combat healingSalve Use button during combat")
+		assert_true(NodeQuery.find_button_by_effective_text(drawer, "Use") == null, "no out-of-combat healingSalve Use button during combat")
 
 		drawer.free()
 	)
@@ -232,7 +233,7 @@ func run() -> void:
 		var drawer := BagDrawer.new()
 		drawer._ready()
 
-		assert_true(NodeQuery.find_button_by_effective_text(drawer, "♥Healing Salve (1) — 2-day heal-over-time") == null, "no out-of-combat healingSalve Use button while the current event card carries itemHooks")
+		assert_true(NodeQuery.find_button_by_effective_text(drawer, "Use") == null, "no out-of-combat healingSalve Use button while the current event card carries itemHooks")
 
 		drawer.free()
 		GameData.EVENTS = original_events
@@ -250,7 +251,7 @@ func run() -> void:
 		drawer._ready()
 
 		Rng.set_seed(1)
-		var button := NodeQuery.find_button_by_effective_text(drawer, "♥Healing Salve (1) — 2-day heal-over-time")
+		var button := NodeQuery.find_button_by_effective_text(drawer, "Use")
 		button.pressed.emit()
 
 		assert_eq(Crafting.inventory_qty("healingSalve"), 0, "pressing Use should consume the item via Consumables.use_healing_salve()")
@@ -273,7 +274,7 @@ func run() -> void:
 
 		var joined := "\n".join(NodeQuery.label_texts_with_symbols(drawer))
 		assert_true(joined.contains("Healing Salve active"), "an active HoT should stay visible even once stock (qty 0) stops offering a Use button")
-		assert_true(NodeQuery.find_button_by_effective_text(drawer, "♥Healing Salve (0) — 2-day heal-over-time") == null, "no Use button once stock is 0")
+		assert_true(NodeQuery.find_button_by_effective_text(drawer, "Use") == null, "no Use button once stock is 0")
 
 		drawer.free()
 	)

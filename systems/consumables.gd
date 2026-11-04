@@ -8,12 +8,12 @@ extends RefCounted
 
 # Refreshes rather than stacks: using a second salve while one is already
 # active resets the timer to 2 days at the new activation's daily amount.
-static func use_healing_salve() -> Dictionary:
+static func use_healing_salve(tier: int = 0) -> Dictionary:
 	var player: Dictionary = GameState.state["player"]
 	if Stash.player_item_qty("healingSalve") <= 0:
 		return { "ok": false, "reason": "No healing salve." }
 
-	var power = Crafting.use_one("healingSalve")
+	var power = Crafting.use_one("healingSalve", tier)
 	player["healingSalveDaysLeft"] = 2
 	player["healingSalveDailyAmount"] = power
 	# PROSE-REVIEW: new salve-activation notification, drafted against CONTENT-GUIDE.md's tone bible.
@@ -24,11 +24,11 @@ static func use_healing_salve() -> Dictionary:
 
 # Out of combat (a fight's items play through its loadout, R§3.7b): heals
 # the player off shared inventory.
-static func use_healing_burst() -> Dictionary:
+static func use_healing_burst(tier: int = 0) -> Dictionary:
 	var player: Dictionary = GameState.state["player"]
 	if Stash.player_item_qty("healingBurst") <= 0:
 		return { "ok": false, "reason": "No healing burst." }
-	var power = Crafting.use_one("healingBurst")
+	var power = Crafting.use_one("healingBurst", tier)
 	var old_hp: int = player["hp"]
 	player["hp"] = mini(player["hp"] + power, player["hpMax"])
 	var healed: int = player["hp"] - old_hp

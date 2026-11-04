@@ -5,16 +5,20 @@ extends Control
 const DRAWER_HEIGHT := 420.0
 const MANAGEMENT_DRAWER_HEIGHT := 700.0
 
-const CONSUMABLE_KEYS := ["timePearl", "enhancementPowder", "rewind", "healingSalve", "blast", "shield", "blackHole", "healingBurst", "prophetsBreath", "beALady", "wormhole"]
-
-const OUT_OF_COMBAT_USE_KEYS := ["healingSalve", "healingBurst"]
-
-# PROSE-REVIEW: one-line effect summary on each timed-effect Use row.
+# PROSE-REVIEW: one-line effect summary on each timed-effect line.
 const ACTIVE_EFFECT_BLURBS := { "beALady": "your cultivating and harvests roll their best", "prophetsBreath": "you see an ambush coming and step round it", "navvysDraught": "extra max and current HP for your next fight" }
 
 var _dim: ColorRect
 var _card: PanelContainer
 var _content: VBoxContainer
+var _info_overlay: Control
+
+# View state only (never saved): ore filter, collapsed categories, open tier
+# picker and the `?` modal's item.
+var _ore_filter := ""
+var _collapsed: Dictionary = {}
+var _tier_picker := ""
+var _info_key := ""
 
 
 func _ready() -> void:
@@ -54,55 +58,193 @@ func _refresh() -> void:
 	var open: bool = GameState.state["bagDrawerOpen"]
 	visible = open
 	if not open:
+		_tier_picker = ""
+		_info_key = ""
 		return
 
 	for child in _content.get_children():
 		child.queue_free()
+	if _info_overlay != null:
+		_info_overlay.queue_free()
+		_info_overlay = null
 	MapCardStyle.style_panel(_card, 18, 0.16)
 	_build()
 
 
 func _build() -> void:
 	var player: Dictionary = GameState.state["player"]
-	var management: bool = _is_management_mode()
+	var management: bool = Bag.is_management_mode()
 
 	_card.offset_top = -(MANAGEMENT_DRAWER_HEIGHT if management else DRAWER_HEIGHT)
 
 	_content.add_child(UI.heading("Bag"))
+	_content.add_child(_build_ore_row())
 
-	_content.add_child(UI.heading("Ore", 14))
+	var projection: Dictionary = Bag.projection(_ore_filter, management)
+	if _ore_filter != "" and not projection["filters"].has(_ore_filter):
+		_ore_filter = ""
+		projection = Bag.projection(_ore_filter, management)
+	_content.add_child(_build_filter_chips(projection["filters"]))
+	if projection["categories"].is_empty():
+		_content.add_child(UI.muted_label(_empty_text()))
+	for category in projection["categories"]:
+		_add_category(category)
+
+	_add_active_effect_lines(player)
+	if management:
+		_add_target_use_buttons()
+	_content.add_child(UI.heading("Equipped", 14))
+	_content.add_child(_build_dial_summary_label(player))
+
+	_content.add_child(MapCardStyle.footer([MapCardStyle.text_button("Close", func(): Bag.close())]))
+	if _info_key != "":
+		_build_info_overlay()
+
+
+# PROSE-REVIEW: empty-Bag line.
+func _empty_text() -> String:
+	return "Nothing held." if _ore_filter.is_empty() else "Nothing held for that ore."
+
+
+func _build_ore_row() -> Control:
+	var flow := HFlowContainer.new()
+	flow.add_theme_constant_override("h_separation", 12)
 	for ore_type in GameData.ORE_TYPES.keys():
 		var ore: Dictionary = GameData.ORE_TYPES[ore_type]
 		var qty: int = Stash.player_ore_qty(ore_type)
-		var split: String = _pool_split(int(player["orichalchum"].get(ore_type, 0)), Stash.stashed_ore_qty(ore_type))
-		_content.add_child(UI.symbol_row([{ "symbol": ore["symbol"], "fallback": SymbolGlyph.ore_fallback(ore_type) }, "%s: %d%s" % [ore["name"], qty, split]]))
+		var split: String = _pool_split(int(GameState.state["player"]["orichalchum"].get(ore_type, 0)), Stash.stashed_ore_qty(ore_type))
+		flow.add_child(UI.symbol_row([{ "symbol": ore["symbol"], "fallback": SymbolGlyph.ore_fallback(ore_type) }, "%s: %d%s" % [ore["name"], qty, split]]))
+	return flow
 
-	_content.add_child(UI.heading("Consumables", 14))
-	for recipe_key in CONSUMABLE_KEYS:
-		var recipe: Dictionary = GameData.RECIPES[recipe_key]
-		var qty: int = Stash.player_item_qty(recipe_key)
-		_content.add_child(UI.symbol_row([ItemIcons.part(recipe_key), "%s: %d%s" % [recipe["name"], qty, _pool_split(Crafting.inventory_qty(recipe_key), Stash.stashed_item_qty(recipe_key))]]))
-		var multi_key: String = Crafting.inventory_key(recipe_key, true)
-		var multi_qty: int = Stash.player_item_qty(multi_key)
-		if multi_qty > 0:
-			_content.add_child(UI.symbol_row([ItemIcons.part(recipe_key), "%s (multi): %d%s" % [recipe["name"], multi_qty, _pool_split(Crafting.inventory_qty(multi_key), Stash.stashed_item_qty(multi_key))]]))
-	for recipe_key in GameData.RECIPES.keys():
-		if CONSUMABLE_KEYS.has(recipe_key) or not GameData.RECIPES[recipe_key].get("bagWhenHeld", false):
-			continue
-		var held: int = Stash.player_item_qty(recipe_key)
-		if held > 0:
-			_content.add_child(UI.symbol_row([ItemIcons.part(recipe_key), "%s: %d%s" % [GameData.RECIPES[recipe_key]["name"], held, _pool_split(Crafting.inventory_qty(recipe_key), Stash.stashed_item_qty(recipe_key))]]))
 
+# All plus only the ores that have held items.
+func _build_filter_chips(ores: Array) -> Control:
+	var flow := HFlowContainer.new()
+	flow.add_theme_constant_override("h_separation", 6)
+	flow.add_theme_constant_override("v_separation", 6)
+	var options: Array = [""]
+	options.append_array(ores)
+	for ore in options:
+		var ore_type: String = ore
+		var title := "All" if ore_type.is_empty() else str(GameData.ORE_TYPES[ore_type]["name"]).get_slice(" ", 0)
+		var chip := MapCardStyle.text_button(title, _set_ore_filter.bind(ore_type), ore_type == _ore_filter)
+		chip.accessibility_name = "%s filter" % title
+		flow.add_child(chip)
+	return flow
+
+
+func _set_ore_filter(ore_type: String) -> void:
+	_ore_filter = ore_type
+	_tier_picker = ""
+	_refresh()
+
+
+func _add_category(category: Dictionary) -> void:
+	var ore: String = category["ore"]
+	var rows: Array = category["rows"]
+	var section := UI.collapsible_section("%s (%d)" % [category["name"], rows.size()], not _collapsed.get(ore, false), func(open: bool): _collapsed[ore] = not open)
+	_content.add_child(section["panel"])
+	for row in rows:
+		section["content"].add_child(_build_row(row))
+		if _tier_picker == row["inventoryKey"] and row["usable"]:
+			section["content"].add_child(_build_tier_picker(row))
+
+
+func _build_row(row: Dictionary) -> Control:
+	var line := UI.hbox(8)
+	var left := UI.symbol_row([ItemIcons.part(row["key"]), row["name"]])
+	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	line.add_child(left)
+	var help := MapCardStyle.text_button("?", _open_info.bind(row["key"]))
+	help.accessibility_name = "About %s" % row["name"]
+	line.add_child(help)
+
+	var right := UI.vbox(2)
+	right.add_child(UI.label("×%d" % row["total"]))
+	if int(row["stash"]) > 0:
+		right.add_child(UI.muted_label(_in_stash_text(int(row["stash"]))))
+	line.add_child(right)
+	if row["usable"]:
+		line.add_child(MapCardStyle.text_button("Use", _on_use_pressed.bind(row)))
+	return line
+
+
+# PROSE-REVIEW: small per-row stash line.
+func _in_stash_text(stashed: int) -> String:
+	return "%d in stash" % stashed
+
+
+func _on_use_pressed(row: Dictionary) -> void:
+	if row["tiers"].size() > 1:
+		_tier_picker = "" if _tier_picker == row["inventoryKey"] else row["inventoryKey"]
+		_refresh()
+		return
+	Bag.use(row["key"])
+
+
+# PROSE-REVIEW: tier picker button text.
+func _build_tier_picker(row: Dictionary) -> Control:
+	var flow := HFlowContainer.new()
+	flow.add_theme_constant_override("h_separation", 6)
+	for tier in row["tiers"]:
+		var qty: int = Stash.player_item_tier_qty(row["inventoryKey"], int(tier))
+		flow.add_child(MapCardStyle.text_button("Tier %d (%d)" % [tier, qty], Bag.use.bind(row["key"], int(tier))))
+	return flow
+
+
+func _open_info(recipe_key: String) -> void:
+	_info_key = recipe_key
+	_refresh()
+
+
+func _close_info() -> void:
+	_info_key = ""
+	_refresh()
+
+
+func _build_info_overlay() -> void:
+	var recipe: Dictionary = GameData.RECIPES.get(_info_key, {})
+	_info_overlay = Control.new()
+	UI.anchor_full_rect(_info_overlay)
+	var dim := ColorRect.new()
+	dim.color = Color(0, 0, 0, 0.4)
+	UI.anchor_full_rect(dim)
+	dim.mouse_filter = Control.MOUSE_FILTER_STOP
+	dim.gui_input.connect(func(event: InputEvent):
+		if (event is InputEventMouseButton or event is InputEventScreenTouch) and event.pressed:
+			_close_info()
+	)
+	_info_overlay.add_child(dim)
+	var centre := CenterContainer.new()
+	UI.anchor_full_rect(centre)
+	centre.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_info_overlay.add_child(centre)
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size = Vector2(300, 0)
+	MapCardStyle.style_panel(panel, 18, 0.16)
+	centre.add_child(panel)
+	var box := UI.vbox(8)
+	panel.add_child(box)
+	box.add_child(UI.symbol_row([ItemIcons.part(_info_key), str(recipe.get("name", _info_key))]))
+	var effect := UI.label(str(recipe.get("effectText", "")))
+	effect.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(effect)
+	var description := UI.muted_label(str(recipe.get("description", "")))
+	description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(description)
+	box.add_child(MapCardStyle.footer([MapCardStyle.text_button("Close", _close_info)]))
+	add_child(_info_overlay)
+
+
+# Timed effects still running and the healing-salve heal-over-time.
+func _add_active_effect_lines(player: Dictionary) -> void:
 	if player["healingSalveDaysLeft"] > 0:
 		_content.add_child(UI.symbol_row([ItemIcons.part("healingSalve"), "Healing Salve active — %d HP/day, %d day(s) left" % [player["healingSalveDailyAmount"], player["healingSalveDaysLeft"]]], { "muted": true }))
-
-	if management:
-		_add_out_of_combat_use_buttons(player)
-	else:
-		_content.add_child(UI.heading("Equipped", 14))
-		_content.add_child(_build_dial_summary_label(player))
-
-	_content.add_child(MapCardStyle.footer([MapCardStyle.text_button("Close", func(): Bag.close())]))
+	for effect in ActiveEffects.effects():
+		var item: String = effect["item"]
+		if not GameData.RECIPES.has(item) or ActiveEffects.blocks_left(effect) <= 0:
+			continue
+		_content.add_child(UI.symbol_row([ItemIcons.part(item), "%s active — %s, %d block(s) left" % [GameData.RECIPES[item]["name"], ACTIVE_EFFECT_BLURBS.get(item, ""), ActiveEffects.blocks_left(effect)]], { "muted": true }))
 
 
 # PROSE-REVIEW: " (Shared a / Stash b)" suffix, shown only when something is stashed.
@@ -110,23 +252,8 @@ func _pool_split(shared: int, stashed: int) -> String:
 	return " (Shared %d / Stash %d)" % [shared, stashed] if stashed > 0 else ""
 
 
-func _is_management_mode() -> bool:
-	if GameState.state["combat"]["active"]:
-		return false
-	var event_state: Variant = GameState.state.get("event")
-	if event_state != null:
-		var card: Dictionary = Events.current_card()
-		var hooks: Array = card.get("itemHooks", [])
-		if not hooks.is_empty():
-			return false
-	return true
-
-
-func _add_out_of_combat_use_buttons(player: Dictionary) -> void:
-	if Stash.player_item_qty("healingSalve") > 0:
-		_content.add_child(_symbol_use_button("healingSalve", "Healing Salve (%d) — 2-day heal-over-time" % Stash.player_item_qty("healingSalve"), _on_use_healing_salve))
-	if Stash.player_item_qty("healingBurst") > 0:
-		_content.add_child(_symbol_use_button("healingBurst", "Healing Burst (%d) — instant heal" % Stash.player_item_qty("healingBurst"), _on_use_healing_burst))
+# Target-picking items keep their per-target Use rows.
+func _add_target_use_buttons() -> void:
 	if Stash.player_item_qty("smellingSalts") > 0:
 		for contact_id in Contacts.ko_cooldown_contacts():
 			var contact_name: String = Contacts.display_name(contact_id)
@@ -135,21 +262,10 @@ func _add_out_of_combat_use_buttons(player: Dictionary) -> void:
 		for faction_id in Grudges.clearable_factions():
 			var faction_name: String = GameData.FACTIONS[faction_id]["shortName"]
 			_content.add_child(_symbol_use_button("cleanSlate", "Clean Slate (%d) — clear %s grudge" % [Stash.player_item_qty("cleanSlate"), faction_name], func(): _on_use_clean_slate(faction_id)))
-	if Stash.player_item_qty(TimeSystem.BORROWED_TIME) > 0:
-		_content.add_child(_symbol_use_button(TimeSystem.BORROWED_TIME, "Use Borrowed Time (%d) — an extra block today, paid back tomorrow" % Stash.player_item_qty(TimeSystem.BORROWED_TIME), _on_use_borrowed_time))
-	for item in ActiveEffects.usable_items():
-		var qty: int = Stash.player_item_qty(item)
-		if qty > 0:
-			_content.add_child(_symbol_use_button(item, "Use %s (%d) — %s" % [GameData.RECIPES[item]["name"], qty, ACTIVE_EFFECT_BLURBS.get(item, "")], func(): _on_use_active_effect(item)))
 
 
 func _symbol_use_button(recipe_key: String, rest_text: String, callback: Callable, disabled: bool = false) -> Button:
 	return MapCardStyle.symbol_option_row([ItemIcons.part(recipe_key), rest_text], callback, disabled)
-
-
-func _on_use_healing_salve() -> void:
-	Bag.close()
-	Consumables.use_healing_salve()
 
 
 func _build_dial_summary_label(player: Dictionary) -> Control:
@@ -171,18 +287,3 @@ func _on_use_smelling_salts(contact_id: String) -> void:
 func _on_use_clean_slate(faction_id: String) -> void:
 	Bag.close()
 	Grudges.use_clean_slate(faction_id)
-
-
-func _on_use_borrowed_time() -> void:
-	Bag.close()
-	TimeSystem.use_borrowed_time()
-
-
-func _on_use_active_effect(item: String) -> void:
-	Bag.close()
-	ActiveEffects.use(item)
-
-
-func _on_use_healing_burst() -> void:
-	Bag.close()
-	Consumables.use_healing_burst()

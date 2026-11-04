@@ -176,7 +176,7 @@ func run() -> void:
 		drawer._ready()
 		var use_button: Button = null
 		for b in drawer.find_children("", "Button", true, false):
-			if not b.is_queued_for_deletion() and b.get_child_count() > 0 and NodeQuery.effective_text(b.get_child(0)).contains("Use Be a Lady"):
+			if not b.is_queued_for_deletion() and b.text == "Use":
 				use_button = b
 		assert_true(use_button != null, "Use row shown outside combat")
 		if use_button != null:

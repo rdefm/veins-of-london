@@ -29,9 +29,9 @@ func run() -> void:
 		drawer._ready()
 		var found := false
 		for label in drawer.find_children("", "Label", true, false):
-			if label.text == "Near Miss: 2":
+			if label.text == "Near Miss" or label.text == "×2":
 				found = true
-			assert_true(label.text != "Sod's Law: 0", "unheld roster item hidden")
+			assert_true(label.text != "Sod's Law", "unheld roster item hidden")
 		assert_true(found, "held roster item row shown")
 		drawer.free()
 	)
