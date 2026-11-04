@@ -204,7 +204,7 @@ overlays; hides the top board on title/intro/combat and the nav dock per screen.
 | phone_device_shell.gd | Persistent rounded simulated-phone frame: clipped display, approved London wallpaper, game-clock status time + widget date (live on state_changed), fixed weather/battery chrome, dark opened-app surface + shared/custom content mounts |
 | phone_home_dock.gd | Home-only translucent three-destination Phone/Messages/Settings dock |
 | symbol_glyph.gd | Label-or-vector fallback for a symbol; draws an optional `icon` texture instead when set |
-| item_icons.gd | `ItemIcons`: recipe key -> pixel-art icon texture (from recipes.json `icon`) and symbol-row part dict; shared by Bag, Dial, trade, events, combat |
+| item_icons.gd | `ItemIcons`: recipe key -> pixel-art icon texture (assets/items/<key>.png, else recipes.json `icon`) and symbol-row part dict; shared by Bag, Dial, trade, events, combat |
 | time_transition.gd | Transient time queue, input guard, dimmed circular park/sky/sun/moon presentation |
 | top_bar.gd | Top departure board: casing + status lines + NotificationTicker + active-effect icon chips (tap → `active_effects` sheet); feeds new notifications (held through combat, raid-alarm line, reset on load/Rewind); tap opens Notifications app (short-pay menu if latest line is the pending guard shortfall) except in combat. Hidden on the combat screen |
 | touch_input.gd | `TouchInput.is_emulated_mouse(event)`: true for the mouse twin Godot emits for every touch; touch+mouse handlers skip it so one tap acts once |

@@ -17,6 +17,29 @@ func run() -> void:
 		assert_true(ItemIcons.texture("nonsense") == null, "unknown key -> no icon")
 	)
 
+	run_case("convention_path_then_icon_field_then_symbol", func():
+		var old_dir: String = ItemIcons.icon_dir
+		var saved: Dictionary = GameData.RECIPES.get("timePearl", {}).duplicate()
+		var pearl: Dictionary = GameData.RECIPES["timePearl"]
+		# Convention file wins over a different "icon" field.
+		ItemIcons.icon_dir = "res://assets/combat/icons/"
+		pearl["icon"] = "res://assets/combat/icons/rewind.png"
+		ItemIcons._cache.clear()
+		assert_eq(ItemIcons.texture("timePearl").resource_path, "res://assets/combat/icons/timePearl.png", "convention wins")
+		# No convention file -> icon field.
+		ItemIcons.icon_dir = "res://assets/items_nonexistent/"
+		ItemIcons._cache.clear()
+		assert_eq(ItemIcons.texture("timePearl").resource_path, "res://assets/combat/icons/rewind.png", "icon field fallback")
+		# Neither -> null (symbol glyph).
+		pearl.erase("icon")
+		ItemIcons._cache.clear()
+		assert_true(ItemIcons.texture("timePearl") == null, "symbol fallback")
+		assert_true(ItemIcons.part("timePearl")["icon"] == null, "part has no icon")
+		ItemIcons.icon_dir = old_dir
+		pearl.merge(saved, true)
+		ItemIcons._cache.clear()
+	)
+
 	run_case("bag_consumable_rows_bind_icons", func():
 		GameState.reset()
 		Bag.open()

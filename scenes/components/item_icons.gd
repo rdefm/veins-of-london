@@ -6,6 +6,8 @@ extends RefCounted
 
 const ICON_SIZE := 24.0
 
+# Convention folder: <ICON_DIR><recipe key>.png wins over the recipe's "icon".
+static var icon_dir := "res://assets/items/"
 static var _cache: Dictionary = {}
 
 
@@ -13,10 +15,17 @@ static func texture(recipe_key: String) -> Texture2D:
 	if _cache.has(recipe_key):
 		return _cache[recipe_key]
 	var recipe: Dictionary = GameData.RECIPES.get(recipe_key, {})
-	var path: String = recipe.get("icon", "")
-	var tex: Texture2D = load(path) if path != "" and ResourceLoader.exists(path) else null
+	var tex: Texture2D = _load_if_exists("%s%s.png" % [icon_dir, recipe_key])
+	if tex == null:
+		tex = _load_if_exists(recipe.get("icon", ""))
 	_cache[recipe_key] = tex
 	return tex
+
+
+static func _load_if_exists(path: String) -> Texture2D:
+	if path != "" and ResourceLoader.exists(path):
+		return load(path)
+	return null
 
 
 # Part dict for UI.symbol_row / symbol_button / symbol_option_row.
