@@ -56,6 +56,7 @@ static func refresh() -> void:
 	for id in GameData.OBJECTIVES.keys():
 		_refresh_one(id, GameData.OBJECTIVES[id])
 	BoardMeetings.note_progress()
+	Todo.refresh_marks()
 
 
 static func _refresh_one(id: String, def: Dictionary) -> void:

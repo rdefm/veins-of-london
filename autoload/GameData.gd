@@ -361,6 +361,7 @@ var BOARD_LADDERS: Dictionary = {}
 var BOARD_TEMPLATES: Dictionary = {}
 var BOARD_TUNING: Dictionary = {}
 var BOARD_TODO: Dictionary = {}
+var TODO_PAGES: Dictionary = {}
 var BOARD_SPINE: Dictionary = {}
 var BOARD_MEETING: Dictionary = {}
 
@@ -584,6 +585,9 @@ const MANIFEST: Array[Dictionary] = [
 	]},
 	{"table": "objectives", "file": "res://data/objectives.json", "fields": [
 		{"field": "OBJECTIVES", "key": "", "type": TYPE_DICTIONARY},
+	]},
+	{"table": "todo", "file": "res://data/todo.json", "fields": [
+		{"field": "TODO_PAGES", "key": "", "type": TYPE_DICTIONARY},
 	]},
 	{"table": "board", "file": "res://data/board.json", "fields": [
 		{"field": "BOARD_VOICES", "key": "voices", "type": TYPE_DICTIONARY},

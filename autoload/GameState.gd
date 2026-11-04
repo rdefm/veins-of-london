@@ -120,6 +120,8 @@ func new_game_state() -> Dictionary:
 		"hiring": Hiring.new_state(),
 		# Weekly board meetings (R§2 boardMeetings, systems/board_meetings.gd).
 		"boardMeetings": BoardMeetings.new_state(),
+		# ToDo carousel seen/changed marks (systems/todo.gd).
+		"todo": Todo.new_state(),
 		# Archie's Beat 2 starter-offer chain (systems/business_quest.gd):
 		# which starter template is next, and the day it may be (re)issued
 		# (null = as soon as none is outstanding).

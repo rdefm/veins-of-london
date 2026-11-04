@@ -124,7 +124,7 @@ Data file per system: see `data/*.json` below.
 | station_bubble.gd | Site/vein-stop tap-bubble decision |
 | calendar.gd | Pure `world.day` → calendar date (`MON 3 JAN`, `Y2`+ suffix) per R§3.1 "Calendar"; day 1's weekday from `calendar.startWeekday`; every player-facing date string uses `Calendar.format_day`; `widget_date` for the phone widget/Today card; weekday/Monday helpers for the weekly cadence |
 | time_system.gd | Time blocks (staff step + LodedInnit post), forward-only `advance_to_block()` (R§3.9b), rest, Borrowed Time charges/debt (`use_borrowed_time`, shared `_roll_day`), daily tick (weekly home bill, arrears, forced downgrade per ADR 0006), Prologue day triggers |
-| todo.gd | ToDo-app sections per questline (Tutorial, Collective, Business Empire) with active/done/placeholder status, "n of N" count detail, all_of checklist sub-items; Collective carries the site ledger; trailing Board section = active board goal (label, tier reached, progress to next tier); `current_objective()` = first undone item, read by the Story row |
+| todo.gd | ToDo projection: `get_pages()` = one page per questline (+Act 2, Board) ordered started/placeholder/Board/finished, with active/done goals, ledger, pip, Board base/target/stretch `steps`; `default_page_index()`; saved `todo` marks via `refresh_marks()`/`mark_seen()`; `current_objective()` = first undone item (Story row) |
 | travel.gd | District travel (free) |
 | vein_list.gd | Vein-portfolio list decision layer (row actions incl. Apply item…) |
 | vein_list_nav.gd | Vein list screen nav state |
@@ -313,6 +313,7 @@ overlays; hides the top board on title/intro/combat and the nav dock per screen.
 | map_layout.json | map_layout.gd, map_hit_test.gd |
 | market.json | market.gd (constants, sim start, priceLot, ore conversion rate, annotation cap/thresholds, delivery-log cap, Independents shares + buy cover, per-good normalStock/civilianDemand, storyRises); shares.gd (via Market.independents_share) |
 | map_palette.json | GameData.gd (validated) + map_palette.gd (Map tab light/dark colour tokens, zone-tint strength, faction/ore/zoneTint dark overrides) + map_controls.gd (`darkModeLabel`) |
+| todo.json | todo.gd (per-questline label, subtitle, accent, doneFlag, emptyText; act2/board page style) |
 | objectives.json | objectives.gd, todo.gd, daily_brief.gd (optional briefAction / earlyBriefAction + note: Story-row destination), collective.gd, business_quest.gd |
 | offers.json | offers.gd (synthetic catalogue, scripted counterparties, offer expiry days, recurring term weeks, random-offer daily chance curve + qty bands + `variety` ramp, small-offer threshold, cancel relation hit, `assay` commission tuning + prose), business_quest.gd (biz_starter_* chain + Archie nudge text, biz_recurring_* from Beat 3/6) |
 | ore_types.json | widely read (economy, cultivating, sites, factions) |
