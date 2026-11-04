@@ -451,7 +451,21 @@
 					"askJamesHold"
 				]
 			},
-			"observations": {}
+			"observations": {
+				"james_dial_repair1": {
+					"emotion": 2,
+					"physics": 2
+				},
+				"james_dial_repair2": {
+					"life": 2
+				},
+				"james_dial_repair3": {
+					"emotion": 2
+				},
+				"james_dial_repair_end": {
+					"physics": 2
+				}
+			}
 		},
 		"james_experiment": {
 			"choiceCards": {
@@ -459,7 +473,12 @@
 					"bench"
 				]
 			},
-			"observations": {}
+			"observations": {
+				"james_experiment": {
+					"emotion": 2,
+					"fate": 2
+				}
+			}
 		},
 		"james_meeting_observation": {
 			"choiceCards": {
@@ -615,15 +634,33 @@
 					"glovesOn"
 				]
 			},
-			"observations": {}
+			"observations": {
+				"prologue_gym1": {
+					"emotion": 2,
+					"life": 2,
+					"physics": 2
+				}
+			}
 		},
 		"prologue_home_raid_debrief_loss": {
 			"choiceCards": {},
-			"observations": {}
+			"observations": {
+				"prologue_raid_loss1": {
+					"emotion": 2,
+					"physics": 2
+				}
+			}
 		},
 		"prologue_home_raid_debrief_win": {
 			"choiceCards": {},
-			"observations": {}
+			"observations": {
+				"home_raid_archie_arrival": {
+					"emotion": 2
+				},
+				"home_raid_archie_impressed": {
+					"emotion": 2
+				}
+			}
 		},
 		"prologue_home_raid_intro": {
 			"choiceCards": {},
@@ -643,7 +680,43 @@
 					"leaveHid"
 				]
 			},
-			"observations": {}
+			"observations": {
+				"james_door": {
+					"emotion": 2,
+					"physics": 2
+				},
+				"james_door2": {
+					"time": 2
+				},
+				"james_meeting1": {
+					"emotion": 2,
+					"life": 2,
+					"physics": 2
+				},
+				"james_obs_bench": {
+					"emotion": 2,
+					"physics": 2,
+					"time": 2
+				},
+				"james_obs_errand": {
+					"emotion": 2,
+					"fate": 2
+				},
+				"james_obs_jars": {
+					"emotion": 2,
+					"life": 2,
+					"physics": 2
+				},
+				"james_obs_kit": {
+					"emotion": 2,
+					"physics": 2
+				},
+				"james_obs_noticed": {
+					"emotion": 2,
+					"fate": 2,
+					"physics": 2
+				}
+			}
 		},
 		"prologue_pub": {
 			"choiceCards": {

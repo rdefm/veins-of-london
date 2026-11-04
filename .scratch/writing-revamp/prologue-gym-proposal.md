@@ -181,7 +181,7 @@
                         }
                       }
                     },
-                    "resumeCard": 5
+                    "resumeCard": 7
                   }
                 }
               ],
@@ -291,7 +291,7 @@
                         ]
                       }
                     },
-                    "resumeCard": 8
+                    "resumeCard": 10
                   }
                 }
               ],

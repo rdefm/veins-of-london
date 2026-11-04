@@ -45,7 +45,8 @@
           "label": "{today} — Bermondsey",
           "speaker": null,
           "text": "The storage unit 2 doors down from the halal supermarket. Archie is already there, which has never happened before. He used his last pearl in Whitechapel, and since then he checks the street every time a car slows.",
-          "image": "res://assets/events/prologue_james_meeting/prologue_james_meeting_main_2.png"
+          "image": "res://assets/events/prologue_james_meeting/prologue_james_meeting_main_2.png",
+          "observe": "james_meeting1"
         },
         {
           "key": "c2",
@@ -61,14 +62,16 @@
           "label": null,
           "speaker": null,
           "text": "The door opens. James is in his sixties: glasses with one bent arm, a waistcoat with the slightest stain on it. He looks at Archie, then at you, like a parcel left on the wrong doorstep.",
-          "image": "res://assets/events/prologue_james_meeting/prologue_james_meeting_main_4.png"
+          "image": "res://assets/events/prologue_james_meeting/prologue_james_meeting_main_4.png",
+          "observe": "james_door"
         },
         {
           "key": "c4",
           "type": "speaker",
           "label": null,
           "speaker": "James",
-          "text": "\"You're early. That's new. Come in. Touch nothing.\""
+          "text": "\"You're early. That's new. Come in. Touch nothing.\"",
+          "observe": "james_door2"
         },
         {
           "key": "c5",
@@ -76,7 +79,8 @@
           "label": null,
           "speaker": null,
           "text": "Shelves of jars run to the ceiling, each labelled in biro. It smells of copper and bleach. Archie stays by the door and rubs his eyes.",
-          "image": "res://assets/events/prologue_james_meeting/prologue_james_meeting_main_5.png"
+          "image": "res://assets/events/prologue_james_meeting/prologue_james_meeting_main_5.png",
+          "observe": "james_obs_jars"
         },
         {
           "key": "c6",
@@ -91,7 +95,8 @@
           "label": null,
           "speaker": null,
           "text": "You glance up. James is watching you. His expression doesn't change, exactly. But something in it does.",
-          "image": "res://assets/events/prologue_james_meeting/prologue_james_meeting_main_7.png"
+          "image": "res://assets/events/prologue_james_meeting/prologue_james_meeting_main_7.png",
+          "observe": "james_obs_noticed"
         },
         {
           "key": "c8",
@@ -120,7 +125,8 @@
           "type": "speaker",
           "label": null,
           "speaker": "James",
-          "text": "\"Nobody who's ever shortchanged me. The address will be on your phone by the time you reach the station.\" He doesn't look at you. \"I need your friend's assistance with something in the meantime.\""
+          "text": "\"Nobody who's ever shortchanged me. The address will be on your phone by the time you reach the station.\" He doesn't look at you. \"I need your friend's assistance with something in the meantime.\"",
+          "observe": "james_obs_errand"
         },
         {
           "key": "c12",
@@ -188,7 +194,8 @@
           "type": "speaker",
           "label": null,
           "speaker": "James",
-          "text": "\"That hourglass Archie broke in Mile End. That was one of mine.\" He says it to the jar. \"It did what it was made for. Now you.\""
+          "text": "\"That hourglass Archie broke in Mile End. That was one of mine.\" He says it to the jar. \"It did what it was made for. Now you.\"",
+          "observe": "james_obs_bench"
         },
         {
           "key": "c17",
@@ -243,7 +250,8 @@
           "label": "Two hours later",
           "speaker": null,
           "text": "James wipes the bench down, caps the jar and puts it back on its shelf. Then he places a battered crafting kit on the table.",
-          "image": "res://assets/events/prologue_james_meeting/prologue_james_meeting_b21_1.png"
+          "image": "res://assets/events/prologue_james_meeting/prologue_james_meeting_b21_1.png",
+          "observe": "james_obs_kit"
         },
         {
           "key": "c22",
@@ -452,6 +460,287 @@
     }
   },
   "_liveSource": "prologue_james_meeting.json",
-  "_liveHash": "3ebf1195"
+  "_liveHash": "b56548ae",
+  "observations": {
+    "james_meeting1": {
+      "blocks": {
+        "physics": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "Proper door, two locks, and a camera in the buzzer actually plugged in. Whoever's inside spends real money on not being robbed."
+            },
+            {
+              "base": 0.55,
+              "text": "Heavy door, new lock. Nicer than the other units on the row."
+            }
+          ],
+          "miss": "The shop next door has a sign: NO BALL GAMES. You weren't planning on any, but now you sort of want to."
+        },
+        "life": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "The lad stacking crates outside the supermarket gives the unit a wide berth. He isn't being rude about it. It looks like a habit, like someone told him to once."
+            },
+            {
+              "base": 0.55,
+              "text": "Busy street. Lots of people about, none of them looking at the green door."
+            }
+          ],
+          "miss": "Busy street. Lots of people about, none of them looking at the unit."
+        },
+        "emotion": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "Archie isn't early because he's keen. He just didn't want to be out on the street any longer than he had to be. Every time a car slows his hand goes to the pocket the pearl used to be in. It's empty, and he keeps forgetting."
+            },
+            {
+              "base": 0.55,
+              "text": "Archie keeps checking his phone, then the road, then his phone again. He's more wound up than he's letting on."
+            }
+          ],
+          "miss": "Archie's early. Maybe he's turned over a new leaf. Maybe he's got a new watch."
+        }
+      }
+    },
+    "james_door": {
+      "blocks": {
+        "physics": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "The bent arm on his glasses has been fixed with fuse wire, and done neatly. The stain on the waistcoat is an old one that's been scrubbed at. He mends things instead of replacing them, and he's good at it."
+            },
+            {
+              "base": 0.55,
+              "text": "Glasses held together with wire. Whatever he spends his money on, it isn't himself."
+            }
+          ],
+          "miss": "Nice waistcoat. Very Peaky Blinders. You decide not to say so."
+        },
+        "emotion": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "He looks at Archie the way you'd look at a regular who's always late paying but always pays. He looks at you like he's working out what you are, not who."
+            },
+            {
+              "base": 0.55,
+              "text": "He doesn't look pleased to see either of you. He doesn't look surprised, either."
+            }
+          ],
+          "miss": "Grumpy old man. Harmless, though."
+        }
+      }
+    },
+    "james_door2": {
+      "blocks": {
+        "time": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "\"That's new.\" He knows Archie's habits well. These two go back years, not months."
+            },
+            {
+              "base": 0.55,
+              "text": "He knew exactly what time you were meant to turn up."
+            }
+          ],
+          "miss": "Is he early or are you? You check your phone. 3%."
+        }
+      }
+    },
+    "james_obs_jars": {
+      "blocks": {
+        "physics": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "The jars aren't in alphabetical order. They're in groups, and some groups are kept well apart, like they don't get on. He isn't just tidy. He's careful."
+            },
+            {
+              "base": 0.55,
+              "text": "Every jar is labelled and dated, and nothing is lower than eye level. Nothing on the floor."
+            }
+          ],
+          "miss": "That's a lot of jam. No wait, they aren't jam jars."
+        },
+        "life": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "There's a second stool behind the bench, and a second mug washed and upside down on the drainer. Someone else works here. Not today, though."
+            },
+            {
+              "base": 0.55,
+              "text": "Two stools at the bench. He doesn't usually work alone."
+            }
+          ],
+          "miss": "One plant on the windowsill is doesn't look quite as lively as the others. It's the most normal thing in here."
+        },
+        "emotion": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "Archie won't come past the door, and he's rubbing his eyes. He did the same in the launderette after Mile End. Whatever that hourglass did to him, it's happening again."
+            },
+            {
+              "base": 0.55,
+              "text": "Archie's rubbing his eyes again. He's been doing that a lot."
+            }
+          ],
+          "miss": "Archie's rubbing his eyes. Probably hay fever. In a storage unit."
+        }
+      }
+    },
+    "james_obs_noticed": {
+      "blocks": {
+        "physics": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "It moved before your hand got anywhere near it. Nothing knocked the shelf. Nobody touched it."
+            },
+            {
+              "base": 0.55,
+              "text": "Nothing touched that shelf. You're fairly sure."
+            }
+          ],
+          "miss": "Must have been a lorry going past. Things move when lorries go past."
+        },
+        "emotion": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "He saw the calc move. He's surprised, but doing a very, very good job hiding it."
+            },
+            {
+              "base": 0.55,
+              "text": "He's looking at you differently now. Like you've gone up in price."
+            }
+          ],
+          "miss": "He's annoyed you got so close to his jar. You step back and put your hands in your pockets."
+        },
+        "fate": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "Your gut says the pearls just stopped being the reason you're here."
+            },
+            {
+              "base": 0.55,
+              "text": "Something just changed and you don't know what. You get the feeling you'll find out."
+            }
+          ],
+          "miss": "You get the feeling you've left the hob on. You check your pockets, for some reason."
+        }
+      }
+    },
+    "james_obs_errand": {
+      "blocks": {
+        "emotion": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "Archie meant knives. James heard money. The worst thing a seller can do to James is try to stiff him on price. Same city, same trade, and they're living in different worlds."
+            },
+            {
+              "base": 0.55,
+              "text": "James doesn't think there's anything to worry about. Archie doesn't look any less worried."
+            }
+          ],
+          "miss": "Sounds like an easy job. Archie'll be back in an hour."
+        },
+        "fate": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "\"Within the hour\" is long enough to get Archie out of the room and too short for him to argue. James wants you on your own."
+            },
+            {
+              "base": 0.55,
+              "text": "Funny how this errand came up straight after the jar moved."
+            }
+          ],
+          "miss": "Stratford. You could ask Archie to bring you a Nando's back from Westfield."
+        }
+      }
+    },
+    "james_obs_bench": {
+      "blocks": {
+        "physics": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "The gauge on the press has a worn patch just past seventy, where the needle's stopped a thousand times. The heat dial's the same around twenty-five. That's where he always stops."
+            },
+            {
+              "base": 0.55,
+              "text": "The paint's worn off the gauge in one spot. He always stops in the same place."
+            }
+          ],
+          "miss": "The sticker on the press says PAT TESTED 2009. Probably fine."
+        },
+        "emotion": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "He isn't angry. He's giving his calc to a stranger, and being rude about it is easier than admitting it bothers him."
+            },
+            {
+              "base": 0.55,
+              "text": "He's harsher than he needs to be. This matters to him."
+            }
+          ],
+          "miss": "He's quite rude. Maybe he's just hungry."
+        },
+        "time": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "He made the hourglass that got you out of Mile End. He's essentially a wizard, and he wants to teach you. Awesome."
+            },
+            {
+              "base": 0.55,
+              "text": "You still don't know what that hourglass actually did. But you think there might be a chance for you to learn."
+            }
+          ],
+          "miss": "You still don't know what that hourglass actually did. Best not ask. He looks like the type to make you take notes."
+        }
+      }
+    },
+    "james_obs_kit": {
+      "blocks": {
+        "physics": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "The kit's old, but every tool in it is clean and oiled. Someone looked after this for years. A name has been scratched off the lid."
+            },
+            {
+              "base": 0.55,
+              "text": "It's battered, but someone's looked after it."
+            }
+          ],
+          "miss": "Bit scruffy. You could probably get a nicer one off eBay."
+        },
+        "emotion": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "He wiped the bench down twice. He's pleased with how today went and doesn't want you to see it."
+            },
+            {
+              "base": 0.55,
+              "text": "He's not as sharp with you as he was this morning."
+            }
+          ],
+          "miss": "He can't wait to get rid of you."
+        }
+      }
+    }
+  }
 }
 ```
