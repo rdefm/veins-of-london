@@ -334,7 +334,7 @@ static func is_last_card() -> bool:
 static func can_rewind() -> bool:
 	if not has_rewind_point():
 		return false
-	return Crafting.inventory_qty("rewind") > 0 or Dial.find_loaded_rewind_complication_index() >= 0
+	return Stash.player_item_qty("rewind") > 0 or Dial.find_loaded_rewind_complication_index() >= 0
 
 
 # True once the live event has a snapshot to rewind to, regardless of stock/charge.
@@ -855,7 +855,7 @@ static func _mod_delta(mod: Dictionary, toggled: Array = []) -> float:
 			return float(effect.get("add", 0.0)) * item_tier_scale(mod["item"])
 		return 0.0
 	if mod.has("path") and mod.has("perPoint"):
-		var value: float = float(GameState.read_path(mod["path"], 0))
+		var value: float = float(_path_value(mod["path"]))
 		return float(mod["perPoint"]) * maxf(0.0, value - float(mod.get("above", 0)))
 	if mod.has("alertByTier"):
 		var by_tier: Array = mod["alertByTier"]
@@ -895,7 +895,7 @@ static func condition_met(condition: Dictionary, toggled: Array = [], facts: Dic
 			return Loadout.find_slot(condition["item"]) >= 0
 		if condition.get("optional", false):
 			return toggled.has(condition["item"])
-		return Crafting.inventory_qty(condition["item"]) > 0
+		return Stash.player_item_qty(condition["item"]) > 0
 	if condition.has("flag"):
 		return true if GameState.state["flags"].get(condition["flag"], false) else false
 	if condition.has("choice"):
@@ -905,7 +905,7 @@ static func condition_met(condition: Dictionary, toggled: Array = [], facts: Dic
 			return false
 		return record.get("id") == _option_key(c["option"])
 	if condition.has("path"):
-		return float(GameState.read_path(condition["path"], 0)) >= float(condition["atLeast"])
+		return float(_path_value(condition["path"])) >= float(condition["atLeast"])
 	if condition.has("relation"):
 		var contact: Dictionary = GameState.state["contacts"].get(condition["relation"], {})
 		return contact.get("relation", 0) >= condition["atLeast"]
@@ -1476,10 +1476,10 @@ static func _skeleton_key_cancels(ward: Dictionary) -> bool:
 		return false
 	var event_state: Dictionary = GameState.state["event"]
 	if int(event_state.get("keyCancels", 0)) <= 0:
-		var tier := Crafting.highest_tier(SKELETON_KEY)
+		var tier := _highest_held_tier(SKELETON_KEY)
 		if tier == 0:
 			return false
-		Crafting.inventory_remove_from_tier(SKELETON_KEY, tier, 1)
+		Stash.player_item_remove_from_tier(SKELETON_KEY, tier, 1)
 		event_state["keyCancels"] = int(Crafting.effect_power(SKELETON_KEY, tier))
 	event_state["keyCancels"] = int(event_state["keyCancels"]) - 1
 	return true
@@ -1521,11 +1521,29 @@ const ITEM_SOURCE_DIAL := "dial"
 # Where an item effect would be paid from now: inventory first, then a loaded
 # Dial Complication of that recipe with charge to cast it; "" when neither.
 static func item_source(item: String) -> String:
-	if Crafting.inventory_qty(item) > 0:
+	if Stash.player_item_qty(item) > 0:
 		return ITEM_SOURCE_INVENTORY
 	if Dial.find_loaded_complication_index(item) >= 0:
 		return ITEM_SOURCE_DIAL
 	return ""
+
+
+# Highest tier held across shared stock and the stash; 0 with none.
+static func _highest_held_tier(item: String) -> int:
+	var best: int = Crafting.highest_tier(item)
+	for tier in range(best + 1, 6):
+		if Stash.player_item_tier_qty(item, tier) > 0:
+			best = tier
+	return best
+
+
+# A state-path value for conditions and mods; `player.orichalchum.<ore>` also
+# counts the stash (the player's own hands reach it, Stash player spend seam).
+static func _path_value(path: String) -> Variant:
+	var parts: PackedStringArray = path.split(".")
+	if parts.size() == 3 and parts[0] == "player" and parts[1] == "orichalchum":
+		return Stash.player_ore_qty(parts[2])
+	return GameState.read_path(path, 0)
 
 
 # The tier a commit would spend: highest held in inventory, else the loaded
@@ -1533,7 +1551,7 @@ static func item_source(item: String) -> String:
 static func _source_tier(item: String) -> int:
 	match item_source(item):
 		ITEM_SOURCE_INVENTORY:
-			return Crafting.highest_tier(item)
+			return _highest_held_tier(item)
 		ITEM_SOURCE_DIAL:
 			var dial: Dictionary = GameState.state["player"]["dial"]
 			return int(dial["loadedComplications"][Dial.find_loaded_complication_index(item)]["tier"])
@@ -1548,8 +1566,8 @@ static func _pay_item(item: String, source: String) -> int:
 	var tier := _source_tier(item)
 	if tier <= 0:
 		return 0
-	if source == ITEM_SOURCE_INVENTORY and Crafting.inventory_qty(item) > 0:
-		Crafting.inventory_remove_from_tier(item, tier, 1)
+	if source == ITEM_SOURCE_INVENTORY and Stash.player_item_qty(item) > 0:
+		Stash.player_item_remove_from_tier(item, tier, 1)
 		return tier
 	if source == ITEM_SOURCE_DIAL:
 		var index := Dial.find_loaded_complication_index(item)
@@ -1859,7 +1877,7 @@ static func rewind(source: String = "") -> Dictionary:
 		return { "ok": false, "reason": "No rewind available." }
 
 	var event_state: Dictionary = GameState.state["event"]
-	var has_consumable: bool = Crafting.inventory_qty("rewind") > 0
+	var has_consumable: bool = Stash.player_item_qty("rewind") > 0
 	var rewind_index: int = Dial.find_loaded_rewind_complication_index()
 	match source:
 		"consumable":
@@ -1896,7 +1914,7 @@ static func rewind(source: String = "") -> Dictionary:
 	var rearmed := Observation.rearm_read()
 
 	if has_consumable:
-		Crafting.inventory_remove("rewind", 1)
+		Stash.player_item_remove("rewind", 1)
 	else:
 		Dial.cast_complication(rewind_index)
 
@@ -2276,12 +2294,11 @@ static func _buy_faction_vein(effect: Dictionary) -> void:
 static func _sell_ore_at_market(effect: Dictionary, context: Dictionary) -> void:
 	var ore_type: String = effect["type"]
 	var wanted: int = int(effect["qty"]) if effect.has("qty") else int(context.get(effect.get("qtyContextKey", ""), 0))
-	var ore: Dictionary = GameState.state["player"]["orichalchum"]
-	var qty: int = mini(wanted, int(ore.get(ore_type, 0)))
+	var qty: int = mini(wanted, Stash.player_ore_qty(ore_type))
 	if qty <= 0:
 		return
 	var earned: int = Market.line_total("ore", Market.quote("ore", ore_type), qty)
-	ore[ore_type] -= qty
+	Stash.player_spend_ore(ore_type, qty)
 	Market.record_supply("ore", ore_type, qty, "player")
 	GameState.state["player"]["cash"] += earned
 	Bank.record(earned, effect.get("label", "Ore sale"))

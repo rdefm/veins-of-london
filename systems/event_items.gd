@@ -43,7 +43,7 @@ static func use(id: String) -> Dictionary:
 static func _count(entry: Dictionary) -> int:
 	match entry["source"]:
 		"consumable":
-			return Crafting.inventory_qty(entry["recipeKey"])
+			return Stash.player_item_qty(entry["recipeKey"])
 		"dial":
 			return _dial_charges(entry["recipeKey"])
 	return 0

@@ -330,6 +330,41 @@ func run() -> void:
 		assert_eq(ore["time"], 0, "only the held calc goes")
 	)
 
+	run_case("sell_ore_at_market_spends_shared_then_stash", func():
+		GameState.reset()
+		GameState.state["player"]["orichalchum"]["time"] = 2
+		GameState.state["player"]["stash"]["orichalchum"]["time"] = 3
+		Events.apply_effects([{ "op": "sell_ore_at_market", "type": "time", "qty": 4 }])
+		assert_eq(GameState.state["player"]["orichalchum"]["time"], 0, "shared first")
+		assert_eq(Stash.stashed_ore_qty("time"), 1, "stash covers the rest")
+	)
+
+	run_case("ore_path_condition_met_by_stash_alone", func():
+		GameState.reset()
+		GameState.state["player"]["stash"]["orichalchum"]["fate"] = 2
+		assert_true(Events.condition_met({ "path": "player.orichalchum.fate", "atLeast": 2 }), "stash counts")
+		assert_true(not Events.condition_met({ "path": "player.orichalchum.fate", "atLeast": 3 }), "not more than held")
+	)
+
+	run_case("item_requirement_and_spend_use_stash_keep_tier", func():
+		GameState.reset()
+		GameState.state["player"]["stash"]["inventory"]["rewind"] = { "3": 1 }
+		assert_true(Events.condition_met({ "item": "rewind" }), "stash-only item meets requirement")
+		assert_eq(Events.item_source("rewind"), "inventory", "payable")
+		assert_eq(Events.item_tier_scale("rewind"), Events.item_tier_scale("rewind", 3), "scale reads stashed tier")
+		assert_eq(Events._pay_item("rewind", "inventory"), 3, "tier spent")
+		assert_eq(Stash.stashed_item_qty("rewind"), 0, "stash unit gone")
+	)
+
+	run_case("item_spend_prefers_shared_over_stash", func():
+		GameState.reset()
+		Crafting.inventory_add("rewind", 2, 1)
+		GameState.state["player"]["stash"]["inventory"]["rewind"] = { "2": 1 }
+		Events._pay_item("rewind", "inventory")
+		assert_eq(Crafting.inventory_qty("rewind"), 0, "shared spent first")
+		assert_eq(Stash.stashed_item_qty("rewind"), 1, "stash untouched")
+	)
+
 	# Bugfixes ticket (col_a1_intro Continue softlock): screens only swap on
 	# EventBus.screen_changed, fired by Nav.go_to() -- Events.advance() never
 	# calls that on its own, so on_complete is the only place left to
