@@ -315,7 +315,7 @@ func run() -> void:
 
 		var screen := VeinListScreen.new()
 		var actions: Control = screen._build_actions_row(vein)
-		var manage_button: Button = actions.get_child(3)
+		var manage_button: Button = actions.get_child(actions.get_child_count() - 1)
 
 		manage_button.pressed.emit()
 

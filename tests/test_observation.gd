@@ -349,6 +349,7 @@ func run() -> void:
 		GameState.state["event"]["observations"]["o"]["results"]["time"]["level"] = 0
 		GameData.EVENTS["obs_test"]["observations"]["o"]["blocks"]["time"]["tiers"][0] = _tier("a", ALWAYS, 0.9)
 		Observation.read()
+		Events.advance()
 		assert_eq(Events.option_gate(0)["display"], "show", "re-roll reached the top tier")
 		_cleanup()
 	)

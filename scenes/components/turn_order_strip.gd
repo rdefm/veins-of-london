@@ -609,6 +609,7 @@ func _build_card_content(card: NameplateCard) -> void:
 		badge.add_theme_font_size_override("font_size", 9)
 		badge.add_theme_color_override("font_color", _palette_colour(SIGN_STATUS_ID))
 		top_row.add_child(badge)
+		card.badge_label = badge
 
 	box.add_child(top_row)
 

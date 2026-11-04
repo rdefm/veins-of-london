@@ -12,6 +12,7 @@ func run() -> void:
 		GameState.state["currentScreen"] = "hq"
 		var root := (Engine.get_main_loop() as SceneTree).root
 		var main := MainScript.new()
+		main.theme = Theme.new()  # the scene file supplies the theme; a bare script instance has none
 		root.add_child(main)
 		var overlay: Control = null
 		var modal_layer: Control = main.modal_layer

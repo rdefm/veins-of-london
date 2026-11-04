@@ -13,7 +13,7 @@ const SeedSearch := preload("res://tests/support/seed_search.gd")
 
 func _objective(id: String, type: String, params: Dictionary, activate_flag: String = "testActive", complete_flag: String = "testComplete") -> Dictionary:
 	return {
-		"id": id, "title": "Test objective", "detail": "Test detail.", "type": type,
+		"id": id, "title": "Test objective", "detail": "Test detail.", "type": type, "questline": "collective",
 		"params": params, "activateFlag": activate_flag, "completeFlag": complete_flag,
 	}
 

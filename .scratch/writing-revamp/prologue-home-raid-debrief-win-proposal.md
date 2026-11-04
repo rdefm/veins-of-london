@@ -85,7 +85,8 @@
           "type": "narration",
           "label": null,
           "speaker": null,
-          "text": "Archie arrives at seven in the morning with two coffees and the air of a man who expected this."
+          "text": "Archie arrives at seven in the morning with two coffees and the air of a man who expected this.",
+          "observe": "home_raid_archie_arrival"
         },
         {
           "key": "c3",
@@ -106,7 +107,8 @@
           "type": "speaker",
           "label": null,
           "speaker": "Archie",
-          "text": "\"Did you now.\" He looks at you. \"Nice.\" "
+          "text": "\"Did you now.\" He looks at you. \"Nice.\" ",
+          "observe": "home_raid_archie_impressed"
         },
         {
           "key": "c11",
@@ -237,6 +239,42 @@
     }
   },
   "_liveSource": "prologue_home_raid_debrief_win.json",
-  "_liveHash": "04f85a5c"
+  "_liveHash": "29dc21f4",
+  "observations": {
+    "home_raid_archie_arrival": {
+      "blocks": {
+        "emotion": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "He'd never admit it, but Archie is incredibly relieved to see you standing and well."
+            },
+            {
+              "base": 0.55,
+              "text": "There was a tension in Archie's body language and face until he got a good look at you and saw you're ok."
+            }
+          ],
+          "miss": "Archie seems tense. You can't tell if he's annoyed, worried, or constipated. "
+        }
+      }
+    },
+    "home_raid_archie_impressed": {
+      "blocks": {
+        "emotion": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "He's impressed. You're not sure whether it's because you handled the raid, protected the ore, or did it thanks to something YOU crafted."
+            },
+            {
+              "base": 0.55,
+              "text": "He's impressed, and smug, like you've proven one of Archie's suspicions."
+            }
+          ],
+          "miss": "No fist bump? No fist bump."
+        }
+      }
+    }
+  }
 }
 ```

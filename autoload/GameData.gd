@@ -1703,7 +1703,7 @@ func _validate_enemy_levels(levels: Dictionary, level_max: int, errors: Array[St
 func _validate_combat_rounds(cp: Dictionary, skill_curve: Array, recipes: Dictionary, templates: Dictionary, errors: Array[String]) -> void:
 	_require_keys(cp, ["chipMultiplier", "actionsPerRound", "critChance", "levelMax", "allyHealBelow", "allyCrowdEnemies", "allyChipStrikeChance", "moveXp", "moveLevelRoll", "moveLevelEffects", "moveBook", "fog","playerBase", "allyBase", "moves", "items", "archetypes", "anger", "statusTurns", "statusBadges", "beatLines", "tooltips", "coach"], "combat_rounds", errors)
 	for hint_id in cp.get("coach", {}).get("hints", {}).keys():
-		if not cp["moves"].has(hint_id) and not cp["items"].has(hint_id) and hint_id != "rewind":
+		if not cp.get("moves", {}).has(hint_id) and not cp.get("items", {}).has(hint_id) and hint_id != "rewind":
 			errors.append("combat_rounds.coach.hints.%s: not a move or item" % hint_id)
 	for tip_id in cp.get("tooltips", {}).keys():
 		if str(cp["tooltips"][tip_id]).strip_edges() == "":

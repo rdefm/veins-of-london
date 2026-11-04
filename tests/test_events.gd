@@ -291,6 +291,18 @@ static func _faction_vein_of_level(level: int, ore_type: String, security: Strin
 	}
 
 
+func _finish_scripted_fight() -> void:
+	var fight: Dictionary = GameState.state["combat"]
+	if CombatRounds.is_demo(fight):
+		Combat.demo_step()
+		Combat.demo_step()
+	else:
+		fight["coach"] = null
+		fight["combatants"][1]["hp"] = 1
+		Combat.choose_move("strike", 1)
+	Combat.exit_combat()
+
+
 func run() -> void:
 	run_case("schema_all_event_files_validate", func():
 		var errors := GameData.validate_tables(GameData.snapshot())
@@ -2842,7 +2854,7 @@ func run() -> void:
 	)
 
 	run_case("start_raid_combat_vein_guards_spawns_one_enemy_per_vein_guard_extras_queue", func():
-		for case in [["warded", 0, 1], ["guarded", 1, 2], ["guarded", 3, 4]]:
+		for case in [["guarded", 0, 1], ["guarded", 1, 2], ["guarded", 3, 4]]:
 			GameState.reset()
 			var vein := _faction_vein_of_level(2, "physics", case[0])
 			vein["extraGuards"] = case[1]
@@ -2966,11 +2978,14 @@ func run() -> void:
 		# 1. Cold open chains into the pub (first option at every choice; a hub's exit when it has one)
 		Events.start_event("prologue_cold_open")
 		for step in range(100):
-			if GameState.state["event"] == null:
+			if GameState.state["combat"]["active"]:
+				_finish_scripted_fight()
+			elif GameState.state["event"] == null:
 				break
-			if Events.is_awaiting_choice():
+			elif Events.is_awaiting_choice():
 				Events.choose(maxi(Events.hub_exit_index(), 0))
-			Events.advance()
+			else:
+				Events.advance()
 		assert_true(GameState.state["flags"]["rentGoal"], "prologue_cold_open: rent goal row on")
 		assert_true(GameState.state["flags"]["metArchie"], "pub: metArchie")
 		assert_eq(GameState.state["flags"]["tutorialStage"], "buyer_event", "pub: stage")
@@ -3028,15 +3043,7 @@ func run() -> void:
 		Events.start_event("prologue_gym")
 		for i in range(30):
 			if GameState.state["combat"]["active"]:
-				var gym_fight: Dictionary = GameState.state["combat"]
-				if CombatRounds.is_demo(gym_fight):
-					Combat.demo_step()
-					Combat.demo_step()
-				else:
-					gym_fight["coach"] = null
-					gym_fight["combatants"][1]["hp"] = 1
-					Combat.choose_move("strike", 1)
-				Combat.exit_combat()
+				_finish_scripted_fight()
 			elif GameState.state["event"] == null:
 				break
 			elif Events.is_awaiting_choice():

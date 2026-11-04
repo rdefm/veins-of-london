@@ -975,7 +975,7 @@ func run() -> void:
 	run_case("resolve_defend_outcome_win_records_an_alarm_defend_win_only_for_the_targeted_vein", func():
 		GameState.reset()
 		var original := Fixtures.install_objectives({
-			"t1": { "id": "t1", "title": "t", "detail": "d", "type": "alarm_defend_wins", "params": { "minCount": 1 }, "activateFlag": "testActive", "completeFlag": "testComplete" },
+			"t1": { "id": "t1", "title": "t", "detail": "d", "type": "alarm_defend_wins", "questline": "collective", "params": { "minCount": 1 }, "activateFlag": "testActive", "completeFlag": "testComplete" },
 		})
 		GameState.state["collective"]["nadiaDefendVeinId"] = "pv_test"
 		GameState.state["flags"]["testActive"] = true
@@ -998,7 +998,7 @@ func run() -> void:
 	run_case("resolve_defend_outcome_loss_does_not_record_an_alarm_defend_win", func():
 		GameState.reset()
 		var original := Fixtures.install_objectives({
-			"t1": { "id": "t1", "title": "t", "detail": "d", "type": "alarm_defend_wins", "params": { "minCount": 1 }, "activateFlag": "testActive", "completeFlag": "testComplete" },
+			"t1": { "id": "t1", "title": "t", "detail": "d", "type": "alarm_defend_wins", "questline": "collective", "params": { "minCount": 1 }, "activateFlag": "testActive", "completeFlag": "testComplete" },
 		})
 		GameState.state["collective"]["nadiaDefendVeinId"] = "pv_test"
 		GameState.state["flags"]["testActive"] = true

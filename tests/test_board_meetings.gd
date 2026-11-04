@@ -245,6 +245,7 @@ func run() -> void:
 
 	run_case("share_leader_has_james_alt_voice_with_same_goal", func():
 		_enabled_game()
+		Shares.record_ore("player", "life", 10)
 		var ladder: Dictionary = GameData.BOARD_LADDERS["market_share"]
 		var rung: Dictionary = {}
 		for r in ladder["rungs"]:

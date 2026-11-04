@@ -200,6 +200,7 @@ func run() -> void:
 
 		UiSim.tap_zone(screen, "apparatus_heat")
 		_find_gauge(screen).committed.emit(25.0)
+		screen._bench_guard_until_msec = 0  # the commit's tap guard would swallow the next tap
 		_assert_gauge_band(screen, "grinding", {}, "a grind after the heat matches no known step left")
 		screen.free()
 	)

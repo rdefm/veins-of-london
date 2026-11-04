@@ -169,22 +169,22 @@ func run() -> void:
 
 	run_case("corrupt_fixture_event_card_key_missing_or_duplicate_fails", func():
 		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
-		corrupted["events"]["intro"]["cards"][1].erase("key")
+		corrupted["events"]["prologue_cold_open"]["cards"][1].erase("key")
 		var errors := GameData.validate_tables(corrupted)
-		assert_true(errors.any(func(e): return e.contains("events.intro") and e.contains("key")), "a card without a key should fail validation")
+		assert_true(errors.any(func(e): return e.contains("events.prologue_cold_open") and e.contains("key")), "a card without a key should fail validation")
 		corrupted = GameData.snapshot().duplicate(true)
-		corrupted["events"]["intro"]["cards"][1]["key"] = corrupted["events"]["intro"]["cards"][0]["key"]
+		corrupted["events"]["prologue_cold_open"]["cards"][1]["key"] = corrupted["events"]["prologue_cold_open"]["cards"][0]["key"]
 		errors = GameData.validate_tables(corrupted)
 		assert_true(errors.any(func(e): return e.contains("duplicate card key")), "two cards sharing a key should fail validation")
 	)
 
 	run_case("corrupt_fixture_event_id_mismatched_with_filename_fails", func():
 		var corrupted: Dictionary = GameData.snapshot().duplicate(true)
-		corrupted["events"]["intro"]["id"] = "not_intro"
+		corrupted["events"]["prologue_cold_open"]["id"] = "not_prologue_cold_open"
 		var errors := GameData.validate_tables(corrupted)
 		var found := false
 		for e in errors:
-			if e.contains("events.intro") and e.contains("does not match filename"):
+			if e.contains("events.prologue_cold_open") and e.contains("does not match filename"):
 				found = true
 		assert_true(found, "an event whose id field disagrees with its filename should fail validation")
 	)
