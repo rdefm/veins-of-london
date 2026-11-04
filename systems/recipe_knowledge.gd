@@ -167,6 +167,28 @@ static func _source_recipes(source_id: String) -> Array:
 	return result
 
 
+# Recipes a seller teaches, in data/recipes.json order; a non-empty ore keeps
+# those with that ore among their ingredients (the Lab recipe book's grouping).
+static func seller_recipes(seller_id: String, ore_type: String = "") -> Array:
+	var result := []
+	for recipe_key in GameData.RECIPES.keys():
+		if seller_of(recipe_key) != seller_id or not teachable(recipe_key):
+			continue
+		if ore_type.is_empty() or GameData.RECIPES[recipe_key].get("ingredients", {}).has(ore_type):
+			result.append(recipe_key)
+	return result
+
+
+# Ores worth filtering a seller's list by: those with at least one recipe, in
+# GameData.ORE_TYPES order.
+static func seller_ores(seller_id: String) -> Array:
+	var result := []
+	for ore_type in GameData.ORE_TYPES.keys():
+		if not seller_recipes(seller_id, str(ore_type)).is_empty():
+			result.append(str(ore_type))
+	return result
+
+
 # ── Buying ───────────────────────────────────────────────────────────────
 
 static func _shop(seller_id: String) -> Dictionary:

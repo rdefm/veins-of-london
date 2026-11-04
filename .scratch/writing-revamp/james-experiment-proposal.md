@@ -35,13 +35,13 @@
           "speaker": null,
           "text": "James opens the door in what you're coming to recognise as his default expression: mild disappointment that the world continues to contain other people.",
           "key": "c1",
-          "image": null
+          "image": "res://assets/events/james_experiment/james_experiment_main_2.png"
         },
         {
           "type": "speaker",
           "label": null,
           "speaker": "James",
-          "text": "\"You again.\"",
+          "text": "\"You again.\" He lets you in - somewhat reluctantly - and walks back to his workshop.",
           "key": "c2"
         },
         {
@@ -213,8 +213,9 @@
           "type": "speaker",
           "label": null,
           "speaker": "James",
-          "text": "\"Practise. Get good enough and I may have a use for you beyond pearls.\" His thumb finds the brass case at his wrist, the way some people check a watch they don't need. He doesn't explain. ",
-          "key": "c17"
+          "text": "\"Practise. Get good enough and I may have a use for you beyond pearls.\" His thumb finds the brass case at his desk, the way some people check a watch they don't need. He doesn't explain. ",
+          "key": "c17",
+          "observe": "james_experiment"
         },
         {
           "key": "c20",
@@ -354,6 +355,38 @@
     }
   },
   "_liveSource": "james_experiment.json",
-  "_liveHash": "2bda3674"
+  "_liveHash": "86f9ea38",
+  "observations": {
+    "james_experiment": {
+      "blocks": {
+        "emotion": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "As he's zoned out in thought, you see some of the hardness in his face soften, like he's remembering happier times, or daring to hope for happier days to come."
+            },
+            {
+              "base": 0.55,
+              "text": "James isn't being entirely altruistic. You aren't sure what he's planning, but he's more lost in thought than you've seen him before."
+            }
+          ],
+          "miss": "He seems distracted. Must have remembered something to add to his Tesco shop. Actually, knowing James, probably Waitrose."
+        },
+        "fate": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "You feel like a kid who has bought the uniform for a new school, but the first day hasn't come yet. Like something big, exciting and unavoidable is on the way."
+            },
+            {
+              "base": 0.55,
+              "text": "Something about this feels natural, the same way starting school or getting your licence is something you just DO."
+            }
+          ],
+          "miss": "Sounds like you'll be practicing your crafting. Yay."
+        }
+      }
+    }
+  }
 }
 ```

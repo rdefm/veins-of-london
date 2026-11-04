@@ -132,7 +132,7 @@
               "text": "Mum always said life was like a box of chocolates. This seems more like a box of liquorice. You don't like liquorice."
             }
           ],
-          "miss": "This is probably fine. Right? Right??"
+          "miss": "You feel a great disturbance in your gut, as if millions of voices cried out in terror and were suddenly silenced. Shouldn't have had beans on toast this morning."
         }
       }
     }
@@ -734,6 +734,6 @@
     }
   },
   "_liveSource": "prologue_cold_open.json",
-  "_liveHash": "2ed1f4ee"
+  "_liveHash": "bb1e5bb5"
 }
 ```

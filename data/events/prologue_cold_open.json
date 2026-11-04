@@ -98,8 +98,8 @@
       ]
     },
     { "key": "c6", "type": "narration", "label": null, "speaker": null, "text": "The buyers arrive in a grey Vauxhall. Three of them, one more than Archie mentioned. He stops whistling.", "image": "res://assets/events/intro/intro_card6.png", "observe": "cold_intro_observation_c6" },
-    { "key": "c7", "type": "tension", "label": "It goes wrong", "speaker": null, "text": "The third man gets out last, in no hurry. The other two straighten up. They call him Nick. He holds out a hand for the Tesco bag, looks in, and hands it back. \"Light.\" Nobody has said a number. One of the others opens a Stanley knife.", "image": "res://assets/events/intro/intro_card7.png" },
-    { "key": "c8", "type": "speaker", "label": null, "speaker": "Nick", "text": "He looks you over and takes his time about it. \"New one. Lovely. Stay there, newbie. You can watch.\" He's smiling before the sentence is finished." },
+    { "key": "c7", "type": "tension", "label": "It goes wrong", "speaker": null, "text": "The third man gets out last, in no hurry. The other two straighten up. They call him Nick. He holds out a hand for the Tesco bag, looks in, and hands it back. \"Light.\" Nobody has said a number.", "image": "res://assets/events/intro/intro_card7.png" },
+    { "key": "c8", "type": "speaker", "label": null, "speaker": "Nick", "text": "Nick looks you over and takes his time about it. \"New one. Lovely. Stay there, newbie. You can watch.\" He's smiling before the sentence is finished." },
     {
       "key": "c9", "type": "choice", "label": null, "speaker": null, "text": "Nick cracks his knuckles, one at a time. Archie edges half a step in front of you.", "image": "res://assets/events/intro/intro_card8.png",
       "choices": [
@@ -114,8 +114,7 @@
       ]
     },
     { "key": "c10", "type": "narration", "label": null, "speaker": null, "text": "Your eyes dart left and right, confused. Adrenaline and fear pump through your body. Your attackers are in a bubble, slowed like a video buffering. Nick is still mid-sneer.", "image": "res://assets/events/intro/intro_card9.png" },
-    { "key": "c11", "type": "speaker", "label": null, "speaker": "Archie", "text": "Archie walks calmly but briskly around them. \"Coming, or what?\"" },
-    { "key": "c12", "type": "narration", "label": "Four streets later", "speaker": null, "text": "A closed launderette. Archie leans on the shutter, eyes streaming, the Tesco bag still hooked on his finger. \"Pub,\" he says." }
+    { "key": "c11", "type": "speaker", "label": null, "speaker": "Archie", "text": "Archie walks calmly but briskly around them. \"Coming, or what?\"" }
   ],
   "observations": {
     "cold_into_observation1": {
@@ -178,7 +177,7 @@
             { "base": 0.25, "text": "Your gut is screaming at you to run, but they're blocking the only exit." },
             { "base": 0.55, "text": "Mum always said life was like a box of chocolates. This seems more like a box of liquorice. You don't like liquorice." }
           ],
-          "miss": "This is probably fine. Right? Right??"
+          "miss": "You feel a great disturbance in your gut, as if millions of voices cried out in terror and were suddenly silenced. Shouldn't have had beans on toast this morning."
         }
       }
     }

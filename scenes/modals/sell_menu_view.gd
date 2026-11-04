@@ -21,6 +21,8 @@ var _category := "ore"
 var _review := false
 var _expanded_items: Dictionary = {}
 var _picked_rungs: Dictionary = {}
+var _expanded_recipes: Dictionary = {}
+var _ore_filter := ""
 var _scroll: ScrollContainer
 
 
@@ -36,6 +38,8 @@ func reset_ui() -> void:
 	_review = false
 	_expanded_items.clear()
 	_picked_rungs.clear()
+	_expanded_recipes.clear()
+	_ore_filter = ""
 	_scroll = null
 
 
@@ -352,20 +356,65 @@ func _build_recipe_list(body: VBoxContainer, entries: Array) -> void:
 	if entries.is_empty():
 		body.add_child(_label("Nothing available here.", 14, MUTED))
 		return
+	_build_ore_filter(body)
+	var shown := RecipeKnowledge.seller_recipes(_recipe_seller(), _ore_filter)
 	var current := ""
 	for entry in entries:
 		var recipe_key: String = entry["recipeKey"]
+		if not shown.has(recipe_key):
+			continue
 		if recipe_key != current:
 			current = recipe_key
 			_add_recipe_header(body, recipe_key)
-		_add_recipe_row(body, entry)
+		if _expanded_recipes.get(recipe_key, false):
+			_add_recipe_row(body, entry)
+	if shown.is_empty():
+		body.add_child(_label("Nothing available here.", 14, MUTED))
 
 
+# All plus only the ores this seller teaches.
+func _build_ore_filter(body: VBoxContainer) -> void:
+	var flow := HFlowContainer.new()
+	flow.add_theme_constant_override("h_separation", 6)
+	flow.add_theme_constant_override("v_separation", 6)
+	body.add_child(flow)
+	var options: Array = [""]
+	options.append_array(RecipeKnowledge.seller_ores(_recipe_seller()))
+	for ore in options:
+		var ore_type: String = ore
+		var title := "All" if ore_type.is_empty() else str(GameData.ORE_TYPES[ore_type]["name"]).get_slice(" ", 0)
+		var picked := ore_type == _ore_filter
+		var chip := _button(title, _set_ore_filter.bind(ore_type), UI.action_colour() if picked else BUTTON_BG, 36)
+		chip.accessibility_name = "%s filter" % title
+		flow.add_child(chip)
+	body.add_child(_divider())
+
+
+func _set_ore_filter(ore_type: String) -> void:
+	_ore_filter = ore_type
+	_render(true)
+
+
+func _toggle_recipe(recipe_key: String) -> void:
+	_expanded_recipes[recipe_key] = not _expanded_recipes.get(recipe_key, false)
+	_render()
+
+
+# Collapsed row: icon, name and effect sentence; a tap shows or hides its rungs.
 func _add_recipe_header(body: VBoxContainer, recipe_key: String) -> void:
 	var recipe: Dictionary = GameData.RECIPES[recipe_key]
+	var open: bool = _expanded_recipes.get(recipe_key, false)
+	var tap := _button("", _toggle_recipe.bind(recipe_key), Color.TRANSPARENT, 56)
+	tap.accessibility_name = str(recipe.get("name", recipe_key))
+	tap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	body.add_child(tap)
+	var margin := MarginContainer.new()
+	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
+	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tap.add_child(margin)
 	var row := UI.hbox(8)
-	row.custom_minimum_size.y = 56
-	body.add_child(row)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	margin.add_child(row)
 	var glyph := SymbolGlyph.new()
 	glyph.symbol = recipe.get("symbol", "")
 	glyph.draw_fallback = SymbolGlyph.generic_fallback()
@@ -382,8 +431,8 @@ func _add_recipe_header(body: VBoxContainer, recipe_key: String) -> void:
 	info.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(info)
 	info.add_child(_label(str(recipe.get("name", recipe_key)), 14, TEXT))
-	var ceiling := RecipeKnowledge.rank_ceiling(recipe_key)
-	info.add_child(_label("Not known" if ceiling <= 0 else "Rank ceiling %d" % ceiling, 12, MUTED))
+	info.add_child(_label(str(recipe.get("effectText", "")), 12, MUTED))
+	row.add_child(_label("▾" if open else "▸", 14, MUTED, false))
 
 
 func _add_recipe_row(body: VBoxContainer, entry: Dictionary) -> void:
@@ -402,7 +451,7 @@ func _add_recipe_row(body: VBoxContainer, entry: Dictionary) -> void:
 	info.add_child(meta)
 	match entry["state"]:
 		"owned":
-			meta.add_child(_label("Owned", 12, MUTED, false))
+			meta.add_child(_label("✓ Known", 12, MUTED, false))
 		"master":
 			info.add_child(_label(entry["reason"], 12, MUTED))
 		_:

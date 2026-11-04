@@ -16,12 +16,23 @@ func _open(seller_id: String) -> PanelContainer:
 	return view
 
 
-func _add_button(view: Node, recipe_key: String, rung: String) -> Button:
-	var wanted := "%s %s" % [GameData.RECIPES[recipe_key]["name"], RecipeKnowledge.rung_label(rung)]
+func _named(view: Node, wanted: String) -> Button:
 	for b in view.find_children("", "Button", true, false):
 		if (b as Button).accessibility_name == wanted:
 			return b
 	return null
+
+
+# Rung buttons live under their recipe's row, so expand it first.
+func _add_button(view: Node, recipe_key: String, rung: String) -> Button:
+	var wanted := "%s %s" % [GameData.RECIPES[recipe_key]["name"], RecipeKnowledge.rung_label(rung)]
+	var found := _named(view, wanted)
+	if found == null:
+		var header := _named(view, GameData.RECIPES[recipe_key]["name"])
+		if header != null:
+			header.pressed.emit()
+			found = _named(view, wanted)
+	return found
 
 
 func _press(view: Node, text: String) -> void:
@@ -56,6 +67,10 @@ func run() -> void:
 	run_case("wren_mode_confirm_buys_the_selected_rung", func():
 		_buy_base("wren", "blast")
 	)
+
+	run_case("recipe_rows_collapse_and_expand", _case_collapsible)
+	run_case("known_rung_shows_a_tick_not_a_button", _case_known_rung)
+	run_case("seller_ore_filters", _case_filters)
 
 	run_case("trade_sheet_buttons_and_panels_let_drags_reach_the_scroller", func():
 		GameState.reset()
@@ -103,6 +118,61 @@ func run() -> void:
 		assert_eq(RecipeKnowledge.rank_ceiling("rewind"), RecipeKnowledge.rung_ceiling("hint1"))
 		view.free()
 	)
+
+
+func _case_collapsible() -> void:
+	GameState.reset()
+	GameState.state["contacts"]["james"]["relation"] = 100
+	var view := _open("james")
+	var key: String = RecipeKnowledge.seller_recipes("james")[0]
+	var name: String = GameData.RECIPES[key]["name"]
+	assert_true(_named(view, name) != null, "one header per recipe")
+	assert_true(_find_text(view, GameData.RECIPES[key]["effectText"]), "effect sentence shown")
+	var base := "%s %s" % [name, RecipeKnowledge.rung_label("base")]
+	assert_true(_named(view, base) == null, "rungs start collapsed")
+	_named(view, name).pressed.emit()
+	assert_true(_named(view, base) != null, "tap expands")
+	_named(view, name).pressed.emit()
+	assert_true(_named(view, base) == null, "tap again collapses")
+	_named(view, name).pressed.emit()
+	_named(view, base).pressed.emit()
+	_named(view, name).pressed.emit()
+	_press(view, "Review trade →")
+	assert_true(_find_text(view, "Buy %s · %s" % [name, RecipeKnowledge.rung_label("base")]), "a collapsed pick still reaches review")
+	view.free()
+	assert_true(not GameState.state.has("expandedRecipes"), "no view state in game state")
+
+
+func _case_known_rung() -> void:
+	GameState.reset()
+	var key: String = RecipeKnowledge.seller_recipes("james")[0]
+	RecipeKnowledge.grant_rung(key, "base")
+	var view := _open("james")
+	_named(view, GameData.RECIPES[key]["name"]).pressed.emit()
+	assert_true(_named(view, "%s %s" % [GameData.RECIPES[key]["name"], RecipeKnowledge.rung_label("base")]) == null, "known rung has no buy button")
+	assert_true(_find_text(view, "✓ Known"), "tick badge")
+	view.free()
+
+
+func _case_filters() -> void:
+	GameState.reset()
+	assert_eq(RecipeKnowledge.seller_ores("james"), ["time", "life"], "james filters time and life")
+	for seller in ["james", "wren"]:
+		for ore in RecipeKnowledge.seller_ores(seller):
+			assert_true(not RecipeKnowledge.seller_recipes(seller, ore).is_empty(), "%s %s never empty" % [seller, ore])
+		var all := RecipeKnowledge.seller_recipes(seller)
+		for ore in RecipeKnowledge.seller_ores(seller):
+			for k in RecipeKnowledge.seller_recipes(seller, ore):
+				assert_true(all.has(k), "filtered subset")
+	var view := _open("james")
+	var life: Array = RecipeKnowledge.seller_recipes("james", "life")
+	var outside := RecipeKnowledge.seller_recipes("james").filter(func(k): return not life.has(k))
+	_named(view, "Life filter").pressed.emit()
+	for k in outside:
+		assert_true(_named(view, GameData.RECIPES[k]["name"]) == null, "%s hidden by Life filter" % k)
+	_named(view, "All filter").pressed.emit()
+	assert_true(_named(view, "Time filter") != null and _named(view, "Fate filter") == null, "only taught ores offered")
+	view.free()
 
 
 func _find_text(root: Node, text: String) -> bool:
