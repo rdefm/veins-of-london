@@ -23,4 +23,6 @@ cd "$PROJECT_DIR"
 status=0
 "$GODOT_BIN" --headless -s scripts/check_runner.gd || status=1
 bash "$SCRIPT_DIR/lint_tokens.sh" || status=1
+# Keep tools/lint_refs.json in sync with data (test lint_refs_file_is_fresh).
+"$GODOT_BIN" --headless -s scripts/export_lint_refs.gd >/dev/null || status=1
 exit $status
