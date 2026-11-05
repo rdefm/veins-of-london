@@ -6,7 +6,7 @@
   "smoothing": 0.8,
   "historyDays": 28,
   "priceLot": { "ore": 10, "consumable": 1 },
-  "oreConversionRate": 0.1,
+  "oreConversionRate": 0.012,
   "independentsShare": 0.3,
   "independentsOreShare": 0.4,
   "demandElasticity": 0.5,
@@ -42,11 +42,11 @@
   },
   "goods": {
     "ore": {
-      "time": { "normalStock": 2240, "civilianDemand": 160 },
-      "physics": { "normalStock": 2240, "civilianDemand": 160 },
-      "life": { "normalStock": 2240, "civilianDemand": 160 },
-      "fate": { "normalStock": 1890, "civilianDemand": 135 },
-      "emotion": { "normalStock": 2660, "civilianDemand": 190 }
+      "time": { "normalStock": 1680, "civilianDemand": 120 },
+      "physics": { "normalStock": 1680, "civilianDemand": 120 },
+      "life": { "normalStock": 1680, "civilianDemand": 120 },
+      "fate": { "normalStock": 1400, "civilianDemand": 100 },
+      "emotion": { "normalStock": 1960, "civilianDemand": 140 }
     },
     "consumable": {
       "timePearl": { "normalStock": 210, "civilianDemand": 15 },

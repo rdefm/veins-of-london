@@ -160,7 +160,7 @@ func run() -> void:
 	run_case("the_network_selling_on_the_player_raises_a_rivals_meter_unless_private", func():
 		for private in [false, true]:
 			_network_on_player()
-			GameState.state["factions"]["firm"]["resources"] = 10000
+			GameState.state["factions"]["firm"]["resources"] = 1000000
 			Factions.adjust_player_relation("firm", -60 - int(GameState.state["factions"]["firm"]["relation"]))
 			if private:
 				Intel.set_privacy(Shares.PLAYER, 14)
@@ -266,7 +266,7 @@ static func _escalate_on(day: int) -> void:
 
 # faction_id funded, in the raid band on the player and already warned.
 static func _raid_ready(faction_id: String) -> void:
-	GameState.state["factions"][faction_id]["resources"] = 10000
+	GameState.state["factions"][faction_id]["resources"] = 1000000
 	Factions.adjust_player_relation(faction_id, -100 - int(GameState.state["factions"][faction_id]["relation"]))
 	FactionAI._target_entry(faction_id, Shares.PLAYER)["warnedBand"] = FactionAI.BAND_RAID
 

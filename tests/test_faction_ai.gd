@@ -1400,7 +1400,7 @@ static func _queued() -> Array:
 # A player vein to hit, a funded faction, and its player relation.
 static func _raid_ready(faction_id: String, relation: int) -> void:
 	Fixtures.seed_vein("pv", 60)
-	GameState.state["factions"][faction_id]["resources"] = 10000
+	GameState.state["factions"][faction_id]["resources"] = 1000000
 	Factions.adjust_player_relation(faction_id, relation - _player_relation(faction_id))
 
 
