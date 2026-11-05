@@ -2,6 +2,7 @@ extends "res://tests/test_base.gd"
 
 const Fixtures := preload("res://tests/support/fixtures.gd")
 const SeedSearch := preload("res://tests/support/seed_search.gd")
+const OffersSystem := preload("res://systems/offers.gd")
 
 
 # At level 3, fair terroir's cap, so no fixture vein is a maturing_vein()
@@ -163,6 +164,19 @@ func run() -> void:
 		assert_eq(FactionSim.root_feed_want("collective"), 2, "one vein x wantDays 2 x wantMult 1.0")
 		assert_eq(FactionSim.craft_target("collective", "rootFeed"), 7, "kitUse 2 + sellQuota 3 + want")
 		assert_true(not GameData.FACTIONS["collective"]["consumes"].has("rootFeed"))
+	)
+
+	run_case("root_feed_offers_need_base_rung_and_weight_wanting_factions", func():
+		GameState.reset()
+		_seed_veins([_vein("s1", "collective", "life", 20)])
+		assert_true(not OffersSystem.variety_weights(30).has("consumable:rootFeed"), "no Root Feed offers before the base rung")
+		GameState.state["lab"]["known"]["rootFeed"] = true
+		assert_true(OffersSystem.variety_weights(30).has("consumable:rootFeed"), "offers after the base rung")
+		var request := { "kind": "consumable", "type": "rootFeed", "qty": 1 }
+		assert_eq(OffersSystem.identity_weights(request), { "collective": 2 }, "weighted by want")
+		assert_eq(Factions.factions_consuming("rootFeed"), ["collective"] as Array[String])
+		assert_eq(Factions.factions_consuming("enhancementPowder"), ["firm", "guild"] as Array[String], "other goods unchanged")
+		assert_true(Overlaps._consumed_ores("collective").has("life"), "wanting faction consumes Root Feed's ores")
 	)
 
 	run_case("root_feed_want_scales_with_veins_by_archetype_and_stops_at_the_cap", func():

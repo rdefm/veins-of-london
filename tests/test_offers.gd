@@ -14,7 +14,7 @@ func run() -> void:
 		var mid: int = (int(cfg["startDay"]) + int(cfg["endDay"])) / 2
 		assert_true(absf(OffersSystem.ramp_progress(mid) - 0.5) < 0.02, "linear midpoint")
 		var late := OffersSystem.variety_weights(30)
-		assert_eq(late.size(), GameData.ORE_TYPES.size() + GameData.RECIPES.size(), "every ore and recipe item")
+		assert_eq(late.size(), GameData.ORE_TYPES.size() + GameData.RECIPES.size() - 1, "every ore and recipe item")
 		for key in late:
 			assert_eq(late[key], 1.0, "uniform at day 30: %s" % key)
 		var early := OffersSystem.variety_weights(1)

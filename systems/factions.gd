@@ -45,13 +45,21 @@ static func factions_crafting_with_ore(ore_type: String) -> Array[String]:
 	return result
 
 
-# Factions whose `consumes` lists recipe_key, in data order.
+# Factions whose `consumes` lists recipe_key, in data order. Root Feed has no
+# `consumes` entry: a faction counts when it wants some (FactionSim.root_feed_want).
 static func factions_consuming(recipe_key: String) -> Array[String]:
 	var result: Array[String] = []
 	for faction_id in GameData.FACTIONS:
-		if GameData.FACTIONS[faction_id]["consumes"].has(recipe_key):
+		if consumption_qty(faction_id, recipe_key) > 0:
 			result.append(faction_id)
 	return result
+
+
+# A faction's weekly `consumes` qty of recipe_key; for Root Feed, its want.
+static func consumption_qty(faction_id: String, recipe_key: String) -> int:
+	if recipe_key == Cultivating.ROOT_FEED:
+		return FactionSim.root_feed_want(faction_id) + int(GameData.FACTIONS[faction_id]["consumes"].get(recipe_key, 0))
+	return int(GameData.FACTIONS[faction_id]["consumes"].get(recipe_key, 0))
 
 
 # ── Faction vein ownership ──────────────────────────────────────────────

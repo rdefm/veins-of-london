@@ -188,6 +188,8 @@ static func variety_weights(day: int) -> Dictionary:
 	for ore_type in GameData.ORE_TYPES:
 		weights["ore:%s" % ore_type] = ramp_weight(float(starts["ore"]), day)
 	for recipe_key in GameData.RECIPES:
+		if recipe_key == Cultivating.ROOT_FEED and not RecipeKnowledge.owns_rung(recipe_key, "base"):
+			continue
 		var cls := "unknownRecipe"
 		if recipe_key == "timePearl":
 			cls = "pearl"
@@ -337,7 +339,7 @@ static func identity_weights(request: Dictionary) -> Dictionary:
 				weights[faction_id] = int(weights.get(faction_id, 0)) + 1
 		else:
 			for faction_id in Factions.factions_consuming(line["type"]):
-				weights[faction_id] = int(weights.get(faction_id, 0)) + int(GameData.FACTIONS[faction_id]["consumes"][line["type"]])
+				weights[faction_id] = int(weights.get(faction_id, 0)) + Factions.consumption_qty(faction_id, line["type"])
 	return weights
 
 

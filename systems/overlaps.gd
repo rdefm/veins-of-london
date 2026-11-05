@@ -80,7 +80,10 @@ static func _shared_district(faction_id: String) -> String:
 # Ores in the ingredients of the recipes a faction consumes, canonical order.
 static func _consumed_ores(faction_id: String) -> Array:
 	var ores := {}
-	for recipe_key in GameData.FACTIONS[faction_id]["consumes"]:
+	var consumed: Array = GameData.FACTIONS[faction_id]["consumes"].keys()
+	if FactionSim.root_feed_want(faction_id) > 0 and not consumed.has(Cultivating.ROOT_FEED):
+		consumed.append(Cultivating.ROOT_FEED)
+	for recipe_key in consumed:
 		for ore_type in GameData.RECIPES.get(recipe_key, {}).get("ingredients", {}):
 			ores[ore_type] = true
 	var result: Array = []
