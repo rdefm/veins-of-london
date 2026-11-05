@@ -55,6 +55,13 @@ static func raidable_stockpiles() -> Array:
 	return result
 
 
+# The Soho Marketplace pin: { district } once Soho is unlocked, else {}.
+static func soho_pin() -> Dictionary:
+	if not Soho.is_unlocked():
+		return {}
+	return { "district": "soho" }
+
+
 static func active_phone_shortcuts_for(contact_id: String) -> Array:
 	var result: Array = []
 	for pin in active_contact_pins():

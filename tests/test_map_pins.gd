@@ -147,3 +147,11 @@ func run() -> void:
 		assert_true(not MapPins._flags_satisfied(pin, GameState.state), "relation+day satisfied but showWhenFlagsFalse flag flipped true -- pin hidden")
 		GameState.reset()
 	)
+
+	run_case("soho_pin_absent_before_unlock_present_after", func():
+		GameState.reset()
+		assert_true(MapPins.soho_pin().is_empty(), "no Soho pin before unlock")
+		GameState.state["flags"][GameData.MARKET["soho"]["unlockFlag"]] = true
+		assert_eq(MapPins.soho_pin(), { "district": "soho" })
+		GameState.reset()
+	)

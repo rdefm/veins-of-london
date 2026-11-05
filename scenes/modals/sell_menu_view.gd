@@ -3,10 +3,11 @@ extends PanelContainer
 
 # Trade-only chrome. Selections remain in GameState.sellState through Economy;
 # tabs, expanded item groups and the review step are local presentation state.
-# Four modes by data: Archie (no factionId), a Collective contact (factionId +
-# contactId), a faction's own shop (factionId, empty contactId), or a recipe
+# Five modes by data: Archie (no factionId), a Collective contact (factionId +
+# contactId), a faction's own shop (factionId, empty contactId), a recipe
 # seller (recipeSeller): buy-only knowledge via RecipeKnowledge.buy, with the
-# selected rungs held locally (spec § Trade sheet recipe-seller mode).
+# selected rungs held locally (spec § Trade sheet recipe-seller mode), or the
+# Soho Marketplace (soho): rows and fees from Soho, trades through Soho.trade.
 
 const BG := Color("#222226")
 const SURFACE := Color("#2c2c31")
@@ -109,6 +110,8 @@ func _build_header(layout: VBoxContainer) -> void:
 	var kicker := "ARCHIE / TRADE"
 	if _is_recipe_seller():
 		kicker = "%s / TRADE" % RecipeKnowledge.seller_name(_recipe_seller()).to_upper()
+	elif _is_soho():
+		kicker = "SOHO MARKETPLACE / TRADE"
 	elif _is_shop():
 		kicker = "%s / TRADE" % String(GameData.FACTIONS[_faction_id()]["name"]).to_upper()
 	elif _is_faction():
@@ -124,21 +127,27 @@ func _build_header(layout: VBoxContainer) -> void:
 	close.accessibility_name = "Close trade"
 	top.add_child(close)
 	var note := "Direct trade. No cut or mugging." if _is_faction() else "Archie's cut changes with your relation."
+	if _is_soho():
+		# PROSE-REVIEW: Soho sheet note.
+		note = "Open market. No mugging. The bigger the order, the lower the fee."
 	if _is_recipe_seller():
 		# PROSE-REVIEW: recipe-seller sheet note.
 		note = "Knowledge, not goods. It goes straight to your lab."
 	content.add_child(_label(note, 12, MUTED))
 	if _is_recipe_seller():
 		return
-	if Harassment.has_sell_penalty():
+	if Harassment.has_sell_penalty() and not _is_soho():
 		content.add_child(_label("Some prices are marked down against you.", 12, MUTED))
-	if _is_faction() and not _review:
+	if (_is_faction() or _is_soho()) and not _review:
 		var direction_row := UI.hbox(5)
 		content.add_child(direction_row)
 		for direction in ["sell", "buy"]:
 			var label := "Sell from my stock"
 			if direction == "buy":
-				label = "Buy from %s" % GameData.FACTIONS[_faction_id()]["shortName"] if _is_shop() else "Buy from contact"
+				if _is_soho():
+					label = "Buy from Soho"
+				else:
+					label = "Buy from %s" % GameData.FACTIONS[_faction_id()]["shortName"] if _is_shop() else "Buy from contact"
 			var fill := UI.action_colour() if _direction == direction else BUTTON_BG
 			var button := _button(label, _select_direction.bind(direction), fill, 44)
 			button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -152,7 +161,7 @@ func _build_categories(layout: VBoxContainer) -> void:
 	panel.add_child(row)
 	var categories := ["recipes"] if _is_recipe_seller() else ["ore", "items", "veins"]
 	for category in categories:
-		if category == "veins" and not _veins_unlocked():
+		if category == "veins" and (_is_soho() or not _veins_unlocked()):
 			continue
 		var chosen: bool = _category == category or _is_recipe_seller()
 		var fill := TEXT if chosen else Color.TRANSPARENT
@@ -173,7 +182,7 @@ func _build_list(body: VBoxContainer, entries: Array) -> void:
 		body.add_child(_label("Nothing available here.", 14, MUTED))
 		return
 	# Bought items arrive at the tiers the faction holds, so buy rows stay one per recipe.
-	if _category == "items" and _direction == "sell":
+	if _category == "items" and (_direction == "sell" or _is_soho()):
 		_build_item_groups(body, relevant)
 		return
 	for entry in relevant:
@@ -323,9 +332,21 @@ func _build_review(body: VBoxContainer, entries: Array) -> void:
 		body.add_child(_divider())
 	if not any_selected:
 		body.add_child(_label("No goods selected.", 14, MUTED))
+	elif _is_soho():
+		var rows := Soho.fee_rows(_direction, _soho_cart(entries))
+		var fee_row := UI.hbox(8)
+		fee_row.custom_minimum_size.y = 44
+		body.add_child(fee_row)
+		var fee_label := _label("Fee · %d%%" % int(round(float(rows["rate"]) * 100.0)), 13, MUTED)
+		fee_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		fee_row.add_child(fee_label)
+		fee_row.add_child(_label("−£%d" % int(rows["fee"]), 13, _gold(), false))
 
 
 func _build_footer(layout: VBoxContainer, entries: Array) -> void:
+	if _is_soho():
+		_build_soho_footer(layout, entries)
+		return
 	var totals := _totals(entries)
 	var panel := _surface(SURFACE, 12)
 	layout.add_child(panel)
@@ -359,6 +380,53 @@ func _build_footer(layout: VBoxContainer, entries: Array) -> void:
 	primary.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	primary.disabled = totals["count"] == 0 or (net < 0 and absi(net) > int(GameState.state["player"]["cash"]))
 	actions.add_child(primary)
+
+
+func _build_soho_footer(layout: VBoxContainer, entries: Array) -> void:
+	var rows := Soho.fee_rows(_direction, _soho_cart(entries))
+	var panel := _surface(SURFACE, 12)
+	layout.add_child(panel)
+	var content := UI.vbox(6)
+	panel.add_child(content)
+	var summary := UI.hbox(8)
+	content.add_child(summary)
+	var explanation := UI.vbox(1)
+	explanation.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	summary.add_child(explanation)
+	var net: int = rows["net"]
+	explanation.add_child(_label("YOU PAY" if net < 0 else "YOU RECEIVE", 11, TEXT))
+	var rate_pct := int(round(float(rows["rate"]) * 100.0))
+	explanation.add_child(_label("%d selected · £%d at %d%% fee (£%d)" % [rows["units"], rows["value"], rate_pct, rows["fee"]], 12, MUTED))
+	summary.add_child(_label("£%d" % absi(net), 22, _gold(), false))
+	if int(rows["units"]) > 0:
+		content.add_child(_label(_soho_rung_text(rows), 12, MUTED))
+		content.add_child(_label(_soho_ladder_text(rows), 12, MUTED))
+		if _direction == "sell":
+			content.add_child(_label("Archie would pay £%d (his fee %d%%)" % [rows["archieNet"], int(round(float(rows["archieFeeRate"]) * 100.0))], 12, MUTED))
+	var actions := UI.hbox(8)
+	content.add_child(actions)
+	actions.add_child(_button("Back" if _review else "Cancel", _back_or_cancel, Color.TRANSPARENT, 44))
+	var primary := _button("Confirm trade" if _review else "Review trade →", _confirm if _review else _show_review, UI.action_colour(), 48)
+	primary.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	primary.disabled = int(rows["units"]) == 0 or (net < 0 and absi(net) > int(GameState.state["player"]["cash"]))
+	actions.add_child(primary)
+
+
+# PROSE-REVIEW: Soho rung / next-step lines.
+func _soho_rung_text(rows: Dictionary) -> String:
+	if rows["isTop"]:
+		return "Best rate reached: %d%%." % int(round(float(rows["rate"]) * 100.0))
+	var next: Dictionary = rows["next"]
+	var verb := "Sell" if _direction == "sell" else "Buy"
+	return "%s £%d more (about %d units) to drop to %d%%." % [verb, next["needValue"], next["needUnits"], int(round(float(next["rate"]) * 100.0))]
+
+
+func _soho_ladder_text(rows: Dictionary) -> String:
+	var parts: Array[String] = []
+	for step in rows["ladder"]:
+		var text := "£%d+ %d%%" % [step["from"], int(round(float(step["rate"]) * 100.0))]
+		parts.append("[%s]" % text if step["active"] else text)
+	return "Fee ladder: " + " · ".join(parts)
 
 
 func _build_recipe_list(body: VBoxContainer, entries: Array) -> void:
@@ -586,7 +654,57 @@ func _recipe_entries() -> Array:
 	return entries
 
 
+# Soho rows: sell lists what the pool holds, buy lists every good and tier
+# London carries (empty ones show max 0). Cart qty lives in sellState under
+# "soho_<side>_<kind>_<type>_<tier>".
+func _soho_entries() -> Array:
+	var entries: Array = []
+	var sell_state: Dictionary = GameState.state["sellState"]
+	for side in [Soho.SELL, Soho.BUY]:
+		for ore_type in GameData.ORE_TYPES.keys():
+			if not Soho.is_tradable("ore", ore_type, side):
+				continue
+			var held := Soho.sellable_qty("ore", ore_type)
+			var stock := held if side == Soho.SELL else Soho.buyable_qty("ore", ore_type)
+			if side == Soho.SELL and held <= 0:
+				continue
+			var ore: Dictionary = GameData.ORE_TYPES[ore_type]
+			var key := "soho_%s_ore_%s_0" % [side, ore_type]
+			var ore_entry := _entry(side, "ore", "ore", key, ore["name"], ore_type, ore["symbol"], Market.quote("ore", ore_type), stock, stock, sell_state.get(key, 0))
+			ore_entry["good"] = ore_type
+			ore_entry["tier"] = 0
+			entries.append(ore_entry)
+		for recipe_key in GameData.RECIPES.keys():
+			if not Soho.is_tradable("consumable", recipe_key, side):
+				continue
+			var recipe: Dictionary = GameData.RECIPES[recipe_key]
+			for tier in range(1, Market.tier_count() + 1):
+				var stock := Soho.sellable_qty("consumable", recipe_key, tier) if side == Soho.SELL else Soho.buyable_qty("consumable", recipe_key, tier)
+				if side == Soho.SELL and stock <= 0:
+					continue
+				var key := "soho_%s_consumable_%s_%d" % [side, recipe_key, tier]
+				var item := _entry(side, "items", "consumable", key, "%s · tier %d" % [recipe["name"], tier], "", recipe["symbol"], Market.tier_price(recipe_key, tier), stock, stock, sell_state.get(key, 0))
+				item["recipeKey"] = recipe_key
+				item["groupName"] = recipe["name"]
+				item["groupKey"] = recipe_key
+				item["good"] = recipe_key
+				item["tier"] = tier
+				entries.append(item)
+	return entries
+
+
+# The current side's chosen rows as a Soho cart.
+func _soho_cart(entries: Array) -> Array:
+	var cart: Array = []
+	for entry in entries:
+		if entry["direction"] == _direction and int(entry["qty"]) > 0:
+			cart.append({ "kind": entry["kind"], "type": entry["good"], "tier": entry["tier"], "qty": entry["qty"] })
+	return cart
+
+
 func _entries() -> Array:
+	if _is_soho():
+		return _soho_entries()
 	var entries: Array = []
 	var player: Dictionary = GameState.state["player"]
 	var sell_state: Dictionary = GameState.state["sellState"]
@@ -742,6 +860,13 @@ func _back_or_cancel() -> void:
 func _confirm() -> void:
 	if _is_recipe_seller():
 		_confirm_recipes()
+	elif _is_soho():
+		var result := Soho.trade(_direction, _soho_cart(_soho_entries()))
+		ContactCards.notify_failure(result)
+		if result["ok"]:
+			Economy.clear_sell_state()
+			_review = false
+			_render(true)
 	elif _is_shop():
 		Economy.complete_shop_trade(_faction_id())
 	elif _is_faction():
@@ -762,6 +887,10 @@ func _confirm_recipes() -> void:
 	for entry in picked:
 		ContactCards.notify_failure(RecipeKnowledge.buy(entry["recipeKey"], entry["rung"]))
 	_render()
+
+
+func _is_soho() -> bool:
+	return bool(_data.get("soho", false))
 
 
 func _is_recipe_seller() -> bool:

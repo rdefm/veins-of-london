@@ -717,7 +717,9 @@ func _rebuild_pins() -> void:
 			"eventId": pin["eventId"],
 		})
 
-	_pins.append({ "kind": "market", "position": MapLayout.district_anchor("soho") })
+	var soho_pin := MapPins.soho_pin()
+	if not soho_pin.is_empty():
+		_pins.append({ "kind": "market", "position": MapLayout.district_anchor(soho_pin["district"]) })
 
 	var guild_anchor: Variant = MapLayout.faction_first_presence_anchor("guild")
 	if guild_anchor != null and Economy.can_buy_from_faction("guild"):
@@ -774,8 +776,7 @@ func _draw_contact_pin(target: Object, pos: Vector2) -> void:
 
 
 func _draw_market_pin(target: CanvasItem, pos: Vector2) -> void:
-	var head := Icons.draw_pin(target, pos, MapPalette.colour("muted"))
-	Icons.draw_padlock(target, head, MapPalette.colour("stopFill"), 1.3)
+	_draw_shop_pin(target, pos, MapPalette.colour("player"))
 
 
 func _draw_shop_pin(target: Object, pos: Vector2, colour: Color) -> void:
@@ -970,7 +971,7 @@ func _activate_pin(pin: Dictionary) -> void:
 		"contact":
 			Events.start_event(pin["eventId"])
 		"market":
-			pass
+			Modal.open("sell_menu", { "soho": true })
 		"guild_marketplace":
 			Modal.open("sell_menu", { "factionId": "guild", "contactId": "" })
 		"faction_shop":

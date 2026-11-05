@@ -86,7 +86,7 @@ Data file per system: see `data/*.json` below.
 | map_hit_test.gd | Tap-hit geometry, Network diagram |
 | map_layout.gd | Resolves stops vs. live sites/veins |
 | map_nav.gd | Map drill-down nav (list → panel → site sheet or vein detail panel, mutually exclusive) |
-| map_pins.gd | Contact map-pins for waiting events; which faction shop pins are open (faction_trade.json mapShopPin + unlock); raidable stockpile pins (stockpile-location intel) |
+| map_pins.gd | Contact map-pins for waiting events; which faction shop pins are open (faction_trade.json mapShopPin + unlock); raidable stockpile pins (stockpile-location intel); Soho pin once Soho is unlocked |
 | map_routing.gd | Octilinear line-routing geometry |
 | map_style.gd | Filter-chip re-styling math + zone_fill_kind (turf controller → player/faction/contested/none zone tint) |
 | map_view.gd | Persists Network camera |
@@ -190,7 +190,7 @@ overlays; hides the top board on title/intro/combat and the nav dock per screen.
 | map_bubble.gd | Popup listing tappable map options; paper-card frame and round action-icon states come from map_card_style.gd |
 | map_card_style.gd | Shared vein-popover card family: card tokens (via map_palette.gd), card/inset/action-circle styleboxes, card()/style_panel(), section_label(), text/symbol_text/chip buttons, option rows, round_button()/stepper()/quantity_slider(), footer(), pill(), check-button + symbol tinting. The one button/card look for every menu; card_theme.gd makes it the theme default |
 | card_theme.gd | CardTheme.apply(theme): writes the map-card look (quiet accent Button, sage OptionButton/LineEdit chips, card PanelContainer/Panel/PopupMenu, ink Label, check/bar/slider) into a Theme from current MapPalette tokens; Main re-applies to main_theme.tres on dark-toggle flip |
-| map_canvas.gd | Network diagram: layout/stops/lines, hit-testing (shop pins open the Trade menu, stockpile pins start a stockpile raid), static draw pass; tweens a vein's fullness ring on EventBus.vein_cultivated; delegates persistent halos and event-playback animations to map_halos.gd |
+| map_canvas.gd | Network diagram: layout/stops/lines, hit-testing (shop and Soho pins open the Trade menu, stockpile pins start a stockpile raid), static draw pass; tweens a vein's fullness ring on EventBus.vein_cultivated; delegates persistent halos and event-playback animations to map_halos.gd |
 | map_halos.gd | Persistent vein-charge halo + the five event-playback animations (discover ripple, seed/claim ring, charge burst, drain collapse, join-line growth); owned by map_canvas.gd |
 | map_controls.gd | Map controls drawer (map_card_style.gd-skinned): filters, faction isolate, pacing, Dark map toggle, legend button |
 | map_palette.gd | MapPalette: resolves Map palette tokens (data/map_palette.json) for the current light/dark mode (`meta.mapDarkMode`), plus faction/ore colours and district zone-tint strength (`zoneTint`) with optional dark-only overrides; every Map-tab and card-family colour reads through it |
@@ -230,7 +230,7 @@ overlays; hides the top board on title/intro/combat and the nav dock per screen.
 | sell_menu_modal.gd | Trade modal registry adapter and Cancel action that clears sellState |
 | guard_kit_modal.gd | guard_kit modal registry adapter (data.target is a GuardKit kit target) |
 | guard_kit_view.gd | Guard kit stocking sheet on the Trade pattern: Stock/Return tabs, grouped tiers with steppers, sticky slots/capacity totals, review; confirm calls GuardKit stock/unstock per line |
-| sell_menu_view.gd | Trade-only sheet: sell/buy and category tabs, Map ore glyphs, grouped item tiers, sticky totals and review; four modes: Archie, Collective contact, faction shop (no contact), recipe seller (collapsible recipe rows + ore filter, buy-only rungs via RecipeKnowledge.buy); invokes existing trade systems |
+| sell_menu_view.gd | Trade-only sheet: sell/buy and category tabs, Map ore glyphs, grouped item tiers, sticky totals and review; five modes: Archie, Collective contact, faction shop (no contact), Soho (rows, fee ladder and net from Soho; trades via Soho.trade), recipe seller (collapsible recipe rows + ore filter, buy-only rungs via RecipeKnowledge.buy); invokes existing trade systems |
 | nadia_supply_modal.gd | Nadia ore-supply objective card |
 | network_targets_modal.gd | Handler Targets picker: faction veins, soft/freeze questions |
 | network_sourcing_modal.gd | Handler Sourcing order: ore type + minimum tier |
