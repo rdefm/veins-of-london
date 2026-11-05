@@ -436,7 +436,6 @@ static func _buy_calc(contract_id: String, ore_type: String, qty: int) -> void:
 	for leg in legs:
 		GameState.state["factions"][leg["factionId"]]["resources"] += int(leg["amount"])
 		Economy.receive_faction_ore(leg["factionId"], ore_type, int(leg["qty"]))
-		Market.record_demand("ore", ore_type, int(leg["qty"]), "player")
 
 
 # A recurring contract's due-day close, once its period is paid.

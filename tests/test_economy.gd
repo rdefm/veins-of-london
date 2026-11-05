@@ -476,7 +476,7 @@ func run() -> void:
 		assert_eq(Economy.get_faction_sell_price("guild", "consumable", "timePearl"), 85, "quote 100 × 0.85")
 	)
 
-	run_case("faction_lane_sales_record_supply_and_purchases_record_demand", func():
+	run_case("faction_lane_trades_leave_market_tallies_unchanged", func():
 		GameState.reset()
 		GameState.state["factions"]["guild"]["relation"] = 40
 		GameState.state["player"]["cash"] = 1000
@@ -487,10 +487,11 @@ func run() -> void:
 		Economy.execute_faction_sale("guild", [{ "kind": "ore", "type": "time", "qty": 2 }, { "kind": "consumable", "type": "timePearl", "qty": 1 }])
 		Economy.execute_faction_purchase("guild", [{ "kind": "ore", "type": "life", "qty": 3 }, { "kind": "consumable", "type": "shield", "qty": 1 }])
 		var market: Dictionary = GameState.state["market"]
-		assert_eq(market["supply"]["ore"]["time"], { "player": 2 })
-		assert_eq(market["supply"]["consumable"]["timePearl"], { "player": 1 })
-		assert_eq(market["demand"]["ore"]["life"], { "player": 3 })
-		assert_eq(market["demand"]["consumable"]["shield"], { "player": 1 })
+		assert_eq(market["supply"].get("ore", {}).get("time", {}), {}, "faction sale records no supply")
+		assert_eq(market["supply"].get("consumable", {}).get("timePearl", {}), {})
+		assert_eq(market["demand"].get("ore", {}).get("life", {}), {}, "faction purchase records no demand")
+		assert_eq(market["demand"].get("consumable", {}).get("shield", {}), {})
+		assert_eq(GameState.state["player"]["orichalchum"]["life"], 3, "goods still move")
 	)
 
 	# ── The Collective lane (collective1-01 spec.md §8.1, §9.4): asymmetric spread, no district mod ─

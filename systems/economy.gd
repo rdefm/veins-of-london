@@ -343,11 +343,9 @@ static func execute_faction_purchase(faction_id: String, items: Array, unit_pric
 			# Taint first: the stock rise below can deliver and settle at once.
 			Contracts.note_player_supplied(item_type)
 			receive_faction_ore(faction_id, item_type, qty)
-			Market.record_demand("ore", item_type, qty, "player")
 		else:
 			for leg in FactionSim.take_items(faction_id, item_type, qty):
 				Crafting.inventory_add(item_type, leg["tier"], leg["qty"])
-			Market.record_demand("consumable", item_type, qty, "player")
 	EventBus.state_changed.emit()
 	SaveManager.autosave()  # R§6: autosave on purchase
 	return { "ok": true, "cost": total_cost }
@@ -413,7 +411,6 @@ static func execute_faction_sale(faction_id: String, items: Array, contact_id: S
 		if qty <= 0:
 			continue
 		total_earned += Market.line_total(kind, price, qty)
-		Market.record_supply(kind, item_type, qty, "player")
 		if kind == "ore":
 			player["orichalchum"][item_type] = maxi(0, player["orichalchum"].get(item_type, 0) - qty)
 			FactionSim.add_ore(faction_id, item_type, qty)
