@@ -51,7 +51,7 @@ func run() -> void:
 		var screen := HqDialScreen.new()
 		screen._ready()
 
-		assert_true(NodeQuery.label_texts_with_symbols(screen).has("No Dial. Nothing's offered you the gift yet."), "must show the waiting message, not a seeding UI, before the gift is granted")
+		assert_true(NodeQuery.label_texts_with_symbols(screen).has(HqDialScreen.NO_DIAL_TEXT), "must show the waiting message, not a seeding UI, before the gift is granted")
 
 		screen.free()
 	)

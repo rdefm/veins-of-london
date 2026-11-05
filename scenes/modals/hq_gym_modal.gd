@@ -1,13 +1,15 @@
 class_name HqGymModal
 extends RefCounted
 
+const UPGRADE_HINT_TEXT := "Build a Home Gym to get more out of each workout."
+
 
 static func build(container: VBoxContainer, _data: Dictionary) -> void:
 	var has_gym: bool = GameState.state["home"]["rooms"].has("homeGym")
 	container.add_child(UI.heading("Gym", 14))
 	container.add_child(_skill_card(Combat.skill_summary()))
 	if not has_gym:
-		container.add_child(UI.muted_label("Build a Home Gym to get more out of each workout."))
+		container.add_child(UI.muted_label(UPGRADE_HINT_TEXT))
 	container.add_child(_train_button())
 	container.add_child(MapCardStyle.footer([MapCardStyle.text_button("Close", func(): Modal.close())]))
 

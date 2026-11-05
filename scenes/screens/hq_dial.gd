@@ -1,5 +1,6 @@
 class_name HqDialScreen
 extends Control
+const NO_DIAL_TEXT := "No Dial. Nothing's offered you the gift yet."
 const DEVICE_DISPLAY_SIZE := 370.0
 const DEVICE_NATIVE_SIZE := 500.0
 const DEVICE_SCALE := DEVICE_DISPLAY_SIZE / DEVICE_NATIVE_SIZE
@@ -101,7 +102,7 @@ func _build_unseeded(content: VBoxContainer, player: Dictionary) -> void:
 			var captured_haft_id: String = haft_id
 			content.add_child(MapCardStyle.text_button("Seed as \"%s\"" % haft["name"], func(): _on_seed_pressed(captured_haft_id)))
 	else:
-		content.add_child(UI.muted_label("No Dial. Nothing's offered you the gift yet."))
+		content.add_child(UI.muted_label(NO_DIAL_TEXT))
 func _on_seed_pressed(haft_id: String) -> void:
 	var haft: Dictionary = GameData.DIAL_HAFTS[haft_id]
 	var result := Dial.attempt_seed(haft_id)

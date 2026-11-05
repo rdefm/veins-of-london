@@ -1,6 +1,8 @@
 class_name DialLoadComplicationModal
 extends RefCounted
 
+const EMPTY_STOCK_TEXT := "Nothing in stock to load."
+
 
 static func build(container: VBoxContainer, data: Dictionary) -> void:
 	var owner_id: String = data.get("owner", "")
@@ -23,5 +25,5 @@ static func build(container: VBoxContainer, data: Dictionary) -> void:
 					Modal.close()
 				))
 	if not any_loadable:
-		container.add_child(UI.muted_label("Nothing in stock to load."))
+		container.add_child(UI.muted_label(EMPTY_STOCK_TEXT))
 	container.add_child(MapCardStyle.footer([MapCardStyle.text_button("Cancel", func(): Modal.close())]))

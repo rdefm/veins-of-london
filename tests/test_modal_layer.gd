@@ -83,7 +83,7 @@ func run() -> void:
 		layer._ready()
 		var found_heading := false
 		for l in layer.find_children("", "Label", true, false):
-			if (l as Label).text == "Network Reference":
+			if (l as Label).text == NetworkReferenceModal.HEADING_TEXT:
 				found_heading = true
 		assert_true(found_heading, "legend heading renders")
 		var close := _find_cost_button(layer, "Close")
@@ -775,7 +775,7 @@ func run() -> void:
 		var layer := ModalLayer.new()
 		layer._ready()
 
-		assert_true(NodeQuery.label_texts_with_symbols(layer).has("Nothing in stock to load."), "must show the empty-stock message when nothing is loadable")
+		assert_true(NodeQuery.label_texts_with_symbols(layer).has(DialLoadComplicationModal.EMPTY_STOCK_TEXT), "must show the empty-stock message when nothing is loadable")
 
 		layer.free()
 	)
@@ -954,7 +954,7 @@ func run() -> void:
 		var layer := ModalLayer.new()
 		layer._ready()
 
-		assert_true(NodeQuery.label_texts_with_symbols(layer).has("None in stock."), "must show the empty-stock message when nothing is held")
+		assert_true(NodeQuery.label_texts_with_symbols(layer).has(HqOreReadoutModal.EMPTY_STORE_TEXT), "must show the empty-stock message when nothing is held")
 
 		layer.free()
 	)
@@ -1044,8 +1044,8 @@ func run() -> void:
 		var layer := ModalLayer.new()
 		layer._ready()
 
-		assert_true(NodeQuery.label_texts_with_symbols(layer).has("No ore to stash."), "empty ore stash section")
-		assert_true(NodeQuery.label_texts_with_symbols(layer).has("No crafted items to stash."), "empty crafted-item stash section")
+		assert_true(NodeQuery.label_texts_with_symbols(layer).has(HqOreReadoutModal.EMPTY_ORE_STASH_TEXT), "empty ore stash section")
+		assert_true(NodeQuery.label_texts_with_symbols(layer).has(HqOreReadoutModal.EMPTY_CRAFTED_STASH_TEXT), "empty crafted-item stash section")
 
 		layer.free()
 	)
@@ -1200,7 +1200,7 @@ func run() -> void:
 		layer._ready()
 
 		assert_true(_find_cost_button(layer, "Train") != null, "Train must be available even before Home Gym is built")
-		assert_true(NodeQuery.label_texts_with_symbols(layer).has("Build a Home Gym to get more out of each workout."), "must show the upgrade hint alongside Train")
+		assert_true(NodeQuery.label_texts_with_symbols(layer).has(HqGymModal.UPGRADE_HINT_TEXT), "must show the upgrade hint alongside Train")
 
 		layer.free()
 	)

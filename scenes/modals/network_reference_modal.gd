@@ -1,9 +1,11 @@
 class_name NetworkReferenceModal
 extends RefCounted
 
+const HEADING_TEXT := "Network Reference"
+
 
 static func build(container: VBoxContainer, _data: Dictionary) -> void:
-	container.add_child(UI.heading("Network Reference"))
+	container.add_child(UI.heading(HEADING_TEXT))
 	container.add_child(UI.muted_label("The lines are money. The dots are where it's coming from — or where someone beat you to it."))
 	container.add_child(_legend_row("Amber line", "Your line — stops joined in claim order."))
 	container.add_child(_legend_row("Coloured line", "A faction's line, in their colour."))

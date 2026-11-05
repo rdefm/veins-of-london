@@ -4,6 +4,10 @@
 class_name HqOreReadoutModal
 extends RefCounted
 
+const EMPTY_STORE_TEXT := "None in stock."
+const EMPTY_ORE_STASH_TEXT := "No ore to stash."
+const EMPTY_CRAFTED_STASH_TEXT := "No crafted items to stash."
+
 
 const _STAMP_ROTATION_DEGREES := -3.5
 
@@ -33,7 +37,7 @@ static func _build(container: VBoxContainer) -> void:
 		var ore: Dictionary = GameData.ORE_TYPES[ore_type]
 		slip_content.add_child(_ink_row(ore["symbol"], SymbolGlyph.ore_fallback(ore_type), "%s — %d" % [ore["name"], qty]))
 	if not any_ore:
-		slip_content.add_child(MapCardStyle.section_label("None in stock."))
+		slip_content.add_child(MapCardStyle.section_label(EMPTY_STORE_TEXT))
 
 	var raid_pct: int = int(round(Home.get_home_raid_chance() * 100))
 	slip_content.add_child(_raid_stamp(raid_pct))
@@ -107,7 +111,7 @@ static func _personal_stash_section() -> Control:
 			func(): Stash.move_ore_to_stash(ore_type, Stash.get_ore_move_qty(ore_type)),
 			func(): Stash.move_ore_to_shared(ore_type, Stash.get_ore_move_qty(ore_type))))
 	if not any_ore_row:
-		content.add_child(MapCardStyle.section_label("No ore to stash."))
+		content.add_child(MapCardStyle.section_label(EMPTY_ORE_STASH_TEXT))
 
 	content.add_child(MapCardStyle.section_label("Crafted items", 13))
 	var any_item_row := false
@@ -125,7 +129,7 @@ static func _personal_stash_section() -> Control:
 			func(): Stash.move_item_to_stash(recipe_key, Stash.get_item_move_qty(recipe_key)),
 			func(): Stash.move_item_to_shared(recipe_key, Stash.get_item_move_qty(recipe_key))))
 	if not any_item_row:
-		content.add_child(MapCardStyle.section_label("No crafted items to stash."))
+		content.add_child(MapCardStyle.section_label(EMPTY_CRAFTED_STASH_TEXT))
 
 	return card["panel"]
 
