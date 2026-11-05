@@ -480,7 +480,9 @@ func run() -> void:
 		_drive_active_event_to_completion()  # D5: prospect can draw a district event
 		_assert_invariants("post-prospect")
 
-		GameState.state["player"]["orichalchum"][found_site[0]["oreType"]] += GameData.SEED_ORE_COST  # the prospected site's ore type is random
+		var site_ore: String = found_site[0]["oreType"]  # random; the orichalchum dict may not hold the key yet
+		var ore_dict: Dictionary = GameState.state["player"]["orichalchum"]
+		ore_dict[site_ore] = ore_dict.get(site_ore, 0) + GameData.SEED_ORE_COST
 		var seed_seed := SeedSearch.find_seed_for(300, func():
 			return Sites.attempt_seed(site_id).get("success", false)
 		)
