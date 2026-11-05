@@ -1818,6 +1818,10 @@ func run() -> void:
 		var cover: Dictionary = GameData.RECIPES["blast"]["eventProfile"]["alert"]["cover"]
 		var original_cover_base: float = cover["base"]
 		cover["base"] = 0.0
+		# odds_for clamps to defaultMin, so a zero base alone still covers on a tiny roll.
+		var had_min: bool = cover.has("min")
+		var original_cover_min: Variant = cover.get("min")
+		cover["min"] = 0.0
 		for start in [0, top]:
 			GameState.reset()
 			Crafting.inventory_add("blast", 1, 1)
@@ -1838,6 +1842,10 @@ func run() -> void:
 		assert_eq(Events.alert_level(), 0, "Skeleton Key leaves the alert alone")
 		assert_eq(Crafting.inventory_qty("skeletonKey"), 0, "spent")
 		cover["base"] = original_cover_base
+		if had_min:
+			cover["min"] = original_cover_min
+		else:
+			cover.erase("min")
 		GameData.EVENTS = original_events
 	)
 
