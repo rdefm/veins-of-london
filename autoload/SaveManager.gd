@@ -578,9 +578,11 @@ func backfill_defaults(save: Dictionary) -> Dictionary:
 	var defaults := GameState.new_game_state()
 	var result: Dictionary = save.duplicate(true)
 	var had_stances := result.has("factionStances")
-	# A save from before the market existed starts at resting prices, not base.
+	# A save from before the market existed starts at base prices; a pre-tier
+	# market moves to tiered stock once, prices steady.
 	if not result.has("market"):
-		result["market"] = Market.new_state(true)
+		result["market"] = Market.new_state()
+	Market.migrate_legacy(result["market"])
 	for key in defaults.keys():
 		if not result.has(key):
 			result[key] = defaults[key]
@@ -1022,9 +1024,11 @@ func _restore_int_types(state: Dictionary) -> void:
 				_int_dict_values(entry.get("failed", {}))
 	var market: Dictionary = state.get("market", {})
 	_int_key(market, "startedDay")
+	_int_key(market, "stockSchema")
 	for kind_goods in market.get("goods", {}).values():
 		for good in kind_goods.values():
 			_int_key(good, "stock")
+			_int_dict_values(good.get("tiers", {}))
 			_int_key(good, "price")
 			_int_key(good, "prevPrice")
 			_int_array_values(good.get("history", []))
@@ -1032,6 +1036,8 @@ func _restore_int_types(state: Dictionary) -> void:
 		for by_type in market.get(side, {}).values():
 			for by_source in by_type.values():
 				_int_dict_values(by_source)
+	for by_tier in market.get("supplyTiers", {}).values():
+		_int_dict_values(by_tier)
 	for rise in market.get("storyRises", []):
 		_int_key(rise, "startDay")
 		_int_key(rise, "endDay")

@@ -112,7 +112,7 @@ static func execute_sale(items: Array) -> Dictionary:
 			gross += Market.line_total("consumable", get_archie_consumable_price(item_type, tier, price_mod), qty)
 			cons_sold += qty
 			Crafting.inventory_remove_from_tier(Crafting.inventory_key(item_type, bool(item.get("multi", false))), tier, qty)
-			Market.record_supply("consumable", item_type, qty, "player")
+			Market.record_supply("consumable", item_type, qty, "player", maxi(tier, 1))
 
 	if cons_sold > 0:
 		flags["consSoldCount"] = flags["consSoldCount"] + cons_sold

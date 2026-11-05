@@ -2,9 +2,10 @@ class_name Market
 extends RefCounted
 
 # London market (R§3.13): one price per good -- kind "ore" (the five ore
-# types) or "consumable" (every recipe key) -- repriced each rollover from a
-# hidden London stock. Sales execute at today's quote; recorded supply and
-# demand only move tomorrow's price. Static funcs only.
+# types) or "consumable" (every recipe key) -- repriced each rollover from
+# London's stock. Items hold stock per tier 1..5, ore is untiered; stock moves
+# only through recorded and nameless flows. Sales execute at today's quote;
+# recorded supply and demand move tomorrow's price. Static funcs only.
 
 const KINDS := ["consumable", "ore"]  # reprice order: items before ores
 
@@ -34,27 +35,30 @@ static func civilian_demand(kind: String, good_type: String) -> float:
 	return float(_config()["goods"][kind][good_type]["civilianDemand"])
 
 
-# The Independents slice (R§3.13): daily supply of the kind's share
+# The Independents slice (R§3.13): daily whole-unit supply of the kind's share
 # (independentsOreShare for ore, independentsShare for items) × civilian
-# demand, plus for ore independentsBuyCover × today's faction London buys
-# of it; 0 when the kind's share is 0.
+# demand, scaled by the good's price ratio (supplyElasticity) up to supplyCap;
+# 0 when the kind's share is 0.
 static func independents_supply(kind: String, good_type: String) -> float:
 	var share := independents_share(kind)
 	if share <= 0.0:
 		return 0.0
-	var supply := share * civilian_demand(kind, good_type)
-	if kind == "ore":
-		supply += float(_config()["independentsBuyCover"]) * _faction_demand(kind, good_type)
-	return supply
+	var cfg := _config()
+	var mult := clampf(pow(_price_ratio(kind, good_type), float(cfg["supplyElasticity"])), 0.0, float(cfg["supplyCap"]))
+	return float(GameState.round_epsilon(share * civilian_demand(kind, good_type) * mult))
 
 
-static func _faction_demand(kind: String, good_type: String) -> int:
-	var total := 0
-	var by_source: Dictionary = _market()["demand"][kind].get(good_type, {})
-	for source in by_source:
-		if GameData.FACTIONS.has(source):
-			total += int(by_source[source])
-	return total
+# Today's quote over the good's base price (1.0 when it has none).
+static func _price_ratio(kind: String, good_type: String) -> float:
+	var base := float(base_price(kind, good_type))
+	return float(quote(kind, good_type)) / base if base > 0.0 else 1.0
+
+
+# Nameless demand multiplier: falls as price rises, between demandFloor and
+# demandCeiling.
+static func demand_mult(kind: String, good_type: String) -> float:
+	var cfg := _config()
+	return clampf(pow(_price_ratio(kind, good_type), -float(cfg["demandElasticity"])), float(cfg["demandFloor"]), float(cfg["demandCeiling"]))
 
 
 static func independents_share(kind: String) -> float:
@@ -101,21 +105,6 @@ static func target_price(kind: String, good_type: String, stock: float) -> int:
 	return GameState.round_epsilon(base * mult)
 
 
-# Stock where the Independents slice, civilian demand and reversion cancel
-# out with no player or faction trade and no Ticker effect. An ore's resting
-# demand includes the derived demand from every item sitting at its own
-# (whole-unit) resting stock.
-static func resting_stock(kind: String, good_type: String) -> float:
-	var reversion: float = _config()["reversion"]
-	var demand: float = civilian_demand(kind, good_type)
-	if kind == "ore":
-		var item_stocks := {}
-		for recipe_key in _config()["goods"]["consumable"]:
-			item_stocks[recipe_key] = GameState.round_epsilon(resting_stock("consumable", recipe_key))
-		demand += _derived_ore_demand(good_type, item_stocks)
-	return _normal_stock(kind, good_type) + (independents_supply(kind, good_type) - demand) * (1.0 - reversion) / reversion
-
-
 # Ore demand from item shortages (R§3.13): Σ over recipes of
 # max(0, normalStock − itemStock) × that recipe's qty of this ore ×
 # oreConversionRate. item_stocks is { recipeKey: stock }.
@@ -136,26 +125,118 @@ static func derived_ore_demand(ore_type: String) -> float:
 	return _derived_ore_demand(ore_type, item_stocks)
 
 
-# Fresh market; resting=true starts every good at its idle equilibrium
-# (old-save backfill), otherwise at base price with stock at normal.
-static func new_state(resting: bool) -> Dictionary:
+# Current stock layout version; saves without it are migrated once.
+const STOCK_SCHEMA := 2
+
+
+# Whole-unit stock split across tiers by weights (largest remainder, ties to
+# the lowest tier); the parts always sum to total.
+static func _apportion(total: int, weights: Array) -> Array[int]:
+	var parts: Array[int] = []
+	parts.resize(weights.size())
+	parts.fill(0)
+	var weight_sum := 0.0
+	for w in weights:
+		weight_sum += float(w)
+	if total <= 0 or weight_sum <= 0.0:
+		return parts
+	var fractions: Array[float] = []
+	var assigned := 0
+	for i in weights.size():
+		var exact := float(total) * float(weights[i]) / weight_sum
+		parts[i] = int(floor(exact + 0.000001))
+		assigned += parts[i]
+		fractions.append(exact - float(parts[i]))
+	while assigned < total:
+		var best := 0
+		for i in weights.size():
+			if fractions[i] > fractions[best] + 0.000001:
+				best = i
+		parts[best] += 1
+		fractions[best] = -1.0
+		assigned += 1
+	return parts
+
+
+static func tier_count() -> int:
+	return _config()["tierMix"].size()
+
+
+# Stock per tier as an array (element 0 = tier 1); ore is a single element.
+static func _tier_stocks(kind: String, good_type: String) -> Array[int]:
+	var good: Dictionary = _market()["goods"][kind][good_type]
+	var stocks: Array[int] = []
+	if kind == "ore":
+		stocks.append(int(good["stock"]))
+		return stocks
+	for tier in range(1, tier_count() + 1):
+		stocks.append(int(good["tiers"].get(str(tier), 0)))
+	return stocks
+
+
+static func _set_tier_stocks(kind: String, good_type: String, stocks: Array[int]) -> void:
+	var good: Dictionary = _market()["goods"][kind][good_type]
+	var total := 0
+	for qty in stocks:
+		total += qty
+	good["stock"] = total
+	if kind == "consumable":
+		good["tiers"] = _tiers_dict(stocks)
+
+
+static func _tiers_dict(stocks: Array[int]) -> Dictionary:
+	var tiers := {}
+	for i in stocks.size():
+		tiers[str(i + 1)] = stocks[i]
+	return tiers
+
+
+# Fresh market with every good's stock at normal (items split by tierMix).
+static func new_state() -> Dictionary:
 	var goods := {}
 	for kind in KINDS:
 		goods[kind] = {}
 		for good_type in _config()["goods"][kind]:
-			var stock: int = GameState.round_epsilon(resting_stock(kind, good_type) if resting else _normal_stock(kind, good_type))
-			var price: int = target_price(kind, good_type, stock) if resting else base_price(kind, good_type)
-			goods[kind][good_type] = { "stock": stock, "price": price, "prevPrice": price, "history": [] }
+			var stock: int = GameState.round_epsilon(_normal_stock(kind, good_type))
+			var price: int = base_price(kind, good_type)
+			var good := { "stock": stock, "price": price, "prevPrice": price, "history": [] }
+			if kind == "consumable":
+				good["tiers"] = _tiers_dict(_apportion(stock, _config()["tierMix"]))
+			goods[kind][good_type] = good
 	return {
+		"stockSchema": STOCK_SCHEMA,
 		"startedDay": 1 if _config()["simStart"] == "day1" else null,
 		"goods": goods,
 		"supply": { "ore": {}, "consumable": {} },
+		"supplyTiers": {},
 		"demand": { "ore": {}, "consumable": {} },
 		"annotations": [],
 		"deliveries": [],
 		"salesHistory": [],
 		"tickerStates": {},
 	}
+
+
+# Moves an untiered market to tiered stock once: each good's stock becomes
+# the stock its current price implies on the curve (price steady) at the
+# current normalStock, items split by tierMix. No-op once migrated.
+static func migrate_legacy(market: Dictionary) -> void:
+	if int(market.get("stockSchema", 0)) >= STOCK_SCHEMA:
+		return
+	var cfg := _config()
+	for kind in KINDS:
+		for good_type in market.get("goods", {}).get(kind, {}):
+			var good: Dictionary = market["goods"][kind][good_type]
+			var base := float(base_price(kind, good_type))
+			var price_mult := float(good["price"]) / base if base > 0.0 else 1.0
+			price_mult = clampf(price_mult, float(cfg["priceMinMult"]), float(cfg["priceMaxMult"]))
+			var stock: int = GameState.round_epsilon(pow(price_mult, -1.0 / float(cfg["curveExponent"])) * _normal_stock(kind, good_type))
+			good["stock"] = stock
+			if kind == "consumable":
+				good["tiers"] = _tiers_dict(_apportion(stock, cfg["tierMix"]))
+	if not market.has("supplyTiers"):
+		market["supplyTiers"] = {}
+	market["stockSchema"] = STOCK_SCHEMA
 
 
 # Today's London price. Base price before the sim starts.
@@ -239,8 +320,18 @@ static func quote_avg2(kind: String, good_type: String) -> int:
 	return GameState.round_epsilon((float(history[-1]) + float(history[-2])) / 2.0)
 
 
-static func record_supply(kind: String, good_type: String, qty: int, source: String) -> void:
+# tier is the stock tier an item enters at (below 1 enters as tier 1);
+# ignored for ore.
+static func record_supply(kind: String, good_type: String, qty: int, source: String, tier: int = 1) -> void:
 	_record("supply", kind, good_type, qty, source)
+	if kind == "consumable" and qty > 0 and is_running():
+		var market := _market()
+		if not market.has("supplyTiers"):
+			market["supplyTiers"] = {}
+		var by_tier: Dictionary = market["supplyTiers"].get(good_type, {})
+		var key := str(clampi(tier, 1, tier_count()))
+		by_tier[key] = int(by_tier.get(key, 0)) + qty
+		market["supplyTiers"][good_type] = by_tier
 
 
 static func record_demand(kind: String, good_type: String, qty: int, source: String) -> void:
@@ -330,16 +421,74 @@ static func _tally(side: String, kind: String, good_type: String) -> int:
 	return total
 
 
-# Rollover step: per good, stock takes today's flow (floored at 0), reverts
-# toward normalStock (whole units), and price moves a smoothing fraction
-# toward target. Supply is the Independents slice plus recorded trades.
-# Items reprice first, their civilian demand scaled by the Ticker; each
-# ore's demand then adds the shortages of today's item stocks.
+# Today's flow for one good, per tier (element 0 = tier 1; ore one element):
+# { "stock", "supply", "demand", "after" }. Supply is the Independents slice
+# (split by tierMix) plus recorded supply at its tiers. Demand is nameless
+# demand (Ticker-scaled, price-elastic, plus derived ore demand and story
+# rises) plus recorded demand, capped at what is held, drawn across tiers in
+# proportion to stock + supply in whole units.
+static func _plan_day(kind: String, good_type: String) -> Dictionary:
+	var stock := _tier_stocks(kind, good_type)
+	var supply: Array[int] = []
+	supply.resize(stock.size())
+	supply.fill(0)
+	var independents := int(independents_supply(kind, good_type))
+	if kind == "ore":
+		supply[0] = independents + _tally("supply", kind, good_type)
+	else:
+		var mixed := _apportion(independents, _config()["tierMix"])
+		var recorded: Dictionary = _market().get("supplyTiers", {}).get(good_type, {})
+		for i in supply.size():
+			supply[i] = mixed[i] + int(recorded.get(str(i + 1), 0))
+	var baseline: float = civilian_demand(kind, good_type)
+	if kind == "consumable":
+		baseline *= Barometer.get_item_demand_mult(good_type)
+	baseline *= demand_mult(kind, good_type)
+	if kind == "ore":
+		baseline += civilian_demand(kind, good_type) * story_rise_fraction(good_type)
+		baseline += derived_ore_demand(good_type)
+	var wanted: int = GameState.round_epsilon(baseline) + _tally("demand", kind, good_type)
+	var held: Array = []
+	var held_total := 0
+	for i in stock.size():
+		held.append(stock[i] + supply[i])
+		held_total += stock[i] + supply[i]
+	var demand := _apportion(mini(wanted, held_total), held)
+	var after: Array[int] = []
+	for i in stock.size():
+		after.append(held[i] - demand[i])
+	return { "stock": stock, "supply": supply, "demand": demand, "after": after }
+
+
+# What can be traded per tier today (stock + today's supply - today's demand,
+# floored at 0), as { tier: qty } for tiers 1..5; ore is { 0: qty }.
+static func availability(kind: String, good_type: String) -> Dictionary:
+	var available := {}
+	if not is_running():
+		var stocks := _tier_stocks(kind, good_type)
+		for i in stocks.size():
+			available[i + 1 if kind == "consumable" else 0] = stocks[i]
+		return available
+	var plan := _plan_day(kind, good_type)
+	for i in plan["after"].size():
+		available[i + 1 if kind == "consumable" else 0] = maxi(0, int(plan["after"][i]))
+	return available
+
+
+# Price of one unit of an item at a tier: the good's quote × the quality
+# multiplier.
+static func tier_price(good_type: String, tier: int) -> int:
+	return GameState.round_epsilon(quote("consumable", good_type) * Economy.quality_price_multiplier(tier))
+
+
+# Rollover step: per good, stock takes today's planned flow and price moves a
+# smoothing fraction toward the target for its total stock. Items reprice
+# first, their civilian demand scaled by the Ticker; each ore's demand then
+# adds the shortages of today's item stocks.
 static func daily_reprice() -> void:
 	if not is_running():
 		return
 	var cfg := _config()
-	var reversion: float = cfg["reversion"]
 	var smoothing: float = cfg["smoothing"]
 	var history_days: int = int(cfg["historyDays"])
 	var market := _market()
@@ -347,20 +496,12 @@ static func daily_reprice() -> void:
 	for kind in KINDS:
 		for good_type in market["goods"][kind]:
 			var good: Dictionary = market["goods"][kind][good_type]
-			var supply: float = independents_supply(kind, good_type) + _tally("supply", kind, good_type)
-			var baseline: float = civilian_demand(kind, good_type)
-			if kind == "consumable":
-				baseline *= Barometer.get_item_demand_mult(good_type)
-			else:
-				baseline += derived_ore_demand(good_type)
-				baseline += civilian_demand(kind, good_type) * story_rise_fraction(good_type)
-			var demand: float = baseline + _tally("demand", kind, good_type)
-			var flowed: float = maxf(0.0, float(good["stock"]) + supply - demand)
-			var stock: int = GameState.round_epsilon(flowed + (_normal_stock(kind, good_type) - flowed) * reversion)
+			var plan := _plan_day(kind, good_type)
+			_set_tier_stocks(kind, good_type, plan["after"])
+			var stock: int = int(good["stock"])
 			var base := float(base_price(kind, good_type))
 			var price: int = int(good["price"])
 			var moved: int = GameState.round_epsilon(price + (target_price(kind, good_type, stock) - price) * smoothing)
-			good["stock"] = stock
 			good["prevPrice"] = price
 			good["price"] = clampi(moved, GameState.round_epsilon(base * cfg["priceMinMult"]), GameState.round_epsilon(base * cfg["priceMaxMult"]))
 			var history: Array = good["history"]
@@ -371,6 +512,7 @@ static func daily_reprice() -> void:
 	_prune_story_rises()
 	_log_sales()
 	market["supply"] = { "ore": {}, "consumable": {} }
+	market["supplyTiers"] = {}
 	market["demand"] = { "ore": {}, "consumable": {} }
 	market.erase("moves")
 

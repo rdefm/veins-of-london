@@ -17,7 +17,7 @@ static func _fresh() -> void:
 static func _market_fresh(day: int) -> void:
 	_fresh()
 	GameState.state["world"]["day"] = day
-	GameState.state["market"] = Market.new_state(true)
+	GameState.state["market"] = Market.new_state()
 	GameState.state["market"]["startedDay"] = 1
 
 

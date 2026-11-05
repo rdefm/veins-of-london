@@ -700,14 +700,40 @@ func run() -> void:
 		assert_eq(typeof(GameState.state["market"]["supply"]["ore"]["life"]["player"]), TYPE_INT, "tallies restored as ints")
 	)
 
-	run_case("loading_a_save_without_a_market_backfills_resting_prices", func():
+	run_case("tiered_item_stock_round_trips_through_save_as_ints", func():
+		GameState.reset()
+		Market.record_supply("consumable", "timePearl", 25, "player", 4)
+		Market.daily_reprice()
+		Market.record_supply("consumable", "timePearl", 5, "player", 2)
+		var original: Dictionary = GameState.deep_copy(GameState.state["market"])
+		assert_true(SaveManager.import_string(SaveManager.export_string())["ok"])
+		assert_eq(GameState.state["market"], original, "tiered market survives save/load")
+		var tiers: Dictionary = GameState.state["market"]["goods"]["consumable"]["timePearl"]["tiers"]
+		assert_eq(typeof(tiers["4"]), TYPE_INT, "tier stock restored as int")
+		assert_eq(typeof(GameState.state["market"]["supplyTiers"]["timePearl"]["2"]), TYPE_INT, "tier tally restored as int")
+	)
+
+	run_case("loading_a_save_without_a_market_backfills_base_prices", func():
 		GameState.reset()
 		var legacy: Dictionary = GameState.deep_copy(GameState.state)
 		legacy.erase("market")
 		assert_true(SaveManager._load_save_dict(legacy)["ok"])
-		var resting: int = Market.target_price("ore", "fate", GameState.round_epsilon(Market.resting_stock("ore", "fate")))
-		assert_eq(Market.quote("ore", "fate"), resting, "an old save opens at the resting price")
-		assert_true(resting > 90, "resting sits above base (idle premium)")
+		assert_eq(Market.quote("ore", "fate"), Market.base_price("ore", "fate"), "an old save opens at base")
+	)
+
+	run_case("loading_an_untiered_market_migrates_it_once_with_prices_steady", func():
+		GameState.reset()
+		var legacy: Dictionary = GameState.deep_copy(GameState.state)
+		legacy["market"].erase("stockSchema")
+		legacy["market"].erase("supplyTiers")
+		legacy["market"]["goods"]["consumable"]["timePearl"].erase("tiers")
+		legacy["market"]["goods"]["consumable"]["timePearl"]["stock"] = 40
+		legacy["market"]["goods"]["consumable"]["timePearl"]["price"] = 160
+		assert_true(SaveManager._load_save_dict(legacy)["ok"])
+		var pearl: Dictionary = GameState.state["market"]["goods"]["consumable"]["timePearl"]
+		assert_eq(Market.quote("consumable", "timePearl"), 160, "price unchanged")
+		assert_eq(pearl["tiers"].size(), 5, "stock split across tiers")
+		assert_true(absi(Market.target_price("consumable", "timePearl", pearl["stock"]) - 160) <= 2, "stock sits where the price expects it")
 	)
 
 	run_case("old_save_offers_and_contracts_backfill_a_counterparty", func():

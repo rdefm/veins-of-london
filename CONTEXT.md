@@ -138,3 +138,11 @@ _Avoid_: "found"/"discovered" recipe — lottery-bench terms.
 **Hidden step**:
 An ideal procedure step the base procedure lacks or gets wrong. Each carries one rung (`hint1`, `hint2`, `master`) and is known at a specificity: `vague` (fuzzy region + direction) or `exact` (true band). Specificity only rises.
 _Avoid_: "secret" (that's Dial Movement bench secrets).
+
+
+**London market**:
+The one central market every route reads: one quote per good, real stock (items held per tier 1-5, ore untiered). Stock changes only through recorded and nameless flows. Spec in REFERENCE §3.13.
+_Avoid_: "the Market" for a place the player visits; Soho Marketplace (not yet built) is that place.
+
+**Guild Marketplace**:
+The existing faction sell-lane shopfront on the Map, trading directly with a faction. It does not touch London stock. Not the Soho Marketplace.

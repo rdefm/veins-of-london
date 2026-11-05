@@ -66,7 +66,7 @@ func run() -> void:
 		assert_true(texts.has("0 DAYS"), "no synthetic chart days")
 		assert_true(texts.has("No trading days on record yet."))
 		assert_eq(phone.find_children("TickerPriceChart", "LineChart", true, false).size(), 0)
-		assert_true(texts.has("Time Pearl — 50 short in London"), "ore shortage remains below notes")
+		assert_true(texts.has("Time Pearl — 210 short in London"), "ore shortage remains below notes")
 		NodeQuery.find_button(phone, "‹ Back to Stock Market").pressed.emit()
 		(phone.find_child("TickerGood_consumable_timePearl", true, false) as Button).pressed.emit()
 		texts = NodeQuery.label_texts(phone)

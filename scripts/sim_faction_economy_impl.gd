@@ -157,14 +157,12 @@ func _accumulate_flows(flows: Dictionary) -> void:
 		by_good[note["good"]] = int(by_good.get(note["good"], 0)) + int(note["value"])
 		_add_flow(flows, note["goodKind"], "-" + str(note["source"]), note["good"], float(note["value"]))
 	for kind in Market.KINDS:
-		var cover := float(GameData.MARKET["independentsBuyCover"]) if kind == "ore" else 0.0
 		for good_type in GameData.MARKET["goods"][kind]:
 			var by_source: Dictionary = sold.get(kind, {}).get(good_type, {})
 			for source in by_source:
 				_add_flow(flows, kind, "+" + str(source), good_type, float(by_source[source]))
-			var slice: float = Market.independents_share(kind) * Market.civilian_demand(kind, good_type)
-			_add_flow(flows, kind, "+independents", good_type, slice + cover * int(faction_buys[kind].get(good_type, 0)))
-			_add_flow(flows, kind, "-nameless", good_type, Market.civilian_demand(kind, good_type))
+			_add_flow(flows, kind, "+independents", good_type, Market.independents_supply(kind, good_type))
+			_add_flow(flows, kind, "-nameless", good_type, Market.civilian_demand(kind, good_type) * Market.demand_mult(kind, good_type))
 			if kind == "ore":
 				_add_flow(flows, kind, "-derived", good_type, Market.derived_ore_demand(good_type))
 

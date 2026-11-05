@@ -1456,18 +1456,24 @@ const CANONICAL_DISTRICT_IDS: Array[String] = [
 
 # Every ore type and every priced consumable is a market good with a normal
 # stock and civilian demand; independentsShare (items) and
-# independentsOreShare are fractions in [0, 1], as is independentsBuyCover.
+# independentsOreShare are fractions in [0, 1]; tierMix is one weight per
+# tier summing to 1.
 func _validate_market(market: Dictionary, ore_types: Dictionary, consumable_prices: Dictionary, errors: Array[String]) -> void:
-	_require_keys(market, ["simStart", "priceMinMult", "priceMaxMult", "curveExponent", "reversion", "smoothing", "historyDays", "priceLot", "oreConversionRate", "independentsShare", "independentsOreShare", "independentsBuyCover", "goods"], "market", errors)
+	_require_keys(market, ["simStart", "priceMinMult", "priceMaxMult", "curveExponent", "smoothing", "historyDays", "priceLot", "oreConversionRate", "independentsShare", "independentsOreShare", "demandElasticity", "demandFloor", "demandCeiling", "supplyElasticity", "supplyCap", "tierMix", "goods"], "market", errors)
 	if not ["day1", "bizA2"].has(market.get("simStart")):
 		errors.append("market.simStart: expected 'day1' or 'bizA2', got '%s'" % str(market.get("simStart")))
 	for lot_kind in ["ore", "consumable"]:
 		if int(market.get("priceLot", {}).get(lot_kind, 0)) < 1:
 			errors.append("market.priceLot.%s: expected a whole number >= 1" % lot_kind)
-	for share_key in ["independentsShare", "independentsOreShare", "independentsBuyCover"]:
+	for share_key in ["independentsShare", "independentsOreShare"]:
 		var share: float = float(market.get(share_key, 0.0))
 		if share < 0.0 or share > 1.0:
 			errors.append("market.%s: expected 0..1, got %s" % [share_key, str(share)])
+	var mix_total := 0.0
+	for weight in market.get("tierMix", []):
+		mix_total += float(weight)
+	if market.get("tierMix", []).size() != 5 or absf(mix_total - 1.0) > 0.001:
+		errors.append("market.tierMix: expected 5 weights summing to 1")
 	var goods: Dictionary = market.get("goods", {})
 	var expected := { "ore": ore_types.keys(), "consumable": consumable_prices.keys() }
 	for kind in expected:

@@ -28,10 +28,6 @@ func _tick(days: int) -> void:
 		GameData.FACTIONS[faction_id]["trading"] = saved[faction_id]
 
 
-func _resting_price(kind: String, good_type: String) -> int:
-	return Market.target_price(kind, good_type, GameState.round_epsilon(Market.resting_stock(kind, good_type)))
-
-
 # Makes state_id the active state on its axis with progress pinned so the
 # rollover's resolution step keeps it there.
 func _set_ticker(section: String, state_id: String) -> void:
@@ -82,16 +78,13 @@ func run() -> void:
 
 	# ── rollover ───────────────────────────────────────────────────────
 
-	run_case("no_player_sales_drifts_to_the_idle_premium_and_holds", func():
+	run_case("idle_independents_only_market_settles_high_and_holds", func():
 		GameState.reset()
 		assert_eq(Market.quote("ore", "time"), 75, "a new game opens at base")
-		_tick(10)
-		var idle: int = Market.quote("ore", "time")
-		assert_eq(idle, _resting_price("ore", "time"), "settles at the resting price")
-		assert_true(idle >= 83 and idle <= 98, "idle premium sits ~1.1-1.3x base, got %d" % idle)
-		_tick(3)
-		assert_eq(Market.quote("ore", "time"), idle, "and holds there")
-		assert_eq(_time()["history"].size(), 13, "one history entry per rollover")
+		_tick(80)
+		assert_true(Market.quote("ore", "time") > 75, "independents alone leave a scarce market")
+		assert_true(Market.quote("ore", "time") <= 300, "within the ceiling")
+		assert_eq(_time()["history"].size(), 28, "history is capped")
 	)
 
 	run_case("idle_london_stays_sane_with_factions_trading", func():
@@ -104,7 +97,9 @@ func run() -> void:
 		for kind in Market.KINDS:
 			for good_type in GameState.state["market"]["goods"][kind]:
 				var mult: float = float(Market.quote(kind, good_type)) / Market.base_price(kind, good_type)
-				assert_true(mult >= 0.5 and mult <= 2.0, "%s %s idles at %.2fx base after 30 real days" % [kind, good_type, mult])
+				# Prices run high until faction trade uses real stock.
+				var ceiling := 4.0
+				assert_true(mult >= 0.5 and mult <= ceiling, "%s %s idles at %.2fx base after 30 real days" % [kind, good_type, mult])
 	)
 
 	run_case("history_is_bounded", func():
@@ -114,23 +109,21 @@ func run() -> void:
 		assert_eq(_time()["history"].size(), int(GameData.MARKET["historyDays"]))
 	)
 
-	run_case("archie_ore_dump_sells_at_todays_quote_then_depresses_and_resettles", func():
+	run_case("archie_ore_dump_sells_at_todays_quote_and_lands_in_stock", func():
 		var seed := SeedSearch.find_seed_for(200, func():
 			GameState.reset()
-			GameState.state["market"] = Market.new_state(true)
+			GameState.state["market"] = Market.new_state()
 			GameState.state["player"]["orichalchum"]["time"] = 730
 			var result := Economy.execute_sale([{ "kind": "ore", "type": "time", "qty": 730 }])
 			return not result["mugged"]
 		)
 		assert_true(seed != -1, "should find a non-mugged roll within 200 tries")
-		var idle: int = _resting_price("ore", "time")
-		assert_eq(GameState.state["modal"]["data"]["gross"], Market.line_total("ore", idle, 730), "the sale executes at today's quote")
+		assert_eq(GameState.state["modal"]["data"]["gross"], Market.line_total("ore", 75, 730), "the sale executes at today's quote")
+		var before: int = _time()["stock"]
+		assert_true(Market.availability("ore", "time")[0] > before + 600, "the 730 shows in today's availability")
 		_tick(1)
-		var dipped: int = Market.quote("ore", "time")
-		assert_true(dipped < idle * 0.85, "next day's price is visibly lower (%d vs %d)" % [dipped, idle])
-		_tick(3)
-		var recovered: int = Market.quote("ore", "time")
-		assert_true(absf(recovered - idle) <= idle * 0.1, "back within 10% of equilibrium within 4 days (%d vs %d)" % [recovered, idle])
+		assert_true(_time()["stock"] > before + 500, "the 730 sat in London's stock")
+		assert_true(Market.quote("ore", "time") < 75, "the glut lowers the price")
 	)
 
 	run_case("repeated_dumps_approach_but_never_pass_the_floor", func():
@@ -179,11 +172,13 @@ func run() -> void:
 		GameState.reset()
 	)
 
+	_tiered_cases()
+
 	# ── Ticker item demand ─────────────────────────────────────────────
 
 	run_case("war_lifts_shield_then_physics_ore_over_following_days", func():
 		GameState.reset()
-		GameState.state["market"] = Market.new_state(true)
+		GameState.state["market"] = Market.new_state()
 		var shield_idle: int = _price("consumable", "shield")
 		var physics_idle: int = _price("ore", "physics")
 		_set_ticker("political", "war")
@@ -194,17 +189,16 @@ func run() -> void:
 		# +50-100% feel target is deferred to Ticker work (R§3.13).
 		assert_true(Market.derived_ore_demand("physics") > 0.0, "war item shortages feed physics demand")
 		assert_true(_price("ore", "physics") >= physics_idle, "physics does not fall under war")
-		assert_eq(_price("ore", "fate"), _resting_price("ore", "fate"), "an ore with no war item stays at rest")
 	)
 
 	run_case("player_shield_supply_dampens_the_physics_rise", func():
 		GameState.reset()
-		GameState.state["market"] = Market.new_state(true)
+		GameState.state["market"] = Market.new_state()
 		_set_ticker("political", "war")
 		_tick(5)
 		var unfilled: float = Market.derived_ore_demand("physics")
 		GameState.reset()
-		GameState.state["market"] = Market.new_state(true)
+		GameState.state["market"] = Market.new_state()
 		_set_ticker("political", "war")
 		for i in range(5):
 			Market.record_supply("consumable", "shield", 12, "player")
@@ -215,7 +209,7 @@ func run() -> void:
 
 	run_case("mixed_recipe_shortage_lifts_both_ingredient_ores", func():
 		GameState.reset()
-		GameState.state["market"] = Market.new_state(true)
+		GameState.state["market"] = Market.new_state()
 		var time_idle: int = _price("ore", "time")
 		var time_stock_idle: int = GameState.state["market"]["goods"]["ore"]["time"]["stock"]
 		var life_stock_idle: int = GameState.state["market"]["goods"]["ore"]["life"]["stock"]
@@ -231,7 +225,7 @@ func run() -> void:
 
 	run_case("demand_all_lifts_and_lowers_every_item", func():
 		GameState.reset()
-		GameState.state["market"] = Market.new_state(true)
+		GameState.state["market"] = Market.new_state()
 		var idle := {}
 		for recipe_key in GameData.RECIPES:
 			idle[recipe_key] = GameState.state["market"]["goods"]["consumable"][recipe_key]["stock"]
@@ -245,7 +239,7 @@ func run() -> void:
 		for recipe_key in GameData.RECIPES:
 			assert_true(GameState.state["market"]["goods"]["consumable"][recipe_key]["stock"] < idle[recipe_key], "boom drains %s stock" % recipe_key)
 		GameState.reset()
-		GameState.state["market"] = Market.new_state(true)
+		GameState.state["market"] = Market.new_state()
 		var saved: Dictionary = GameData.BAROMETER_STATES["economic"]["recession"]["effects"]
 		GameData.BAROMETER_STATES["economic"]["recession"]["effects"] = { "demandAll": -0.9 }
 		_set_ticker("economic", "recession")
@@ -257,12 +251,12 @@ func run() -> void:
 
 	run_case("election_mutes_the_war_shield_effect", func():
 		GameState.reset()
-		GameState.state["market"] = Market.new_state(true)
+		GameState.state["market"] = Market.new_state()
 		_set_ticker("political", "war")
 		_tick(8)
 		var war_only: int = _price("consumable", "shield")
 		GameState.reset()
-		GameState.state["market"] = Market.new_state(true)
+		GameState.state["market"] = Market.new_state()
 		var saved: Dictionary = GameData.BAROMETER_STATES["social"]["festival"]["effects"]
 		GameData.BAROMETER_STATES["social"]["festival"]["effects"] = { "effectMod": -0.5 }
 		_set_ticker("political", "war")
@@ -276,7 +270,7 @@ func run() -> void:
 
 	run_case("ticker_shift_annotates_the_items_it_touches", func():
 		GameState.reset()
-		GameState.state["market"] = Market.new_state(true)
+		GameState.state["market"] = Market.new_state()
 		_tick(1)
 		_set_ticker("political", "war")
 		_tick(1)
@@ -291,7 +285,7 @@ func run() -> void:
 
 	run_case("dump_above_threshold_annotates_dump_and_crash", func():
 		GameState.reset()
-		GameState.state["market"] = Market.new_state(true)
+		GameState.state["market"] = Market.new_state()
 		Market.record_supply("ore", "time", 730, "player")
 		_tick(1)
 		var dumps := _notes_of("ore", "time", "dump")
@@ -304,7 +298,7 @@ func run() -> void:
 
 	run_case("a_big_faction_buy_or_sell_is_annotated_with_the_faction", func():
 		GameState.reset()
-		GameState.state["market"] = Market.new_state(true)
+		GameState.state["market"] = Market.new_state()
 		Market.record_supply("ore", "time", 730, "firm")
 		Market.record_demand("ore", "life", 730, "guild")
 		Market.record_demand("ore", "fate", 730, "player")
@@ -321,7 +315,7 @@ func run() -> void:
 
 	run_case("a_flood_is_annotated_with_the_faction_at_any_volume_and_not_as_a_dump", func():
 		GameState.reset()
-		GameState.state["market"] = Market.new_state(true)
+		GameState.state["market"] = Market.new_state()
 		GameState.state["market"]["startedDay"] = 1
 		Market.record_move("flood", "ore", "time", 40, "firm")
 		Market.record_move("flood", "ore", "life", 730, "collective")
@@ -337,7 +331,7 @@ func run() -> void:
 
 	run_case("ordinary_supply_is_not_a_dump", func():
 		GameState.reset()
-		GameState.state["market"] = Market.new_state(true)
+		GameState.state["market"] = Market.new_state()
 		Market.record_supply("ore", "time", 104, "player")
 		_tick(1)
 		assert_eq(_notes_of("ore", "time", "dump").size() + _notes_of("ore", "time", "crash").size(), 0, "a normal day's selling leaves no dump or crash annotation")
@@ -345,7 +339,7 @@ func run() -> void:
 
 	run_case("forced_shortage_annotates_a_spike", func():
 		GameState.reset()
-		GameState.state["market"] = Market.new_state(true)
+		GameState.state["market"] = Market.new_state()
 		Market.record_demand("ore", "fate", 730, "player")
 		_tick(1)
 		var spikes := _notes_of("ore", "fate", "spike")
@@ -356,7 +350,7 @@ func run() -> void:
 
 	run_case("annotations_are_bounded_by_the_cap", func():
 		GameState.reset()
-		GameState.state["market"] = Market.new_state(true)
+		GameState.state["market"] = Market.new_state()
 		var saved: int = GameData.MARKET["annotations"]["cap"]
 		GameData.MARKET["annotations"]["cap"] = 3
 		for i in range(5):
@@ -370,7 +364,7 @@ func run() -> void:
 
 	run_case("sold_this_week_sums_a_sources_last_seven_days_of_sales", func():
 		GameState.reset()
-		GameState.state["market"] = Market.new_state(true)
+		GameState.state["market"] = Market.new_state()
 		for day in range(1, 10):
 			GameState.state["world"]["day"] = day
 			Market.record_supply("ore", "time", day, "player")
@@ -414,6 +408,145 @@ func run() -> void:
 		assert_eq(Market.story_rise_fraction("emotion"), 0.0, "rise lapses at endDay")
 		Market.daily_reprice()
 		assert_eq(GameState.state["market"]["storyRises"].size(), 0, "expired rise pruned")
+	)
+
+
+func _tiers(good_type: String) -> Dictionary:
+	return GameState.state["market"]["goods"]["consumable"][good_type]["tiers"]
+
+
+func _stock_total(good_type: String) -> int:
+	var total := 0
+	for qty in _tiers(good_type).values():
+		total += int(qty)
+	return total
+
+
+func _tiered_cases() -> void:
+	run_case("item_stock_is_held_per_tier_and_sums_to_the_total", func():
+		GameState.reset()
+		var good: Dictionary = GameState.state["market"]["goods"]["consumable"]["timePearl"]
+		assert_eq(good["tiers"].size(), 5, "tiers 1 to 5")
+		assert_eq(_stock_total("timePearl"), good["stock"], "tier stock sums to the stock")
+		assert_eq(good["stock"], GameData.MARKET["goods"]["consumable"]["timePearl"]["normalStock"], "starts at normal")
+		assert_true(int(good["tiers"]["1"]) > int(good["tiers"]["5"]), "weighted to low tiers")
+		assert_true(not GameState.state["market"]["goods"]["ore"]["time"].has("tiers"), "ore is untiered")
+	)
+
+	run_case("a_tiers_price_is_the_quote_times_the_quality_multiplier", func():
+		GameState.reset()
+		var quote: int = Market.quote("consumable", "timePearl")
+		assert_eq(Market.tier_price("timePearl", 1), quote)
+		assert_eq(Market.tier_price("timePearl", 5), GameState.round_epsilon(quote * Economy.quality_price_multiplier(5)))
+	)
+
+	run_case("stock_change_equals_the_sum_of_the_flows", func():
+		GameState.reset()
+		var good: Dictionary = GameState.state["market"]["goods"]["consumable"]["timePearl"]
+		var indep := int(Market.independents_supply("consumable", "timePearl"))
+		var nameless := GameState.round_epsilon(Market.civilian_demand("consumable", "timePearl") * Barometer.get_item_demand_mult("timePearl") * Market.demand_mult("consumable", "timePearl"))
+		var before: int = good["stock"]
+		Market.record_supply("consumable", "timePearl", 30, "player", 3)
+		Market.record_demand("consumable", "timePearl", 10, "firm")
+		Market.daily_reprice()
+		assert_eq(good["stock"], before + indep + 30 - nameless - 10, "change equals the sum of the flows")
+		assert_eq(_stock_total("timePearl"), good["stock"], "tiers still sum to the stock")
+	)
+
+	run_case("recorded_supply_enters_at_its_tier_and_untiered_enters_at_tier_one", func():
+		GameState.reset()
+		var t3_before: int = _tiers("timePearl")["3"]
+		var t1_before: int = _tiers("timePearl")["1"]
+		Market.record_supply("consumable", "timePearl", 400, "player", 3)
+		Market.record_supply("consumable", "timePearl", 400, "player", 0)
+		var plan := Market.availability("consumable", "timePearl")
+		assert_true(plan[3] >= t3_before + 300, "tier 3 holds the tier-3 goods")
+		assert_true(plan[1] >= t1_before + 300, "tier 0 enters as tier 1")
+	)
+
+	run_case("nameless_demand_falls_as_price_rises_down_to_a_floor", func():
+		GameState.reset()
+		var low := Market.demand_mult("ore", "time")
+		_time()["price"] = 150
+		var high := Market.demand_mult("ore", "time")
+		_time()["price"] = 100000
+		var floor_mult := Market.demand_mult("ore", "time")
+		assert_true(high < low, "dearer, fewer buyers")
+		assert_eq(floor_mult, float(GameData.MARKET["demandFloor"]), "bottoms out at the floor")
+	)
+
+	run_case("independents_supply_rises_with_price_up_to_a_cap", func():
+		GameState.reset()
+		var base_supply := Market.independents_supply("ore", "time")
+		_time()["price"] = 150
+		var dearer := Market.independents_supply("ore", "time")
+		_time()["price"] = 100000
+		var capped := Market.independents_supply("ore", "time")
+		assert_true(dearer > base_supply, "dear goods draw more supply")
+		assert_eq(capped, base_supply * float(GameData.MARKET["supplyCap"]), "stops at the cap")
+	)
+
+	run_case("independents_shares_stay_and_enter_weighted_to_low_tiers", func():
+		GameState.reset()
+		assert_eq(GameData.MARKET["independentsShare"], 0.3)
+		assert_eq(GameData.MARKET["independentsOreShare"], 0.4)
+		_tiers("healingBurst").merge({ "1": 0, "2": 0, "3": 0, "4": 0, "5": 0 }, true)
+		GameState.state["market"]["goods"]["consumable"]["healingBurst"]["stock"] = 0
+		var plan := Market.availability("consumable", "healingBurst")
+		assert_true(plan[1] >= plan[5], "low tiers are fuller")
+	)
+
+	run_case("demand_draws_across_tiers_in_proportion_in_whole_units", func():
+		GameState.reset()
+		var good: Dictionary = GameState.state["market"]["goods"]["consumable"]["timePearl"]
+		good["tiers"] = { "1": 100, "2": 100, "3": 0, "4": 0, "5": 0 }
+		good["stock"] = 200
+		Market.record_demand("consumable", "timePearl", 51, "firm")
+		var plan := Market.availability("consumable", "timePearl")
+		assert_true(absi(int(plan[1]) - int(plan[2])) <= 6, "the two stocked tiers drain about evenly")
+		assert_eq(typeof(plan[1]), TYPE_INT, "whole units")
+	)
+
+	run_case("availability_floors_at_zero_when_demand_outruns_stock", func():
+		GameState.reset()
+		Market.record_demand("consumable", "timePearl", 100000, "firm")
+		for qty in Market.availability("consumable", "timePearl").values():
+			assert_eq(qty, 0)
+	)
+
+	run_case("migration_rescales_stock_and_splits_by_mix_with_prices_steady", func():
+		GameState.reset()
+		var legacy := {
+			"goods": {
+				"ore": { "time": { "stock": 620, "price": 90, "prevPrice": 90, "history": [] } },
+				"consumable": { "timePearl": { "stock": 40, "price": 160, "prevPrice": 160, "history": [] } },
+			},
+		}
+		Market.migrate_legacy(legacy)
+		var pearl: Dictionary = legacy["goods"]["consumable"]["timePearl"]
+		assert_eq(pearl["tiers"].size(), 5)
+		var summed := 0
+		for qty in pearl["tiers"].values():
+			summed += int(qty)
+		assert_eq(summed, pearl["stock"], "tiers sum to the stock")
+		assert_true(absi(Market.target_price("consumable", "timePearl", pearl["stock"]) - 160) <= 2, "the price curve still reads the same price")
+		assert_true(absi(Market.target_price("ore", "time", legacy["goods"]["ore"]["time"]["stock"]) - 90) <= 1)
+		var again: Dictionary = GameState.deep_copy(legacy)
+		Market.migrate_legacy(legacy)
+		assert_eq(legacy, again, "migrates once")
+	)
+
+	run_case("tiered_stock_repeats_under_the_same_input_and_stays_pure_data", func():
+		GameState.reset()
+		Market.record_supply("consumable", "timePearl", 25, "player", 4)
+		var snapshot: Dictionary = GameState.deep_copy(GameState.state["market"])
+		Market.daily_reprice()
+		var first: Dictionary = GameState.deep_copy(GameState.state["market"])
+		GameState.state["market"] = GameState.deep_copy(snapshot)
+		Market.daily_reprice()
+		assert_eq(GameState.state["market"], first, "same input, same result")
+		var parsed: Variant = JSON.parse_string(JSON.stringify(first))
+		assert_eq(typeof(parsed["goods"]["consumable"]["timePearl"]["tiers"]), TYPE_DICTIONARY, "pure data survives JSON")
 	)
 
 

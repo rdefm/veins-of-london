@@ -773,7 +773,7 @@ static func _firm_flood_due_in(days: int) -> void:
 	GameState.state["world"]["sites"] = []
 	GameState.state["player"]["veins"] = []
 	GameState.state["world"]["day"] = 10
-	GameState.state["market"] = Market.new_state(true)
+	GameState.state["market"] = Market.new_state()
 	GameState.state["market"]["startedDay"] = 1
 	Shares.record_ore("player", "time", 100)
 	GameState.state["factions"]["firm"]["resources"] = 10000

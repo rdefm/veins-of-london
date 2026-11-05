@@ -102,7 +102,7 @@ func new_game_state() -> Dictionary:
 		"sellState": {},
 		# London market (R§3.13): per good stock/price/history plus today's
 		# supply/demand tallies; Market is the only writer.
-		"market": Market.new_state(false),
+		"market": Market.new_state(),
 		# Serializable pending-offer and accepted-contract ledger.
 		"sales": { "pendingOffers": [], "activeContracts": [], "priorityOrder": [], "contractHistory": [], "settlements": [], "nextOfferId": 1, "nextContractId": 1, "nextPeriodId": 1, "nextSettlementId": 1 },
 		# Business pot (R§3.10 "Business pot and payday"): while potActive,

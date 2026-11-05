@@ -81,7 +81,7 @@ Data file per system: see `data/*.json` below.
 | harassment.gd | Harassment: `state.harassment` (queued events, persistent `active` effects), harass-rung `candidate`, `tick` (expiry, escalation), pending prompt per event, event-op helpers (add/clear/fine/spend_block/raise_intel), security repair, `vein_gate`, `sell_mult` price penalty, `is_shop_barred`, panel rows. Data: faction_harassment.json. |
 | turf.gd | Turf (R§3.1 "Turf"): per-district contender vein counts/shares, controller (top >= second + controlMargin), foothold tier, contested; `recompute()` rewrites `state.turf` once per daily tick (⑤d3), queuing flip headline + map event. `danger_mod`/`price_mod`/`raid_odds_adj`: effective district modifiers. `ambush_chance`: ambush odds (R§3.1d). |
 | map_events.gd | Map event queue + playback |
-| market.gd | London market (R§3.13): per-good stock/price/history, quotes, price lots (ore per 10: line_total, affordable_qty), supply/demand + faction move recording (`MOVE_SIDES`), civilian demand + Independents slice, daily reprice (⑥.6), story demand rises (`post_story`), bounded annotations, 7-day sales history, delivery log, Stock Market reads (series, ore drivers, demand modifiers) |
+| market.gd | London market (R§3.13): per-good quote/history, item stock by tier (ore untiered), conserved elastic flows (`_plan_day`), `availability`, `tier_price`, legacy migration, supply/demand + move recording, daily reprice (⑥.6), story rises, annotations, sales history, delivery log, Stock Market reads |
 | map_hit_test.gd | Tap-hit geometry, Network diagram |
 | map_layout.gd | Resolves stops vs. live sites/veins |
 | map_nav.gd | Map drill-down nav (list → panel → site sheet or vein detail panel, mutually exclusive) |
