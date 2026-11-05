@@ -77,6 +77,7 @@ Identical discipline to the prototype:
 ## Test hygiene (hangs)
 
 - Never loop on a game-state condition in a test (e.g. `while not TimeSystem.is_time_exhausted(): advance_time_block()` — the day rolls over and clears `timeBlocksDone`, so it never ends). Set the state directly (`world["timeBlocksDone"] = GameData.TIME_BLOCKS.duplicate()`); if a loop is unavoidable, cap iterations. Read the system function before assuming a state is stable.
+- Tests address event cards by key (`card_index`/`current_card_key`), never `*_CARD := <int>` constants; cap any card-walk loop. `lint_tokens.sh` enforces.
 - Run a new test file alone first under `timeout 60` before the full suite, so a hang shows up in a minute, not after a half-hour run.
 
 ## Token efficiency

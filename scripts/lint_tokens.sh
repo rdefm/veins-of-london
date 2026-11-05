@@ -4,6 +4,7 @@
 #   2. No .gd comment line using history vocabulary (ticket numbers, "used
 #      to", "no longer", "previously", "old X", "deleted", "removed",
 #      "renamed") -- comments describe what the code does now, not its past.
+#   3. No `*_CARD := <int>` constants or `while` loops on cardIndex in tests/.
 # A file listed in lint_tokens_allowlist.txt is skipped by both checks; any
 # violation in a non-allowlisted file fails the lint. Plain bash/grep/awk,
 # no godot required -- one grep pass per check, filtered by a single awk
@@ -55,6 +56,31 @@ if [ -n "$vocab_hits" ]; then
 	')"
 	if [ -n "$vocab_report" ]; then
 		printf '%s\n' "$vocab_report"
+		status=1
+	fi
+fi
+
+# --- 3. Raw card-index guard in tests/ ---
+# Tests address event cards by key and cap walk loops. Flags `*_CARD := <int>`
+# constants and `while` loops conditioned on cardIndex. A tests/ file listed in
+# the allowlist (with a "# reason" line above it) is skipped.
+CARD_REGEX='(_CARD[A-Z0-9_]*[[:space:]]*(:=|:[[:space:]]*int[[:space:]]*=|=)[[:space:]]*[0-9]+)|(^[[:space:]]*while\b.*(cardIndex|card_index))'
+card_hits="$(grep -rnE "$CARD_REGEX" --include='*.gd' tests || true)"
+if [ -n "$card_hits" ]; then
+	card_report="$(printf '%s\n' "$card_hits" | awk -F: -v allowlist="$ALLOWLIST" '
+		BEGIN {
+			while ((getline line < allowlist) > 0) {
+				if (line != "") allowed[line] = 1
+			}
+		}
+		{
+			if (!($1 in allowed)) {
+				print $1 ":" $2 ": raw card index (use card keys, cap walk loops)"
+			}
+		}
+	')"
+	if [ -n "$card_report" ]; then
+		printf '%s\n' "$card_report"
 		status=1
 	fi
 fi
