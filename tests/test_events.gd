@@ -13,7 +13,7 @@ func _install_choice_event() -> Dictionary:
 	GameData.EVENTS["test_choice_event"] = {
 		"id": "test_choice_event",
 		"cards": [
-			{ "type": "narration", "label": null, "speaker": null, "text": "Setup" },
+			{ "type": "narration", "key": "setup", "label": null, "speaker": null, "text": "Setup" },
 			{
 				"type": "choice", "key": "pick", "label": null, "speaker": null, "text": "Pick one",
 				"choices": [
@@ -21,7 +21,7 @@ func _install_choice_event() -> Dictionary:
 					{ "label": "Walk away", "effects": [], "result_text": "You walked away." },
 				],
 			},
-			{ "type": "narration", "label": null, "speaker": null, "text": "Aftermath" },
+			{ "type": "narration", "key": "aftermath", "label": null, "speaker": null, "text": "Aftermath" },
 		],
 		"on_complete": [{ "op": "set_flag", "flag": "choiceEventDone", "value": true }],
 	}
@@ -64,9 +64,9 @@ func _install_check_event(p: float) -> Dictionary:
 	GameData.EVENTS["test_check_event"] = {
 		"id": "test_check_event",
 		"cards": [
-			{ "type": "narration", "label": null, "speaker": null, "text": "Setup" },
+			{ "type": "narration", "key": "setup", "label": null, "speaker": null, "text": "Setup" },
 			_check_choice_card(p),
-			{ "type": "narration", "label": null, "speaker": null, "text": "Aftermath" },
+			{ "type": "narration", "key": "aftermath", "label": null, "speaker": null, "text": "Aftermath" },
 		],
 		"on_complete": [],
 	}
@@ -175,7 +175,7 @@ func _install_gated_event() -> Dictionary:
 	GameData.EVENTS["test_gated_event"] = {
 		"id": "test_gated_event",
 		"cards": [
-			{ "type": "narration", "label": null, "speaker": null, "text": "Setup" },
+			{ "type": "narration", "key": "setup", "label": null, "speaker": null, "text": "Setup" },
 			{
 				"type": "choice", "key": "pick", "label": null, "speaker": null, "text": "Pick one",
 				"choices": [
@@ -190,8 +190,8 @@ func _install_gated_event() -> Dictionary:
 					},
 				],
 			},
-			{ "type": "narration", "label": null, "speaker": null, "text": "Branch", "image": "res://branch.png" },
-			{ "type": "narration", "label": null, "speaker": null, "text": "Rejoin" },
+			{ "type": "narration", "key": "branch", "label": null, "speaker": null, "text": "Branch", "image": "res://branch.png" },
+			{ "type": "narration", "key": "rejoin", "label": null, "speaker": null, "text": "Rejoin" },
 		],
 		"on_complete": [],
 	}
@@ -214,12 +214,12 @@ func _install_routed_event() -> Dictionary:
 	GameData.EVENTS["test_routed_event"] = {
 		"id": "test_routed_event",
 		"cards": [
-			{ "type": "narration", "label": null, "speaker": null, "text": "Setup", "goto": [{ "if": { "flag": "routeFlag" }, "card": 3 }, { "card": 2 }] },
-			{ "type": "narration", "label": null, "speaker": null, "text": "Skipped", "image": "res://skipped.png" },
-			{ "type": "narration", "label": null, "speaker": null, "text": "Else", "image": "res://else.png", "end": true },
-			{ "type": "narration", "label": null, "speaker": null, "text": "Flagged", "image": "res://flagged.png", "goto": 5 },
-			{ "type": "narration", "label": null, "speaker": null, "text": "Never", "image": "res://never.png" },
-			{ "type": "narration", "label": null, "speaker": null, "text": "Finale" },
+			{ "type": "narration", "key": "setup", "label": null, "speaker": null, "text": "Setup", "goto": [{ "if": { "flag": "routeFlag" }, "card": 3 }, { "card": 2 }] },
+			{ "type": "narration", "key": "skipped", "label": null, "speaker": null, "text": "Skipped", "image": "res://skipped.png" },
+			{ "type": "narration", "key": "else", "label": null, "speaker": null, "text": "Else", "image": "res://else.png", "end": true },
+			{ "type": "narration", "key": "flagged", "label": null, "speaker": null, "text": "Flagged", "image": "res://flagged.png", "goto": 5 },
+			{ "type": "narration", "key": "never", "label": null, "speaker": null, "text": "Never", "image": "res://never.png" },
+			{ "type": "narration", "key": "finale", "label": null, "speaker": null, "text": "Finale" },
 		],
 		"on_complete": [{ "op": "set_flag", "flag": "routedDone", "value": true }],
 	}
@@ -480,7 +480,7 @@ func run() -> void:
 		GameState.reset()
 		Events.start_event("prologue_cold_open")
 		assert_eq(GameState.state["event"]["eventId"], "prologue_cold_open")
-		assert_eq(GameState.state["event"]["cardIndex"], 0)
+		assert_eq(Events.current_card_key(), "c1")
 		assert_eq(GameState.state["event"]["snapshots"], [])
 		assert_eq(GameState.state["currentScreen"], "event")
 	)
@@ -489,7 +489,7 @@ func run() -> void:
 		GameState.reset()
 		Events.start_event("prologue_cold_open")
 		Events.advance()
-		assert_eq(GameState.state["event"]["cardIndex"], 1, "should advance to card 1")
+		assert_eq(Events.current_card_key(), "c2", "should advance to card 1")
 		assert_eq(GameState.state["event"]["snapshots"].size(), 1, "should push one snapshot")
 	)
 
@@ -727,10 +727,10 @@ func run() -> void:
 
 		Events.start_event("test_choice_event")
 		Events.advance()
-		assert_eq(GameState.state["event"]["cardIndex"], 1, "sanity: on the choice card")
+		assert_eq(Events.current_card_key(), "pick", "sanity: on the choice card")
 
 		Events.advance()
-		assert_eq(GameState.state["event"]["cardIndex"], 1, "advance() must not skip an unresolved choice card")
+		assert_eq(Events.current_card_key(), "pick", "advance() must not skip an unresolved choice card")
 
 		GameData.EVENTS = original_events
 	)
@@ -993,7 +993,7 @@ func run() -> void:
 		Events.choose(0)
 		assert_true(Events.rewind()["ok"])
 		assert_true(Events.rewind()["ok"])
-		assert_eq(GameState.state["event"]["cardIndex"], 0, "back before the check card")
+		assert_eq(Events.current_card_key(), "setup", "back before the check card")
 		Events.advance()
 		assert_almost_eq(Events.check_odds(0)["probability"], 0.75, 0.0001, "still advantaged")
 		GameData.EVENTS = original_events
@@ -1523,7 +1523,7 @@ func run() -> void:
 		assert_true(not Events.is_fail_pending())
 		assert_true(GameState.state["flags"].get("checkFailed", false), "Continue applies the fail")
 		assert_eq(Crafting.inventory_qty("cleanSlate"), 1, "not spent")
-		assert_eq(int(GameState.state["event"]["cardIndex"]), 2)
+		assert_eq(Events.current_card_key(), "aftermath")
 		GameData.EVENTS = original_events
 	)
 
@@ -1849,7 +1849,7 @@ func run() -> void:
 		Events.advance()
 		Events.choose(0)
 		Events.advance()
-		assert_eq(int(GameState.state["event"]["cardIndex"]), 2)
+		assert_eq(Events.current_card_key(), "push")
 		var odds := Events.check_odds(0)
 		assert_almost_eq(odds["probability"], 0.35, 0.0001, "next check takes −0.15")
 		assert_true(odds["mods"].any(func(m: Dictionary) -> bool: return m["label"] == GameData.RECIPES["blast"]["name"] and is_equal_approx(m["delta"], -0.15)), "shown under the item's name")
@@ -1857,7 +1857,7 @@ func run() -> void:
 		Events.choose(0)
 		assert_eq(GameState.state["event"]["choiceResults"]["2"]["outcome"], "fail")
 		Events.advance()
-		assert_eq(int(GameState.state["event"]["cardIndex"]), 3)
+		assert_eq(Events.current_card_key(), "push2")
 		assert_almost_eq(Events.check_odds(0)["probability"], 0.5, 0.0001, "gone after one check, though it failed")
 		GameData.EVENTS = original_events
 	)
@@ -2131,7 +2131,7 @@ func run() -> void:
 		Events.advance()
 		Events.choose(0)
 		Events.advance()
-		assert_eq(GameState.state["event"]["cardIndex"], 3)
+		assert_eq(Events.current_card_key(), "rejoin")
 		assert_eq(_texts(Events.revealed_cards()), ["Setup", "Pick one", "Paid.", "Rejoin"], "the skipped card is never revealed")
 		assert_eq(Events.current_image_path(), null, "the skipped card's image never shows")
 		assert_true(Events.is_last_card())
@@ -2149,7 +2149,7 @@ func run() -> void:
 		Events.advance()
 		var snapshots_before: int = GameState.state["event"]["snapshots"].size()
 		Events.choose(0)
-		assert_eq(GameState.state["event"]["cardIndex"], 3, "null result_text: straight to the goto card")
+		assert_eq(Events.current_card_key(), "rejoin", "null result_text: straight to the goto card")
 		assert_eq(_texts(Events.revealed_cards()), ["Setup", "Pick one", "Rejoin"], "no resolution card")
 		assert_eq(GameState.state["player"]["cash"], 10, "the option's effects still apply")
 		assert_eq(GameState.state["event"]["snapshots"].size(), snapshots_before + 1, "one Rewind step for pick + move on")
@@ -2157,7 +2157,7 @@ func run() -> void:
 		Events.start_event("test_gated_event")
 		Events.advance()
 		Events.choose(2)
-		assert_eq(GameState.state["event"]["cardIndex"], 2, "blank result_text, no goto: the next card")
+		assert_eq(Events.current_card_key(), "branch", "blank result_text, no goto: the next card")
 		assert_eq(_texts(Events.revealed_cards()), ["Setup", "Pick one", "Branch"])
 		GameData.EVENTS = original_events
 	)
@@ -2213,7 +2213,7 @@ func run() -> void:
 			Events.choose(0)
 			assert_true(not GameState.state["event"]["choiceResults"]["1"].has("goto"), "goto %s not recorded" % str(bad))
 			Events.advance()
-			assert_eq(GameState.state["event"]["cardIndex"], 2, "goto %s falls through to the next card" % str(bad))
+			assert_eq(Events.current_card_key(), "branch", "goto %s falls through to the next card" % str(bad))
 		GameData.EVENTS = original_events
 	)
 
@@ -2231,7 +2231,7 @@ func run() -> void:
 		Events.choose(2)
 		assert_eq(GameState.state["event"]["choiceResults"]["1"]["goto"], 1, "backward goto to a choice card recorded")
 		Events.advance()
-		assert_eq(GameState.state["event"]["cardIndex"], 1, "cursor back on the hub")
+		assert_eq(Events.current_card_key(), "pick", "cursor back on the hub")
 		assert_true(Events.is_awaiting_choice(), "hub is selectable again")
 		assert_eq(_texts(Events.revealed_cards()), ["Setup", "Pick one"], "no stale result, no duplicate cards")
 		Events.choose(2)
@@ -2277,13 +2277,13 @@ func run() -> void:
 		Events.advance()  # prompt -> options
 		Events.choose(0)
 		Events.advance()  # answer card -> back to hub
-		assert_eq(GameState.state["event"]["cardIndex"], 0, "back on the choice card")
+		assert_eq(Events.current_card_key(), "c1", "back on the choice card")
 		assert_true(Events.is_choosing(), "lands on the options, not the intro prompt")
 		assert_true(Events.is_awaiting_choice(), "hub selectable again")
 		assert_true(Events.hub_exit_available(), "the way out is still offered")
 		Events.choose(Events.hub_exit_index())
 		Events.advance()
-		assert_true(GameState.state["event"]["cardIndex"] > 0, "exit moves on past the hub")
+		assert_true(Events.current_card_key() != "c1", "exit moves on past the hub")
 		GameState.reset()
 	)
 
@@ -2362,6 +2362,7 @@ func run() -> void:
 			{ "type": "narration", "label": null, "speaker": null, "text": "Stored two." },
 		]
 		GameState.state["event"]["cards"] = stored
+		# Index kept: the stored list has no keys; the cursor is set directly.
 		GameState.state["event"]["cardIndex"] = 0
 		assert_eq(Events.live_cards().size(), 2, "stored list wins")
 		assert_eq(Events.current_card()["text"], "Stored one.", "current_card reads stored list")
@@ -2513,7 +2514,7 @@ func run() -> void:
 		Events.choose(2)
 		Events.advance()
 		Events.advance()
-		assert_eq(GameState.state["event"]["cardIndex"], 3, "rejected: plays on to the next card")
+		assert_eq(Events.current_card_key(), "rejoin", "rejected: plays on to the next card")
 		GameData.EVENTS = original_events
 	)
 
@@ -2526,9 +2527,9 @@ func run() -> void:
 		Events.advance()
 		Events.choose(0)
 		Events.advance()
-		assert_eq(GameState.state["event"]["cardIndex"], 3)
+		assert_eq(Events.current_card_key(), "rejoin")
 		assert_true(Events.rewind()["ok"])
-		assert_eq(GameState.state["event"]["cardIndex"], 1, "back on the resolved choice card")
+		assert_eq(Events.current_card_key(), "pick", "back on the resolved choice card")
 		assert_eq(_texts(Events.revealed_cards()), ["Setup", "Pick one", "Paid."])
 		assert_true(Events.rewind()["ok"])
 		assert_true(Events.is_awaiting_choice(), "the pick is undone")
@@ -2549,7 +2550,7 @@ func run() -> void:
 		Events.choose(0)
 		GameState.state["event"]["choiceResults"]["1"]["goto"] = 3.0  # as JSON reloads it
 		Events.advance()
-		assert_eq(GameState.state["event"]["cardIndex"], 3)
+		assert_eq(Events.current_card_key(), "rejoin")
 		assert_eq(_texts(Events.revealed_cards()), ["Setup", "Pick one", "Paid.", "Rejoin"])
 		GameData.EVENTS = original_events
 	)
@@ -2580,7 +2581,7 @@ func run() -> void:
 		Events.advance()
 		Events.choose(2)
 		Events.advance()
-		assert_eq(GameState.state["event"]["cardIndex"], 1, "cursor back on the hub")
+		assert_eq(Events.current_card_key(), "pick", "cursor back on the hub")
 		assert_true(Events.is_awaiting_choice(), "hub is selectable again")
 		GameData.EVENTS = original_events
 	)
@@ -2597,7 +2598,7 @@ func run() -> void:
 			Events.choose(0)
 			assert_true(not GameState.state["event"]["choiceResults"]["1"].has("goto"), "goto %s not recorded" % bad)
 			Events.advance()
-			assert_eq(GameState.state["event"]["cardIndex"], 2, "goto %s falls through to the next card" % bad)
+			assert_eq(Events.current_card_key(), "branch", "goto %s falls through to the next card" % bad)
 		GameData.EVENTS = original_events
 	)
 
@@ -2625,9 +2626,9 @@ func run() -> void:
 		GameState.state["flags"]["routeFlag"] = true
 		Events.start_event("test_routed_event")
 		Events.advance()
-		assert_eq(GameState.state["event"]["cardIndex"], 3, "the first matching entry wins")
+		assert_eq(Events.current_card_key(), "flagged", "the first matching entry wins")
 		Events.advance()
-		assert_eq(GameState.state["event"]["cardIndex"], 5, "a plain card goto jumps")
+		assert_eq(Events.current_card_key(), "finale", "a plain card goto jumps")
 		assert_eq(_texts(Events.revealed_cards()), ["Setup", "Flagged", "Finale"])
 		assert_eq(Events.current_image_path(), "res://flagged.png", "skipped cards' images never show")
 		GameState.state["flags"]["routeFlag"] = false
@@ -2656,7 +2657,7 @@ func run() -> void:
 		GameData.EVENTS["test_routed_event"]["cards"][0]["goto"] = [{ "if": { "flag": "routeFlag" }, "card": 3 }]
 		Events.start_event("test_routed_event")
 		Events.advance()
-		assert_eq(GameState.state["event"]["cardIndex"], 1)
+		assert_eq(Events.current_card_key(), "skipped")
 		assert_eq(Events.current_image_path(), "res://skipped.png")
 		GameData.EVENTS = original_events
 	)
@@ -2670,7 +2671,7 @@ func run() -> void:
 			Events.start_event("test_routed_event", { "slot": case[0] })
 			assert_eq(Events.condition_met(cond), case[1], "context %s" % str(case[0]))
 			Events.advance()
-			assert_eq(GameState.state["event"]["cardIndex"], 3 if case[1] else 1, "routes on %s" % str(case[0]))
+			assert_eq(Events.current_card_key(), "flagged" if case[1] else "skipped", "routes on %s" % str(case[0]))
 		GameState.reset()
 		Events.start_event("test_routed_event")
 		assert_true(not Events.condition_met(cond), "a missing key is false")
@@ -2686,7 +2687,7 @@ func run() -> void:
 			Events.start_event("test_routed_event")
 			Events.advance()
 			Events.advance()
-			assert_eq(GameState.state["event"]["cardIndex"], 4, "card goto %s falls through to the next card" % str(bad))
+			assert_eq(Events.current_card_key(), "never", "card goto %s falls through to the next card" % str(bad))
 		GameData.EVENTS = original_events
 	)
 
@@ -2699,7 +2700,7 @@ func run() -> void:
 		Events.advance()
 		Events.advance()
 		assert_true(Events.rewind()["ok"])
-		assert_eq(GameState.state["event"]["cardIndex"], 3)
+		assert_eq(Events.current_card_key(), "flagged")
 		assert_eq(_texts(Events.revealed_cards()), ["Setup", "Flagged"])
 		assert_true(Events.rewind()["ok"])
 		assert_eq(_texts(Events.revealed_cards()), ["Setup"])
@@ -2726,7 +2727,7 @@ func run() -> void:
 		Events.choose(0)
 		assert_true(not Events.is_last_card(), "an option goto overrides end")
 		Events.advance()
-		assert_eq(GameState.state["event"]["cardIndex"], 3)
+		assert_eq(Events.current_card_key(), "rejoin")
 		GameData.EVENTS = original_events
 	)
 
@@ -2816,6 +2817,7 @@ func run() -> void:
 			if Events.is_awaiting_choice():
 				Events.choose(0)
 			Events.advance()
+			# Index kept: image wiring is keyed by card position (1-based filenames).
 			var card_index: int = GameState.state["event"]["cardIndex"]
 			if wired_at.has(card_index):
 				expected = wired_at[card_index]
@@ -2844,6 +2846,7 @@ func run() -> void:
 		var card_count: int = GameData.EVENTS["prologue_buyer"]["cards"].size()
 		for i in range(card_count - 1):
 			Events.advance()
+			# Index kept: image wiring is keyed by card position (1-based filenames).
 			var card_index: int = GameState.state["event"]["cardIndex"]
 			if wired_at.has(card_index):
 				expected = wired_at[card_index]
@@ -2858,7 +2861,7 @@ func run() -> void:
 		Events.advance()       # -> choice card
 		Events.choose(1)       # resolve it
 		Events.advance()       # -> "Aftermath" card
-		assert_eq(GameState.state["event"]["cardIndex"], 2, "Continue after a resolved choice moves to the next real card")
+		assert_eq(Events.current_card_key(), "aftermath", "Continue after a resolved choice moves to the next real card")
 
 		Events.advance()       # last card -> on_complete
 		assert_eq(GameState.state["event"], null, "event should clear after the final continue")
@@ -3002,11 +3005,11 @@ func run() -> void:
 		Events.start_event("prologue_cold_open")
 		var snapshot_before: Dictionary = GameState.deep_copy(GameState.state)
 		Events.advance()
-		assert_eq(GameState.state["event"]["cardIndex"], 1, "sanity: advanced to card 1")
+		assert_eq(Events.current_card_key(), "c2", "sanity: advanced to card 1")
 
 		var result := Events.rewind()
 		assert_true(result["ok"], "rewind should succeed with a rewind consumable in hand")
-		assert_eq(GameState.state["event"]["cardIndex"], 0, "cardIndex restored to 0")
+		assert_eq(Events.current_card_key(), "c1", "cardIndex restored to 0")
 		assert_eq(Crafting.inventory_qty("rewind"), 0, "the rewind consumable should be spent")
 
 		var expected: Dictionary = GameState.deep_copy(snapshot_before)
@@ -3024,13 +3027,13 @@ func run() -> void:
 		Events.start_event("prologue_cold_open")
 		Events.advance()  # -> card 1
 		Events.advance()  # -> card 2
-		assert_eq(GameState.state["event"]["cardIndex"], 2)
+		assert_eq(Events.current_card_key(), "c13")
 
 		Events.rewind()
-		assert_eq(GameState.state["event"]["cardIndex"], 1, "one rewind steps back exactly one card")
+		assert_eq(Events.current_card_key(), "c2", "one rewind steps back exactly one card")
 
 		Events.rewind()
-		assert_eq(GameState.state["event"]["cardIndex"], 0, "a second rewind steps back another card")
+		assert_eq(Events.current_card_key(), "c1", "a second rewind steps back another card")
 	)
 
 	run_case("rewind_blocked_with_no_snapshots_or_no_resource", func():
