@@ -6,8 +6,9 @@ const Fixtures := preload("res://tests/support/fixtures.gd")
 # through a forced Preparation, resuming the event at its win or lose card.
 
 const EVENT_ID := "test_event_fight_event"
-const WIN_CARD := 2
-const LOSE_CARD := 3
+const FIGHT_KEY := "fight"
+const WIN_KEY := "won"
+const LOSE_KEY := "lost"
 
 
 func _start(enemies: Array, win: Variant = "won", lose: Variant = "lost") -> void:
@@ -16,13 +17,13 @@ func _start(enemies: Array, win: Variant = "won", lose: Variant = "lost") -> voi
 		"id": EVENT_ID,
 		"cards": [
 			{ "type": "narration", "label": null, "speaker": null, "text": "Setup" },
-			{ "type": "narration", "label": null, "speaker": null, "text": "The fight" },
-			{ "type": "narration", "key": "won", "label": null, "speaker": null, "text": "Won" },
-			{ "type": "narration", "key": "lost", "label": null, "speaker": null, "text": "Lost" },
+			{ "type": "narration", "label": null, "speaker": null, "text": "The fight", "key": FIGHT_KEY },
+			{ "type": "narration", "key": WIN_KEY, "label": null, "speaker": null, "text": "Won" },
+			{ "type": "narration", "key": LOSE_KEY, "label": null, "speaker": null, "text": "Lost" },
 		],
 	}
 	Events.start_event(EVENT_ID)
-	GameState.state["event"]["cardIndex"] = 1
+	GameState.state["event"]["cardIndex"] = Events.card_index(EVENT_ID, FIGHT_KEY)
 	Events.apply_effects([{ "op": "start_fight", "enemies": enemies, "win": win, "lose": lose }])
 
 
@@ -130,7 +131,7 @@ func run() -> void:
 		CombatPrep.commit()
 		GameState.state["combat"]["outcome"] = "win"
 		assert_eq(Combat.exit_combat()["nextScreen"], "event")
-		assert_eq(GameState.state["event"]["cardIndex"], WIN_CARD)
+		assert_eq(Events.current_card_key(), WIN_KEY)
 	)
 
 	run_case("loss_and_flee_resume_at_the_lose_card", func():
@@ -139,14 +140,17 @@ func run() -> void:
 			CombatPrep.commit()
 			GameState.state["combat"]["outcome"] = outcome
 			assert_eq(Combat.exit_combat()["nextScreen"], "event")
-			assert_eq(GameState.state["event"]["cardIndex"], LOSE_CARD, outcome)
+			assert_eq(Events.current_card_key(), LOSE_KEY, outcome)
 	)
 
 	run_case("cards_may_be_named_by_index", func():
-		_start([{ "template": "veinGuard", "count": 1, "level": 1 }], WIN_CARD, LOSE_CARD)
+		_start([{ "template": "veinGuard", "count": 1, "level": 1 }])
+		var win_index: int = Events.card_index(EVENT_ID, WIN_KEY)
+		var lose_index: int = Events.card_index(EVENT_ID, LOSE_KEY)
+		_start([{ "template": "veinGuard", "count": 1, "level": 1 }], win_index, lose_index)
 		var args: Dictionary = GameState.state["combatPrep"]["args"]
-		assert_eq(args["winCard"], WIN_CARD)
-		assert_eq(args["loseCard"], LOSE_CARD)
+		assert_eq(args["winCard"], win_index)
+		assert_eq(args["loseCard"], lose_index)
 	)
 
 	run_case("unknown_card_key_starts_no_fight", func():

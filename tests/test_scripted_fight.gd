@@ -6,7 +6,8 @@ extends "res://tests/test_base.gd"
 # back to the event at the script's resume card.
 
 const EVENT_ID := "test_scripted_fight_event"
-const RESUME_CARD := 2
+const FIGHT_KEY := "fight"
+const RESUME_KEY := "after"
 const LOCK_PROMPT := "Break it. Now."
 
 const MOVE_LEVELS := { "strike": 1, "guard": 1, "feint": 1, "stun": 1, "legIt": 1 }
@@ -33,7 +34,6 @@ func _script(lieutenant_hp: int = 500) -> Dictionary:
 			"allyPlans": { "1": ["guard", { "move": "timePearl", "slot": 0 }] },
 			"playerPlan": ["guard", "legIt"],
 		},
-		"resumeCard": RESUME_CARD,
 	}
 
 
@@ -46,12 +46,13 @@ func _start(script: Dictionary) -> Dictionary:
 		"id": EVENT_ID,
 		"cards": [
 			{ "type": "narration", "label": null, "speaker": null, "text": "Setup" },
-			{ "type": "narration", "label": null, "speaker": null, "text": "The fight" },
-			{ "type": "narration", "label": null, "speaker": null, "text": "After" },
+			{ "type": "narration", "label": null, "speaker": null, "text": "The fight", "key": FIGHT_KEY },
+			{ "type": "narration", "key": RESUME_KEY, "label": null, "speaker": null, "text": "After" },
 		],
 	}
 	Events.start_event(EVENT_ID)
-	GameState.state["event"]["cardIndex"] = 1
+	GameState.state["event"]["cardIndex"] = Events.card_index(EVENT_ID, FIGHT_KEY)
+	script["resumeCard"] = Events.card_index(EVENT_ID, RESUME_KEY)
 	Events.apply_effects([{ "op": "start_scripted_fight", "script": script }])
 	return GameState.state["combat"]
 
@@ -118,7 +119,7 @@ func run() -> void:
 		var result := Combat.exit_combat()
 		assert_eq(result["nextScreen"], "event")
 		assert_eq(GameState.state["currentScreen"], "event")
-		assert_eq(GameState.state["event"]["cardIndex"], RESUME_CARD, "resumes at the script's card")
+		assert_eq(Events.current_card_key(), RESUME_KEY,"resumes at the script's card")
 		assert_eq(GameState.state["player"]["bodyXP"], xp + Combat.ROUND_XP_FLED, "normal fled XP")
 		assert_eq(Loadout.slot(0), null, "the Rewind stays spent")
 	)
@@ -140,7 +141,9 @@ func run() -> void:
 		GameData._validate_effect_list([{ "op": "start_scripted_fight", "script": { "enemies": [] } }], "t", errors)
 		assert_true(errors.size() >= 1, "missing keys flagged")
 		errors = []
-		GameData._validate_effect_list([{ "op": "start_scripted_fight", "script": _script() }], "t", errors)
+		var script := _script()
+		_start(script)
+		GameData._validate_effect_list([{ "op": "start_scripted_fight", "script": script }], "t", errors)
 		assert_eq(errors, [])
 		GameData.EVENTS.erase(EVENT_ID)
 	)

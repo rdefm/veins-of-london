@@ -20,7 +20,6 @@ func _guided(practice: bool = false) -> Dictionary:
 			"lessons": { "1": "Guard it.", "2": "Feint, then hit.", "3": "He's open. Stun." },
 			"allowed": { "1": ["guard"], "2": ["feint", "strike"], "3": ["stun", "strike"] },
 		},
-		"resumeCard": RESUME_CARD,
 	}
 	if practice:
 		script["practice"] = true
@@ -38,13 +37,15 @@ func _exit_resumes(outcome: String) -> void:
 	assert_eq(GameState.state["combat"]["outcome"], outcome)
 	var result := Combat.exit_combat()
 	assert_eq(result["nextScreen"], "event", "%s goes back to the event" % outcome)
-	assert_eq(GameState.state["event"]["cardIndex"], RESUME_CARD, "%s resumes at the script's card" % outcome)
+	assert_eq(Events.current_card_key(), RESUME_KEY,"%s resumes at the script's card" % outcome)
 
 
 func run() -> void:
 	run_case("an_unlocked_script_validates_and_plays_the_coached_plan", func():
 		var errors: Array[String] = []
-		GameData._validate_effect_list([{ "op": "start_scripted_fight", "script": _guided(true) }], "t", errors)
+		var practice_script := _guided(true)
+		_start(practice_script)
+		GameData._validate_effect_list([{ "op": "start_scripted_fight", "script": practice_script }], "t", errors)
 		assert_eq(errors, [])
 		var combat := _start(_guided())
 		assert_eq(combat["script"]["phase"], CombatRounds.SCRIPT_OPEN)
@@ -62,10 +63,12 @@ func run() -> void:
 	run_case("a_partial_lock_is_flagged", func():
 		var errors: Array[String] = []
 		var script := _guided()
+		_start(script)
 		script["lockBelowHp"] = 10
 		GameData._validate_effect_list([{ "op": "start_scripted_fight", "script": script }], "t", errors)
 		assert_eq(errors.size(), 2, "prompt and post missing")
 		script = _guided()
+		_start(script)
 		script["practice"] = "yes"
 		errors = []
 		GameData._validate_effect_list([{ "op": "start_scripted_fight", "script": script }], "t", errors)
