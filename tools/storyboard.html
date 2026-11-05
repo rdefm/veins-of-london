@@ -2102,23 +2102,51 @@ function checkOddsBlock(opt, changed, restructure) {
   }
   // stored with its entries of one class (alert ops, or everything else) swapped for `next`, in place: the n-th
   // slot of that class takes next[n]; leftover slots are dropped, leftover next entries are appended.
-  function swapEffectClass(stored, next, wantAlert) {
+  function swapEffectClass(stored, next, inClass) {
     const rest = next.slice(), out = [];
     for (const e of stored) {
-      if (isAlertOp(e) === wantAlert) { if (rest.length) out.push(rest.shift()); } else out.push(e);
+      if (inClass(e)) { if (rest.length) out.push(rest.shift()); } else out.push(e);
     }
     return out.concat(rest);
+  }
+  // Raid effects the Add-effect dropdown manages: raid (loot_raid_vein, optional depth), claim, guards (signed count).
+  // Every other op, alert included, passes through untouched.
+  const RAID_OPS = { raid: "loot_raid_vein", claim: "claim_raid_vein", guards: "adjust_guards" };
+  const isRaidOp = (e) => !!e && typeof e === "object" && Object.values(RAID_OPS).includes(e.op);
+  const nonManagedEffects = (list) => (Array.isArray(list) ? list.filter((e) => !isAlertOp(e) && !isRaidOp(e)) : []);
+  function newRaidOp(kind) {
+    if (!RAID_OPS[kind]) throw new Error("unknown effect " + kind);
+    return kind === "guards" ? { op: RAID_OPS.guards, count: -1 } : { op: RAID_OPS[kind] };
+  }
+  // Blank depth = the game's default (key dropped); otherwise a whole number >= 0.
+  function setRaidDepth(op, text) {
+    const t = String(text).trim();
+    if (!t) { delete op.depth; return; }
+    const n = Number(t);
+    if (!Number.isInteger(n) || n < 0) throw new Error("depth must be a whole number, 0 or more");
+    op.depth = n;
+  }
+  function setGuardCount(op, text) {
+    const t = String(text).trim(), n = Number(t);
+    if (!t || !Number.isInteger(n)) throw new Error("guards must be a whole number (negative removes)");
+    op.count = n;
+  }
+  // Replaces the raid/claim/guard ops at `where` with those of `edited`; every other effect stays verbatim.
+  function setRaidEffects(draft, key, i, where, edited) {
+    const { o } = optionAt(draft, key, i);
+    setEffects(draft, key, i, where, swapEffectClass(effectsAt(o, where), edited.filter(isRaidOp), isRaidOp));
   }
   // Replaces option i's alert ops at `where` with the alert ops of `edited`; every other effect stays verbatim.
   function setAlertEffects(draft, key, i, where, edited) {
     const { o } = optionAt(draft, key, i);
-    setEffects(draft, key, i, where, swapEffectClass(effectsAt(o, where), edited.filter(isAlertOp), true));
+    setEffects(draft, key, i, where, swapEffectClass(effectsAt(o, where), edited.filter(isAlertOp), isAlertOp));
   }
   // Replaces the non-alert effects at `where` with `others`; alert ops stay where they were.
   function setOtherEffects(draft, key, i, where, others) {
     checkEffects(others);
     const { o } = optionAt(draft, key, i);
-    setEffects(draft, key, i, where, swapEffectClass(effectsAt(o, where), others.filter((e) => !isAlertOp(e)), false));
+    const other = (e) => !isAlertOp(e) && !isRaidOp(e);
+    setEffects(draft, key, i, where, swapEffectClass(effectsAt(o, where), others.filter(other), other));
   }
   // Adds a bySuccesses outcome for `count` successes (0..attempts) to check option i; play then takes it instead
   // of success / fail at that count.
@@ -4836,6 +4864,7 @@ function checkOddsBlock(opt, changed, restructure) {
       rows.push(mechanicsBox(c, i, o));
       alertWarnings(o, mechCatalogue).forEach((m) => rows.push(el("div", { class: "item-warn", text: m })));
       rows.push(alertBox(c, i, "option", o.check ? "Alert before the roll" : "Alert", o.effects));
+      rows.push(raidBox(c, i, "option", o.check ? "Raid before the roll" : "Raid, claim, guards", o.effects));
       rows.push(effectsField(c, i, "option", o.effects, o.check ? "Effects before the roll" : "Effects"));
       if (o.check) rows.push(effectsField(c, i, "perSuccess", o.check.perSuccess, "Effects per success"));
       for (const s of outcomeSlots(o)) {
@@ -4867,6 +4896,7 @@ function checkOddsBlock(opt, changed, restructure) {
             (v) => edit((d) => setOutcomeText(d, c.key, i, s.slot, v))),
           resultImageRow(c, i, s),
           s.slot === "result" ? null : alertBox(c, i, s.slot, `${s.label} alert`, s.res && s.res.effects),
+          s.slot === "result" ? null : raidBox(c, i, s.slot, `${s.label} raid, claim, guards`, s.res && s.res.effects),
           s.slot === "result" ? null : effectsField(c, i, s.slot, s.res && s.res.effects, `${s.label} effects`));
       }
       if (o.check) {
@@ -4960,9 +4990,42 @@ function checkOddsBlock(opt, changed, restructure) {
     box.addEventListener("focusin", () => { editSession = false; });
     return box;
   }
+  // Add-effect dropdown plus editors for the raid / claim / guard ops at `where`; bound to a working copy and committed
+  // through setRaidEffects so every other effect is left untouched.
+  function raidBox(c, i, where, title, stored) {
+    const w = { effects: deepClone(stored || []) };
+    const put = (d) => setRaidEffects(d, c.key, i, where, w.effects);
+    const commit = () => {
+      try { editDraft(put, true); } catch (e) { renderEditBar(`${title}: ${e.message}`); }
+    };
+    const names = { loot_raid_vein: "Raid vein", claim_raid_vein: "Claim vein", adjust_guards: "Adjust guards" };
+    const kids = [el("span", { class: "kw", text: title })];
+    w.effects.filter(isRaidOp).forEach((op) => {
+      const parts = [el("span", { class: "kw", text: names[op.op] })];
+      if (op.op !== "claim_raid_vein") {
+        const isGuard = op.op === "adjust_guards";
+        const inp = el("input", { type: "text", class: "mono", "aria-label": `${names[op.op]} ${isGuard ? "guards" : "depth"}`,
+          placeholder: isGuard ? "guards (+/-)" : "depth (default)", size: "12", "data-focus": `opt:${i}:rd:${where}:${isGuard ? "g" : "d"}` });
+        inp.value = isGuard ? String(op.count ?? "") : String(op.depth ?? "");
+        inp.addEventListener("change", () => {
+          try { if (isGuard) setGuardCount(op, inp.value); else setRaidDepth(op, inp.value); }
+          catch (e) { inp.setAttribute("aria-invalid", "true"); renderEditBar(`${title}: ${e.message}`); return; }
+          commit();
+        });
+        parts.push(inp);
+      }
+      parts.push(iconBtn("✕", `Remove ${names[op.op]}`, false, () => { w.effects.splice(w.effects.indexOf(op), 1); commit(); }));
+      kids.push(el("span", { class: "route" }, ...parts));
+    });
+    const sel = el("select", { "aria-label": `Add effect (${title})`, "data-focus": `opt:${i}:rd:${where}:add` });
+    sel.append(optionEl("", "Add effect…"), optionEl("raid", "Raid vein"), optionEl("claim", "Claim vein"), optionEl("guards", "Adjust guards"));
+    sel.addEventListener("change", () => { if (sel.value) { w.effects.push(newRaidOp(sel.value)); commit(); } });
+    kids.push(sel);
+    return el("div", { class: "route" }, ...kids);
+  }
   // An effect list as JSON, committed on change (blank = none). Bad JSON stays in the box with the error shown.
   function effectsField(c, i, where, fullList, label) {
-    const list = where === "perSuccess" ? fullList : nonAlertEffects(fullList);
+    const list = where === "perSuccess" ? fullList : nonManagedEffects(fullList);
     const f = el("textarea", { rows: 1, class: "mono fx", "aria-label": label, placeholder: label + " (JSON list)",
       "data-focus": `opt:${i}:fx:${where}`, spellcheck: "false" });
     f.value = list && list.length ? JSON.stringify(list) : "";

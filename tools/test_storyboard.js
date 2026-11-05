@@ -33,11 +33,11 @@ const {
   liveEventOptions, openOrImport, lintEvent, lintDraft, inboundRefs, inboundWarnings,
   OBS_ORES, obsIds, effectiveObservation, setCardObserve, addObservation, renameObservation, observationUses, deleteObservation, addObservationBlock, deleteObservationBlock, setObservationMiss, addObservationTier, deleteObservationTier, setObservationTier,
   parseItemCatalogue, itemChoices, optionTags, autoOfferItems, setExcludeItem, setOptionTag, conditionCells, optionMechanicsRows, setMechItemControl,
-  itemEffectKind, setItemEffectKind, setEffectTag, setNextCheck, nonAlertEffects, alertMode, setAlertMode, setAlertCover, addAlertOp, removeAlertOp, alertWarnings, coverItems, setCoverText, setAlertEffects, setOtherEffects,
+  itemEffectKind, setItemEffectKind, setEffectTag, setNextCheck, nonAlertEffects, alertMode, setAlertMode, setAlertCover, addAlertOp, removeAlertOp, alertWarnings, coverItems, setCoverText, setAlertEffects, setOtherEffects, setRaidEffects, newRaidOp, setRaidDepth, setGuardCount, nonManagedEffects, isRaidOp,
   pickEntries, setPickOn, setPickObservation, setPickReason, addPickOre, deletePickOre, addPickTier, deletePickTier, setPickAtLeast, allLinks, obsLevels, pickQualifying, observedHolds,
 } = new Function(
   html.slice(ss, se) + html.slice(s, e) +
-    "\nfunction setMechItemControl(f) { mechItemControl = f; }\nreturn { itemEffectKind, setItemEffectKind, setEffectTag, setNextCheck, nonAlertEffects, alertMode, setAlertMode, setAlertCover, addAlertOp, removeAlertOp, alertWarnings, coverItems, setCoverText, setAlertEffects, setOtherEffects, parseItemCatalogue, itemChoices, optionTags, autoOfferItems, setExcludeItem, setOptionTag, conditionCells, optionMechanicsRows, setMechItemControl, parseProposal, parseDraft, serialiseDraft, ensureKeys, legacyToDraft, nextPos, playOrder, flatCards, thenText," +
+    "\nfunction setMechItemControl(f) { mechItemControl = f; }\nreturn { itemEffectKind, setItemEffectKind, setEffectTag, setNextCheck, nonAlertEffects, alertMode, setAlertMode, setAlertCover, addAlertOp, removeAlertOp, alertWarnings, coverItems, setCoverText, setAlertEffects, setOtherEffects, setRaidEffects, newRaidOp, setRaidDepth, setGuardCount, nonManagedEffects, isRaidOp, parseItemCatalogue, itemChoices, optionTags, autoOfferItems, setExcludeItem, setOptionTag, conditionCells, optionMechanicsRows, setMechItemControl, parseProposal, parseDraft, serialiseDraft, ensureKeys, legacyToDraft, nextPos, playOrder, flatCards, thenText," +
     " jsonBlockRange, spliceDraft, writableProposal, cardByKey, makeHistory," +
     " cardPos, insertCard, deleteCard, moveCard, danglingLinks, hasCycle, buildGraph, elkGraph, placeLayout, setNodePositions, clearLayout, applyPositions," +
     " findCycle, addBranch, renameBranch, deleteBranch, inboundLinks, setCardGoto, setThen," +
@@ -2397,6 +2397,40 @@ test("setAlertEffects / setOtherEffects swap one effect class and keep the other
   setOtherEffects(draft, "c2", 0, "option", [{ op: "set_flag", flag: "b", value: false }]);
   assert.deepStrictEqual(cardByKey(draft, "c2").choices[0].effects.map((e) => e.op), ["alert", "set_flag"]);
   assert.strictEqual(cardByKey(draft, "c2").choices[0].effects[1].flag, "b");
+});
+
+test("raid / claim / guard ops add, edit and remove on options and outcomes; other effects stay verbatim", () => {
+  const { draft } = parseDraft(draftText);
+  const unknown = { op: "mystery", x: [1, { y: 2 }] };
+  const stored = [{ op: "alert", add: 1 }, unknown, { op: "give_cash", amount: 5 }];
+  setEffects(draft, "c2", 0, "option", JSON.parse(JSON.stringify(stored)));
+  const raid = newRaidOp("raid"), claim = newRaidOp("claim"), guards = newRaidOp("guards");
+  assert.deepStrictEqual([raid, claim, guards], [{ op: "loot_raid_vein" }, { op: "claim_raid_vein" }, { op: "adjust_guards", count: -1 }]);
+  setRaidDepth(raid, "2"); setGuardCount(guards, "+3");
+  assert.deepStrictEqual([raid.depth, guards.count], [2, 3]);
+  setRaidDepth(raid, " "); assert(!("depth" in raid));
+  assert.throws(() => setRaidDepth(raid, "-1")); assert.throws(() => setRaidDepth(raid, "1.5")); assert.throws(() => setGuardCount(guards, ""));
+  setRaidDepth(raid, "0");
+  setRaidEffects(draft, "c2", 0, "option", [raid, claim, guards]);
+  const fx = () => cardByKey(draft, "c2").choices[0].effects;
+  assert.deepStrictEqual(fx().map((e) => e.op), ["alert", "mystery", "give_cash", "loot_raid_vein", "claim_raid_vein", "adjust_guards"]);
+  assert.deepStrictEqual(fx()[1], unknown);
+  assert.strictEqual(fx()[3].depth, 0);
+  // JSON field edits never swallow the managed ops
+  assert.deepStrictEqual(nonManagedEffects(fx()).map((e) => e.op), ["alert", "mystery", "give_cash"].filter((o) => o !== "alert"));
+  setOtherEffects(draft, "c2", 0, "option", [{ op: "set_flag", flag: "z", value: true }]);
+  assert.deepStrictEqual(fx().map((e) => e.op), ["alert", "set_flag", "loot_raid_vein", "claim_raid_vein", "adjust_guards"]);
+  setRaidEffects(draft, "c2", 0, "option", [claim]);
+  assert.deepStrictEqual(fx().map((e) => e.op), ["alert", "set_flag", "claim_raid_vein"]);
+  // outcome slots
+  setEffects(draft, "c2", 0, "success", []);
+  setRaidEffects(draft, "c2", 0, "success", [newRaidOp("guards")]);
+  const re = parseDraft(serialiseDraft(draft)).draft;
+  assert.deepStrictEqual(cardByKey(re, "c2").choices[0].success.effects, [{ op: "adjust_guards", count: -1 }]);
+  const ev = promoteDraft(re).event;
+  const o = ev.cards.flatMap((c) => c.choices || []).find((x) => x.success && x.success.effects.some((e) => e.op === "adjust_guards"));
+  assert(o, "promoted event keeps the guard op");
+  assert(o.effects.some((e) => e.op === "claim_raid_vein"));
 });
 
 test("alert ops survive tags, exclusions and item effects through serialise, re-import and promote", () => {

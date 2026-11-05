@@ -182,6 +182,17 @@ test("mobile: a quest with every new field round-trips through a draft without l
   assert.strictEqual(again.notes, bundle.notes);
 });
 
+test("mobile: raid, claim and guard effects pass through a draft round-trip untouched", () => {
+  const ev = deepClone(ALL_FIELDS_EVENT);
+  const choice = ev.cards.find((c) => c.type === "choice");
+  const opt = choice.choices[0];
+  const extra = [{ op: "loot_raid_vein", depth: 2 }, { op: "claim_raid_vein" }, { op: "adjust_guards", count: -2 }];
+  opt.effects = [...(opt.effects || []), ...extra];
+  if (opt.success) opt.success.effects = [...(opt.success.effects || []), ...extra];
+  const bundle = mobile.buildBundle(mobile.draftFromParsed(deepClone(ev)));
+  assert.deepStrictEqual(bundle.cards, ev.cards);
+});
+
 // The mobile editor trims prose and writes blank prose as null (its normProse
 // convention), so legacy prose comes back normalized; everything else is exact.
 const PROSE_KEYS = ["label", "speaker", "text", "result_text"];
