@@ -183,6 +183,18 @@ func run() -> void:
 		assert_true(big["next"].is_empty(), "no next rung")
 	)
 
+	run_case("buy_rows_give_ladder_next_rung_and_top", func():
+		var small := Soho.fee_rows(Soho.BUY, [_ore(1)])
+		assert_eq(small["ladder"].size(), GameData.MARKET["soho"]["buyRungs"].size(), "full buy ladder")
+		assert_true(small["ladder"][int(small["rung"])]["active"], "position marked")
+		if not small["isTop"]:
+			assert_eq(int(small["next"]["needValue"]), int(small["next"]["from"]) - int(small["value"]), "£ still needed")
+			assert_true(float(small["next"]["rate"]) <= float(small["rate"]), "next buy rate not higher")
+		var big := Soho.fee_rows(Soho.BUY, [_ore(_ore_qty_for(1000000))])
+		assert_true(big["isTop"] and big["next"].is_empty(), "top buy rung: no next")
+		assert_eq(int(big["net"]), -(int(big["value"]) + int(big["fee"])), "buy net")
+	)
+
 	run_case("buy_then_resell_loses_money_at_every_rung_and_tier", func():
 		_open()
 		for tier in range(1, 6):

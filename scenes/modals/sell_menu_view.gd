@@ -33,6 +33,7 @@ var _expanded_items: Dictionary = {}
 var _picked_rungs: Dictionary = {}
 var _expanded_recipes: Dictionary = {}
 var _ore_filter := ""
+var _soho_rung := -1
 var _scroll: ScrollContainer
 
 
@@ -50,6 +51,7 @@ func reset_ui() -> void:
 	_picked_rungs.clear()
 	_expanded_recipes.clear()
 	_ore_filter = ""
+	_soho_rung = -1
 	_scroll = null
 
 
@@ -399,10 +401,18 @@ func _build_soho_footer(layout: VBoxContainer, entries: Array) -> void:
 	explanation.add_child(_label("%d selected · £%d at %d%% fee (£%d)" % [rows["units"], rows["value"], rate_pct, rows["fee"]], 12, MUTED))
 	summary.add_child(_label("£%d" % absi(net), 22, _gold(), false))
 	if int(rows["units"]) > 0:
-		content.add_child(_label(_soho_rung_text(rows), 12, MUTED))
+		var crossing := _soho_crossing_text(rows)
+		if crossing != "":
+			content.add_child(_label(crossing, 13, _gold(), false))
+		_soho_rung = int(rows["rung"])
+		content.add_child(_label("Rung %d of %d · %s" % [int(rows["rung"]) + 1, rows["rungCount"], _soho_rung_text(rows)], 12, MUTED))
 		content.add_child(_label(_soho_ladder_text(rows), 12, MUTED))
 		if _direction == "sell":
-			content.add_child(_label("Archie would pay £%d (his fee %d%%)" % [rows["archieNet"], int(round(float(rows["archieFeeRate"]) * 100.0))], 12, MUTED))
+			var gap := int(rows["net"]) - int(rows["archieNet"])
+			var versus := "Soho pays £%d %s than Archie (£%d, his fee %d%%)" % [absi(gap), "more" if gap >= 0 else "less", rows["archieNet"], int(round(float(rows["archieFeeRate"]) * 100.0))]
+			content.add_child(_label(versus, 12, MUTED))
+	else:
+		_soho_rung = -1
 	var actions := UI.hbox(8)
 	content.add_child(actions)
 	actions.add_child(_button("Back" if _review else "Cancel", _back_or_cancel, Color.TRANSPARENT, 44))
@@ -419,6 +429,16 @@ func _soho_rung_text(rows: Dictionary) -> String:
 	var next: Dictionary = rows["next"]
 	var verb := "Sell" if _direction == "sell" else "Buy"
 	return "%s £%d more (about %d units) to drop to %d%%." % [verb, next["needValue"], next["needUnits"], int(round(float(next["rate"]) * 100.0))]
+
+
+func _soho_crossing_text(rows: Dictionary) -> String:
+	var rung := int(rows["rung"])
+	if _soho_rung < 0 or rung == _soho_rung:
+		return ""
+	var pct := int(round(float(rows["rate"]) * 100.0))
+	if rung > _soho_rung:
+		return "Rung %d reached: fee drops to %d%%." % [rung + 1, pct]
+	return "Back to rung %d: fee rises to %d%%." % [rung + 1, pct]
 
 
 func _soho_ladder_text(rows: Dictionary) -> String:
@@ -806,6 +826,7 @@ func _totals(entries: Array) -> Dictionary:
 
 func _select_direction(direction: String) -> void:
 	_direction = direction
+	_soho_rung = -1
 	_category = "ore"
 	_review = false
 	_render(true)
