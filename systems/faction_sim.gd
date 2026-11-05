@@ -178,7 +178,7 @@ static func _tend_and_prune_faction(faction_id: String, veins: Array) -> void:
 
 # Rollover step: each faction holding Root Feed applies one to its
 # lowest-growth vein not already fed, up to VEIN_GROWTH.factionRootFeedPerDay
-# a day. Takes the lowest tier held; no other item is ever applied.
+# a day. Takes the lowest tier worth days; no other item is ever applied.
 static func feed_veins() -> void:
 	var limit: int = int(GameData.VEIN_GROWTH["factionRootFeedPerDay"])
 	for faction_id in GameData.FACTIONS:
@@ -189,18 +189,33 @@ static func feed_veins() -> void:
 				veins.append(vein)
 		veins.sort_custom(func(a, b): return _growth_order(a, b, true))
 		for vein in veins.slice(0, limit):
-			var tier := _lowest_item_tier(faction_id, Cultivating.ROOT_FEED)
-			if tier < 0 or Cultivating.boost_days_for(Cultivating.ROOT_FEED, tier) <= 0:
+			var tier := _lowest_useful_feed_tier(faction_id)
+			if tier < 0:
 				break
 			take_item_at_tier(faction_id, Cultivating.ROOT_FEED, tier)
 			Cultivating.record_boost(vein, Cultivating.ROOT_FEED, tier)
 
 
-static func _lowest_item_tier(faction_id: String, recipe_key: String) -> int:
+# Root Feed the faction wants on hand: owned veins × wantDays × wantMult,
+# capped at wantCap. Counts owned (not unfed) veins so it holds steady as
+# veins are fed.
+static func root_feed_want(faction_id: String) -> int:
+	var owned := 0
+	for site in GameState.state["world"]["sites"]:
+		var vein: Variant = site["factionVein"]
+		if vein != null and vein["factionId"] == faction_id:
+			owned += 1
+	var want: float = owned * float(GameData.VEIN_GROWTH["wantDays"]) * float(GameData.FACTIONS[faction_id].get("wantMult", 0.0))
+	return mini(int(GameData.VEIN_GROWTH["wantCap"]), roundi(want))
+
+
+# Lowest held Root Feed tier worth more than 0 days, or -1.
+static func _lowest_useful_feed_tier(faction_id: String) -> int:
 	var lowest := -1
-	for tier_key in _holdings(faction_id)["items"].get(recipe_key, {}):
-		if int(_holdings(faction_id)["items"][recipe_key][tier_key]) > 0 and (lowest < 0 or int(tier_key) < lowest):
-			lowest = int(tier_key)
+	for tier_key in _holdings(faction_id)["items"].get(Cultivating.ROOT_FEED, {}):
+		var tier := int(tier_key)
+		if int(_holdings(faction_id)["items"][Cultivating.ROOT_FEED][tier_key]) > 0 and Cultivating.boost_days_for(Cultivating.ROOT_FEED, tier) > 0 and (lowest < 0 or tier < lowest):
+			lowest = tier
 	return lowest
 
 
@@ -274,7 +289,10 @@ static func raid_harvest(raider_id: String, vein: Dictionary) -> int:
 static func craft_target(faction_id: String, recipe_key: String) -> int:
 	var data: Dictionary = GameData.FACTIONS[faction_id]
 	var split: Dictionary = data.get("craftTargets", {}).get(recipe_key, {})
-	return int(data.get("consumes", {}).get(recipe_key, 0)) + int(split.get("kitUse", 0)) + int(split.get("sellQuota", 0))
+	var target: int = int(data.get("consumes", {}).get(recipe_key, 0)) + int(split.get("kitUse", 0)) + int(split.get("sellQuota", 0))
+	if recipe_key == Cultivating.ROOT_FEED:
+		target += root_feed_want(faction_id)
+	return target
 
 
 static func craft() -> void:
@@ -574,6 +592,8 @@ static func item_reserve(faction_id: String, recipe_key: String) -> int:
 	else:
 		var kits: Dictionary = data.get("raidKits", {})
 		kit_use = int(kits.get("attack", {}).get(recipe_key, 0)) + int(kits.get("defend", {}).get(recipe_key, 0))
+	if recipe_key == Cultivating.ROOT_FEED:
+		kit_use += root_feed_want(faction_id)
 	return int(data.get("consumes", {}).get(recipe_key, 0)) + kit_use
 
 

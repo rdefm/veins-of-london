@@ -160,8 +160,39 @@ func run() -> void:
 		GameState.state["factions"]["collective"]["holdings"]["items"]["healingSalve"] = { "2": 4 }
 		FactionSim.feed_veins()
 		assert_true(not vein.has("boosts"))
-		assert_eq(FactionSim.craft_target("collective", "rootFeed"), 5)
+		assert_eq(FactionSim.root_feed_want("collective"), 2, "one vein x wantDays 2 x wantMult 1.0")
+		assert_eq(FactionSim.craft_target("collective", "rootFeed"), 7, "kitUse 2 + sellQuota 3 + want")
 		assert_true(not GameData.FACTIONS["collective"]["consumes"].has("rootFeed"))
+	)
+
+	run_case("root_feed_want_scales_with_veins_by_archetype_and_stops_at_the_cap", func():
+		GameState.reset()
+		var veins := []
+		for i in 3:
+			veins.append(_vein("c%d" % i, "collective", "life", 20))
+			veins.append(_vein("g%d" % i, "guild", "life", 20))
+		_seed_veins(veins)
+		assert_eq(FactionSim.root_feed_want("collective"), 6)
+		assert_eq(FactionSim.root_feed_want("guild"), 3, "crafter wantMult 0.5")
+		assert_true(GameData.FACTIONS["collective"]["wantMult"] > GameData.FACTIONS["guild"]["wantMult"])
+		var many := []
+		for i in 20:
+			many.append(_vein("m%d" % i, "collective", "life", 20))
+		_seed_veins(many)
+		assert_eq(FactionSim.root_feed_want("collective"), int(GameData.VEIN_GROWTH["wantCap"]), "capped")
+		var before := FactionSim.root_feed_want("collective")
+		many[0]["boosts"] = { "rootFeed": { "until": 99, "power": 4, "tier": 5 } }
+		assert_eq(FactionSim.root_feed_want("collective"), before, "feeding a vein leaves want steady")
+	)
+
+	run_case("root_feed_is_reserved_up_to_want_and_tier_0_does_not_block_better_feed", func():
+		GameState.reset()
+		_seed_veins([_vein("a", "firm", "life", 20), _vein("b", "firm", "life", 30)])
+		assert_true(FactionSim.reserve("firm", "consumable", "rootFeed") >= FactionSim.root_feed_want("firm"), "want is held back from sale")
+		GameState.state["factions"]["firm"]["holdings"]["items"]["rootFeed"] = { "0": 2, "3": 1 }
+		FactionSim.feed_veins()
+		assert_eq(FactionSim.item_held("firm", "rootFeed"), 2, "tier 3 applied past tier 0")
+		assert_true(not GameData.FACTIONS["firm"]["consumes"].has("rootFeed"))
 	)
 
 	run_case("veins_below_the_prune_threshold_are_not_pruned", func():
