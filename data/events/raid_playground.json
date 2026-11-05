@@ -30,7 +30,8 @@
         }
       ],
       "label": null,
-      "speaker": null
+      "speaker": null,
+      "image": "res://assets/events/raid_playground/raid_playground_main_2.png"
     },
     {
       "key": "c3", "type": "choice", "text": "Inside the church is quiet and cold. There's a light scent of incense in the air. You see a caretaker sorting some prayer books.", "observe": "church",
@@ -48,10 +49,10 @@
           "check": {
             "base": 0.35,
             "mods": [
-              { "observed": { "id": "church", "ore": "physics", "atLeast": 2 }, "add": 0.5, "label": "" },
-              { "observed": { "id": "church", "ore": "life", "atLeast": 2 }, "add": 0.5, "label": "" },
-              { "observed": { "id": "church", "ore": "time", "atLeast": 2 }, "add": 0.5, "label": "" },
-              { "observed": { "id": "church", "ore": "physics", "atLeast": 1 }, "add": 0.35, "label": "" }
+              { "observed": { "id": "church", "ore": "physics", "atLeast": 2 }, "add": 0.7, "label": "" },
+              { "observed": { "id": "church", "ore": "life", "atLeast": 2 }, "add": 0.7, "label": "" },
+              { "observed": { "id": "church", "ore": "time", "atLeast": 2 }, "add": 0.6, "label": "" },
+              { "observed": { "id": "church", "ore": "physics", "atLeast": 1 }, "add": 0.5, "label": "" }
             ]
           },
           "success": { "result_text": "", "effects": [], "goto": 5 },
@@ -73,22 +74,15 @@
       "speaker": null
     },
     {
-      "key": "c2", "type": "choice", "text": "Door lock has a code; prophets breath lets player figure it out otherwise low % chance. Observation; through the window can see a noticeboard with the code on it.\nImage: C:\\Users\\Richard\\projects\\veins-of-london\\.scratch\\playground_raid\\hall_approach.png (needs editing to match game visual style)",
+      "key": "c2", "type": "choice", "text": "The church hall has a lock with a keypad. The bushes to the side prevent you going around the hall; you'll need to find a way inside.",
       "choices": [
         {
-          "label": "Guess the door code",
+          "label": "Use a Skeleton Key",
           "id": "option1",
           "effects": [],
-          "check": {
-            "base": 0.05,
-            "mods": [
-              { "observed": { "id": "hall_approach", "ore": "physics", "atLeast": 1 }, "add": 0.5, "label": "" },
-              { "activeEffect": "prophetsBreath", "add": 1, "label": "Prophet's Breath" }
-            ],
-            "max": 1
-          },
-          "success": { "result_text": "", "effects": [], "goto": 4 },
-          "fail": { "result_text": null, "effects": [] }
+          "result_text": "",
+          "goto": 4,
+          "requires": { "item": "skeletonKey" }
         },
         {
           "label": "Force the door",
@@ -108,12 +102,13 @@
             "result_text": "This door won't budge, and now your shoulder hurts. Back to square 1.",
             "effects": [{ "op": "add", "path": "player.hp", "value": -3 }],
             "goto": 0
-          }
+          },
+          "effects": []
         },
         {
           "id": "option4",
           "label": "Blast the door open",
-          "requires": { "item": "blast", "optional": true, "display": "disable" },
+          "requires": { "item": "blast", "display": "disable" },
           "items": [{ "item": "blast", "optional": true, "label": "Blast", "effect": { "kind": "unlock" } }],
           "effects": [],
           "result_text": "",
@@ -138,7 +133,7 @@
       "observe": "hall_approach",
       "label": null,
       "speaker": null,
-      "end": true
+      "image": "res://assets/events/raid_playground/raid_playground_b3_2.png"
     },
     {
       "key": "c4", "type": "choice", "text": "There is a tall wooden fence in front of the nursery playground. The gate is locked and barred from the other side.",
@@ -148,7 +143,7 @@
           "id": "option1",
           "effects": [],
           "result_text": "",
-          "requires": { "item": "blast", "optional": true, "display": "disable" },
+          "requires": { "item": "blast", "display": "disable" },
           "goto": 8,
           "items": [{ "item": "blast", "optional": true, "label": "Blast", "effect": { "kind": "unlock" } }]
         },
@@ -158,8 +153,9 @@
           "check": {
             "base": 0.5,
             "mods": [
-              { "item": "enhancementPowder", "optional": true, "label": "Enhancement Powder", "effect": { "kind": "bonus", "add": 0.4 } }
-            ]
+              { "item": "enhancementPowder", "optional": true, "label": "Enhancement Powder", "effect": { "kind": "bonus", "add": 0.4 }, "consume": true }
+            ],
+            "tags": ["physical"]
           },
           "success": {
             "result_text": "You get a run up and grab the top of the fence, then pull yourself over to the other side.",
@@ -167,7 +163,7 @@
             "goto": 8
           },
           "fail": {
-            "result_text": "You get a run up and jump, aiming for the top of the fence. You don't even get close, and barely avoid faceplanting into the fence.",
+            "result_text": "You run up and jump. You don't even get close tot he top of the fence, and barely avoid faceplanting into the fence.",
             "effects": []
           }
         },
@@ -188,18 +184,25 @@
       "key": "c5", "type": "choice", "text": "Once inside hall, can see shrubbery with vein underneath.\n\nCan try to get window open to sneak through, or break window.\nVery low observation roll tells player which door leads there from church; option to go via the church and find your way through.\n\nShrubbery description: Monty Python reference.\n",
       "choices": [
         {
-          "id": "option1",
           "label": "Try to open the window",
-          "result_text": "",
-          "goto": 8,
-          "effects": []
+          "id": "option1",
+          "effects": [],
+          "check": { "base": 0.4, "mods": [], "tags": ["physical"] },
+          "success": { "result_text": "", "effects": [], "goto": 8 },
+          "fail": { "result_text": null, "effects": [] }
         },
         {
-          "id": "option2",
           "label": "Break the window",
-          "result_text": "",
-          "goto": 8,
-          "effects": []
+          "id": "option2",
+          "effects": [],
+          "check": { "base": 0.6, "mods": [], "tags": ["physical"] },
+          "success": { "result_text": "", "effects": [], "goto": 8 },
+          "fail": {
+            "result_text": null,
+            "effects": [
+              { "op": "alert", "add": 1, "cover": { "base": 0.5, "text": "That was VERY loud. You hope no one heard that, but aren't holding your breath." } }
+            ]
+          }
         },
         {
           "id": "option3",
@@ -244,6 +247,13 @@
           "result_text": "",
           "goto": 6,
           "effects": []
+        },
+        {
+          "id": "option4",
+          "label": "Use a Skeleton Key",
+          "result_text": "",
+          "requires": { "item": "skeletonKey" },
+          "goto": 8
         }
       ],
       "observe": null,
@@ -257,7 +267,7 @@
         {
           "label": "Ask if he can open the door to the vein",
           "id": "option1",
-          "check": { "base": 0.5, "mods": [] },
+          "check": { "base": 0.5, "mods": [], "tags": ["social"] },
           "success": {
             "result_text": "You say you're a council surveyor and need to check the integrity of the south wall. He looks at the pile of unsorted books and sighs. \"Come along then, I'll take you there.\"",
             "effects": [],
@@ -282,22 +292,20 @@
     },
     { "key": "c17", "type": "speaker", "text": "\"The south wall faces a lovely small garden, just next to the nursery playground,\" Roger says. \"Please don't touch the shrubbery; it requires a lot of caretaking.\"", "speaker": "Roger", "label": null },
     {
-      "key": "c6", "type": "choice", "text": "Player is at the vein. There's a camera that can be noticed. If it's triggered, silent alarm triggers, guards come in 2 turns.\n\nCamera can be observed with physics roll. Options to deal with it:\n - Hope it's broken (low roll, but very high if Be A Lady is present)\n - Trace the wires, realise its controlled from a room in the church, go back to the church to disable the camera\n - Just go anyway (alarm triggers, and guards arrive before player can harvest the vein.\n - Destroy the camera (normal roll, can also use blast for guaranteed success). Silent alarm  they triggers, player has 2 turns until they arrive. When leaving the vein they fight the player, if player can't talk their way past them. If player claims vein, encounter is different where they either fight, or tell guards that player now owns this vein and the guards back down.\n\n",
+      "key": "c6", "type": "choice", "text": "You sense the vein underneath the shrubbery. Glancing around you spot a camera high up on the wall, pointing down at the vein.",
       "choices": [
         {
-          "label": "Hope the camera is broken",
+          "label": "Blast the camera",
           "id": "option1",
-          "check": {
-            "base": 0.05,
-            "mods": [{ "activeEffect": "beALady", "add": 0.9, "label": "Be a Lady" }]
-          },
-          "success": { "result_text": "", "effects": [], "goto": 9 },
-          "fail": { "result_text": null, "effects": [{ "op": "alert", "atLeast": 2 }], "goto": 10 }
+          "effects": [],
+          "result_text": "",
+          "goto": 9,
+          "requires": { "item": "blast" }
         },
         {
           "label": "Break the camera",
           "id": "option2",
-          "check": { "base": 0.5, "mods": [] },
+          "check": { "base": 0.5, "mods": [], "tags": ["physical"] },
           "success": {
             "result_text": "The camera is no longer recording. You head over to the vein.",
             "effects": [],
@@ -310,24 +318,36 @@
           }
         },
         {
-          "id": "option3",
           "label": "Ignore the camera, just get to the vein",
-          "result_text": "",
-          "goto": 10,
-          "effects": [{ "op": "alert", "atLeast": 2 }]
+          "id": "option3",
+          "effects": [{ "op": "alert", "atLeast": 2 }],
+          "check": { "base": 0.05, "mods": [], "tags": ["stealth"] },
+          "success": { "result_text": "", "effects": [], "goto": 10 },
+          "fail": { "result_text": null, "effects": [] }
+        },
+        {
+          "id": "option4",
+          "label": "Cut the camera signal",
+          "result_text": "You trigger the Signal Failure. The camera's light is still on, but you know that it won't be sending data anytime soon.",
+          "requires": {
+            "item": "signalFailure",
+            "display": "disable",
+            "reason": "You don't have a Signal Failure"
+          },
+          "goto": 9
         }
       ],
       "label": null,
       "speaker": null
     },
     {
-      "key": "c7", "type": "choice", "text": "Player has option to harvest the vein, or claim it, as when a normal raid ends.",
+      "key": "c7", "type": "choice", "text": "You can sense the vein underneath the shrubbery. You can't hear anyone coming; you're free to use the vein as you see fit.",
       "choices": [
         {
           "id": "option1",
           "label": "Harvest the vein and leave",
           "result_text": "",
-          "goto": 15,
+          "goto": 16,
           "effects": [{ "op": "loot_raid_vein" }]
         },
         {
@@ -342,7 +362,7 @@
       "speaker": null
     },
     {
-      "key": "c8", "type": "choice", "text": "Player has option to harvest the vein, or claim it, as when a normal raid ends.",
+      "key": "c8", "type": "choice", "text": "You can sense the vein underneath the shrubbery. You can't hear anyone coming - yet. It's yours to harvest or claim, as long as you're quick.",
       "choices": [
         {
           "id": "option1",
@@ -363,7 +383,7 @@
       "speaker": null
     },
     {
-      "key": "c9", "type": "choice", "text": "Player sees 2 guards turn up, and head in the player's direction. Player can fight or try to talk their way out of it. \nHigh observation roll means player spots them first and can escape unseen", "observe": "harvested_seen",
+      "key": "c9", "type": "choice", "text": "You see 2 men walking through the church grounds. Heavyset, actively looking for something or someone. ", "observe": "harvested_seen",
       "choices": [
         {
           "label": "Try to avoid them",
@@ -372,22 +392,23 @@
             "base": 0.25,
             "mods": [
               { "observed": { "id": "harvested_seen", "ore": "physics", "atLeast": 2 }, "add": 0.5, "label": "" }
-            ]
+            ],
+            "tags": ["stealth"]
           },
           "success": { "result_text": "", "effects": [] },
-          "fail": { "result_text": null, "effects": [], "goto": 16 }
+          "fail": { "result_text": null, "effects": [], "goto": 15 }
         },
         {
           "id": "option2",
           "label": "Get ready for a fight",
           "result_text": "",
-          "goto": 16,
+          "goto": 15,
           "effects": []
         },
         {
           "label": "Try to talk your way out",
           "id": "option3",
-          "check": { "base": 0.25, "mods": [] },
+          "check": { "base": 0.25, "mods": [], "tags": ["social"] },
           "success": {
             "result_text": "You act like you're from the church and talk to them about Jesus. They don't have time for time for a God botherer, and walk off quickly to the vein. You're free to go.",
             "effects": []
@@ -395,7 +416,7 @@
           "fail": {
             "result_text": "You act like you're from the church and talk to them about Jesus. They ask your name. From their expression, you assume they didn't believe you when you said \"Father McChurch\".",
             "effects": [],
-            "goto": 16
+            "goto": 15
           }
         }
       ],
@@ -415,7 +436,8 @@
               { "observed": { "id": "harvested_seen", "ore": "physics", "atLeast": 2 }, "add": 0.3, "label": "" },
               { "observed": { "id": "harvested_seen", "ore": "emotion", "atLeast": 2 }, "add": 0.3, "label": "" },
               { "observed": { "id": "harvested_seen", "ore": "life", "atLeast": 2 }, "add": 0.3, "label": "" }
-            ]
+            ],
+            "tags": ["stealth"]
           },
           "success": {
             "result_text": "You move slowly but deliberately, like you belong. You examine the flower bed with a vague sense of annoyance, tutting about when they were last watered. The guards breeze past with barely a second glance.",
@@ -424,14 +446,14 @@
           "fail": {
             "result_text": "You sprint to some bushes to try and hide behind them, but the guards spot you. Now they're heading your way.",
             "effects": [],
-            "goto": 16
+            "goto": 17
           }
         },
         {
           "id": "option2",
           "label": "Get ready for a fight",
           "result_text": "",
-          "goto": 16,
+          "goto": 17,
           "effects": []
         },
         {
@@ -443,7 +465,8 @@
               { "observed": { "id": "harvested_seen", "ore": "physics", "atLeast": 2 }, "add": 0.3, "label": "" },
               { "observed": { "id": "harvested_seen", "ore": "emotion", "atLeast": 2 }, "add": 0.3, "label": "" },
               { "observed": { "id": "harvested_seen", "ore": "life", "atLeast": 2 }, "add": 0.3, "label": "" }
-            ]
+            ],
+            "tags": ["social"]
           },
           "success": {
             "result_text": "Hands visible, you calmly tell them that everyone can walk away safe and sound if they tell their bosses that this vein belongs to someone else now. They glance at each other, then nod at you and back away.",
@@ -452,7 +475,7 @@
           "fail": {
             "result_text": "You wave energetically to get their attention. They jump, then head over to you, fists balled. So much for talking...",
             "effects": [],
-            "goto": 16
+            "goto": 15
           }
         }
       ],
@@ -469,7 +492,7 @@
           "id": "option1",
           "label": "Fight them off",
           "result_text": "",
-          "goto": 16,
+          "goto": 17,
           "effects": [{ "op": "set_flag", "flag": "playgroundAmbush", "value": true }]
         },
         {
@@ -481,25 +504,25 @@
               { "observed": { "id": "claimed_vein_not_seen", "ore": "physics", "atLeast": 2 }, "add": 0.4, "label": "" },
               { "observed": { "id": "claimed_vein_not_seen", "ore": "physics", "atLeast": 1 }, "add": 0.4, "label": "" },
               { "observed": { "id": "claimed_vein_not_seen", "ore": "life", "atLeast": 1 }, "add": 0.2, "label": "" }
-            ]
+            ],
+            "tags": ["social"]
           },
           "success": {
             "result_text": "You tell them vein is under new ownership, and they can leave safe and sound to tell their boss. They look you up and own, then glance around for any hidden backup you might have. Eventually they nod at you and leave.",
-            "effects": []
+            "effects": [],
+            "goto": 18
           },
           "fail": {
             "result_text": "You tell them vein is under new ownership, and they should leave. They look you up and down, and seem to like their chances. Uh oh.",
             "effects": [],
-            "goto": 16
+            "goto": 17
           }
         }
       ],
       "observe": "claimed_vein_not_seen",
       "label": null,
-      "speaker": null,
-      "end": true
+      "speaker": null
     },
-    { "key": "c12", "type": "narration", "text": "You leave the church grounds, the stolen ore warm in the bag under your arm.", "label": null, "speaker": null, "end": true },
     {
       "key": "c13", "type": "choice", "text": "You have moments before the fighting begins. If you have any last minute items you want to use before thing's kick off, now's the time.",
       "choices": [
@@ -507,12 +530,27 @@
           "id": "option1",
           "label": "Start the fight",
           "result_text": "",
-          "effects": [{ "op": "start_raid_combat", "preset": "veinGuards" }]
+          "effects": [{ "op": "start_raid_combat", "preset": "veinGuards" }],
+          "goto": 16
         }
       ],
       "label": null,
       "speaker": null
-    }
+    },
+    { "key": "c12", "type": "narration", "text": "You leave the church grounds, the stolen ore warm in the bag under your arm.", "label": null, "speaker": null, "end": true },
+    {
+      "key": "c19", "type": "narration", "text": "You have moments before the fighting begins. If you have any last minute items you want to use before thing's kick off, now's the time.",
+      "choices": [
+        {
+          "id": "option1",
+          "label": "Start the fight",
+          "result_text": "",
+          "effects": [{ "op": "start_raid_combat", "preset": "veinGuards" }],
+          "goto": 18
+        }
+      ]
+    },
+    { "key": "c18", "type": "narration", "text": "You walk away from the church grounds, happy to have added another vein to your portfolio." }
   ],
   "observations": {
     "hall_approach": {
@@ -580,7 +618,7 @@
         },
         "life": {
           "tiers": [
-            { "base": 0.25, "text": "A door to the south leads to a corridor with another door, traces of mud and dirt in front of it. Seems to lead outside." },
+            { "base": 0.25, "text": "A door on the south side has traces of mud and dirt in front of it. Seems to lead outside." },
             { "base": 0.55, "text": "There aren't many people. The place seems relatively clean despite its size; the caretaker takes his job seriously." }
           ],
           "miss": "This place is a ghost town. Wait, if calc exists, could ghosts exist too? In this place, it doesn't seem so far fetched."

@@ -6,7 +6,7 @@
 
 **Relevant files:** `systems/offers.gd`, `systems/overlaps.gd`, `systems/faction_ai.gd`, `systems/recipe_knowledge.gd`, `systems/faction_sim.gd`, `scenes/modals/sell_menu_view.gd`, `data/factions.json`, `tests/test_faction_sim.gd`, REFERENCE.md §1.8 `data/factions.json`
 
-**Status:** ready-for-agent
+**Status:** wontfix
 
 - [ ] No Root Feed demand appears before the base rung is owned
 - [ ] Sold feed enters real holdings and factions then use it
@@ -14,3 +14,7 @@
 - [ ] Factions at war with the player follow existing sale rules
 - [ ] The Collective is not a buyer
 - [ ] No new `consumes` entries are added
+
+## Comments
+
+Replaced by `.scratch/london-market/issues/06-root-feed-offers.md`. Differences: sell lanes stay ungated, and the Collective may buy like any other faction.

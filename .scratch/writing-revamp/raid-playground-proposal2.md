@@ -1092,7 +1092,7 @@
                 "result_text": "You sprint to some bushes to try and hide behind them, but the guards spot you. Now they're heading your way.",
                 "effects": [],
                 "goto": {
-                  "branch": "b17"
+                  "branch": "vein_claimed_fight"
                 }
               }
             },
@@ -1101,7 +1101,7 @@
               "label": "Get ready for a fight",
               "result_text": "",
               "goto": {
-                "branch": "b17"
+                "branch": "vein_claimed_fight"
               },
               "effects": []
             },
@@ -1183,7 +1183,7 @@
               "label": "Fight them off",
               "result_text": "",
               "goto": {
-                "branch": "b17"
+                "branch": "vein_claimed_fight"
               },
               "effects": [
                 {
@@ -1233,13 +1233,16 @@
               },
               "success": {
                 "result_text": "You tell them vein is under new ownership, and they can leave safe and sound to tell their boss. They look you up and own, then glance around for any hidden backup you might have. Eventually they nod at you and leave.",
-                "effects": []
+                "effects": [],
+                "goto": {
+                  "branch": "vein_claimed"
+                }
               },
               "fail": {
                 "result_text": "You tell them vein is under new ownership, and they should leave. They look you up and down, and seem to like their chances. Uh oh.",
                 "effects": [],
                 "goto": {
-                  "branch": "b17"
+                  "branch": "vein_claimed_fight"
                 }
               }
             }
@@ -1281,11 +1284,50 @@
                   "op": "start_raid_combat",
                   "preset": "veinGuards"
                 }
-              ]
+              ],
+              "goto": {
+                "branch": "b16"
+              }
             }
           ],
           "label": null,
           "speaker": null
+        }
+      ]
+    },
+    "vein_claimed": {
+      "title": "vein_claimed",
+      "cards": [
+        {
+          "key": "c18",
+          "type": "narration",
+          "text": "You walk away from the church grounds, happy to have added another vein to your portfolio."
+        }
+      ]
+    },
+    "vein_claimed_fight": {
+      "title": "vein_claimed_fight",
+      "cards": [
+        {
+          "key": "c19",
+          "type": "narration",
+          "text": "You have moments before the fighting begins. If you have any last minute items you want to use before thing's kick off, now's the time.",
+          "choices": [
+            {
+              "id": "option1",
+              "label": "Start the fight",
+              "result_text": "",
+              "effects": [
+                {
+                  "op": "start_raid_combat",
+                  "preset": "veinGuards"
+                }
+              ],
+              "goto": {
+                "branch": "vein_claimed"
+              }
+            }
+          ]
         }
       ]
     }
@@ -1452,6 +1494,36 @@
     }
   },
   "_liveSource": "raid_playground.json",
-  "_liveHash": "ceecf057"
+  "_liveHash": "45e62630",
+  "_layout": {
+    "b:b17": [
+      4833,
+      355
+    ],
+    "b:vein_claimed": [
+      4838,
+      229
+    ],
+    "b:vein_claimed_fight": [
+      4455,
+      139
+    ],
+    "b:b11": [
+      3472,
+      437
+    ],
+    "b:b16": [
+      4873,
+      63
+    ],
+    "b:b12": [
+      3907,
+      495
+    ],
+    "b:b13": [
+      3913,
+      292
+    ]
+  }
 }
 ```
