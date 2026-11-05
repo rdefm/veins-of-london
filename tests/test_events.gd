@@ -439,6 +439,43 @@ func run() -> void:
 		GameData.EVENTS = original_events
 	)
 
+	run_case("card_key_helpers_and_capped_walks", func():
+		GameState.reset()
+		var original_events: Dictionary = GameData.EVENTS
+		GameData.EVENTS = GameData.EVENTS.duplicate()
+		GameData.EVENTS["test_walk_event"] = {
+			"id": "test_walk_event",
+			"cards": [
+				{ "type": "narration", "key": "a", "label": null, "speaker": null, "text": "A" },
+				{ "type": "narration", "key": "b", "label": null, "speaker": null, "text": "B" },
+				{ "type": "narration", "key": "c", "label": null, "speaker": null, "text": "C" },
+			],
+			"on_complete": [],
+		}
+		assert_eq(Events.card_index("test_walk_event", "c"), 2)
+		Events.start_event("test_walk_event")
+		assert_eq(Events.current_card_key(), "a")
+		assert_true(advance_to_card("c"), "walk reaches c")
+		assert_eq(Events.current_card_key(), "c")
+		assert_true(finish_event(), "finish ends the event")
+		assert_eq(GameState.state["event"], null)
+		assert_eq(Events.current_card_key(), "")
+
+		# Cap trips with a clear message instead of hanging.
+		Events.start_event("test_walk_event")
+		assert_true(not advance_to_card("c", 1), "cap of 1 cannot reach c")
+		assert_true(not finish_event(1), "cap of 1 cannot finish")
+		var failures: Array = _case_failures.duplicate()
+		_case_failures.clear()
+		assert_eq(failures.size(), 2)
+		assert_true("test_walk_event" in failures[0] and "'c'" in failures[0] and "last key seen: 'a'" in failures[0], failures[0])
+		assert_true("test_walk_event" in failures[1] and "exceeded 1 steps" in failures[1], failures[1])
+
+		# Unknown key is an error, not a silent pass (push_error -> -1).
+		assert_eq(Events.card_index("test_walk_event", "nope"), -1)
+		GameData.EVENTS = original_events
+	)
+
 	run_case("start_event_sets_state_and_screen", func():
 		GameState.reset()
 		Events.start_event("prologue_cold_open")

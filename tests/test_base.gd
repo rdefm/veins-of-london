@@ -122,6 +122,50 @@ func _eventbus_signal_names() -> Array[String]:
 	return names
 
 
+# Continue through the live event until its current card is keyed `key`.
+# Capped; stops with a failure naming the event id, target and last key seen
+# if the event ends, stalls on a choice, or the cap trips. True on arrival.
+func advance_to_card(key: String, cap: int = 200) -> bool:
+	var event_id: String = _live_event_id()
+	var last_key: String = Events.current_card_key()
+	for _i in cap:
+		if GameState.state["event"] == null:
+			return _walk_fail("event '%s' ended before reaching card '%s'" % [event_id, key], last_key)
+		last_key = Events.current_card_key()
+		if last_key == key:
+			return true
+		if Events.is_awaiting_choice():
+			return _walk_fail("event '%s' stalled on a choice card before reaching '%s'" % [event_id, key], last_key)
+		Events.advance()
+	return _walk_fail("event '%s' exceeded %d steps reaching card '%s'" % [event_id, cap, key], last_key)
+
+
+# Continue until the live event ends. Same cap and failure reporting.
+func finish_event(cap: int = 200) -> bool:
+	var event_id: String = _live_event_id()
+	var last_key: String = Events.current_card_key()
+	for _i in cap:
+		if GameState.state["event"] == null:
+			return true
+		last_key = Events.current_card_key()
+		if Events.is_awaiting_choice():
+			return _walk_fail("event '%s' stalled on a choice card before ending" % event_id, last_key)
+		Events.advance()
+	if GameState.state["event"] == null:
+		return true
+	return _walk_fail("event '%s' exceeded %d steps without ending" % [event_id, cap], last_key)
+
+
+func _live_event_id() -> String:
+	var event_state: Variant = GameState.state["event"]
+	return "" if event_state == null else str(event_state["eventId"])
+
+
+func _walk_fail(reason: String, last_key: String) -> bool:
+	_case_failures.append("event walk: %s (last key seen: '%s')" % [reason, last_key])
+	return false
+
+
 func assert_eq(actual, expected, msg: String = "") -> void:
 	if actual != expected:
 		_case_failures.append("assert_eq: got %s, expected %s. %s" % [str(actual), str(expected), msg])

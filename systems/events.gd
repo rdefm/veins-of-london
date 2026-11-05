@@ -486,10 +486,36 @@ static func _goto_index(goto: Variant, cards: Array) -> int:
 	if typeof(goto) == TYPE_INT or typeof(goto) == TYPE_FLOAT:
 		return int(goto)
 	if goto is String:
-		for i in cards.size():
-			if cards[i].get("key") == goto:
-				return i
+		return _key_index(cards, goto)
 	return -1
+
+
+# Index of the card whose `key` is `key` in `cards`; -1 when none matches.
+static func _key_index(cards: Array, key: String) -> int:
+	for i in cards.size():
+		if cards[i].get("key") == key:
+			return i
+	return -1
+
+
+# Index of card `key` in authored event `event_id`. Unknown event or key is an
+# error (push_error), returning -1.
+static func card_index(event_id: String, key: String) -> int:
+	if not GameData.EVENTS.has(event_id):
+		push_error("Events: unknown event '%s'" % event_id)
+		return -1
+	var index: int = _key_index(GameData.EVENTS[event_id]["cards"], key)
+	if index < 0:
+		push_error("Events: event '%s' has no card keyed '%s'" % [event_id, key])
+	return index
+
+
+# The live event's current card key ("" when no event is live or the card has none).
+static func current_card_key() -> String:
+	var event_state: Variant = GameState.state["event"]
+	if event_state == null:
+		return ""
+	return String(live_cards()[event_state["cardIndex"]].get("key", ""))
 
 
 # The card Continue moved to from card `index`: its resolution's goto, else
