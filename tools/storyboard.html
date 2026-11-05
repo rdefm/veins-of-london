@@ -2131,6 +2131,76 @@ function checkOddsBlock(opt, changed, restructure) {
     if (!t || !Number.isInteger(n)) throw new Error("guards must be a whole number (negative removes)");
     op.count = n;
   }
+  // Security features the gate picker offers (R§3.9a {security}, R§3.12 profile): true = a count (at least / at most
+  // take a number), false = present or absent only.
+  const SECURITY_FEATURES = { ward: false, guards: true, alarm: false, cameras: true, locks: false };
+  const SECURITY_MODES = ["present", "absent", "atLeast", "atMost"];
+  // {security} condition for a feature and mode: present = atLeast 1, absent = atMost 0.
+  function securityCond(feature, mode, n) {
+    if (!(feature in SECURITY_FEATURES)) throw new Error("unknown security feature " + feature);
+    if (mode === "present") return { security: { feature, atLeast: 1 } };
+    if (mode === "absent") return { security: { feature, atMost: 0 } };
+    if (!SECURITY_MODES.includes(mode)) throw new Error("unknown security mode " + mode);
+    if (!SECURITY_FEATURES[feature]) throw new Error(`${feature} is present or absent only`);
+    if (!Number.isInteger(n) || n < 1) throw new Error("the number must be a whole number, 1 or more");
+    return { security: { feature, [mode]: n } };
+  }
+  // The picker's {feature, mode, n} for a condition securityCond writes, else null (is, both bounds, other features).
+  function securityRead(c) {
+    if (!c || typeof c !== "object" || Object.keys(c).length !== 1 || !c.security || typeof c.security !== "object") return null;
+    const s = c.security, keys = Object.keys(s);
+    if (keys.length !== 2 || !(s.feature in SECURITY_FEATURES)) return null;
+    const mode = "atLeast" in s ? "atLeast" : "atMost" in s ? "atMost" : null;
+    if (!mode || !Number.isInteger(s[mode]) || s[mode] < 0) return null;
+    if (mode === "atMost" && s.atMost === 0) return { feature: s.feature, mode: "absent", n: 0 };
+    if (mode === "atLeast" && s.atLeast === 1) return { feature: s.feature, mode: "present", n: 1 };
+    if (mode === "atLeast" && s.atLeast === 0) return null;
+    if (!SECURITY_FEATURES[s.feature]) return null;
+    return { feature: s.feature, mode, n: s[mode] };
+  }
+  // Sets (cond) or clears (null) option i's security gate: slot "requires" is the option's own condition (display,
+  // reason and hideUnless stay); slot "hideUnless" is requires.hideUnless. Another kind of condition already in the
+  // slot is refused, never overwritten.
+  function setSecurityGate(draft, key, i, slot, cond) {
+    const { o } = optionAt(draft, key, i);
+    const req = o.requires && typeof o.requires === "object" ? o.requires : null;
+    if (slot === "hideUnless") {
+      if (req && req.hideUnless && !("security" in req.hideUnless)) throw new Error("hideUnless already holds another condition");
+      setHideUnless(o, cond);
+      return;
+    }
+    if (slot !== "requires") throw new Error("unknown gate " + slot);
+    if (req && requiresHasCondition(req) && !("security" in req)) throw new Error("requires already holds another condition");
+    if (cond) {
+      if (!req) o.requires = {};
+      o.requires.security = cond.security;
+    } else if (req) {
+      delete req.security;
+      if (!Object.keys(req).length) delete o.requires;
+    }
+  }
+  // Effect ops that read the event's site (start_event context site_id) unless they carry a site_id of their own,
+  // and ops / keys that give an event a site or vein.
+  const SITE_OPS = ["loot_raid_vein", "claim_raid_vein", "back_out", "reduce_raid_guards", "start_raid_combat", "adjust_guards"];
+  const SITE_SOURCE_OPS = ["reveal_site", "network_reveal_vulnerable_vein"];
+  const SITE_SOURCE_KEYS = ["site_id", "siteIdStatePath", "veinIdStatePath"];
+  // ⚠ lines for site-dependent effects or {security} conditions in a draft that names no site or vein anywhere. The
+  // site otherwise comes from whatever launches the event, which the draft can't see, so this is advice only.
+  function siteWarnings(draft) {
+    const uses = [];
+    let sourced = false;
+    const walk = (v) => {
+      if (Array.isArray(v)) { v.forEach(walk); return; }
+      if (!v || typeof v !== "object") return;
+      if (SITE_SOURCE_OPS.includes(v.op) || SITE_SOURCE_KEYS.some((k) => typeof v[k] === "string" && v[k])) sourced = true;
+      else if (SITE_OPS.includes(v.op)) uses.push(`effect ${v.op}`);
+      if (v.security && typeof v.security === "object" && typeof v.security.feature === "string") uses.push(`${v.security.feature} security condition`);
+      for (const [k, x] of Object.entries(v)) if (k !== "comments") walk(x);
+    };
+    walk(draft);
+    if (sourced) return [];
+    return [...new Set(uses)].map((u) => `⚠ ${u} needs a site or vein; this event names none (no site_id, reveal_site or vein path). Fine if code starts it with one.`);
+  }
   // Replaces the raid/claim/guard ops at `where` with those of `edited`; every other effect stays verbatim.
   function setRaidEffects(draft, key, i, where, edited) {
     const { o } = optionAt(draft, key, i);
@@ -4862,6 +4932,7 @@ function checkOddsBlock(opt, changed, restructure) {
         o.pick ? el("span", { class: "mono muted", text: optionMech(o) }) : null));
       if (o.pick) rows.push(...pickBlock(b.draft, c, i, o, edit, field));
       rows.push(mechanicsBox(c, i, o));
+      rows.push(securityBox(c, i, o));
       alertWarnings(o, mechCatalogue).forEach((m) => rows.push(el("div", { class: "item-warn", text: m })));
       rows.push(alertBox(c, i, "option", o.check ? "Alert before the roll" : "Alert", o.effects));
       rows.push(raidBox(c, i, "option", o.check ? "Raid before the roll" : "Raid, claim, guards", o.effects));
@@ -4975,6 +5046,52 @@ function checkOddsBlock(opt, changed, restructure) {
     const box = el("div", { class: "mech-ed" }, requiresBlock(w, changed, restructure), ...coverTextRows(w, mechCatalogue, changed), w.check ? checkOddsBlock(w, changed, restructure) : null);
     box.addEventListener("focusin", () => { editSession = false; });
     return box;
+  }
+  // Security gates for option i: "Requires" (greyed or hidden by the shared When-unmet select) and "Hide unless".
+  // Each is a feature, present / absent / at least / at most and a number; written through setSecurityGate.
+  function securityBox(c, i, o) {
+    const req = o.requires && typeof o.requires === "object" ? o.requires : {};
+    const commit = (slot, cond) => {
+      try { editDraft((d) => setSecurityGate(d, c.key, i, slot, cond), true); } catch (e) { renderEditBar(`Security gate: ${e.message}`); }
+    };
+    const row = (slot, label, cur) => {
+      const kids = [el("span", { class: "kw", text: label })];
+      const other = slot === "requires" ? requiresHasCondition(req) && !("security" in req) : !!cur && !("security" in cur);
+      const read = securityRead(cur);
+      if (other || (cur && !read)) {
+        kids.push(el("span", { class: "mono muted", text: other ? "another condition is set (shared Requires controls)" : JSON.stringify(cur) }));
+        if (!other) kids.push(iconBtn("✕", `Clear ${label}`, false, () => commit(slot, null)));
+        return el("div", { class: "route" }, ...kids);
+      }
+      const feat = el("select", { "aria-label": `${label} security feature`, "data-focus": `opt:${i}:sec:${slot}:f` });
+      feat.append(optionEl("", "no security gate"), ...Object.keys(SECURITY_FEATURES).map((f) => optionEl(f, f)));
+      feat.value = read ? read.feature : "";
+      kids.push(feat);
+      if (!read) {
+        feat.addEventListener("change", () => { if (feat.value) commit(slot, securityCond(feat.value, "present")); });
+        return el("div", { class: "route" }, ...kids);
+      }
+      const counts = SECURITY_FEATURES[read.feature];
+      const mode = el("select", { "aria-label": `${label} security state`, "data-focus": `opt:${i}:sec:${slot}:m` });
+      mode.append(...SECURITY_MODES.filter((m) => counts || m === "present" || m === "absent").map((m) => optionEl(m, { present: "present", absent: "absent", atLeast: "at least", atMost: "at most" }[m])));
+      mode.value = read.mode;
+      const num = el("input", { type: "number", min: "1", step: "1", "aria-label": `${label} security number`, "data-focus": `opt:${i}:sec:${slot}:n` });
+      num.value = read.n || 1;
+      const write = () => {
+        const f = feat.value;
+        if (!f) return commit(slot, null);
+        const m = SECURITY_FEATURES[f] || mode.value === "present" || mode.value === "absent" ? mode.value : "present";
+        try { commit(slot, securityCond(f, m, Number(num.value) || 1)); } catch (e) { renderEditBar(`Security gate: ${e.message}`); }
+      };
+      feat.addEventListener("change", write);
+      mode.addEventListener("change", write);
+      num.addEventListener("change", write);
+      kids.push(mode);
+      if (counts && (read.mode === "atLeast" || read.mode === "atMost")) kids.push(num);
+      return el("div", { class: "route" }, ...kids);
+    };
+    return el("div", { class: "mech-ed" }, row("requires", "Requires security", "security" in req ? { security: req.security } : null),
+      row("hideUnless", "Hide unless security", req.hideUnless || null));
   }
   // Alert editor for the effects at `where`, bound to a working copy; edits commit through setAlertEffects so every
   // other effect is left untouched.
@@ -5286,8 +5403,8 @@ function checkOddsBlock(opt, changed, restructure) {
     const el = $("lint");
     if (!b || !b.draft) { el.hidden = true; return; }
     if (lintRefs === undefined) { loadLintRefs().then(() => { if (board() === b) renderLint(b); }); el.hidden = true; return; }
-    const found = lintDraft(b.draft, lintRefs);
-    el.hidden = !found || !found.length;
+    const found = (lintDraft(b.draft, lintRefs) || []).concat(siteWarnings(b.draft));
+    el.hidden = !found.length;
     if (el.hidden) return;
     $("lint-sum").textContent = `⚠ ${found.length} content lint issue${found.length > 1 ? "s" : ""}`;
     $("lint-list").replaceChildren(...found.map((v) => { const li = document.createElement("li"); li.textContent = v; return li; }));

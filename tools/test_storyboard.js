@@ -33,11 +33,11 @@ const {
   liveEventOptions, openOrImport, lintEvent, lintDraft, inboundRefs, inboundWarnings,
   OBS_ORES, obsIds, effectiveObservation, setCardObserve, addObservation, renameObservation, observationUses, deleteObservation, addObservationBlock, deleteObservationBlock, setObservationMiss, addObservationTier, deleteObservationTier, setObservationTier,
   parseItemCatalogue, itemChoices, optionTags, autoOfferItems, setExcludeItem, setOptionTag, conditionCells, optionMechanicsRows, setMechItemControl,
-  itemEffectKind, setItemEffectKind, setEffectTag, setNextCheck, nonAlertEffects, alertMode, setAlertMode, setAlertCover, addAlertOp, removeAlertOp, alertWarnings, coverItems, setCoverText, setAlertEffects, setOtherEffects, setRaidEffects, newRaidOp, setRaidDepth, setGuardCount, nonManagedEffects, isRaidOp,
+  itemEffectKind, setItemEffectKind, setEffectTag, setNextCheck, nonAlertEffects, alertMode, setAlertMode, setAlertCover, addAlertOp, removeAlertOp, alertWarnings, coverItems, setCoverText, setAlertEffects, setOtherEffects, setRaidEffects, newRaidOp, setRaidDepth, setGuardCount, nonManagedEffects, isRaidOp, securityCond, securityRead, setSecurityGate, siteWarnings,
   pickEntries, setPickOn, setPickObservation, setPickReason, addPickOre, deletePickOre, addPickTier, deletePickTier, setPickAtLeast, allLinks, obsLevels, pickQualifying, observedHolds,
 } = new Function(
   html.slice(ss, se) + html.slice(s, e) +
-    "\nfunction setMechItemControl(f) { mechItemControl = f; }\nreturn { itemEffectKind, setItemEffectKind, setEffectTag, setNextCheck, nonAlertEffects, alertMode, setAlertMode, setAlertCover, addAlertOp, removeAlertOp, alertWarnings, coverItems, setCoverText, setAlertEffects, setOtherEffects, setRaidEffects, newRaidOp, setRaidDepth, setGuardCount, nonManagedEffects, isRaidOp, parseItemCatalogue, itemChoices, optionTags, autoOfferItems, setExcludeItem, setOptionTag, conditionCells, optionMechanicsRows, setMechItemControl, parseProposal, parseDraft, serialiseDraft, ensureKeys, legacyToDraft, nextPos, playOrder, flatCards, thenText," +
+    "\nfunction setMechItemControl(f) { mechItemControl = f; }\nreturn { itemEffectKind, setItemEffectKind, setEffectTag, setNextCheck, nonAlertEffects, alertMode, setAlertMode, setAlertCover, addAlertOp, removeAlertOp, alertWarnings, coverItems, setCoverText, setAlertEffects, setOtherEffects, setRaidEffects, newRaidOp, setRaidDepth, setGuardCount, nonManagedEffects, isRaidOp, securityCond, securityRead, setSecurityGate, siteWarnings, parseItemCatalogue, itemChoices, optionTags, autoOfferItems, setExcludeItem, setOptionTag, conditionCells, optionMechanicsRows, setMechItemControl, parseProposal, parseDraft, serialiseDraft, ensureKeys, legacyToDraft, nextPos, playOrder, flatCards, thenText," +
     " jsonBlockRange, spliceDraft, writableProposal, cardByKey, makeHistory," +
     " cardPos, insertCard, deleteCard, moveCard, danglingLinks, hasCycle, buildGraph, elkGraph, placeLayout, setNodePositions, clearLayout, applyPositions," +
     " findCycle, addBranch, renameBranch, deleteBranch, inboundLinks, setCardGoto, setThen," +
@@ -2431,6 +2431,58 @@ test("raid / claim / guard ops add, edit and remove on options and outcomes; oth
   const o = ev.cards.flatMap((c) => c.choices || []).find((x) => x.success && x.success.effects.some((e) => e.op === "adjust_guards"));
   assert(o, "promoted event keeps the guard op");
   assert(o.effects.some((e) => e.op === "claim_raid_vein"));
+});
+
+test("security gates: picker conditions match the game's {security}, hide and disable, lossless", () => {
+  const { draft } = parseDraft(draftText);
+  const gate = () => cardByKey(draft, "c2").choices[0].requires;
+  assert.deepStrictEqual(securityCond("guards", "present"), { security: { feature: "guards", atLeast: 1 } });
+  assert.deepStrictEqual(securityCond("ward", "absent"), { security: { feature: "ward", atMost: 0 } });
+  assert.deepStrictEqual(securityCond("cameras", "atLeast", 2), { security: { feature: "cameras", atLeast: 2 } });
+  assert.deepStrictEqual(securityCond("guards", "atMost", 3), { security: { feature: "guards", atMost: 3 } });
+  for (const f of ["ward", "guards", "alarm", "cameras", "locks"]) for (const m of ["present", "absent"]) {
+    const c = securityCond(f, m); assert.deepStrictEqual(securityRead(c), { feature: f, mode: m, n: m === "present" ? 1 : 0 });
+  }
+  assert.throws(() => securityCond("ward", "atLeast", 2)); assert.throws(() => securityCond("guards", "atLeast", 0));
+  assert.strictEqual(securityRead({ security: { feature: "guards", is: "x" } }), null);
+  assert.strictEqual(securityRead({ security: { feature: "guards", atLeast: 1, atMost: 2 } }), null);
+  // requires: display (disable) and reason survive, hideUnless is independent
+  setSecurityGate(draft, "c2", 0, "requires", securityCond("locks", "absent"));
+  cardByKey(draft, "c2").choices[0].requires.display = "disable";
+  setSecurityGate(draft, "c2", 0, "hideUnless", securityCond("guards", "atLeast", 2));
+  setSecurityGate(draft, "c2", 0, "requires", securityCond("ward", "present"));
+  assert.deepStrictEqual(gate(), { security: { feature: "ward", atLeast: 1 }, display: "disable", hideUnless: { security: { feature: "guards", atLeast: 2 } } });
+  assert.strictEqual(requiresText(gate()), "needs ward ≥ 1 (greyed), hidden unless guards ≥ 2");
+  // round trip + promote
+  const re = parseDraft(serialiseDraft(draft)).draft;
+  assert.deepStrictEqual(cardByKey(re, "c2").choices[0].requires, gate());
+  const ev = promoteDraft(re).event;
+  assert(ev.cards.flatMap((c) => c.choices || []).some((x) => JSON.stringify(x.requires) === JSON.stringify(gate())));
+  // clearing
+  setSecurityGate(draft, "c2", 0, "hideUnless", null);
+  setSecurityGate(draft, "c2", 0, "requires", null);
+  assert.deepStrictEqual(gate(), { display: "disable" });
+  cardByKey(draft, "c2").choices[0].requires = { flag: "f" };
+  assert.throws(() => setSecurityGate(draft, "c2", 0, "requires", securityCond("ward", "present")), /another condition/);
+  setSecurityGate(draft, "c2", 0, "hideUnless", securityCond("ward", "absent"));
+  assert.deepStrictEqual(gate(), { flag: "f", hideUnless: { security: { feature: "ward", atMost: 0 } } });
+  cardByKey(draft, "c2").choices[0].requires.hideUnless = { flag: "g" };
+  assert.throws(() => setSecurityGate(draft, "c2", 0, "hideUnless", securityCond("ward", "present")), /another condition/);
+});
+
+test("siteWarnings flags site effects and security conditions only when the event names no site", () => {
+  const { draft } = parseDraft(draftText);
+  assert.deepStrictEqual(siteWarnings(draft), []);
+  setRaidEffects(draft, "c2", 0, "option", [newRaidOp("raid")]);
+  setSecurityGate(draft, "c2", 0, "hideUnless", securityCond("guards", "present"));
+  const w = siteWarnings(draft);
+  assert.strictEqual(w.length, 2);
+  assert(w.some((x) => x.includes("loot_raid_vein")) && w.some((x) => x.includes("guards security condition")));
+  const fx = cardByKey(draft, "c2").choices[0].effects;
+  fx.push({ op: "reveal_site" });
+  assert.deepStrictEqual(siteWarnings(draft), []);
+  fx.pop(); fx[0].site_id = "s1";
+  assert.deepStrictEqual(siteWarnings(draft), []);
 });
 
 test("alert ops survive tags, exclusions and item effects through serialise, re-import and promote", () => {
