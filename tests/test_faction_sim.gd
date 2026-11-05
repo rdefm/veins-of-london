@@ -746,6 +746,92 @@ func run() -> void:
 		assert_true(yields[true] > yields[false])
 	)
 
+	run_case("a_buy_is_limited_to_the_shelf_and_takes_the_lowest_tier_first", func():
+		GameState.reset()
+		GameState.state["factions"]["firm"]["resources"] = 10000000
+		_set_item("firm", "blast", 0)
+		var shelf := Market.availability("consumable", "blast")
+		var total := 0
+		for tier in shelf:
+			total += int(shelf[tier])
+		var low := int(shelf[1])
+		assert_true(low > 0 and total > low, "fixture: stock in more than one tier")
+		var cash: int = GameState.state["factions"]["firm"]["resources"]
+		var bought := FactionSim.deny("firm", "consumable", "blast", low + 1)
+		assert_eq(bought, low + 1, "the shelf covers it")
+		var buckets: Dictionary = GameState.state["factions"]["firm"]["holdings"]["items"]["blast"]
+		assert_eq(int(buckets["1"]), low, "tier 1 goes first, all of it")
+		assert_eq(buckets.values().reduce(func(a, b): return a + b), low + 1, "the rest comes from one tier up")
+		var expected := Market.line_total("consumable", FactionSim._unit_price("consumable", "blast", 1, 1.0), low)
+		for tier in buckets:
+			if int(tier) > 1:
+				expected += Market.line_total("consumable", FactionSim._unit_price("consumable", "blast", int(tier), 1.0), int(buckets[tier]))
+		assert_eq(cash - int(GameState.state["factions"]["firm"]["resources"]), expected, "charged per tier, for what arrived")
+		var left := 0
+		for tier in Market.availability("consumable", "blast").values():
+			left += int(tier)
+		assert_eq(left, total - low - 1, "the shelf shrank by exactly what was taken")
+		assert_eq(FactionSim.deny("firm", "consumable", "blast", total * 2), total - low - 1, "a second buy gets only what is left")
+		assert_eq(FactionSim.deny("firm", "consumable", "blast", 5), 0, "an empty shelf leaves the faction short")
+	)
+
+	run_case("a_sale_enters_stock_at_the_tier_held_and_is_paid_per_tier", func():
+		GameState.reset()
+		GameState.state["factions"]["firm"]["holdings"]["items"]["blast"] = {}
+		FactionSim.add_item("firm", "blast", 4, 6)
+		var cash: int = GameState.state["factions"]["firm"]["resources"]
+		var paid := FactionSim.undercut("firm", "consumable", "blast", 6, 1.0)
+		assert_eq(paid, Market.line_total("consumable", FactionSim._unit_price("consumable", "blast", 4, 1.0), 6), "paid the tier-4 price")
+		assert_eq(GameState.state["factions"]["firm"]["resources"], cash + paid)
+		assert_eq(int(GameState.state["market"]["supplyTiers"]["blast"]["4"]), 6, "it enters stock at tier 4")
+		assert_eq(FactionSim.item_held("firm", "blast"), 0, "nothing is left held")
+	)
+
+	run_case("another_faction_can_buy_a_sale_made_earlier_the_same_day", func():
+		GameState.reset()
+		var stocks := { "1": 0, "2": 0, "3": 0, "4": 0, "5": 0 }
+		var good: Dictionary = GameState.state["market"]["goods"]["consumable"]["blast"]
+		good["tiers"] = stocks
+		good["stock"] = 0
+		var empty := 0
+		for tier in Market.availability("consumable", "blast").values():
+			empty += int(tier)
+		GameState.state["factions"]["guild"]["holdings"]["items"]["blast"] = {}
+		FactionSim.add_item("guild", "blast", 2, 40)
+		FactionSim.undercut("guild", "consumable", "blast", 40, 1.0)
+		GameState.state["factions"]["firm"]["resources"] = 10000000
+		_set_item("firm", "blast", 0)
+		var bought := FactionSim.deny("firm", "consumable", "blast", empty + 40)
+		assert_true(bought > empty, "the Firm gets more than the shelf held before the Guild sold")
+		assert_true(int(GameState.state["factions"]["firm"]["holdings"]["items"]["blast"].get("2", 0)) > 0, "some arrives at the tier it was sold at")
+	)
+
+	run_case("the_first_faction_served_rotates_by_day_and_repeats", func():
+		GameState.reset()
+		var firsts := {}
+		for day in range(1, 6):
+			GameState.state["world"]["day"] = day
+			var order := FactionSim.trade_order()
+			assert_eq(order.size(), GameData.FACTIONS.size(), "everyone is served")
+			assert_eq(order, FactionSim.trade_order(), "the same day gives the same order")
+			firsts[order[0]] = true
+		assert_true(firsts.size() > 1, "the first served changes with the day")
+	)
+
+	run_case("a_month_of_trading_repeats_under_the_same_seed", func():
+		var runs: Array = []
+		for attempt in 2:
+			GameState.reset()
+			Rng.set_seed(11)
+			for i in 12:
+				TimeSystem.daily_tick()
+			var snapshot := {}
+			for faction_id in GameData.FACTIONS:
+				snapshot[faction_id] = [GameState.state["factions"][faction_id]["holdings"], GameState.state["factions"][faction_id]["resources"]]
+			runs.append(JSON.stringify([snapshot, GameState.state["market"]["goods"]]))
+		assert_eq(runs[0], runs[1], "holdings, wallets and shelves match")
+	)
+
 	run_case("rollover_a_faction_with_no_veins_and_no_cash_still_claims_a_site", func():
 		var seed := SeedSearch.find_seed_for(200, func():
 			_zero_vein_guild_beside_a_site()

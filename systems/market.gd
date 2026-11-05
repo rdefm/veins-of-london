@@ -334,8 +334,23 @@ static func record_supply(kind: String, good_type: String, qty: int, source: Str
 		market["supplyTiers"][good_type] = by_tier
 
 
-static func record_demand(kind: String, good_type: String, qty: int, source: String) -> void:
+# tier names the stock tier an item buyer takes from (0 = untiered: drawn
+# like nameless demand, and always for ore).
+static func record_demand(kind: String, good_type: String, qty: int, source: String, tier: int = 0) -> void:
 	_record("demand", kind, good_type, qty, source)
+	_record_demand_tier(kind, good_type, qty, tier)
+
+
+static func _record_demand_tier(kind: String, good_type: String, qty: int, tier: int) -> void:
+	if kind != "consumable" or tier <= 0 or qty <= 0 or not is_running():
+		return
+	var market := _market()
+	if not market.has("demandTiers"):
+		market["demandTiers"] = {}
+	var by_tier: Dictionary = market["demandTiers"].get(good_type, {})
+	var key := str(clampi(tier, 1, tier_count()))
+	by_tier[key] = int(by_tier.get(key, 0)) + qty
+	market["demandTiers"][good_type] = by_tier
 
 
 # Which tally each faction market move (R§3.1 "Escalation") feeds.
@@ -345,10 +360,20 @@ const MOVE_SIDES := { "flood": "supply", "undercut": "supply", "deny": "demand",
 # A faction market move (a MOVE_SIDES key): recorded on its tally
 # side, and today's reprice annotates it under the move's name by that
 # faction at any volume. moves: { kind: { type: { source: { move: qty } } } }.
-static func record_move(move: String, kind: String, good_type: String, qty: int, source: String) -> void:
+static func record_move(move: String, kind: String, good_type: String, qty: int, source: String, tier: int = 0) -> void:
 	if qty <= 0 or not is_running():
 		return
 	_record(MOVE_SIDES[move], kind, good_type, qty, source)
+	if MOVE_SIDES[move] == "demand":
+		_record_demand_tier(kind, good_type, qty, tier)
+	elif kind == "consumable" and tier > 0:
+		var market := _market()
+		if not market.has("supplyTiers"):
+			market["supplyTiers"] = {}
+		var by_tier: Dictionary = market["supplyTiers"].get(good_type, {})
+		var key := str(clampi(tier, 1, tier_count()))
+		by_tier[key] = int(by_tier.get(key, 0)) + qty
+		market["supplyTiers"][good_type] = by_tier
 	var market := _market()
 	if not market.has("moves"):
 		market["moves"] = { "ore": {}, "consumable": {} }
@@ -447,13 +472,26 @@ static func _plan_day(kind: String, good_type: String) -> Dictionary:
 	if kind == "ore":
 		baseline += civilian_demand(kind, good_type) * story_rise_fraction(good_type)
 		baseline += derived_ore_demand(good_type)
-	var wanted: int = GameState.round_epsilon(baseline) + _tally("demand", kind, good_type)
+	var tiered: Dictionary = _market().get("demandTiers", {}).get(good_type, {})
+	var tiered_total := 0
+	for qty in tiered.values():
+		tiered_total += int(qty)
+	var wanted: int = maxi(0, GameState.round_epsilon(baseline) + _tally("demand", kind, good_type) - tiered_total)
 	var held: Array = []
-	var held_total := 0
+	var forced: Array[int] = []
+	var free: Array = []
+	var free_total := 0
 	for i in stock.size():
-		held.append(stock[i] + supply[i])
-		held_total += stock[i] + supply[i]
-	var demand := _apportion(mini(wanted, held_total), held)
+		var have: int = stock[i] + supply[i]
+		var take: int = mini(have, int(tiered.get(str(i + 1), 0))) if kind == "consumable" else 0
+		held.append(have)
+		forced.append(take)
+		free.append(have - take)
+		free_total += have - take
+	var drawn := _apportion(mini(wanted, free_total), free)
+	var demand: Array[int] = []
+	for i in stock.size():
+		demand.append(forced[i] + drawn[i])
 	var after: Array[int] = []
 	for i in stock.size():
 		after.append(held[i] - demand[i])
@@ -514,6 +552,7 @@ static func daily_reprice() -> void:
 	market["supply"] = { "ore": {}, "consumable": {} }
 	market["supplyTiers"] = {}
 	market["demand"] = { "ore": {}, "consumable": {} }
+	market.erase("demandTiers")
 	market.erase("moves")
 
 

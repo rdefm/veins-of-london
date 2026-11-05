@@ -513,20 +513,37 @@ static func vein_kit(site_id: String) -> Dictionary:
 
 
 # ── Buying and selling (spec §Buying and selling, §Faction cash) ──────────
-# Rollover step after allocate_kits(). Per faction, with its factions.json
-# `trading` knobs: every good held above its reserve sells ceil(surplus ×
-# sellFraction) at the London quote (Market supply), except while the quote
-# sits under minSellMult × base, when only stock above hardCap counts as
-# surplus. Then every good below reserve is bought at the quote (Market
-# demand, Shares London-buy tally), items before ores, while the quote ≤
-# maxBuyMult × base and `resources` covers it -- partial buys allowed, never
-# below £0. London is abstract: buys aren't limited by Market stock. Bought
-# items file under tier "0". A faction whose `trading` carries arbBuyMult
+# Rollover step after allocate_kits(), in two passes over trade_order(). Sell
+# pass: every faction sells each good held above its reserve, ceil(surplus ×
+# sellFraction), into London stock at the tiers it holds, paid each tier's
+# price (Market supply), except while the quote sits under minSellMult × base,
+# when only stock above hardCap counts as surplus. Buy pass: every faction buys
+# each good below reserve from London stock, lowest available tier first, paying
+# only for what arrives (Market demand, Shares London-buy tally), items before
+# ores, while the quote ≤ maxBuyMult × base and `resources` covers it. An empty
+# shelf leaves the faction short. A faction whose `trading` carries arbBuyMult
 # (the Conclave) then arbitrages -- see _arbitrage().
 static func trade() -> void:
 	refresh_reserve_boosts()
-	for faction_id in GameData.FACTIONS:
-		_trade_faction(faction_id)
+	var order := trade_order()
+	for faction_id in order:
+		for good in traded_goods(faction_id):
+			_sell_surplus(faction_id, good["kind"], good["type"])
+	for faction_id in order:
+		var goods := traded_goods(faction_id)
+		for good in goods:
+			_buy_shortfall(faction_id, good["kind"], good["type"])
+		if GameData.FACTIONS[faction_id]["trading"].has("arbBuyMult"):
+			_arbitrage(faction_id)
+
+
+# Factions in the order they are served today: GameData.FACTIONS order rotated
+# by the day number, so no faction always gets first pick of a short shelf.
+# Derived from the day alone (no Rng draw), so Rewind replays it exactly.
+static func trade_order() -> Array:
+	var ids: Array = GameData.FACTIONS.keys()
+	var shift: int = int(GameState.state["world"]["day"]) % maxi(1, ids.size())
+	return ids.slice(shift) + ids.slice(0, shift)
 
 
 # Ore kept back for crafting: per crafted item, its ingredient cost at
@@ -641,16 +658,6 @@ static func traded_goods(faction_id: String) -> Array:
 	return goods
 
 
-static func _trade_faction(faction_id: String) -> void:
-	var goods := traded_goods(faction_id)
-	for good in goods:
-		_sell_surplus(faction_id, good["kind"], good["type"])
-	for good in goods:
-		_buy_shortfall(faction_id, good["kind"], good["type"])
-	if GameData.FACTIONS[faction_id]["trading"].has("arbBuyMult"):
-		_arbitrage(faction_id)
-
-
 static func _sell_surplus(faction_id: String, kind: String, good_type: String) -> void:
 	var knobs: Dictionary = GameData.FACTIONS[faction_id]["trading"]
 	var price: int = Market.quote(kind, good_type)
@@ -662,7 +669,7 @@ static func _sell_surplus(faction_id: String, kind: String, good_type: String) -
 	var surplus: int = mini(held(faction_id, kind, good_type) - keep, for_sale(faction_id, kind, good_type))
 	if surplus <= 0:
 		return
-	_sell(faction_id, kind, good_type, ceili(surplus * float(knobs["sellFraction"])), price)
+	_sell(faction_id, kind, good_type, ceili(surplus * float(knobs["sellFraction"])))
 
 
 static func _buy_shortfall(faction_id: String, kind: String, good_type: String) -> void:
@@ -670,21 +677,52 @@ static func _buy_shortfall(faction_id: String, kind: String, good_type: String) 
 	var price: int = Market.quote(kind, good_type)
 	if price <= 0 or price > float(knobs["maxBuyMult"]) * Market.base_price(kind, good_type):
 		return
-	var faction: Dictionary = GameState.state["factions"][faction_id]
-	var qty: int = mini(reserve(faction_id, kind, good_type) - held(faction_id, kind, good_type), Market.affordable_qty(kind, price, int(faction["resources"])))
-	_buy(faction_id, kind, good_type, qty, price)
+	_buy(faction_id, kind, good_type, reserve(faction_id, kind, good_type) - held(faction_id, kind, good_type))
 
 
 # A good the faction is withholding (FactionAI escalation) is never sold.
-static func _sell(faction_id: String, kind: String, good_type: String, qty: int, price: int) -> void:
-	if qty <= 0 or FactionAI.is_withholding(faction_id, kind, good_type):
+static func _sell(faction_id: String, kind: String, good_type: String, qty: int) -> void:
+	if FactionAI.is_withholding(faction_id, kind, good_type):
 		return
+	var proceeds := _sell_to_market(faction_id, kind, good_type, qty, 1.0, "")
+	if proceeds > 0:
+		var resources: int = GameState.state["factions"][faction_id]["resources"]
+		var bonus: int = roundi(proceeds * PlayerMoves.sell_mult(faction_id)) - proceeds
+		GameState.state["factions"][faction_id]["resources"] = resources + bonus
+
+
+# Moves up to qty of a held good into London stock (items highest tier first,
+# each at its own tier) at price_mult × the tier price, pays the faction and
+# records the supply (as the named move when given). Returns the £ taken.
+static func _sell_to_market(faction_id: String, kind: String, good_type: String, qty: int, price_mult: float, move: String) -> int:
+	qty = mini(qty, held(faction_id, kind, good_type))
+	if qty <= 0:
+		return 0
+	var lots: Array = []
 	if kind == "ore":
 		take_ore(faction_id, good_type, qty)
+		lots.append({ "tier": 0, "qty": qty })
 	else:
-		take_items(faction_id, good_type, qty)
-	GameState.state["factions"][faction_id]["resources"] += roundi(Market.line_total(kind, price, qty) * PlayerMoves.sell_mult(faction_id))
-	Market.record_supply(kind, good_type, qty, faction_id)
+		lots = take_items(faction_id, good_type, qty)
+	var proceeds := 0
+	for lot in lots:
+		var price: int = _unit_price(kind, good_type, int(lot["tier"]), price_mult)
+		proceeds += Market.line_total(kind, price, int(lot["qty"]))
+		if move == "":
+			Market.record_supply(kind, good_type, int(lot["qty"]), faction_id, int(lot["tier"]))
+		else:
+			Market.record_move(move, kind, good_type, int(lot["qty"]), faction_id, int(lot["tier"]))
+	GameState.state["factions"][faction_id]["resources"] += proceeds
+	return proceeds
+
+
+# One unit at a tier today: ore at the quote, an item at the quote × the
+# quality multiplier (tier below 1 counts as 1), × price_mult.
+static func _unit_price(kind: String, good_type: String, tier: int, price_mult: float) -> int:
+	var price: float = Market.quote(kind, good_type) * price_mult
+	if kind != "ore":
+		price *= Economy.quality_price_multiplier(tier)
+	return GameState.round_epsilon(price)
 
 
 # Sells qty of an ore at price_mult × today's quote, below its value
@@ -701,25 +739,14 @@ static func undercut(faction_id: String, kind: String, good_type: String, qty: i
 
 
 static func _sell_below(faction_id: String, move: String, kind: String, good_type: String, qty: int, price_mult: float) -> int:
-	if qty <= 0:
-		return 0
-	if kind == "ore":
-		take_ore(faction_id, good_type, qty)
-	else:
-		take_items(faction_id, good_type, qty)
-	var proceeds: int = Market.line_total(kind, GameState.round_epsilon(Market.quote(kind, good_type) * price_mult), qty)
-	GameState.state["factions"][faction_id]["resources"] += proceeds
-	Market.record_move(move, kind, good_type, qty, faction_id)
-	return proceeds
+	return _sell_to_market(faction_id, kind, good_type, qty, price_mult, move)
 
 
-# Buys up to qty of a good at today's quote, capped by resources (R§3.1
-# "Escalation" deny), recorded as a Market deny. Returns the qty bought.
+# Buys up to qty of a good from London stock, capped by resources and what is
+# on the shelf (R§3.1 "Escalation" deny), recorded as a Market deny. Returns
+# the qty bought.
 static func deny(faction_id: String, kind: String, good_type: String, qty: int) -> int:
-	var price: int = Market.quote(kind, good_type)
-	var bought: int = mini(qty, Market.affordable_qty(kind, price, int(GameState.state["factions"][faction_id]["resources"])))
-	_buy(faction_id, kind, good_type, bought, price, "deny")
-	return maxi(0, bought)
+	return _buy(faction_id, kind, good_type, qty, 1.0, "deny")
 
 
 # Sells up to qty of a good the faction holds at price_mult × today's quote,
@@ -740,30 +767,21 @@ static func stabilise_sell(faction_id: String, kind: String, good_type: String, 
 # resources, out of a crash (R§3.1 "Conclave stabiliser"), recorded as a
 # Market stabiliseBuy. Returns the qty bought.
 static func stabilise_buy(faction_id: String, kind: String, good_type: String, qty: int, price_mult: float) -> int:
-	var price: int = GameState.round_epsilon(Market.quote(kind, good_type) * price_mult)
-	var bought: int = mini(qty, Market.affordable_qty(kind, price, int(GameState.state["factions"][faction_id]["resources"])))
-	_buy(faction_id, kind, good_type, bought, price, "stabiliseBuy")
-	return maxi(0, bought)
+	return _buy(faction_id, kind, good_type, qty, price_mult, "stabiliseBuy")
 
 
 # Buys up to qty of a good at today's quote, spending at most budget, as
 # plain Market demand (R§3.1 "Conclave stabiliser" top-up). Returns the qty
 # bought.
 static func stock_up(faction_id: String, kind: String, good_type: String, qty: int, budget: int) -> int:
-	var price: int = Market.quote(kind, good_type)
-	var bought: int = mini(qty, Market.affordable_qty(kind, price, budget))
-	_buy(faction_id, kind, good_type, bought, price)
-	return maxi(0, bought)
+	return _buy(faction_id, kind, good_type, qty, 1.0, "", budget)
 
 
 # Opens a Conclave position (R§3.1 "Conclave positions"): buys up to qty of
 # an ore at today's quote, spending at most budget, recorded as a Market
 # positionBuy. Returns the qty bought.
 static func position_buy(faction_id: String, ore_type: String, qty: int, budget: int) -> int:
-	var price: int = Market.quote("ore", ore_type)
-	var bought: int = mini(qty, Market.affordable_qty("ore", price, budget))
-	_buy(faction_id, "ore", ore_type, bought, price, "positionBuy")
-	return maxi(0, bought)
+	return _buy(faction_id, "ore", ore_type, qty, 1.0, "positionBuy", budget)
 
 
 # Closes a Conclave position: sells up to qty of an ore it holds at today's
@@ -772,20 +790,44 @@ static func position_sell(faction_id: String, ore_type: String, qty: int) -> int
 	return _sell_below(faction_id, "positionSell", "ore", ore_type, mini(qty, ore_held(faction_id, ore_type)), 1.0)
 
 
-# move names a Market move ("deny", "stabiliseBuy") to record instead of plain demand.
-static func _buy(faction_id: String, kind: String, good_type: String, qty: int, price: int, move: String = "") -> void:
+# Takes up to qty from London stock at price_mult × each tier's price, lowest
+# available tier first, paying only for what arrives (spending at most budget,
+# default all `resources`). Items reach holdings at the tier bought. move names
+# a Market move ("deny", "stabiliseBuy") to record instead of plain demand.
+# Returns the qty received.
+static func _buy(faction_id: String, kind: String, good_type: String, qty: int, price_mult: float = 1.0, move: String = "", budget: int = -1) -> int:
 	if qty <= 0:
-		return
-	GameState.state["factions"][faction_id]["resources"] -= Market.line_total(kind, price, qty)
-	if kind == "ore":
-		add_ore(faction_id, good_type, qty)
-	else:
-		add_item(faction_id, good_type, 0, qty)
-	if move == "":
-		Market.record_demand(kind, good_type, qty, faction_id)
-	else:
-		Market.record_move(move, kind, good_type, qty, faction_id)
-	Shares.record_london_buy(faction_id, Shares.ore_equivalent(kind, good_type, qty))
+		return 0
+	var faction: Dictionary = GameState.state["factions"][faction_id]
+	var purse: int = int(faction["resources"]) if budget < 0 else mini(budget, int(faction["resources"]))
+	var shelf := Market.availability(kind, good_type)
+	var tiers: Array = shelf.keys()
+	tiers.sort()
+	var remaining := qty
+	var received := 0
+	for tier in tiers:
+		if remaining <= 0:
+			break
+		var price := _unit_price(kind, good_type, int(tier), price_mult)
+		var count: int = mini(mini(remaining, int(shelf[tier])), Market.affordable_qty(kind, price, purse))
+		if count <= 0:
+			continue
+		var cost: int = Market.line_total(kind, price, count)
+		purse -= cost
+		faction["resources"] -= cost
+		remaining -= count
+		received += count
+		if kind == "ore":
+			add_ore(faction_id, good_type, count)
+		else:
+			add_item(faction_id, good_type, int(tier), count)
+		if move == "":
+			Market.record_demand(kind, good_type, count, faction_id, int(tier))
+		else:
+			Market.record_move(move, kind, good_type, count, faction_id, int(tier))
+	if received > 0:
+		Shares.record_london_buy(faction_id, Shares.ore_equivalent(kind, good_type, received))
+	return received
 
 
 # Arbitrage (spec §Buying and selling, Conclave arbitrage): after its own
@@ -817,13 +859,11 @@ static func _arbitrage(faction_id: String) -> void:
 		var surplus: int = mini(held(faction_id, good["kind"], good["type"]) - reserve(faction_id, good["kind"], good["type"]), for_sale(faction_id, good["kind"], good["type"]))
 		var qty: int = mini(surplus, volume)
 		if qty > 0:
-			_sell(faction_id, good["kind"], good["type"], qty, good["price"])
+			_sell(faction_id, good["kind"], good["type"], qty)
 			volume -= qty
 	for good in crashed:
-		var qty: int = mini(volume, Market.affordable_qty(good["kind"], good["price"], int(GameState.state["factions"][faction_id]["resources"])))
-		if qty > 0:
-			_buy(faction_id, good["kind"], good["type"], qty, good["price"])
-			volume -= qty
+		if volume > 0:
+			volume -= _buy(faction_id, good["kind"], good["type"], volume)
 
 
 # Districts whose factionPresence is this faction, in GameData.DISTRICTS order.
