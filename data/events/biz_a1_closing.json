@@ -11,6 +11,9 @@
     { "key": "c7", "type": "narration", "label": null, "speaker": null, "text": "James takes a long time to put his cup down." },
     { "key": "c8", "type": "speaker", "label": null, "speaker": "James", "text": "\"The pearls were within tolerance, the buyer paid on time, and nobody needed anything explained twice. I will call that adequate.\"" },
     { "key": "c9", "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Adequate. From him. Frame that.\"" },
+    { "key": "c9a", "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Now, bulk. Soho Marketplace, proper stalls, proper till, and nobody waiting round the corner for your bag. Big loads go there. It's the only place you can buy, and all.\"" },
+    { "key": "c9b", "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Small and middling, bring it to me. I'll put a word in with my buyers, throw in a tag-along deal now and then. Soho don't do favours, lovely. Soho does receipts.\"" },
+    { "key": "c9c", "type": "narration", "label": null, "speaker": null, "text": "A new pin has appeared on your map, in Soho. Archie's number is still at the top of your phone." },
     { "key": "c10", "type": "resolution", "label": null, "speaker": null, "text": "Owen goes back to his veins, James to his crafting. On Archie's phone, next week's orders are already coming in." }
   ],
   "on_complete": [
