@@ -1,7 +1,8 @@
 extends "res://tests/test_base.gd"
 
 const EVENT_ID := "james_experiment"
-const CHOICE_CARD := 13
+const CHOICE_CARD := "c13"
+const RECIPE_TALK_CARD := "c14"
 
 # James's experimenting lesson (.scratch/recipe-acquisition/spec.md § Event
 # rename and rewrite): reached from Archie's motion beat, it teaches Time
@@ -24,20 +25,19 @@ func _fresh() -> void:
 	Lab.grant_recipe("timePearl")
 
 
-# Starts the event and Continues to the bench choice; returns the card
-# indexes shown on the way.
+# Starts the event and Continues to the bench choice; returns the card keys
+# shown on the way.
 func _play_to_bench() -> Array:
 	Events.start_event(EVENT_ID)
 	var seen := []
-	while int(GameState.state["event"]["cardIndex"]) != CHOICE_CARD and seen.size() < 40:
-		seen.append(int(GameState.state["event"]["cardIndex"]))
+	for _i in 60:
+		var key := Events.current_card_key()
+		if key == CHOICE_CARD:
+			break
+		seen.append(key)
 		Events.advance()
+	assert_eq(Events.current_card_key(), CHOICE_CARD, "reached the bench choice")
 	return seen
-
-
-func _texts(indexes: Array) -> Array:
-	var cards: Array = GameData.EVENTS[EVENT_ID]["cards"]
-	return indexes.map(func(i): return cards[i]["text"])
 
 
 func _rank_two_run() -> Dictionary:
@@ -56,13 +56,6 @@ func _perfect_run() -> Dictionary:
 	return Lab.finish_run()
 
 
-func _finish_event() -> void:
-	var guard := 0
-	while GameState.state["event"] != null and guard < 60:
-		guard += 1
-		Events.advance()
-
-
 func run() -> void:
 	_real_bonus_chance = float(GameData.LAB["bonus"]["chance"])
 	_real_insight = GameData.RECIPE_KNOWLEDGE["insight"].duplicate()
@@ -70,7 +63,7 @@ func run() -> void:
 	run_case("archie_motion_queues_the_james_experiment_message", func():
 		_fresh()
 		Events.start_event("archie_motion")
-		_finish_event()
+		finish_event()
 		var pending := Messages.pending_for("james")
 		assert_true(pending.size() > 0 and pending.back()["kind"] == EVENT_ID, "queues the james_experiment pending entry")
 	)
@@ -79,7 +72,7 @@ func run() -> void:
 		_fresh()
 		var relation_before := int(GameState.state["contacts"]["james"]["relation"])
 		var seen := _play_to_bench()
-		assert_true(seen.has(10) and not seen.has(11) and not seen.has(12), "first-timer hears the hint, not the disbelief")
+		assert_true(seen.has("c10") and not seen.has("c11") and not seen.has("c12"), "first-timer hears the hint, not the disbelief")
 		Events.choose(0)
 		assert_eq(GameState.state["currentScreen"], "hq_lab_bench", "bench opened")
 		assert_eq(LessonSession.lesson()["goalRank"], 3, "goal rank 3")
@@ -90,8 +83,8 @@ func run() -> void:
 		assert_true(LessonSession.resume()["ok"], "resumes on success")
 		assert_eq(GameState.state["currentScreen"], "event", "back at the event")
 		Events.advance()
-		assert_eq(int(GameState.state["event"]["cardIndex"]), CHOICE_CARD + 1, "the recipe talk follows the bench")
-		_finish_event()
+		assert_eq(Events.current_card_key(), RECIPE_TALK_CARD, "the recipe talk follows the bench")
+		finish_event()
 		var flags: Dictionary = GameState.state["flags"]
 		assert_true(flags["jamesExperimentSeen"], "jamesExperimentSeen set")
 		assert_true(flags["jamesRecipesUnlocked"], "James's recipe shop unlocked")
@@ -105,13 +98,13 @@ func run() -> void:
 		_fresh()
 		RecipeKnowledge.grant_rung("timePearl", "hint1", "exact")
 		var seen := _play_to_bench()
-		assert_true(seen.has(11) and seen.has(12) and not seen.has(10), "variant lines, not the hint")
+		assert_true(seen.has("c11") and seen.has("c12") and not seen.has("c10"), "variant lines, not the hint")
 		Events.choose(0)
 		assert_true(LessonSession.is_running(), "the lesson still runs")
 		assert_eq(RecipeKnowledge.rung_state("timePearl", "hint1"), "exact", "an exact hint isn't downgraded")
 		_perfect_run()
 		LessonSession.resume()
-		_finish_event()
+		finish_event()
 		assert_true(GameState.state["flags"]["jamesExperimentSeen"], "same ending")
 	)
 
@@ -119,7 +112,7 @@ func run() -> void:
 		_fresh()
 		_play_to_bench()
 		Events.choose(0)
-		var lines: Dictionary = GameData.EVENTS[EVENT_ID]["cards"][CHOICE_CARD]["choices"][0]["effects"][0]["lines"]
+		var lines: Dictionary = GameData.EVENTS[EVENT_ID]["cards"][Events.card_index(EVENT_ID, CHOICE_CARD)]["choices"][0]["effects"][0]["lines"]
 		assert_eq(LessonSession.line("hintExact", "x"), lines["hintExact"], "James's hint line")
 		assert_eq(LessonSession.line("talkThrough", "x"), lines["talkThrough"], "James's talk-through line")
 		for i in range(3):

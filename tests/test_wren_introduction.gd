@@ -19,7 +19,9 @@ func _fresh() -> void:
 func _play() -> Array:
 	Events.start_event(EVENT_ID)
 	var seen := []
-	while GameState.state["event"] != null:
+	for _i in 60:
+		if GameState.state["event"] == null:
+			break
 		seen.append(str(Events.current_card().get("key", "")))
 		Events.advance()
 	return seen
