@@ -339,6 +339,9 @@ func _build_cultivator_row(vein: Dictionary) -> Control:
 	if holder != null:
 		var target: int = Rooms.vein_station_target(vein_id)
 		col.add_child(MapCardStyle.stepper("Hold target", target, func(dir: int): _set_target(vein_id, target + dir * TARGET_STEP)))
+		var feed_on: bool = Rooms.vein_auto_feed(vein_id)
+		# PROSE-REVIEW: auto-feed toggle caption.
+		col.add_child(MapCardStyle.text_button("Auto-feed Root Feed: %s" % ("on" if feed_on else "off"), func(): _set_auto_feed(vein_id, not feed_on)))
 	return col
 
 
@@ -386,6 +389,12 @@ func _unassign(vein_id: String) -> void:
 
 func _set_target(vein_id: String, target: int) -> void:
 	Rooms.set_vein_station_target(vein_id, target)
+	_rebuild()
+	_reposition()
+
+
+func _set_auto_feed(vein_id: String, on: bool) -> void:
+	Rooms.set_vein_auto_feed(vein_id, on)
 	_rebuild()
 	_reposition()
 

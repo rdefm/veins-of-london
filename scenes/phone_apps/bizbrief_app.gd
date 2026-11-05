@@ -1440,6 +1440,9 @@ func _build_procurement_vein_row(vein: Dictionary) -> Control:
 	var row := UI.hbox()
 	row.add_child(UI.button("-5", func(): Rooms.set_vein_station_target(vein_id, target - 5)))
 	row.add_child(UI.button("+5", func(): Rooms.set_vein_station_target(vein_id, target + 5)))
+	var feed_on: bool = Rooms.vein_auto_feed(vein_id)
+	# PROSE-REVIEW: auto-feed toggle caption.
+	row.add_child(UI.button("Auto-feed: %s" % ("on" if feed_on else "off"), func(): Rooms.set_vein_auto_feed(vein_id, not feed_on)))
 	row.add_child(UI.button("Unassign", func(): Rooms.unassign_vein(vein_id)))
 	box.add_child(row)
 

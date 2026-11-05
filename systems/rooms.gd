@@ -240,6 +240,8 @@ static func assign_vein(contact_id: String, vein_id: String) -> Dictionary:
 	var targets: Dictionary = GameState.state["veinStationTargets"]
 	if not targets.has(vein_id):
 		targets[vein_id] = VEIN_STATION_DEFAULT_TARGET
+	if not GameState.state["veinStationAutoFeed"].has(vein_id):
+		GameState.state["veinStationAutoFeed"][vein_id] = true
 	EventBus.state_changed.emit()
 	return { "ok": true }
 
@@ -250,6 +252,7 @@ static func unassign_vein(vein_id: String) -> void:
 		return
 	GameState.state["cultivatorVeins"][previous].erase(vein_id)
 	GameState.state["veinStationTargets"].erase(vein_id)
+	GameState.state["veinStationAutoFeed"].erase(vein_id)
 	EventBus.state_changed.emit()
 
 
@@ -265,6 +268,16 @@ static func set_vein_station_target(vein_id: String, target: int) -> void:
 
 static func vein_station_target(vein_id: String) -> int:
 	return GameState.state["veinStationTargets"].get(vein_id, VEIN_STATION_DEFAULT_TARGET)
+
+
+# Per-station Root Feed auto-feed toggle; absent = on.
+static func vein_auto_feed(vein_id: String) -> bool:
+	return bool(GameState.state["veinStationAutoFeed"].get(vein_id, true))
+
+
+static func set_vein_auto_feed(vein_id: String, on: bool) -> void:
+	GameState.state["veinStationAutoFeed"][vein_id] = on
+	EventBus.state_changed.emit()
 
 
 # The read-only "Cultivated by X · target N" summary shared by Procurement
@@ -334,6 +347,7 @@ static func _cultivator_act(contact_id: String, ore_out: Dictionary) -> void:
 	var vein: Dictionary = Cultivating.find_vein(vein_id)
 	var target := vein_station_target(vein_id)
 	var growth: int = vein["growth"]
+	_maybe_auto_feed(contact_id, vein, target)
 	if growth > target:
 		var depth: int = growth - target
 		var amount: int = speciality_yield(contact_id, vein["oreType"], Cultivating.roll_prune_yield(vein, depth))
@@ -356,6 +370,19 @@ static func _cultivator_act(contact_id: String, ore_out: Dictionary) -> void:
 				vein["rampantDays"] = 0
 			Cultivating.apply_growth_change(vein, growth)
 	Contacts.award_contact_xp(contact_id, "cultivating", GameData.CULTIVATOR_ACTION_XP)
+
+
+# Root Feed from the shared pool onto a vein below its station target, when
+# the station's auto-feed toggle is on. Logged as a notification.
+static func _maybe_auto_feed(contact_id: String, vein: Dictionary, target: int) -> void:
+	if not vein_auto_feed(vein["id"]) or int(vein["growth"]) >= target:
+		return
+	var tier: int = Cultivating.auto_apply_root_feed(vein)
+	if tier < 0:
+		return
+	var label: String = GameData.VEIN_GROWTH["boostItems"][Cultivating.ROOT_FEED]["label"]
+	# PROSE-REVIEW: cultivator auto-feed notification.
+	Notify.push("%s fed the %s vein: %s." % [Contacts.display_name(contact_id), GameData.ORE_TYPES[vein["oreType"]]["name"], label], Notify.CATEGORY_SUCCESS)
 
 
 # Safety bound on total producer attempts in one block. Every recipe costs

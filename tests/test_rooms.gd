@@ -290,6 +290,62 @@ func run() -> void:
 		assert_eq(GameState.state["player"]["orichalchum"]["time"], 1, "rewind (6) twice in one block, 13 -> 1; timePearl never gets the ore")
 	)
 
+	run_case("auto_feed_applies_lowest_tier_from_shared_pool_and_cultivator_still_acts", func():
+		var vein := _auto_feed_setup(40)
+		GameState.state["player"]["inventory"]["rootFeed"] = { "2": 1, "3": 1 }
+		var xp_before: int = GameState.state["contacts"]["archie"]["cultivatingXP"]
+		Rooms.process_staff_block()
+		assert_eq(vein["boosts"]["rootFeed"]["tier"], 2, "lowest tier first")
+		assert_eq(GameState.state["player"]["inventory"]["rootFeed"].get("2", 0), 0)
+		assert_eq(GameState.state["player"]["inventory"]["rootFeed"]["3"], 1)
+		assert_true(GameState.state["contacts"]["archie"]["cultivatingXP"] > xp_before, "normal action still taken")
+	)
+
+	run_case("auto_feed_skips_when_toggle_off", func():
+		var vein := _auto_feed_setup(40)
+		GameState.state["player"]["inventory"]["rootFeed"] = { "2": 1 }
+		Rooms.set_vein_auto_feed("vs1", false)
+		Rooms.process_staff_block()
+		assert_true(not vein.has("boosts") or not vein["boosts"].has("rootFeed"))
+		assert_eq(GameState.state["player"]["inventory"]["rootFeed"]["2"], 1)
+	)
+
+	run_case("auto_feed_skips_at_or_above_target", func():
+		var vein := _auto_feed_setup(70)
+		GameState.state["player"]["inventory"]["rootFeed"] = { "2": 1 }
+		Rooms.process_staff_block()
+		assert_true(not vein.has("boosts") or not vein["boosts"].has("rootFeed"), "at target")
+		vein["growth"] = 95
+		Rooms.process_staff_block()
+		assert_true(not vein.has("boosts") or not vein["boosts"].has("rootFeed"), "above target")
+		assert_eq(GameState.state["player"]["inventory"]["rootFeed"]["2"], 1)
+	)
+
+	run_case("auto_feed_skips_when_already_running", func():
+		var vein := _auto_feed_setup(40)
+		GameState.state["player"]["inventory"]["rootFeed"] = { "2": 1 }
+		vein["boosts"] = { "rootFeed": { "until": GameState.state["world"]["day"] + 3, "power": 2, "tier": 1 } }
+		Rooms.process_staff_block()
+		assert_eq(vein["boosts"]["rootFeed"]["tier"], 1, "unchanged")
+		assert_eq(GameState.state["player"]["inventory"]["rootFeed"]["2"], 1)
+	)
+
+	run_case("auto_feed_skips_with_empty_shared_pool_and_never_uses_stash", func():
+		var vein := _auto_feed_setup(40)
+		GameState.state["player"]["stash"]["inventory"]["rootFeed"] = { "2": 2 }
+		Rooms.process_staff_block()
+		assert_true(not vein.has("boosts") or not vein["boosts"].has("rootFeed"))
+		assert_eq(GameState.state["player"]["stash"]["inventory"]["rootFeed"]["2"], 2, "stash untouched")
+	)
+
+	run_case("auto_feed_use_is_notified", func():
+		_auto_feed_setup(40)
+		GameState.state["player"]["inventory"]["rootFeed"] = { "2": 1 }
+		var before: int = GameState.state["notifications"].size()
+		Rooms.process_staff_block()
+		assert_true(GameState.state["notifications"].size() > before, "use recorded")
+	)
+
 	run_case("pick_vein_takes_the_vein_furthest_outside_its_band", func():
 		GameState.reset()
 		_staff_station("archie")
@@ -736,6 +792,16 @@ func _staff_lab(contact_id: String, skill: int) -> void:
 func _staff_station(contact_id: String) -> void:
 	GameState.state["contacts"][contact_id]["recruited"] = true
 	Contacts.assign_to_room(contact_id, "veinStation")
+
+
+func _auto_feed_setup(growth: int) -> Dictionary:
+	GameState.reset()
+	_staff_station("archie")
+	var vein := _vein("vs1", growth)
+	GameState.state["player"]["veins"] = [vein]
+	GameState.state["cultivatorVeins"] = { "archie": ["vs1"] }
+	GameState.state["veinStationTargets"] = { "vs1": 70 }
+	return vein
 
 
 func _vein(id: String, growth: int) -> Dictionary:

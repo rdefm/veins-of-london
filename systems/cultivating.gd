@@ -262,6 +262,27 @@ static func spend_and_record_boost(place: Dictionary, item: String, tier: int) -
 	return { "ok": true, "until": until, "days": days }
 
 
+# Staff auto-feed: applies one Root Feed from the shared pool (never the
+# stash) at the lowest tier held, free of any time block. Returns the tier
+# used, or -1 when Root Feed is already running or the pool has none.
+static func auto_apply_root_feed(vein: Dictionary) -> int:
+	if boost_active(vein, ROOT_FEED):
+		return -1
+	var tiers: Array = []
+	for tier_key in GameState.state["player"]["inventory"].get(ROOT_FEED, {}):
+		tiers.append(int(tier_key))
+	tiers.sort()
+	for tier in tiers:
+		if int(GameState.state["player"]["inventory"][ROOT_FEED].get(str(tier), 0)) <= 0:
+			continue
+		var result: Dictionary = spend_and_record_boost(vein, ROOT_FEED, tier)
+		if not result["ok"]:
+			continue
+		# spend_and_record_boost spends via Stash (shared first), which is the pool checked above.
+		return tier
+	return -1
+
+
 # The shared "apply item to a vein" entry (ADR 0007). Spends one unit at `tier`
 # and writes vein.boosts[item] = { until, power }; reuse refreshes, never stacks.
 static func apply_item(vein_id: String, item: String, tier: int) -> Dictionary:

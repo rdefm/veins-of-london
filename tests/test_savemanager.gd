@@ -964,6 +964,18 @@ func run() -> void:
 		assert_true(not GameState.state.has("veinStationVeins"), "old key removed")
 	)
 
+	run_case("loading_an_old_save_backfills_station_auto_feed_on", func():
+		GameState.reset()
+		var legacy: Dictionary = GameState.deep_copy(GameState.state)
+		legacy.erase("veinStationAutoFeed")
+		legacy["player"]["veins"] = [Fixtures.player_vein_with()]
+		legacy["cultivatorVeins"] = { "archie": ["v1"] }
+		legacy["contacts"]["archie"]["recruited"] = true
+
+		assert_true(SaveManager._load_save_dict(legacy)["ok"])
+		assert_eq(GameState.state["veinStationAutoFeed"], { "v1": true })
+	)
+
 	run_case("loading_an_old_vein_station_list_goes_to_owen_when_he_is_the_only_cultivator", func():
 		GameState.reset()
 		var legacy: Dictionary = GameState.deep_copy(GameState.state)

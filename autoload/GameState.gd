@@ -332,6 +332,8 @@ func new_game_state() -> Dictionary:
 		"contactTexts": {},
 		# { veinId: int growth target }, whichever cultivator holds the vein.
 		"veinStationTargets": {},
+		# { veinId: bool } Root Feed auto-feed toggle per station; absent = on.
+		"veinStationAutoFeed": {},
 
 		"flags": {
 			"tutorialStage": "intro",

@@ -170,6 +170,7 @@ func _load_save_dict(raw: Dictionary) -> Dictionary:
 	_migrate_versions(filled)
 	_migrate_vein_station_veins(filled)
 	_strip_unowned_cultivator_veins(filled)
+	_backfill_vein_station_auto_feed(filled)
 	_fix_up_room_free_roles(filled)
 	_migrate_nadia_supply_order(filled)
 	_migrate_faction_holdings(filled)
@@ -810,6 +811,19 @@ func _migrate_vein_station_veins(state: Dictionary) -> void:
 	for vein_id in old_list:
 		if not lists[destination].has(vein_id):
 			lists[destination].append(vein_id)
+
+
+# Every assigned station carries an auto-feed toggle; a save without one
+# gets it on.
+func _backfill_vein_station_auto_feed(state: Dictionary) -> void:
+	if not (state.get("veinStationAutoFeed") is Dictionary):
+		state["veinStationAutoFeed"] = {}
+	var toggles: Dictionary = state["veinStationAutoFeed"]
+	var lists: Dictionary = state.get("cultivatorVeins", {})
+	for contact_id in lists.keys():
+		for vein_id in lists[contact_id]:
+			if not toggles.has(vein_id):
+				toggles[vein_id] = true
 
 
 # R§3.10 "Staff roles": a cultivator list only holds veins the player owns.
