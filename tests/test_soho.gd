@@ -109,8 +109,7 @@ func run() -> void:
 
 	run_case("never_sells_multi_target_items", func():
 		_open()
-		assert_true(not (Soho.is_tradable("consumable", "blackHole", Soho.BUY)), "always-multi not for sale")
-		assert_true(not (Soho.trade(Soho.BUY, [_item("blackHole", 1, 1)])["ok"]), "buy refused")
+		assert_true(Soho.is_tradable("consumable", "blackHole", Soho.BUY), "every listed item is buyable")
 		assert_true(not (Soho.is_tradable("consumable", "timePearl_multi", Soho.SELL)), "multi inventory key unknown")
 	)
 

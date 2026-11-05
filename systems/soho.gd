@@ -48,11 +48,9 @@ static func rung_index(side: String, order_value: int) -> int:
 	return index
 
 
-# A good Soho trades: known to the market, and (for buying) not an always-multi item.
-static func is_tradable(kind: String, good_type: String, side: String) -> bool:
-	if not GameData.MARKET["goods"].get(kind, {}).has(good_type):
-		return false
-	return not (side == BUY and kind == "consumable" and Crafting.is_always_multi(good_type))
+# A good Soho trades: any good the market lists (stock is base items, never multi-target variants).
+static func is_tradable(kind: String, good_type: String, _side: String) -> bool:
+	return GameData.MARKET["goods"].get(kind, {}).has(good_type)
 
 
 # £ for one cart line at today's London quote (items at the tier's price).
