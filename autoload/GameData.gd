@@ -2731,8 +2731,11 @@ func _validate_coach(coach: Variant, context: String, errors: Array[String]) -> 
 
 # Keys of a start_fight op and of one of its enemy groups. Stat blocks (hp,
 # attack, plans...) are start_scripted_fight's alone, so they fail as unknown keys.
-const START_FIGHT_KEYS: Array[String] = ["op", "enemies", "win", "lose", "situational", "ally_ids"]
-const START_FIGHT_GROUP_KEYS: Array[String] = ["template", "squad", "count", "level"]
+const START_FIGHT_KEYS: Array[String] = ["op", "enemies", "win", "lose", "situational", "ally_ids", "kit", "items", "alertWaves", "site_id", "faction_id"]
+const START_FIGHT_GROUP_KEYS: Array[String] = ["template", "squad", "count", "guards", "level"]
+const START_FIGHT_KIT_MODES: Array[String] = ["none", "guardKit", "custom"]
+# Group keys that would give one enemy its own loadout; the kit is shared.
+const START_FIGHT_LOADOUT_KEYS: Array[String] = ["kit", "items", "loadout", "inventory", "slots"]
 
 
 # start_fight: `enemies` is a non-empty list of groups, each exactly one of a
@@ -2743,6 +2746,7 @@ func _validate_start_fight(effect: Dictionary, context: String, errors: Array[St
 	for key in effect.keys():
 		if not START_FIGHT_KEYS.has(key):
 			errors.append("%s: start_fight has unknown key '%s' (stat blocks belong to start_scripted_fight)" % [context, key])
+	_validate_start_fight_kit(effect, context, errors)
 	for key in ["win", "lose"]:
 		if effect.has(key) and typeof(effect[key]) != TYPE_STRING and typeof(effect[key]) != TYPE_FLOAT and typeof(effect[key]) != TYPE_INT:
 			errors.append("%s: start_fight %s must be a card index or key" % [context, key])
@@ -2757,8 +2761,15 @@ func _validate_start_fight(effect: Dictionary, context: String, errors: Array[St
 			errors.append("%s: must be an object" % where)
 			continue
 		for key in group.keys():
-			if not START_FIGHT_GROUP_KEYS.has(key):
+			if START_FIGHT_LOADOUT_KEYS.has(key):
+				errors.append("%s: per-enemy loadouts are not supported ('%s'); set kit on the op" % [where, key])
+			elif not START_FIGHT_GROUP_KEYS.has(key):
 				errors.append("%s: unknown key '%s' (stat blocks belong to start_scripted_fight)" % [where, key])
+		if group.has("guards"):
+			if group["guards"] != "vein" or group.has("count") or not group.has("template"):
+				errors.append("%s: guards must be \"vein\", with a template and no count" % where)
+		elif not group.has("count"):
+			errors.append("%s: needs count or guards" % where)
 		if group.has("template") == group.has("squad"):
 			errors.append("%s: needs exactly one of template or squad" % where)
 		elif group.has("template") and not ENEMY_RAID_GUARDS.has(group["template"]):
@@ -2766,11 +2777,40 @@ func _validate_start_fight(effect: Dictionary, context: String, errors: Array[St
 		elif group.has("squad") and not ENEMY_FACTION_SQUADS.has(group["squad"]):
 			errors.append("%s: unknown squad faction '%s'" % [where, group["squad"]])
 		for key in ["count", "level"]:
+			if key == "count" and group.has("guards"):
+				continue
 			var n: Variant = group.get(key)
 			if (typeof(n) != TYPE_INT and typeof(n) != TYPE_FLOAT) or n != floor(n) or n < 1:
 				errors.append("%s: %s must be a whole number of at least 1" % [where, key])
 		if group.has("level") and typeof(group["level"]) in [TYPE_INT, TYPE_FLOAT] and int(group["level"]) > CombatRounds.level_max():
 			errors.append("%s: level above the maximum %d" % [where, CombatRounds.level_max()])
+
+
+# start_fight kit: `kit` none | guardKit | custom; `custom` needs `items`
+# ({ recipe: { "<tier>": qty } }, shared by the whole group), no other mode takes them.
+func _validate_start_fight_kit(effect: Dictionary, context: String, errors: Array[String]) -> void:
+	var mode: Variant = effect.get("kit", "none")
+	if not START_FIGHT_KIT_MODES.has(mode):
+		errors.append("%s: start_fight kit must be none, guardKit or custom" % context)
+		return
+	if mode != "custom":
+		if effect.has("items"):
+			errors.append("%s: start_fight items only go with kit custom" % context)
+		return
+	var items: Variant = effect.get("items")
+	if not items is Dictionary or items.is_empty():
+		errors.append("%s: start_fight kit custom needs a non-empty items map" % context)
+		return
+	for recipe_key in items:
+		var buckets: Variant = items[recipe_key]
+		if not RECIPES.has(recipe_key) or not buckets is Dictionary or buckets.is_empty():
+			errors.append("%s: start_fight items.%s must be a known recipe with { tier: qty }" % [context, recipe_key])
+			continue
+		var max_tier: int = RECIPES[recipe_key]["effectPower"].size() - 1
+		for tier_key in buckets:
+			var qty: Variant = buckets[tier_key]
+			if not str(tier_key).is_valid_int() or int(str(tier_key)) < 1 or int(str(tier_key)) > max_tier 					or (typeof(qty) != TYPE_INT and typeof(qty) != TYPE_FLOAT) or qty != floor(qty) or qty < 1:
+				errors.append("%s: start_fight items.%s.%s needs a valid tier and a whole qty >= 1" % [context, recipe_key, tier_key])
 
 
 func _validate_effect_list(effects: Array, context: String, errors: Array[String]) -> void:

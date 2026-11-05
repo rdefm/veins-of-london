@@ -1,5 +1,7 @@
 extends "res://tests/test_base.gd"
 
+
+const Fixtures := preload("res://tests/support/fixtures.gd")
 # The start_fight op (R§3.7b Event fights): data-driven enemy groups, entered
 # through a forced Preparation, resuming the event at its win or lose card.
 
@@ -22,6 +24,30 @@ func _start(enemies: Array, win: Variant = "won", lose: Variant = "lost") -> voi
 	Events.start_event(EVENT_ID)
 	GameState.state["event"]["cardIndex"] = 1
 	Events.apply_effects([{ "op": "start_fight", "enemies": enemies, "win": win, "lose": lose }])
+
+
+# Units of `recipe_key` in a raider pool: still held plus reserved by the enemies' plans.
+func _pool_units(pool: Dictionary, recipe_key: String) -> int:
+	return GuardKit.unit_count({ recipe_key: pool["items"].get(recipe_key, {}) }) + GuardKit.unit_count({ recipe_key: pool.get("reserved", {}).get(recipe_key, {}) })
+
+
+# Resets and opens the test event with `ctx` as its context, on the fight card.
+func _begin(ctx: Dictionary) -> void:
+	_start([{ "template": "veinGuard", "count": 1, "level": 1 }])
+	GameState.state["combatPrep"] = null
+	GameState.state["event"]["context"] = ctx
+
+
+# A faction vein on site "fv1" guarded by `guards` (tier guard + extras), its kit and the faction's stock.
+func _firm_vein(guards: int) -> void:
+	var vein := {
+		"id": "fv_fv1", "factionId": "firm", "oreType": "physics", "growth": 50, "rampantDays": 0,
+		"security": Cultivating.GUARDED_TIER_ID, "extraGuards": guards - 1, "alarmUpgrades": [], "claimedOnDay": 1,
+		"district": "shoreditch", "siteId": "fv1", "level": 3, "developmentStreak": 0,
+		"hospitability": { "tier": "fair", "bonuses": [] }, "kit": { "shield": 2 },
+	}
+	GameState.state["world"]["sites"] = [Fixtures.site_with_vein("fv1", vein)]
+	GameState.state["factions"]["firm"]["holdings"]["items"]["shield"] = { "2": 3 }
 
 
 func _errors(effect: Dictionary) -> Array[String]:
@@ -126,6 +152,97 @@ func run() -> void:
 	run_case("unknown_card_key_starts_no_fight", func():
 		_start([{ "template": "veinGuard", "count": 1, "level": 1 }], "nowhere", "lost")
 		assert_eq(GameState.state["combatPrep"], null)
+	)
+
+	run_case("kit_and_vein_keys_validate", func():
+		var vein_group := { "template": "veinGuard", "guards": "vein", "level": 2 }
+		assert_eq(_errors(_op({ "enemies": [vein_group] })), [])
+		assert_true(not _errors(_op({ "enemies": [{ "template": "veinGuard", "guards": "vein", "count": 2, "level": 2 }] })).is_empty(), "guards and count")
+		assert_true(not _errors(_op({ "enemies": [{ "template": "veinGuard", "guards": "all", "level": 2 }] })).is_empty(), "guards must be vein")
+		assert_eq(_errors(_op({ "kit": "guardKit", "alertWaves": true })), [])
+		assert_eq(_errors(_op({ "kit": "custom", "items": { "shield": { "2": 2 } } })), [])
+		assert_true(not _errors(_op({ "kit": "custom" })).is_empty(), "custom needs items")
+		assert_true(not _errors(_op({ "kit": "custom", "items": { "nope": { "1": 1 } } })).is_empty(), "unknown recipe")
+		assert_true(not _errors(_op({ "kit": "custom", "items": { "shield": { "9": 1 } } })).is_empty(), "tier out of range")
+		assert_true(not _errors(_op({ "kit": "guardKit", "items": { "shield": { "1": 1 } } })).is_empty(), "items need custom")
+		assert_true(not _errors(_op({ "kit": "bogus" })).is_empty(), "unknown mode")
+		for key in ["kit", "items", "loadout", "slots"]:
+			assert_true(not _errors(_op({ "enemies": [{ "template": "veinGuard", "count": 1, "level": 1, key: {} }] })).is_empty(), "per-enemy " + key)
+	)
+
+	run_case("vein_sized_group_takes_the_vein_guards_less_this_events_adjustment", func():
+		var group := { "template": "veinGuard", "guards": "vein", "level": 2 }
+		_begin({ "site_id": "nowhere" })
+		Events.apply_effects([_op({ "enemies": [group] })])
+		assert_eq(GameState.state["combatPrep"], null, "no vein, no guards, no fight")
+		_begin({ "site_id": "fv1" })
+		_firm_vein(3)
+		Events.add_raid_guards_down(1)
+		Events.apply_effects([_op({ "enemies": [group] })])
+		CombatPrep.commit()
+		var combat: Dictionary = GameState.state["combat"]
+		assert_eq((combat["enemies"] + combat["enemyQueue"]).size(), 2, "3 guards less 1 down")
+		assert_eq(Cultivating.vein_guard_count(Sites.find_site("fv1")["factionVein"]), 3, "vein itself unchanged")
+	)
+
+	run_case("guard_kit_at_a_vein_is_the_veins_real_kit_and_settles_off_it", func():
+		_begin({ "site_id": "fv1" })
+		_firm_vein(2)
+		Events.apply_effects([_op({ "kit": "guardKit" })])
+		CombatPrep.commit()
+		var combat: Dictionary = GameState.state["combat"]
+		assert_eq(_pool_units(combat["raiderKit"], "shield"), 2, "capped at the vein's own kit of 2")
+		combat["raiderKit"]["used"] = { "shield": { "2": 1 } }
+		combat["outcome"] = "win"
+		Combat.exit_combat()
+		assert_eq(Sites.find_site("fv1")["factionVein"]["kit"], { "shield": 1 }, "vein allocation spent")
+		assert_eq(GameState.state["factions"]["firm"]["holdings"]["items"]["shield"], { "2": 2 }, "faction stock spent")
+	)
+
+	run_case("guard_kit_at_a_stockpile_is_the_factions_defend_kit_and_settles_off_stock", func():
+		_begin({ "faction_id": "firm" })
+		GameState.state["factions"]["firm"]["holdings"]["items"]["shield"] = { "2": 3 }
+		Events.apply_effects([_op({ "kit": "guardKit" })])
+		CombatPrep.commit()
+		var combat: Dictionary = GameState.state["combat"]
+		assert_true(combat["raiderKit"]["items"].has("shield"), "faction defend kit")
+		combat["raiderKit"]["used"] = { "shield": { "2": 1 } }
+		combat["outcome"] = "loss"
+		Combat.exit_combat()
+		assert_eq(GameState.state["factions"]["firm"]["holdings"]["items"]["shield"], { "2": 2 })
+	)
+
+	run_case("guard_kit_with_no_vein_or_faction_starts_no_fight", func():
+		_begin({})
+		Events.apply_effects([_op({ "kit": "guardKit" })])
+		assert_eq(GameState.state["combatPrep"], null)
+	)
+
+	run_case("custom_kit_applies_in_any_event_and_changes_no_stock", func():
+		_begin({})
+		var stock_before: Dictionary = GameState.state["factions"]["firm"]["holdings"]["items"].duplicate(true)
+		var inv_before: Dictionary = GameState.state["player"]["inventory"].duplicate(true)
+		Events.apply_effects([_op({ "kit": "custom", "items": { "shield": { "1": 2 } } })])
+		CombatPrep.commit()
+		var combat: Dictionary = GameState.state["combat"]
+		assert_eq(_pool_units(combat["raiderKit"], "shield"), 2, "the authored two")
+		combat["raiderKit"]["used"] = { "shield": { "1": 1 } }
+		combat["outcome"] = "win"
+		Combat.exit_combat()
+		assert_eq(GameState.state["factions"]["firm"]["holdings"]["items"], stock_before, "faction stock untouched")
+		assert_eq(GameState.state["player"]["inventory"], inv_before, "player stock untouched")
+	)
+
+	run_case("alert_waves_add_reinforcements_and_situational_mods_apply", func():
+		_begin({ "site_id": "fv1" })
+		_firm_vein(2)
+		GameState.state["event"]["reinforce"] = { "ticks": 0, "length": 3, "arrived": true }
+		var mods := [{ "if": { "cash": { "atLeast": 0 } }, "oneAtATime": true }]
+		Events.apply_effects([_op({ "enemies": [{ "template": "veinGuard", "count": 1, "level": 2 }], "alertWaves": true, "situational": mods })])
+		CombatPrep.commit()
+		var combat: Dictionary = GameState.state["combat"]
+		assert_eq(combat["enemies"].size() + combat["enemyQueue"].size(), 3, "1 + the 2 who have arrived")
+		assert_eq(combat["enemies"].size(), 1, "oneAtATime")
 	)
 
 	GameData.EVENTS.erase(EVENT_ID)

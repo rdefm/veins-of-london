@@ -20,7 +20,7 @@ const KIND_STREET_MUGGING := "street_mugging"
 const KIND_FACTION_AMBUSH := "faction_ambush"
 const KIND_HOME_RAID := "home_raid"
 const KIND_SPAR := "spar"
-# An event's start_fight op; args: { groups, winCard, loseCard, allyIds, situational }.
+# An event's start_fight op; args: { groups, winCard, loseCard, allyIds, situational, kit }.
 const KIND_EVENT_FIGHT := "event_fight"
 
 const FORCED_KINDS: Array[String] = [KIND_MUGGING, KIND_ARCHIE_DEAL_MUGGING, KIND_STREET_MUGGING, KIND_FACTION_AMBUSH, KIND_HOME_RAID, KIND_EVENT_FIGHT]
@@ -106,7 +106,7 @@ static func _dispatch(kind: String, args: Dictionary) -> Dictionary:
 		KIND_HOME_RAID:
 			Combat.start_home_raid_combat(args)
 		KIND_EVENT_FIGHT:
-			Combat.start_event_fight(args["groups"], int(args["winCard"]), int(args["loseCard"]), args.get("allyIds", []), args.get("situational", []))
+			Combat.start_event_fight(args["groups"], int(args["winCard"]), int(args["loseCard"]), args.get("allyIds", []), args.get("situational", []), args.get("kit", {}))
 		KIND_DEBUG:
 			Combat.start_debug_combat(args)
 		KIND_SPAR:

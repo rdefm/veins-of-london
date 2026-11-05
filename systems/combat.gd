@@ -401,21 +401,76 @@ static func event_fight_enemies(groups: Array) -> Array:
 			else:
 				var entry: Dictionary = generate_raid_enemy(null, 1, 1, str(group["template"]))[0]
 				entry["level"] = level
+				if group.has("arriveRound"):
+					entry["arriveRound"] = int(group["arriveRound"])
 				enemies.append(entry)
 	return enemies
+
+
+# The shared item pool an event fight's enemies draw on (R§3.7b Event fights),
+# { items, used } as raider_kit(). `kit.mode` "custom" is its authored `items`
+# (free); "guardKit" is the real defend kit of `kit.siteId`'s faction vein
+# (capped at the vein's allocation) or of `kit.factionId`'s stockpile; else {}.
+static func event_fight_kit(kit: Dictionary, enemy_count: int) -> Dictionary:
+	match str(kit.get("mode", "none")):
+		"custom":
+			return { "items": kit["items"].duplicate(true), "used": {} }
+		"guardKit":
+			if kit.has("siteId"):
+				var site: Variant = Sites.find_site(str(kit["siteId"]))
+				if site == null or site["factionVein"] == null:
+					return {}
+				var vein: Dictionary = site["factionVein"]
+				var pool := FactionSim.raider_kit(str(vein["factionId"]), "defend", enemy_count)
+				var held: Dictionary = vein.get("kit", {})
+				for recipe_key in pool["items"].keys():
+					var room := int(held.get(recipe_key, 0))
+					var buckets: Dictionary = pool["items"][recipe_key]
+					while GuardKit.unit_count({ recipe_key: buckets }) > room:
+						var low: String = buckets.keys().reduce(func(a, b): return a if int(a) < int(b) else b)
+						buckets[low] = int(buckets[low]) - 1
+						if int(buckets[low]) <= 0:
+							buckets.erase(low)
+					if buckets.is_empty():
+						pool["items"].erase(recipe_key)
+				return pool
+			return FactionSim.raider_kit(str(kit.get("factionId", "")), "defend", enemy_count)
+	return {}
+
+
+# Takes the units an event fight's enemies used off the real kit it drew on
+# (faction holdings, plus the vein's allocation for a vein): raid settlement
+# for a guardKit; a custom kit changes no stock.
+static func _settle_event_kit(kit: Dictionary, used: Dictionary) -> void:
+	if str(kit.get("mode", "none")) != "guardKit" or used.is_empty():
+		return
+	if kit.has("siteId"):
+		var site: Variant = Sites.find_site(str(kit["siteId"]))
+		if site == null or site["factionVein"] == null:
+			return
+		FactionSim.settle_raider_kit(str(site["factionVein"]["factionId"]), used)
+		var held: Dictionary = site["factionVein"].get("kit", {})
+		for recipe_key in used:
+			var left := int(held.get(recipe_key, 0)) - GuardKit.unit_count({ recipe_key: used[recipe_key] })
+			if left > 0:
+				held[recipe_key] = left
+			else:
+				held.erase(recipe_key)
+	else:
+		FactionSim.settle_raider_kit(str(kit.get("factionId", "")), used)
 
 
 # A data-driven event fight (events.gd "start_fight", entered through
 # CombatPrep): `groups` as event_fight_enemies(). `win_card` / `lose_card` are
 # the card indexes the event resumes at; a flight takes the lose route.
 # `ally_ids` / `situational` follow an event raid fight's rules.
-static func start_event_fight(groups: Array, win_card: int, lose_card: int, ally_ids: Array = [], situational: Array = []) -> void:
+static func start_event_fight(groups: Array, win_card: int, lose_card: int, ally_ids: Array = [], situational: Array = [], kit: Dictionary = {}) -> void:
 	var enemies := event_fight_enemies(groups)
 	var log_lines := ["%s steps out to meet you." % _guard_group_name(enemies)]
 	var allies := _gather_raid_allies(ally_ids, log_lines)
 	_add_hired_muscle(allies, log_lines)
-	_start_combat(CONTEXT_EVENT_FIGHT, null, enemies, log_lines, "", allies, null, {}, {},
-		{ "situational": situational_active(situational), "eventFight": { "winCard": win_card, "loseCard": lose_card } })
+	_start_combat(CONTEXT_EVENT_FIGHT, null, enemies, log_lines, "", allies, null, event_fight_kit(kit, enemies.size()), {},
+		{ "situational": situational_active(situational), "eventFight": { "winCard": win_card, "loseCard": lose_card, "kit": kit.duplicate(true) } })
 
 
 # Faction-ambush intro event's fight (Ambush): a weighted pick from the
@@ -1707,6 +1762,9 @@ static func exit_combat() -> Dictionary:
 		script_resume = int(combat["script"]["resumeCard"])
 	elif CombatRounds.is_demo(combat):
 		script_resume = int(combat["demo"]["resumeCard"])
+
+	if combat.get("eventFight") is Dictionary:
+		_settle_event_kit(combat["eventFight"].get("kit", {}), raider_items_used)
 
 	if CombatRounds.is_spar(combat):
 		Sparring.settle(combat["spar"], outcome)

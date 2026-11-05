@@ -1,7 +1,7 @@
 extends "res://tests/test_base.gd"
 
 const EVENT_ID := "james_experiment"
-const CHOICE_CARD := 12
+const CHOICE_CARD := 13
 
 # James's experimenting lesson (.scratch/recipe-acquisition/spec.md § Event
 # rename and rewrite): reached from Archie's motion beat, it teaches Time
@@ -29,7 +29,7 @@ func _fresh() -> void:
 func _play_to_bench() -> Array:
 	Events.start_event(EVENT_ID)
 	var seen := []
-	while int(GameState.state["event"]["cardIndex"]) != CHOICE_CARD:
+	while int(GameState.state["event"]["cardIndex"]) != CHOICE_CARD and seen.size() < 40:
 		seen.append(int(GameState.state["event"]["cardIndex"]))
 		Events.advance()
 	return seen
@@ -57,7 +57,9 @@ func _perfect_run() -> Dictionary:
 
 
 func _finish_event() -> void:
-	while GameState.state["event"] != null:
+	var guard := 0
+	while GameState.state["event"] != null and guard < 60:
+		guard += 1
 		Events.advance()
 
 
@@ -77,7 +79,7 @@ func run() -> void:
 		_fresh()
 		var relation_before := int(GameState.state["contacts"]["james"]["relation"])
 		var seen := _play_to_bench()
-		assert_true(seen.has(9) and not seen.has(10) and not seen.has(11), "first-timer hears the hint, not the disbelief")
+		assert_true(seen.has(10) and not seen.has(11) and not seen.has(12), "first-timer hears the hint, not the disbelief")
 		Events.choose(0)
 		assert_eq(GameState.state["currentScreen"], "hq_lab_bench", "bench opened")
 		assert_eq(LessonSession.lesson()["goalRank"], 3, "goal rank 3")
@@ -103,7 +105,7 @@ func run() -> void:
 		_fresh()
 		RecipeKnowledge.grant_rung("timePearl", "hint1", "exact")
 		var seen := _play_to_bench()
-		assert_true(seen.has(10) and seen.has(11) and not seen.has(9), "variant lines, not the hint")
+		assert_true(seen.has(11) and seen.has(12) and not seen.has(10), "variant lines, not the hint")
 		Events.choose(0)
 		assert_true(LessonSession.is_running(), "the lesson still runs")
 		assert_eq(RecipeKnowledge.rung_state("timePearl", "hint1"), "exact", "an exact hint isn't downgraded")

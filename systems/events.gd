@@ -2388,15 +2388,70 @@ static func _event_district() -> String:
 # (a card key or an index; a flight takes the lose card).
 static func _start_fight(effect: Dictionary) -> void:
 	var cards: Array = live_cards()
+	var kit := _fight_kit(effect)
+	var groups := _fight_groups(effect)
 	var args := {
-		"groups": effect["enemies"].duplicate(true),
+		"groups": groups,
 		"winCard": _goto_index(effect["win"], cards), "loseCard": _goto_index(effect["lose"], cards),
-		"allyIds": _event_ally_ids(effect), "situational": effect.get("situational", []),
+		"allyIds": _event_ally_ids(effect), "situational": effect.get("situational", []), "kit": kit,
 	}
+	var event_id: String = GameState.state["event"]["eventId"]
 	if int(args["winCard"]) < 0 or int(args["loseCard"]) < 0:
-		push_error("Events: start_fight in '%s' names a win or lose card that does not exist" % GameState.state["event"]["eventId"])
+		push_error("Events: start_fight in '%s' names a win or lose card that does not exist" % event_id)
+		return
+	if kit.has("invalid"):
+		push_error("Events: start_fight in '%s' has kit guardKit with no faction vein or stockpile faction" % event_id)
+		return
+	if groups.is_empty():
 		return
 	CombatPrep.request(CombatPrep.KIND_EVENT_FIGHT, args)
+
+
+# A start_fight op's groups with `guards: "vein"` resolved to this event's guard
+# count (the vein's own, less guardsDown, as _start_raid_combat); a group that
+# comes to zero drops out. With `alertWaves`, reinforcements the Alarm has
+# called join the first group's template (queued at the usual round, or already
+# standing once they have arrived), as in a vein raid.
+static func _fight_groups(effect: Dictionary) -> Array:
+	var groups: Array = []
+	var site: Variant = Sites.find_site(_event_site_id(effect))
+	var cfg: Dictionary = GameData.RAID_SECURITY["reinforcement"]
+	for group in effect["enemies"]:
+		var entry: Dictionary = group.duplicate(true)
+		if entry.has("guards"):
+			entry.erase("guards")
+			var count := 0
+			if site != null and site["factionVein"] != null:
+				count = Cultivating.vein_guard_count(site["factionVein"]) - int(_live_event_context().get("guardsDown", 0))
+			entry["count"] = count
+		if int(entry["count"]) > 0:
+			groups.append(entry)
+	if groups.is_empty() or not bool(effect.get("alertWaves", false)):
+		return groups
+	if reinforcements_arrived():
+		groups.append({ "template": cfg["template"], "count": int(cfg["guards"]), "level": groups[0]["level"] })
+	elif reinforcements_pending():
+		GameState.state["event"]["reinforce"]["arrived"] = true
+		groups.append({ "template": cfg["template"], "count": int(cfg["guards"]), "level": groups[0]["level"], "arriveRound": int(cfg["arriveRound"]) })
+	return groups
+
+
+# A start_fight op's kit (R§3.7b Event fights): `custom` its authored items,
+# `guardKit` the real kit of this event's faction vein (else its stockpile
+# faction); { "invalid": true } when guardKit has neither. {} = none.
+static func _fight_kit(effect: Dictionary) -> Dictionary:
+	var mode := str(effect.get("kit", "none"))
+	if mode == "custom":
+		return { "mode": "custom", "items": effect["items"].duplicate(true) }
+	if mode != "guardKit":
+		return {}
+	var site: Variant = Sites.find_site(_event_site_id(effect))
+	if site != null and site["factionVein"] != null:
+		return { "mode": "guardKit", "siteId": site["id"] }
+	var faction_id := _event_faction_id(effect)
+	if GameState.state["factions"].has(faction_id):
+		return { "mode": "guardKit", "factionId": faction_id }
+	return { "invalid": true }
 
 
 # A caught stockpile raid's fight: one enemy per stockpile guard, at the
