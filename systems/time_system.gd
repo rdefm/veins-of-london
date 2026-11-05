@@ -192,6 +192,7 @@ static func daily_tick() -> void:
 	Collective.maybe_queue_a2_nadia_defend_raid()  # ⑤d2 after ⑤d expires yesterday's window, so it re-queues daily
 	Perks.daily_tend()                   # ⑤d2b members tend Partner-perk turf veins the player skipped yesterday; after ⑤d so raided-away veins are gone
 	Turf.recompute()                     # ⑤d3 after ⑤b-⑤d so claims, rivalry and raids have moved today's veins; before ⑤e and ⑥.5f so both read it
+	FactionSim.feed_veins()              # ⑤d4 holding factions apply Root Feed to their lowest unfed vein; before ⑤e so boosts start this day
 	FactionSim.tend_and_prune()          # ⑤e after ⑤b-⑤d so today's claims and ownership changes are tended
 	FactionSim.craft()                   # ⑤f after ⑤e so today's prune ore can be crafted
 	FactionSim.consume()                 # ⑤g after ⑤c/⑤d so today's kit burns are drawn; after ⑤f so today's crafts can cover them

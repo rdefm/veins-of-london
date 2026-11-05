@@ -134,6 +134,36 @@ func run() -> void:
 		assert_eq(FactionSim.maturing_vein([first, second]), null, "no maturing vein once every vein is capped")
 	)
 
+	run_case("a_holding_faction_feeds_its_lowest_growth_unfed_vein_up_to_the_limit", func():
+		GameState.reset()
+		var low := _vein("low", "collective", "life", 20)
+		var mid := _vein("mid", "collective", "life", 40)
+		_seed_veins([mid, low])
+		GameState.state["factions"]["collective"]["holdings"]["items"]["rootFeed"] = { "2": 3, "4": 1 }
+		FactionSim.feed_veins()
+		assert_true(low.has("boosts") and low["boosts"].has("rootFeed"), "lowest vein fed")
+		assert_eq(int(low["boosts"]["rootFeed"]["tier"]), 2, "lowest tier used")
+		assert_true(not mid.has("boosts"), "limit of one a day")
+		assert_eq(FactionSim.item_held("collective", "rootFeed"), 3)
+		FactionSim.feed_veins()
+		assert_true(mid.has("boosts"), "next day the next-lowest unfed vein")
+		assert_eq(FactionSim.item_held("collective", "rootFeed"), 2)
+		FactionSim.feed_veins()
+		assert_eq(FactionSim.item_held("collective", "rootFeed"), 2, "no unfed vein left, nothing spent")
+	)
+
+	run_case("a_faction_without_root_feed_applies_nothing_and_the_collective_target_is_unchanged", func():
+		GameState.reset()
+		var vein := _vein("s1", "collective", "life", 20)
+		_seed_veins([vein])
+		GameState.state["factions"]["collective"]["holdings"]["items"].erase("rootFeed")
+		GameState.state["factions"]["collective"]["holdings"]["items"]["healingSalve"] = { "2": 4 }
+		FactionSim.feed_veins()
+		assert_true(not vein.has("boosts"))
+		assert_eq(FactionSim.craft_target("collective", "rootFeed"), 5)
+		assert_true(not GameData.FACTIONS["collective"]["consumes"].has("rootFeed"))
+	)
+
 	run_case("veins_below_the_prune_threshold_are_not_pruned", func():
 		GameState.reset()
 		_seed_veins([_vein("s1", "collective", "life", 84)])

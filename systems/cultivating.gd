@@ -255,11 +255,17 @@ static func spend_and_record_boost(place: Dictionary, item: String, tier: int) -
 	if Stash.player_item_tier_qty(item, tier) <= 0:
 		return { "ok": false, "reason": "None left." }
 	Stash.player_item_remove_from_tier(item, tier, 1)
+	return { "ok": true, "until": record_boost(place, item, tier), "days": days }
+
+
+# Writes place.boosts[item] for the item's duration at `tier`; no spend.
+# Returns the last day it runs.
+static func record_boost(place: Dictionary, item: String, tier: int) -> int:
 	if not place.has("boosts"):
 		place["boosts"] = {}
-	var until: int = int(GameState.state["world"]["day"]) + days
+	var until: int = int(GameState.state["world"]["day"]) + boost_days_for(item, tier)
 	place["boosts"][item] = { "until": until, "power": boost_power_for(item, tier), "tier": tier }
-	return { "ok": true, "until": until, "days": days }
+	return until
 
 
 # Staff auto-feed: applies one Root Feed from the shared pool (never the

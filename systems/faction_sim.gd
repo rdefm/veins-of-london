@@ -176,6 +176,42 @@ static func _tend_and_prune_faction(faction_id: String, veins: Array) -> void:
 		_prune(faction_id, vein, depth, yield_mult)
 
 
+# Rollover step: each faction holding Root Feed applies one to its
+# lowest-growth vein not already fed, up to VEIN_GROWTH.factionRootFeedPerDay
+# a day. Takes the lowest tier held; no other item is ever applied.
+static func feed_veins() -> void:
+	var limit: int = int(GameData.VEIN_GROWTH["factionRootFeedPerDay"])
+	for faction_id in GameData.FACTIONS:
+		var veins: Array = []
+		for site in GameState.state["world"]["sites"]:
+			var vein: Variant = site["factionVein"]
+			if vein != null and vein["factionId"] == faction_id and not Cultivating.boost_active(vein, Cultivating.ROOT_FEED):
+				veins.append(vein)
+		veins.sort_custom(func(a, b): return _growth_order(a, b, true))
+		for vein in veins.slice(0, limit):
+			var tier := _lowest_item_tier(faction_id, Cultivating.ROOT_FEED)
+			if tier < 0 or Cultivating.boost_days_for(Cultivating.ROOT_FEED, tier) <= 0:
+				break
+			take_item_at_tier(faction_id, Cultivating.ROOT_FEED, tier)
+			Cultivating.record_boost(vein, Cultivating.ROOT_FEED, tier)
+
+
+static func _lowest_item_tier(faction_id: String, recipe_key: String) -> int:
+	var lowest := -1
+	for tier_key in _holdings(faction_id)["items"].get(recipe_key, {}):
+		if int(_holdings(faction_id)["items"][recipe_key][tier_key]) > 0 and (lowest < 0 or int(tier_key) < lowest):
+			lowest = int(tier_key)
+	return lowest
+
+
+static func take_item_at_tier(faction_id: String, recipe_key: String, tier: int) -> void:
+	var buckets: Dictionary = _holdings(faction_id)["items"][recipe_key]
+	var key := str(tier)
+	buckets[key] = int(buckets[key]) - 1
+	if int(buckets[key]) <= 0:
+		buckets.erase(key)
+
+
 # The one vein a faction leaves unpruned so it can grow past
 # developmentThreshold and level up: of its veins below their level cap, the
 # highest growth (tie: siteId). null once every vein is at its cap.

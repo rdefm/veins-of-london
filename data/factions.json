@@ -24,7 +24,7 @@
     "cultivateSkill": 4,
     "fieldwork": { "actionsPerBlock": 2, "tendAtOrBelow": 50, "pruneFloor": 51, "pruneDepthMult": 2 },
     "craftSkill": 2,
-    "craftTargets": { "healingSalve": { "kitUse": 1, "sellQuota": 28 }, "enhancementPowder": { "kitUse": 0, "sellQuota": 31 }, "bloom": { "kitUse": 0, "sellQuota": 3 }, "smellingSalts": { "kitUse": 0, "sellQuota": 3 }, "stiffUpperLip": { "kitUse": 0, "sellQuota": 3 }, "goodYear": { "kitUse": 0, "sellQuota": 3 }, "rootFeed": { "kitUse": 0, "sellQuota": 3 } },
+    "craftTargets": { "healingSalve": { "kitUse": 1, "sellQuota": 28 }, "enhancementPowder": { "kitUse": 0, "sellQuota": 31 }, "bloom": { "kitUse": 0, "sellQuota": 3 }, "smellingSalts": { "kitUse": 0, "sellQuota": 3 }, "stiffUpperLip": { "kitUse": 0, "sellQuota": 3 }, "goodYear": { "kitUse": 0, "sellQuota": 3 }, "rootFeed": { "kitUse": 2, "sellQuota": 3 } },
     "primaryOre": "life",
     "secondaryOre": "emotion",
     "aggressionPersonality": 0.76,
@@ -40,8 +40,7 @@
       "rootFeed"
     ],
     "consumes": {
-      "healingSalve": 3,
-      "rootFeed": 2
+      "healingSalve": 3
     },
     "raidKits": { "attack": { "healingBurst": 1 }, "defend": { "healingBurst": 1 } },
     "speaker": "nadia",

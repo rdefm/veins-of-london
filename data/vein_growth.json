@@ -23,6 +23,7 @@
   "cultivateGainMaxOffset": 9,
   "collapseChancePerDay": 0.15,
   "factionPruneThreshold": 85,
+  "factionRootFeedPerDay": 1,
   "dayOneFactionGrowth": 70,
   "dayOneFactionTierBump": 1,
   "dayOneFactionMaxLevelShare": 0.75,
