@@ -51,6 +51,7 @@ func run() -> void:
 		assert_true(CombatRounds.coach_hint("guard") != "")
 		var errors: Array[String] = []
 		var script := _script()
+		script["resumeCard"] = 0
 		script["coach"] = { "lessons": { "1": "" }, "allowed": { "1": ["nope"] } }
 		GameData._validate_effect_list([{ "op": "start_scripted_fight", "script": script }], "t", errors)
 		assert_eq(errors.size(), 2)
