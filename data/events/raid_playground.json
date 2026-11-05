@@ -108,7 +108,7 @@
         {
           "id": "option4",
           "label": "Blast the door open",
-          "requires": { "item": "blast", "display": "disable" },
+          "requires": { "item": "blast", "optional": true, "display": "disable" },
           "items": [{ "item": "blast", "optional": true, "label": "Blast", "effect": { "kind": "unlock" } }],
           "effects": [],
           "result_text": "",
@@ -143,7 +143,7 @@
           "id": "option1",
           "effects": [],
           "result_text": "",
-          "requires": { "item": "blast", "display": "disable" },
+          "requires": { "item": "blast", "optional": true, "display": "disable" },
           "goto": 8,
           "items": [{ "item": "blast", "optional": true, "label": "Blast", "effect": { "kind": "unlock" } }]
         },
@@ -251,6 +251,7 @@
         {
           "id": "option4",
           "label": "Use a Skeleton Key",
+          "effects": [],
           "result_text": "",
           "requires": { "item": "skeletonKey" },
           "goto": 8
@@ -328,6 +329,7 @@
         {
           "id": "option4",
           "label": "Cut the camera signal",
+          "effects": [],
           "result_text": "You trigger the Signal Failure. The camera's light is still on, but you know that it won't be sending data anytime soon.",
           "requires": {
             "item": "signalFailure",
@@ -539,7 +541,7 @@
     },
     { "key": "c12", "type": "narration", "text": "You leave the church grounds, the stolen ore warm in the bag under your arm.", "label": null, "speaker": null, "end": true },
     {
-      "key": "c19", "type": "narration", "text": "You have moments before the fighting begins. If you have any last minute items you want to use before thing's kick off, now's the time.",
+      "key": "c19", "type": "narration", "label": null, "speaker": null, "text": "You have moments before the fighting begins. If you have any last minute items you want to use before thing's kick off, now's the time.",
       "choices": [
         {
           "id": "option1",
@@ -550,7 +552,7 @@
         }
       ]
     },
-    { "key": "c18", "type": "narration", "text": "You walk away from the church grounds, happy to have added another vein to your portfolio." }
+    { "key": "c18", "type": "narration", "label": null, "speaker": null, "text": "You walk away from the church grounds, happy to have added another vein to your portfolio." }
   ],
   "observations": {
     "hall_approach": {

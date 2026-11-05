@@ -16,3 +16,5 @@
 - [ ] Root cause identified and noted in the ticket
 - [ ] `GameData.validate()` returns no errors for raid_playground
 - [ ] All seven tests above pass
+
+**Root cause:** 012359e5 content rewrite left c18/c19 without label/speaker, two requires-only options (Use a Skeleton Key c5, Cut the camera signal) without effects, dropped `optional: true` from the two Blast requires (item never spent/alert never raised), and removed the "Guess the door code" option the prophets-breath test targeted (test deleted).

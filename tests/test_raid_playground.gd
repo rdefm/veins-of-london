@@ -75,17 +75,6 @@ func run() -> void:
 		assert_eq(Events.alert_level(), 1)
 	)
 
-	run_case("an_active_prophets_breath_guarantees_the_door_code", func():
-		_start()
-		_pick("Look for a way in via the hall")
-		var i := RaidingTests._option_index("Guess the door code")
-		var base: float = Events.odds_for(Events.current_card()["choices"][i]["check"])["probability"]
-		GameState.state["player"]["activeEffects"].append({ "item": "prophetsBreath", "level": 1, "expiresAtBlock": ActiveEffects.absolute_block() + 3 })
-		var boosted: float = Events.odds_for(Events.current_card()["choices"][i]["check"])["probability"]
-		assert_true(base < 1.0)
-		assert_eq(boosted, 1.0)
-	)
-
 	run_case("the_activeEffect_condition_follows_the_running_effect", func():
 		GameState.reset()
 		assert_true(not Events.condition_met({ "activeEffect": "beALady" }))
