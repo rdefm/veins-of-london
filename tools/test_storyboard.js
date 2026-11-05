@@ -33,11 +33,11 @@ const {
   liveEventOptions, openOrImport, lintEvent, lintDraft, inboundRefs, inboundWarnings,
   OBS_ORES, obsIds, effectiveObservation, setCardObserve, addObservation, renameObservation, observationUses, deleteObservation, addObservationBlock, deleteObservationBlock, setObservationMiss, addObservationTier, deleteObservationTier, setObservationTier,
   parseItemCatalogue, itemChoices, optionTags, autoOfferItems, setExcludeItem, setOptionTag, conditionCells, optionMechanicsRows, setMechItemControl,
-  itemEffectKind, setItemEffectKind, setEffectTag, setNextCheck, nonAlertEffects, alertMode, setAlertMode, setAlertCover, addAlertOp, removeAlertOp, alertWarnings, coverItems, setCoverText, setAlertEffects, setOtherEffects, setRaidEffects, newRaidOp, setRaidDepth, setGuardCount, nonManagedEffects, isRaidOp, securityCond, securityRead, setSecurityGate, siteWarnings,
+  itemEffectKind, setItemEffectKind, setEffectTag, setNextCheck, nonAlertEffects, alertMode, setAlertMode, setAlertCover, addAlertOp, removeAlertOp, alertWarnings, coverItems, setCoverText, setAlertEffects, setOtherEffects, setRaidEffects, newRaidOp, setRaidDepth, setGuardCount, nonManagedEffects, isRaidOp, securityCond, securityRead, setSecurityGate, siteWarnings, isFightOp, parseEnemyCatalogue, newFightOp, addFightGroup, removeFightGroup, setFightGroupSource, setFightGroupCount, setFightGroupLevel, setFightKitMode, setFightItem, setFightDest, setFightEffects, fightWarnings, draftHasSite, fightDests, siteScan,
   pickEntries, setPickOn, setPickObservation, setPickReason, addPickOre, deletePickOre, addPickTier, deletePickTier, setPickAtLeast, allLinks, obsLevels, pickQualifying, observedHolds,
 } = new Function(
   html.slice(ss, se) + html.slice(s, e) +
-    "\nfunction setMechItemControl(f) { mechItemControl = f; }\nreturn { itemEffectKind, setItemEffectKind, setEffectTag, setNextCheck, nonAlertEffects, alertMode, setAlertMode, setAlertCover, addAlertOp, removeAlertOp, alertWarnings, coverItems, setCoverText, setAlertEffects, setOtherEffects, setRaidEffects, newRaidOp, setRaidDepth, setGuardCount, nonManagedEffects, isRaidOp, securityCond, securityRead, setSecurityGate, siteWarnings, parseItemCatalogue, itemChoices, optionTags, autoOfferItems, setExcludeItem, setOptionTag, conditionCells, optionMechanicsRows, setMechItemControl, parseProposal, parseDraft, serialiseDraft, ensureKeys, legacyToDraft, nextPos, playOrder, flatCards, thenText," +
+    "\nfunction setMechItemControl(f) { mechItemControl = f; }\nreturn { itemEffectKind, setItemEffectKind, setEffectTag, setNextCheck, nonAlertEffects, alertMode, setAlertMode, setAlertCover, addAlertOp, removeAlertOp, alertWarnings, coverItems, setCoverText, setAlertEffects, setOtherEffects, setRaidEffects, newRaidOp, setRaidDepth, setGuardCount, nonManagedEffects, isRaidOp, securityCond, securityRead, setSecurityGate, siteWarnings, isFightOp, parseEnemyCatalogue, newFightOp, addFightGroup, removeFightGroup, setFightGroupSource, setFightGroupCount, setFightGroupLevel, setFightKitMode, setFightItem, setFightDest, setFightEffects, fightWarnings, draftHasSite, fightDests, siteScan, parseItemCatalogue, itemChoices, optionTags, autoOfferItems, setExcludeItem, setOptionTag, conditionCells, optionMechanicsRows, setMechItemControl, parseProposal, parseDraft, serialiseDraft, ensureKeys, legacyToDraft, nextPos, playOrder, flatCards, thenText," +
     " jsonBlockRange, spliceDraft, writableProposal, cardByKey, makeHistory," +
     " cardPos, insertCard, deleteCard, moveCard, danglingLinks, hasCycle, buildGraph, elkGraph, placeLayout, setNodePositions, clearLayout, applyPositions," +
     " findCycle, addBranch, renameBranch, deleteBranch, inboundLinks, setCardGoto, setThen," +
@@ -2483,6 +2483,105 @@ test("siteWarnings flags site effects and security conditions only when the even
   assert.deepStrictEqual(siteWarnings(draft), []);
   fx.pop(); fx[0].site_id = "s1";
   assert.deepStrictEqual(siteWarnings(draft), []);
+});
+
+const ENEMIES_TEXT = JSON.stringify({
+  raidGuards: { veinGuard: { name: "Vein Guard" }, orichalchumDealer: { name: "Orichalchum Dealer" } },
+  factionSquads: { firm: [], guild: [] },
+});
+const ROUNDS_TEXT = JSON.stringify({ levelMax: 5 });
+
+test("enemy catalogue reads templates, squads and the level cap from the game's data", () => {
+  const cat = parseEnemyCatalogue(ENEMIES_TEXT, ROUNDS_TEXT);
+  assert.deepStrictEqual(cat, { templates: [{ id: "veinGuard", name: "Vein Guard" }, { id: "orichalchumDealer", name: "Orichalchum Dealer" }], squads: ["firm", "guild"], levelMax: 5 });
+  assert.strictEqual(parseEnemyCatalogue("nope", ROUNDS_TEXT), null);
+  assert.strictEqual(parseEnemyCatalogue(ENEMIES_TEXT, "nope").levelMax, 5);
+  const real = require("node:fs").readFileSync(path.join(__dirname, "..", "data", "enemies.json"), "utf-8");
+  const realCat = parseEnemyCatalogue(real, require("node:fs").readFileSync(path.join(__dirname, "..", "data", "combat_rounds.json"), "utf-8"));
+  assert(realCat.templates.some((t) => t.id === "veinGuard") && realCat.squads.includes("firm"));
+  assert.strictEqual(parseItemCatalogue(JSON.stringify({ recipes: { shield: { name: "Shield", effectPower: [0, 1, 2, 3] } } }))[0].maxTier, 3);
+});
+
+test("fight editor: groups, all three kit modes, destinations; other effects stay verbatim", () => {
+  const { draft } = parseDraft(draftText);
+  const cat = parseEnemyCatalogue(ENEMIES_TEXT, ROUNDS_TEXT);
+  const fx = () => cardByKey(draft, "c2").choices[0].success.effects;
+  const op = newFightOp(cat);
+  assert.deepStrictEqual(op, { op: "start_fight", enemies: [{ template: "veinGuard", count: 1, level: 1 }], win: "", lose: "" });
+  addFightGroup(op, cat);
+  setFightGroupSource(op, 1, "squad", "firm"); setFightGroupCount(op, 1, "2"); setFightGroupLevel(op, 1, "3", 5);
+  assert.deepStrictEqual(op.enemies[1], { squad: "firm", count: 2, level: 3 });
+  setFightGroupSource(op, 0, "template", "orichalchumDealer");
+  assert.deepStrictEqual(Object.keys(op.enemies[0]), ["template", "count", "level"]);
+  assert.throws(() => setFightGroupLevel(op, 1, "6", 5)); assert.throws(() => setFightGroupCount(op, 1, "0")); assert.throws(() => setFightGroupCount(op, 1, "1.5"));
+  assert.throws(() => removeFightGroup(newFightOp(cat), 0));
+  removeFightGroup(op, 0);
+  assert.deepStrictEqual(op.enemies, [{ squad: "firm", count: 2, level: 3 }]);
+  // kit modes
+  const items = [{ id: "shield", maxTier: 3 }];
+  assert.throws(() => setFightItem(op, "shield", 1, 1, items), /custom/);
+  setFightKitMode(op, "custom");
+  setFightItem(op, "shield", 2, 3, items); setFightItem(op, "shield", 1, 1, items);
+  assert.deepStrictEqual(op.items, { shield: { 2: 3, 1: 1 } });
+  assert.throws(() => setFightItem(op, "shield", 4, 1, items)); assert.throws(() => setFightItem(op, "nope", 1, 1, items));
+  setFightItem(op, "shield", 1, 0, items); setFightItem(op, "shield", 2, 0, items);
+  assert.deepStrictEqual(op.items, {});
+  setFightItem(op, "shield", 2, 3, items);
+  setFightKitMode(op, "guardKit");
+  assert.deepStrictEqual([op.kit, "items" in op], ["guardKit", false]);
+  setFightKitMode(op, "none");
+  assert.deepStrictEqual([("kit" in op), ("items" in op)], [false, false]);
+  setFightKitMode(op, "custom"); setFightItem(op, "shield", 2, 3, items);
+  // destinations are card keys of the draft
+  assert.throws(() => setFightDest(draft, op, "win", "zzz"));
+  setFightDest(draft, op, "win", "c8"); setFightDest(draft, op, "lose", "c4");
+  // placing it leaves other effects alone
+  const other = { op: "give_cash", amount: 5 };
+  setEffects(draft, "c2", 0, "success", [other]);
+  setFightEffects(draft, "c2", 0, "success", [op]);
+  assert.deepStrictEqual(fx(), [other, op]);
+  assert(!nonManagedEffects(fx()).includes(op));
+  setOtherEffects(draft, "c2", 0, "success", [{ op: "set_flag", flag: "z", value: true }]);
+  assert.deepStrictEqual(fx().map((e) => e.op), ["set_flag", "start_fight"]);
+  // the destinations are links: the graph sees them, deleting a target reports them, and a loop is refused
+  assert.deepStrictEqual(fightDests(cardByKey(draft, "c2")).map((d) => d.key), ["c8", "c4"]);
+  assert(danglingLinks(draft, "c4").some((l) => l.from.includes("fight lose")));
+  assert.throws(() => setFightEffects(draft, "c2", 0, "success", [{ ...op, win: "c1" }]), /loop/);
+  assert.strictEqual(fx()[1].win, "c8");
+  // round trip and promotion are lossless, and the destination keys survive
+  const re = parseDraft(serialiseDraft(draft)).draft;
+  assert.deepStrictEqual(cardByKey(re, "c2").choices[0].success.effects[1], op);
+  const ev = promoteDraft(re).event;
+  const promoted = ev.cards.find((c) => c.key === "c2").choices[0].success.effects.find(isFightOp);
+  assert.deepStrictEqual(promoted, op);
+  assert(ev.cards.some((c) => c.key === "c4") && ev.cards.some((c) => c.key === "c8"));
+});
+
+test("fight guard kit: toggle only with a site, warnings for existing data, fight warnings", () => {
+  const { draft } = parseDraft(draftText);
+  const cat = parseEnemyCatalogue(ENEMIES_TEXT, ROUNDS_TEXT);
+  assert.strictEqual(draftHasSite(draft), false);
+  const op = newFightOp(cat);
+  setFightKitMode(op, "guardKit"); setFightDest(draft, op, "win", "c8"); setFightDest(draft, op, "lose", "c9");
+  setEffects(draft, "c2", 0, "option", [op]);
+  const w = siteWarnings(draft);
+  assert(w.length === 1 && w[0].includes("start_fight with the guard kit"));
+  assert.deepStrictEqual(fightWarnings(draft, cat), []);
+  op.faction_id = "firm";
+  assert.deepStrictEqual(siteWarnings(draft), []);
+  delete op.faction_id;
+  setEffects(draft, "c2", 0, "option", [op, { op: "loot_raid_vein" }]);
+  assert.strictEqual(draftHasSite(draft), true);
+  op.enemies[0].guards = "vein"; delete op.enemies[0].count;
+  assert.deepStrictEqual(siteScan(draft).fightUses, ["effect start_fight with the guard kit"]);
+  setFightKitMode(op, "none");
+  assert.deepStrictEqual(siteScan(draft).fightUses, ["effect start_fight with vein-sized guards"]);
+  // destinations and custom kits
+  const bad = newFightOp(cat);
+  bad.kit = "custom"; bad.items = {}; bad.lose = "nope"; bad.enemies[0].level = 9;
+  setEffects(draft, "c2", 0, "option", [bad]);
+  const f = fightWarnings(draft, cat).join("\n");
+  assert(/pick a win card/.test(f) && /lose card nope isn't in this event/.test(f) && /custom kit has no items/.test(f) && /level 9 is above the maximum 5/.test(f));
 });
 
 test("alert ops survive tags, exclusions and item effects through serialise, re-import and promote", () => {

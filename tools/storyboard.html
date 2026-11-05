@@ -1739,6 +1739,10 @@ function checkOddsBlock(opt, changed, restructure) {
         for (const [k, r] of Object.entries(o.bySuccesses || {})) if (r && r.goto) push(`${name} ${k} successes`, r.goto);
         for (const { ore, res } of pickEntries(o)) if (res.goto) push(`${name} pick ${ore}`, res.goto);
       });
+      for (const d of fightDests(card)) {
+        const pos = cardPos(draft, d.key);
+        if (pos) push(`${at} fight ${d.which}`, { branch: pos.branch, card: d.key });
+      }
     }
     for (const name in draft.branches) {
       const then = draft.branches[name].then;
@@ -1780,8 +1784,23 @@ function checkOddsBlock(opt, changed, restructure) {
           (Array.isArray(then) ? then : [then]).forEach((t, i) => { if (t.branch && !(skip && skip.has(`${pos.branch}#${i}`))) targets.push(t); });
       }
     }
-    return [...targets.map((t) => resolveSafe(draft, t)).filter(Boolean), ...after];
+    return [...targets.map((t) => resolveSafe(draft, t)).filter(Boolean), ...fightTargets(draft, card), ...after];
   }
+  // Where a card's fight ops send play: every start_fight win / lose card key found in its choices (options,
+  // outcomes, chance branches), as {key, which, op}.
+  function fightDests(card) {
+    const out = [];
+    const walk = (v) => {
+      if (Array.isArray(v)) { v.forEach(walk); return; }
+      if (!v || typeof v !== "object") return;
+      if (v.op === "start_fight") for (const which of ["win", "lose"]) if (typeof v[which] === "string" && v[which]) out.push({ key: v[which], which, op: v });
+      for (const x of Object.values(v)) walk(x);
+    };
+    walk(card.choices || []);
+    return out;
+  }
+  // fightDests as card positions (unknown keys left out).
+  const fightTargets = (draft, card) => fightDests(card).map((d) => cardPos(draft, d.key)).filter(Boolean);
   const resolveSafe = (draft, t) => { try { return resolveTarget(draft, t); } catch { return null; } };
   // Return links (spec § Draft format): entries of a branch's conditional `then` that target a choice card which
   // can reach the card carrying that `then`, i.e. play resuming where a detour began. Set of "<branch>#<entry index>".
@@ -2113,7 +2132,8 @@ function checkOddsBlock(opt, changed, restructure) {
   // Every other op, alert included, passes through untouched.
   const RAID_OPS = { raid: "loot_raid_vein", claim: "claim_raid_vein", guards: "adjust_guards" };
   const isRaidOp = (e) => !!e && typeof e === "object" && Object.values(RAID_OPS).includes(e.op);
-  const nonManagedEffects = (list) => (Array.isArray(list) ? list.filter((e) => !isAlertOp(e) && !isRaidOp(e)) : []);
+  const isFightOp = (e) => !!e && typeof e === "object" && e.op === "start_fight";
+  const nonManagedEffects = (list) => (Array.isArray(list) ? list.filter((e) => !isAlertOp(e) && !isRaidOp(e) && !isFightOp(e)) : []);
   function newRaidOp(kind) {
     if (!RAID_OPS[kind]) throw new Error("unknown effect " + kind);
     return kind === "guards" ? { op: RAID_OPS.guards, count: -1 } : { op: RAID_OPS[kind] };
@@ -2184,22 +2204,159 @@ function checkOddsBlock(opt, changed, restructure) {
   const SITE_OPS = ["loot_raid_vein", "claim_raid_vein", "back_out", "reduce_raid_guards", "start_raid_combat", "adjust_guards"];
   const SITE_SOURCE_OPS = ["reveal_site", "network_reveal_vulnerable_vein"];
   const SITE_SOURCE_KEYS = ["site_id", "siteIdStatePath", "veinIdStatePath"];
-  // ⚠ lines for site-dependent effects or {security} conditions in a draft that names no site or vein anywhere. The
-  // site otherwise comes from whatever launches the event, which the draft can't see, so this is advice only.
-  function siteWarnings(draft) {
-    const uses = [];
+  // What a draft says about its site: `sourced` (it names one), `uses` (site-dependent effects and security conditions)
+  // and `fightUses` (start_fight ops asking for the guard kit or vein-sized guards with no faction_id of their own).
+  function siteScan(draft) {
+    const uses = [], fightUses = [];
     let sourced = false;
     const walk = (v) => {
       if (Array.isArray(v)) { v.forEach(walk); return; }
       if (!v || typeof v !== "object") return;
       if (SITE_SOURCE_OPS.includes(v.op) || SITE_SOURCE_KEYS.some((k) => typeof v[k] === "string" && v[k])) sourced = true;
       else if (SITE_OPS.includes(v.op)) uses.push(`effect ${v.op}`);
+      if (isFightOp(v) && !v.faction_id && (v.kit === "guardKit" || (Array.isArray(v.enemies) && v.enemies.some((g) => g && g.guards))))
+        fightUses.push(v.kit === "guardKit" ? "effect start_fight with the guard kit" : "effect start_fight with vein-sized guards");
       if (v.security && typeof v.security === "object" && typeof v.security.feature === "string") uses.push(`${v.security.feature} security condition`);
       for (const [k, x] of Object.entries(v)) if (k !== "comments") walk(x);
     };
     walk(draft);
+    return { sourced, uses, fightUses };
+  }
+  // True when the draft gives its event a vein or stockpile to read: it names a site, or has site-dependent effects or
+  // conditions (so code starts it with one). The guard kit toggle is only offered then.
+  const draftHasSite = (draft) => { const s = siteScan(draft); return s.sourced || s.uses.length > 0; };
+  // ⚠ lines for site-dependent effects or {security} conditions in a draft that names no site or vein anywhere. The
+  // site otherwise comes from whatever launches the event, which the draft can't see, so this is advice only.
+  function siteWarnings(draft) {
+    const { sourced, uses, fightUses } = siteScan(draft);
     if (sourced) return [];
-    return [...new Set(uses)].map((u) => `⚠ ${u} needs a site or vein; this event names none (no site_id, reveal_site or vein path). Fine if code starts it with one.`);
+    return [...new Set([...uses, ...fightUses])].map((u) => `⚠ ${u} needs a site or vein; this event names none (no site_id, reveal_site or vein path). Fine if code starts it with one.`);
+  }
+  // ---- fight op (start_fight, R§3.7b Event fights) ----
+  const FIGHT_KIT_MODES = ["none", "guardKit", "custom"];
+  // The game's enemies for the group dropdowns: { templates: [{ id, name }], squads: [faction ids], levelMax } from
+  // data/enemies.json (raidGuards, factionSquads) and data/combat_rounds.json (levelMax); null when enemies.json isn't one.
+  function parseEnemyCatalogue(enemiesText, roundsText) {
+    let e, r = null;
+    try { e = JSON.parse(enemiesText); } catch { return null; }
+    try { r = JSON.parse(roundsText); } catch { r = null; }
+    if (!e || typeof e.raidGuards !== "object" || !e.raidGuards || typeof e.factionSquads !== "object" || !e.factionSquads) return null;
+    const levelMax = r && Number.isInteger(r.levelMax) && r.levelMax >= 1 ? r.levelMax : 5;
+    return {
+      templates: Object.keys(e.raidGuards).map((id) => ({ id, name: typeof e.raidGuards[id].name === "string" && e.raidGuards[id].name ? e.raidGuards[id].name : id })),
+      squads: Object.keys(e.factionSquads), levelMax,
+    };
+  }
+  // A fresh fight: one level-1 group of the catalogue's first template, no kit, destinations still to pick.
+  function newFightOp(cat) {
+    const template = cat && cat.templates.length ? cat.templates[0].id : "veinGuard";
+    return { op: "start_fight", enemies: [{ template, count: 1, level: 1 }], win: "", lose: "" };
+  }
+  const wholeAtLeast1 = (text, what) => {
+    const t = String(text).trim(), n = Number(t);
+    if (!t || !Number.isInteger(n) || n < 1) throw new Error(`${what} must be a whole number, 1 or more`);
+    return n;
+  };
+  function fightGroup(op, n) {
+    const g = Array.isArray(op.enemies) ? op.enemies[n] : null;
+    if (!g) throw new Error("no enemy group " + (n + 1));
+    return g;
+  }
+  // Appends a level-1 group of the first template.
+  function addFightGroup(op, cat) {
+    if (!Array.isArray(op.enemies)) op.enemies = [];
+    op.enemies.push({ template: cat && cat.templates.length ? cat.templates[0].id : "veinGuard", count: 1, level: 1 });
+  }
+  function removeFightGroup(op, n) {
+    fightGroup(op, n);
+    if (op.enemies.length === 1) throw new Error("a fight needs at least one enemy group");
+    op.enemies.splice(n, 1);
+  }
+  // Points group n at a template or a faction squad (kind "template" | "squad"); count and level stay (a vein-sized
+  // group, guards "vein", keeps its guards and only changes template).
+  function setFightGroupSource(op, n, kind, id) {
+    const g = fightGroup(op, n);
+    if (kind !== "template" && kind !== "squad") throw new Error("unknown enemy kind " + kind);
+    if (!id) throw new Error("pick an enemy");
+    const { template, squad, ...rest } = g;
+    if (kind === "squad" && "guards" in rest) { delete rest.guards; rest.count = 1; }
+    op.enemies[n] = { [kind]: id, ...rest };
+    op.enemies[n] = Object.fromEntries(Object.entries(op.enemies[n]).sort(([a], [b]) => FIGHT_GROUP_ORDER.indexOf(a) - FIGHT_GROUP_ORDER.indexOf(b)));
+  }
+  const FIGHT_GROUP_ORDER = ["template", "squad", "count", "guards", "level"];
+  function setFightGroupCount(op, n, text) { fightGroup(op, n).count = wholeAtLeast1(text, "number"); }
+  function setFightGroupLevel(op, n, text, levelMax) {
+    const v = wholeAtLeast1(text, "level");
+    if (levelMax && v > levelMax) throw new Error(`level can't be above ${levelMax}`);
+    fightGroup(op, n).level = v;
+  }
+  // Kit mode: none (kit and items dropped), guardKit (items dropped) or custom (items kept, else started empty).
+  function setFightKitMode(op, mode) {
+    if (!FIGHT_KIT_MODES.includes(mode)) throw new Error("unknown kit mode " + mode);
+    if (mode === "none") { delete op.kit; delete op.items; return; }
+    op.kit = mode;
+    if (mode === "guardKit") delete op.items;
+    else if (!op.items || typeof op.items !== "object") op.items = {};
+  }
+  // Sets the custom kit's quantity of one recipe tier (0 removes it, and the recipe once empty). `items` is the
+  // catalogue ([{ id, maxTier }]) the recipe and tier are checked against; null checks nothing.
+  function setFightItem(op, recipe, tier, qty, items) {
+    if (op.kit !== "custom") throw new Error("items only go with the custom kit");
+    const it = items ? items.find((x) => x.id === recipe) : null;
+    if (items && !it) throw new Error(`unknown item ${recipe}`);
+    const t = Number(tier);
+    if (!Number.isInteger(t) || t < 1 || (it && Number.isInteger(it.maxTier) && t > it.maxTier)) throw new Error(`tier must be a whole number from 1${it && it.maxTier ? " to " + it.maxTier : ""}`);
+    const q = Number(String(qty).trim());
+    if (!Number.isInteger(q) || q < 0) throw new Error("quantity must be a whole number, 0 or more");
+    if (!op.items) op.items = {};
+    const buckets = op.items[recipe] || {};
+    if (q) buckets[String(t)] = q; else delete buckets[String(t)];
+    if (Object.keys(buckets).length) op.items[recipe] = buckets; else delete op.items[recipe];
+  }
+  // Sets the fight's win or lose destination to a card key ("" = unset). Another card of the draft only.
+  function setFightDest(draft, op, which, key) {
+    if (which !== "win" && which !== "lose") throw new Error("unknown destination " + which);
+    if (key && !cardPos(draft, key)) throw new Error(`no card ${key}`);
+    op.win = which === "win" ? key : op.win;
+    op.lose = which === "lose" ? key : op.lose;
+  }
+  // Replaces the fight ops at `where` with those of `edited`; every other effect stays verbatim. Refuses a destination
+  // that would make play loop.
+  function setFightEffects(draft, key, i, where, edited) {
+    const { o } = optionAt(draft, key, i);
+    const before = deepClone(effectsAt(o, where));
+    guardCycle(draft, () => setEffects(draft, key, i, where, swapEffectClass(effectsAt(o, where), edited.filter(isFightOp), isFightOp)),
+      () => setEffects(draft, key, i, where, before));
+  }
+  // ⚠ lines for the draft's fight ops: destinations unset or not a card of the draft, an empty custom kit, enemies or
+  // levels the game doesn't have (cat = parseEnemyCatalogue, null skips those), a guard kit the toggle hides.
+  function fightWarnings(draft, cat) {
+    const out = [];
+    for (const { card } of flatCards(draft)) {
+      const ops = [];
+      const walk = (v) => {
+        if (Array.isArray(v)) { v.forEach(walk); return; }
+        if (!v || typeof v !== "object") return;
+        if (isFightOp(v)) ops.push(v);
+        for (const x of Object.values(v)) walk(x);
+      };
+      walk(card.choices || []);
+      for (const op of ops) {
+        const at = `⚠ ${card.key} fight`;
+        for (const which of ["win", "lose"]) {
+          if (typeof op[which] !== "string" || !op[which]) out.push(`${at}: pick a ${which} card${typeof op[which] === "number" ? " (it names a card number; the tool links by card key)" : ""}.`);
+          else if (!cardPos(draft, op[which])) out.push(`${at}: ${which} card ${op[which]} isn't in this event.`);
+        }
+        if (op.kit === "custom" && !(op.items && Object.keys(op.items).length)) out.push(`${at}: custom kit has no items.`);
+        (Array.isArray(op.enemies) ? op.enemies : []).forEach((g, n) => {
+          if (!g || !cat) return;
+          if (g.template && !cat.templates.some((t) => t.id === g.template)) out.push(`${at}: group ${n + 1} template ${g.template} isn't in data/enemies.json.`);
+          if (g.squad && !cat.squads.includes(g.squad)) out.push(`${at}: group ${n + 1} squad ${g.squad} isn't in data/enemies.json.`);
+          if (Number.isInteger(g.level) && g.level > cat.levelMax) out.push(`${at}: group ${n + 1} level ${g.level} is above the maximum ${cat.levelMax}.`);
+        });
+      }
+    }
+    return out;
   }
   // Replaces the raid/claim/guard ops at `where` with those of `edited`; every other effect stays verbatim.
   function setRaidEffects(draft, key, i, where, edited) {
@@ -2215,7 +2372,7 @@ function checkOddsBlock(opt, changed, restructure) {
   function setOtherEffects(draft, key, i, where, others) {
     checkEffects(others);
     const { o } = optionAt(draft, key, i);
-    const other = (e) => !isAlertOp(e) && !isRaidOp(e);
+    const other = (e) => !isAlertOp(e) && !isRaidOp(e) && !isFightOp(e);
     setEffects(draft, key, i, where, swapEffectClass(effectsAt(o, where), others.filter(other), other));
   }
   // Adds a bySuccesses outcome for `count` successes (0..attempts) to check option i; play then takes it instead
@@ -3459,7 +3616,7 @@ function checkOddsBlock(opt, changed, restructure) {
     return Object.keys(r).map((id) => {
       const it = r[id] || {};
       const p = it.eventProfile && typeof it.eventProfile === "object" ? it.eventProfile : null;
-      return { id, name: typeof it.name === "string" && it.name ? it.name : id, tags: p && Array.isArray(p.tags) ? p.tags.slice() : [], kind: p && p.effect && typeof p.effect.kind === "string" ? p.effect.kind : "", alert: p && p.alert && typeof p.alert === "object" ? p.alert : null };
+      return { id, name: typeof it.name === "string" && it.name ? it.name : id, tags: p && Array.isArray(p.tags) ? p.tags.slice() : [], kind: p && p.effect && typeof p.effect.kind === "string" ? p.effect.kind : "", alert: p && p.alert && typeof p.alert === "object" ? p.alert : null, maxTier: Array.isArray(it.effectPower) ? it.effectPower.length - 1 : 0 };
     });
   }
   // Dropdown choices [{ value, label, warn? }] for an item field, or null with no catalogue (free text). Filtered to
@@ -4026,9 +4183,15 @@ function checkOddsBlock(opt, changed, restructure) {
   let liveFiles = [];
   // data/recipes.json as a parseItemCatalogue list (null = no repo folder or unreadable), read on every loadAll.
   let itemCatalogue = null;
+  // data/enemies.json + combat_rounds.json as a parseEnemyCatalogue result (null = no repo folder or unreadable).
+  let enemyCatalogue = null;
   async function loadItemCatalogue() {
     try { itemCatalogue = parseItemCatalogue(await readText(await dirAt(["data"]), "recipes.json")); } catch { itemCatalogue = null; }
     mechCatalogue = itemCatalogue;
+    try {
+      const dir = await dirAt(["data"]);
+      enemyCatalogue = parseEnemyCatalogue(await readText(dir, "enemies.json"), await readText(dir, "combat_rounds.json"));
+    } catch { enemyCatalogue = null; }
     try {
       const c = JSON.parse(await readText(await dirAt(["data"]), "constants.json"));
       const t = c && c.eventChecks && c.eventChecks.tags;
@@ -4936,6 +5099,7 @@ function checkOddsBlock(opt, changed, restructure) {
       alertWarnings(o, mechCatalogue).forEach((m) => rows.push(el("div", { class: "item-warn", text: m })));
       rows.push(alertBox(c, i, "option", o.check ? "Alert before the roll" : "Alert", o.effects));
       rows.push(raidBox(c, i, "option", o.check ? "Raid before the roll" : "Raid, claim, guards", o.effects));
+      rows.push(fightBox(b.draft, c, i, "option", o.check ? "Fight before the roll" : "Fight", o.effects));
       rows.push(effectsField(c, i, "option", o.effects, o.check ? "Effects before the roll" : "Effects"));
       if (o.check) rows.push(effectsField(c, i, "perSuccess", o.check.perSuccess, "Effects per success"));
       for (const s of outcomeSlots(o)) {
@@ -4968,6 +5132,7 @@ function checkOddsBlock(opt, changed, restructure) {
           resultImageRow(c, i, s),
           s.slot === "result" ? null : alertBox(c, i, s.slot, `${s.label} alert`, s.res && s.res.effects),
           s.slot === "result" ? null : raidBox(c, i, s.slot, `${s.label} raid, claim, guards`, s.res && s.res.effects),
+          s.slot === "result" ? null : fightBox(b.draft, c, i, s.slot, `${s.label} fight`, s.res && s.res.effects),
           s.slot === "result" ? null : effectsField(c, i, s.slot, s.res && s.res.effects, `${s.label} effects`));
       }
       if (o.check) {
@@ -5106,6 +5271,102 @@ function checkOddsBlock(opt, changed, restructure) {
     const box = el("div", { class: "mech-ed" }, alertEditor(w, title, changed, () => editDraft(put, true)));
     box.addEventListener("focusin", () => { editSession = false; });
     return box;
+  }
+  // Fight editor for the start_fight ops at `where`, bound to a working copy and committed through setFightEffects so
+  // every other effect is left untouched. Enemy groups pick from data/enemies.json; the guard kit option is offered
+  // only when the event has a vein or stockpile (draftHasSite), or already holds it (then it shows with a warning).
+  function fightBox(draft, c, i, where, title, stored) {
+    const w = { effects: deepClone(stored || []) };
+    const commit = () => {
+      try { editDraft((d) => setFightEffects(d, c.key, i, where, w.effects), true); } catch (e) { renderEditBar(`${title}: ${e.message}`); }
+    };
+    const guarded = (fn) => { try { fn(); } catch (e) { renderEditBar(`${title}: ${e.message}`); return false; } return true; };
+    const hasSite = draftHasSite(draft), cat = enemyCatalogue, kids = [el("span", { class: "kw", text: title })];
+    const focus = (f, part) => `opt:${i}:fi:${where}:${f}:${part}`;
+    const cardChoices = flatCards(draft);
+    w.effects.forEach((op, f) => {
+      if (!isFightOp(op)) return;
+      const box = el("div", { class: "mech-ed" });
+      box.append(el("span", { class: "route" }, el("span", { class: "kw", text: "Enemies" }),
+        iconBtn("✕", "Remove fight", false, () => { w.effects.splice(f, 1); commit(); })));
+      (Array.isArray(op.enemies) ? op.enemies : []).forEach((g, n) => {
+        const src = g.squad ? "s:" + g.squad : "t:" + (g.template || "");
+        const sel = el("select", { "aria-label": `${title} group ${n + 1} enemy`, "data-focus": focus(f, `g${n}e`) });
+        sel.append(optionEl("", "— pick an enemy —"));
+        if (cat) {
+          const tg = el("optgroup", { label: "Enemy templates" }), sg = el("optgroup", { label: "Faction squads" });
+          cat.templates.forEach((t) => tg.append(optionEl("t:" + t.id, `${t.name} (${t.id})`)));
+          cat.squads.forEach((q) => sg.append(optionEl("s:" + q, `${q} squad`)));
+          sel.append(tg, sg);
+          const known = src[0] === "s" ? cat.squads.includes(src.slice(2)) : cat.templates.some((t) => t.id === src.slice(2));
+          if (src.length > 2 && !known) sel.append(optionEl(src, `⚠ ${src.slice(2)} (not in data/enemies.json)`));
+        } else if (src.length > 2) sel.append(optionEl(src, src.slice(2)));
+        sel.value = src.length > 2 ? src : "";
+        sel.addEventListener("change", () => { if (sel.value && guarded(() => setFightGroupSource(op, n, sel.value[0] === "s" ? "squad" : "template", sel.value.slice(2)))) commit(); });
+        const row = [sel];
+        if (g.guards) row.push(el("span", { class: "mono muted", text: "× vein guards" }));
+        else {
+          const cnt = el("input", { type: "number", min: "1", step: "1", class: "mono", "aria-label": `${title} group ${n + 1} number`, "data-focus": focus(f, `g${n}n`) });
+          cnt.value = g.count ?? "";
+          cnt.addEventListener("change", () => { if (guarded(() => setFightGroupCount(op, n, cnt.value))) commit(); else cnt.setAttribute("aria-invalid", "true"); });
+          row.push(el("span", { class: "mono muted", text: "×" }), cnt);
+        }
+        const lvl = el("input", { type: "number", min: "1", step: "1", class: "mono", "aria-label": `${title} group ${n + 1} level`, "data-focus": focus(f, `g${n}l`) });
+        if (cat) lvl.max = String(cat.levelMax);
+        lvl.value = g.level ?? "";
+        lvl.addEventListener("change", () => { if (guarded(() => setFightGroupLevel(op, n, lvl.value, cat && cat.levelMax))) commit(); else lvl.setAttribute("aria-invalid", "true"); });
+        row.push(el("span", { class: "mono muted", text: "level" }), lvl,
+          iconBtn("✕", `Remove group ${n + 1}`, (op.enemies || []).length < 2, () => { if (guarded(() => removeFightGroup(op, n))) commit(); }));
+        box.append(el("div", { class: "route" }, ...row));
+      });
+      box.append(el("div", { class: "route" }, iconBtn("+ enemy group", "Add an enemy group", false, () => { addFightGroup(op, cat); commit(); })));
+      const mode = el("select", { "aria-label": `${title} kit`, "data-focus": focus(f, "kit") });
+      const guardHeld = op.kit === "guardKit";
+      mode.append(optionEl("none", "No kit"), optionEl("custom", "Custom kit"));
+      if (hasSite || guardHeld) mode.append(optionEl("guardKit", guardHeld && !hasSite ? "⚠ Guard kit (event has no vein or stockpile)" : "Guard kit (the real kit at the vein or stockpile)"));
+      mode.value = op.kit || "none";
+      mode.addEventListener("change", () => { if (guarded(() => setFightKitMode(op, mode.value))) commit(); });
+      box.append(el("div", { class: "route" }, el("span", { class: "kw", text: "Kit" }), mode));
+      if (guardHeld && !hasSite) box.append(el("div", { class: "item-warn", text: "⚠ Guard kit needs a vein or stockpile; this event names none. Fine if code starts it with one." }));
+      if (op.kit === "custom") {
+        const items = op.items && typeof op.items === "object" ? op.items : {};
+        for (const [recipe, buckets] of Object.entries(items)) for (const [tier, qty] of Object.entries(buckets || {})) {
+          const nm = itemCatalogue && itemCatalogue.find((x) => x.id === recipe);
+          const q = el("input", { type: "number", min: "0", step: "1", class: "mono", "aria-label": `${title} ${recipe} tier ${tier} quantity`, "data-focus": focus(f, `i${recipe}${tier}`) });
+          q.value = qty;
+          q.addEventListener("change", () => { if (guarded(() => setFightItem(op, recipe, tier, q.value, itemCatalogue))) commit(); else q.setAttribute("aria-invalid", "true"); });
+          box.append(el("div", { class: "route" }, el("span", { class: "mono", text: `${nm ? nm.name : "⚠ " + recipe} · tier ${tier} ×` }), q));
+        }
+        const pick = itemCatalogue ? el("select", { "aria-label": `${title} add item`, "data-focus": focus(f, "addi") })
+          : el("input", { type: "text", class: "mono", size: "12", placeholder: "item id", "aria-label": `${title} add item`, "data-focus": focus(f, "addi") });
+        if (itemCatalogue) pick.append(optionEl("", "Add item…"), ...itemCatalogue.map((x) => optionEl(x.id, `${x.name} (${x.id})`)));
+        const tier = el("input", { type: "number", min: "1", step: "1", value: "1", class: "mono", "aria-label": `${title} add item tier`, "data-focus": focus(f, "addt") });
+        const add = () => {
+          const id = String(pick.value || "").trim();
+          if (!id) return;
+          const cur = (items[id] || {})[String(Number(tier.value))] || 0;
+          if (guarded(() => setFightItem(op, id, tier.value, cur + 1, itemCatalogue))) commit();
+        };
+        if (itemCatalogue) pick.addEventListener("change", add);
+        box.append(el("div", { class: "route" }, pick, el("span", { class: "mono muted", text: "tier" }), tier, itemCatalogue ? null : iconBtn("+ item", "Add item", false, add)));
+      }
+      for (const [which, label] of [["win", "On win go to"], ["lose", "On lose or flee go to"]]) {
+        const sel = el("select", { "aria-label": `${title} ${which} card`, "data-focus": focus(f, which) });
+        sel.append(optionEl("", "— pick a card —"));
+        cardChoices.forEach(({ branch, card }) => sel.append(optionEl(card.key, `${branch} · ${card.key}${card.text ? " — " + String(card.text).slice(0, 40) : ""}`)));
+        const cur = op[which];
+        if (cur !== undefined && cur !== "" && !cardChoices.some((x) => x.card.key === cur)) sel.append(optionEl(String(cur), `⚠ ${cur} (not a card of this event)`));
+        sel.value = cur === undefined || cur === null ? "" : String(cur);
+        sel.addEventListener("change", () => { if (guarded(() => setFightDest(draft, op, which, sel.value))) commit(); });
+        box.append(el("div", { class: "route" }, el("span", { class: "kw", text: label }), sel));
+      }
+      kids.push(box);
+    });
+    const add = el("select", { "aria-label": `Add effect (${title})`, "data-focus": `opt:${i}:fi:${where}:add` });
+    add.append(optionEl("", "Add effect…"), optionEl("fight", "Fight"));
+    add.addEventListener("change", () => { if (add.value) { w.effects.push(newFightOp(cat)); commit(); } });
+    kids.push(add);
+    return el("div", { class: "route" }, ...kids);
   }
   // Add-effect dropdown plus editors for the raid / claim / guard ops at `where`; bound to a working copy and committed
   // through setRaidEffects so every other effect is left untouched.
@@ -5403,7 +5664,7 @@ function checkOddsBlock(opt, changed, restructure) {
     const el = $("lint");
     if (!b || !b.draft) { el.hidden = true; return; }
     if (lintRefs === undefined) { loadLintRefs().then(() => { if (board() === b) renderLint(b); }); el.hidden = true; return; }
-    const found = (lintDraft(b.draft, lintRefs) || []).concat(siteWarnings(b.draft));
+    const found = (lintDraft(b.draft, lintRefs) || []).concat(siteWarnings(b.draft), fightWarnings(b.draft, enemyCatalogue));
     el.hidden = !found.length;
     if (el.hidden) return;
     $("lint-sum").textContent = `⚠ ${found.length} content lint issue${found.length > 1 ? "s" : ""}`;
