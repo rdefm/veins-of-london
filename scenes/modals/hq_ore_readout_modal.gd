@@ -79,6 +79,11 @@ static func _apply_deadweight(tier: int) -> void:
 	Modal.close()
 
 
+# Identity line for one stash row: name plus shared/stash split.
+static func row_text(item_name: String, shared: int, stashed: int) -> String:
+	return "%s — Shared %d / Stash %d" % [item_name, shared, stashed]
+
+
 static func _personal_stash_section() -> Control:
 	var card := MapCardStyle.card()
 	var content: VBoxContainer = card["content"]
@@ -96,7 +101,7 @@ static func _personal_stash_section() -> Control:
 		any_ore_row = true
 		var ore: Dictionary = GameData.ORE_TYPES[ore_type]
 		content.add_child(_move_row(
-			_ink_row(ore["symbol"], SymbolGlyph.ore_fallback(ore_type), "%s — Shared %d / Stash %d" % [ore["name"], shared, stashed]),
+			_ink_row(ore["symbol"], SymbolGlyph.ore_fallback(ore_type), row_text(ore["name"], shared, stashed)),
 			shared, stashed, Stash.get_ore_move_qty(ore_type),
 			func(delta: int, limit: int): Stash.adjust_ore_move_qty(ore_type, delta, limit),
 			func(): Stash.move_ore_to_stash(ore_type, Stash.get_ore_move_qty(ore_type)),
@@ -114,7 +119,7 @@ static func _personal_stash_section() -> Control:
 		any_item_row = true
 		var recipe: Dictionary = GameData.RECIPES[recipe_key]
 		content.add_child(_move_row(
-			_ink_row(recipe["symbol"], SymbolGlyph.generic_fallback(), "%s — Shared %d / Stash %d" % [recipe["name"], shared_qty, stashed_qty], ItemIcons.texture(recipe_key)),
+			_ink_row(recipe["symbol"], SymbolGlyph.generic_fallback(), row_text(recipe["name"], shared_qty, stashed_qty), ItemIcons.texture(recipe_key)),
 			shared_qty, stashed_qty, Stash.get_item_move_qty(recipe_key),
 			func(delta: int, limit: int): Stash.adjust_item_move_qty(recipe_key, delta, limit),
 			func(): Stash.move_item_to_stash(recipe_key, Stash.get_item_move_qty(recipe_key)),

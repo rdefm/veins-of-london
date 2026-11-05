@@ -1059,7 +1059,7 @@ func run() -> void:
 		layer._ready()
 
 		var life_ore: Dictionary = GameData.ORE_TYPES["life"]
-		assert_true(NodeQuery.label_texts_with_symbols(layer).any(func(t: String): return t.ends_with("%s — shared 12 / stashed 0" % life_ore["name"])), "stash-section row must show the shared/stashed split")
+		assert_true(NodeQuery.label_texts_with_symbols(layer).any(func(t: String): return t.ends_with(HqOreReadoutModal.row_text(life_ore["name"], 12, 0))), "stash-section row must show the shared/stashed split")
 
 		var to_stash := _find_cost_button(layer, "→ Stash")
 		assert_true(to_stash != null, "a shared-only row must offer a Stash button")
@@ -1082,7 +1082,7 @@ func run() -> void:
 		layer._ready()
 
 		var life_ore: Dictionary = GameData.ORE_TYPES["life"]
-		assert_true(NodeQuery.label_texts_with_symbols(layer).any(func(t: String): return t.ends_with("%s — shared 0 / stashed 5" % life_ore["name"])), "a fully-stashed type must still get a row, not vanish")
+		assert_true(NodeQuery.label_texts_with_symbols(layer).any(func(t: String): return t.ends_with(HqOreReadoutModal.row_text(life_ore["name"], 0, 5))), "a fully-stashed type must still get a row, not vanish")
 
 		var to_stash := _find_cost_button(layer, "→ Stash")
 		assert_true(to_stash.disabled, "nothing shared left to stash")
@@ -1119,7 +1119,7 @@ func run() -> void:
 		layer._ready()
 
 		var recipe: Dictionary = GameData.RECIPES["timePearl"]
-		assert_true(NodeQuery.label_texts_with_symbols(layer).any(func(t: String): return t.ends_with("%s — shared 4 / stashed 0" % recipe["name"])), "crafted-item row must show the shared/stashed split")
+		assert_true(NodeQuery.label_texts_with_symbols(layer).any(func(t: String): return t.ends_with(HqOreReadoutModal.row_text(recipe["name"], 4, 0))), "crafted-item row must show the shared/stashed split")
 
 		var to_stash := _find_cost_button(layer, "→ Stash")
 		to_stash.pressed.emit()
