@@ -32,6 +32,20 @@ static func _growth(site_id: String) -> int:
 
 
 func run() -> void:
+	run_case("a_fed_faction_vein_outgrows_an_identical_unfed_one_and_respects_the_ceiling", func():
+		GameState.reset()
+		var fed := _vein("fed", "firm", "life", 60)
+		var unfed := _vein("unfed", "firm", "life", 60)
+		fed["boosts"] = { "rootFeed": { "until": 9, "power": 4, "tier": 5 } }
+		_seed_veins([fed, unfed])
+		for i in 3:
+			Rng.set_seed(i)
+			Cultivating.drift_veins()
+		assert_true(_growth("fed") > _growth("unfed"), "root feed adds growth on a faction vein")
+		assert_true(_growth("fed") <= Cultivating.ceiling(fed), "boosted growth stays under the ceiling")
+		assert_true(not fed.has("boosts") or not fed["boosts"].has("rootFeed") or fed["boosts"]["rootFeed"]["until"] >= GameState.state["world"]["day"], "expired boosts are dropped")
+	)
+
 	# §Vein tending: untended, a fresh claim at seedGrowth decays to 0 and
 	# collapses in ~14 days (ADR 0004); the Collective's tending keeps it alive.
 	# Rivalry can hand the vein to another faction mid-run, so this counts

@@ -74,6 +74,8 @@ static func transfer_to_faction(vein_id: String, faction_id: String, price: int,
 
 	var faction_vein: Dictionary = Factions.create_faction_vein(faction_id, site, vein["growth"])
 	faction_vein["soldByPlayer"] = count_as_player_sale
+	if vein.has("boosts"):
+		faction_vein["boosts"] = GameState.deep_copy(vein["boosts"])
 	site["claimed"] = false
 	site["factionVein"] = faction_vein
 

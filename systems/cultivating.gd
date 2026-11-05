@@ -572,6 +572,7 @@ static func drift_veins() -> void:
 			_advance_development_streak(site["factionVein"])
 			if not _roll_level_up(site["factionVein"]):
 				_drift_one(site["factionVein"])
+			_tick_boosts(site["factionVein"])
 	for site in GameState.state["world"]["sites"].duplicate():
 		if site["factionVein"] != null:
 			collapse_vein(site["factionVein"])
