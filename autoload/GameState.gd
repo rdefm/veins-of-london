@@ -368,6 +368,8 @@ func new_game_state() -> Dictionary:
 			"bizA1ProductionQueued": false, "bizA1ProductionSeen": false, "bizA1FirstOrderDone": false,
 			"bizA1PutToWorkQueued": false, "bizA1DelegationUnlocked": false, "bizA1ProofDone": false,
 			"bizA1ClosingQueued": false, "bizA1Complete": false,
+			# Soho Marketplace open (set by biz_a1_closing; Soho.is_unlocked).
+			"sohoUnlocked": false,
 			# Owen's crafting event queued (BusinessQuest.maybe_trigger_owen_craft).
 			"bizOwenCraftQueued": false,
 			# Set by Beat 3; shows BizBrief's Staff tab.

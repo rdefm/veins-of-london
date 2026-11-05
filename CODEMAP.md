@@ -81,6 +81,7 @@ Data file per system: see `data/*.json` below.
 | harassment.gd | Harassment: `state.harassment` (queued events, persistent `active` effects), harass-rung `candidate`, `tick` (expiry, escalation), pending prompt per event, event-op helpers (add/clear/fine/spend_block/raise_intel), security repair, `vein_gate`, `sell_mult` price penalty, `is_shop_barred`, panel rows. Data: faction_harassment.json. |
 | turf.gd | Turf (R§3.1 "Turf"): per-district contender vein counts/shares, controller (top >= second + controlMargin), foothold tier, contested; `recompute()` rewrites `state.turf` once per daily tick (⑤d3), queuing flip headline + map event. `danger_mod`/`price_mod`/`raid_odds_adj`: effective district modifiers. `ambush_chance`: ambush odds (R§3.1d). |
 | map_events.gd | Map event queue + playback |
+| soho.gd | Soho Marketplace (R§3.13): buys/sells ore and tiered items against London stock; sell/buy fee ladders by whole-cart order value; pure `fee_rows` (rung, rate, fee, net, next rung, ladder, Archie comparison) match what `trade` charges |
 | market.gd | London market (R§3.13): per-good quote/history, item stock by tier (ore untiered), conserved elastic flows (`_plan_day`), `availability`, `tier_price`, legacy migration, supply/demand + move recording, daily reprice (⑥.6), story rises, annotations, sales history, delivery log, Stock Market reads |
 | map_hit_test.gd | Tap-hit geometry, Network diagram |
 | map_layout.gd | Resolves stops vs. live sites/veins |
@@ -311,7 +312,7 @@ overlays; hides the top board on title/intro/combat and the nav dock per screen.
 | floorplans.json | GameData.gd + floorplan_view.gd (per-tier plan asset, size, slot rects) |
 | hq_visuals.json | hq_diorama.gd, hq*.gd screens |
 | map_layout.json | map_layout.gd, map_hit_test.gd |
-| market.json | market.gd (constants, sim start, priceLot, ore conversion rate, annotation cap/thresholds, delivery-log cap, Independents shares + buy cover, per-good normalStock/civilianDemand, storyRises); shares.gd (via Market.independents_share) |
+| market.json | soho.gd (`soho` ladders, margin, floor, unlock flag); market.gd (constants, sim start, priceLot, ore conversion rate, annotation cap/thresholds, delivery-log cap, Independents shares + buy cover, per-good normalStock/civilianDemand, storyRises); shares.gd (via Market.independents_share) |
 | map_palette.json | GameData.gd (validated) + map_palette.gd (Map tab light/dark colour tokens, zone-tint strength, faction/ore/zoneTint dark overrides) + map_controls.gd (`darkModeLabel`) |
 | todo.json | todo.gd (per-questline label, subtitle, accent, doneFlag, emptyText; act2/board page style, copy strings) |
 | objectives.json | objectives.gd, todo.gd, daily_brief.gd (optional briefAction / earlyBriefAction + note: Story-row destination), collective.gd, business_quest.gd |

@@ -142,7 +142,10 @@ _Avoid_: "secret" (that's Dial Movement bench secrets).
 
 **London market**:
 The one central market every route reads: one quote per good, real stock (items held per tier 1-5, ore untiered). Stock changes only through recorded and nameless flows. Spec in REFERENCE §3.13.
-_Avoid_: "the Market" for a place the player visits; Soho Marketplace (not yet built) is that place.
+_Avoid_: "the Market" for a place the player visits; Soho Marketplace is that place.
+
+**Soho Marketplace**:
+The place the player buys and sells ore and tiered items against London stock (`systems/soho.gd`). Opens when the business Act 1 closing event sets `sohoUnlocked`. Fees come from sell and buy rung ladders by whole-order value; no mugging, relation gain or Archie cut. Spec in REFERENCE §3.13.
 
 **Guild Marketplace**:
 The existing faction sell-lane shopfront on the Map, trading directly with a faction. It does not touch London stock. Not the Soho Marketplace.

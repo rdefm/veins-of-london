@@ -173,6 +173,7 @@ func _load_save_dict(raw: Dictionary) -> Dictionary:
 	_backfill_vein_station_auto_feed(filled)
 	_fix_up_room_free_roles(filled)
 	_migrate_nadia_supply_order(filled)
+	_migrate_soho_unlock(filled)
 	_migrate_faction_holdings(filled)
 	_migrate_key_member_standing(filled)
 	_migrate_player_model(filled)
@@ -286,6 +287,14 @@ func _migrate_faction_holdings(save: Dictionary) -> void:
 		if vein != null and not vein.has("kit"):
 			FactionSim.allocate_kits_in(save)
 			break
+
+
+# Saves past the business Act 1 closing event unlock the Soho Marketplace.
+func _migrate_soho_unlock(save: Dictionary) -> void:
+	var flags: Dictionary = save.get("flags", {})
+	if flags.get("bizA1Complete", false):
+		flags["sohoUnlocked"] = true
+		save["flags"] = flags
 
 
 # A save with an in-progress col_a1_nadia_supply objective can't identify
