@@ -3,7 +3,7 @@
 Legend: **P** pass (test / sim / doc evidence), **G** gap (reported, not fixed), **QA** needs human on-device QA (also P on the numbers where noted).
 Evidence: `tests/test_market.gd` (M), `test_faction_sim.gd` (F), `test_soho.gd` (S), `test_offers.gd` (O), `test_map_pins.gd` (MP), `test_savemanager.gd` (SM), `test_archie_deals.gd` (AD). Case names abbreviated. Balance numbers from `balance-report.md` (BR), seeds 1-3, days 31-60.
 
-Suite: `scripts/run_tests.sh` 4779 passed, **1 failed**: `test_playthrough: full_playthrough_tutorial_economy_ticks_and_save_roundtrip`. BR ticket 18 records it failing on the original tree too; not market-related (whole-state compare after save round-trip). `scripts/check_all.sh`: clean (503 files).
+Suite (re-run after tickets 20, 21): `scripts/run_tests.sh` **4782 passed, 0 failed**. `scripts/check_all.sh`: clean (503 files).
 
 ## Market as a real place
 | # | | Evidence |
@@ -124,7 +124,7 @@ Suite: `scripts/run_tests.sh` 4779 passed, **1 failed**: `test_playthrough: full
 | # | | Evidence |
 |---|---|---|
 | 84 | P | SM `loading_an_untiered_market_migrates_it_once_with_prices_steady`; M `migration_rescales_stock_and_splits_by_mix_with_prices_steady` |
-| 85 | G | Save round-trip tested (SM `tiered_item_stock_round_trips_through_save_as_ints`). Spec asks save **and** Rewind; no Rewind-specific tiered-stock test exists. Rewind snapshots deep-copy pure state, so low risk; add a test |
+| 85 | P | SM `tiered_item_stock_round_trips_through_save_as_ints`; `test_rewind` `block_rewind_restores_tiered_market_stock_as_ints` (ticket 20) |
 | 86 | P | M `tiered_stock_repeats_under_the_same_input_and_stays_pure_data`; F `a_month_of_trading_repeats_under_the_same_seed` |
 
 ## Balance outcomes (BR)
@@ -132,7 +132,7 @@ Suite: `scripts/run_tests.sh` 4779 passed, **1 failed**: `test_playthrough: full
 |---|---|---|
 | 87 | P* | Item named 73 / 76 / 77% (target 65-75; s2, s3 over by 1-2 pts). Human accepted at ticket 18 close |
 | 88 | G | Ore named share 19 / 15 / 18% vs baseline 52 / 66 / 60 (relaxed on purpose: Independents ore share raised to meet price targets). Needs sign-off |
-| 89 | G | Not met: 19 / 11 / 10 goods pinned at max ≥5 days (blackHole, deadweight, signalFailure, skeletonKey, heavyMetal, cleanSlate, dejaVu, happyAccident, goodYear…). Ticket 18 closed with this accepted by human; ore no longer pinned |
+| 89 | G | Ticket 21 cut demand on 8 ore-starved goods: avg pinned days 7.4 / 3.3 / 3.3, still pinned ≥5d 12-20 goods incl. 4 no-crafter (keystone, cleanSlate, heavyMetal, skeletonKey; needs recipe decision). Earlier: not met: 19 / 11 / 10 goods pinned at max ≥5 days (blackHole, deadweight, signalFailure, skeletonKey, heavyMetal, cleanSlate, dejaVu, happyAccident, goodYear…). Ticket 18 closed with this accepted by human; ore no longer pinned |
 | 90 | G | Network short on Déjà Vu 3-9 days, Conclave 0-8, Firm/Guild some days (BR). Not permanent but not zero; accepted at ticket 18 close |
 | 91 | P | BR: single sale invisible, withholding +30-84% |
 | 92 | P | BR: turf identical (firm 23% leader, no zero-turf); war endings varied |
@@ -140,7 +140,7 @@ Suite: `scripts/run_tests.sh` 4779 passed, **1 failed**: `test_playthrough: full
 | 94 | P* | Same-day buy-then-resell loses at every rung and tier (S `buy_then_resell_loses_money_at_every_rung_and_tier`). **Multi-day flip of large orders (≥~400 units, ≥£3k) profits** (BR): no slippage. Needs human call (accept as the "corner" play / add slippage) |
 | 95 | P | Wallet growth reported (BR, both tickets): guild/network +50-70k/day, others +14-30k/day. Not fixed (out of scope) |
 
-Totals: 95 stories. P 80 (87 and 94 with caveats), QA 9 (58, 62-69), G 6 (79, 85, 88, 89, 90, 93).
+Totals: 95 stories. P 81 (87 and 94 with caveats), QA 9 (58, 62-69), G 5 (79, 88, 89, 90, 93).
 
 ## Out-of-scope check (spec "Out of Scope")
 - Equipment, device components, recipe fragments in Soho: not built (`soho.gd` trades only goods the market lists; market lists ore + consumables).
@@ -173,5 +173,5 @@ Note: tickets 14/18 added mechanics beyond the original spec (Independents ore s
 2. Archie income ~2.5x baseline per unit (93).
 3. Multi-day large-order flip profits (94): accept, add slippage, or other.
 4. Root Feed shortfall days (79).
-5. Add a Rewind round-trip test for tiered stock (85) (trivial; not done here).
-6. Pre-existing failing test `full_playthrough_tutorial_economy_ticks_and_save_roundtrip`.
+5. Four no-crafter goods pinned at max every seed: need crafter/recipe decision (89).
+6. Ticket 19 (rename `independentsOreShare`) still open.
