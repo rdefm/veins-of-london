@@ -448,7 +448,7 @@ Muggers: generated, see §3.7.
 
 ```
 state = {
-  meta: { saveVersion: 13 },
+  meta: { saveVersion: 14 },
   currentScreen: "title",     # see screen list below
   modal: null,                # { type: String, data: Dictionary } | null
   bagDrawerOpen: false,        # M1 D4.4; the global BagDrawer bottom sheet, independent of `modal`
@@ -613,7 +613,7 @@ state = {
   pendingSaleCut: 0,
   labThresholds: {},          # { recipeKey: int } personal inventory target, 0..constants.json productionTargetMax (50); loaded saves clamp into range
   labCoverContracts: {},      # { recipeKey: bool } ticket 30 -- opt in to also craft toward contract need
-  autoSell: {},               # { recipeKey: { sellAbove: int, mood: "off"|"careful"|"steady"|"eager" } } §3.6 "Auto-sell"; no rule = Off
+  autoSell: {},               # { recipeKey: { sellAbove: int, mood: "aggressive"|"balanced"|"cautious" } } §3.6 "Auto-sell"; no rule = sellAbove at the bar's top, defaultMood
   lab: {                      # live Lab (systems/lab.gd, data/lab.json)
     known: {},                # { recipeKey: { steps: { "<idealIndex>": "insight"|"vague"|"exact" }, vagueHits: { "<idealIndex>": int } } }; unknown steps absent
     bestRanks: {},            # { recipeKey: 1..5 } only ever rising
@@ -835,16 +835,16 @@ The dock (`NavBar`, now 3 slots: Phone · Map · HQ) is hidden on `title, intro,
 - Every completed sale (ore or consumable, mugged or not): archie relation +2 (`ARCHIE_SALE_RELATION_GAIN`, bugfixes-63) — smaller than James's +5/job since sales happen far more often. Awarded *before* the cut ratio below is computed, so it affects the same sale's own cut (unchanged since bugfixes-63). This flat award stays alongside, not instead of, the separate `tradeProgress` £-denominated relation accumulator (collective1-06, `.scratch/collective-act1/spec.md` §8.4) that also runs on every Archie-lane sale — that one is applied *after* the cut is computed, so it never affects the sale that fed it.
 - Mugging roll: `chance(getEffectiveMugChance(0.20))` → stash cut in `pendingSaleCut`, start mugging combat; on win, pay out cut and show sale result (mugged:true). No mug → pay immediately, sale result modal.
 - **Tag-along deals** (`ArchieDeals`, constants.json `archieDeals`): daily offer chance lerps 100% at cash 0 → `chanceFloor` 0.10 at cash ≥ `chanceCashCeiling` 5000. Tier = `min(floor(cash / tierCashStep 5000), tierMax 6)`; qty = `randi_range(qtyBaseMin 20, qtyBaseMax 100) × 2^tier` of a random ore, priced as the Archie ore lane (`get_archie_ore_price`, records nothing); player cut = `floor(gross × playerCutShare 0.5)`.
-- **Auto-sell** (`systems/auto_sell.gd`, market.json `autoSell`): rollover step ⑥.4-1 (after contract settlement and renewal, before payday). Runs only with `has_staffed_sales()`. Covers recipes on `Rooms.production_recipes()`, never raw ore, each under its `state.autoSell` rule; no rule = mood Off, which never sells.
+- **Auto-sell** (`systems/auto_sell.gd`, market.json `autoSell`): rollover step ⑥.4-1 (after contract settlement and renewal, before payday). Runs only with `has_staffed_sales()`. Covers recipes on `Rooms.production_recipes()`, never raw ore, each under its `state.autoSell` rule. `sellAbove` at `productionTargetMax` (the bar's top) never sells, whatever the stock; no rule starts there under `defaultMood` (Balanced).
   - **Protected floor:** `max(sellAbove, Rooms.effective_lab_target(recipe))`, i.e. Keep (the Production target) plus contract need while the item covers contracts. Stock at or below the floor is never sold.
-  - **Moods** (`moods`): Careful needs London ≥ 110% of base and allows a 3% price drop; Steady 100% and 6%; Eager 85% and 12%. Below the minimum, nothing sells that day.
-  - **On-market daily limit:** `floor(stock × ((1 − maxPriceDrop)^(−1 / curveExponent) − 1))`, from today's London stock. With exponent 1.5 and stock 210: 4 / 8 / 18. Sold = `min(limit, surplus)`.
+  - **Sales approach** (`moods`): Aggressive needs London ≥ 85% of base and allows a 12% price drop; Balanced 100% and 6%; Cautious 110% and 3%. Below the minimum, nothing sells that day.
+  - **On-market daily limit:** `floor(stock × ((1 − maxPriceDrop)^(−1 / curveExponent) − 1))`, from today's London stock. With exponent 1.5 and stock 210: 18 / 8 / 4 (Aggressive / Balanced / Cautious). Sold = `min(limit, surplus)`.
   - **Off-market limit:** `floor(onMarketLimit × offMarketPerSalesLevel 0.1 × (salesSkill − 1))`, skill from `Contacts.sales_contact()` (`Offers.sales_skill()`): +0 / 10 / 20 / 30 / 40% at levels 1–5. Sold = `min(limit, surplus left after on-market sales)`, so nothing goes off-market on a day the floor or minimum price stops the on-market sale.
   - **Payment:** per tier, lowest tier first, on-market units before off-market, `Market.line_total("consumable", round_epsilon(quote × qualityPriceMultiplier(tier)), qty)`. No Archie cut, no mugging roll, no district/omen modifier. Each on-market lot records `Market.record_supply("consumable", key, qty, "player", tier)`. Off-market units pay the same but record nothing, so London's stock and price don't move. Market share is unaffected, as with any sale: it reads the ore and craft tallies (§3.14).
   - **Revenue** routes as a contract settlement (`Contracts.receive_revenue`: pot while active, else cash), banked as one daily total.
   - **Sales XP:** `salesXp` 2, once per day with at least one sale, to `Contacts.sales_contact()`. No relation gain, no `consSoldCount`.
   - **Morning report:** `account.sales` is `{ recipeKey: { qty, offMarketQty, income } }`; `qty` is on-market units, `income` covers both. Accounts from older saves have no `offMarketQty`.
-  - **Controls** (BizBrief Production, one stock bar per item): Keep sets the Production target; the cutoff sets `sellAbove`, stops at Keep and is pushed up by a Keep past it (`AutoSell.set_keep`, `set_sell_above`, `set_mood`). Cutoff and mood are locked while `has_staffed_sales()` is false; Keep isn't. The live line is `AutoSell.projection()`.
+  - **Controls** (BizBrief Production, one stock bar per item): Keep sets the Production target; the cutoff sets `sellAbove`, stops at Keep and is pushed up by a Keep past it (`AutoSell.set_keep`, `set_sell_above`, `set_mood`). A pip above the bar shows the cutoff's number, or "Sell all" at 0 and "Sell none" at the top; "Sell all" still leaves contract need and the approach's limits in force. Cutoff and approach are locked while `has_staffed_sales()` is false; Keep isn't. The live line is `AutoSell.projection()`.
 
 ### 3.6a Faction shops (biz-act2-faction-economy)
 - Every faction has a lane in `data/faction_trade.json` (pricing unchanged: London quote ± relation spread, §3.13). The Network's buy prices to the player are also × `FactionAI.gouge_mult(player)` while a Network `priceGouge` runs (§3.1 "Network moves"). `can_buy_from_faction`: a `memberOnly` lane needs membership; any other lane needs its `unlockFlag` (`collectiveLaneUnlocked`, `firmShopUnlocked`, `networkShopUnlocked`, `conclaveShopUnlocked`).

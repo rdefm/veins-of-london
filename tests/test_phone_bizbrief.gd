@@ -628,7 +628,7 @@ func run() -> void:
 		var bar := _stock_bar(phone, "timePearl")
 
 		assert_true(bar.cutoff_locked)
-		assert_true((phone.find_child("AutoSellMood_timePearl_steady", true, false) as Button).disabled)
+		assert_true((phone.find_child("AutoSellMood_timePearl_balanced", true, false) as Button).disabled)
 		var texts := NodeQuery.label_texts(phone)
 		assert_true(texts.has(BizBriefApp.AUTO_SELL_LOCKED_TEXT))
 		assert_true(texts.has("No one on Sales"))
@@ -644,14 +644,19 @@ func run() -> void:
 	run_case("production_mood_and_cutoff_drive_the_live_line_from_the_projection", func():
 		var phone := _production_phone(true)
 		Crafting.inventory_add("timePearl", 1, 30)
-		GameState.state["autoSell"]["timePearl"] = { "sellAbove": 10, "mood": "off" }
+		GameState.state["autoSell"]["timePearl"] = { "sellAbove": GameData.PRODUCTION_TARGET_MAX, "mood": "balanced" }
 		EventBus.state_changed.emit()
 		assert_true(NodeQuery.label_texts(phone).has("30 in stock"), "stock sits on the item's row")
-		assert_true(NodeQuery.label_texts(phone).has("Mood is Off"))
+		assert_true(NodeQuery.label_texts(phone).has("Not selling"))
+		assert_true(NodeQuery.label_texts(phone).has(StockBar.SELL_NONE_TEXT))
+		assert_true(NodeQuery.label_texts(phone).has(BizBriefApp.AUTO_SELL_HEADING))
+		assert_eq(BizBriefApp.AUTO_SELL_MOODS.keys(), ["aggressive", "balanced", "cautious"], "button order")
+		assert_eq(BizBriefApp._cutoff_text("timePearl", 0, 0), StockBar.SELL_ALL_TEXT)
 
-		(phone.find_child("AutoSellMood_timePearl_eager", true, false) as Button).pressed.emit()
-		assert_eq(AutoSell.rule("timePearl")["mood"], "eager")
-		assert_true(NodeQuery.label_texts(phone).has(BizBriefApp.AUTO_SELL_MOODS["eager"]["meaning"]))
+		GameState.state["autoSell"]["timePearl"]["sellAbove"] = 10
+		(phone.find_child("AutoSellMood_timePearl_aggressive", true, false) as Button).pressed.emit()
+		assert_eq(AutoSell.rule("timePearl")["mood"], "aggressive")
+		assert_true(NodeQuery.label_texts(phone).has(BizBriefApp.AUTO_SELL_MOODS["aggressive"]["meaning"]))
 		var projected := AutoSell.projection("timePearl")
 		assert_true(int(projected["qty"]) > 0, "fixture: London takes some")
 		var line := (phone.find_child("AutoSellLine_timePearl", true, false) as Label)
@@ -676,7 +681,7 @@ func run() -> void:
 		Offers.accept_offer(created["offer"]["id"])
 		Rooms.set_lab_cover_contracts("timePearl", true)
 		Rooms.set_lab_threshold("timePearl", 3)
-		GameState.state["autoSell"]["timePearl"] = { "sellAbove": 5, "mood": "eager" }
+		GameState.state["autoSell"]["timePearl"] = { "sellAbove": 5, "mood": "aggressive" }
 		EventBus.state_changed.emit()
 
 		var bar := _stock_bar(phone, "timePearl")

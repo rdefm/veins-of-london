@@ -47,10 +47,11 @@
   "autoSell": {
     "salesXp": 2,
     "offMarketPerSalesLevel": 0.1,
+    "defaultMood": "balanced",
     "moods": {
-      "careful": { "minPriceMult": 1.1, "maxPriceDrop": 0.03 },
-      "steady": { "minPriceMult": 1.0, "maxPriceDrop": 0.06 },
-      "eager": { "minPriceMult": 0.85, "maxPriceDrop": 0.12 }
+      "aggressive": { "minPriceMult": 0.85, "maxPriceDrop": 0.12 },
+      "balanced": { "minPriceMult": 1.0, "maxPriceDrop": 0.06 },
+      "cautious": { "minPriceMult": 1.1, "maxPriceDrop": 0.03 }
     }
   },
   "storyRises": {

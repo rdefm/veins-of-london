@@ -3,15 +3,23 @@ extends Control
 
 # One item's bar on BizBrief's Production page, 0..max_value. The Keep handle
 # hangs left of its value and the cutoff handle right of its value, so they
-# sit side by side when they meet and each keeps a full grab area. View state
-# only: `changed` fires live during a drag and the commit signals fire once on
-# release, where the screen calls its system. R§3.6 "Auto-sell".
+# sit side by side when they meet and each keeps a full grab area. A pip above
+# the cutoff handle names its value. View state only: `changed` fires live
+# during a drag and the commit signals fire once on release, where the screen
+# calls its system. R§3.6 "Auto-sell".
 
 signal changed(keep: int, cutoff: int)
 signal keep_committed(keep: int)
 signal cutoff_committed(cutoff: int)
 
+const SELL_ALL_TEXT := "Sell all"
+const SELL_NONE_TEXT := "Sell none"
+
 const BAR_HEIGHT := 44.0
+const PIP_HEIGHT := 24.0  # pip row above the bar
+const PIP_GAP := 2.0
+const PIP_PADDING := 6.0
+const PIP_FONT_SIZE := 13
 const HANDLE_WIDTH := 28.0
 const HANDLE_HEIGHT := 36.0
 const TRACK_HEIGHT := 12.0
@@ -41,7 +49,7 @@ func configure(top: int, new_keep: int, new_cutoff: int, new_held_floor: int, ne
 	held_floor = new_held_floor
 	stock = new_stock
 	cutoff_locked = locked
-	custom_minimum_size = Vector2(HANDLE_WIDTH * 4.0, BAR_HEIGHT)
+	custom_minimum_size = Vector2(HANDLE_WIDTH * 4.0, PIP_HEIGHT + BAR_HEIGHT)
 	size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	queue_redraw()
@@ -51,6 +59,15 @@ func configure(top: int, new_keep: int, new_cutoff: int, new_held_floor: int, ne
 func set_held_floor(new_held_floor: int) -> void:
 	held_floor = new_held_floor
 	queue_redraw()
+
+
+# The cutoff in words at either end of the bar, else its number.
+func pip_text() -> String:
+	if cutoff >= max_value:
+		return SELL_NONE_TEXT
+	if cutoff <= 0:
+		return SELL_ALL_TEXT
+	return str(cutoff)
 
 
 func _value_x(value: int) -> float:
@@ -123,7 +140,7 @@ func _release() -> void:
 
 
 func _draw() -> void:
-	var track_y := (size.y - TRACK_HEIGHT) / 2.0
+	var track_y := _bar_centre_y() - TRACK_HEIGHT / 2.0
 	var keep_x := _value_x(keep)
 	var floor_x := _value_x(maxi(held_floor, keep))
 	var end_x := _value_x(max_value)
@@ -133,17 +150,35 @@ func _draw() -> void:
 	draw_rect(Rect2(HANDLE_WIDTH, track_y, keep_x - HANDLE_WIDTH, TRACK_HEIGHT), BizBriefApp.PAPER)
 	draw_rect(Rect2(keep_x, track_y, floor_x - keep_x, TRACK_HEIGHT), Color(BizBriefApp.PAPER, CONTRACT_ALPHA))
 	var stock_x := _value_x(stock)
-	draw_rect(Rect2(stock_x - STOCK_TICK_WIDTH / 2.0, 0.0, STOCK_TICK_WIDTH, size.y), BizBriefApp.MUTED)
+	draw_rect(Rect2(stock_x - STOCK_TICK_WIDTH / 2.0, size.y - BAR_HEIGHT, STOCK_TICK_WIDTH, BAR_HEIGHT), BizBriefApp.MUTED)
 	_draw_handle(Handle.KEEP, BizBriefApp.PAPER, BizBriefApp.NAVY)
 	if cutoff_locked:
 		_draw_handle(Handle.CUTOFF, BizBriefApp.LINE, BizBriefApp.MUTED)
+		_draw_cutoff_pip(BizBriefApp.LINE, BizBriefApp.MUTED)
 	else:
 		_draw_handle(Handle.CUTOFF, BizBriefApp.SIGNAL, BizBriefApp.PAPER)
+		_draw_cutoff_pip(BizBriefApp.SIGNAL, BizBriefApp.PAPER)
+
+
+func _bar_centre_y() -> float:
+	return size.y - BAR_HEIGHT / 2.0
+
+
+# Sits over the cutoff handle, held inside the control at either end.
+func _draw_cutoff_pip(fill: Color, ink: Color) -> void:
+	var font := get_theme_default_font()
+	var text := pip_text()
+	var width := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, PIP_FONT_SIZE).x + PIP_PADDING * 2.0
+	var left := clampf(_handle_rect(Handle.CUTOFF).get_center().x - width / 2.0, 0.0, maxf(size.x - width, 0.0))
+	var height := PIP_HEIGHT - PIP_GAP
+	draw_rect(Rect2(left, 0.0, width, height), fill)
+	var baseline := (height + font.get_ascent(PIP_FONT_SIZE) - font.get_descent(PIP_FONT_SIZE)) / 2.0
+	draw_string(font, Vector2(left + PIP_PADDING, baseline), text, HORIZONTAL_ALIGNMENT_LEFT, -1, PIP_FONT_SIZE, ink)
 
 
 func _draw_handle(handle: int, fill: Color, grip: Color) -> void:
 	var rect := _handle_rect(handle)
-	var body := Rect2(rect.position.x + 1.0, (size.y - HANDLE_HEIGHT) / 2.0, rect.size.x - 2.0, HANDLE_HEIGHT)
+	var body := Rect2(rect.position.x + 1.0, _bar_centre_y() - HANDLE_HEIGHT / 2.0, rect.size.x - 2.0, HANDLE_HEIGHT)
 	draw_rect(body, fill)
 	var centre := body.get_center()
 	for offset in [-4.0, 0.0, 4.0]:

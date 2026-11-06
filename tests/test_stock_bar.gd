@@ -84,6 +84,28 @@ func run() -> void:
 	)
 
 
+	run_case("pip_names_the_cutoff_and_words_both_ends_of_the_bar", func():
+		var bar := _bar(0, 10)
+		assert_eq(bar.pip_text(), "10")
+		_mouse(bar, true, bar._value_x(10) + 2.0)
+		_move(bar, 0.0)
+		assert_eq(bar.pip_text(), StockBar.SELL_ALL_TEXT, "follows the drag to the left end")
+		_move(bar, WIDTH)
+		assert_eq(bar.pip_text(), StockBar.SELL_NONE_TEXT, "and to the right end")
+		bar.free()
+
+		var kept := _bar(5, 5)
+		assert_eq(kept.pip_text(), "5", "the left stop at a Keep over 0 is still a number")
+		kept.free()
+	)
+
+	run_case("the_pip_row_sits_above_the_bar", func():
+		var bar := _bar(0, 10)
+		assert_eq(bar.custom_minimum_size.y, StockBar.PIP_HEIGHT + StockBar.BAR_HEIGHT)
+		bar.free()
+	)
+
+
 func _bar(keep: int, cutoff: int) -> StockBar:
 	var bar := StockBar.new()
 	bar.configure(TOP, keep, cutoff, keep, 0, false)

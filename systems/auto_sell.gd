@@ -3,17 +3,17 @@ extends RefCounted
 
 # Daily auto-sell pass (R§3.6 "Auto-sell"): the Sales role sells surplus stock
 # of Production-list items into London at each rollover, under one rule per
-# recipe in state.autoSell ({ recipeKey: { sellAbove, mood } }). A recipe with
-# no rule is Off. Static funcs only.
+# recipe in state.autoSell ({ recipeKey: { sellAbove, mood } }). A cutoff at
+# the top of the bar sells nothing, and a recipe with no rule starts there.
+# Static funcs only.
 
-const MOOD_OFF := "off"
 const PRICE_EPSILON := 0.0001  # absorbs float error in base × minPriceMult
 const UNIT_EPSILON := 0.0001  # absorbs float error in limit × skill rate
 
 # projection()'s "reason" when qty is 0.
 const REASON_NO_SALES := "noSales"
 const REASON_CLOSED := "marketClosed"
-const REASON_OFF := "moodOff"
+const REASON_SELL_NONE := "sellNone"
 const REASON_UNDER_CUTOFF := "underCutoff"
 const REASON_CONTRACTS := "heldForContracts"
 const REASON_PRICE := "priceLow"
@@ -24,9 +24,9 @@ static func _config() -> Dictionary:
 	return GameData.MARKET["autoSell"]
 
 
-# The recipe's rule, or the default: Off, cutoff at the top of the bar.
+# The recipe's rule, or the default: cutoff at the top of the bar, default mood.
 static func rule(recipe_key: String) -> Dictionary:
-	return GameState.state["autoSell"].get(recipe_key, { "sellAbove": GameData.PRODUCTION_TARGET_MAX, "mood": MOOD_OFF })
+	return GameState.state["autoSell"].get(recipe_key, { "sellAbove": GameData.PRODUCTION_TARGET_MAX, "mood": _config()["defaultMood"] })
 
 
 static func _store_rule(recipe_key: String, sell_above: int, mood: String) -> void:
@@ -53,7 +53,7 @@ static func set_sell_above(recipe_key: String, sell_above: int) -> void:
 
 # Locked while no one works Sales.
 static func set_mood(recipe_key: String, mood: String) -> void:
-	if not Contracts.has_staffed_sales() or not (mood == MOOD_OFF or _config()["moods"].has(mood)):
+	if not Contracts.has_staffed_sales() or not _config()["moods"].has(mood):
 		return
 	_store_rule(recipe_key, int(rule(recipe_key)["sellAbove"]), mood)
 	EventBus.state_changed.emit()
@@ -88,13 +88,13 @@ static func sellable_qty(recipe_key: String) -> int:
 # { qty, offMarketQty, reason }: what the rule sells today, and why not when
 # qty is 0. Off-market units come from surplus the market didn't take.
 static func _assess(recipe_key: String, keep: int, sell_above: int) -> Dictionary:
-	var mood: Variant = _config()["moods"].get(rule(recipe_key)["mood"])
-	if mood == null:
-		return { "qty": 0, "offMarketQty": 0, "reason": REASON_OFF }
+	var cutoff: int = sell_above if sell_above >= 0 else int(rule(recipe_key)["sellAbove"])
+	if cutoff >= GameData.PRODUCTION_TARGET_MAX:
+		return { "qty": 0, "offMarketQty": 0, "reason": REASON_SELL_NONE }
+	var mood: Dictionary = _config()["moods"][rule(recipe_key)["mood"]]
 	var held := Crafting.inventory_qty(recipe_key)
 	var surplus := held - protected_floor(recipe_key, keep, sell_above)
 	if surplus <= 0:
-		var cutoff: int = sell_above if sell_above >= 0 else int(rule(recipe_key)["sellAbove"])
 		return { "qty": 0, "offMarketQty": 0, "reason": REASON_CONTRACTS if held > cutoff else REASON_UNDER_CUTOFF }
 	var min_price: float = Market.base_price("consumable", recipe_key) * float(mood["minPriceMult"])
 	if float(Market.quote("consumable", recipe_key)) < min_price - PRICE_EPSILON:

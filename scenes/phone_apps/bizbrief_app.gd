@@ -36,16 +36,16 @@ const STOCK_TEXT := "%d in stock"
 const MOOD_BUTTON_HEIGHT := 40.0
 const MOOD_LOCKED_ALPHA := 0.5
 const AUTO_SELL_LOCKED_TEXT := "Locked. Put someone on Sales to set this."
+const AUTO_SELL_HEADING := "Sales approach"
 const AUTO_SELL_MOODS := {
-	"off": { "label": "Off", "meaning": "Sales leaves this stock alone." },
-	"careful": { "label": "Careful", "meaning": "Sells a little, and only when London pays well." },
-	"steady": { "label": "Steady", "meaning": "Sells at a fair price, without leaning on it." },
-	"eager": { "label": "Eager", "meaning": "Sells more, and takes a softer price to do it." },
+	"aggressive": { "label": "Aggressive", "meaning": "Sells more, and takes a softer price to do it." },
+	"balanced": { "label": "Balanced", "meaning": "Sells at a fair price, without leaning on it." },
+	"cautious": { "label": "Cautious", "meaning": "Sells a little, and only when London pays well." },
 }
 const AUTO_SELL_REASON_TEXT := {
 	AutoSell.REASON_NO_SALES: "No one on Sales",
 	AutoSell.REASON_CLOSED: "London market hasn't started",
-	AutoSell.REASON_OFF: "Mood is Off",
+	AutoSell.REASON_SELL_NONE: "Not selling",
 	AutoSell.REASON_UNDER_CUTOFF: "Under your cutoff",
 	AutoSell.REASON_CONTRACTS: "Held for contracts",
 	AutoSell.REASON_PRICE: "Price too low",
@@ -1322,6 +1322,7 @@ func _build_production_recipe_row(recipe_key: String) -> Control:
 	cutoff_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	box.add_child(cutoff_label)
 
+	box.add_child(UI.muted_label(AUTO_SELL_HEADING))
 	box.add_child(_build_mood_row(recipe_key, rule["mood"], sales_staffed))
 	box.add_child(UI.muted_label(AUTO_SELL_MOODS[rule["mood"]]["meaning"] if sales_staffed else AUTO_SELL_LOCKED_TEXT))
 	var result_label := UI.label(_auto_sell_text(AutoSell.projection(recipe_key)))
@@ -1356,10 +1357,13 @@ static func _target_text(recipe_key: String, target: int, covering: bool) -> Str
 
 # The cutoff, plus the contract floor when that sits above it.
 static func _cutoff_text(recipe_key: String, keep: int, cutoff: int) -> String:
+	if cutoff >= GameData.PRODUCTION_TARGET_MAX:
+		return StockBar.SELL_NONE_TEXT
+	var text: String = StockBar.SELL_ALL_TEXT if cutoff <= 0 else "Sell above %d" % cutoff
 	var floor_qty := AutoSell.protected_floor(recipe_key, keep, cutoff)
 	if floor_qty > cutoff:
-		return "Sell above %d · contracts hold %d" % [cutoff, floor_qty]
-	return "Sell above %d" % cutoff
+		return text + " · contracts hold %d" % floor_qty
+	return text
 
 
 static func _auto_sell_text(projected: Dictionary) -> String:

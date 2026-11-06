@@ -4,7 +4,7 @@ extends Node
 # autosaves. autosave() is called from daily_tick, exit_combat, event
 # completion, and every successful cash purchase.
 
-const SAVE_VERSION := 13
+const SAVE_VERSION := 14
 # Oldest save version _migrate_versions() can still bring forward.
 const MIN_SUPPORTED_VERSION := 3
 const SLOT_COUNT := 3
@@ -416,8 +416,23 @@ func _migrate_versions(save: Dictionary) -> void:
 				_migrate_from_v11(save)
 			12:
 				_migrate_from_v12(save)
+			13:
+				_migrate_from_v13(save)
 	meta["saveVersion"] = SAVE_VERSION
 	save["meta"] = meta
+
+
+# v14: auto-sell moods take their approach ids, with the same limits. An Off
+# rule becomes a cutoff at the top of the bar under the default mood.
+func _migrate_from_v13(save: Dictionary) -> void:
+	var renames := { "careful": "cautious", "steady": "balanced", "eager": "aggressive" }
+	var default_mood: String = GameData.MARKET["autoSell"]["defaultMood"]
+	for rule in save.get("autoSell", {}).values():
+		if renames.has(rule["mood"]):
+			rule["mood"] = renames[rule["mood"]]
+		else:
+			rule["mood"] = default_mood
+			rule["sellAbove"] = GameData.PRODUCTION_TARGET_MAX
 
 
 # v13: Stealth folds into Sense. The player's senseXP becomes the larger of

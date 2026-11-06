@@ -273,7 +273,7 @@ overlays; hides the top board on title/intro/combat and the nav dock per screen.
 | settings_app.gd | Reduced-motion, alarm-vibration and quick-combat-pacing preference controls |
 | saveload_app.gd | Save slots, export/import (compressed string, copy-to-clipboard), New Game confirm |
 | notifications_app.gd | Notification log with pending Defend / guard short-pay buttons, Move Book link on move level-ups |
-| stock_bar.gd | Production page per-item bar (`StockBar`): Keep and sell-above handles, contract floor band, stock tick, locked cutoff; signals live changes and release commits, no state access |
+| stock_bar.gd | Production page per-item bar (`StockBar`): Keep and sell-above handles, cutoff pip (number, Sell all, Sell none), contract floor band, stock tick, locked cutoff; signals live changes and release commits, no state access |
 | short_pay_view.gd | BizBrief short-pay sub-view: per-place guard keep steppers, live cost/reserve/cash needed, Confirm |
 | guard_costs_view.gd | BizBrief Guard Costs sub-view (pot or not): next Monday bill + pending shortfall header, per-place guard payment chart over the history window, multi-select HQ/vein filter |
 | bank_app.gd | Reynard's: oxblood-gradient balance panel (branded header, calc_gold figure) + day-grouped hairline transaction ledger, newest first |
@@ -314,7 +314,7 @@ overlays; hides the top board on title/intro/combat and the nav dock per screen.
 | floorplans.json | GameData.gd + floorplan_view.gd (per-tier plan asset, size, slot rects) |
 | hq_visuals.json | hq_diorama.gd, hq*.gd screens |
 | map_layout.json | map_layout.gd, map_hit_test.gd |
-| market.json | soho.gd (`soho` ladders, margin, floor, unlock flag); market.gd (constants, sim start, priceLot, ore conversion rate, annotation cap/thresholds, delivery-log cap, Independents shares + buy cover, per-good normalStock/civilianDemand, storyRises); auto_sell.gd (`autoSell` moods, salesXp, offMarketPerSalesLevel); shares.gd (via Market.independents_share) |
+| market.json | soho.gd (`soho` ladders, margin, floor, unlock flag); market.gd (constants, sim start, priceLot, ore conversion rate, annotation cap/thresholds, delivery-log cap, Independents shares + buy cover, per-good normalStock/civilianDemand, storyRises); auto_sell.gd (`autoSell` moods, defaultMood, salesXp, offMarketPerSalesLevel); shares.gd (via Market.independents_share) |
 | map_palette.json | GameData.gd (validated) + map_palette.gd (Map tab light/dark colour tokens, zone-tint strength, faction/ore/zoneTint dark overrides) + map_controls.gd (`darkModeLabel`) |
 | todo.json | todo.gd (per-questline label, subtitle, accent, doneFlag, emptyText; act2/board page style, copy strings) |
 | objectives.json | objectives.gd, todo.gd, daily_brief.gd (optional briefAction / earlyBriefAction + note: Story-row destination), collective.gd, business_quest.gd |
