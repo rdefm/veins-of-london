@@ -648,10 +648,8 @@ func run() -> void:
 		EventBus.state_changed.emit()
 		assert_true(NodeQuery.label_texts(phone).has("30 in stock"), "stock sits on the item's row")
 		assert_true(NodeQuery.label_texts(phone).has("Not selling"))
-		assert_true(NodeQuery.label_texts(phone).has(StockBar.SELL_NONE_TEXT))
 		assert_true(NodeQuery.label_texts(phone).has(BizBriefApp.AUTO_SELL_HEADING))
 		assert_eq(BizBriefApp.AUTO_SELL_MOODS.keys(), ["aggressive", "balanced", "cautious"], "button order")
-		assert_eq(BizBriefApp._cutoff_text("timePearl", 0, 0), StockBar.SELL_ALL_TEXT)
 
 		GameState.state["autoSell"]["timePearl"]["sellAbove"] = 10
 		(phone.find_child("AutoSellMood_timePearl_aggressive", true, false) as Button).pressed.emit()
@@ -688,8 +686,13 @@ func run() -> void:
 		assert_eq(bar.held_floor, 12, "Keep 3 + contract need 9")
 		assert_eq(bar.cutoff, 5)
 		var texts := NodeQuery.label_texts(phone)
-		assert_true(texts.has("Sell above 5 · contracts hold 12"))
+		assert_true(texts.has("Contracts hold 12"))
 		assert_true(texts.has("Held for contracts"), "stock over the cutoff but inside the floor isn't sellable")
+
+		var hold := Label.new()
+		BizBriefApp._show_contract_hold(hold, "timePearl", 3, 20)
+		assert_true(not hold.visible, "a cutoff over the floor hides the line")
+		hold.free()
 		phone.free()
 	)
 

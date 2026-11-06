@@ -1318,9 +1318,10 @@ func _build_production_recipe_row(recipe_key: String) -> Control:
 	bar.name = "StockBar_%s" % recipe_key
 	bar.configure(GameData.PRODUCTION_TARGET_MAX, target, int(rule["sellAbove"]), Rooms.effective_lab_target(recipe_key), stock, not sales_staffed)
 	box.add_child(bar)
-	var cutoff_label := UI.muted_label(_cutoff_text(recipe_key, target, bar.cutoff))
-	cutoff_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	box.add_child(cutoff_label)
+	var hold_label := UI.muted_label("")
+	hold_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_show_contract_hold(hold_label, recipe_key, target, bar.cutoff)
+	box.add_child(hold_label)
 
 	box.add_child(UI.muted_label(AUTO_SELL_HEADING))
 	box.add_child(_build_mood_row(recipe_key, rule["mood"], sales_staffed))
@@ -1332,7 +1333,7 @@ func _build_production_recipe_row(recipe_key: String) -> Control:
 	bar.changed.connect(func(keep: int, cutoff: int) -> void:
 		bar.set_held_floor(Rooms.effective_lab_target(recipe_key, keep))
 		target_label.text = _target_text(recipe_key, keep, covering)
-		cutoff_label.text = _cutoff_text(recipe_key, keep, cutoff)
+		_show_contract_hold(hold_label, recipe_key, keep, cutoff)
 		result_label.text = _auto_sell_text(AutoSell.projection(recipe_key, keep, cutoff)))
 	bar.keep_committed.connect(func(keep: int) -> void: AutoSell.set_keep(recipe_key, keep))
 	bar.cutoff_committed.connect(func(cutoff: int) -> void: AutoSell.set_sell_above(recipe_key, cutoff))
@@ -1355,15 +1356,11 @@ static func _target_text(recipe_key: String, target: int, covering: bool) -> Str
 	return text + " · contracts not covered"
 
 
-# The cutoff, plus the contract floor when that sits above it.
-static func _cutoff_text(recipe_key: String, keep: int, cutoff: int) -> String:
-	if cutoff >= GameData.PRODUCTION_TARGET_MAX:
-		return StockBar.SELL_NONE_TEXT
-	var text: String = StockBar.SELL_ALL_TEXT if cutoff <= 0 else "Sell above %d" % cutoff
+# The contract floor when it sits above the cutoff; the line hides otherwise.
+static func _show_contract_hold(label: Label, recipe_key: String, keep: int, cutoff: int) -> void:
 	var floor_qty := AutoSell.protected_floor(recipe_key, keep, cutoff)
-	if floor_qty > cutoff:
-		return text + " · contracts hold %d" % floor_qty
-	return text
+	label.text = "Contracts hold %d" % floor_qty if floor_qty > cutoff else ""
+	label.visible = floor_qty > cutoff
 
 
 static func _auto_sell_text(projected: Dictionary) -> String:
