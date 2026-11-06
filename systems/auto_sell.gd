@@ -9,6 +9,15 @@ extends RefCounted
 const MOOD_OFF := "off"
 const PRICE_EPSILON := 0.0001  # absorbs float error in base × minPriceMult
 
+# projection()'s "reason" when qty is 0.
+const REASON_NO_SALES := "noSales"
+const REASON_CLOSED := "marketClosed"
+const REASON_OFF := "moodOff"
+const REASON_UNDER_CUTOFF := "underCutoff"
+const REASON_CONTRACTS := "heldForContracts"
+const REASON_PRICE := "priceLow"
+const REASON_MARKET_FULL := "marketFull"
+
 
 static func _config() -> Dictionary:
 	return GameData.MARKET["autoSell"]
@@ -19,9 +28,41 @@ static func rule(recipe_key: String) -> Dictionary:
 	return GameState.state["autoSell"].get(recipe_key, { "sellAbove": GameData.PRODUCTION_TARGET_MAX, "mood": MOOD_OFF })
 
 
-# Stock at or below this is never auto-sold.
-static func protected_floor(recipe_key: String) -> int:
-	return maxi(int(rule(recipe_key)["sellAbove"]), Rooms.effective_lab_target(recipe_key))
+static func _store_rule(recipe_key: String, sell_above: int, mood: String) -> void:
+	GameState.state["autoSell"][recipe_key] = { "sellAbove": sell_above, "mood": mood }
+
+
+# Sets the Production target; a Keep past the cutoff pushes the cutoff with it.
+static func set_keep(recipe_key: String, keep: int) -> void:
+	var clamped := Rooms.clamp_lab_threshold(keep)
+	var current := rule(recipe_key)
+	if clamped > int(current["sellAbove"]):
+		_store_rule(recipe_key, clamped, current["mood"])
+	Rooms.set_lab_threshold(recipe_key, clamped)
+
+
+# Moves the cutoff, stopping at Keep. Locked while no one works Sales.
+static func set_sell_above(recipe_key: String, sell_above: int) -> void:
+	if not Contracts.has_staffed_sales():
+		return
+	var keep := int(GameState.state["labThresholds"].get(recipe_key, 0))
+	_store_rule(recipe_key, clampi(sell_above, keep, GameData.PRODUCTION_TARGET_MAX), rule(recipe_key)["mood"])
+	EventBus.state_changed.emit()
+
+
+# Locked while no one works Sales.
+static func set_mood(recipe_key: String, mood: String) -> void:
+	if not Contracts.has_staffed_sales() or not (mood == MOOD_OFF or _config()["moods"].has(mood)):
+		return
+	_store_rule(recipe_key, int(rule(recipe_key)["sellAbove"]), mood)
+	EventBus.state_changed.emit()
+
+
+# Stock at or below this is never auto-sold. keep / sell_above >= 0 preview
+# values not yet stored (a handle mid-drag).
+static func protected_floor(recipe_key: String, keep: int = -1, sell_above: int = -1) -> int:
+	var cutoff: int = sell_above if sell_above >= 0 else int(rule(recipe_key)["sellAbove"])
+	return maxi(cutoff, Rooms.effective_lab_target(recipe_key, keep))
 
 
 # Extra London stock that would lower the price by max_drop on the market curve.
@@ -33,14 +74,41 @@ static func market_limit(recipe_key: String, max_drop: float) -> int:
 
 # Units the rule would sell at today's stock and price.
 static func sellable_qty(recipe_key: String) -> int:
+	return _assess(recipe_key, -1, -1)["qty"]
+
+
+# { qty, reason }: what the rule sells today, and why not when qty is 0.
+static func _assess(recipe_key: String, keep: int, sell_above: int) -> Dictionary:
 	var mood: Variant = _config()["moods"].get(rule(recipe_key)["mood"])
 	if mood == null:
-		return 0
+		return { "qty": 0, "reason": REASON_OFF }
+	var held := Crafting.inventory_qty(recipe_key)
+	var surplus := held - protected_floor(recipe_key, keep, sell_above)
+	if surplus <= 0:
+		var cutoff: int = sell_above if sell_above >= 0 else int(rule(recipe_key)["sellAbove"])
+		return { "qty": 0, "reason": REASON_CONTRACTS if held > cutoff else REASON_UNDER_CUTOFF }
 	var min_price: float = Market.base_price("consumable", recipe_key) * float(mood["minPriceMult"])
 	if float(Market.quote("consumable", recipe_key)) < min_price - PRICE_EPSILON:
-		return 0
-	var surplus: int = Crafting.inventory_qty(recipe_key) - protected_floor(recipe_key)
-	return clampi(surplus, 0, market_limit(recipe_key, float(mood["maxPriceDrop"])))
+		return { "qty": 0, "reason": REASON_PRICE }
+	var qty := mini(surplus, market_limit(recipe_key, float(mood["maxPriceDrop"])))
+	if qty <= 0:
+		return { "qty": 0, "reason": REASON_MARKET_FULL }
+	return { "qty": qty, "reason": "" }
+
+
+# What daily_pass() would do for a Production-list recipe from the current
+# state: { qty, income, reason }, reason "" when it sells. keep / sell_above
+# >= 0 preview values not yet stored.
+static func projection(recipe_key: String, keep: int = -1, sell_above: int = -1) -> Dictionary:
+	if not Contracts.has_staffed_sales():
+		return { "qty": 0, "income": 0, "reason": REASON_NO_SALES }
+	if not Market.is_running():
+		return { "qty": 0, "income": 0, "reason": REASON_CLOSED }
+	var assessed := _assess(recipe_key, keep, sell_above)
+	var income := 0
+	for lot in Crafting.inventory_lots(recipe_key, assessed["qty"]):
+		income += _lot_income(recipe_key, lot)
+	return { "qty": assessed["qty"], "income": income, "reason": assessed["reason"] }
 
 
 # Sells each Production-list recipe's sellable_qty(), lowest tier first, and
@@ -68,10 +136,13 @@ static func daily_pass() -> Dictionary:
 
 static func _sell(recipe_key: String, qty: int) -> int:
 	var income := 0
-	var quote := Market.quote("consumable", recipe_key)
 	for lot in Crafting.inventory_remove(recipe_key, qty):
-		var tier: int = lot["tier"]
-		var price := GameState.round_epsilon(quote * Economy.quality_price_multiplier(tier))
-		income += Market.line_total("consumable", price, lot["qty"])
-		Market.record_supply("consumable", recipe_key, lot["qty"], "player", tier)
+		income += _lot_income(recipe_key, lot)
+		Market.record_supply("consumable", recipe_key, lot["qty"], "player", lot["tier"])
 	return income
+
+
+static func _lot_income(recipe_key: String, lot: Dictionary) -> int:
+	var quote := Market.quote("consumable", recipe_key)
+	var price := GameState.round_epsilon(quote * Economy.quality_price_multiplier(lot["tier"]))
+	return Market.line_total("consumable", price, lot["qty"])

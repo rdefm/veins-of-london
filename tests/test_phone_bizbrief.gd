@@ -37,6 +37,38 @@ static func _open_manage_page(root: Node, page: String) -> void:
 	(root.find_child("ManageRowButton_%s" % page, true, false) as Button).pressed.emit()
 
 
+# A phone on the Production page with James crafting; Archie on Sales when staffed.
+static func _production_phone(staffed: bool) -> Control:
+	GameState.reset()
+	GameState.state["home"]["rooms"].append("lab")
+	GameState.state["contacts"]["james"]["recruited"] = true
+	GameState.state["flags"]["bizJamesProductionRole"] = true
+	if staffed:
+		GameState.state["contacts"]["archie"]["recruited"] = true
+		Contacts.assign_to_room("archie", "ops")
+	GameState.state["phoneNav"]["app"] = "bizbrief"
+	var phone := PhoneScreen.new()
+	phone._ready()
+	_open_manage_page(phone, "production")
+	return phone
+
+
+# The live bar for a recipe, given a width so its pixel maths works unlaid-out.
+static func _stock_bar(root: Node, recipe_key: String) -> StockBar:
+	var bar := root.find_child("StockBar_%s" % recipe_key, true, false) as StockBar
+	bar.size = Vector2(300.0, StockBar.BAR_HEIGHT)
+	return bar
+
+
+static func _drag_keep(bar: StockBar, value: int) -> void:
+	bar._press(bar._value_x(bar.keep) - 2.0)
+	bar._drag_to(bar._value_x(value) - 2.0)
+
+
+static func _release(bar: StockBar) -> void:
+	bar._release()
+
+
 # Staff roster → one recruit's detail.
 static func _open_staff_person(root: Node, contact_id: String) -> void:
 	(root.find_child("StaffRowButton_%s" % contact_id, true, false) as Button).pressed.emit()
@@ -548,7 +580,7 @@ func run() -> void:
 		_open_manage_page(phone, "production")
 
 		assert_true(NodeQuery.label_texts(phone).has("Nothing your crafters can make yet."))
-		assert_eq(phone.find_children("", "HSlider", true, false).size(), 0)
+		assert_eq(phone.find_children("StockBar_*", "Control", true, false).size(), 0)
 		phone.free()
 	)
 
@@ -569,27 +601,89 @@ func run() -> void:
 			assert_true(texts.has(name), "%s within time+life is listed" % name)
 		assert_true(not texts.has("Blast"), "physics recipe stays off James's list")
 		assert_true(not texts.has("Wormhole"), "time+physics recipe stays off James's list")
-		var summary := _label_with_text(phone, "Personal target: 0 · contract need: 3 · contracts not covered")
+		var summary := _label_with_text(phone, "Keep: 0 · contract need: 3 · contracts not covered")
 		assert_true(summary != null, "target, need and coverage in one summary line")
 		var row: Node = phone.find_child("ProductionRecipe_timePearl", true, false)
-		var slider_row: Node = row.find_children("", "HSlider", true, false)[0].get_parent()
-		assert_true(summary.get_parent() == row and slider_row.get_parent() == row and summary.get_index() < slider_row.get_index(), "summary sits before the controls")
+		var bar := _stock_bar(phone, "timePearl")
+		assert_true(summary.get_parent() == row and bar.get_parent() == row and summary.get_index() < bar.get_index(), "summary sits before the controls")
 
-		var sliders: Array = phone.find_children("", "HSlider", true, false)
-		assert_eq(sliders.size(), Rooms.producible_recipes("james").size(), "one target slider per listed recipe")
-		var slider := sliders[0] as HSlider
-		assert_eq([int(slider.min_value), int(slider.max_value)], [0, GameData.PRODUCTION_TARGET_MAX], "target spans 0..the data cap")
-		slider.value = 5
-		slider.value_changed.emit(5.0)
-		assert_true(NodeQuery.label_texts(phone).has("Personal target: 5 · contract need: 3 · contracts not covered"), "label follows the drag")
-		slider.drag_ended.emit(true)
+		assert_eq(phone.find_children("StockBar_*", "Control", true, false).size(), Rooms.producible_recipes("james").size(), "one bar per listed recipe")
+		assert_eq([bar.keep, bar.cutoff, bar.max_value], [0, GameData.PRODUCTION_TARGET_MAX, GameData.PRODUCTION_TARGET_MAX], "handles start at either end of 0..the data cap")
+		_drag_keep(bar, 5)
+		assert_true(NodeQuery.label_texts(phone).has("Keep: 5 · contract need: 3 · contracts not covered"), "label follows the drag")
+		assert_eq(GameState.state["labThresholds"].get("timePearl", 0), 0, "nothing commits mid-drag")
+		_release(bar)
 		assert_eq(GameState.state["labThresholds"]["timePearl"], 5)
 
 		var cover := _button_with_text(phone, "Cover contract needs")
 		assert_true(cover != null)
 		cover.pressed.emit()
 		assert_true(GameState.state["labCoverContracts"]["timePearl"])
-		assert_true(NodeQuery.label_texts(phone).has("Personal target: 5 · contract need: 3 · crafting to: 8"))
+		assert_true(NodeQuery.label_texts(phone).has("Keep: 5 · contract need: 3 · crafting to: 8"))
+		phone.free()
+	)
+
+	run_case("production_locks_cutoff_and_mood_with_a_reason_until_sales_is_staffed", func():
+		var phone := _production_phone(false)
+		var bar := _stock_bar(phone, "timePearl")
+
+		assert_true(bar.cutoff_locked)
+		assert_true((phone.find_child("AutoSellMood_timePearl_steady", true, false) as Button).disabled)
+		var texts := NodeQuery.label_texts(phone)
+		assert_true(texts.has(BizBriefApp.AUTO_SELL_LOCKED_TEXT))
+		assert_true(texts.has("No one on Sales"))
+		assert_true(texts.has("Time Pearl"))
+
+		_drag_keep(bar, 5)
+		_release(bar)
+		assert_eq(GameState.state["labThresholds"]["timePearl"], 5, "Keep still works")
+		assert_eq(GameState.state["autoSell"], {}, "nothing written to the rule")
+		phone.free()
+	)
+
+	run_case("production_mood_and_cutoff_drive_the_live_line_from_the_projection", func():
+		var phone := _production_phone(true)
+		Crafting.inventory_add("timePearl", 1, 30)
+		GameState.state["autoSell"]["timePearl"] = { "sellAbove": 10, "mood": "off" }
+		EventBus.state_changed.emit()
+		assert_true(NodeQuery.label_texts(phone).has("30 in stock"), "stock sits on the item's row")
+		assert_true(NodeQuery.label_texts(phone).has("Mood is Off"))
+
+		(phone.find_child("AutoSellMood_timePearl_eager", true, false) as Button).pressed.emit()
+		assert_eq(AutoSell.rule("timePearl")["mood"], "eager")
+		assert_true(NodeQuery.label_texts(phone).has(BizBriefApp.AUTO_SELL_MOODS["eager"]["meaning"]))
+		var projected := AutoSell.projection("timePearl")
+		assert_true(int(projected["qty"]) > 0, "fixture: London takes some")
+		var line := (phone.find_child("AutoSellLine_timePearl", true, false) as Label)
+		assert_eq(line.text, "Today: would sell %d at about £%d" % [projected["qty"], projected["income"]])
+
+		var bar := _stock_bar(phone, "timePearl")
+		bar._press(bar._value_x(10) + 2.0)
+		bar._drag_to(bar._value_x(40) + 2.0)
+		line = phone.find_child("AutoSellLine_timePearl", true, false) as Label
+		assert_eq(line.text, "Under your cutoff", "the line previews the dragged cutoff")
+		assert_eq(AutoSell.rule("timePearl")["sellAbove"], 10, "nothing commits mid-drag")
+		_release(bar)
+		assert_eq(AutoSell.rule("timePearl")["sellAbove"], 40)
+		phone.free()
+	)
+
+	run_case("production_shows_contract_floor_above_the_cutoff", func():
+		var phone := _production_phone(true)
+		Crafting.inventory_add("timePearl", 1, 12)
+		var created: Dictionary = Offers.create_offer({ "id": "floor_need", "source": "random", "contractType": "oneOff", "request": { "kind": "consumable", "type": "timePearl", "qty": 9 } })
+		Offers.accept_offer(created["offer"]["id"])
+		Rooms.set_lab_cover_contracts("timePearl", true)
+		Rooms.set_lab_threshold("timePearl", 3)
+		GameState.state["autoSell"]["timePearl"] = { "sellAbove": 5, "mood": "eager" }
+		EventBus.state_changed.emit()
+
+		var bar := _stock_bar(phone, "timePearl")
+		assert_eq(bar.held_floor, 12, "Keep 3 + contract need 9")
+		assert_eq(bar.cutoff, 5)
+		var texts := NodeQuery.label_texts(phone)
+		assert_true(texts.has("Sell above 5 · contracts hold 12"))
+		assert_true(texts.has("Held for contracts"), "stock over the cutoff but inside the floor isn't sellable")
 		phone.free()
 	)
 

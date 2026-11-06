@@ -32,6 +32,26 @@ const SALES_STATUS_TEXT := {
 
 const SALES_EMPTY_TEXT := "No offers or orders yet."
 
+const STOCK_TEXT := "%d in stock"
+const MOOD_BUTTON_HEIGHT := 40.0
+const MOOD_LOCKED_ALPHA := 0.5
+const AUTO_SELL_LOCKED_TEXT := "Locked. Put someone on Sales to set this."
+const AUTO_SELL_MOODS := {
+	"off": { "label": "Off", "meaning": "Sales leaves this stock alone." },
+	"careful": { "label": "Careful", "meaning": "Sells a little, and only when London pays well." },
+	"steady": { "label": "Steady", "meaning": "Sells at a fair price, without leaning on it." },
+	"eager": { "label": "Eager", "meaning": "Sells more, and takes a softer price to do it." },
+}
+const AUTO_SELL_REASON_TEXT := {
+	AutoSell.REASON_NO_SALES: "No one on Sales",
+	AutoSell.REASON_CLOSED: "London isn't trading yet",
+	AutoSell.REASON_OFF: "Mood is Off",
+	AutoSell.REASON_UNDER_CUTOFF: "Under your cutoff",
+	AutoSell.REASON_CONTRACTS: "Held for contracts",
+	AutoSell.REASON_PRICE: "Price too low",
+	AutoSell.REASON_MARKET_FULL: "London won't take any today",
+}
+
 const CONTRACT_TYPE_PIP_TEXT := { "oneOff": "ONE-OFF", "recurring": "WEEKLY" }
 
 const BRIEF_TAB := "brief"
@@ -1278,17 +1298,43 @@ func _build_production_recipe_row(recipe_key: String) -> Control:
 	var recipe: Dictionary = GameData.RECIPES[recipe_key]
 	var target: int = GameState.state["labThresholds"].get(recipe_key, 0)
 	var covering: bool = Rooms.lab_covers_contracts(recipe_key)
+	var rule := AutoSell.rule(recipe_key)
+	var sales_staffed := Contracts.has_staffed_sales()
+	var stock := Crafting.inventory_qty(recipe_key)
 
 	var box := UI.vbox(5)
 	box.name = "ProductionRecipe_%s" % recipe_key
 	_recipe_anchors[recipe_key] = box
-	box.add_child(UI.heading(recipe["name"], 14))
+	var title := UI.hbox(6)
+	title.add_child(UI.expand_fill(UI.heading(recipe["name"], 14)))
+	title.add_child(UI.muted_label(STOCK_TEXT % stock))
+	box.add_child(title)
 
 	# Target, contract need and coverage sit above the controls.
 	var target_label := UI.muted_label(_target_text(recipe_key, target, covering))
 	box.add_child(target_label)
-	var on_change := func(value: int) -> void: target_label.text = _target_text(recipe_key, value, covering)
-	box.add_child(MapCardStyle.quantity_slider("Target", target, GameData.PRODUCTION_TARGET_MAX, on_change, func(value: int): Rooms.set_lab_threshold(recipe_key, value), 0))
+
+	var bar := StockBar.new()
+	bar.name = "StockBar_%s" % recipe_key
+	bar.configure(GameData.PRODUCTION_TARGET_MAX, target, int(rule["sellAbove"]), Rooms.effective_lab_target(recipe_key), stock, not sales_staffed)
+	box.add_child(bar)
+	var cutoff_label := UI.muted_label(_cutoff_text(recipe_key, target, bar.cutoff))
+	cutoff_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	box.add_child(cutoff_label)
+
+	box.add_child(_build_mood_row(recipe_key, rule["mood"], sales_staffed))
+	box.add_child(UI.muted_label(AUTO_SELL_MOODS[rule["mood"]]["meaning"] if sales_staffed else AUTO_SELL_LOCKED_TEXT))
+	var result_label := UI.label(_auto_sell_text(AutoSell.projection(recipe_key)))
+	result_label.name = "AutoSellLine_%s" % recipe_key
+	box.add_child(result_label)
+
+	bar.changed.connect(func(keep: int, cutoff: int) -> void:
+		bar.set_held_floor(Rooms.effective_lab_target(recipe_key, keep))
+		target_label.text = _target_text(recipe_key, keep, covering)
+		cutoff_label.text = _cutoff_text(recipe_key, keep, cutoff)
+		result_label.text = _auto_sell_text(AutoSell.projection(recipe_key, keep, cutoff)))
+	bar.keep_committed.connect(func(keep: int) -> void: AutoSell.set_keep(recipe_key, keep))
+	bar.cutoff_committed.connect(func(cutoff: int) -> void: AutoSell.set_sell_above(recipe_key, cutoff))
 
 	var target_row := UI.hbox()
 	target_row.add_child(UI.button("Stop covering contracts" if covering else "Cover contract needs", func(): Rooms.set_lab_cover_contracts(recipe_key, not covering)))
@@ -1299,13 +1345,40 @@ func _build_production_recipe_row(recipe_key: String) -> Control:
 	return box
 
 
-# "Personal target: 5 · contract need: 3 · crafting to: 8" while covering
-# contracts, "... · contracts not covered" otherwise.
+# "Keep: 5 · contract need: 3 · crafting to: 8" while covering contracts,
+# "... · contracts not covered" otherwise.
 static func _target_text(recipe_key: String, target: int, covering: bool) -> String:
-	var text := "Personal target: %d · contract need: %d" % [target, Rooms.contract_need(recipe_key)]
+	var text := "Keep: %d · contract need: %d" % [target, Rooms.contract_need(recipe_key)]
 	if covering:
 		return text + " · crafting to: %d" % Rooms.effective_lab_target(recipe_key, target)
 	return text + " · contracts not covered"
+
+
+# The cutoff, plus the contract floor when that sits above it.
+static func _cutoff_text(recipe_key: String, keep: int, cutoff: int) -> String:
+	var floor_qty := AutoSell.protected_floor(recipe_key, keep, cutoff)
+	if floor_qty > cutoff:
+		return "Sell above %d · contracts hold %d" % [cutoff, floor_qty]
+	return "Sell above %d" % cutoff
+
+
+static func _auto_sell_text(projected: Dictionary) -> String:
+	if int(projected["qty"]) > 0:
+		return "Today: would sell %d at about £%d" % [projected["qty"], projected["income"]]
+	return AUTO_SELL_REASON_TEXT[projected["reason"]]
+
+
+func _build_mood_row(recipe_key: String, selected_mood: String, sales_staffed: bool) -> Control:
+	var row := UI.hbox(4)
+	row.modulate.a = 1.0 if sales_staffed else MOOD_LOCKED_ALPHA
+	for mood in AUTO_SELL_MOODS:
+		var button := UI.button(AUTO_SELL_MOODS[mood]["label"], func(): AutoSell.set_mood(recipe_key, mood))
+		button.name = "AutoSellMood_%s_%s" % [recipe_key, mood]
+		button.custom_minimum_size.y = MOOD_BUTTON_HEIGHT
+		button.disabled = not sales_staffed
+		_style_stats_toggle(button, mood == selected_mood)
+		row.add_child(UI.expand_fill(button))
+	return row
 
 
 # Each cultivator's assigned veins, or the Assign vein chooser for one of

@@ -237,6 +237,97 @@ func run() -> void:
 		assert_eq(_xp_from_a_rollover(), 0, "no auto-sale, no XP")
 	)
 
+	run_case("keep_pushes_the_cutoff_and_the_cutoff_stops_at_keep", func():
+		_setup()
+		AutoSell.set_sell_above(SALVE, 20)
+		AutoSell.set_keep(SALVE, 12)
+		assert_eq(AutoSell.rule(SALVE)["sellAbove"], 20, "a Keep under the cutoff leaves it")
+		AutoSell.set_keep(SALVE, 30)
+		assert_eq(GameState.state["labThresholds"][SALVE], 30)
+		assert_eq(AutoSell.rule(SALVE)["sellAbove"], 30, "pushed along")
+		AutoSell.set_keep(SALVE, 5)
+		assert_eq(AutoSell.rule(SALVE)["sellAbove"], 30, "stays when Keep backs off")
+		AutoSell.set_sell_above(SALVE, 1)
+		assert_eq(AutoSell.rule(SALVE)["sellAbove"], 5, "stops at Keep")
+		AutoSell.set_sell_above(SALVE, 999)
+		assert_eq(AutoSell.rule(SALVE)["sellAbove"], GameData.PRODUCTION_TARGET_MAX, "tops out at the bar's end")
+	)
+
+	run_case("cutoff_and_mood_are_locked_until_sales_is_staffed_but_keep_is_not", func():
+		_setup(false)
+		AutoSell.set_sell_above(SALVE, 10)
+		AutoSell.set_mood(SALVE, "eager")
+		assert_eq(GameState.state["autoSell"], {})
+		AutoSell.set_keep(SALVE, 10)
+		assert_eq(GameState.state["labThresholds"][SALVE], 10)
+	)
+
+	run_case("set_mood_keeps_the_cutoff_and_refuses_an_unknown_mood", func():
+		_setup()
+		AutoSell.set_sell_above(SALVE, 15)
+		AutoSell.set_mood(SALVE, "steady")
+		AutoSell.set_mood(SALVE, "reckless")
+		assert_eq(AutoSell.rule(SALVE), { "sellAbove": 15, "mood": "steady" })
+		AutoSell.set_mood(SALVE, "off")
+		assert_eq(AutoSell.rule(SALVE)["mood"], "off")
+	)
+
+	run_case("rule_set_through_the_controls_survives_save_and_load", func():
+		_setup()
+		AutoSell.set_sell_above(SALVE, 15)
+		AutoSell.set_mood(SALVE, "careful")
+		var exported: String = SaveManager.export_string()
+		GameState.state["autoSell"] = {}
+		assert_true(SaveManager.import_string(exported)["ok"])
+		assert_eq(AutoSell.rule(SALVE), { "sellAbove": 15, "mood": "careful" })
+	)
+
+	run_case("projection_matches_what_the_rollover_sells_across_mixed_tiers", func():
+		_rollover_fixture("eager", 10)
+		GameState.state["player"]["inventory"][SALVE] = { "1": 5, "3": 20 }
+		var before: Dictionary = GameState.state["player"]["inventory"].duplicate(true)
+		var projected := AutoSell.projection(SALVE)
+		assert_eq(GameState.state["player"]["inventory"], before, "projecting takes no stock")
+		assert_eq(projected["qty"], 15, "fixture: the sale crosses both tiers")
+		var sold: Dictionary = AutoSell.daily_pass()
+		assert_eq(projected["reason"], "")
+		assert_eq([projected["qty"], projected["income"]], [sold[SALVE]["qty"], sold[SALVE]["income"]])
+	)
+
+	run_case("projection_previews_unstored_keep_and_cutoff", func():
+		_rollover_fixture("eager", 10)
+		var limit := AutoSell.market_limit(SALVE, GameData.MARKET["autoSell"]["moods"]["eager"]["maxPriceDrop"])
+		assert_eq(AutoSell.projection(SALVE)["qty"], mini(90, limit))
+		assert_eq(AutoSell.projection(SALVE, -1, 95)["qty"], 5, "a dragged cutoff")
+		assert_eq(AutoSell.projection(SALVE, 97)["qty"], 3, "a dragged Keep")
+		assert_eq(AutoSell.rule(SALVE)["sellAbove"], 10, "preview stores nothing")
+	)
+
+	run_case("projection_names_why_nothing_sells", func():
+		_setup(false)
+		assert_eq(AutoSell.projection(SALVE)["reason"], AutoSell.REASON_NO_SALES)
+
+		_rollover_fixture("off")
+		assert_eq(AutoSell.projection(SALVE)["reason"], AutoSell.REASON_OFF)
+
+		_rollover_fixture("eager", 100)
+		assert_eq(AutoSell.projection(SALVE)["reason"], AutoSell.REASON_UNDER_CUTOFF)
+
+		_rollover_fixture("eager", 50)
+		GameState.state["labThresholds"][SALVE] = 40
+		_cover_contracts(70)
+		assert_eq(AutoSell.protected_floor(SALVE), 110, "fixture: contract need lifts the floor over the stock")
+		assert_eq(AutoSell.projection(SALVE)["reason"], AutoSell.REASON_CONTRACTS)
+
+		_rollover_fixture("eager")
+		_price(1)
+		assert_eq(AutoSell.projection(SALVE)["reason"], AutoSell.REASON_PRICE)
+
+		_rollover_fixture("eager")
+		_market_stock(1)
+		assert_eq(AutoSell.projection(SALVE)["reason"], AutoSell.REASON_MARKET_FULL)
+	)
+
 
 # Archie on Sales (when staffed) and Owen available for Production, on a
 # non-Monday, with Healing Salve stock at London's normal 210.
@@ -255,6 +346,12 @@ func _rollover_fixture(mood: String, sell_above: int = 0) -> void:
 	_rule(mood, sell_above)
 	_stock(100)
 	_price(Market.base_price("consumable", SALVE) * 2)
+
+
+func _cover_contracts(qty: int) -> void:
+	var created: Dictionary = OffersSystem.create_offer({ "id": "bar_need", "source": "random", "contractType": "oneOff", "request": { "kind": "consumable", "type": SALVE, "qty": qty } })
+	OffersSystem.accept_offer(created["offer"]["id"])
+	Rooms.set_lab_cover_contracts(SALVE, true)
 
 
 func _rule(mood: String, sell_above: int) -> void:

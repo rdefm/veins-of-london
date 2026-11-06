@@ -843,6 +843,7 @@ The dock (`NavBar`, now 3 slots: Phone · Map · HQ) is hidden on `title, intro,
   - **Revenue** routes as a contract settlement (`Contracts.receive_revenue`: pot while active, else cash), banked as one daily total.
   - **Sales XP:** `salesXp` 2, once per day with at least one sale, to `Contacts.sales_contact()`. No relation gain, no `consSoldCount`.
   - **Morning report:** `account.sales` is `{ recipeKey: { qty, income } }`.
+  - **Controls** (BizBrief Production, one stock bar per item): Keep sets the Production target; the cutoff sets `sellAbove`, stops at Keep and is pushed up by a Keep past it (`AutoSell.set_keep`, `set_sell_above`, `set_mood`). Cutoff and mood are locked while `has_staffed_sales()` is false; Keep isn't. The live line is `AutoSell.projection()`.
 
 ### 3.6a Faction shops (biz-act2-faction-economy)
 - Every faction has a lane in `data/faction_trade.json` (pricing unchanged: London quote ± relation spread, §3.13). The Network's buy prices to the player are also × `FactionAI.gouge_mult(player)` while a Network `priceGouge` runs (§3.1 "Network moves"). `can_buy_from_faction`: a `memberOnly` lane needs membership; any other lane needs its `unlockFlag` (`collectiveLaneUnlocked`, `firmShopUnlocked`, `networkShopUnlocked`, `conclaveShopUnlocked`).

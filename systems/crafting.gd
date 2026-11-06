@@ -120,27 +120,33 @@ static func inventory_add(recipe_key: String, tier: int, qty: int = 1) -> void:
 # Tiers below min_tier are never touched (an assay commission's rank floor).
 # Returns what came out as [{ tier:int, qty:int }, ...], lowest tier first.
 static func inventory_remove(recipe_key: String, qty: int, min_tier: int = 0) -> Array:
-	var inventory: Dictionary = GameState.state["player"]["inventory"]
-	var buckets: Dictionary = inventory.get(recipe_key, {})
+	var buckets: Dictionary = GameState.state["player"]["inventory"].get(recipe_key, {})
+	var taken := inventory_lots(recipe_key, qty, min_tier)
+	for lot in taken:
+		buckets[str(lot["tier"])] -= lot["qty"]
+	for tier_key in buckets.keys().duplicate():
+		if buckets[tier_key] <= 0:
+			buckets.erase(tier_key)
+	return taken
+
+
+# The lots inventory_remove() would take, left in place.
+static func inventory_lots(recipe_key: String, qty: int, min_tier: int = 0) -> Array:
+	var buckets: Dictionary = GameState.state["player"]["inventory"].get(recipe_key, {})
 	var remaining := qty
 	var tier_keys: Array = buckets.keys()
 	tier_keys.sort_custom(func(a, b): return int(a) < int(b))
-	var taken: Array = []
+	var lots: Array = []
 	for tier_key in tier_keys:
 		if remaining <= 0:
 			break
 		if int(tier_key) < min_tier:
 			continue
-		var have: int = buckets[tier_key]
-		var take: int = mini(have, remaining)
-		buckets[tier_key] = have - take
+		var take: int = mini(buckets[tier_key], remaining)
 		remaining -= take
 		if take > 0:
-			taken.append({ "tier": int(tier_key), "qty": take })
-	for tier_key in buckets.keys().duplicate():
-		if buckets[tier_key] <= 0:
-			buckets.erase(tier_key)
-	return taken
+			lots.append({ "tier": int(tier_key), "qty": take })
+	return lots
 
 
 # Removes `qty` from one specific tier -- Economy.execute_sale needs to
