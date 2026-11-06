@@ -1456,7 +1456,8 @@ const CANONICAL_DISTRICT_IDS: Array[String] = [
 
 # Every ore type and every priced consumable is a market good with a normal
 # stock and civilian demand; independentsShare (items) and
-# independentsOreShare are fractions in [0, 1]; tierMix is one weight per
+# independentsOreShare are multipliers in [0, 2] on civilian demand (the ore share
+# runs past 1: Independents are the main ore supplier); tierMix is one weight per
 # tier summing to 1.
 func _validate_market(market: Dictionary, ore_types: Dictionary, consumable_prices: Dictionary, errors: Array[String]) -> void:
 	_require_keys(market, ["simStart", "priceMinMult", "priceMaxMult", "curveExponent", "smoothing", "historyDays", "priceLot", "oreConversionRate", "independentsShare", "independentsOreShare", "demandElasticity", "demandFloor", "demandCeiling", "supplyElasticity", "supplyCap", "tierMix", "goods"], "market", errors)
@@ -1467,8 +1468,8 @@ func _validate_market(market: Dictionary, ore_types: Dictionary, consumable_pric
 			errors.append("market.priceLot.%s: expected a whole number >= 1" % lot_kind)
 	for share_key in ["independentsShare", "independentsOreShare"]:
 		var share: float = float(market.get(share_key, 0.0))
-		if share < 0.0 or share > 1.0:
-			errors.append("market.%s: expected 0..1, got %s" % [share_key, str(share)])
+		if share < 0.0 or share > 2.0:
+			errors.append("market.%s: expected 0..2, got %s" % [share_key, str(share)])
 	var mix_total := 0.0
 	for weight in market.get("tierMix", []):
 		mix_total += float(weight)

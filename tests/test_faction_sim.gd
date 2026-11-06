@@ -87,9 +87,8 @@ func run() -> void:
 		GameState.state["factions"]["collective"]["resources"] = GameData.FACTION_FLOOR["weakCashBelow"]  # not weak: no floor bonus
 		# Collective: cultivateSkill 4, pruneDepthMult 2 -> depth 26 (floor 51 not reached).
 		var depth: int = Cultivating.cultivate_max_gain(4) * 2
-		var yield_mult: float = float(GameData.VEIN_GROWTH["factionYieldMult"])
-		var lo: int = roundi(Cultivating.prune_yield_min(vein, depth) * yield_mult)
-		var hi: int = roundi(Cultivating.prune_yield_max(vein, depth) * yield_mult)
+		var lo: int = Cultivating.prune_yield_min(vein, depth)
+		var hi: int = Cultivating.prune_yield_max(vein, depth)
 		var held_before: int = FactionSim.ore_held("collective", "life")
 		FactionSim.tend_and_prune()
 		assert_true(lo > 0, "a prune from 90 clears points above neutral")

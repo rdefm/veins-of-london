@@ -558,7 +558,7 @@ const DAY_ONE_ROSTER: Dictionary = {
 		{ "district": "chelsea", "ores": ["physics", "time", "time"] },
 	],
 	"guild": [
-		{ "district": "greenwich", "ores": ["time", "time", "physics", "time", "time", "physics", "time"] },
+		{ "district": "greenwich", "ores": ["time", "life", "time", "time", "life", "physics", "time"] },
 		{ "district": "whitechapel", "ores": ["time", "physics"] },
 	],
 	"network": [
@@ -566,9 +566,9 @@ const DAY_ONE_ROSTER: Dictionary = {
 		{ "district": "camden", "ores": ["emotion", "emotion"] },
 	],
 	"conclave": [
-		{ "district": "city", "ores": ["fate", "fate", "time", "fate", "time"] },
-		{ "district": "kensington", "ores": ["fate", "time", "life"] },
-		{ "district": "camden", "ores": ["fate", "fate", "time"] },
+		{ "district": "city", "ores": ["fate", "fate", "time", "life", "time"] },
+		{ "district": "kensington", "ores": ["time", "life", "life"] },
+		{ "district": "camden", "ores": ["fate", "time", "time"] },
 	],
 }
 

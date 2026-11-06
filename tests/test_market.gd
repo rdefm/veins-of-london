@@ -22,8 +22,14 @@ func _tick(days: int) -> void:
 		off["maxBuyMult"] = 0.0
 		off.erase("arbBuyMult")
 		GameData.FACTIONS[faction_id]["trading"] = off
+	# Mechanism tests run on the original Independents slices, not the tuned ones.
+	var saved_shares: Array = [GameData.MARKET["independentsShare"], GameData.MARKET["independentsOreShare"]]
+	GameData.MARKET["independentsShare"] = 0.3
+	GameData.MARKET["independentsOreShare"] = 0.4
 	for i in range(days):
 		TimeSystem.daily_tick()
+	GameData.MARKET["independentsShare"] = saved_shares[0]
+	GameData.MARKET["independentsOreShare"] = saved_shares[1]
 	for faction_id in saved:
 		GameData.FACTIONS[faction_id]["trading"] = saved[faction_id]
 
@@ -488,8 +494,8 @@ func _tiered_cases() -> void:
 
 	run_case("independents_shares_stay_and_enter_weighted_to_low_tiers", func():
 		GameState.reset()
-		assert_eq(GameData.MARKET["independentsShare"], 0.3)
-		assert_eq(GameData.MARKET["independentsOreShare"], 0.4)
+		assert_eq(GameData.MARKET["independentsShare"], 0.1)
+		assert_eq(GameData.MARKET["independentsOreShare"], 1.5)
 		_tiers("healingBurst").merge({ "1": 0, "2": 0, "3": 0, "4": 0, "5": 0 }, true)
 		GameState.state["market"]["goods"]["consumable"]["healingBurst"]["stock"] = 0
 		var plan := Market.availability("consumable", "healingBurst")

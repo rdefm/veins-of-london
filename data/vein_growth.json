@@ -23,7 +23,6 @@
   "cultivateGainMaxOffset": 9,
   "collapseChancePerDay": 0.15,
   "factionPruneThreshold": 65,
-  "factionYieldMult": 1.7,
   "factionRootFeedPerDay": 1,
   "wantDays": 2,
   "wantCap": 12,

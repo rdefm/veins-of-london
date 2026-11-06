@@ -43,3 +43,48 @@ Withholding vs single sale (Market seam, fresh state, no named supply so a contr
 3. Ore named share overshoots baseline (73/75/66 vs 52/66/60) since faction harvest rose ~70%.
 4. Wallets grew 3-8x vs baseline (not fixed, per ticket).
 5. `factionYieldMult` is a new mechanic knob; confirm or replace.
+
+---
+
+# Ticket 14 — targeted veins + Independents share
+
+Sim as above, seeds 1-3, days 31-60. Before = ticket 11 tree (factionYieldMult 1.7). After = this ticket. **Not all targets met — see Open.**
+
+## Changes
+| file | key | before | after |
+|---|---|---|---|
+| data/vein_growth.json | factionYieldMult | 1.7 | removed (code + test + REFERENCE.md) |
+| data/market.json | independentsOreShare | 0.4 | 1.5 |
+| data/market.json | independentsShare (items) | 0.3 | 0.1 |
+| systems/factions.gd `DAY_ONE_ROSTER` | Guild ores (9 veins) | time 6 / physics 3 | time 5 / life 2 / physics 2 |
+| systems/factions.gd `DAY_ONE_ROSTER` | Conclave ores (11 veins) | fate 6 / time 4 / life 1 | fate 3 / time 5 / life 3 |
+
+Roster change swaps ore types inside existing groups only: vein counts and districts unchanged, so no turf/siteCap/presence/claim-weight change. Roster stays a code constant (not moved to data; not asked).
+Iterations: ore share 0.6/1.0 with items 0.3 -> item named 47-52%; item share 0.15 -> 57-62% but shortfalls return; 0.1/1.5 -> 70-74% but Conclave rejuvenation short 14/30 (Time starved after Guild swapped time->life); fix = Conclave fate->time, Guild physics->time.
+
+## Before / after
+| metric (seed 1/2/3) | target | before | after |
+|---|---|---|---|
+| Item named share | 65-75% | 49 / 58 / 56 | 70 / 75 / 72 |
+| Ore named share | relaxed | 73 / 75 / 66 (baseline pre-market 52/66/60) | 19 / 15 / 18 |
+| Conclave rejuvenation short days (of 30) | not permanent | 14 / 14 / 14 | 0 / 4 / 2 |
+| Conclave failsafe short days | not permanent | 7 / 8 / 6 | 0 / 1 / 4 |
+| Ore days pinned max | none | time min 29, physics max 31, life max 26 (s1) | s1 physics 8, fate 5; s2/s3 none >= 5 |
+| Items pinned max >= 5 days | none | not tabulated | no-crafter items 31 (keystone, cleanSlate, heavyMetal, skeletonKey, goodYear); s1 also blackHole/healingBurst/deadweight/signalFailure/dejaVu/navvysDraught 31; s2 healingBurst 26, happyAccident/secondImpression 29, nostalgia 31; s3 dejaVu/nostalgia 31 |
+| Turf | healthy | firm 23% leader, no zero-turf | identical (firm 23%, no zero-turf) |
+| War endings | healthy | quiet2+truce2 / quiet1 / truce2+quiet1 | quiet2+truce2 / quiet1 / quiet2+truce1 |
+
+Faction wallet growth (£/day, reported only; end of run):
+| faction | before s1/s2/s3 | after s1 | after s2 | after s3 |
+|---|---|---|---|---|
+| collective | +9,544 / +17,626 / +7,724 | +14,334 | +15,927 | +15,732 |
+| firm | +8,740 / +13,962 / +20,124 | +15,607 | +32,188 | +31,468 |
+| guild | +35,361 / +39,706 / +42,623 | +53,622 | +61,322 | +73,141 |
+| network | +29,634 / +28,005 / +33,206 | +50,804 | +51,909 | +53,465 |
+| conclave | +10,348 / +18,870 / +7,658 | +25,919 | +20,167 | +13,923 |
+
+## Open (needs human)
+1. **Ore named share 15-19%** (relaxed on purpose; ticket 11 had 66-75%). Factions harvest ~2,000 ore/day, Independents ~1,800; most ore is bought from Independents. Sign off the figure.
+2. **Pinned items remain** (max price): items with no faction crafter (Keystone, Clean Slate, Heavy Metal, Skeleton Key, Good Year) are pinned at max every seed (31/31 days). Good Year is not craftable by anyone. Needs a crafter or recipe decision.
+3. **Network short on Déjà Vu 9/30 days every seed** (needs Fate; Network owns 1 Fate vein); Firm Smelling Salts 6-8 days (s1, s3); Guild Stutter/Invisibility 5 days (s1, s3).
+4. Wallet growth is up 2-4x vs ticket 11 (fewer faction-held-ore costs, Independents ore sales). Reported, not fixed.

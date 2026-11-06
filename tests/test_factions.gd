@@ -959,7 +959,7 @@ func _run_cases() -> void:
 		var guild := _day_one_faction_veins("guild")
 		assert_eq(guild.size(), 9, "guild: 9 starting veins")
 		assert_eq(_district_counts(guild), {"greenwich": 7, "whitechapel": 2}, "guild district split")
-		assert_eq(guild.map(func(e): return e["vein"]["oreType"]), ["time", "time", "physics", "time", "time", "physics", "time", "time", "physics"], "guild ore types")
+		assert_eq(guild.map(func(e): return e["vein"]["oreType"]), ["time", "life", "time", "time", "life", "physics", "time", "time", "physics"], "guild ore types")
 
 		var network := _day_one_faction_veins("network")
 		assert_eq(network.size(), 5, "network: 5 starting veins")
@@ -969,7 +969,7 @@ func _run_cases() -> void:
 		var conclave := _day_one_faction_veins("conclave")
 		assert_eq(conclave.size(), 11, "conclave: 11 starting veins")
 		assert_eq(_district_counts(conclave), {"city": 5, "kensington": 3, "camden": 3}, "conclave district split")
-		assert_eq(conclave.map(func(e): return e["vein"]["oreType"]), ["fate", "fate", "time", "fate", "time", "fate", "time", "life", "fate", "fate", "time"], "conclave ore types")
+		assert_eq(conclave.map(func(e): return e["vein"]["oreType"]), ["fate", "fate", "time", "life", "time", "time", "life", "life", "fate", "time", "time"], "conclave ore types")
 
 		# Veins thinned across more districts: none holds more than before the spread.
 		var per_district := {}

@@ -255,7 +255,7 @@ static func _tend(vein: Dictionary, skill: int) -> void:
 
 
 static func _prune(faction_id: String, vein: Dictionary, depth: int, yield_mult: float) -> void:
-	var amount: int = roundi(Cultivating.roll_prune_yield(vein, depth) * yield_mult * float(GameData.VEIN_GROWTH["factionYieldMult"]))
+	var amount: int = roundi(Cultivating.roll_prune_yield(vein, depth) * yield_mult)
 	var growth_before: int = vein["growth"]
 	vein["growth"] = Cultivating.prune_resulting_growth(vein, depth)
 	vein["rampantDays"] = 0
