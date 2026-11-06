@@ -154,3 +154,5 @@ Good Year recipe restored (fate 5 + life 5, 0.20). Collective: +1 Fate vein (Sho
 | Item named share | 70/75/74 | 73/76/77 (s2, s3 over 75) |
 | Pinned goods >=5d (excl Keystone) | 16/9/12 | 19/11/10 |
 Shortfalls: Network 3/7/6 days, Conclave 0/1/8. Turf healthy (firm 23%, no zero-turf). Test `full_playthrough_tutorial_economy_ticks_and_save_roundtrip` fails on the original tree too.
+
+Ticket 18 closed by human with open items accepted: item named share 73/76/77% (s2, s3 over 75), pinned goods 19/11/10 remain (blackHole, deadweight, signalFailure, skeletonKey, heavyMetal, cleanSlate, dejaVu, happyAccident).
