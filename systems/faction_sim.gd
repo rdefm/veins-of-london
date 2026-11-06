@@ -147,7 +147,7 @@ static func _tend_and_prune_faction(faction_id: String, veins: Array) -> void:
 	var data: Dictionary = GameData.FACTIONS[faction_id]
 	var fieldwork: Dictionary = data["fieldwork"]
 	var skill: int = data["cultivateSkill"]
-	var budget: int = int(fieldwork["actionsPerBlock"]) * TimeSystem.BLOCKS_PER_DAY
+	var budget: int = int(fieldwork["actionsPerBlock"]) * TimeSystem.BLOCKS_PER_DAY + borrow_actions(faction_id)
 	var acted := {}
 
 	var to_tend: Array = veins.filter(func(v): return v["growth"] <= fieldwork["tendAtOrBelow"])
@@ -194,6 +194,65 @@ static func feed_veins() -> void:
 				break
 			take_item_at_tier(faction_id, Cultivating.ROOT_FEED, tier)
 			Cultivating.record_boost(vein, Cultivating.ROOT_FEED, tier)
+
+
+# Rollover step: each faction holding Good Year applies its highest tier to
+# unboosted veins, up to factionBoosts.goodYear.perDay a day.
+const BORROWED_TIME := "borrowedTime"
+
+
+static func apply_good_year() -> void:
+	var cfg: Dictionary = GameData.VEIN_GROWTH["factionBoosts"]["goodYear"]
+	for faction_id in GameData.FACTIONS:
+		var veins: Array = []
+		for site in GameState.state["world"]["sites"]:
+			var vein: Variant = site["factionVein"]
+			if vein != null and vein["factionId"] == faction_id and not Cultivating.boost_active(vein, Cultivating.GOOD_YEAR):
+				veins.append(vein)
+		veins.sort_custom(func(a, b): return _growth_order(a, b, false))
+		for vein in veins.slice(0, int(cfg["perDay"])):
+			var tier := _highest_held_tier(faction_id, Cultivating.GOOD_YEAR)
+			if tier < 0:
+				break
+			take_item_at_tier(faction_id, Cultivating.GOOD_YEAR, tier)
+			Cultivating.record_boost(vein, Cultivating.GOOD_YEAR, tier)
+
+
+# Spends up to factionBoosts.borrowedTime.perDay Borrowed Time (highest tier
+# first); each adds extraActions to the faction's fieldwork budget today.
+static func borrow_actions(faction_id: String) -> int:
+	var cfg: Dictionary = GameData.VEIN_GROWTH["factionBoosts"]["borrowedTime"]
+	var extra := 0
+	for i in int(cfg["perDay"]):
+		var tier := _highest_held_tier(faction_id, BORROWED_TIME)
+		if tier < 0:
+			break
+		take_item_at_tier(faction_id, BORROWED_TIME, tier)
+		extra += int(cfg["extraActions"])
+	return extra
+
+
+static func _highest_held_tier(faction_id: String, recipe_key: String) -> int:
+	var best := -1
+	for tier_key in _holdings(faction_id)["items"].get(recipe_key, {}):
+		var tier := int(tier_key)
+		if int(_holdings(faction_id)["items"][recipe_key][tier_key]) > 0 and tier >= 1 and tier > best:
+			best = tier
+	return best
+
+
+# Units of a boost item (goodYear, borrowedTime) the faction wants on hand:
+# owned veins × factionBoosts[item].wantPerVein.
+static func boost_want(faction_id: String, recipe_key: String) -> int:
+	var cfg: Dictionary = GameData.VEIN_GROWTH["factionBoosts"].get(recipe_key, {})
+	if cfg.is_empty():
+		return 0
+	var owned := 0
+	for site in GameState.state["world"]["sites"]:
+		var vein: Variant = site["factionVein"]
+		if vein != null and vein["factionId"] == faction_id:
+			owned += 1
+	return roundi(owned * float(cfg["wantPerVein"]))
 
 
 # Root Feed the faction wants on hand: owned veins × wantDays × wantMult,
@@ -292,6 +351,8 @@ static func craft_target(faction_id: String, recipe_key: String) -> int:
 	var target: int = int(data.get("consumes", {}).get(recipe_key, 0)) + int(split.get("kitUse", 0)) + int(split.get("sellQuota", 0))
 	if recipe_key == Cultivating.ROOT_FEED:
 		target += root_feed_want(faction_id)
+	else:
+		target += boost_want(faction_id, recipe_key)
 	return target
 
 
@@ -660,6 +721,8 @@ static func item_reserve(faction_id: String, recipe_key: String) -> int:
 		kit_use = int(kits.get("attack", {}).get(recipe_key, 0)) + int(kits.get("defend", {}).get(recipe_key, 0))
 	if recipe_key == Cultivating.ROOT_FEED:
 		kit_use += root_feed_want(faction_id)
+	else:
+		kit_use += boost_want(faction_id, recipe_key)
 	return int(data.get("consumes", {}).get(recipe_key, 0)) + kit_use
 
 

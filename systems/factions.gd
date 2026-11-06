@@ -59,7 +59,7 @@ static func factions_consuming(recipe_key: String) -> Array[String]:
 static func consumption_qty(faction_id: String, recipe_key: String) -> int:
 	if recipe_key == Cultivating.ROOT_FEED:
 		return FactionSim.root_feed_want(faction_id) + int(GameData.FACTIONS[faction_id]["consumes"].get(recipe_key, 0))
-	return int(GameData.FACTIONS[faction_id]["consumes"].get(recipe_key, 0))
+	return FactionSim.boost_want(faction_id, recipe_key) + int(GameData.FACTIONS[faction_id]["consumes"].get(recipe_key, 0))
 
 
 # ── Faction vein ownership ──────────────────────────────────────────────
@@ -548,7 +548,7 @@ static func resolve_steal_outcome(outcome: Dictionary) -> void:
 # Each faction's districts are adjacent on the hex map (R§1.8 "Day-one roster").
 const DAY_ONE_ROSTER: Dictionary = {
 	"collective": [
-		{ "district": "shoreditch", "ores": ["life", "life", "emotion", "life"] },
+		{ "district": "shoreditch", "ores": ["life", "life", "emotion", "life", "fate"] },
 		{ "district": "kingscross", "ores": ["life", "emotion"] },
 		{ "district": "whitechapel", "ores": ["life", "emotion"] },
 	],

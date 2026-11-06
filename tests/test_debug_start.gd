@@ -76,10 +76,10 @@ func run() -> void:
 		var sites: Array = s["world"]["sites"]
 		# DebugStart.apply() also calls Factions.seed_day_one_veins() after its
 		# own hand-built fixture, so a debug-started game carries the same 42
-		# real day-one faction sites (collective 8, firm 9, guild 9, network 5,
+		# real day-one faction sites (collective 9, firm 9, guild 9, network 5,
 		# conclave 11) a real New Game gets, on top of the 9 hand-built fixture
 		# sites.
-		assert_eq(sites.size(), 9 + 42, "3 claimed shoreditch sites + 2 discovered unclaimed sites + 4 hand-built faction sites + 42 real day-one faction sites")
+		assert_eq(sites.size(), 9 + 43, "3 claimed shoreditch sites + 2 discovered unclaimed sites + 4 hand-built faction sites + 43 real day-one faction sites")
 
 		var unclaimed_by_district := {}
 		var claimed_sites: Array = []
@@ -102,7 +102,7 @@ func run() -> void:
 		# kingscross/city each cover one more faction -> single-stop stubs).
 		# ticket 18: plus the real day-one roster from Factions.seed_day_one_veins()
 		# (collective 8, firm 4, guild 7, network 4, conclave 7 = 30 more).
-		assert_eq(faction_sites.size(), 4 + 42, "4 hand-built faction sites + 42 real day-one faction sites")
+		assert_eq(faction_sites.size(), 4 + 43, "4 hand-built faction sites + 43 real day-one faction sites")
 		var faction_site_ids_by_faction := {}
 		for site in faction_sites:
 			assert_eq(site["claimed"], false, "faction-owned sites are never also player-claimed")
@@ -114,7 +114,7 @@ func run() -> void:
 		assert_eq(faction_site_ids_by_faction["firm"].size(), 2 + 9, "firm: 2 hand-built (multi-stop elbow-routed line) + 9 real day-one")
 		assert_eq(faction_site_ids_by_faction["network"].size(), 1 + 5, "network: 1 hand-built stub + 5 real day-one")
 		assert_eq(faction_site_ids_by_faction["conclave"].size(), 1 + 11, "conclave: 1 hand-built stub + 11 real day-one")
-		assert_eq(faction_site_ids_by_faction["collective"].size(), 8, "collective: real day-one roster only, no hand-built fixture")
+		assert_eq(faction_site_ids_by_faction["collective"].size(), 9, "collective: real day-one roster only, no hand-built fixture")
 		assert_eq(faction_site_ids_by_faction["guild"].size(), 9, "guild: real day-one roster only, no hand-built fixture")
 
 		var visible_stops: Array = []

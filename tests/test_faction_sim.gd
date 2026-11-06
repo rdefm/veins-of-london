@@ -141,6 +141,8 @@ func run() -> void:
 		var mid := _vein("mid", "collective", "life", 40)
 		_seed_veins([mid, low])
 		GameState.state["factions"]["collective"]["holdings"]["items"]["rootFeed"] = { "2": 3, "4": 1 }
+		var saved_limit: Variant = GameData.VEIN_GROWTH["factionRootFeedPerDay"]
+		GameData.VEIN_GROWTH["factionRootFeedPerDay"] = 1
 		FactionSim.feed_veins()
 		assert_true(low.has("boosts") and low["boosts"].has("rootFeed"), "lowest vein fed")
 		assert_eq(int(low["boosts"]["rootFeed"]["tier"]), 2, "lowest tier used")
@@ -151,6 +153,7 @@ func run() -> void:
 		assert_eq(FactionSim.item_held("collective", "rootFeed"), 2)
 		FactionSim.feed_veins()
 		assert_eq(FactionSim.item_held("collective", "rootFeed"), 2, "no unfed vein left, nothing spent")
+		GameData.VEIN_GROWTH["factionRootFeedPerDay"] = saved_limit
 	)
 
 	run_case("a_faction_without_root_feed_applies_nothing_and_the_collective_target_is_unchanged", func():
@@ -228,6 +231,7 @@ func run() -> void:
 				_vein("s4", "guild", "time", 40), _vein("s5", "guild", "time", 45),
 			])
 			Rng.set_seed(seed)
+			GameState.state["factions"]["guild"]["holdings"]["items"].erase("borrowedTime")
 			FactionSim.tend_and_prune()
 			assert_eq(_growth("s4"), 40, "4th-lowest vein is past the budget (seed %d)" % seed)
 			assert_eq(_growth("s5"), 45, "5th-lowest vein is past the budget (seed %d)" % seed)

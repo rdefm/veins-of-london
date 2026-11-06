@@ -947,9 +947,9 @@ func _run_cases() -> void:
 		Factions.seed_day_one_veins()
 
 		var collective := _day_one_faction_veins("collective")
-		assert_eq(collective.size(), 8, "collective: 8 starting veins")
-		assert_eq(_district_counts(collective), {"shoreditch": 4, "kingscross": 2, "whitechapel": 2}, "collective district split")
-		assert_eq(collective.map(func(e): return e["vein"]["oreType"]), ["life", "life", "emotion", "life", "life", "emotion", "life", "emotion"], "collective ore types are the roster's fixed list, in placement order")
+		assert_eq(collective.size(), 9, "collective: 9 starting veins")
+		assert_eq(_district_counts(collective), {"shoreditch": 5, "kingscross": 2, "whitechapel": 2}, "collective district split")
+		assert_eq(collective.map(func(e): return e["vein"]["oreType"]), ["life", "life", "emotion", "life", "fate", "life", "emotion", "life", "emotion"], "collective ore types are the roster's fixed list, in placement order")
 
 		var firm := _day_one_faction_veins("firm")
 		assert_eq(firm.size(), 9, "firm: 9 starting veins")
@@ -977,7 +977,7 @@ func _run_cases() -> void:
 			for e in _day_one_faction_veins(faction_id):
 				per_district[e["site"]["district"]] = int(per_district.get(e["site"]["district"], 0)) + 1
 		assert_eq(per_district.size(), 10, "starting veins span 10 districts")
-		var old_max := {"shoreditch": 4, "whitechapel": 4, "camden": 5, "battersea": 4, "greenwich": 9, "kingscross": 5, "city": 11}
+		var old_max := {"shoreditch": 5, "whitechapel": 4, "camden": 5, "battersea": 4, "greenwich": 9, "kingscross": 5, "city": 11}
 		for district_id in old_max:
 			assert_true(per_district.get(district_id, 0) <= old_max[district_id], "%s holds no more starting veins than before" % district_id)
 
@@ -1048,7 +1048,7 @@ func _run_cases() -> void:
 		# not a runtime mutation, since the rosters (and therefore the bump)
 		# are fixed constants.
 		var expected_caps := {
-			"shoreditch": 7, "whitechapel": 7, "camden": 9, "battersea": 6, "greenwich": 10,
+			"shoreditch": 8, "whitechapel": 7, "camden": 9, "battersea": 6, "greenwich": 10,
 			"kingscross": 8, "city": 7, "kensington": 7, "chelsea": 7, "clapham": 9,
 		}
 		var bases := {

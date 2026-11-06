@@ -1635,10 +1635,10 @@ func run() -> void:
 		var base: int = Cultivating.prune_yield(vein, 24)
 		Crafting.inventory_add("goodYear", 1, 1)
 		Cultivating.apply_item("test_vein", "goodYear", 1)
-		assert_eq(Cultivating.yield_terroir_tier(vein), "rich", "fair reads as rich")
+		assert_eq(Cultivating.yield_terroir_tier(vein), "saturated", "fair reads two tiers up")
 		assert_true(Cultivating.prune_yield(vein, 24) > base, "yield rises")
 		world["day"] = day + 1
-		assert_eq(Cultivating.yield_terroir_tier(vein), "rich", "still on the last day")
+		assert_eq(Cultivating.yield_terroir_tier(vein), "saturated", "still on the last day")
 		world["day"] = day + 2
 		assert_eq(Cultivating.yield_terroir_tier(vein), "fair", "off the day it ends")
 		assert_eq(Cultivating.prune_yield(vein, 24), base, "yield back to base")

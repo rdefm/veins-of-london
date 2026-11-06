@@ -126,3 +126,31 @@ Seeds 1-3, days 31-60.
 - **E: factions apply Good Year to veins** (want 0.5/vein, 3 applications/day, highest tier, bought via normal shortfall buying). Borrowed Time has no vein effect (banks player time blocks), not tried. Result: Good Year still pinned max 31/31 days every seed, <0.5 units/day made (5 fate + 5 life at 0.20 base success is ore-expensive in an ore-short market). Faction ore harvest 1799/2294/2215 -> 1861/2242/2167 per day (noise). Pinned goods 18/8/12 (baseline 16/9/12). **No effect.** Code reverted.
 - **F: `independentsOreShare` 1.5 -> 2.0** (validator max). Independents ore 1714/1816/1795 -> 2245/2350/2292 per day; factions unchanged. No ore pinned at max any seed (baseline physics 8/5/6 days). Goods pinned max >=5d (excl Keystone) 11/5/6 (baseline 16/9/12): left are blackHole, deadweight, signalFailure, skeletonKey, goodYear, heavyMetal, navvysDraught, cleanSlate (s1); dejaVu, skeletonKey, goodYear, heavyMetal, cleanSlate (s2/s3). Item named share 74/78/77 (target 65-75: s2, s3 over). Ore net +470-510/day surplus. Turf unchanged.
 - **G: F + `dailyCap` 8**: pinned 12/5/6, named 73/78/75; Network short 5/5/9 days, Conclave 3/2/12. No gain over F.
+
+### Ticket 18 — faction boost experiments (working tree, NOT committed; awaiting human)
+
+Mechanic added: factions buy/hold Good Year + Borrowed Time (`vein_growth.json factionBoosts`, `FactionSim.apply_good_year/borrow_actions/boost_want`); Borrowed Time adds `extraActions` fieldwork actions per unit spent (prune = ore). Seeds 1-3 days 31-60, ore share 1.5, dailyCap 2.
+
+| run | change | faction ore/day s1/s2/s3 | Independents % of ore | named item% | pinned goods >=5d (excl Keystone) |
+|---|---|---|---|---|---|
+| baseline | - | 1799/2294/2215 | 48/44/44 | 70/75/74 | 16/9/12 |
+| H | factionBoosts only (GY want .5, 3/day; BT want .3, 2/day, +3 actions) | 1835/2323/2253 | 48/44/44 | 70/75/73 | 14/12/15 |
+| I | H + BT recipe time 8->4, base .15->.30; GY fate5+life5 ->fate2+life2, base .20->.35 | 1926/2328/2307 | 45/43/42 | 71/76/75 | 15/7/8 |
+| J | I + GY ingredients life2+emotion2 (Collective has no fate), BT want .5, 3/day | 1961/2513/2357 | 45/40/42 | 72/76/74 | 16/7/9 |
+| K | J + goodYear tierBump 1->2, factionRootFeedPerDay 1->3, BT +6 actions | 2411/2714/2781 | 39/37/37 | 75/76/76 | 12/10/9 |
+
+Findings: Good Year was uncraftable (Collective owns no Fate vein, fate >2x maxBuyMult), so ingredient swap was needed. K: faction ore +34/+18/+26%, Independents 37-39%. Named share 75-76 (edge). Shortfalls: Network 5/8/9 days, Conclave 7/7/5. Changes touch player-facing data (recipes, tierBump).
+
+### Ticket 18 — landed: faction boosts + Collective Fate vein + Conclave Good Year
+
+Good Year recipe restored (fate 5 + life 5, 0.20). Collective: +1 Fate vein (Shoreditch, siteCap 7->8, +2 map stop slots). Conclave crafts Good Year. Borrowed Time recipe time 4 / 0.30.
+| metric (s1/s2/s3) | baseline | after |
+|---|---|---|
+| Faction ore/day | 1799/2294/2215 | 2510/2837/3046 |
+| Independents ore share | 48/44/44% | 38/36/34% |
+| Collective ore share | 8/13/7% | 19/22/19% |
+| Avg ore price x base | 2.58/2.77/2.71 | 2.38/2.39/2.33 |
+| Avg item price x base | 2.77/2.45/2.54 | 2.73/2.40/2.35 |
+| Item named share | 70/75/74 | 73/76/77 (s2, s3 over 75) |
+| Pinned goods >=5d (excl Keystone) | 16/9/12 | 19/11/10 |
+Shortfalls: Network 3/7/6 days, Conclave 0/1/8. Turf healthy (firm 23%, no zero-turf). Test `full_playthrough_tutorial_economy_ticks_and_save_roundtrip` fails on the original tree too.

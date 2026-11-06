@@ -320,7 +320,7 @@
     "cultivateSkill": 2,
     "fieldwork": { "actionsPerBlock": 1, "tendAtOrBelow": 50, "pruneFloor": 51, "pruneDepthMult": 2 },
     "craftSkill": 3,
-    "craftTargets": { "failsafe": { "kitUse": 1, "sellQuota": 37 }, "beALady": { "kitUse": 0, "sellQuota": 56 }, "dejaVu": { "kitUse": 0, "sellQuota": 36 }, "nearMiss": { "kitUse": 0, "sellQuota": 36 }, "sodsLaw": { "kitUse": 0, "sellQuota": 36 }, "cleanSlate": { "kitUse": 0, "sellQuota": 36 }, "happyAccident": { "kitUse": 0, "sellQuota": 36 } },
+    "craftTargets": { "failsafe": { "kitUse": 1, "sellQuota": 37 }, "beALady": { "kitUse": 0, "sellQuota": 56 }, "dejaVu": { "kitUse": 0, "sellQuota": 36 }, "nearMiss": { "kitUse": 0, "sellQuota": 36 }, "sodsLaw": { "kitUse": 0, "sellQuota": 36 }, "cleanSlate": { "kitUse": 0, "sellQuota": 36 }, "happyAccident": { "kitUse": 0, "sellQuota": 36 }, "goodYear": { "kitUse": 0, "sellQuota": 36 } },
     "primaryOre": "fate",
     "secondaryOre": "time",
     "aggressionPersonality": 0.93,
@@ -333,7 +333,8 @@
       "nearMiss",
       "sodsLaw",
       "cleanSlate",
-      "happyAccident"
+      "happyAccident",
+      "goodYear"
     ],
     "consumes": {
       "failsafe": 3,

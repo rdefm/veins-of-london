@@ -23,7 +23,11 @@
   "cultivateGainMaxOffset": 9,
   "collapseChancePerDay": 0.15,
   "factionPruneThreshold": 65,
-  "factionRootFeedPerDay": 1,
+  "factionRootFeedPerDay": 3,
+  "factionBoosts": {
+    "goodYear": { "wantPerVein": 0.5, "perDay": 3 },
+    "borrowedTime": { "wantPerVein": 0.5, "perDay": 3, "extraActions": 6 }
+  },
   "wantDays": 2,
   "wantCap": 12,
   "dayOneFactionGrowth": 70,
@@ -36,7 +40,7 @@
   "terroirTierOrder": ["poor", "fair", "rich", "saturated"],
   "boostItems": {
     "rootFeed": { "label": "Root Feed", "growthPerDayByTier": [0, 5, 10, 15, 20, 25] },
-    "goodYear": { "label": "Good Year", "tierBump": 1 },
+    "goodYear": { "label": "Good Year", "tierBump": 2 },
     "deadweight": { "label": "Deadweight", "daysByTier": [0, 1, 1, 2, 2, 3] }
   },
   "levelCapByTerroir": { "poor": 2, "fair": 3, "rich": 4, "saturated": 5 },

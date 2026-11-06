@@ -616,7 +616,7 @@
         { "apparatus": "grinding", "target": 80, "weight": 15 }
       ],
       "base": [
-        { "apparatus": "distilling", "target": 50, "calc": { "time": 8 } },
+        { "apparatus": "distilling", "target": 50, "calc": { "time": 4 } },
         { "apparatus": "compression", "target": 23 }
       ],
       "hints": [
