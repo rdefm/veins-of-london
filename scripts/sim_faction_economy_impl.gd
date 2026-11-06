@@ -83,6 +83,7 @@ func run(opts: Dictionary) -> Dictionary:
 	_print_shortfall_wallets(short, wallets, days - SETTLE_FROM + 1)
 	_print_shares("ore")
 	_print_shares("craft")
+	_print_outside_crafts()
 	_print_factions()
 	_print_diplomacy(diplo, int(opts.get("every", 1)))
 	_print_turf(turf, summary)
@@ -394,6 +395,14 @@ func _vein_counts() -> String:
 					primary += 1
 		parts.append("%s %d/%d %dp" % [faction_id, count, growth / maxi(1, count), primary])
 	return "  ".join(parts)
+
+
+# Units each faction made outside its own crafts / craftTargets, per good.
+func _print_outside_crafts() -> void:
+	print("
+-- outside-craft units (whole run) --")
+	for faction_id in GameData.FACTIONS:
+		print("%-11s %s" % [faction_id, GameState.state["factions"][faction_id].get("outsideCrafted", {})])
 
 
 func _print_factions() -> void:

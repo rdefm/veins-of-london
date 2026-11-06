@@ -310,6 +310,53 @@ func run() -> void:
 		assert_true(FactionSim.item_held("guild", "timePearl") <= 2, "no more items than attempts")
 	)
 
+	# ── Opportunistic outside crafting ──
+	run_case("outside_craft_buys_ore_and_crafts_an_eligible_good", func():
+		_prime_outside_craft()
+		var before: int = GameState.state["factions"]["collective"]["resources"]
+		FactionSim.craft()
+		var spent: int = before - int(GameState.state["factions"]["collective"]["resources"])
+		assert_true(spent > 0, "bought ore on the market")
+		assert_true(_outside_attempts_cost() >= spent, "never more than the daily cap of attempts")
+		assert_eq(FactionSim.ore_held("collective", "time"), 0, "bought ore is spent on attempts")
+		assert_true(FactionSim.item_held("collective", "timePearl") <= int(GameData.MARKET["outsideCraft"]["dailyCap"]["collective"]), "units within cap")
+	)
+
+	run_case("outside_craft_skips_ineligible_goods", func():
+		_prime_outside_craft()
+		GameState.state["market"]["aboveDays"] = {}
+		var before: int = GameState.state["factions"]["collective"]["resources"]
+		FactionSim.craft()
+		assert_eq(int(GameState.state["factions"]["collective"]["resources"]), before, "not yet eligible: no purchase")
+		GameState.state["market"]["aboveDays"] = {"keystone": 99}
+		FactionSim.craft()
+		assert_eq(int(GameState.state["factions"]["collective"]["resources"]), before, "opted-out good: no purchase")
+	)
+
+	run_case("outside_craft_respects_wallet_floor_and_buy_gate", func():
+		_prime_outside_craft()
+		GameState.state["factions"]["collective"]["resources"] = int(GameData.MARKET["outsideCraft"]["walletFloor"])
+		FactionSim.craft()
+		assert_eq(int(GameState.state["factions"]["collective"]["resources"]), int(GameData.MARKET["outsideCraft"]["walletFloor"]), "at the floor: no spend")
+		_prime_outside_craft()
+		var gate: float = GameData.FACTIONS["collective"]["trading"]["maxBuyMult"]
+		_set_quote("ore", "time", ceili(gate * Market.base_price("ore", "time")) + 1)
+		var before: int = GameState.state["factions"]["collective"]["resources"]
+		FactionSim.craft()
+		assert_eq(int(GameState.state["factions"]["collective"]["resources"]), before, "ore above maxBuyMult: no purchase")
+	)
+
+	run_case("outside_craft_leaves_specialist_crafting_alone", func():
+		_prime_outside_craft()
+		_stock_at_targets("guild")
+		_set_item("guild", "timePearl", 0)
+		var cost: int = Crafting.calc_cost("timePearl", 4)["time"]
+		_set_ore("guild", "time", cost * 2)
+		FactionSim.craft()
+		assert_eq(FactionSim.ore_held("guild", "time"), 0, "guild still crafts its own target from held ore")
+		assert_true(not GameState.state["factions"]["guild"].has("outsideCrafted"), "no outside-craft tally for a specialist good")
+	)
+
 	run_case("a_starved_first_recipe_does_not_block_the_next_recipe", func():
 		GameState.reset()
 		_stock_at_targets("guild")
@@ -963,6 +1010,30 @@ static func _set_item(faction_id: String, recipe_key: String, qty: int) -> void:
 static func _stock_at_targets(faction_id: String) -> void:
 	for recipe_key in GameData.FACTIONS[faction_id]["crafts"]:
 		_set_item(faction_id, recipe_key, FactionSim.craft_target(faction_id, recipe_key))
+
+
+# Collective rich, no ore, timePearl pinned high past grace, ore cheap; every
+# faction else stocked so nothing else moves.
+static func _prime_outside_craft() -> void:
+	GameState.reset()
+	GameState.state["market"] = Market.new_state()
+	for faction_id in GameData.FACTIONS:
+		_stock_at_targets(faction_id)
+	for ore_type in GameData.ORE_TYPES:
+		_set_ore("collective", ore_type, 0)
+	GameState.state["factions"]["collective"]["resources"] = 100000
+	_set_quote("consumable", "timePearl", 4 * Market.base_price("consumable", "timePearl"))
+	GameState.state["market"]["aboveDays"] = {"timePearl": int(GameData.MARKET["outsideCraft"]["graceDays"])}
+
+
+# Ore cost in £ of the daily cap of outside attempts, at the lowered skill.
+static func _outside_attempts_cost() -> int:
+	var skill: int = maxi(1, int(GameData.FACTIONS["collective"]["craftSkill"]) - int(GameData.MARKET["outsideCraft"]["tierPenalty"]))
+	var total := 0
+	var costs: Dictionary = Crafting.calc_cost("timePearl", skill)
+	for ore_type in costs:
+		total += Market.line_total("ore", Market.quote("ore", ore_type), int(costs[ore_type]))
+	return total * int(GameData.MARKET["outsideCraft"]["dailyCap"]["collective"])
 
 
 static func _set_quote(kind: String, good_type: String, price: int) -> void:

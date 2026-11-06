@@ -299,6 +299,7 @@ static func craft() -> void:
 	for faction_id in GameData.FACTIONS:
 		for recipe_key in GameData.FACTIONS[faction_id].get("crafts", []):
 			_craft_toward_target(faction_id, recipe_key)
+		_craft_outside(faction_id)
 
 
 # faction_craft_chance at craftSkill, plus factionFloor.craftChanceBonus
@@ -323,6 +324,71 @@ static func _craft_toward_target(faction_id: String, recipe_key: String) -> void
 		if Rng.chance(chance):
 			add_item(faction_id, recipe_key, skill, 1)
 			Shares.record_craft(faction_id, costs)
+
+
+# Opportunistic outside crafting (market.json outsideCraft): after its own
+# crafts, a faction above walletFloor ranks the goods outside_craft_eligible to
+# it by margin (London quote minus its ore at London quotes), buys the missing
+# ore through the maxBuyMult gate and crafts at craftSkill - tierPenalty, up to
+# dailyCap attempts a day. No recipe-knowledge gate. Units made are tallied in
+# factions[id].outsideCrafted { recipeKey: qty } for the sim report.
+static func _craft_outside(faction_id: String) -> void:
+	if not Market.is_running():
+		return
+	var cfg: Dictionary = GameData.MARKET["outsideCraft"]
+	var skill: int = maxi(1, int(GameData.FACTIONS[faction_id]["craftSkill"]) - int(cfg["tierPenalty"]))
+	var ranked: Array = []
+	for recipe_key in GameData.RECIPES:
+		if not Market.outside_craft_eligible(faction_id, recipe_key):
+			continue
+		var margin := _outside_margin(recipe_key, skill)
+		if margin > 0:
+			ranked.append([margin, recipe_key])
+	ranked.sort_custom(func(a: Array, b: Array) -> bool: return a[0] > b[0])
+	var cap: int = int(cfg["dailyCap"][faction_id])
+	for entry in ranked:
+		var recipe_key: String = entry[1]
+		var costs: Dictionary = Crafting.calc_cost(recipe_key, skill)
+		while cap > 0:
+			if not _buy_outside_ore(faction_id, costs, int(cfg["walletFloor"])):
+				break
+			cap -= 1
+			for ore_type in costs:
+				take_ore(faction_id, ore_type, costs[ore_type])
+			if Rng.chance(Crafting.faction_craft_chance(recipe_key, skill)):
+				add_item(faction_id, recipe_key, skill, 1)
+				Shares.record_craft(faction_id, costs)
+				var made: Dictionary = GameState.state["factions"][faction_id].get("outsideCrafted", {})
+				made[recipe_key] = int(made.get(recipe_key, 0)) + 1
+				GameState.state["factions"][faction_id]["outsideCrafted"] = made
+		if cap <= 0:
+			return
+
+
+# London price of one unit minus the London cost of its ore at `skill`.
+static func _outside_margin(recipe_key: String, skill: int) -> int:
+	var cost := 0
+	var costs := Crafting.calc_cost(recipe_key, skill)
+	for ore_type in costs:
+		cost += Market.line_total("ore", Market.quote("ore", ore_type), int(costs[ore_type]))
+	return Market.quote("consumable", recipe_key) - cost
+
+
+# Buys whatever ore of `costs` the faction lacks, keeping `floor_cash` back and
+# honouring maxBuyMult. False when the ore can't be covered.
+static func _buy_outside_ore(faction_id: String, costs: Dictionary, floor_cash: int) -> bool:
+	var knobs: Dictionary = GameData.FACTIONS[faction_id]["trading"]
+	for ore_type in costs:
+		var missing: int = int(costs[ore_type]) - ore_held(faction_id, ore_type)
+		if missing <= 0:
+			continue
+		var budget: int = int(GameState.state["factions"][faction_id]["resources"]) - floor_cash
+		if budget <= 0:
+			return false
+		if float(Market.quote("ore", ore_type)) > float(knobs["maxBuyMult"]) * Market.base_price("ore", ore_type):
+			return false
+		_buy(faction_id, "ore", ore_type, missing, 1.0, "", budget)
+	return _can_cover(faction_id, costs)
 
 
 static func _can_cover(faction_id: String, costs: Dictionary) -> bool:
