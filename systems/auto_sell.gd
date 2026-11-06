@@ -8,6 +8,7 @@ extends RefCounted
 
 const MOOD_OFF := "off"
 const PRICE_EPSILON := 0.0001  # absorbs float error in base × minPriceMult
+const UNIT_EPSILON := 0.0001  # absorbs float error in limit × skill rate
 
 # projection()'s "reason" when qty is 0.
 const REASON_NO_SALES := "noSales"
@@ -72,59 +73,69 @@ static func market_limit(recipe_key: String, max_drop: float) -> int:
 	return int(floor(Market.stock("consumable", recipe_key) * growth))
 
 
-# Units the rule would sell at today's stock and price.
+# Private buyers the Sales contact can reach for an on-market limit: nothing
+# at Sales level 1, then offMarketPerSalesLevel more of the limit per level.
+static func off_market_limit(on_market_limit: int) -> int:
+	var rate := float(_config()["offMarketPerSalesLevel"]) * (Offers.sales_skill() - 1)
+	return int(floor(on_market_limit * rate + UNIT_EPSILON))
+
+
+# Units the rule would sell on the market at today's stock and price.
 static func sellable_qty(recipe_key: String) -> int:
 	return _assess(recipe_key, -1, -1)["qty"]
 
 
-# { qty, reason }: what the rule sells today, and why not when qty is 0.
+# { qty, offMarketQty, reason }: what the rule sells today, and why not when
+# qty is 0. Off-market units come from surplus the market didn't take.
 static func _assess(recipe_key: String, keep: int, sell_above: int) -> Dictionary:
 	var mood: Variant = _config()["moods"].get(rule(recipe_key)["mood"])
 	if mood == null:
-		return { "qty": 0, "reason": REASON_OFF }
+		return { "qty": 0, "offMarketQty": 0, "reason": REASON_OFF }
 	var held := Crafting.inventory_qty(recipe_key)
 	var surplus := held - protected_floor(recipe_key, keep, sell_above)
 	if surplus <= 0:
 		var cutoff: int = sell_above if sell_above >= 0 else int(rule(recipe_key)["sellAbove"])
-		return { "qty": 0, "reason": REASON_CONTRACTS if held > cutoff else REASON_UNDER_CUTOFF }
+		return { "qty": 0, "offMarketQty": 0, "reason": REASON_CONTRACTS if held > cutoff else REASON_UNDER_CUTOFF }
 	var min_price: float = Market.base_price("consumable", recipe_key) * float(mood["minPriceMult"])
 	if float(Market.quote("consumable", recipe_key)) < min_price - PRICE_EPSILON:
-		return { "qty": 0, "reason": REASON_PRICE }
-	var qty := mini(surplus, market_limit(recipe_key, float(mood["maxPriceDrop"])))
+		return { "qty": 0, "offMarketQty": 0, "reason": REASON_PRICE }
+	var limit := market_limit(recipe_key, float(mood["maxPriceDrop"]))
+	var qty := mini(surplus, limit)
 	if qty <= 0:
-		return { "qty": 0, "reason": REASON_MARKET_FULL }
-	return { "qty": qty, "reason": "" }
+		return { "qty": 0, "offMarketQty": 0, "reason": REASON_MARKET_FULL }
+	return { "qty": qty, "offMarketQty": mini(surplus - qty, off_market_limit(limit)), "reason": "" }
 
 
 # What daily_pass() would do for a Production-list recipe from the current
-# state: { qty, income, reason }, reason "" when it sells. keep / sell_above
-# >= 0 preview values not yet stored.
+# state: { qty, offMarketQty, income, reason }, reason "" when it sells; income
+# covers both channels. keep / sell_above >= 0 preview values not yet stored.
 static func projection(recipe_key: String, keep: int = -1, sell_above: int = -1) -> Dictionary:
 	if not Contracts.has_staffed_sales():
-		return { "qty": 0, "income": 0, "reason": REASON_NO_SALES }
+		return { "qty": 0, "offMarketQty": 0, "income": 0, "reason": REASON_NO_SALES }
 	if not Market.is_running():
-		return { "qty": 0, "income": 0, "reason": REASON_CLOSED }
+		return { "qty": 0, "offMarketQty": 0, "income": 0, "reason": REASON_CLOSED }
 	var assessed := _assess(recipe_key, keep, sell_above)
 	var income := 0
-	for lot in Crafting.inventory_lots(recipe_key, assessed["qty"]):
+	for lot in Crafting.inventory_lots(recipe_key, assessed["qty"] + assessed["offMarketQty"]):
 		income += _lot_income(recipe_key, lot)
-	return { "qty": assessed["qty"], "income": income, "reason": assessed["reason"] }
+	return { "qty": assessed["qty"], "offMarketQty": assessed["offMarketQty"], "income": income, "reason": assessed["reason"] }
 
 
-# Sells each Production-list recipe's sellable_qty(), lowest tier first, and
-# banks the day's total as contract revenue. Returns
-# { recipeKey: { qty, income } } for the units sold.
+# Sells each Production-list recipe's assessed units, lowest tier first with
+# the market served before private buyers, and banks the day's total as
+# contract revenue. Returns { recipeKey: { qty, offMarketQty, income } } for
+# the units sold; income covers both channels.
 static func daily_pass() -> Dictionary:
 	var sold := {}
 	if not Contracts.has_staffed_sales() or not Market.is_running():
 		return sold
 	var total := 0
 	for recipe_key in Rooms.production_recipes():
-		var qty := sellable_qty(recipe_key)
-		if qty <= 0:
+		var assessed := _assess(recipe_key, -1, -1)
+		if assessed["qty"] <= 0:
 			continue
-		var income := _sell(recipe_key, qty)
-		sold[recipe_key] = { "qty": qty, "income": income }
+		var income := _sell(recipe_key, assessed["qty"]) + _sell_off_market(recipe_key, assessed["offMarketQty"])
+		sold[recipe_key] = { "qty": assessed["qty"], "offMarketQty": assessed["offMarketQty"], "income": income }
 		total += income
 	if sold.is_empty():
 		return sold
@@ -139,6 +150,15 @@ static func _sell(recipe_key: String, qty: int) -> int:
 	for lot in Crafting.inventory_remove(recipe_key, qty):
 		income += _lot_income(recipe_key, lot)
 		Market.record_supply("consumable", recipe_key, lot["qty"], "player", lot["tier"])
+	return income
+
+
+# Private sales skip the market's supply record, so London's stock and price
+# stay put and the units don't count toward market share.
+static func _sell_off_market(recipe_key: String, qty: int) -> int:
+	var income := 0
+	for lot in Crafting.inventory_remove(recipe_key, qty):
+		income += _lot_income(recipe_key, lot)
 	return income
 
 

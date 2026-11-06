@@ -233,7 +233,7 @@ static func _days_phrase(days: int) -> String:
 	return "tomorrow" if days == 1 else "in %d days" % days
 
 
-# AutoSell.daily_pass()'s result: { recipeKey: { qty, income } }.
+# AutoSell.daily_pass()'s result: { recipeKey: { qty, offMarketQty, income } }.
 static func capture_auto_sales(context: Dictionary, sold: Dictionary) -> void:
 	for recipe_key in sold:
 		context["sales"][recipe_key] = sold[recipe_key]
@@ -241,7 +241,11 @@ static func capture_auto_sales(context: Dictionary, sold: Dictionary) -> void:
 
 # PROSE-REVIEW: auto-sale line.
 static func sale_label(recipe_key: String, sale: Dictionary) -> String:
-	return "Sold %d %s for £%d" % [sale["qty"], GameData.RECIPES[recipe_key]["name"], sale["income"]]
+	var name: String = GameData.RECIPES[recipe_key]["name"]
+	var off_market: int = sale.get("offMarketQty", 0)
+	if off_market > 0:
+		return "Sold %d %s, +%d placed privately, for £%d" % [sale["qty"], name, off_market, sale["income"]]
+	return "Sold %d %s for £%d" % [sale["qty"], name, sale["income"]]
 
 
 static func finish_rollover(context: Dictionary) -> Dictionary:

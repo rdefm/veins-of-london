@@ -159,7 +159,7 @@ func run() -> void:
 		_market_stock(100)  # eager limit 8: two tier 1, six tier 3
 		var income: int = 2 * price + 6 * (price * 3 / 2)
 		var sold: Dictionary = AutoSell.daily_pass()
-		assert_eq(sold[SALVE], { "qty": 8, "income": income })
+		assert_eq(sold[SALVE], { "qty": 8, "offMarketQty": 0, "income": income })
 		assert_eq(Crafting.inventory_qty(SALVE, 3), 24)
 		assert_eq(Crafting.inventory_qty(SALVE), 24, "tier 1 went first")
 		assert_eq(GameState.state["player"]["cash"], cash + income, "no Archie cut")
@@ -205,7 +205,7 @@ func run() -> void:
 		var quoted := Market.quote("consumable", SALVE)
 		TimeSystem.daily_tick()
 		var sale: Dictionary = MorningAccountsSystem.latest()["sales"][SALVE]
-		assert_eq(sale, { "qty": LIMITS["eager"], "income": quoted * LIMITS["eager"] })
+		assert_eq(sale, { "qty": LIMITS["eager"], "offMarketQty": 0, "income": quoted * LIMITS["eager"] })
 		assert_eq(Crafting.inventory_qty(SALVE), 100 - LIMITS["eager"])
 		assert_true(Market.stock("consumable", SALVE) > unsold_stock, "London took the stock")
 		assert_true(Market.quote("consumable", SALVE) < unsold_price, "the price responds")
@@ -328,6 +328,115 @@ func run() -> void:
 		assert_eq(AutoSell.projection(SALVE)["reason"], AutoSell.REASON_MARKET_FULL)
 	)
 
+	run_case("level_1_sales_places_nothing_privately", func():
+		_rollover_fixture("eager")
+		assert_eq(AutoSell.projection(SALVE)["offMarketQty"], 0)
+		assert_eq(AutoSell.daily_pass()[SALVE]["offMarketQty"], 0)
+		assert_eq(Crafting.inventory_qty(SALVE), 100 - LIMITS["eager"])
+	)
+
+	run_case("off_market_units_scale_with_sales_level_rounded_down", func():
+		var eager_by_level := { 1: 0, 2: 1, 3: 3, 4: 5, 5: 7 }  # of 18
+		for level in eager_by_level:
+			_rollover_fixture("eager")
+			_sales_level(level)
+			var sold: Dictionary = AutoSell.daily_pass()[SALVE]
+			assert_eq(sold["qty"], LIMITS["eager"], "level %d: market sale unchanged" % level)
+			assert_eq(sold["offMarketQty"], eager_by_level[level], "level %d" % level)
+			assert_eq(Crafting.inventory_qty(SALVE), 100 - LIMITS["eager"] - eager_by_level[level])
+		var level_5_by_mood := { "careful": 1, "steady": 3 }
+		for mood in level_5_by_mood:
+			_rollover_fixture(mood)
+			_sales_level(5)
+			assert_eq(AutoSell.projection(SALVE)["offMarketQty"], level_5_by_mood[mood], "%s limit at level 5" % mood)
+	)
+
+	run_case("off_market_rate_comes_from_data", func():
+		_rollover_fixture("eager")
+		_sales_level(3)
+		var cfg: Dictionary = GameData.MARKET["autoSell"]
+		var saved: float = cfg["offMarketPerSalesLevel"]
+		cfg["offMarketPerSalesLevel"] = 0.25
+		var limit := AutoSell.off_market_limit(LIMITS["eager"])
+		cfg["offMarketPerSalesLevel"] = saved
+		assert_eq(limit, 9)
+	)
+
+	run_case("off_market_pays_like_the_market_but_leaves_london_untouched", func():
+		_rollover_fixture("eager")
+		_sales_level(5)
+		var quoted := Market.quote("consumable", SALVE)
+		var cash: int = GameState.state["player"]["cash"]
+		var shares_before: Array = GameState.deep_copy(GameState.state["shares"]["days"])
+		var sold: Dictionary = AutoSell.daily_pass()[SALVE]
+		var market: Dictionary = GameState.state["market"]
+		var income: int = quoted * (LIMITS["eager"] + 7)
+		assert_eq(sold, { "qty": LIMITS["eager"], "offMarketQty": 7, "income": income })
+		assert_eq(GameState.state["player"]["cash"], cash + income, "one banked total for both channels")
+		assert_eq(market["supply"]["consumable"][SALVE]["player"], LIMITS["eager"], "only market units reach the supply record")
+		assert_eq(market["supplyTiers"][SALVE], { "1": LIMITS["eager"] }, "nor its tier record")
+		assert_eq(GameState.state["shares"]["days"], shares_before, "selling adds nothing to the share tallies")
+	)
+
+	run_case("off_market_lots_follow_the_market_up_the_tiers", func():
+		_rollover_fixture("eager")
+		_sales_level(5)
+		GameState.state["player"]["inventory"][SALVE] = { "1": 20, "3": 20 }
+		var quoted := Market.quote("consumable", SALVE)
+		var projected := AutoSell.projection(SALVE)
+		var sold: Dictionary = AutoSell.daily_pass()[SALVE]
+		var tier_three: int = GameState.round_epsilon(quoted * Economy.quality_price_multiplier(3))
+		assert_eq(sold["income"], 20 * quoted + 5 * tier_three, "2 private units at tier 1, 5 at tier 3")
+		assert_eq(projected["income"], sold["income"], "the live line matches the pass")
+		assert_eq(GameState.state["market"]["supplyTiers"][SALVE], { "1": 18 }, "tier 3 went private")
+	)
+
+	run_case("off_market_stays_on_top_of_the_floor_and_price", func():
+		_rollover_fixture("eager", 90)
+		_sales_level(5)
+		var whole_surplus: Dictionary = AutoSell.daily_pass()[SALVE]
+		assert_eq([whole_surplus["qty"], whole_surplus["offMarketQty"]], [10, 0], "market takes the whole surplus")
+		assert_eq(Crafting.inventory_qty(SALVE), 90)
+
+		_rollover_fixture("eager", 80)
+		_sales_level(5)
+		assert_eq(AutoSell.projection(SALVE)["offMarketQty"], 2, "only the surplus left after the market")
+		AutoSell.daily_pass()
+		assert_eq(Crafting.inventory_qty(SALVE), 80)
+
+		_rollover_fixture("eager")
+		_sales_level(5)
+		_price(1)
+		assert_eq(AutoSell.daily_pass(), {}, "under the minimum price nothing sells")
+		assert_eq(Crafting.inventory_qty(SALVE), 100)
+	)
+
+	run_case("rollover_keeps_london_as_if_the_private_units_never_existed", func():
+		_rollover_fixture("eager")
+		AutoSell.daily_pass()
+		Market.daily_reprice()
+		var market_only := [Market.stock("consumable", SALVE), Market.quote("consumable", SALVE)]
+
+		_rollover_fixture("eager")
+		_sales_level(5)
+		assert_eq(AutoSell.daily_pass()[SALVE]["offMarketQty"], 7)
+		Market.daily_reprice()
+		assert_eq([Market.stock("consumable", SALVE), Market.quote("consumable", SALVE)], market_only)
+
+		_rollover_fixture("eager")
+		_sales_level(5)
+		TimeSystem.daily_tick()
+		assert_eq(MorningAccountsSystem.latest()["sales"][SALVE]["offMarketQty"], 7, "the report carries them")
+	)
+
+	run_case("morning_line_shows_private_units_separately", func():
+		_setup()
+		var both: String = MorningAccountsSystem.sale_label(SALVE, { "qty": 8, "offMarketQty": 2, "income": 500 })
+		assert_true(both.contains("Sold 8") and both.contains("+2 placed privately") and both.contains("£500"), both)
+		assert_true(not MorningAccountsSystem.sale_label(SALVE, { "qty": 8, "offMarketQty": 0, "income": 500 }).contains("privately"))
+		assert_true(not MorningAccountsSystem.sale_label(SALVE, { "qty": 8, "income": 500 }).contains("privately"), "older save's account")
+	)
+
 
 # Archie on Sales (when staffed) and Owen available for Production, on a
 # non-Monday, with Healing Salve stock at London's normal 210.
@@ -379,6 +488,10 @@ func _xp_from_a_rollover() -> int:
 	var offers: int = OffersSystem.random_pending_count()
 	TimeSystem.daily_tick()
 	return _sales_xp() - xp - OFFER_SOURCED_XP * (OffersSystem.random_pending_count() - offers)
+
+
+func _sales_level(level: int) -> void:
+	GameState.state["contacts"]["archie"]["salesSkill"] = level
 
 
 func _sales_xp() -> int:

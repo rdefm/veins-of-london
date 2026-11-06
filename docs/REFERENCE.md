@@ -839,10 +839,11 @@ The dock (`NavBar`, now 3 slots: Phone · Map · HQ) is hidden on `title, intro,
   - **Protected floor:** `max(sellAbove, Rooms.effective_lab_target(recipe))`, i.e. Keep (the Production target) plus contract need while the item covers contracts. Stock at or below the floor is never sold.
   - **Moods** (`moods`): Careful needs London ≥ 110% of base and allows a 3% price drop; Steady 100% and 6%; Eager 85% and 12%. Below the minimum, nothing sells that day.
   - **On-market daily limit:** `floor(stock × ((1 − maxPriceDrop)^(−1 / curveExponent) − 1))`, from today's London stock. With exponent 1.5 and stock 210: 4 / 8 / 18. Sold = `min(limit, surplus)`.
-  - **Payment:** per tier, lowest tier first, `Market.line_total("consumable", round_epsilon(quote × qualityPriceMultiplier(tier)), qty)`. No Archie cut, no mugging roll, no district/omen modifier. Each lot records `Market.record_supply("consumable", key, qty, "player", tier)`.
+  - **Off-market limit:** `floor(onMarketLimit × offMarketPerSalesLevel 0.1 × (salesSkill − 1))`, skill from `Contacts.sales_contact()` (`Offers.sales_skill()`): +0 / 10 / 20 / 30 / 40% at levels 1–5. Sold = `min(limit, surplus left after on-market sales)`, so nothing goes off-market on a day the floor or minimum price stops the on-market sale.
+  - **Payment:** per tier, lowest tier first, on-market units before off-market, `Market.line_total("consumable", round_epsilon(quote × qualityPriceMultiplier(tier)), qty)`. No Archie cut, no mugging roll, no district/omen modifier. Each on-market lot records `Market.record_supply("consumable", key, qty, "player", tier)`. Off-market units pay the same but record nothing, so London's stock and price don't move. Market share is unaffected, as with any sale: it reads the ore and craft tallies (§3.14).
   - **Revenue** routes as a contract settlement (`Contracts.receive_revenue`: pot while active, else cash), banked as one daily total.
   - **Sales XP:** `salesXp` 2, once per day with at least one sale, to `Contacts.sales_contact()`. No relation gain, no `consSoldCount`.
-  - **Morning report:** `account.sales` is `{ recipeKey: { qty, income } }`.
+  - **Morning report:** `account.sales` is `{ recipeKey: { qty, offMarketQty, income } }`; `qty` is on-market units, `income` covers both. Accounts from older saves have no `offMarketQty`.
   - **Controls** (BizBrief Production, one stock bar per item): Keep sets the Production target; the cutoff sets `sellAbove`, stops at Keep and is pushed up by a Keep past it (`AutoSell.set_keep`, `set_sell_above`, `set_mood`). Cutoff and mood are locked while `has_staffed_sales()` is false; Keep isn't. The live line is `AutoSell.projection()`.
 
 ### 3.6a Faction shops (biz-act2-faction-economy)

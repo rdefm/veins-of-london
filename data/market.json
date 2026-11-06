@@ -46,6 +46,7 @@
   "deliveries": { "cap": 80 },
   "autoSell": {
     "salesXp": 2,
+    "offMarketPerSalesLevel": 0.1,
     "moods": {
       "careful": { "minPriceMult": 1.1, "maxPriceDrop": 0.03 },
       "steady": { "minPriceMult": 1.0, "maxPriceDrop": 0.06 },

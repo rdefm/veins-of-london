@@ -656,6 +656,7 @@ func run() -> void:
 		assert_true(int(projected["qty"]) > 0, "fixture: London takes some")
 		var line := (phone.find_child("AutoSellLine_timePearl", true, false) as Label)
 		assert_eq(line.text, "Today: would sell %d at about £%d" % [projected["qty"], projected["income"]])
+		assert_eq(BizBriefApp._auto_sell_text({ "qty": 8, "offMarketQty": 2, "income": 500, "reason": "" }), "Today: would sell 8, +2 placed privately, at about £500")
 
 		var bar := _stock_bar(phone, "timePearl")
 		bar._press(bar._value_x(10) + 2.0)

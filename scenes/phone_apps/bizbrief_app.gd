@@ -1363,6 +1363,8 @@ static func _cutoff_text(recipe_key: String, keep: int, cutoff: int) -> String:
 
 
 static func _auto_sell_text(projected: Dictionary) -> String:
+	if int(projected["offMarketQty"]) > 0:
+		return "Today: would sell %d, +%d placed privately, at about £%d" % [projected["qty"], projected["offMarketQty"], projected["income"]]
 	if int(projected["qty"]) > 0:
 		return "Today: would sell %d at about £%d" % [projected["qty"], projected["income"]]
 	return AUTO_SELL_REASON_TEXT[projected["reason"]]
