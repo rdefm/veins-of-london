@@ -713,6 +713,15 @@ func run() -> void:
 		assert_eq(typeof(GameState.state["market"]["supplyTiers"]["timePearl"]["2"]), TYPE_INT, "tier tally restored as int")
 	)
 
+	run_case("faction_outside_crafted_round_trips_through_save_as_ints", func():
+		GameState.reset()
+		GameState.state["factions"]["guild"]["outsideCrafted"] = { "invisibility": 2 }
+		assert_true(SaveManager.import_string(SaveManager.export_string())["ok"])
+		var made: Dictionary = GameState.state["factions"]["guild"]["outsideCrafted"]
+		assert_eq(made, { "invisibility": 2 }, "outside crafting survives save/load")
+		assert_eq(typeof(made["invisibility"]), TYPE_INT, "restored as int")
+	)
+
 	run_case("loading_a_save_without_a_market_backfills_base_prices", func():
 		GameState.reset()
 		var legacy: Dictionary = GameState.deep_copy(GameState.state)

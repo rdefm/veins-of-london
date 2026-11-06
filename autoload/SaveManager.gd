@@ -1254,6 +1254,7 @@ func _restore_int_types(state: Dictionary) -> void:
 			_int_dict_values(faction.get("shortfall", {}))
 			_int_dict_values(faction.get("consumeAccrued", {}))
 			_int_dict_values(faction.get("standing", {}))
+			_int_dict_values(faction.get("outsideCrafted", {}))
 			var succession: Dictionary = faction.get("succession", {})
 			_int_key(succession, "days")
 			_int_key(succession, "day")
