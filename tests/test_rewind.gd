@@ -58,6 +58,26 @@ func run() -> void:
 		assert_true(Rewind.has_block_start(), "can rewind to the same block again")
 	)
 
+	run_case("block_rewind_restores_tiered_market_stock_as_ints", func():
+		GameState.reset()
+		Crafting.inventory_add("rewind", 1, 2)
+		TimeSystem.advance_time_block()
+		var at_start: Dictionary = GameState.deep_copy(GameState.state["market"])
+		Market.record_supply("consumable", "timePearl", 25, "player", 4)
+		Market.record_supply("consumable", "timePearl", 5, "player", 2)
+		Market.daily_reprice()
+		assert_true(GameState.state["market"] != at_start, "market moved after the block opened")
+		assert_true(Rewind.rewind_to_block_start()["ok"], "rewound")
+		var market: Dictionary = GameState.state["market"]
+		assert_eq(market, at_start, "market equals its block-start copy")
+		var pearl: Dictionary = market["goods"]["consumable"]["timePearl"]
+		for tier in pearl["tiers"]:
+			assert_eq(typeof(pearl["tiers"][tier]), TYPE_INT, "tier %s stock is an int" % tier)
+		assert_eq(typeof(pearl["price"]), TYPE_INT, "price is an int")
+		for tier in market["supplyTiers"].get("timePearl", {}):
+			assert_eq(typeof(market["supplyTiers"]["timePearl"][tier]), TYPE_INT, "tier %s tally is an int" % tier)
+	)
+
 	run_case("block_rewind_neither_loses_nor_doubles_equipped_units", func():
 		GameState.reset()
 		Crafting.inventory_add("rewind", 1, 1)
