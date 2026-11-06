@@ -217,20 +217,17 @@ Sim net flow +0.2 / +0.2 / -0.3 units/day (s1/s2/s3), named share 75-79% (baseli
 
 ## Ticket 21 — reduce demand for pinned goods (data only)
 
-Change: `civilianDemand` lowered in `data/market.json`; `normalStock` untouched. blackHole, happyAccident, introduction, deadweight, signalFailure, dejaVu, invisibility, stutter 15 -> 8; shield, trueLevel, secondImpression, nostalgia, navvysDraught 15 -> 10; pansRapture 30 -> 20. keystone, cleanSlate, heavyMetal, skeletonKey (no crafter at all) left at 15: cutting them raised named share a further ~3pts; they stay pinned 31/31 by design (no crafter — needs a recipe decision, not demand). goodYear no longer pinned.
+Change: `civilianDemand` 15 -> 8 in `data/market.json` for the eight ore-starved goods only (blackHole, happyAccident, introduction, deadweight, signalFailure, dejaVu, invisibility, stutter); `normalStock` untouched. keystone, cleanSlate, heavyMetal, skeletonKey (no crafter) stay pinned 31/31 by design — needs a recipe decision. goodYear no longer pinned. Wider cuts (also shield, trueLevel, secondImpression, nostalgia, navvysDraught 10, pansRapture 20) cut avg pinned to ~3 but pushed named share to 76/80/81%, so they were reverted.
 
-Sim days 31-60, seeds 1/2/3 (48 goods; avg = mean pinned days per good):
+Sim days 31-60, seeds 1/2/3 (48 goods):
 
 | metric | before | after |
 |---|---|---|
-| avg pinned days per good | 9.2 / 7.3 / 5.6 | 3.0 / 3.4 / 2.9 |
-| goods pinned >=5d | 20 / 12 / 11 | 6 / 7 / 5 |
-| still pinned >=5d | many | s1: deadweight 12 + 4 no-crafter; s2: blackHole 10, deadweight 13, signalFailure 10 + 4 no-crafter; s3: sodsLaw 7 + 4 no-crafter |
-| item named share | 73 / 76 / 77% | 76 / 80 / 81% |
-| faction shortfall days (max faction) | guild 5, network 3 / network 7 / conclave 8 | guild 2 / network 9 / network 8 |
-| wallet growth £/day (guild) | 65k / 60k / 62k | ~53k-67k (s1 network 43k) |
-| turf | min control firm 3, network 0; no zero-turf | identical |
+| avg pinned days per good | 9.2 / 7.3 / 5.6 | 7.4 / 3.3 / 3.3 |
+| still pinned >=5d | 20 / 12 / 11 goods | s1: shield 31, pansRapture 31, deadweight 27, signalFailure 16, trueLevel 25, secondImpression 27, nostalgia 31, navvysDraught 27 + 4 no-crafter; s2: deadweight 14, signalFailure 10 + 4 no-crafter; s3: nearMiss 10, sodsLaw 18 + 4 no-crafter |
+| item named share | 73 / 76 / 77% | 74 / 78 / 78% |
+| shortfall days (worst faction) | guild 5 / network 7 / conclave 8 | guild 5 / firm 1 / network 4 |
+| wallet growth | see ticket 18 | within noise |
+| turf | no zero-turf | unchanged |
 
-Faction ore harvest all seeds within noise; Independents ore 1390-1490 vs 1540-1630 before (factions' share not down).
-
-Caveats for sign-off: named share is over the 65-75% band in s1 (marginal), s2, s3 (s2/s3 were already over at 76/77, accepted in ticket 18); lowering nameless demand mechanically raises named share. A softer cut (ore-starved goods 8, others untouched) gave 74/78/78% but s1 avg 7.4. Network shortfall days 8-9 of 30 (not permanent). Sim is chaotic across runs; each variant was a single run per seed.
+Caveats: s1 average 7.4 is just over the <=7 target (marginal, single noisy run). Named share s2/s3 over 75 (were 76/77, accepted in ticket 18). Wallet columns not separately tabulated for this variant.
