@@ -246,6 +246,17 @@ static func daily_tick() -> void:
 			settle(contract["id"])
 
 
+# Routed by the day it lands: the business pot while active, else the player
+# (R§3.10 "Business pot and payday"); bank_label names the player's bank line.
+static func receive_revenue(amount: int, bank_label: String) -> void:
+	BusinessStats.record_sale(amount)
+	if amount > 0 and Business.is_pot_active():
+		Business.receive(amount)
+	elif amount > 0:
+		GameState.state["player"]["cash"] += amount
+		Bank.record(amount, bank_label)
+
+
 static func settle(contract_id: String) -> Dictionary:
 	var contract := _find_active(contract_id)
 	if contract.is_empty():
@@ -270,14 +281,7 @@ static func settle(contract_id: String) -> Dictionary:
 	sales["nextSettlementId"] += 1
 	sales["settlements"].append(settlement)
 	sales["contractHistory"].append({ "contract": contract.duplicate(true), "settlement": settlement.duplicate(true) })
-	# Routed by the day it settles: the business pot while active, else the
-	# player (R§3.10 "Business pot and payday").
-	BusinessStats.record_sale(payment)
-	if payment > 0 and Business.is_pot_active():
-		Business.receive(payment)
-	elif payment > 0:
-		GameState.state["player"]["cash"] += payment
-		Bank.record(payment, "Contract settlement")
+	receive_revenue(payment, "Contract settlement")
 	if not contract["delivered"].is_empty():
 		_award_sales_xp(COMPLETE_XP if complete else PARTIAL_XP)
 	if complete:

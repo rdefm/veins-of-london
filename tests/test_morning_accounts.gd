@@ -25,12 +25,12 @@ func run() -> void:
 		Bank.record(120, "Contract sale")
 		GameState.state["player"]["cash"] -= 30
 		Bank.record(-30, "Supplies")
-		MorningAccountsSystem.record_sale(context, "time calc contract", 12)
+		MorningAccountsSystem.capture_auto_sales(context, { "timePearl": { "qty": 12, "income": 120 } })
 		var account := MorningAccountsSystem.finish_rollover(context)
 		assert_eq(account["income"], 120)
 		assert_eq(account["expenses"], 30)
 		assert_eq(account["closingBalance"], 130)
-		assert_eq(account["sales"]["time calc contract"], 12)
+		assert_eq(account["sales"]["timePearl"], { "qty": 12, "income": 120 })
 	)
 
 	run_case("block_production_folds_into_the_next_rollover_and_shortfall_is_flagged", func():

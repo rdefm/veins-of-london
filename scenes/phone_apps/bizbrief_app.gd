@@ -1704,8 +1704,8 @@ func _build_operations(account: Dictionary) -> Control:
 		c["content"].add_child(UI.muted_label("Produced %d %s" % [account["production"]["ore"][ore_type], GameData.ORE_TYPES[ore_type]["name"]]))
 	for recipe_key in account["production"]["items"]:
 		c["content"].add_child(UI.symbol_row([ItemIcons.part(recipe_key), "Produced %d %s" % [account["production"]["items"][recipe_key], GameData.RECIPES[recipe_key]["name"]]]))
-	for sale_key in account["sales"]:
-		c["content"].add_child(UI.label("Sold %s: %d" % [sale_key, account["sales"][sale_key]]))
+	for recipe_key in account["sales"]:
+		c["content"].add_child(UI.symbol_row([ItemIcons.part(recipe_key), MorningAccountsSystem.sale_label(recipe_key, account["sales"][recipe_key])]))
 	for ore_type in account["losses"]["ore"]:
 		c["content"].add_child(UI.symbol_row([{ "symbol": GameData.ORE_TYPES[ore_type]["symbol"], "fallback": SymbolGlyph.ore_fallback(ore_type) }, "Lost %d %s" % [account["losses"]["ore"][ore_type], GameData.ORE_TYPES[ore_type]["name"]]], { "muted": true }))
 	if account["losses"]["veins"] > 0:

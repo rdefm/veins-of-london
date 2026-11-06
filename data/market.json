@@ -44,6 +44,14 @@
   "annotations": { "cap": 80, "dumpVolumeMult": 2.0, "moveThreshold": 0.15 },
   "salesHistory": { "days": 7 },
   "deliveries": { "cap": 80 },
+  "autoSell": {
+    "salesXp": 2,
+    "moods": {
+      "careful": { "minPriceMult": 1.1, "maxPriceDrop": 0.03 },
+      "steady": { "minPriceMult": 1.0, "maxPriceDrop": 0.06 },
+      "eager": { "minPriceMult": 0.85, "maxPriceDrop": 0.12 }
+    }
+  },
   "storyRises": {
     "prologueSqueeze": { "ore": "emotion", "fraction": 0.2, "days": 7, "tbc": true }
   },

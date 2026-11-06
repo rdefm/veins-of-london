@@ -233,11 +233,15 @@ static func _days_phrase(days: int) -> String:
 	return "tomorrow" if days == 1 else "in %d days" % days
 
 
-# Future daily contract/staff operations report settled quantities here;
-# this records only an operation that already ran and never executes a sale.
-static func record_sale(context: Dictionary, sale_id: String, quantity: int) -> void:
-	if quantity > 0:
-		context["sales"][sale_id] = context["sales"].get(sale_id, 0) + quantity
+# AutoSell.daily_pass()'s result: { recipeKey: { qty, income } }.
+static func capture_auto_sales(context: Dictionary, sold: Dictionary) -> void:
+	for recipe_key in sold:
+		context["sales"][recipe_key] = sold[recipe_key]
+
+
+# PROSE-REVIEW: auto-sale line.
+static func sale_label(recipe_key: String, sale: Dictionary) -> String:
+	return "Sold %d %s for £%d" % [sale["qty"], GameData.RECIPES[recipe_key]["name"], sale["income"]]
 
 
 static func finish_rollover(context: Dictionary) -> Dictionary:

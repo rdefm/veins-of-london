@@ -1807,6 +1807,7 @@
 		"fate"
 	],
 	"paths": [
+		"autoSell",
 		"bagDrawerOpen",
 		"bankLog",
 		"barometer",

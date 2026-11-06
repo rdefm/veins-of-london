@@ -321,6 +321,9 @@ func new_game_state() -> Dictionary:
 		# Per-recipe opt-in { recipeKey: bool }; when true, Production adds
 		# undelivered active-contract need to labThresholds for that recipe.
 		"labCoverContracts": {},
+		# Per-recipe auto-sell rule { recipeKey: { sellAbove:int, mood:String } };
+		# a recipe with no rule is Off (R§3.6 "Auto-sell").
+		"autoSell": {},
 		# { contactId: [veinId] } -- each cultivator's own vein list; a vein
 		# is on at most one list (R§3.10 "Staff roles").
 		"cultivatorVeins": {},

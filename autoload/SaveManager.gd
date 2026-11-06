@@ -989,6 +989,8 @@ func _restore_int_types(state: Dictionary) -> void:
 	_int_key(state, "pendingArchieDealCut")
 	_int_dict_values(state.get("labThresholds", {}))
 	Rooms.clamp_lab_thresholds(state.get("labThresholds", {}))
+	for auto_sell_rule in state.get("autoSell", {}).values():
+		_int_key(auto_sell_rule, "sellAbove")
 	_int_dict_values(state.get("veinStationTargets", {}))
 	_int_dict_values(state.get("siteWary", {}))
 	var sales: Dictionary = state.get("sales", {})

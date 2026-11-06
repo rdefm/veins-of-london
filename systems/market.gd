@@ -247,6 +247,11 @@ static func quote(kind: String, good_type: String) -> int:
 	return int(_market()["goods"][kind][good_type]["price"])
 
 
+# Units London holds of a good today.
+static func stock(kind: String, good_type: String) -> int:
+	return int(_market()["goods"][kind][good_type]["stock"])
+
+
 # Yesterday's London price. Base price before the sim starts.
 static func prev_quote(kind: String, good_type: String) -> int:
 	if not is_running():
