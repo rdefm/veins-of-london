@@ -44,12 +44,12 @@ const AUTO_SELL_MOODS := {
 }
 const AUTO_SELL_REASON_TEXT := {
 	AutoSell.REASON_NO_SALES: "No one on Sales",
-	AutoSell.REASON_CLOSED: "London isn't trading yet",
+	AutoSell.REASON_CLOSED: "London market hasn't started",
 	AutoSell.REASON_OFF: "Mood is Off",
 	AutoSell.REASON_UNDER_CUTOFF: "Under your cutoff",
 	AutoSell.REASON_CONTRACTS: "Held for contracts",
 	AutoSell.REASON_PRICE: "Price too low",
-	AutoSell.REASON_MARKET_FULL: "London won't take any today",
+	AutoSell.REASON_MARKET_FULL: "Additional sales would drop the price beyond the limit you've set",
 }
 
 const CONTRACT_TYPE_PIP_TEXT := { "oneOff": "ONE-OFF", "recurring": "WEEKLY" }
