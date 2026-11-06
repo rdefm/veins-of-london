@@ -92,3 +92,30 @@ Faction wallet growth (£/day, reported only; end of run):
 ## Ticket 15 — craft loop skips uncoverable recipes
 
 Seeds 1-3, days 31-60. `craft()` already iterates every recipe and `_craft_toward_target`'s early `return` only ends that recipe's attempts, so the starved-first-recipe case was already handled. No code change; test added to pin it. Sim output (wallet growth, shortfall days, byItem) is identical to the ticket 14 "after" columns, so named-share and shortfall deltas are zero.
+
+## Ticket 18 — outside-craft tuning (NOT met; no data change committed)
+
+Sim seeds 1-3, days 31-60. Baseline = tree after ticket 17. Variants tried (data only, reverted):
+- B: `dailyCap` 2 -> 8 all factions.
+- C: B + `maxBuyMult` 2.0 -> 4.0 (factions.json, temporary probe).
+- D: B + `tierPenalty` 1 -> 3.
+
+| metric (s1/s2/s3) | target | baseline | B cap 8 | C +maxBuy 4 | D +tierPen 3 |
+|---|---|---|---|---|---|
+| Item named share | 65-75% | 70/75/74 | 70/73/72 | 70/73/72 | 69/74/72 |
+| Goods pinned max >=5d (excl Keystone) | 0 | 16/9/12 | 18/16/10 | 24/14/21 (+all 5 ores pinned max) | 17/10/13 |
+| Conclave short days (of 30) | not permanent | 2/13/11 | 2/10/9 | n/a | n/a |
+| Network short days | not permanent | 7/6/9 | 1/6/2 | n/a | n/a |
+| Turf / leader | healthy | no zero-turf, firm 23% | same | same | same |
+
+Always pinned at max in every seed and variant: goodYear, skeletonKey, cleanSlate, heavyMetal, navvysDraught, happyAccident, secondImpression, dejaVu (mostly), plus blackHole/deadweight/signalFailure/stutter in s1.
+
+**Diagnosis:** binding constraint is London ore, not the outside-craft knobs. Physics/life/fate/emotion close at 3-4x base most days, above the factions' `maxBuyMult` 2.0 gate, so `_buy_outside_ore` refuses. Lifting the gate (C) just drains ore and pins all five ores at max. Cap and tier penalty barely move units made (a few per good per run vs ~7.8/day nameless demand each).
+
+Wallet growth (reported, not fixed): unchanged from ticket 14 order of magnitude, guild/network +50-70k/day, collective/conclave +14-25k/day.
+
+Not done: per-ore specialist reserve (no evidence outside buyers starve specialists: specialist shortfalls unchanged or lower with cap 8), rename question.
+
+**Open (needs human):**
+1. Targets "no pinned good" unreachable with listed knobs: ore supply is ~20 pinned goods short. Options: (a) accept pinned for low-value/no-crafter goods, (b) raise ore supply (independentsOreSupplyMult / yields), (c) drop recipes' ore cost or demand for those goods (`civilianDemand`), (d) give outside craft its own buy gate.
+2. Rename `independentsOreShare` -> `independentsOreSupplyMult`? (asked, not done).
