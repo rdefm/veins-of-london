@@ -119,3 +119,10 @@ Not done: per-ore specialist reserve (no evidence outside buyers starve speciali
 **Open (needs human):**
 1. Targets "no pinned good" unreachable with listed knobs: ore supply is ~20 pinned goods short. Options: (a) accept pinned for low-value/no-crafter goods, (b) raise ore supply (independentsOreSupplyMult / yields), (c) drop recipes' ore cost or demand for those goods (`civilianDemand`), (d) give outside craft its own buy gate.
 2. Rename `independentsOreShare` -> `independentsOreSupplyMult`? (asked, not done).
+
+### Ticket 18 follow-up experiments (reverted, not landed)
+
+Seeds 1-3, days 31-60.
+- **E: factions apply Good Year to veins** (want 0.5/vein, 3 applications/day, highest tier, bought via normal shortfall buying). Borrowed Time has no vein effect (banks player time blocks), not tried. Result: Good Year still pinned max 31/31 days every seed, <0.5 units/day made (5 fate + 5 life at 0.20 base success is ore-expensive in an ore-short market). Faction ore harvest 1799/2294/2215 -> 1861/2242/2167 per day (noise). Pinned goods 18/8/12 (baseline 16/9/12). **No effect.** Code reverted.
+- **F: `independentsOreShare` 1.5 -> 2.0** (validator max). Independents ore 1714/1816/1795 -> 2245/2350/2292 per day; factions unchanged. No ore pinned at max any seed (baseline physics 8/5/6 days). Goods pinned max >=5d (excl Keystone) 11/5/6 (baseline 16/9/12): left are blackHole, deadweight, signalFailure, skeletonKey, goodYear, heavyMetal, navvysDraught, cleanSlate (s1); dejaVu, skeletonKey, goodYear, heavyMetal, cleanSlate (s2/s3). Item named share 74/78/77 (target 65-75: s2, s3 over). Ore net +470-510/day surplus. Turf unchanged.
+- **G: F + `dailyCap` 8**: pinned 12/5/6, named 73/78/75; Network short 5/5/9 days, Conclave 3/2/12. No gain over F.
