@@ -310,6 +310,32 @@ func run() -> void:
 		assert_true(FactionSim.item_held("guild", "timePearl") <= 2, "no more items than attempts")
 	)
 
+	run_case("a_starved_first_recipe_does_not_block_the_next_recipe", func():
+		GameState.reset()
+		_stock_at_targets("guild")
+		var crafts: Array = GameData.FACTIONS["guild"]["crafts"]
+		var first := ""
+		var second := ""
+		# First pair in data order where the first needs an ore the second doesn't.
+		for i in crafts.size():
+			for j in range(i + 1, crafts.size()):
+				if first == "" and not _costs_subset(Crafting.calc_cost(crafts[i], 4), Crafting.calc_cost(crafts[j], 4)):
+					first = crafts[i]
+					second = crafts[j]
+		assert_true(first != "", "guild has a recipe pair with a starvable first")
+		_set_item("guild", first, 0)
+		_set_item("guild", second, 0)
+		var second_costs: Dictionary = Crafting.calc_cost(second, 4)
+		for ore_type in GameData.ORE_TYPES:
+			_set_ore("guild", ore_type, 0)
+		for ore_type in second_costs:
+			_set_ore("guild", ore_type, int(second_costs[ore_type]))
+		FactionSim.craft()
+		assert_eq(FactionSim.item_held("guild", first), 0, "starved first recipe crafts nothing")
+		for ore_type in second_costs:
+			assert_eq(FactionSim.ore_held("guild", ore_type), 0, "second recipe still attempted and spent its ore")
+	)
+
 	run_case("a_failed_craft_burns_its_ore_and_credits_no_crafting_share", func():
 		var cost: Dictionary = Crafting.calc_cost("failsafe", GameData.FACTIONS["conclave"]["craftSkill"])
 		var seed := SeedSearch.find_seed_for(100, func():
@@ -915,6 +941,13 @@ static func _firm_flood_due_in(days: int) -> void:
 	entry["warnedBand"] = FactionAI.band("firm", "player")
 	entry["lastMoveDay"] = 10 + days - int(GameData.FACTION_ESCALATION["cooldownDays"])
 	_set_ore("firm", "time", 200)
+
+
+static func _costs_subset(a: Dictionary, b: Dictionary) -> bool:
+	for ore_type in a:
+		if int(b.get(ore_type, 0)) < int(a[ore_type]):
+			return false
+	return true
 
 
 static func _set_ore(faction_id: String, ore_type: String, qty: int) -> void:

@@ -88,3 +88,7 @@ Faction wallet growth (£/day, reported only; end of run):
 2. **Pinned items remain** (max price): items with no faction crafter (Keystone, Clean Slate, Heavy Metal, Skeleton Key, Good Year) are pinned at max every seed (31/31 days). Good Year is not craftable by anyone. Needs a crafter or recipe decision.
 3. **Network short on Déjà Vu 9/30 days every seed** (needs Fate; Network owns 1 Fate vein); Firm Smelling Salts 6-8 days (s1, s3); Guild Stutter/Invisibility 5 days (s1, s3).
 4. Wallet growth is up 2-4x vs ticket 11 (fewer faction-held-ore costs, Independents ore sales). Reported, not fixed.
+
+## Ticket 15 — craft loop skips uncoverable recipes
+
+Seeds 1-3, days 31-60. `craft()` already iterates every recipe and `_craft_toward_target`'s early `return` only ends that recipe's attempts, so the starved-first-recipe case was already handled. No code change; test added to pin it. Sim output (wallet growth, shortfall days, byItem) is identical to the ticket 14 "after" columns, so named-share and shortfall deltas are zero.
