@@ -214,3 +214,23 @@ Sim net flow +0.2 / +0.2 / -0.3 units/day (s1/s2/s3), named share 75-79% (baseli
 1. Archie income ~2.5x baseline per unit. Accept, or retune ore supply.
 2. Multi-day flip of large orders profits (above). Accept, add slippage, or other.
 3. Root Feed shortfalls (above) accepted or tuned.
+
+## Ticket 21 — reduce demand for pinned goods (data only)
+
+Change: `civilianDemand` lowered in `data/market.json`; `normalStock` untouched. blackHole, happyAccident, introduction, deadweight, signalFailure, dejaVu, invisibility, stutter 15 -> 8; shield, trueLevel, secondImpression, nostalgia, navvysDraught 15 -> 10; pansRapture 30 -> 20. keystone, cleanSlate, heavyMetal, skeletonKey (no crafter at all) left at 15: cutting them raised named share a further ~3pts; they stay pinned 31/31 by design (no crafter — needs a recipe decision, not demand). goodYear no longer pinned.
+
+Sim days 31-60, seeds 1/2/3 (48 goods; avg = mean pinned days per good):
+
+| metric | before | after |
+|---|---|---|
+| avg pinned days per good | 9.2 / 7.3 / 5.6 | 3.0 / 3.4 / 2.9 |
+| goods pinned >=5d | 20 / 12 / 11 | 6 / 7 / 5 |
+| still pinned >=5d | many | s1: deadweight 12 + 4 no-crafter; s2: blackHole 10, deadweight 13, signalFailure 10 + 4 no-crafter; s3: sodsLaw 7 + 4 no-crafter |
+| item named share | 73 / 76 / 77% | 76 / 80 / 81% |
+| faction shortfall days (max faction) | guild 5, network 3 / network 7 / conclave 8 | guild 2 / network 9 / network 8 |
+| wallet growth £/day (guild) | 65k / 60k / 62k | ~53k-67k (s1 network 43k) |
+| turf | min control firm 3, network 0; no zero-turf | identical |
+
+Faction ore harvest all seeds within noise; Independents ore 1390-1490 vs 1540-1630 before (factions' share not down).
+
+Caveats for sign-off: named share is over the 65-75% band in s1 (marginal), s2, s3 (s2/s3 were already over at 76/77, accepted in ticket 18); lowering nameless demand mechanically raises named share. A softer cut (ore-starved goods 8, others untouched) gave 74/78/78% but s1 avg 7.4. Network shortfall days 8-9 of 30 (not permanent). Sim is chaotic across runs; each variant was a single run per seed.
