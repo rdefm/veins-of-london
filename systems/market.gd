@@ -214,6 +214,7 @@ static func new_state() -> Dictionary:
 		"deliveries": [],
 		"salesHistory": [],
 		"tickerStates": {},
+		"aboveDays": {},
 	}
 
 
@@ -547,6 +548,7 @@ static func daily_reprice() -> void:
 			while history.size() > history_days:
 				history.pop_front()
 			_annotate_day(kind, good_type, ticker_shifts, price, int(good["price"]))
+	_update_above_days(market)
 	_prune_story_rises()
 	_log_sales()
 	market["supply"] = { "ore": {}, "consumable": {} }
@@ -554,6 +556,43 @@ static func daily_reprice() -> void:
 	market["demand"] = { "ore": {}, "consumable": {} }
 	market.erase("demandTiers")
 	market.erase("moves")
+
+
+# Consecutive days each item has closed above outsideCraft.triggerMult x base
+# (state.market.aboveDays { recipeKey: days }); a day at or below drops the key.
+static func _update_above_days(market: Dictionary) -> void:
+	var trigger: float = float(_config()["outsideCraft"]["triggerMult"])
+	var days: Dictionary = market.get("aboveDays", {})
+	for good_type in market["goods"]["consumable"]:
+		var price: int = int(market["goods"]["consumable"][good_type]["price"])
+		if float(price) > trigger * float(base_price("consumable", good_type)):
+			days[good_type] = int(days.get(good_type, 0)) + 1
+		else:
+			days.erase(good_type)
+	market["aboveDays"] = days
+
+
+# Consecutive days the item has priced above the trigger (0 when not).
+static func days_above(good_type: String) -> int:
+	return int(_market().get("aboveDays", {}).get(good_type, 0))
+
+
+# True when `faction_id` may outside-craft `good_type`: the faction lists it in
+# neither crafts nor craftTargets, the recipe has not opted out, and the price
+# has stayed above the trigger for graceDays.
+static func outside_craft_eligible(faction_id: String, good_type: String) -> bool:
+	var recipe: Dictionary = GameData.RECIPES.get(good_type, {})
+	if recipe.is_empty() or not bool(recipe.get("outsideCraft", true)):
+		return false
+	if not GameData.FACTIONS.has(faction_id) or is_specialist(faction_id, good_type):
+		return false
+	return days_above(good_type) >= int(_config()["outsideCraft"]["graceDays"])
+
+
+# Specialist: the faction lists the item in `crafts` or `craftTargets`.
+static func is_specialist(faction_id: String, good_type: String) -> bool:
+	var faction: Dictionary = GameData.FACTIONS.get(faction_id, {})
+	return faction.get("crafts", []).has(good_type) or faction.get("craftTargets", {}).has(good_type)
 
 
 # Timed event-driven demand rises (data/market.json storyRises), kept as

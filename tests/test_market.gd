@@ -69,6 +69,42 @@ func run() -> void:
 		assert_eq(Market.target_price("ore", "time", 1000000.0), 15, "huge stock -> 0.2x base")
 	)
 
+	run_case("above_trigger_counter_counts_then_resets", func():
+		GameState.reset()
+		var scarce: Array[int] = [0, 0, 0, 0, 0]
+		var glut: Array[int] = [100000, 0, 0, 0, 0]
+		Market._set_tier_stocks("consumable", "timePearl", scarce)
+		Market.daily_reprice()
+		Market.daily_reprice()
+		assert_eq(Market.days_above("timePearl"), 2, "two straight days above the trigger")
+		var saved: Dictionary = GameState.deep_copy(GameState.state["market"]["aboveDays"])
+		assert_eq(saved, {"timePearl": 2}, "plain dict of ints, only pinned goods")
+		Market._set_tier_stocks("consumable", "timePearl", glut)
+		Market.daily_reprice()
+		Market.daily_reprice()
+		assert_eq(Market.days_above("timePearl"), 0, "a day at or below the trigger resets")
+	)
+
+	run_case("outside_craft_eligibility", func():
+		GameState.reset()
+		var scarce: Array[int] = [0, 0, 0, 0, 0]
+		var grace: int = GameData.MARKET["outsideCraft"]["graceDays"]
+		# timePearl: Guild lists it in craftTargets; Collective does not.
+		assert_true(Market.is_specialist("guild", "timePearl"), "guild specialises")
+		assert_true(not Market.is_specialist("collective", "timePearl"), "collective does not")
+		for i in range(grace - 1):
+			Market._set_tier_stocks("consumable", "timePearl", scarce)
+			Market.daily_reprice()
+		assert_true(not Market.outside_craft_eligible("collective", "timePearl"), "inside the grace period")
+		Market._set_tier_stocks("consumable", "timePearl", scarce)
+		Market.daily_reprice()
+		assert_true(Market.outside_craft_eligible("collective", "timePearl"), "non-specialist after grace")
+		assert_true(not Market.outside_craft_eligible("guild", "timePearl"), "specialist is never an outside crafter")
+		# Keystone opts out by recipe flag, however long it stays pinned.
+		GameState.state["market"]["aboveDays"]["keystone"] = grace + 5
+		assert_true(not Market.outside_craft_eligible("collective", "keystone"), "keystone opted out")
+	)
+
 	run_case("quote_avg2_without_history_is_todays_quote", func():
 		GameState.reset()
 		_time()["price"] = 70

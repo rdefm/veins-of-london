@@ -34,6 +34,13 @@
       { "from": 10000, "rate": 0.06 }
     ]
   },
+  "outsideCraft": {
+    "triggerMult": 1.5,
+    "graceDays": 3,
+    "dailyCap": { "collective": 2, "firm": 2, "guild": 2, "network": 2, "conclave": 2 },
+    "tierPenalty": 1,
+    "walletFloor": 500
+  },
   "annotations": { "cap": 80, "dumpVolumeMult": 2.0, "moveThreshold": 0.15 },
   "salesHistory": { "days": 7 },
   "deliveries": { "cap": 80 },

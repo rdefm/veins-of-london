@@ -1034,6 +1034,7 @@ func _restore_int_types(state: Dictionary) -> void:
 	var market: Dictionary = state.get("market", {})
 	_int_key(market, "startedDay")
 	_int_key(market, "stockSchema")
+	_int_dict_values(market.get("aboveDays", {}))
 	for kind_goods in market.get("goods", {}).values():
 		for good in kind_goods.values():
 			_int_key(good, "stock")

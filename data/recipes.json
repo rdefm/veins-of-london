@@ -551,6 +551,7 @@
       "effectPower": [0, 0, 0, 0, 0, 0],
       "xpReward": 70,
       "eventUsable": false,
+      "outsideCraft": false,
       "bagWhenHeld": true,
       "description": "Holds the arch up by being exactly where it is. Proof you can work every ore, which is a short list of people.",
       "effectText": "No effect. Sale good only."

@@ -3254,6 +3254,7 @@
 		"mapView.scrollY",
 		"mapView.zoom",
 		"market",
+		"market.aboveDays",
 		"market.annotations",
 		"market.deliveries",
 		"market.demand",

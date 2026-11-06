@@ -82,7 +82,7 @@ Data file per system: see `data/*.json` below.
 | turf.gd | Turf (R§3.1 "Turf"): per-district contender vein counts/shares, controller (top >= second + controlMargin), foothold tier, contested; `recompute()` rewrites `state.turf` once per daily tick (⑤d3), queuing flip headline + map event. `danger_mod`/`price_mod`/`raid_odds_adj`: effective district modifiers. `ambush_chance`: ambush odds (R§3.1d). |
 | map_events.gd | Map event queue + playback |
 | soho.gd | Soho Marketplace (R§3.13): buys/sells ore and tiered items against London stock; sell/buy fee ladders by whole-cart order value; pure `fee_rows` (rung, rate, fee, net, next rung, ladder, Archie comparison) match what `trade` charges |
-| market.gd | London market (R§3.13): per-good quote/history, item stock by tier (ore untiered), conserved elastic flows (`_plan_day`), `availability`, `tier_price`, legacy migration, supply/demand + move recording, daily reprice (⑥.6), story rises, annotations, sales history, delivery log, Stock Market reads |
+| market.gd | London market (R§3.13): per-good quote/history, item stock by tier (ore untiered), conserved elastic flows (`_plan_day`), `availability`, `tier_price`, legacy migration, supply/demand + move recording, daily reprice (⑥.6; also the above-trigger day counter and `outside_craft_eligible`), story rises, annotations, sales history, delivery log, Stock Market reads |
 | map_hit_test.gd | Tap-hit geometry, Network diagram |
 | map_layout.gd | Resolves stops vs. live sites/veins |
 | map_nav.gd | Map drill-down nav (list → panel → site sheet or vein detail panel, mutually exclusive) |

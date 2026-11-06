@@ -1475,6 +1475,7 @@ func _validate_market(market: Dictionary, ore_types: Dictionary, consumable_pric
 		mix_total += float(weight)
 	if market.get("tierMix", []).size() != 5 or absf(mix_total - 1.0) > 0.001:
 		errors.append("market.tierMix: expected 5 weights summing to 1")
+	_validate_outside_craft(market.get("outsideCraft", {}), errors)
 	var goods: Dictionary = market.get("goods", {})
 	var expected := { "ore": ore_types.keys(), "consumable": consumable_prices.keys() }
 	for kind in expected:
@@ -1484,6 +1485,24 @@ func _validate_market(market: Dictionary, ore_types: Dictionary, consumable_pric
 				errors.append("market.goods.%s: missing '%s'" % [kind, good_type])
 				continue
 			_require_keys(table[good_type], ["normalStock", "civilianDemand"], "market.goods.%s.%s" % [kind, good_type], errors)
+
+
+# Outside-crafting knobs: trigger multiple of base price, grace days, a daily
+# cap for every faction, the tier/skill penalty and the wallet floor.
+func _validate_outside_craft(cfg: Dictionary, errors: Array[String]) -> void:
+	_require_keys(cfg, ["triggerMult", "graceDays", "dailyCap", "tierPenalty", "walletFloor"], "market.outsideCraft", errors)
+	if float(cfg.get("triggerMult", 0.0)) <= 1.0:
+		errors.append("market.outsideCraft.triggerMult: expected > 1")
+	if int(cfg.get("graceDays", 0)) < 1:
+		errors.append("market.outsideCraft.graceDays: expected a whole number >= 1")
+	if int(cfg.get("tierPenalty", -1)) < 0:
+		errors.append("market.outsideCraft.tierPenalty: expected >= 0")
+	if int(cfg.get("walletFloor", -1)) < 0:
+		errors.append("market.outsideCraft.walletFloor: expected >= 0")
+	var caps: Dictionary = cfg.get("dailyCap", {})
+	for faction_id in FACTIONS:
+		if int(caps.get(faction_id, 0)) < 1:
+			errors.append("market.outsideCraft.dailyCap.%s: expected a whole number >= 1" % faction_id)
 
 
 func _validate_districts(districts: Dictionary, ore_types: Dictionary, errors: Array[String]) -> void:
