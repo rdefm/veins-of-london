@@ -156,3 +156,61 @@ Good Year recipe restored (fate 5 + life 5, 0.20). Collective: +1 Fate vein (Sho
 Shortfalls: Network 3/7/6 days, Conclave 0/1/8. Turf healthy (firm 23%, no zero-turf). Test `full_playthrough_tutorial_economy_ticks_and_save_roundtrip` fails on the original tree too.
 
 Ticket 18 closed by human with open items accepted: item named share 73/76/77% (s2, s3 over 75), pinned goods 19/11/10 remain (blackHole, deadweight, signalFailure, skeletonKey, heavyMetal, cleanSlate, dejaVu, happyAccident).
+
+---
+
+# Ticket 12 — player economics (NOT all met; no data change; needs human)
+
+Probe on the Market/Soho seam (fresh state, no named supply) plus sim seeds 1-3, days 31-60, before = pre-market tree 78b04f02, after = current tree. Soho ladders unchanged (final values in REFERENCE.md §3.13).
+
+## Archie income (baseline vs now) — NOT comparable
+Archie pays `Market.quote × (1+priceMod)`, so income per unit tracks the rest price. Mean London price x base over days 31-60:
+| good set | before s1/s2/s3 | after s1/s2/s3 |
+|---|---|---|
+| ore (5) | 1.08 / 0.98 / 0.99 | 2.52 / 2.59 / 2.50 |
+| items (43) | 1.23 / 1.22 / 1.20 | 2.94 / 2.44 / 2.47 |
+Per-unit Archie income is ~2.4-2.6x baseline. Cause: ore scarcity set by tickets 11/14/18 (accepted there). Fixing it means lifting ore supply (`independentsOreShare` max 2.0, yields) or lowering demand: a mechanics call, not made here.
+
+## Soho vs Archie (sell fee by Archie relation)
+| Archie relation (fee) | Archie | Soho r0 (£0) | r1 (£300) | r2 (£1k) | r3 (£3k) | r4 (£10k) |
+|---|---|---|---|---|---|---|
+| 10 (0.400) | 0.400 | 0.430 | 0.350 | 0.270 | 0.170 | 0.080 |
+| 40 (0.293) | 0.293 | 0.323 | 0.243 | 0.163 | 0.080 | 0.080 |
+| 80 (0.150) | 0.150 | 0.180 | 0.100 | 0.080 | 0.080 | 0.080 |
+Met: Soho costs 3 pts more only below £300; from £300 it beats Archie at every relation. ("Small volumes" = under £300; Archie also has mugging/priceMod.)
+
+## Flipping
+Same-day buy then resell (net £, ore; items similar):
+| order value | buy/sell rate | net loss (ore, all 5 types) |
+|---|---|---|
+| £100 | 0.20 / 0.18-0.43 | -64 to -67 |
+| £300 | 0.16 / .. | -153 to -157 |
+| £1,000 | 0.12 / .. | -390 to -393 |
+| £3,000 | 0.09 / .. | -780 |
+| £10,000 | 0.06 / 0.08 | -1,400 |
+Items (Time Pearl, Root Feed, Good Year, tier 1/3/5, qty 1 and 20): every case loses (-76 to -1,872). **Met same-day.**
+
+**NOT met across days (report, no cap added):** a buy moves price by the whole order (one flat quote, no slippage), so a big buy then resell after the reprice profits. Life ore, fresh state (quote 88; control drift 85):
+| buy | hold 1d | hold 3d | hold 7d |
+|---|---|---|---|
+| 200 | 98 | 91 | 86 |
+| 800 | 188 | 125 | 92 |
+| 1,400 | 299 | 254 | 101 |
+800 ore: cost ~£7.7k (rung 3, 0.09), resell 1d later at 188 ~£13.8k (floor 0.08) = ~+£6.2k. 200 ore loses (+11% vs ~20% fees). The break-even is roughly 400+ units (≥~£3k), ~25% of normal stock. The sim has no player buys, so named supply refilling the gap is untested. Options for human: raise top-rung buy rate/lower sell floor (needs ~>100% to cover a 2x move; impractical), apply price impact within the order (slippage), or accept as the intended "corner" play.
+
+## Sustained player corner (met)
+Buying Life ore for 7 days (start 88; control drifts to 82):
+| buy/day | day-7 price |
+|---|---|
+| 0 | 82 |
+| 40 | 94 (+15% vs control) |
+| 80 | 109 (+33%) |
+| 150 | 139 (+70%) |
+
+## Root Feed supply vs faction demand (partly met)
+Sim net flow +0.2 / +0.2 / -0.3 units/day (s1/s2/s3), named share 75-79% (baseline 13%), stock 105-136 of 210, price 1.9-2.65x, never pinned. Supply meets demand on average but shortfall days remain (guild 9-24, conclave 10-11, firm 2-7 of 30 in some seeds). Not tuned.
+
+## Open (needs human)
+1. Archie income ~2.5x baseline per unit. Accept, or retune ore supply.
+2. Multi-day flip of large orders profits (above). Accept, add slippage, or other.
+3. Root Feed shortfalls (above) accepted or tuned.
