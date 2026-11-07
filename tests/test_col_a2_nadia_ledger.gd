@@ -25,7 +25,32 @@ func _intro_lines() -> Array:
 	return GameState.state["combat"]["transcript"]
 
 
+func _collective_page() -> Dictionary:
+	for page in Todo.get_pages():
+		if page["id"] == "collective":
+			return page
+	return {}
+
+
 func run() -> void:
+	run_case("col_a2_hakim_goal_shows_on_collective_page_from_act2_start_until_ledger", func():
+		GameState.reset()
+		GameState.state["flags"]["prologueDone"] = true
+		GameState.state["flags"]["colA1Complete"] = true
+		GameState.state["flags"]["colA2Started"] = true
+		Objectives.refresh()
+		var page := _collective_page()
+		assert_eq(page["status"], "active", "Act 2 start reopens the page")
+		assert_eq(page["active"].size(), 1)
+		assert_eq(page["active"][0]["id"], "col_a2_hakim")
+
+		EventPlay.play_event("col_a2_nadia_ledger")
+		page = _collective_page()
+		var ids: Array = page["active"].map(func(i: Dictionary) -> String: return i["id"])
+		assert_true("col_a2_nadia_reseed" in ids)
+		assert_true(not ("col_a2_hakim" in ids), "Hakim goal done once ledger starts")
+	)
+
 	# ── T8: col_a2_nadia_ledger ─────────────────────────────────────────────
 
 	run_case("col_a2_nadia_ledger_on_complete_funds_and_activates_reseed_and_supplies_only", func():

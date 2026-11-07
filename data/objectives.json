@@ -151,6 +151,16 @@
     "completeFlag": "colA1NadiaVeinSold",
     "questline": "collective"
   },
+  "col_a2_hakim": {
+    "id": "col_a2_hakim",
+    "title": "Find out what's wrong with Hakim",
+    "detail": "Des wants you at the shop. Nadia will want a word after.",
+    "type": "flag_true",
+    "params": {},
+    "activateFlag": "colA2Started",
+    "completeFlag": "colA2LedgerStarted",
+    "questline": "collective"
+  },
   "col_a2_nadia_reseed": {
     "id": "col_a2_nadia_reseed",
     "title": "Seed a new vein for the Collective",
