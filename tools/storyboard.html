@@ -1574,6 +1574,14 @@ function checkOddsBlock(opt, changed, restructure) {
     const order = [...starts].sort((a, b) => a - b);
     const nameAt = (g) => { const i = at(g); return i === 0 ? "main" : "b" + (i + 1); };
     const copy = JSON.parse(JSON.stringify(cards));
+    // A fight script's integer resumeCard becomes the card's key, so Promote's reordering can't leave it stale.
+    const keyResume = (v) => {
+      if (Array.isArray(v)) { v.forEach(keyResume); return; }
+      if (!v || typeof v !== "object") return;
+      if (Number.isInteger(v.resumeCard) && cards[v.resumeCard]) v.resumeCard = cards[v.resumeCard].key || "c" + (v.resumeCard + 1);
+      Object.values(v).forEach(keyResume);
+    };
+    keyResume(copy);
     copy.forEach((c, i) => {
       if (!c.key) c.key = "c" + (i + 1);
       (c.choices || []).forEach((o) => optionOutcomes(o).forEach((x) => { if (x.goto != null) x.goto = { branch: nameAt(x.goto) }; }));

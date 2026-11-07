@@ -147,3 +147,39 @@ func run() -> void:
 		assert_eq(errors, [])
 		GameData.EVENTS.erase(EVENT_ID)
 	)
+
+	run_case("resume_card_key_follows_the_card_when_one_is_inserted_before_it", func():
+		var combat := _start(_script())
+		GameData.EVENTS[EVENT_ID]["cards"].insert(1, { "type": "narration", "label": null, "speaker": null, "text": "Inserted" })
+		var script := _script()
+		script["resumeCard"] = RESUME_KEY
+		GameState.state["combat"] = {}
+		Events.apply_effects([{ "op": "start_scripted_fight", "script": script }])
+		assert_eq(GameState.state["combat"]["script"]["resumeCard"], 3, "key resolved against the reordered cards")
+		GameData.EVENTS.erase(EVENT_ID)
+	)
+
+	run_case("live_fight_scripts_name_a_real_card", func():
+		var checked := 0
+		for id in GameData.EVENTS:
+			var cards: Array = GameData.EVENTS[id]["cards"]
+			var keys: Array = cards.map(func(c): return c.get("key", ""))
+			for card in cards:
+				for hit in _resume_values(card):
+					checked += 1
+					assert_true(hit is String and keys.has(hit), "%s: resumeCard %s is a key of a card" % [id, str(hit)])
+		assert_true(checked >= 4, "found the live fight scripts")
+	)
+
+
+func _resume_values(node: Variant) -> Array:
+	var out: Array = []
+	if node is Dictionary:
+		if node.has("resumeCard"):
+			out.append(node["resumeCard"])
+		for v in node.values():
+			out.append_array(_resume_values(v))
+	elif node is Array:
+		for v in node:
+			out.append_array(_resume_values(v))
+	return out

@@ -16,3 +16,9 @@ Make every in-event card reference survive a reorder. `resumeCard` can name a ca
 - [ ] Live events are migrated and existing fight tests pass
 - [ ] Save made mid-event before this change still resumes correctly
 - [ ] REFERENCE documents the keyed form
+
+## Comments
+
+- Repro: prologue_cold_open's scripted-fight `resumeCard` was int 17; its target card is key `c10` (Promote reorders cards, so integers drift; cf. 7359680e). Inventory of integer card refs in `data/`: `goto` / conditional `card` (Promote already recomputes them; key form also supported) and `resumeCard` ×4 (cold_open_legacy, prologue_cold_open, prologue_gym ×2) — the only unmanaged ones. `start_fight` win/lose already keys.
+- Fix: `resumeCard` accepts a card key (resolved to an index when the op fires; unknown = push_error, no fight); live events migrated to keys; storyboard import rewrites an integer `resumeCard` to the card key. Mid-fight saves hold the resolved int in `combat.script`, so they resume as before. REFERENCE §3.7b documents it.
+- Tests: `test_scripted_fight` inserts a card before the target and checks resolution; sweep asserts every live `resumeCard` is a real card key.

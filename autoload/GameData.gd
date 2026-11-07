@@ -2767,6 +2767,12 @@ const START_FIGHT_LOADOUT_KEYS: Array[String] = ["kit", "items", "loadout", "inv
 # start_fight: `enemies` is a non-empty list of groups, each exactly one of a
 # raidGuards `template` or a factionSquads `squad` (faction id), with a whole
 # `count` >= 1 and `level`; `win` / `lose` name cards (an index or a card key).
+func _validate_resume_card(script: Dictionary, context: String, errors: Array[String]) -> void:
+	var value: Variant = script.get("resumeCard")
+	if typeof(value) != TYPE_STRING and typeof(value) != TYPE_FLOAT and typeof(value) != TYPE_INT:
+		errors.append("%s: resumeCard must be a card index or key" % context)
+
+
 func _validate_start_fight(effect: Dictionary, context: String, errors: Array[String]) -> void:
 	_require_keys(effect, ["enemies", "win", "lose"], context, errors)
 	for key in effect.keys():
@@ -2871,6 +2877,7 @@ func _validate_effect_list(effects: Array, context: String, errors: Array[String
 			_require_keys(effect, ["script"], context, errors)
 			if effect.get("script") is Dictionary:
 				_require_keys(effect["script"], ["enemies", "resumeCard"], "%s.script" % context, errors)
+				_validate_resume_card(effect["script"], "%s.script" % context, errors)
 				# The Rewind lock is optional, but comes whole: lock, prompt and post.
 				var lock_keys := ["lockBelowHp", "prompt", "post"]
 				if lock_keys.any(func(k): return effect["script"].has(k)):
@@ -2892,6 +2899,7 @@ func _validate_effect_list(effects: Array, context: String, errors: Array[String
 			_require_keys(effect, ["script"], context, errors)
 			if effect.get("script") is Dictionary:
 				_require_keys(effect["script"], ["enemies", "allies", "rounds", "resumeCard"], "%s.script" % context, errors)
+				_validate_resume_card(effect["script"], "%s.script" % context, errors)
 				_validate_coach(effect["script"].get("coach"), "%s.script.coach" % context, errors)
 		if effect["op"] == "resolve_home_raid" and not ["win", "loss"].has(effect.get("outcome")):
 			errors.append("%s: resolve_home_raid outcome must be 'win' or 'loss'" % context)

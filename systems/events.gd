@@ -490,6 +490,17 @@ static func _goto_index(goto: Variant, cards: Array) -> int:
 	return -1
 
 
+# Rewrites a fight script's `resumeCard` (card index or card `key`) to the
+# index in the live event. False (push_error) when the key names no card.
+static func _resolve_resume_card(script: Dictionary) -> bool:
+	var index := _goto_index(script["resumeCard"], live_cards())
+	if index < 0:
+		push_error("Events: fight script resumeCard '%s' names no card" % str(script["resumeCard"]))
+		return false
+	script["resumeCard"] = index
+	return true
+
+
 # Index of the card whose `key` is `key` in `cards`; -1 when none matches.
 static func _key_index(cards: Array, key: String) -> int:
 	for i in cards.size():
@@ -2033,9 +2044,14 @@ static func _apply_one(effect: Dictionary, context: Dictionary = {}) -> void:
 			var script: Dictionary = effect["script"].duplicate()
 			if effect.has("situational"):
 				script["situational"] = effect["situational"]
+			if not _resolve_resume_card(script):
+				return
 			Combat.start_scripted_fight(script)
 		"start_demo_fight":
-			Combat.start_demo_fight(effect["script"])
+			var demo: Dictionary = effect["script"].duplicate()
+			if not _resolve_resume_card(demo):
+				return
+			Combat.start_demo_fight(demo)
 		"start_fight":
 			_start_fight(effect)
 		"start_faction_ambush_combat":
