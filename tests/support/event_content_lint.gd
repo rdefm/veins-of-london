@@ -42,6 +42,7 @@ static func export_refs() -> Dictionary:
 	paths.sort()
 	var events: Dictionary = {}
 	var violations: Dictionary = {}
+	var event_keys: Dictionary = {}
 	var ids: Array = GameData.EVENTS.keys()
 	ids.sort()
 	for id in ids:
@@ -57,6 +58,15 @@ static func export_refs() -> Dictionary:
 				blocks[ore] = (def["observations"][obs_id]["blocks"][ore].get("tiers", []) as Array).size()
 			observations[obs_id] = blocks
 		events[id] = { "choiceCards": choice_cards, "observations": observations }
+		var keys: Array = []
+		for card in def.get("cards", []):
+			if card.get("key") is String and not keys.has(card["key"]):
+				keys.append(card["key"])
+		for opts in choice_cards.values():
+			for opt in opts:
+				if opt != "" and not keys.has(opt):
+					keys.append(opt)
+		event_keys[id] = keys
 		var found := lint_event(id, def, known_refs())
 		if not found.is_empty():
 			violations[id] = found
@@ -72,12 +82,66 @@ static func export_refs() -> Dictionary:
 		"flags": flags, "items": items, "contacts": contacts, "paths": paths,
 		"rungs": RecipeKnowledge.rungs(), "procedures": procedures,
 		"ores": GameData.OBSERVATION["oreOrder"], "maxOptions": MAX_OPTIONS,
-		"events": events, "violations": violations,
+		"events": events, "violations": violations, "inbound": _inbound(event_keys),
 	}
 
 
 static func export_text() -> String:
 	return JSON.stringify(export_refs(), "\t", true) + "\n"
+
+
+# Files outside data/events that name an event: quoted event id plus quoted
+# card keys / option ids of that event. Per event, [{ file, kind, sha, keys }]:
+# kind data (data/**.json), code (.gd outside tests/) or tests; sha is the
+# file's sha256 (empty for tests, which only warn), so the tool can tell the
+# file moved on since this export.
+static func _inbound(event_keys: Dictionary) -> Dictionary:
+	var files: Array = []
+	_scan_files("res://data", files)
+	_scan_files("res://autoload", files)
+	_scan_files("res://systems", files)
+	_scan_files("res://screens", files)
+	_scan_files("res://scenes", files)
+	_scan_files("res://tests", files)
+	files.sort()
+	var texts: Dictionary = {}
+	for path in files:
+		texts[path] = FileAccess.get_file_as_string(path)
+	var out: Dictionary = {}
+	var ids: Array = event_keys.keys()
+	ids.sort()
+	for id in ids:
+		var rows: Array = []
+		for path in files:
+			var text: String = texts[path]
+			if not text.contains("\"%s\"" % id):
+				continue
+			var hit: Array = []
+			for key in event_keys[id]:
+				if text.contains("\"%s\"" % key):
+					hit.append(key)
+			if hit.is_empty():
+				continue
+			hit.sort()
+			var rel: String = (path as String).trim_prefix("res://")
+			var kind := "tests" if rel.begins_with("tests/") else ("data" if rel.begins_with("data/") else "code")
+			rows.append({ "file": rel, "kind": kind, "sha": "" if kind == "tests" else text.sha256_text(), "keys": hit })
+		if not rows.is_empty():
+			out[id] = rows
+	return out
+
+
+static func _scan_files(dir_path: String, into: Array) -> void:
+	var dir := DirAccess.open(dir_path)
+	if dir == null:
+		return
+	for sub in dir.get_directories():
+		if dir_path == "res://data" and sub == "events":
+			continue
+		_scan_files("%s/%s" % [dir_path, sub], into)
+	for name in dir.get_files():
+		if name.ends_with(".gd") or (name.ends_with(".json") and dir_path.begins_with("res://data")):
+			into.append("%s/%s" % [dir_path, name])
 
 
 static func _collect_paths(value: Variant, prefix: String, into: Array) -> void:

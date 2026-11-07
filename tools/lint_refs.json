@@ -1753,6 +1753,503 @@
 		"yAt_yard",
 		"yReinfOpen"
 	],
+	"inbound": {
+		"archie_motion": [
+			{
+				"file": "tests/test_events.gd",
+				"keys": [
+					"c1",
+					"c2",
+					"c4",
+					"c5",
+					"c6"
+				],
+				"kind": "tests",
+				"sha": ""
+			}
+		],
+		"board_meeting": [
+			{
+				"file": "data/board.json",
+				"keys": [
+					"aob",
+					"clash",
+					"debrief",
+					"minutes"
+				],
+				"kind": "data",
+				"sha": "3b0d062e422eeddc27c7ce40b5d52416020b2ab786973e33785b14a42ec893a5"
+			},
+			{
+				"file": "tests/test_board_meetings.gd",
+				"keys": [
+					"aob",
+					"clash",
+					"explainer",
+					"minutes",
+					"opener",
+					"skip",
+					"slot0"
+				],
+				"kind": "tests",
+				"sha": ""
+			}
+		],
+		"camden_shakedown": [
+			{
+				"file": "tests/test_playthrough.gd",
+				"keys": [
+					"refuse"
+				],
+				"kind": "tests",
+				"sha": ""
+			}
+		],
+		"col_a1_archie_pry": [
+			{
+				"file": "tests/test_col_a1_archie_pry.gd",
+				"keys": [
+					"c1",
+					"leave",
+					"push"
+				],
+				"kind": "tests",
+				"sha": ""
+			},
+			{
+				"file": "tests/test_playthrough.gd",
+				"keys": [
+					"push"
+				],
+				"kind": "tests",
+				"sha": ""
+			}
+		],
+		"col_a1_archie_pry_debt": [
+			{
+				"file": "tests/test_col_a1_archie_pry.gd",
+				"keys": [
+					"c1"
+				],
+				"kind": "tests",
+				"sha": ""
+			}
+		],
+		"col_a1_firm_intimidation": [
+			{
+				"file": "tests/test_col_a1_weather.gd",
+				"keys": [
+					"back_off",
+					"fight",
+					"hold"
+				],
+				"kind": "tests",
+				"sha": ""
+			}
+		],
+		"col_a1_intro": [
+			{
+				"file": "systems/debug_start.gd",
+				"keys": [
+					"c4"
+				],
+				"kind": "code",
+				"sha": "89961dbaca99a1fdb3747db82bdb93d9684ddb8573450fa42e1108719de91f03"
+			}
+		],
+		"james_experiment": [
+			{
+				"file": "tests/test_events.gd",
+				"keys": [
+					"c1",
+					"c13",
+					"c2",
+					"c4",
+					"c5",
+					"c6"
+				],
+				"kind": "tests",
+				"sha": ""
+			},
+			{
+				"file": "tests/test_james_experiment.gd",
+				"keys": [
+					"c10",
+					"c11",
+					"c12",
+					"c13",
+					"c14"
+				],
+				"kind": "tests",
+				"sha": ""
+			}
+		],
+		"prologue_archie_cultivation": [
+			{
+				"file": "tests/test_event_content_lint.gd",
+				"keys": [
+					"c1"
+				],
+				"kind": "tests",
+				"sha": ""
+			},
+			{
+				"file": "tests/test_events.gd",
+				"keys": [
+					"c1",
+					"c2",
+					"c4",
+					"c5",
+					"c6"
+				],
+				"kind": "tests",
+				"sha": ""
+			}
+		],
+		"prologue_archie_sells_pearls": [
+			{
+				"file": "tests/test_event_content_lint.gd",
+				"keys": [
+					"c1"
+				],
+				"kind": "tests",
+				"sha": ""
+			},
+			{
+				"file": "tests/test_events.gd",
+				"keys": [
+					"c1",
+					"c2"
+				],
+				"kind": "tests",
+				"sha": ""
+			}
+		],
+		"prologue_buyer": [
+			{
+				"file": "tests/test_event_content_lint.gd",
+				"keys": [
+					"c1"
+				],
+				"kind": "tests",
+				"sha": ""
+			},
+			{
+				"file": "tests/test_events.gd",
+				"keys": [
+					"c1",
+					"c2",
+					"c4",
+					"c5",
+					"c6",
+					"splitAsked"
+				],
+				"kind": "tests",
+				"sha": ""
+			}
+		],
+		"prologue_cold_open": [
+			{
+				"file": "systems/debug_start.gd",
+				"keys": [
+					"c4",
+					"stand"
+				],
+				"kind": "code",
+				"sha": "89961dbaca99a1fdb3747db82bdb93d9684ddb8573450fa42e1108719de91f03"
+			},
+			{
+				"file": "tests/test_event_content_lint.gd",
+				"keys": [
+					"c1"
+				],
+				"kind": "tests",
+				"sha": ""
+			},
+			{
+				"file": "tests/test_events.gd",
+				"keys": [
+					"askBuyers",
+					"c1",
+					"c13",
+					"c2",
+					"c4",
+					"c5",
+					"c6"
+				],
+				"kind": "tests",
+				"sha": ""
+			}
+		],
+		"prologue_ending": [
+			{
+				"file": "systems/debug_start.gd",
+				"keys": [
+					"c4"
+				],
+				"kind": "code",
+				"sha": "89961dbaca99a1fdb3747db82bdb93d9684ddb8573450fa42e1108719de91f03"
+			},
+			{
+				"file": "tests/test_event_content_lint.gd",
+				"keys": [
+					"c1"
+				],
+				"kind": "tests",
+				"sha": ""
+			}
+		],
+		"prologue_gym": [
+			{
+				"file": "tests/test_event_content_lint.gd",
+				"keys": [
+					"c1"
+				],
+				"kind": "tests",
+				"sha": ""
+			},
+			{
+				"file": "tests/test_events.gd",
+				"keys": [
+					"c1",
+					"c13",
+					"c2",
+					"c4",
+					"c5",
+					"c6"
+				],
+				"kind": "tests",
+				"sha": ""
+			},
+			{
+				"file": "tests/test_gym_event.gd",
+				"keys": [
+					"c5",
+					"c6",
+					"c9",
+					"glovesOn",
+					"watch"
+				],
+				"kind": "tests",
+				"sha": ""
+			}
+		],
+		"prologue_home_raid_debrief_loss": [
+			{
+				"file": "tests/test_event_content_lint.gd",
+				"keys": [
+					"c1"
+				],
+				"kind": "tests",
+				"sha": ""
+			},
+			{
+				"file": "tests/test_events.gd",
+				"keys": [
+					"c1",
+					"c2",
+					"c4",
+					"c5",
+					"c6"
+				],
+				"kind": "tests",
+				"sha": ""
+			}
+		],
+		"prologue_home_raid_debrief_win": [
+			{
+				"file": "tests/test_event_content_lint.gd",
+				"keys": [
+					"c1"
+				],
+				"kind": "tests",
+				"sha": ""
+			},
+			{
+				"file": "tests/test_events.gd",
+				"keys": [
+					"c1",
+					"c2",
+					"c4",
+					"c5",
+					"c6"
+				],
+				"kind": "tests",
+				"sha": ""
+			}
+		],
+		"prologue_home_raid_intro": [
+			{
+				"file": "tests/test_event_content_lint.gd",
+				"keys": [
+					"c1"
+				],
+				"kind": "tests",
+				"sha": ""
+			},
+			{
+				"file": "tests/test_events.gd",
+				"keys": [
+					"c1",
+					"c2"
+				],
+				"kind": "tests",
+				"sha": ""
+			}
+		],
+		"prologue_james_meeting": [
+			{
+				"file": "tests/test_event_content_lint.gd",
+				"keys": [
+					"c1"
+				],
+				"kind": "tests",
+				"sha": ""
+			},
+			{
+				"file": "tests/test_events.gd",
+				"keys": [
+					"c1",
+					"c13",
+					"c2",
+					"c4",
+					"c5",
+					"c6"
+				],
+				"kind": "tests",
+				"sha": ""
+			}
+		],
+		"prologue_pub": [
+			{
+				"file": "tests/test_event_content_lint.gd",
+				"keys": [
+					"c1"
+				],
+				"kind": "tests",
+				"sha": ""
+			},
+			{
+				"file": "tests/test_events.gd",
+				"keys": [
+					"c1",
+					"c2",
+					"c4",
+					"c5",
+					"c6"
+				],
+				"kind": "tests",
+				"sha": ""
+			},
+			{
+				"file": "tests/test_prologue_chain.gd",
+				"keys": [
+					"whereFrom"
+				],
+				"kind": "tests",
+				"sha": ""
+			}
+		],
+		"raid_arches": [
+			{
+				"file": "tests/test_raid_arches.gd",
+				"keys": [
+					"a_bench",
+					"a_cam",
+					"a_claim",
+					"a_crawl",
+					"a_front",
+					"a_front3",
+					"a_garage",
+					"a_partition",
+					"a_retreat",
+					"a_room",
+					"a_tracks",
+					"a_vent",
+					"a_wall",
+					"a_ward",
+					"a_win_out",
+					"a_win_wit",
+					"post"
+				],
+				"kind": "tests",
+				"sha": ""
+			}
+		],
+		"raid_playground": [
+			{
+				"file": "tests/test_raid_playground.gd",
+				"keys": [
+					"c1"
+				],
+				"kind": "tests",
+				"sha": ""
+			}
+		],
+		"raid_shop": [
+			{
+				"file": "tests/test_raid_shop.gd",
+				"keys": [
+					"post",
+					"post2",
+					"post3",
+					"s_alarm",
+					"s_alarm2",
+					"s_back",
+					"s_back_in",
+					"s_back_loud",
+					"s_cam",
+					"s_cam2",
+					"s_cellar",
+					"s_claim",
+					"s_claim_a",
+					"s_claim_route",
+					"s_door",
+					"s_door2",
+					"s_final",
+					"s_flap",
+					"s_front",
+					"s_getaway",
+					"s_lock",
+					"s_out",
+					"s_reinf",
+					"s_resume",
+					"s_resume2",
+					"s_retreat",
+					"s_room",
+					"s_seen_door",
+					"s_seen_flap",
+					"s_seen_in",
+					"s_seen_till",
+					"s_seen_yard",
+					"s_stairs_in",
+					"s_till",
+					"s_ward",
+					"s_ward2",
+					"s_ward3",
+					"s_win_cam",
+					"s_win_in",
+					"s_win_in2",
+					"s_win_out",
+					"s_win_out2",
+					"s_win_wit",
+					"s_yard"
+				],
+				"kind": "tests",
+				"sha": ""
+			}
+		],
+		"wren_introduction": [
+			{
+				"file": "tests/test_wren_introduction.gd",
+				"keys": [
+					"c3"
+				],
+				"kind": "tests",
+				"sha": ""
+			}
+		]
+	},
 	"items": [
 		"beALady",
 		"blackHole",

@@ -3377,6 +3377,54 @@ function checkOddsBlock(opt, changed, restructure) {
     for (const [k, bad] of groups) lines.push(`${bad ? "WARNING " : ""}${k}${bad ? ` — ${bad}` : ""}`);
     return lines;
   }
+  async function sha256Hex(text) {
+    const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+    return [...new Uint8Array(buf)].map((x) => x.toString(16).padStart(2, "0")).join("");
+  }
+  // The Promote gate, shared by the button and the CLI. Returns { blocks, warns }: blocks refuse the promote, each
+  // naming a broken reference and where it lives. Sources: other events' choice conditions (texts = { "<id>.json":
+  // text }) and data/code/tests files carried by refs.inbound (tools/lint_refs.json, scripts/export_lint_refs.gd).
+  // readRepo(relPath) -> text|null reads a repo file to prove the refs file isn't stale. Test-only refs warn.
+  async function promoteGate(event, oldText, texts, refs, readRepo) {
+    const blocks = [], warns = [];
+    for (const r of inboundRefs(event.id, texts)) {
+      const info = lintEventInfo(event), opts = info.choiceCards[r.card];
+      const bad = opts === undefined ? `card ${r.card} is gone` : opts.includes(r.option) ? null : `option ${r.option} is gone from card ${r.card}`;
+      const line = `data/events/${r.from}.json reads ${r.card} / ${r.option} — ${bad}`;
+      if (bad && !blocks.includes(line)) blocks.push(line);
+    }
+    let live = null;
+    try { live = oldText == null ? null : JSON.parse(oldText); } catch { live = null; }
+    if (!live) return { blocks, warns };
+    if (!refs || !refs.inbound || typeof refs.inbound !== "object") {
+      blocks.push("tools/lint_refs.json is missing or has no inbound references; run: godot --headless -s scripts/export_lint_refs.gd");
+      return { blocks, warns };
+    }
+    const keep = new Set();
+    for (const c of event.cards || []) {
+      if (typeof c.key === "string") keep.add(c.key);
+      for (const o of c.choices || []) if (o && o.id !== undefined) keep.add(String(o.id));
+    }
+    const liveKeys = new Set();
+    for (const c of live.cards || []) {
+      if (typeof c.key === "string") liveKeys.add(c.key);
+      for (const o of c.choices || []) if (o && o.id !== undefined) liveKeys.add(String(o.id));
+    }
+    for (const row of refs.inbound[event.id] || []) {
+      const gone = row.keys.filter((k) => liveKeys.has(k) && !keep.has(k));
+      if (!gone.length) continue;
+      if (row.kind !== "tests") {
+        const text = await readRepo(row.file);
+        if (text == null || await sha256Hex(text) !== row.sha) {
+          blocks.push(`${row.file} changed since tools/lint_refs.json was exported (stale); run: godot --headless -s scripts/export_lint_refs.gd`);
+          continue;
+        }
+      }
+      const line = `${row.file} names ${gone.join(", ")} — gone from ${event.id}`;
+      (row.kind === "tests" ? warns : blocks).push(line);
+    }
+    return { blocks, warns };
+  }
   // The shot board (board.json) storyboarding a proposal: the one whose `source` names the proposal file, else one
   // whose eventId is the file's stem, else one without a `source` whose eventId is the draft's id.
   function shotBoardFor(file, draftId, shotBoards) {
@@ -5831,8 +5879,15 @@ function checkOddsBlock(opt, changed, restructure) {
       const lintWarn = lintFound.length ? `Content lint (${lintFound.length}; Promote still proceeds):\n${lintFound.map((v) => "• " + v).join("\n")}\n\n` : "";
       const texts = {};
       for (const n of await fileNames(LIVE_EVENTS_DIR, /\.json$/)) if (n !== out.file) texts[n] = await readText(dir, n);
-      const inLines = inboundWarnings(inboundRefs(out.event.id, texts), out.event);
-      const inWarn = inLines.length ? inLines.join("\n") + "\n\n" : "";
+      const readRepo = async (rel) => { const p = rel.split("/"); try { return await readText(await dirAt(p.slice(0, -1)), p[p.length - 1]); } catch { return null; } };
+      const gate = await promoteGate(out.event, old, texts, await loadLintRefs(), readRepo);
+      if (gate.blocks.length) {
+        const head = `Can't promote: it would break ${gate.blocks.length} reference${gate.blocks.length === 1 ? "" : "s"}`;
+        renderEditBar(head + ": " + gate.blocks.join(" · "));
+        alert(`${head}:\n${gate.blocks.map((x) => "• " + x).join("\n")}\n\nRestore the card or option, or fix the reference, then Promote again.`);
+        return;
+      }
+      const inWarn = gate.warns.length ? `Only tests name these (${gate.warns.length}):\n${gate.warns.map((x) => "• " + x).join("\n")}\n\n` : "";
       const warn = (drift ?`WARNING: ${target} changed since this working copy was imported. Promoting overwrites those newer live edits.\n\n` : "") + inWarn + lintWarn;
       if (!confirm(`${warn}Promote ${b.file} to ${target}?\n\n${promoteSummary(old, out).join("\n")}\n\nTests still run via Claude.`)) {
         renderEditBar("Promote cancelled."); return;

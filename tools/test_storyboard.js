@@ -30,7 +30,7 @@ const {
   cardImageName, freeImageName, freeResultImageName, setCardImage, eventImageDir, SHOT_FIELDS, serialiseBoard, setShotField, shotFieldText,
   LIVE_EVENTS_DIR, proposalFileName, importBoard, blankBoard, duplicateBoard, boardCardLabel, promoteDraft, serialiseEvent,
   promoteForWrite, promoteSummary, shotBoardFor, boardCut, shotOnPath, workingCopyFor, liveHash, liveDrifted,
-  liveEventOptions, openOrImport, lintEvent, lintDraft, inboundRefs, inboundWarnings,
+  liveEventOptions, openOrImport, lintEvent, lintDraft, inboundRefs, inboundWarnings, promoteGate,
   OBS_ORES, obsIds, effectiveObservation, setCardObserve, addObservation, renameObservation, observationUses, deleteObservation, addObservationBlock, deleteObservationBlock, setObservationMiss, addObservationTier, deleteObservationTier, setObservationTier,
   parseItemCatalogue, itemChoices, optionTags, autoOfferItems, setExcludeItem, setOptionTag, conditionCells, optionMechanicsRows, setMechItemControl,
   itemEffectKind, setItemEffectKind, setEffectTag, setNextCheck, nonAlertEffects, alertMode, setAlertMode, setAlertCover, addAlertOp, removeAlertOp, alertWarnings, coverItems, setCoverText, setAlertEffects, setOtherEffects, setRaidEffects, newRaidOp, setRaidDepth, setGuardCount, nonManagedEffects, isRaidOp, securityCond, securityRead, setSecurityGate, siteWarnings, isFightOp, parseEnemyCatalogue, newFightOp, addFightGroup, removeFightGroup, setFightGroupSource, setFightGroupCount, setFightGroupLevel, setFightKitMode, setFightItem, setFightDest, setFightEffects, fightWarnings, draftHasSite, fightDests, siteScan,
@@ -48,13 +48,18 @@ const {
     " cardImageName, freeImageName, freeResultImageName, setCardImage, eventImageDir, SHOT_FIELDS, serialiseBoard, setShotField, shotFieldText," +
     " LIVE_EVENTS_DIR, proposalFileName, importBoard, blankBoard, duplicateBoard, boardCardLabel, promoteDraft, serialiseEvent," +
     " promoteForWrite, promoteSummary, shotBoardFor, boardCut, shotOnPath, workingCopyFor, liveHash, liveDrifted," +
-    " liveEventOptions, openOrImport, lintEvent, lintDraft, inboundRefs, inboundWarnings, OBS_ORES, obsIds, effectiveObservation, setCardObserve, addObservation, renameObservation, observationUses, deleteObservation, addObservationBlock, deleteObservationBlock, setObservationMiss, addObservationTier, deleteObservationTier, setObservationTier," +
+    " liveEventOptions, openOrImport, lintEvent, lintDraft, inboundRefs, inboundWarnings, promoteGate, OBS_ORES, obsIds, effectiveObservation, setCardObserve, addObservation, renameObservation, observationUses, deleteObservation, addObservationBlock, deleteObservationBlock, setObservationMiss, addObservationTier, deleteObservationTier, setObservationTier," +
     " pickEntries, setPickOn, setPickObservation, setPickReason, addPickOre, deletePickOre, addPickTier, deletePickTier, setPickAtLeast, allLinks, obsLevels, pickQualifying, observedHolds };"
 )();
 
 let passed = 0;
+const asyncTests = [];
 function test(name, fn) {
-  try { fn(); passed++; } catch (err) { console.error("FAIL " + name + "\n  " + err.message); process.exitCode = 1; }
+  const fail = (err) => { console.error("FAIL " + name + "\n  " + err.message); process.exitCode = 1; };
+  try {
+    const r = fn();
+    if (r && typeof r.then === "function") asyncTests.push(r.then(() => { passed++; }, fail)); else passed++;
+  } catch (err) { fail(err); }
 }
 const keysOf = (order) => order.map((p) => p.branch + "/" + p.idx);
 
@@ -1901,6 +1906,70 @@ test("inbound refs: listed, and a dropped card key or option warns naming the re
   assert.deepStrictEqual(inboundWarnings([], keeps), []);
 });
 
+test("promoteGate: blocks on dangling refs in events, data and code; tests-only warns; stale refs block", async () => {
+  const sha = require("crypto").createHash("sha256");
+  const hash = (t) => require("crypto").createHash("sha256").update(t).digest("hex");
+  const live = JSON.stringify({ id: "ev", cards: [{ key: "c1", choices: [{ id: "stay" }, { id: "go" }] }, { key: "c2" }] });
+  const full = { id: "ev", cards: [{ key: "c1", choices: [{ id: "stay" }, { id: "go" }] }, { key: "c2" }] };
+  const slim = { id: "ev", cards: [{ key: "c1", choices: [{ id: "stay" }] }] };
+  const codeText = 'if k == "ev" and c == "c2":', dataText = '{"ev": "go"}';
+  const files = { "systems/x.gd": codeText, "data/y.json": dataText };
+  const readRepo = async (rel) => (rel in files ? files[rel] : null);
+  const refs = { inbound: { ev: [
+    { file: "systems/x.gd", kind: "code", sha: hash(codeText), keys: ["c2"] },
+    { file: "data/y.json", kind: "data", sha: hash(dataText), keys: ["go"] },
+    { file: "tests/test_x.gd", kind: "tests", sha: "", keys: ["c2", "go"] },
+  ] } };
+  const other = { "o.json": JSON.stringify({ requires: { choice: { event: "ev", card: "c2", option: "x" } } }) };
+  const g = await promoteGate(slim, live, other, refs, readRepo);
+  assert.strictEqual(g.blocks.length, 3, g.blocks.join("|"));
+  assert(g.blocks.some((b) => b.includes("data/events/o.json") && b.includes("c2")));
+  assert(g.blocks.some((b) => b.includes("systems/x.gd") && b.includes("c2")));
+  assert(g.blocks.some((b) => b.includes("data/y.json") && b.includes("go")));
+  assert.strictEqual(g.warns.length, 1);
+  assert(g.warns[0].includes("tests/test_x.gd"));
+  const testsOnly = { inbound: { ev: [{ file: "tests/test_x.gd", kind: "tests", sha: "", keys: ["c2"] }] } };
+  const t = await promoteGate(slim, live, {}, testsOnly, readRepo);
+  assert.deepStrictEqual(t.blocks, []);
+  assert.strictEqual(t.warns.length, 1);
+  const none = await promoteGate(full, live, {}, refs, readRepo);
+  assert.deepStrictEqual([none.blocks, none.warns], [[], []], "an edit that drops nothing passes");
+  const stale = await promoteGate(slim, live, {}, refs, async (rel) => files[rel] + " changed");
+  assert(stale.blocks.every((b) => b.includes("stale")) && stale.blocks.length === 2);
+  const missing = await promoteGate(slim, live, {}, null, readRepo);
+  assert(missing.blocks[0].includes("lint_refs.json"));
+  const first = await promoteGate(slim, null, {}, null, readRepo);
+  assert.deepStrictEqual(first.blocks, [], "a new event has nothing to break");
+});
+
+test("promote CLI refuses a promote that breaks a reference (same gate as the button)", () => {
+  const { execFileSync } = require("child_process"), os = require("os");
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "promote-gate-"));
+  let liveBefore = null;
+  try {
+    const refs = JSON.parse(fs.readFileSync(path.join(__dirname, "lint_refs.json"), "utf-8"));
+    const id = "board_meeting", livePath = path.join(liveDir, id + ".json");
+    liveBefore = fs.readFileSync(livePath, "utf-8");
+    assert(id, "some event has a non-test inbound ref");
+    const row = refs.inbound[id].find((r) => r.kind !== "tests");
+    const { file, md } = importBoard(id + ".json", fs.readFileSync(path.join(liveDir, id + ".json"), "utf-8"), []);
+    const p = path.join(tmp, file);
+    const pr = parseProposal(file, md);
+    const draft = pr.draft;
+    const key = row.keys.find((k) => { const pos = cardPos(draft, k); return pos && draft.branches[pos.branch].cards.length > 1 && !(pos.branch === draft.start && draft.branches[pos.branch].cards.length === 1); });
+    assert(key, "a referenced card key exists in the draft");
+    deleteCard(draft, key);
+    fs.writeFileSync(p, spliceDraft(md, draft));
+    let err = "";
+    try { execFileSync(process.execPath, [path.join(__dirname, "promote_storyboard.js"), "promote", p, "--force"], { encoding: "utf-8", stdio: "pipe" }); }
+    catch (e) { err = String(e.stderr); }
+    assert(/break|reference|Cannot|can't/i.test(err), err);
+    assert(!/wrote|overwrote/.test(err));
+  } finally {
+    if (liveBefore !== null) fs.writeFileSync(path.join(liveDir, "board_meeting.json"), liveBefore);
+    fs.rmSync(tmp, { recursive: true, force: true }); }
+});
+
 test("Promote button output is byte-identical to promote_storyboard.js for the same proposal", () => {
   const { execFileSync } = require("child_process"), os = require("os");
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "promote-"));
@@ -2926,4 +2995,4 @@ test("new pack: empty pack, template label and a starter case card", () => {
   assert.throws(() => proseNewPack(packs, board, "Bad Name", "archie"), /lowercase/);
 });
 
-console.log(`${passed} passed${process.exitCode ? ", some FAILED" : ""}`);
+Promise.all(asyncTests).then(() => console.log(`${passed} passed${process.exitCode ? ", some FAILED" : ""}`));

@@ -23,7 +23,7 @@ function loadModel() {
   return new Function(
     section("/* ---------- Choice mechanics (shared) ---------- */", "/* ---------- End choice mechanics ---------- */") +
       section("/* ---------- Draft model (pure) ---------- */", "/* ---------- End draft model ---------- */") +
-      "\nreturn { parseProposal, spliceDraft, filterComments, updateComment, anchorText, promoteForWrite, promoteDraft, serialiseEvent, liveHash, liveDrifted };"
+      "\nreturn { parseProposal, spliceDraft, filterComments, updateComment, anchorText, promoteForWrite, promoteDraft, serialiseEvent, liveHash, liveDrifted, promoteGate };"
   )();
 }
 
@@ -35,7 +35,18 @@ function readBoard(m, file) {
   return { md, draft: board.draft, legacy: board.legacy };
 }
 
-function main(argv) {
+// The Promote gate (same code as the button): refuses when the event's removed cards/options are still named by
+// other events, data files or game code; test-only references warn. oldText: the live file's text, or null.
+async function gate(m, event, oldText) {
+  const dir = path.join(ROOT, "data", "events"), texts = {};
+  for (const n of fs.readdirSync(dir)) if (n.endsWith(".json") && n !== `${event.id}.json`) texts[n] = fs.readFileSync(path.join(dir, n), "utf-8");
+  let refs = null;
+  try { refs = JSON.parse(fs.readFileSync(path.join(__dirname, "lint_refs.json"), "utf-8")); } catch { refs = null; }
+  const readRepo = async (rel) => { try { return fs.readFileSync(path.join(ROOT, rel), "utf-8"); } catch { return null; } };
+  return m.promoteGate(event, oldText, texts, refs, readRepo);
+}
+
+async function main(argv) {
   const [cmd, file, ...rest] = argv;
   if (!cmd || !file) throw new Error("usage: promote_storyboard.js comments|resolve|promote <proposal.md> ...");
   const m = loadModel();
@@ -61,6 +72,9 @@ function main(argv) {
     const oi = rest.indexOf("--out");
     const out = oi >= 0 ? rest[oi + 1] : path.join(ROOT, "data", "events", name);
     const existed = fs.existsSync(out);
+    const g = await gate(m, event, existed ? fs.readFileSync(out, "utf-8") : null);
+    for (const w of g.warns) console.error(`warning (tests only): ${w}`);
+    if (g.blocks.length) throw new Error(`can't promote: it would break ${g.blocks.length} reference(s):\n${g.blocks.map((x) => "  - " + x).join("\n")}`);
     if (existed && !rest.includes("--force") && m.liveDrifted(draft, fs.readFileSync(out, "utf-8")))
       throw new Error(`${path.relative(ROOT, out)} changed since this working copy was imported; promoting would overwrite newer live edits. Re-run with --force to overwrite.`);
     fs.writeFileSync(out, text);
@@ -77,5 +91,5 @@ function main(argv) {
 module.exports = { loadModel };
 
 if (require.main === module) {
-  try { main(process.argv.slice(2)); } catch (e) { console.error(e.message); process.exitCode = 1; }
+  main(process.argv.slice(2)).catch((e) => { console.error(e.message); process.exitCode = 1; });
 }
