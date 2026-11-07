@@ -51,7 +51,12 @@ func _ready() -> void:
 
 
 func _on_dim_gui_input(event: InputEvent) -> void:
-	if (event is InputEventMouseButton or event is InputEventScreenTouch) and event.pressed:
+	if TouchInput.is_emulated_mouse(event):
+		return
+	if event is InputEventScreenTouch and event.pressed:
+		# Deferred so the touch's emulated mouse twin still lands on the dim, not the screen underneath.
+		Bag.close.call_deferred()
+	elif event is InputEventMouseButton and event.pressed:
 		Bag.close()
 
 

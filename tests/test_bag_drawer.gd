@@ -80,8 +80,30 @@ func run() -> void:
 		var tap := InputEventScreenTouch.new()
 		tap.pressed = true
 		drawer._on_dim_gui_input(tap)
+		assert_eq(GameState.state["bagDrawerOpen"], true, "touch close is deferred so the emulated twin can't fall through")
+		await (Engine.get_main_loop() as SceneTree).process_frame
 
 		assert_eq(GameState.state["bagDrawerOpen"], false, "outside tap closes the drawer")
+
+		drawer.free()
+	)
+
+	run_case("emulated_mouse_twin_of_a_touch_neither_closes_nor_passes_through", func():
+		GameState.reset()
+		Bag.open()
+		var drawer := BagDrawer.new()
+		drawer._ready()
+
+		var twin := InputEventMouseButton.new()
+		twin.pressed = true
+		twin.device = InputEvent.DEVICE_ID_EMULATION
+		drawer._on_dim_gui_input(twin)
+		assert_eq(GameState.state["bagDrawerOpen"], true, "emulated mouse press is ignored by the dim")
+
+		var click := InputEventMouseButton.new()
+		click.pressed = true
+		drawer._on_dim_gui_input(click)
+		assert_eq(GameState.state["bagDrawerOpen"], false, "real mouse press closes immediately")
 
 		drawer.free()
 	)

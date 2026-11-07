@@ -17,3 +17,9 @@ Start with a repro. The leading hypothesis is tap-through and is unproven: the t
 - [ ] Bag Close button and item use still behave as before
 - [ ] Automated test covers the fix at the highest seam that reproduces it
 - [ ] Human on-device check is listed in the task report
+
+## Comments
+
+Repro/cause (confirmed by code read): `BagDrawer._on_dim_gui_input` closed on the touch press with no emulated-mouse guard; drawer hid synchronously, so Godot's emulated mouse twin of the same tap landed on the event option underneath ("Back out"). Fix: ignore emulated mouse on the dim; touch close is deferred so the twin still hits the dim; real mouse closes immediately. Tests in tests/test_bag_drawer.gd.
+
+Human check: during a raid event, open Bag, tap outside on device — Bag closes, same event card stays. Also check mouse (desktop), combat and a normal screen.
