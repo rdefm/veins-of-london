@@ -207,6 +207,8 @@ section { display: grid; gap: 12px; min-width: 0 }
 .editbar .lint { flex-basis: 100%; font: 12px var(--mono); color: var(--warn) }
 .editbar .lint summary { cursor: pointer; font-weight: 600 }
 .editbar .lint ul { margin: 4px 0 0; padding-left: 18px; color: var(--muted) }
+.editbar .triggers { flex-basis: 100%; font-size: 12px }
+.editbar .triggers summary { cursor: pointer; font: 600 12px var(--mono) }
 .editor { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px; gap: 8px }
 .head-l { display: flex; gap: 8px; align-items: baseline }
 .editor-head { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline; justify-content: space-between }
@@ -375,6 +377,7 @@ section { display: grid; gap: 12px; min-width: 0 }
           <span class="dirty" id="dirty" role="status"></span>
           <span class="dirty on" id="drift" role="status" hidden>Live file changed since import</span>
           <details class="lint" id="lint" hidden><summary id="lint-sum"></summary><ul id="lint-list"></ul></details>
+          <details class="triggers" id="triggers" hidden><summary>Triggers (when this event fires)</summary><div class="mech-ed" id="triggers-body"></div></details>
         </div>
         <p class="logline" id="logline"></p>
       </section>
@@ -3500,6 +3503,7 @@ function checkOddsBlock(opt, changed, restructure) {
     const out = [];
     const cards = def.cards || [];
     const atBlock = lintIsObj(def.at) && def.at.block !== undefined ? def.at.block : null;
+    out.push(...lintTriggers(id, def, ctx));
     out.push(...lintObservations(id, def, ctx));
     cards.forEach((card, i) => {
       if (lintHas(card, "observe") && card.observe != null && !lintHas(def.observations || {}, card.observe)) out.push(`${id}: card ${i} observe '${gdStr(card.observe)}' is not defined`);
@@ -3510,6 +3514,40 @@ function checkOddsBlock(opt, changed, restructure) {
       choices.forEach((o, j) => out.push(...lintOption(id, i, j, o, cards, ctx)));
     });
     return out;
+  }
+  // Top-level trigger fields (deck, pin, at, repeatable); same answers as the GDScript _lint_triggers.
+  function lintTriggers(id, def, ctx) {
+    const out = [], refs = ctx.refs, districts = refs.districts || [], barometer = refs.barometer || {};
+    if (lintIsObj(def.deck)) {
+      const d = def.deck;
+      if (d.district !== "any" && !districts.includes(d.district)) out.push(`${id}: deck district '${gdStr(d.district)}' is neither 'any' nor a known district`);
+      if (typeof d.weight !== "number" || d.weight <= 0) out.push(`${id}: deck weight must be a number above 0`);
+      if (d.excludeIfFlag != null && !ctx.flags.has(d.excludeIfFlag)) out.push(`${id}: deck excludeIfFlag unknown flag ${gdStr(d.excludeIfFlag)}`);
+      const s = d.barometerState;
+      if (s != null && !(lintIsObj(s) && lintHas(barometer, s.section) && barometer[s.section].includes(s.state))) out.push(`${id}: deck barometerState is not a known section and state`);
+    }
+    if (lintIsObj(def.pin)) {
+      const p = def.pin;
+      if (!districts.includes(p.district)) out.push(`${id}: pin district '${gdStr(p.district)}' is not a known district`);
+      for (const key of ["showWhenFlagsTrue", "showWhenFlagsFalse"]) {
+        if (!Array.isArray(p[key])) { out.push(`${id}: pin ${key} must be a list`); continue; }
+        for (const f of p[key]) if (!ctx.flags.has(f)) out.push(`${id}: pin ${key} unknown flag ${gdStr(f)}`);
+      }
+      if (lintHas(p, "contact") !== lintHas(p, "phoneLabel")) out.push(`${id}: pin contact and phoneLabel must be declared together`);
+      if (lintHas(p, "contact") && !refs.contacts.includes(p.contact)) out.push(`${id}: pin unknown contact ${gdStr(p.contact)}`);
+    }
+    if (lintIsObj(def.at)) {
+      if (!AT_BLOCKS.includes(def.at.block)) out.push(`${id}: at block '${gdStr(def.at.block)}' is not morning, afternoon, evening or night`);
+      if (typeof def.at.advance !== "boolean") out.push(`${id}: at advance must be true or false`);
+    }
+    if (lintHas(def, "repeatable") && typeof def.repeatable !== "boolean") out.push(`${id}: repeatable must be true or false`);
+    return out;
+  }
+  // Non-blocking: a draft with no deck, no pin and no inbound reference from other events, data or code has no way to fire.
+  function nothingFires(event, refs) {
+    if (!event || event.deck || event.pin) return false;
+    if (!refs || !refs.inbound || typeof refs.inbound !== "object") return false;
+    return !(refs.inbound[event.id] || []).length;
   }
   function lintLabel(id, i, label, atBlock) {
     const out = [], where = `${id}: card ${i} label '${label}'`;
@@ -5719,12 +5757,84 @@ function checkOddsBlock(opt, changed, restructure) {
   function renderLint(b) {
     const el = $("lint");
     if (!b || !b.draft) { el.hidden = true; return; }
-    if (lintRefs === undefined) { loadLintRefs().then(() => { if (board() === b) renderLint(b); }); el.hidden = true; return; }
+    if (lintRefs === undefined) { loadLintRefs().then(() => { if (board() === b) { renderLint(b); renderTriggers(b); } }); el.hidden = true; return; }
     const found = (lintDraft(b.draft, lintRefs) || []).concat(siteWarnings(b.draft), fightWarnings(b.draft, enemyCatalogue));
+    if (nothingFires(b.draft, lintRefs)) found.push(`${b.draft.id}: nothing fires this (no deck, no pin, nothing refers to it)`);
     el.hidden = !found.length;
     if (el.hidden) return;
     $("lint-sum").textContent = `⚠ ${found.length} content lint issue${found.length > 1 ? "s" : ""}`;
     $("lint-list").replaceChildren(...found.map((v) => { const li = document.createElement("li"); li.textContent = v; return li; }));
+  }
+  // Triggers panel: the draft's top-level deck / pin / at / repeatable. Each edit is one undoable draft edit.
+  const csv = (s) => s.split(",").map((x) => x.trim()).filter(Boolean);
+  function renderTriggers(b) {
+    const box = $("triggers");
+    if (!b || !b.draft) { box.hidden = true; return; }
+    box.hidden = false;
+    const d = b.draft, refs = lintRefs || {};
+    const districts = refs.districts || [], contacts = refs.contacts || [], baro = refs.barometer || {};
+    const edit = (fn) => editDraft((dd) => { fn(dd); }, true);
+    const choose = (list, extra) => (extra || []).concat(list.map((x) => [x, x]));
+    const text = (value, placeholder, onSet, listId) => {
+      const c = document.createElement("input");
+      c.type = "text"; c.value = value; c.placeholder = placeholder || "";
+      if (listId) c.setAttribute("list", listId);
+      c.addEventListener("change", () => onSet(c.value.trim()));
+      return c;
+    };
+    const flagList = document.createElement("datalist");
+    flagList.id = "trigger-flags";
+    for (const f of refs.flags || []) { const o = document.createElement("option"); o.value = f; flagList.appendChild(o); }
+    const rows = [flagList];
+    // deck
+    const deckRow = mechEl("div", "mech-row");
+    deckRow.appendChild(mechCheckbox("District deck (drawn on travel / prospect)", !!d.deck, (on) => edit((dd) => {
+      if (on) dd.deck = { district: districts[0] || "any", weight: 1, excludeIfFlag: null, barometerState: null };
+      else delete dd.deck;
+    })));
+    rows.push(deckRow);
+    if (d.deck) {
+      const k = d.deck, r = mechEl("div", "mech-row");
+      r.appendChild(mechCell("Deck district", mechSelect(choose(districts, [["any", "any district"]]), k.district, (v) => edit((dd) => { dd.deck.district = v; }))));
+      const w = document.createElement("input");
+      w.type = "number"; w.step = "any"; w.min = "0"; w.value = String(k.weight);
+      w.addEventListener("change", () => { const n = Number(w.value); if (Number.isFinite(n) && w.value !== "") edit((dd) => { dd.deck.weight = n; }); });
+      r.appendChild(mechCell("Weight", w));
+      r.appendChild(mechCell("Excluded once flag set", text(k.excludeIfFlag == null ? "" : k.excludeIfFlag, "none", (v) => edit((dd) => { dd.deck.excludeIfFlag = v || null; }), "trigger-flags")));
+      const sec = k.barometerState && typeof k.barometerState === "object" ? k.barometerState.section : "";
+      r.appendChild(mechCell("Barometer section", mechSelect(choose(Object.keys(baro), [["", "any"]]), sec, (v) => edit((dd) => {
+        dd.deck.barometerState = v ? { section: v, state: (baro[v] || [])[0] || "" } : null;
+      }))));
+      if (sec) r.appendChild(mechCell("Barometer state", mechSelect(choose(baro[sec] || []), k.barometerState.state, (v) => edit((dd) => { dd.deck.barometerState.state = v; }))));
+      rows.push(r);
+    }
+    // pin
+    const pinRow = mechEl("div", "mech-row");
+    pinRow.appendChild(mechCheckbox("Map pin (shows while its flag conditions hold)", !!d.pin, (on) => edit((dd) => {
+      if (on) dd.pin = { district: districts[0] || "", showWhenFlagsTrue: [], showWhenFlagsFalse: [] };
+      else delete dd.pin;
+    })));
+    rows.push(pinRow);
+    if (d.pin) {
+      const p = d.pin, r = mechEl("div", "mech-row"), r2 = mechEl("div", "mech-row");
+      r.appendChild(mechCell("Pin district", mechSelect(choose(districts), p.district, (v) => edit((dd) => { dd.pin.district = v; }))));
+      r.appendChild(mechCell("Shown when flags true", text((p.showWhenFlagsTrue || []).join(", "), "flagA, flagB", (v) => edit((dd) => { dd.pin.showWhenFlagsTrue = csv(v); }), "trigger-flags"), true));
+      r.appendChild(mechCell("Shown when flags false", text((p.showWhenFlagsFalse || []).join(", "), "flagC", (v) => edit((dd) => { dd.pin.showWhenFlagsFalse = csv(v); }), "trigger-flags"), true));
+      r2.appendChild(mechCell("Phone contact", mechSelect(choose(contacts, [["", "none"]]), p.contact || "", (v) => edit((dd) => {
+        if (v) { dd.pin.contact = v; if (dd.pin.phoneLabel === undefined) dd.pin.phoneLabel = ""; } else { delete dd.pin.contact; delete dd.pin.phoneLabel; }
+      }))));
+      if (p.contact !== undefined) r2.appendChild(mechCell("Phone shortcut label", text(p.phoneLabel || "", "Go and meet …", (v) => edit((dd) => { dd.pin.phoneLabel = v; })), true));
+      rows.push(r, r2);
+    }
+    // at + repeatable
+    const atRow = mechEl("div", "mech-row");
+    atRow.appendChild(mechCell("Runs at block", mechSelect([["", "Whenever triggered"]].concat(AT_BLOCKS.map((x) => [x, x])), d.at ? d.at.block : "", (v) => edit((dd) => {
+      if (!v) delete dd.at; else if (dd.at) dd.at.block = v; else dd.at = { block: v, advance: false };
+    }))));
+    if (d.at) atRow.appendChild(mechCheckbox("Advance the clock to this block", !!d.at.advance, (on) => edit((dd) => { dd.at.advance = on; })));
+    atRow.appendChild(mechCheckbox("Repeatable", !!d.repeatable, (on) => edit((dd) => { if (on) dd.repeatable = true; else delete dd.repeatable; })));
+    rows.push(atRow);
+    $("triggers-body").replaceChildren(...rows);
   }
   // msg replaces the status line; otherwise it shows the dirty state (a "Saved …" note stays until the next edit).
   function renderEditBar(msg) {
@@ -5742,6 +5852,7 @@ function checkOddsBlock(opt, changed, restructure) {
     if (proposal && b.driftChecked !== true) checkDrift(b);
     $("drift").hidden = !(proposal && b.drift);
     renderLint(proposal ? b : null);
+    renderTriggers(proposal ? b : null);
     const d = $("dirty");
     d.classList.toggle("on", dirty);
     if (msg) d.textContent = msg;

@@ -24,22 +24,22 @@ the bundle may carry an event-level `at` (§3.9b); copy those verbatim too.
    empty prose fields are `null`). Add `on_complete` — the bundle doesn't include one; use
    `[{ "op": "set_screen", "screen": "map" }]` as an inert default,
    unless the notes or surrounding context say otherwise.
-   No `deck` key yet — that's registration, not drafting (see step 4).
+   No `deck`/`pin` key: those are set in the storyboard tool's Triggers panel (see step 4).
 3. **If `notes` is non-empty**, write it verbatim to `data/events/drafts/<id>.notes.md` — the
    sidecar convention for author-intent notes. This is the author's plain-language description of
    what `effects`/ops/flags should do; it's your brief for filling those in, never copied
    mechanically into the JSON.
-4. **The file is inert until registered.** Per `docs/agents/domain.md` / `CLAUDE.md`, work the
-   effects/flags/registration (`GameData.EVENT_IDS` or `DISTRICT_EVENT_IDS`, a `deck` block if
-   it's a district event) as a normal task against `docs/REFERENCE.md` and `docs/M1-LONDON.md` —
-   don't invent formulas or flag names not in the notes or those docs; ask if something's
-   ambiguous.
+4. **Events auto-load from `data/events/`; no registration step exists.** There is no id list to edit. What
+   a new event lacks is a way to fire: `deck` (district event), `pin` (map pin) or a reference from other
+   content, set in `tools/storyboard.html`'s Triggers panel. Work the effects and flags as a normal task
+   against `docs/REFERENCE.md` and `docs/M1-LONDON.md` — don't invent formulas or flag names not in the
+   notes or those docs; ask if something's ambiguous.
 5. **Flag it `PROSE-REVIEW:`** in your report per CLAUDE.md's prose rules — this prose was
    drafted by the human off-device, not extracted from the HTML reference, so it still needs the
    same human audit pass as any new prose.
 
 ## If asked to just "wire in" a draft with no further instruction
 
-Do steps 1–3 (write the JSON + notes sidecar) and stop short of registration if the notes don't
+Do steps 1–3 (write the JSON + notes sidecar) and stop short of filling effects if the notes don't
 specify effects clearly enough to fill in confidently — ask rather than guess at cash/ore amounts
 or flag names.

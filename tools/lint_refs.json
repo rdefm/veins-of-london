@@ -1,4 +1,27 @@
 {
+	"barometer": {
+		"economic": [
+			"boom",
+			"crisis",
+			"inflation",
+			"recession",
+			"stable"
+		],
+		"political": [
+			"austerity",
+			"election",
+			"regulation",
+			"stable",
+			"war"
+		],
+		"social": [
+			"crime",
+			"festival",
+			"lockdown",
+			"stable",
+			"unrest"
+		]
+	},
 	"contacts": [
 		"archie",
 		"bernie",
@@ -22,6 +45,21 @@
 		"saoirse",
 		"tomasz",
 		"wren"
+	],
+	"districts": [
+		"battersea",
+		"camden",
+		"chelsea",
+		"city",
+		"clapham",
+		"greenwich",
+		"hampstead",
+		"kensington",
+		"kingscross",
+		"nottinghill",
+		"shoreditch",
+		"soho",
+		"whitechapel"
 	],
 	"events": {
 		"archie_motion": {

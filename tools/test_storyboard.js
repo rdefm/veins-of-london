@@ -30,7 +30,7 @@ const {
   cardImageName, freeImageName, freeResultImageName, setCardImage, eventImageDir, SHOT_FIELDS, serialiseBoard, setShotField, shotFieldText,
   LIVE_EVENTS_DIR, proposalFileName, importBoard, blankBoard, duplicateBoard, boardCardLabel, promoteDraft, serialiseEvent,
   promoteForWrite, promoteSummary, shotBoardFor, boardCut, shotOnPath, workingCopyFor, liveHash, liveDrifted,
-  liveEventOptions, openOrImport, lintEvent, lintDraft, inboundRefs, inboundWarnings, promoteGate,
+  liveEventOptions, openOrImport, lintEvent, lintDraft, nothingFires, inboundRefs, inboundWarnings, promoteGate,
   OBS_ORES, obsIds, effectiveObservation, setCardObserve, addObservation, renameObservation, observationUses, deleteObservation, addObservationBlock, deleteObservationBlock, setObservationMiss, addObservationTier, deleteObservationTier, setObservationTier,
   parseItemCatalogue, itemChoices, optionTags, autoOfferItems, setExcludeItem, setOptionTag, conditionCells, optionMechanicsRows, setMechItemControl,
   itemEffectKind, setItemEffectKind, setEffectTag, setNextCheck, nonAlertEffects, alertMode, setAlertMode, setAlertCover, addAlertOp, removeAlertOp, alertWarnings, coverItems, setCoverText, setAlertEffects, setOtherEffects, setRaidEffects, newRaidOp, setRaidDepth, setGuardCount, nonManagedEffects, isRaidOp, securityCond, securityRead, setSecurityGate, siteWarnings, isFightOp, parseEnemyCatalogue, newFightOp, addFightGroup, removeFightGroup, setFightGroupSource, setFightGroupCount, setFightGroupLevel, setFightKitMode, setFightItem, setFightDest, setFightEffects, fightWarnings, draftHasSite, fightDests, siteScan,
@@ -48,7 +48,7 @@ const {
     " cardImageName, freeImageName, freeResultImageName, setCardImage, eventImageDir, SHOT_FIELDS, serialiseBoard, setShotField, shotFieldText," +
     " LIVE_EVENTS_DIR, proposalFileName, importBoard, blankBoard, duplicateBoard, boardCardLabel, promoteDraft, serialiseEvent," +
     " promoteForWrite, promoteSummary, shotBoardFor, boardCut, shotOnPath, workingCopyFor, liveHash, liveDrifted," +
-    " liveEventOptions, openOrImport, lintEvent, lintDraft, inboundRefs, inboundWarnings, promoteGate, OBS_ORES, obsIds, effectiveObservation, setCardObserve, addObservation, renameObservation, observationUses, deleteObservation, addObservationBlock, deleteObservationBlock, setObservationMiss, addObservationTier, deleteObservationTier, setObservationTier," +
+    " liveEventOptions, openOrImport, lintEvent, lintDraft, nothingFires, inboundRefs, inboundWarnings, promoteGate, OBS_ORES, obsIds, effectiveObservation, setCardObserve, addObservation, renameObservation, observationUses, deleteObservation, addObservationBlock, deleteObservationBlock, setObservationMiss, addObservationTier, deleteObservationTier, setObservationTier," +
     " pickEntries, setPickOn, setPickObservation, setPickReason, addPickOre, deletePickOre, addPickTier, deletePickTier, setPickAtLeast, allLinks, obsLevels, pickQualifying, observedHolds };"
 )();
 
@@ -2021,6 +2021,16 @@ test("shotOnPath holds along the played path, so each branch shows its own shot"
 // tests/test_event_content_lint.gd fails when that file is stale, so matching it here is matching GDScript.
 const lintRefs = JSON.parse(fs.readFileSync(path.join(__dirname, "lint_refs.json"), "utf-8"));
 
+test("TRIGGER lint agrees on every shipped event", () => {
+  const dir = path.join(__dirname, "..", "data", "events");
+  for (const f of fs.readdirSync(dir).filter((x) => x.endsWith(".json"))) {
+    const def = JSON.parse(fs.readFileSync(path.join(dir, f), "utf-8"));
+    const mine = lintEvent(def.id, def, lintRefs).filter((v) => /: (deck|pin|at |repeatable)/.test(v));
+    const theirs = (lintRefs.violations[def.id] || []).filter((v) => /: (deck|pin|at |repeatable)/.test(v));
+    assert.deepStrictEqual(mine, theirs, f);
+  }
+});
+
 test("JS content lint gives the GDScript lint's violations on every shipped event", () => {
   const dir = path.join(__dirname, "..", "data", "events");
   const files = fs.readdirSync(dir).filter((f) => f.endsWith(".json"));
@@ -2996,3 +3006,35 @@ test("new pack: empty pack, template label and a starter case card", () => {
 });
 
 Promise.all(asyncTests).then(() => console.log(`${passed} passed${process.exitCode ? ", some FAILED" : ""}`));
+
+test("trigger lint: deck, pin, at, repeatable validity", () => {
+  const ok = { id: "t", cards: [], deck: { district: "camden", weight: 1, excludeIfFlag: null, barometerState: { section: "economic", state: "boom" } },
+    pin: { district: "whitechapel", showWhenFlagsTrue: [], showWhenFlagsFalse: [], contact: "hakim", phoneLabel: "Go" },
+    at: { block: "evening", advance: true }, repeatable: true };
+  assert.deepStrictEqual(lintEvent("t", ok, lintRefs), []);
+  const bad = { id: "t", cards: [], deck: { district: "narnia", weight: 0, excludeIfFlag: "noSuchFlag", barometerState: { section: "economic", state: "nope" } },
+    pin: { district: "narnia", showWhenFlagsTrue: ["noSuchFlag"], showWhenFlagsFalse: "x", contact: "nobody" },
+    at: { block: "dawn" }, repeatable: "yes" };
+  const found = lintEvent("t", bad, lintRefs);
+  for (const frag of ["deck district 'narnia'", "deck weight", "deck excludeIfFlag unknown flag noSuchFlag", "deck barometerState", "pin district 'narnia'",
+    "pin showWhenFlagsTrue unknown flag noSuchFlag", "pin showWhenFlagsFalse must be a list", "contact and phoneLabel", "pin unknown contact nobody",
+    "at block 'dawn'", "at advance", "repeatable must be"])
+    assert(found.some((v) => v.includes(frag)), `expected '${frag}' in ${JSON.stringify(found)}`);
+});
+
+test("trigger fields survive a draft save and promote exactly; nothingFires only when true", () => {
+  const { draft } = parseDraft(draftText);
+  draft.deck = { district: "camden", weight: 2, excludeIfFlag: null, barometerState: null };
+  draft.pin = { district: "camden", showWhenFlagsTrue: [], showWhenFlagsFalse: [] };
+  draft.at = { block: "morning", advance: false };
+  draft.repeatable = true;
+  const again = parseDraft(serialiseDraft(draft)).draft;
+  const { event } = promoteDraft(again);
+  for (const k of ["deck", "pin", "at", "repeatable"]) assert.deepStrictEqual(event[k], draft[k], k);
+  assert.strictEqual(nothingFires(event, lintRefs), false);
+  const bare = { id: "brand_new_event" };
+  assert.strictEqual(nothingFires(bare, lintRefs), true);
+  assert.strictEqual(nothingFires({ id: "brand_new_event", deck: {} }, lintRefs), false);
+  assert.strictEqual(nothingFires(bare, null), false);
+  assert.strictEqual(nothingFires({ id: "battersea_hum" }, lintRefs), lintRefs.inbound.battersea_hum ? false : true);
+});

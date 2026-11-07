@@ -78,8 +78,16 @@ static func export_refs() -> Dictionary:
 	contacts.sort()
 	var procedures: Array = (GameData.LAB.get("procedures", {}) as Dictionary).keys()
 	procedures.sort()
+	var districts: Array = GameData.DISTRICTS.keys()
+	districts.sort()
+	var barometer: Dictionary = {}
+	for section in GameData.BAROMETER_STATES:
+		var states: Array = GameData.BAROMETER_STATES[section].keys()
+		states.sort()
+		barometer[section] = states
 	return {
 		"flags": flags, "items": items, "contacts": contacts, "paths": paths,
+		"districts": districts, "barometer": barometer,
 		"rungs": RecipeKnowledge.rungs(), "procedures": procedures,
 		"ores": GameData.OBSERVATION["oreOrder"], "maxOptions": MAX_OPTIONS,
 		"events": events, "violations": violations, "inbound": _inbound(event_keys),
@@ -166,6 +174,8 @@ static func known_refs() -> Dictionary:
 		"flags": flags,
 		"items": GameData.RECIPES,
 		"contacts": GameState.state["contacts"],
+		"districts": GameData.DISTRICTS,
+		"barometer": GameData.BAROMETER_STATES,
 	}
 
 
@@ -185,6 +195,7 @@ static func lint_event(id: String, def: Dictionary, refs: Dictionary) -> Array:
 	var cards: Array = def.get("cards", [])
 	var at_block: Variant = (def["at"] as Dictionary).get("block") if def.get("at") is Dictionary else null
 	refs["event"] = def
+	out.append_array(_lint_triggers(id, def, refs))
 	out.append_array(_lint_observations(id, def, refs))
 	out.append_array(_lint_situational(id, def, refs))
 	out.append_array(_lint_fight_presets(id, def, def))
@@ -200,6 +211,51 @@ static func lint_event(id: String, def: Dictionary, refs: Dictionary) -> Array:
 			out.append("%s: card %d has %d options (max %d)" % [id, i, option_count, MAX_OPTIONS])
 		for j in option_count:
 			out.append_array(_lint_option(id, i, j, card["choices"][j], cards, refs))
+	return out
+
+
+# Top-level trigger fields: deck, pin, at, repeatable (REFERENCE §3.9b, M1-LONDON D5).
+static func _lint_triggers(id: String, def: Dictionary, refs: Dictionary) -> Array:
+	var out: Array = []
+	var districts: Dictionary = refs.get("districts", {})
+	if def.has("deck") and def["deck"] is Dictionary:
+		var deck: Dictionary = def["deck"]
+		var district: Variant = deck.get("district")
+		if district != "any" and not districts.has(district):
+			out.append("%s: deck district '%s' is neither 'any' nor a known district" % [id, str(district)])
+		var weight: Variant = deck.get("weight")
+		if not (weight is float or weight is int) or weight <= 0:
+			out.append("%s: deck weight must be a number above 0" % id)
+		var exclude: Variant = deck.get("excludeIfFlag")
+		if exclude != null and not refs["flags"].has(exclude):
+			out.append("%s: deck excludeIfFlag unknown flag %s" % [id, str(exclude)])
+		var state: Variant = deck.get("barometerState")
+		if state != null:
+			var sections: Dictionary = refs.get("barometer", {})
+			if not (state is Dictionary) or not sections.has(state.get("section")) or not sections[state["section"]].has(state.get("state")):
+				out.append("%s: deck barometerState is not a known section and state" % id)
+	if def.has("pin") and def["pin"] is Dictionary:
+		var pin: Dictionary = def["pin"]
+		if not districts.has(pin.get("district")):
+			out.append("%s: pin district '%s' is not a known district" % [id, str(pin.get("district"))])
+		for key in ["showWhenFlagsTrue", "showWhenFlagsFalse"]:
+			if not (pin.get(key) is Array):
+				out.append("%s: pin %s must be a list" % [id, key])
+				continue
+			for flag in pin[key]:
+				if not refs["flags"].has(flag):
+					out.append("%s: pin %s unknown flag %s" % [id, key, str(flag)])
+		if pin.has("contact") != pin.has("phoneLabel"):
+			out.append("%s: pin contact and phoneLabel must be declared together" % id)
+		if pin.has("contact") and not refs["contacts"].has(pin["contact"]):
+			out.append("%s: pin unknown contact %s" % [id, str(pin["contact"])])
+	if def.has("at") and def["at"] is Dictionary:
+		if not ["morning", "afternoon", "evening", "night"].has(def["at"].get("block")):
+			out.append("%s: at block '%s' is not morning, afternoon, evening or night" % [id, str(def["at"].get("block"))])
+		if not (def["at"].get("advance") is bool):
+			out.append("%s: at advance must be true or false" % id)
+	if def.has("repeatable") and not (def["repeatable"] is bool):
+		out.append("%s: repeatable must be true or false" % id)
 	return out
 
 

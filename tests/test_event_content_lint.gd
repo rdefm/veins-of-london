@@ -86,6 +86,43 @@ func run() -> void:
 			assert_true(found.any(func(v): return String(v).contains(fragment)), "expected a violation containing '%s' in %s" % [fragment, found])
 	)
 
+	run_case("lint_checks_trigger_fields", func():
+		GameState.reset()
+		var refs := EventContentLint.known_refs()
+		var good: Dictionary = JSON.parse_string('{"id":"trig_ok","cards":[],"deck":{"district":"camden","weight":1,"excludeIfFlag":null,"barometerState":{"section":"economic","state":"boom"}},"pin":{"district":"whitechapel","showWhenFlagsTrue":[],"showWhenFlagsFalse":[],"contact":"hakim","phoneLabel":"Go"},"at":{"block":"evening","advance":true},"repeatable":true}')
+		assert_eq(EventContentLint.lint_event("trig_ok", good, refs), [], "a valid trigger set adds no violations")
+		var bad: Dictionary = JSON.parse_string('{"id":"trig_bad","cards":[],"deck":{"district":"narnia","weight":0,"excludeIfFlag":"noSuchFlag","barometerState":{"section":"economic","state":"nope"}},"pin":{"district":"narnia","showWhenFlagsTrue":["noSuchFlag"],"showWhenFlagsFalse":"x","contact":"nobody"},"at":{"block":"dawn"},"repeatable":"yes"}')
+		var found := EventContentLint.lint_event("trig_bad", bad, refs)
+		for fragment in ["deck district 'narnia'", "deck weight", "deck excludeIfFlag unknown flag noSuchFlag", "deck barometerState", "pin district 'narnia'", "pin showWhenFlagsTrue unknown flag noSuchFlag", "pin showWhenFlagsFalse must be a list", "contact and phoneLabel", "pin unknown contact nobody", "at block 'dawn'", "at advance", "repeatable must be"]:
+			assert_true(found.any(func(v): return String(v).contains(fragment)), "expected a violation containing '%s' in %s" % [fragment, found])
+	)
+
+	run_case("tool_written_deck_and_pin_fire_in_play", func():
+		GameState.reset()
+		var def: Dictionary = JSON.parse_string('{"id":"tool_new_event","cards":[{"key":"c1","type":"narration","label":null,"speaker":null,"text":"x"}],"on_complete":[{"op":"set_screen","screen":"map"}],"deck":{"district":"camden","weight":1,"excludeIfFlag":null,"barometerState":null},"pin":{"district":"camden","showWhenFlagsTrue":["toolPinOn"],"showWhenFlagsFalse":[]}}')
+		var original_events: Dictionary = GameData.EVENTS
+		GameData.EVENTS = GameData.EVENTS.duplicate()
+		for event_id in GameData.EVENTS.keys():
+			if GameData.EVENTS[event_id].has("deck"):
+				GameData.EVENTS.erase(event_id)
+		GameData.EVENTS["tool_new_event"] = def
+		var ids: Array = []
+		for entry in DistrictDeck.eligible_entries("camden"):
+			ids.append(entry["id"])
+		assert_eq(ids, ["tool_new_event"], "the new event sits in its district's deck")
+		assert_eq(DistrictDeck.draw("camden"), "tool_new_event", "and is drawn")
+		assert_eq(DistrictDeck.eligible_entries("greenwich"), [], "not in another district's deck")
+		var shown := func() -> bool:
+			for pin in MapPins.active_contact_pins():
+				if pin["eventId"] == "tool_new_event":
+					return true
+			return false
+		assert_true(not shown.call(), "pin hidden while its flag is unset")
+		GameState.state["flags"]["toolPinOn"] = true
+		assert_true(shown.call(), "pin shown once its flag holds")
+		GameData.EVENTS = original_events
+	)
+
 	run_case("lint_checks_key_links_like_index_links", func():
 		GameState.reset()
 		var def := { "id": "key_probe", "cards": [
