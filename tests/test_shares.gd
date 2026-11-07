@@ -115,9 +115,9 @@ func run() -> void:
 
 	run_case("after_14_days_current_and_prior_week_both_report", func():
 		var saved_share: float = GameData.MARKET["independentsShare"]
-		var saved_ore_share: float = GameData.MARKET["independentsOreShare"]
+		var saved_ore_share: float = GameData.MARKET["independentsOreSupplyMult"]
 		GameData.MARKET["independentsShare"] = 0.0
-		GameData.MARKET["independentsOreShare"] = 0.0
+		GameData.MARKET["independentsOreSupplyMult"] = 0.0
 		GameState.reset()
 		for i in range(14):
 			if i > 0:
@@ -126,7 +126,7 @@ func run() -> void:
 			Shares.record_ore("player", "time", 5)
 			Shares.record_ore("firm", "time", 15)
 		GameData.MARKET["independentsShare"] = saved_share
-		GameData.MARKET["independentsOreShare"] = saved_ore_share
+		GameData.MARKET["independentsOreSupplyMult"] = saved_ore_share
 		assert_eq(GameState.state["world"]["day"], 14)
 		assert_eq(Shares.window_totals("ore", 0)["player"]["time"], 35, "days 8..14")
 		assert_eq(Shares.window_totals("ore", 1)["player"]["time"], 35, "days 1..7 all kept")
@@ -138,9 +138,9 @@ func run() -> void:
 
 	run_case("independents_share_zero_removes_the_slice_and_the_row", func():
 		var saved_share: float = GameData.MARKET["independentsShare"]
-		var saved_ore_share: float = GameData.MARKET["independentsOreShare"]
+		var saved_ore_share: float = GameData.MARKET["independentsOreSupplyMult"]
 		GameData.MARKET["independentsShare"] = 0.0
-		GameData.MARKET["independentsOreShare"] = 0.0
+		GameData.MARKET["independentsOreSupplyMult"] = 0.0
 		GameState.reset()
 		GameState.state["world"]["day"] += 1
 		TimeSystem.daily_tick()
@@ -151,7 +151,7 @@ func run() -> void:
 		Market.daily_reprice()
 		var unsupplied: int = GameState.state["market"]["goods"]["ore"]["time"]["stock"]
 		GameData.MARKET["independentsShare"] = saved_share
-		GameData.MARKET["independentsOreShare"] = saved_ore_share
+		GameData.MARKET["independentsOreSupplyMult"] = saved_ore_share
 		GameState.reset()
 		Market.daily_reprice()
 		var supplied: int = GameState.state["market"]["goods"]["ore"]["time"]["stock"]

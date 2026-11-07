@@ -36,7 +36,7 @@ static func civilian_demand(kind: String, good_type: String) -> float:
 
 
 # The Independents slice (R§3.13): daily whole-unit supply of the kind's share
-# (independentsOreShare for ore, independentsShare for items) × civilian
+# (independentsOreSupplyMult for ore, independentsShare for items) × civilian
 # demand, scaled by the good's price ratio (supplyElasticity) up to supplyCap;
 # 0 when the kind's share is 0.
 static func independents_supply(kind: String, good_type: String) -> float:
@@ -62,7 +62,7 @@ static func demand_mult(kind: String, good_type: String) -> float:
 
 
 static func independents_share(kind: String) -> float:
-	return float(_config()["independentsOreShare" if kind == "ore" else "independentsShare"])
+	return float(_config()["independentsOreSupplyMult" if kind == "ore" else "independentsShare"])
 
 
 # The sim-start switch (market.json simStart): "day1" runs from the first

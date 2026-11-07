@@ -8,7 +8,7 @@
   "priceLot": { "ore": 10, "consumable": 1 },
   "oreConversionRate": 0.012,
   "independentsShare": 0.1,
-  "independentsOreShare": 1.5,
+  "independentsOreSupplyMult": 1.5,
   "demandElasticity": 0.5,
   "demandFloor": 0.3,
   "demandCeiling": 1.5,

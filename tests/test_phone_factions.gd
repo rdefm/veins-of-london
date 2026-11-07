@@ -196,15 +196,15 @@ func run() -> void:
 
 	run_case("independents_row_hidden_when_share_is_zero", func():
 		var saved_share: float = GameData.MARKET["independentsShare"]
-		var saved_ore_share: float = GameData.MARKET["independentsOreShare"]
+		var saved_ore_share: float = GameData.MARKET["independentsOreSupplyMult"]
 		GameData.MARKET["independentsShare"] = 0.0
-		GameData.MARKET["independentsOreShare"] = 0.0
+		GameData.MARKET["independentsOreSupplyMult"] = 0.0
 		GameState.reset()
 		var phone := _open_factions()
 		_route_button(phone, "shares").pressed.emit()
 		var texts := NodeQuery.label_texts(phone)
 		GameData.MARKET["independentsShare"] = saved_share
-		GameData.MARKET["independentsOreShare"] = saved_ore_share
+		GameData.MARKET["independentsOreSupplyMult"] = saved_ore_share
 		assert_true(not texts.has("Independents"))
 		assert_true(texts.has("You"))
 		phone.free()
