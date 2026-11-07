@@ -693,6 +693,46 @@ test("proposalFileName hyphenates the id and skips taken names", () => {
 const liveDir = path.join(__dirname, "..", "data", "events");
 const liveFiles = fs.existsSync(liveDir) ? fs.readdirSync(liveDir).filter((f) => f.endsWith(".json")) : [];
 test("live events exist to sweep", () => assert(liveFiles.length > 0));
+
+// Live events deliberately left out of the import → promote meaning check: { "<file>.json": "reason" }.
+const ROUND_TRIP_EXCEPTIONS = {};
+
+// An event's meaning independent of flat card order: top-level fields as-is, plus each card by key with every
+// route (outcome goto, card goto, conditional goto, fall-through to the next card, `end`) resolved to card keys.
+// The fall-through is kept only for a card that can actually fall through.
+function routedForm(ev) {
+  const { cards, ...top } = ev;
+  const keyOf = (t) => (typeof t === "string" ? t : cards[t].key);
+  const outcomesOf = (c) => (c.choices || []).flatMap((o) => (o.pick ? pickEntries(o).map((x) => x.res) : o.check ? [o.success, o.fail, ...Object.values(o.bySuccesses || {})] : [o]));
+  const byKey = {};
+  cards.forEach((c, i) => {
+    const out = JSON.parse(JSON.stringify(c));
+    const fix = (x) => { if (x && typeof x === "object" && x.goto != null) x.goto = keyOf(x.goto); };
+    (out.choices || []).forEach((o) => { fix(o); fix(o.success); fix(o.fail); Object.values(o.bySuccesses || {}).forEach(fix); pickEntries(o).forEach((x) => fix(x.res)); });
+    let next = out.end || i + 1 >= cards.length ? null : cards[i + 1].key;
+    if (Array.isArray(out.goto)) {
+      out.goto = out.goto.map((e) => ({ ...e, card: keyOf(e.card) }));
+      if (out.goto.at(-1).if == null) next = out.goto.pop().card;
+      if (!out.goto.length) delete out.goto;
+    } else if (out.goto != null) { next = keyOf(out.goto); delete out.goto; }
+    delete out.end;
+    const onward = !outcomesOf(c).length || outcomesOf(c).some((x) => !x || x.goto == null);
+    if (onward) out._next = next;
+    byKey[c.key] = out;
+  });
+  return { top, byKey };
+}
+
+test("routedForm ignores card order but sees a lost field or a changed route", () => {
+  const ev = { id: "x", deck: "d", cards: [{ key: "a", text: "A" }, { key: "b", text: "B", goto: 3 }, { key: "c", text: "C" }, { key: "d", text: "D" }] };
+  const moved = { id: "x", deck: "d", cards: [{ key: "c", text: "C" }, { key: "d", text: "D", end: true }, { key: "a", text: "A" }, { key: "b", text: "B", goto: 1 }] };
+  assert.deepStrictEqual(routedForm(moved), routedForm(ev), "reordered with the same routes");
+  const same = { id: "x", deck: "d", cards: [{ key: "a", text: "A" }, { key: "c", text: "C", goto: 2 }, { key: "b", text: "B", goto: 3 }, { key: "d", text: "D" }] };
+  assert.notDeepStrictEqual(routedForm(same), routedForm(ev), "a's fall-through moved to c");
+  const ok = { id: "x", deck: "d", cards: [{ key: "a", text: "A", goto: 1 }, { key: "b", text: "B", goto: 3 }, { key: "d", text: "D" }, { key: "c", text: "C", goto: 2 }] };
+  assert.notDeepStrictEqual(routedForm(ok), routedForm(ev), "c's route to d changed");
+  assert.notDeepStrictEqual(routedForm({ ...ev, deck: "e" }), routedForm(ev), "top-level field lost");
+});
 for (const f of liveFiles) {
   test("live event imports: " + f, () => {
     const text = fs.readFileSync(path.join(liveDir, f), "utf-8"), ev = JSON.parse(text);
@@ -712,7 +752,8 @@ for (const f of liveFiles) {
     assert.strictEqual(hasCycle(b.draft), false);
     const { event, dropped } = promoteDraft(b.draft);
     assert.deepStrictEqual(dropped, []);
-    assert.deepStrictEqual(event, ev, "import → promote doesn't give the live event back");
+    if (ROUND_TRIP_EXCEPTIONS[f]) return; // named, reasoned exception: not compared
+    assert.deepStrictEqual(routedForm(event), routedForm(ev), "import → promote changes the live event's meaning");
   });
 }
 
