@@ -1108,3 +1108,30 @@ func run() -> void:
 		GameState.state["event"] = null
 		screen.free()
 	)
+
+	run_case("option_step_keeps_card_text_as_a_tappable_caption", func():
+		assert_eq(EventScreen.caption_text({ "type": "choice", "text": " Push? " }, true), "Push?")
+		assert_eq(EventScreen.caption_text({ "type": "choice", "text": "Push?" }, false), "", "not choosing: text is already shown")
+		assert_eq(EventScreen.caption_text({ "type": "narration", "text": "x" }, true), "")
+
+		GameState.reset()
+		var original_events := _install_check_event()
+		Events.start_event("test_screen_check_event")
+		var screen := _fresh_screen()
+		assert_true(not screen._vn_caption.visible, "text step shows the card text itself")
+		Events.advance()
+		assert_true(Events.is_choosing(), "advance reaches the option step")
+		assert_true(screen._vn_caption.visible, "caption shows on the option step")
+		assert_eq(screen._vn_caption_label.text, "Push?")
+		assert_eq(screen._vn_caption_label.max_lines_visible, EventScreen.CAPTION_CLAMP_LINES)
+		var tap := InputEventMouseButton.new()
+		tap.button_index = MOUSE_BUTTON_LEFT
+		tap.pressed = true
+		screen._on_caption_input(tap)
+		assert_eq(screen._vn_caption_label.max_lines_visible, -1, "tap reveals all")
+		screen._on_caption_input(tap)
+		assert_eq(screen._vn_caption_label.max_lines_visible, EventScreen.CAPTION_CLAMP_LINES, "tap again closes")
+		GameData.EVENTS = original_events
+		GameState.state["event"] = null
+		screen.free()
+	)

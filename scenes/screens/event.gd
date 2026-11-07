@@ -3,6 +3,7 @@ extends Control
 
 const VN_TEXT_FRAME_HEIGHT := 236.0
 const VN_BOTTOM_MARGIN := 8.0  # outer frame padding, also the image/text gap
+const CAPTION_CLAMP_LINES := 3
 const ACTION_SEPARATION := 8
 const CONTEXT_BUTTON_SIZE := 44.0
 const EXPLAIN_CHIP_FONT_SIZE := 13
@@ -22,6 +23,10 @@ var _vn_frame: Control
 var _vn_image_frame: Control
 var _vn_texture: TextureRect
 var _vn_blank_tag: Label
+var _vn_caption: PanelContainer
+var _vn_caption_label: Label
+var _caption_expanded := false
+var _caption_card_key := ""
 var _vn_card_box: VBoxContainer
 var _vn_text_frame: VBoxContainer
 var _vn_card_panel: PanelContainer
@@ -100,6 +105,12 @@ func _populate_card_text(content: VBoxContainer, card: Dictionary) -> void:
 			content.add_child(UI.label(card["text"]))
 		_:
 			content.add_child(UI.label(card["text"]))
+
+# Caption text for a card: its own text while the option step hides it, else "".
+static func caption_text(card: Dictionary, choosing: bool) -> String:
+	if not choosing or card.get("type", "") != "choice":
+		return ""
+	return str(card.get("text", "")).strip_edges()
 
 func _footer_box() -> BoxContainer:
 	var box := HBoxContainer.new()
@@ -865,7 +876,56 @@ func _build_vn_frame() -> Control:
 	frame.add_child(_vn_card_box)
 	_vn_text_frame = _vn_card_box
 
+	_vn_caption = PanelContainer.new()
+	_vn_caption.name = "OptionCaption"
+	_vn_caption.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	_vn_caption.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_vn_caption.offset_left = 2.0 * VN_BOTTOM_MARGIN
+	_vn_caption.offset_right = -2.0 * VN_BOTTOM_MARGIN
+	_vn_caption.offset_bottom = -VN_TEXT_FRAME_HEIGHT - 3.0 * VN_BOTTOM_MARGIN
+	_vn_caption.offset_top = _vn_caption.offset_bottom
+	_vn_caption.mouse_filter = Control.MOUSE_FILTER_STOP
+	_vn_caption.visible = false
+	var scrim := StyleBoxFlat.new()
+	scrim.bg_color = Color(0.05, 0.05, 0.06, 0.82)
+	scrim.set_corner_radius_all(8)
+	scrim.set_content_margin_all(10)
+	_vn_caption.add_theme_stylebox_override("panel", scrim)
+	_vn_caption.gui_input.connect(_on_caption_input)
+	_vn_caption_label = Label.new()
+	_vn_caption_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_vn_caption_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	_vn_caption_label.add_theme_color_override("font_color", _CREAM_COLOR)
+	_vn_caption_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_vn_caption.add_child(_vn_caption_label)
+	frame.add_child(_vn_caption)
+
 	return frame
+
+func _on_caption_input(ev: InputEvent) -> void:
+	var tapped: bool = (ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT) \
+		or (ev is InputEventScreenTouch and ev.pressed)
+	if not tapped:
+		return
+	_caption_expanded = not _caption_expanded
+	_apply_caption_clamp()
+
+func _apply_caption_clamp() -> void:
+	_vn_caption_label.max_lines_visible = -1 if _caption_expanded else CAPTION_CLAMP_LINES
+	_vn_caption.reset_size()
+
+func _refresh_caption(card: Dictionary) -> void:
+	var text := caption_text(card, Events.is_choosing())
+	_vn_caption.visible = text != ""
+	if text == "":
+		return
+	var key := "%s|%d" % [GameState.state["event"]["eventId"], int(GameState.state["event"]["cardIndex"])]
+	if key != _caption_card_key:
+		_caption_card_key = key
+		_caption_expanded = false
+	_vn_caption_label.text = text
+	_apply_caption_clamp()
+
 func _refresh_vn_frame() -> void:
 	var top: float = UI.top_bar_clearance()
 	var bottom_inset: float = UI.safe_area_bottom_inset()
@@ -887,6 +947,7 @@ func _refresh_vn_card() -> void:
 	var built := UI.card()
 	_style_card(built["panel"], card["type"])
 	_vn_card_panel = built["panel"]
+	_refresh_caption(card)
 	_vn_card_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 
 	_vn_text_scroll = UI.scroll_container()
