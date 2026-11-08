@@ -1191,7 +1191,7 @@ func _restore_int_types(state: Dictionary) -> void:
 	if firm_provocation != null:
 		_int_key(firm_provocation, "expiresDay")
 	var business: Dictionary = state.get("business", {})
-	for key in ["pot", "float", "nextPaydayId"]:
+	for key in ["pot", "float", "nextPaydayId", "autoSoldUnits"]:
 		_int_key(business, key)
 	var week: Dictionary = business.get("week", {})
 	_int_key(week, "startDay")

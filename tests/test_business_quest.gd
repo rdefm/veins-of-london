@@ -2,6 +2,7 @@ extends "res://tests/test_base.gd"
 
 const Fixtures := preload("res://tests/support/fixtures.gd")
 const EventPlay := preload("res://tests/support/event_play.gd")
+const BIZ_FIRST_ORDER_UNITS := 15
 
 
 func run() -> void:
@@ -290,24 +291,32 @@ func run() -> void:
 		assert_eq(_recurring_offer("biz_recurring_life_ore")["request"], { "kind": "ore", "type": "life", "qty": 6 })
 		assert_eq(_recurring_offer("biz_recurring_time_pearl")["contractType"], "recurring")
 		assert_true(GameState.state["objectives"]["biz_a1_first_order"]["active"])
-		assert_eq(_business_item("biz_a1_first_order")["detail"], "0 of 1")
+		assert_true(String(_business_item("biz_a1_first_order")["detail"]).begins_with("0 of 15"))
 	)
 
-	run_case("one_full_time_pearl_period_meets_beat_6_and_queues_beat_7", func():
+	run_case("auto_sales_before_activation_do_not_count_and_a_mid_quest_save_counts_from_load", func():
+		_to_beat_5()
+		GameState.state["business"]["autoSoldUnits"] = 40
+		EventPlay.play_event(BusinessQuest.PARTNERSHIP_KIND)
+		_strip_random_offers()
+		EventPlay.play_event(BusinessQuest.PRODUCTION_KIND)
+		assert_true(not GameState.state["flags"]["bizA1FirstOrderDone"], "40 prior units do not count")
+		assert_eq(Objectives.count_progress(GameData.OBJECTIVES["biz_a1_first_order"])["current"], 0)
+		# Mid-quest save: no baseline stored, counter starts at 0.
+		GameState.state["objectives"]["biz_a1_first_order"]["progress"].erase("autoSoldBaseline")
+		GameState.state["business"]["autoSoldUnits"] = 3
+		assert_eq(Objectives.count_progress(GameData.OBJECTIVES["biz_a1_first_order"])["current"], 3)
+	)
+
+	run_case("fifteen_auto_sold_units_since_activation_meet_beat_6_and_queue_beat_7", func():
 		_to_production()
-		var pearls: Dictionary = Offers.accept_offer(_recurring_offer("biz_recurring_time_pearl")["id"])["contract"]
-		Crafting.inventory_add("timePearl", 1, 4)
-		Contracts.process_sales_deliveries()
-		assert_eq(Contracts.delivered_qty(pearls), 4)
-		var settlements: Array = GameState.state["sales"]["settlements"]
-		var settled_before := settlements.size()
-		for i in 8:
-			_tick()
-		assert_true(settlements.size() > settled_before, "the short period settled")
-		assert_true(not GameState.state["flags"]["bizA1FirstOrderDone"], "a short period does not count")
+		GameState.state["business"]["autoSoldUnits"] += 4
+		Objectives.refresh()
+		assert_true(not GameState.state["flags"]["bizA1FirstOrderDone"], "sales short of 15 do not count")
 		assert_eq(_pending_kinds("archie").count(BusinessQuest.PUT_TO_WORK_KIND), 0)
-		Crafting.inventory_add("timePearl", 1, 5)
-		Contracts.process_sales_deliveries()
+		GameState.state["business"]["autoSoldUnits"] += BIZ_FIRST_ORDER_UNITS - 4
+		Objectives.refresh()
+		BusinessQuest.maybe_trigger_put_to_work()
 		assert_true(GameState.state["flags"]["bizA1FirstOrderDone"])
 		assert_true(_business_item("biz_a1_first_order")["done"])
 		assert_eq(_pending_kinds("archie").count(BusinessQuest.PUT_TO_WORK_KIND), 1, "settlement queues Beat 7")
@@ -634,6 +643,9 @@ func _to_first_order_done() -> Dictionary:
 	Crafting.inventory_add("timePearl", 1, 5)
 	Contracts.process_sales_deliveries()
 	assert_true(Contracts.is_period_filled(contract))
+	GameState.state["business"]["autoSoldUnits"] += BIZ_FIRST_ORDER_UNITS
+	Objectives.refresh()
+	BusinessQuest.maybe_trigger_put_to_work()
 	return contract
 
 

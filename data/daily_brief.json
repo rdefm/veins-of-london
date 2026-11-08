@@ -43,6 +43,12 @@
       "consequence": "Saving for {name}.",
       "actionLabel": "Open Property"
     },
+    "autoSellQuest": {
+      "tier": "story", "kind": "autoSellQuest",
+      "label": "Archie's sales: {n} of {target}",
+      "consequence": "Set a Sell-above and he'll move the stock.",
+      "actionLabel": "Open Production"
+    },
     "rentGoal": {
       "tier": "story", "kind": "rentGoal",
       "label": "Rent: £{cash} / £{bill}",

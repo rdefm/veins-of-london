@@ -2924,6 +2924,7 @@ const OBJECTIVE_TYPES: Array[String] = [
 	"sites_discovered_matching", "traded_with_faction", "supplied_to_contact", "vein_sold_to_faction", "vein_growth_above", "flag_true",
 	"alarm_defend_wins", "faction_vein_seeded_count", "items_crafted_set", "contracts_completed", "all_of",
 	"recurring_proof", "template_periods_completed", "recipe_known",
+	"auto_sold_units",
 ]
 const OBJECTIVE_TYPE_PARAMS: Dictionary = {
 	"sites_discovered_matching": ["requireEachOreType", "minTier", "unclaimed"],
@@ -2940,6 +2941,7 @@ const OBJECTIVE_TYPE_PARAMS: Dictionary = {
 	"recurring_proof": ["minContracts", "minCrafted"],
 	"template_periods_completed": ["templateId", "minCount"],
 	"recipe_known": ["recipe"],
+	"auto_sold_units": ["minCount"],
 }
 # Live condition kinds (Objectives.condition_met()) for all_of and
 # activateIf, each with its required keys beside "kind"; all_of entries

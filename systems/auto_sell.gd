@@ -166,6 +166,7 @@ static func daily_pass() -> Dictionary:
 		var income := _sell(recipe_key, assessed["qty"]) + _sell_off_market(recipe_key, assessed["offMarketQty"])
 		sold[recipe_key] = { "qty": assessed["qty"], "offMarketQty": assessed["offMarketQty"], "income": income }
 		total += income
+		GameState.state["business"]["autoSoldUnits"] += assessed["qty"] + assessed["offMarketQty"]
 	if sold.is_empty():
 		return sold
 	Contracts.receive_revenue(total, "Auto-sales")

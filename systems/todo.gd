@@ -361,5 +361,7 @@ static func _display_text(def: Dictionary) -> Dictionary:
 		return { "title": def["earlyTitle"], "detail": "" }
 	var progress := Objectives.count_progress(def)
 	if not progress.is_empty():
-		return { "title": def["title"], "detail": "%d of %d" % [progress["current"], progress["target"]] }
+		var count := "%d of %d" % [progress["current"], progress["target"]]
+		var extra: String = def.get("detail", "")
+		return { "title": def["title"], "detail": count if extra == "" else "%s · %s" % [count, extra] }
 	return { "title": def["title"], "detail": def.get("detail", "") }

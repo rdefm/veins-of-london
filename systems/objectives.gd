@@ -21,6 +21,7 @@ const TYPE_ALL_OF := "all_of"
 const TYPE_RECURRING_PROOF := "recurring_proof"
 const TYPE_TEMPLATE_PERIODS_COMPLETED := "template_periods_completed"
 const TYPE_RECIPE_KNOWN := "recipe_known"
+const TYPE_AUTO_SOLD_UNITS := "auto_sold_units"
 const TYPE_RESERVE_WEEKS_AT_LEAST := "reserve_weeks_at_least"
 const TYPE_ORE_SHARE_AT_LEAST := "ore_share_at_least"
 const TYPE_CRAFTING_SHARE_AT_LEAST := "crafting_share_at_least"
@@ -94,6 +95,8 @@ static func _mark_activated(def: Dictionary, progress: Dictionary) -> void:
 		progress["delivered"] = 0
 	elif def["type"] == TYPE_ITEMS_CRAFTED_SET:
 		progress["craftedBaseline"] = GameState.deep_copy(GameState.state["player"]["craftedCounts"])
+	elif def["type"] == TYPE_AUTO_SOLD_UNITS:
+		progress["autoSoldBaseline"] = auto_sold_units()
 
 
 # Evaluates any definition through the same engine as data objectives —
@@ -155,6 +158,8 @@ static func _evaluate(def: Dictionary, progress: Dictionary) -> bool:
 			return completed_period_count(params["templateId"]) >= int(params["minCount"])
 		TYPE_RECIPE_KNOWN:
 			return Lab.is_known(params["recipe"])
+		TYPE_AUTO_SOLD_UNITS:
+			return auto_sold_since(progress) >= int(params["minCount"])
 		TYPE_RESERVE_WEEKS_AT_LEAST:
 			return reserve_weeks_met(float(params["minWeeks"]))
 		TYPE_ORE_SHARE_AT_LEAST:
@@ -496,11 +501,24 @@ static func completed_period_count(template_id: String) -> int:
 	return count
 
 
+static func auto_sold_units() -> int:
+	return int(GameState.state["business"].get("autoSoldUnits", 0))
+
+
+# Units auto-sold since the objective activated; a progress without a
+# baseline (a save already mid-quest) counts from 0, i.e. from the load.
+static func auto_sold_since(progress: Dictionary) -> int:
+	return auto_sold_units() - int(progress.get("autoSoldBaseline", 0))
+
+
 # { "current", "target" } for count-style objectives the ToDo app shows
 # progress on, else {}. current is capped at target.
 static func count_progress(def: Dictionary) -> Dictionary:
 	var params: Dictionary = def.get("params", {})
 	var target: int = int(params.get("minCount", 0))
+	if def["type"] == TYPE_AUTO_SOLD_UNITS:
+		var runtime: Dictionary = GameState.state["objectives"].get(def["id"], {})
+		return { "current": clampi(auto_sold_since(runtime.get("progress", {})), 0, target), "target": target }
 	if def["type"] == TYPE_CONTRACTS_COMPLETED:
 		return { "current": mini(completed_contract_count(), target), "target": target }
 	if def["type"] == TYPE_TEMPLATE_PERIODS_COMPLETED:

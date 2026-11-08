@@ -25,6 +25,7 @@ static func items() -> Array[Dictionary]:
 	_story_rows(rows)
 	_rent_goal_rows(rows)
 	_deposit_goal_rows(rows)
+	_auto_sell_quest_rows(rows)
 	_offer_expiring_rows(rows)
 	_demand_spike_rows(rows)
 	_favour_rows(rows)
@@ -278,6 +279,16 @@ static func _deposit_goal_rows(rows: Array[Dictionary]) -> void:
 	if goal.is_empty():
 		return
 	rows.append(_row("depositGoal", "depositGoal", { "text": Home.deposit_goal_text(goal), "name": goal["name"] }, { "to": "property" }, 1))
+
+
+# While biz_a1_first_order is live: auto-sold count, deep-linking to
+# BizBrief Production.
+static func _auto_sell_quest_rows(rows: Array[Dictionary]) -> void:
+	var runtime: Dictionary = GameState.state["objectives"].get("biz_a1_first_order", {})
+	if not runtime.get("active", false) or runtime.get("complete", false):
+		return
+	var progress := Objectives.count_progress(GameData.OBJECTIVES["biz_a1_first_order"])
+	rows.append(_row("autoSellQuest", "autoSellQuest", { "n": progress["current"], "target": progress["target"] }, { "to": "bizbrief_production" }, 1))
 
 
 # The Home.rent_goal() row: cash against the next weekly bill.

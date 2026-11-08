@@ -114,6 +114,8 @@ func new_game_state() -> Dictionary:
 			"potActive": false, "pot": 0, "float": 0,
 			"week": { "startDay": 1, "receipts": 0, "expenses": [] },
 			"partners": [], "wages": {}, "ledger": [], "nextPaydayId": 1,
+			# Lifetime units Archie's auto-sell has sold, on- and off-market.
+			"autoSoldUnits": 0,
 		},
 		# LodedInnit market (R§3.10 "Hiring"): status keys a candidate id ->
 		# { state: "open"|"employed"|"ours", employer, since }.

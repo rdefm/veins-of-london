@@ -82,6 +82,17 @@ func run() -> void:
 		assert_eq(AutoSell.daily_pass(), {}, "at the floor nothing more sells")
 	)
 
+	run_case("daily_pass_adds_sold_units_to_the_lifetime_counter", func():
+		_setup()
+		_rule("aggressive", 20)
+		_stock(25)
+		assert_eq(GameState.state["business"]["autoSoldUnits"], 0)
+		AutoSell.daily_pass()
+		assert_eq(GameState.state["business"]["autoSoldUnits"], 5)
+		AutoSell.daily_pass()
+		assert_eq(GameState.state["business"]["autoSoldUnits"], 5, "a pass that sells nothing adds nothing")
+	)
+
 	run_case("keep_alone_raises_the_floor_above_sell_above", func():
 		_setup()
 		_rule("aggressive", 10)

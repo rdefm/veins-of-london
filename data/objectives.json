@@ -258,10 +258,10 @@
   },
   "biz_a1_first_order": {
     "id": "biz_a1_first_order",
-    "title": "Deliver a full week of James's Time Pearl order.",
-    "detail": "",
-    "type": "template_periods_completed",
-    "params": { "templateId": "biz_recurring_time_pearl", "minCount": 1 },
+    "title": "Archie wants fifteen items sold without you.",
+    "detail": "BizBrief, Production: set a Sell-above.",
+    "type": "auto_sold_units",
+    "params": { "minCount": 15 },
     "activateFlag": "bizA1ProductionSeen",
     "completeFlag": "bizA1FirstOrderDone",
     "questline": "business_empire"

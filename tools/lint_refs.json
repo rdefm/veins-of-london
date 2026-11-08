@@ -2370,6 +2370,7 @@
 		"boardMeetings.voiceWeights.owen",
 		"boardMeetings.week",
 		"business",
+		"business.autoSoldUnits",
 		"business.float",
 		"business.ledger",
 		"business.nextPaydayId",
