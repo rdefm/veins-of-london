@@ -370,6 +370,7 @@ infrastructure, excluded from discovery.
 ## scripts/*.sh and scripts/*.gd — tooling
 
 `check_all.sh` syntax-checks .gd files, then runs `lint_tokens.sh` (row-cap + comment-vocab ban).
+Run `set_lossy_imports.sh` after a fresh clone: .import files are gitignored, so it re-applies lossy WebP to event stills + HQ backdrops.
 `export_lint_refs.gd` writes `tools/lint_refs.json` (lint reference lists, GDScript lint violations per event, and `inbound`: data/code/test files naming each event's card keys/option ids, with sha256) for the storyboard tool; regenerate: `godot --headless -s scripts/export_lint_refs.gd`.
 `storyboard.html` "Prose packs" button: editor for `data/board_prose/*` (add/duplicate/delete cards and replies, fields, event cards, `_comments`; Save writes the files) plus a meeting sandbox (facts, seed, phone playback, why-it-fired, unfilled `{tokens}`). Pure section tested by `test_storyboard.js` against `tests/fixtures/board_prose_golden.json` (from `scripts/export_board_prose_golden.gd`).
 `run_tests.sh` runs the headless suite. `setup_godot.sh`/`setup_godot_ai.sh` set up the headless
