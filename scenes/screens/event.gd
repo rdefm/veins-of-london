@@ -76,6 +76,8 @@ func _build_unresolvable_exit() -> void:
 	box.add_child(leave)
 
 func _refresh() -> void:
+	if is_queued_for_deletion():
+		return
 	if GameState.state["event"] == null:
 		return  # on_complete already navigated away; this node is about to be freed
 

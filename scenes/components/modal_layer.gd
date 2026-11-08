@@ -74,6 +74,8 @@ func _dismiss_modal() -> void:
 
 
 func _refresh() -> void:
+	if is_queued_for_deletion():
+		return
 	var modal = GameState.state["modal"]
 	visible = modal != null
 	var type_id: String = modal.get("type", "") if modal != null else ""

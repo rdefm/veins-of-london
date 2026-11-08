@@ -25,6 +25,8 @@ func _ready() -> void:
 
 
 func _render() -> void:
+	if is_queued_for_deletion():
+		return
 	if _committing:
 		return
 	for child in get_children():

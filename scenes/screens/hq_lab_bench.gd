@@ -88,6 +88,8 @@ func _ready() -> void:
 
 
 func _refresh() -> void:
+	if is_queued_for_deletion():
+		return
 	for child in get_children():
 		remove_child(child)
 		child.queue_free()

@@ -13,6 +13,8 @@ func _ready() -> void:
 
 
 func _refresh() -> void:
+	if is_queued_for_deletion():
+		return
 	for child in get_children():
 		child.queue_free()
 	_build()

@@ -265,6 +265,8 @@ func _cp() -> Dictionary:
 
 
 func _refresh() -> void:
+	if is_queued_for_deletion():
+		return
 	var cp: Dictionary = _cp()
 	_fight_body.visible = cp["active"]
 	# Torn down by Combat.exit_combat(): the next screen replaces this one.

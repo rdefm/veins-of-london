@@ -233,6 +233,8 @@ func _reapply_scroll_deferred(v: Vector2, scroll: ScrollContainer) -> void:
 
 
 func _maybe_start_playback() -> void:
+	if is_queued_for_deletion():
+		return
 	if MapEvents.begin_playback():
 		_play_queue()
 
@@ -417,6 +419,8 @@ func _skip_current() -> void:
 
 
 func _rebuild() -> void:
+	if is_queued_for_deletion():
+		return
 	_partition_stops()
 	_halos.rebuild(_vein_stops)
 	_rebuild_pins()

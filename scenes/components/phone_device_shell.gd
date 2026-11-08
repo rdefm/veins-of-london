@@ -182,6 +182,8 @@ static func date_text() -> String:
 
 
 func _refresh_clock() -> void:
+	if is_queued_for_deletion():
+		return
 	_time_label.text = clock_text()
 	if is_instance_valid(_date_label):
 		_date_label.text = date_text()

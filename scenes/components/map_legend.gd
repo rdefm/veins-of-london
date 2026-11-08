@@ -73,6 +73,8 @@ func _ready() -> void:
 
 
 func _on_state_changed() -> void:
+	if is_queued_for_deletion():
+		return
 	if MapPalette.is_dark() == _dark:
 		return
 	_dark = MapPalette.is_dark()

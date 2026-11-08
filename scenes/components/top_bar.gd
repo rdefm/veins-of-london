@@ -116,6 +116,8 @@ func _progress_line_text() -> String:
 
 
 func _refresh() -> void:
+	if is_queued_for_deletion():
+		return
 	_apply_safe_area_offsets()
 	var lines: Array[Dictionary] = [DotMatrixBoard.line(_status_line_text(), STATUS_DOT_SIZE), DotMatrixBoard.line(_progress_line_text(), STATUS_DOT_SIZE)]
 	_sync_effect_chips()

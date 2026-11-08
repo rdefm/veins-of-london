@@ -99,6 +99,8 @@ func _on_dim_gui_input(event: InputEvent) -> void:
 # A dark-mode toggle (fired from this drawer's own switch) restyles the
 # drawer in place: it stays open and keeps the selected filter.
 func _on_state_changed() -> void:
+	if is_queued_for_deletion():
+		return
 	if MapPalette.is_dark() == _dark:
 		return
 	_dark = MapPalette.is_dark()

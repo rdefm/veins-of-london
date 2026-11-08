@@ -10,6 +10,8 @@ func _ready() -> void:
 	_refresh()
 
 func _refresh() -> void:
+	if is_queued_for_deletion():
+		return
 	for child in _content.get_children():
 		child.queue_free()
 

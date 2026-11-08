@@ -65,6 +65,8 @@ func _make_divider() -> ColorRect:
 
 
 func _refresh() -> void:
+	if is_queued_for_deletion():
+		return
 	var current_screen: String = GameState.state["currentScreen"]
 	var phone_home: bool = GameState.state["phoneNav"]["app"] == "home"
 	# The dock follows the Map palette's dark chrome only while the Map tab

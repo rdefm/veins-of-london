@@ -96,6 +96,8 @@ func close() -> void:
 # A Map dark-mode toggle restyles the card and rebuilds an open bubble in
 # place, keeping it open (and the Harvest chooser, if showing).
 func _on_state_changed() -> void:
+	if is_queued_for_deletion():
+		return
 	if MapPalette.is_dark() == _dark:
 		return
 	_dark = MapPalette.is_dark()

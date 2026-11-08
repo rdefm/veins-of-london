@@ -27,3 +27,19 @@ func run() -> void:
 		EventBus.day_ticked.disconnect(on_day)
 		assert_eq(received[0], 4, "day_ticked should pass the new day through")
 	)
+
+	run_case("mark_changed_coalesces_and_flush_now_emits_once", func():
+		var count := [0]
+		var on_change := func(): count[0] += 1
+		EventBus.state_changed.connect(on_change)
+		EventBus.flush_now()
+		assert_eq(count[0], 0, "flush_now with nothing dirty must not emit")
+		for i in 5:
+			EventBus.mark_changed()
+		assert_eq(count[0], 0, "mark_changed defers the emission")
+		EventBus.flush_now()
+		assert_eq(count[0], 1, "N marks flush to exactly one state_changed")
+		EventBus.flush_now()
+		assert_eq(count[0], 1, "second flush_now is a no-op")
+		EventBus.state_changed.disconnect(on_change)
+	)

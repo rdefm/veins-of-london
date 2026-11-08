@@ -61,6 +61,8 @@ func _on_dim_gui_input(event: InputEvent) -> void:
 
 
 func _refresh() -> void:
+	if is_queued_for_deletion():
+		return
 	var open: bool = GameState.state["bagDrawerOpen"]
 	visible = open
 	if not open:
