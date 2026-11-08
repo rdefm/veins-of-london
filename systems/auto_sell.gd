@@ -55,6 +55,36 @@ static func set_mood(recipe_key: String, mood: String) -> void:
 	EventBus.mark_changed()
 
 
+# Master Sell-above; recipes without an override follow. Locked while no one works Sales.
+static func set_master_sell_above(sell_above: int) -> void:
+	if not Contracts.has_staffed_sales():
+		return
+	ProductionSettings.set_master_sell_above(sell_above)
+
+
+# Master mood; locked while no one works Sales.
+static func set_master_mood(mood: String) -> void:
+	if not Contracts.has_staffed_sales() or not _config()["moods"].has(mood):
+		return
+	ProductionSettings.set_master_field("mood", mood)
+
+
+# Sum of projection() over the Production-list recipes that follow the master:
+# { recipes, qty, offMarketQty, income } where recipes counts those that would sell.
+static func master_projection() -> Dictionary:
+	var total := { "recipes": 0, "qty": 0, "offMarketQty": 0, "income": 0 }
+	for recipe_key in Rooms.production_recipes():
+		if ProductionSettings.has_override(recipe_key):
+			continue
+		var projected := projection(recipe_key)
+		if int(projected["qty"]) + int(projected["offMarketQty"]) > 0:
+			total["recipes"] += 1
+		total["qty"] += int(projected["qty"])
+		total["offMarketQty"] += int(projected["offMarketQty"])
+		total["income"] += int(projected["income"])
+	return total
+
+
 # Stock at or below this is never auto-sold: max(Sell-above, Keep, contract
 # need while covering). keep / sell_above >= 0 preview values not yet stored
 # (a handle mid-drag).

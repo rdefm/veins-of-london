@@ -36,6 +36,12 @@ const STOCK_TEXT := "%d in stock"
 const MOOD_BUTTON_HEIGHT := 40.0
 const MOOD_LOCKED_ALPHA := 0.5
 const AUTO_SELL_LOCKED_TEXT := "Locked. Put someone on Sales to set this."
+const MASTER_HEADING := "Master settings · %d recipes follow"
+const MASTER_SUMMARY := "Today: following recipes would sell %d across %d for about £%d"
+const MASTER_SUMMARY_NONE := "Today: following recipes would sell nothing"
+const SELL_NONE_TEXT := "none"
+const MASTER_MAKE_COLOUR := Color("#f2c14e")
+const MASTER_KEEP_COLOUR := Color("#b4d6c2")
 const AUTO_SELL_HEADING := "Sales approach"
 const AUTO_SELL_MOODS := {
 	"aggressive": { "label": "Aggressive", "meaning": "Sells more, and takes a softer price to do it." },
@@ -1222,10 +1228,7 @@ func _build_production() -> Control:
 	else:
 		var recipe_keys := Rooms.production_recipes()
 		if not recipe_keys.is_empty():
-			var all_on := Rooms.lab_covers_all_contracts()
-			var cover_all := UI.button("Stop covering contracts: all" if all_on else "Cover contract needs: all", func(): Rooms.toggle_all_lab_cover_contracts())
-			cover_all.name = "CoverAllToggle"
-			c["content"].add_child(cover_all)
+			c["content"].add_child(_build_master_controller())
 		for recipe_key in recipe_keys:
 			c["content"].add_child(_build_production_recipe_row(recipe_key))
 		if recipe_keys.is_empty():
@@ -1292,6 +1295,77 @@ func _production_entry_lines(entry: Dictionary) -> Array[String]:
 			ore_names.append(GameData.ORE_TYPES[ore_type]["name"])
 		lines.append("%s stopped: not enough %s for %s" % [name, ", ".join(ore_names), GameData.RECIPES[ore_short["recipeKey"]]["name"]])
 	return lines
+
+
+# Master settings for every recipe that has no override: a slider each for
+# Production, Keep and Sell above, the sales mood, Cover contracts, and a live
+# line of what auto-sell would do today across the following recipes.
+func _build_master_controller() -> Control:
+	var master := ProductionSettings.master()
+	var top: int = GameData.PRODUCTION_TARGET_MAX
+	var sales_staffed := Contracts.has_staffed_sales()
+	var box := UI.vbox(5)
+	box.name = "MasterController"
+	var following := 0
+	for recipe_key in Rooms.production_recipes():
+		if not ProductionSettings.has_override(recipe_key):
+			following += 1
+	box.add_child(UI.muted_label(MASTER_HEADING % following))
+
+	var make := SettingSlider.new()
+	make.name = "MasterProduction"
+	make.configure("Make to", MASTER_MAKE_COLOUR, top, 0, int(master["production"]), false)
+	make.committed.connect(func(v: int) -> void: ProductionSettings.set_master_production(v))
+	box.add_child(make)
+
+	var keep := SettingSlider.new()
+	keep.name = "MasterKeep"
+	keep.configure("Keep", MASTER_KEEP_COLOUR, top - 1, 0, int(master["keep"]), false)
+	keep.committed.connect(func(v: int) -> void: ProductionSettings.set_master_keep(v))
+	box.add_child(keep)
+
+	var sell := SettingSlider.new()
+	sell.name = "MasterSellAbove"
+	sell.configure("Sell above", SIGNAL if sales_staffed else MUTED, top, int(master["keep"]) + 1, int(master["sellAbove"]), not sales_staffed, SELL_NONE_TEXT)
+	sell.committed.connect(func(v: int) -> void: AutoSell.set_master_sell_above(v))
+	box.add_child(sell)
+
+	box.add_child(UI.muted_label(AUTO_SELL_HEADING))
+	box.add_child(_build_master_mood_row(master["mood"], sales_staffed))
+	box.add_child(UI.muted_label(AUTO_SELL_MOODS[master["mood"]]["meaning"] if sales_staffed else AUTO_SELL_LOCKED_TEXT))
+
+	var covering: bool = master["coverContracts"]
+	var cover := UI.button("Stop covering contracts" if covering else "Cover contract needs", func(): ProductionSettings.set_master_field("coverContracts", not covering))
+	cover.name = "MasterCover"
+	box.add_child(cover)
+
+	var summary := UI.label(_master_summary_text(AutoSell.master_projection(), sales_staffed))
+	summary.name = "MasterSummary"
+	box.add_child(summary)
+	box.add_child(HSeparator.new())
+	return box
+
+
+func _build_master_mood_row(selected_mood: String, sales_staffed: bool) -> Control:
+	var row := UI.hbox(4)
+	row.modulate.a = 1.0 if sales_staffed else MOOD_LOCKED_ALPHA
+	for mood in AUTO_SELL_MOODS:
+		var button := UI.button(AUTO_SELL_MOODS[mood]["label"], func(): AutoSell.set_master_mood(mood))
+		button.name = "MasterMood_%s" % mood
+		button.custom_minimum_size.y = MOOD_BUTTON_HEIGHT
+		button.disabled = not sales_staffed
+		_style_stats_toggle(button, mood == selected_mood)
+		row.add_child(UI.expand_fill(button))
+	return row
+
+
+static func _master_summary_text(projected: Dictionary, sales_staffed: bool) -> String:
+	if not sales_staffed:
+		return AUTO_SELL_REASON_TEXT[AutoSell.REASON_NO_SALES]
+	var qty: int = int(projected["qty"]) + int(projected["offMarketQty"])
+	if qty <= 0:
+		return MASTER_SUMMARY_NONE
+	return MASTER_SUMMARY % [qty, projected["recipes"], projected["income"]]
 
 
 func _build_production_recipe_row(recipe_key: String) -> Control:

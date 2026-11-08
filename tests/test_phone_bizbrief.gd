@@ -686,12 +686,90 @@ func run() -> void:
 		Rooms.set_lab_threshold("timePearl", 5)
 		EventBus.flush_now()
 
-		var cover := _button_with_text(phone, "Cover contract needs")
+		var cover := _button_with_text(row, "Cover contract needs")
 		assert_true(cover != null)
 		cover.pressed.emit()
 		EventBus.flush_now()
 		assert_true(Rooms.lab_covers_contracts("timePearl"))
 		assert_true(NodeQuery.label_texts(phone).has("Keep: 5 · Sell above: 50 · contract need: 3 · crafting to: 8"))
+		phone.free()
+	)
+
+	run_case("master_sliders_edit_master_and_only_following_recipes_move", func():
+		var phone := _production_phone(true)
+		ProductionSettings.set_field("rewind", "keep", 2)
+		EventBus.flush_now()
+		var cap: int = GameData.PRODUCTION_TARGET_MAX
+		var make: SettingSlider = phone.find_child("MasterProduction", true, false)
+		make._slider.value = 7
+		make.committed.emit(7)
+		EventBus.flush_now()
+		assert_eq(ProductionSettings.master()["production"], 7)
+		assert_eq(Rooms.lab_target("timePearl"), 7, "following recipe moves")
+		assert_eq(Rooms.lab_target("rewind"), 0, "overridden recipe untouched")
+
+		phone.find_child("MasterKeep", true, false).committed.emit(cap - 1)
+		EventBus.flush_now()
+		assert_eq(ProductionSettings.master()["keep"], cap - 1)
+		assert_eq(ProductionSettings.master()["sellAbove"], cap, "Keep pushes Sell above")
+		var sell: SettingSlider = phone.find_child("MasterSellAbove", true, false)
+		assert_eq(sell._slider.min_value, float(cap), "Sell above slider floor is Keep + 1")
+		assert_eq(sell.value_text(), BizBriefApp.SELL_NONE_TEXT)
+
+		phone.find_child("MasterKeep", true, false).committed.emit(3)
+		EventBus.flush_now()
+		phone.find_child("MasterSellAbove", true, false).committed.emit(10)
+		EventBus.flush_now()
+		assert_eq(ProductionSettings.master()["sellAbove"], 10)
+		assert_eq(Rooms.lab_keep("rewind"), 2, "override keeps its own Keep")
+
+		(phone.find_child("MasterMood_aggressive", true, false) as Button).pressed.emit()
+		EventBus.flush_now()
+		assert_eq(AutoSell.rule("timePearl")["mood"], "aggressive")
+		assert_eq(AutoSell.rule("rewind")["mood"], "balanced", "override keeps its mood")
+		var covering: bool = ProductionSettings.master()["coverContracts"]
+		(phone.find_child("MasterCover", true, false) as Button).pressed.emit()
+		EventBus.flush_now()
+		assert_eq(ProductionSettings.master()["coverContracts"], not covering)
+		assert_true(phone.find_child("CoverAllToggle", true, false) == null, "cover-all button is gone")
+		phone.free()
+	)
+
+	run_case("master_summary_projects_following_recipes_only", func():
+		var phone := _production_phone(true)
+		Crafting.inventory_add("timePearl", 1, 30)
+		ProductionSettings.set_master_sell_above(10)
+		EventBus.flush_now()
+		var projected := AutoSell.master_projection()
+		assert_true(int(projected["qty"]) > 0, "stock above the cutoff would sell")
+		ProductionSettings.set_field("timePearl", "sellAbove", GameData.PRODUCTION_TARGET_MAX)
+		assert_eq(AutoSell.master_projection()["qty"], 0, "overridden recipe leaves the total")
+		EventBus.flush_now()
+		assert_true(phone.find_child("MasterSummary", true, false) != null)
+		phone.free()
+	)
+
+	run_case("master_sell_above_and_mood_lock_until_sales_is_staffed", func():
+		var phone := _production_phone(false)
+		assert_true(not (phone.find_child("MasterSellAbove", true, false) as SettingSlider)._slider.editable)
+		assert_true((phone.find_child("MasterMood_balanced", true, false) as Button).disabled)
+		AutoSell.set_master_sell_above(10)
+		AutoSell.set_master_mood("cautious")
+		assert_eq(ProductionSettings.master()["sellAbove"], GameData.PRODUCTION_TARGET_MAX)
+		assert_eq(ProductionSettings.master()["mood"], "balanced")
+		assert_true((phone.find_child("MasterProduction", true, false) as SettingSlider)._slider.editable, "Production stays open")
+		assert_true((phone.find_child("MasterKeep", true, false) as SettingSlider)._slider.editable, "Keep stays open")
+		assert_true(NodeQuery.label_texts(phone).has("No one on Sales"))
+		phone.free()
+	)
+
+	run_case("master_controller_hidden_without_the_improved_lab", func():
+		GameState.reset()
+		GameState.state["phoneNav"]["app"] = "bizbrief"
+		var phone := PhoneScreen.new()
+		phone._ready()
+		_open_manage_page(phone, "production")
+		assert_true(phone.find_child("MasterController", true, false) == null)
 		phone.free()
 	)
 
