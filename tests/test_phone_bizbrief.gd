@@ -749,6 +749,26 @@ func run() -> void:
 		phone.free()
 	)
 
+	run_case("defaults_panel_collapses_with_summary_and_survives_refresh", func():
+		var phone := _production_phone(true)
+		assert_true(phone.find_child("DefaultsTag", true, false) != null, "tag")
+		var body := phone.find_child("DefaultsBody", true, false) as Control
+		var line := phone.find_child("DefaultsCollapsedSummary", true, false) as Label
+		assert_true(body.visible and not line.visible, "starts open")
+		(phone.find_child("DefaultsToggle", true, false) as Button).pressed.emit()
+		assert_true(not body.visible and line.visible, "header collapses")
+		var master := ProductionSettings.master()
+		var following := Rooms.production_recipes().size()
+		var top: int = GameData.PRODUCTION_TARGET_MAX
+		assert_eq(BizBriefApp._defaults_collapsed_text(following, master, top),
+			"%d follow · Make %d · Keep %d · Sell %s" % [following, master["production"], master["keep"], BizBriefApp.SELL_NONE_TEXT if int(master["sellAbove"]) >= top else ">%d" % master["sellAbove"]])
+		assert_eq(line.text, BizBriefApp._defaults_collapsed_text(following, master, top))
+		EventBus.mark_changed()
+		EventBus.flush_now()
+		assert_true(not (phone.find_child("DefaultsBody", true, false) as Control).visible, "collapse survives refresh")
+		phone.free()
+	)
+
 	run_case("recipe_cards_collapse_by_default_expand_and_survive_refresh", func():
 		var phone := _production_phone(true)
 		var body := phone.find_child("RecipeBody_timePearl", true, false) as Control

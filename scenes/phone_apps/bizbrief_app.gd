@@ -50,6 +50,10 @@ const FOLLOWING_DEFAULTS_TEXT := "Following the defaults"
 const CUSTOMISE_TEXT := "Customise"
 const RESET_TEXT := "Reset to defaults"
 const RECIPE_HEADER_HEIGHT := 56.0
+const DEFAULTS_HEADER_HEIGHT := 44.0
+const DEFAULTS_SURFACE := Color("#2f3a47")
+const DEFAULTS_TAG_TEXT := "DEFAULTS"
+const DEFAULTS_COLLAPSED := "%d follow · Make %d · Keep %d · Sell %s"
 const RECIPE_TILE_SIZE := 46.0
 const RECIPE_PIP_SIZE := 12.0
 const HEALTH_GREEN := Color("#4caf6a")
@@ -131,6 +135,7 @@ var _production_log_open := false
 var _filter_ore := ""
 # Recipe cards expanded on the Production page (view state), recipe key -> true.
 var _open_recipes := {}
+var _defaults_collapsed := false
 var _filter_follow := ""
 var _sales_history_open := false
 var _sales_details_id := ""
@@ -1383,13 +1388,45 @@ func _build_master_controller() -> Control:
 	var master := ProductionSettings.master()
 	var top: int = GameData.PRODUCTION_TARGET_MAX
 	var sales_staffed := Contracts.has_staffed_sales()
-	var box := UI.vbox(5)
-	box.name = "MasterController"
 	var following := 0
 	for recipe_key in Rooms.production_recipes():
 		if not ProductionSettings.has_override(recipe_key):
 			following += 1
-	box.add_child(UI.muted_label(MASTER_HEADING % following))
+	var panel := PanelContainer.new()
+	panel.name = "MasterController"
+	panel.add_theme_stylebox_override("panel", _defaults_panel_style())
+	var outer := UI.vbox(5)
+	panel.add_child(outer)
+	var box := UI.vbox(5)
+	box.name = "DefaultsBody"
+	box.visible = not _defaults_collapsed
+
+	var header := TapButton.new()
+	header.name = "DefaultsToggle"
+	header.flat = true
+	header.custom_minimum_size = Vector2(0, DEFAULTS_HEADER_HEIGHT)
+	var summary_line := UI.muted_label(_defaults_collapsed_text(following, master, top))
+	summary_line.name = "DefaultsCollapsedSummary"
+	summary_line.visible = _defaults_collapsed
+	summary_line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	header.pressed.connect(func() -> void:
+		_defaults_collapsed = not _defaults_collapsed
+		box.visible = not _defaults_collapsed
+		summary_line.visible = _defaults_collapsed)
+	var head_row := UI.hbox(8)
+	head_row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	head_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	head_row.add_child(_defaults_tag())
+	var title := UI.muted_label(MASTER_HEADING % following)
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	title.clip_text = true
+	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	head_row.add_child(title)
+	header.add_child(head_row)
+	outer.add_child(header)
+	outer.add_child(summary_line)
+	outer.add_child(box)
 
 	var make := SettingSlider.new()
 	make.name = "MasterProduction"
@@ -1414,15 +1451,48 @@ func _build_master_controller() -> Control:
 	box.add_child(UI.muted_label(AUTO_SELL_MOODS[master["mood"]]["meaning"] if sales_staffed else AUTO_SELL_LOCKED_TEXT))
 
 	var covering: bool = master["coverContracts"]
-	var cover := UI.button("Stop covering contracts" if covering else "Cover contract needs", func(): ProductionSettings.set_master_field("coverContracts", not covering))
+	var cover := UI.switch_row("Cover contract needs", covering, func(on: bool) -> void: ProductionSettings.set_master_field("coverContracts", on))
 	cover.name = "MasterCover"
 	box.add_child(cover)
 
 	var summary := UI.label(_master_summary_text(AutoSell.master_projection(), sales_staffed))
 	summary.name = "MasterSummary"
 	box.add_child(summary)
-	box.add_child(HSeparator.new())
-	return box
+	return panel
+
+
+static func _defaults_collapsed_text(following: int, master: Dictionary, top: int) -> String:
+	var sell: String = SELL_NONE_TEXT if int(master["sellAbove"]) >= top else ">%d" % int(master["sellAbove"])
+	return DEFAULTS_COLLAPSED % [following, int(master["production"]), int(master["keep"]), sell]
+
+
+static func _defaults_panel_style() -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.set_content_margin_all(8)
+	style.set_corner_radius_all(8)
+	style.bg_color = DEFAULTS_SURFACE
+	return style
+
+
+func _defaults_tag() -> Control:
+	var tag := PanelContainer.new()
+	tag.name = "DefaultsTag"
+	tag.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var style := StyleBoxFlat.new()
+	style.set_content_margin_all(2)
+	style.content_margin_left = 6
+	style.content_margin_right = 6
+	style.set_corner_radius_all(4)
+	style.set_border_width_all(1)
+	style.border_color = HEALTH_RED
+	tag.add_theme_stylebox_override("panel", style)
+	var text := UI.label(DEFAULTS_TAG_TEXT)
+	text.add_theme_font_size_override("font_size", 11)
+	text.add_theme_color_override("font_color", HEALTH_RED)
+	text.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tag.add_child(text)
+	return tag
 
 
 func _build_master_mood_row(selected_mood: String, sales_staffed: bool) -> Control:
