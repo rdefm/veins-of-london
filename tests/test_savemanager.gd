@@ -1725,3 +1725,62 @@ func run() -> void:
 		assert_eq(GameState.state["player"]["craftedCounts"].get("panic", 0), 2)
 		assert_true(not GameState.state["player"]["craftedCounts"].has("pansPrank"))
 	)
+
+	run_case("second_save_rotates_previous_main_to_bak", func():
+		GameState.reset()
+		GameState.state["player"]["cash"] = 111
+		assert_true(SaveManager.save_to_slot(TEST_SLOT)["ok"])
+		GameState.state["player"]["cash"] = 222
+		assert_true(SaveManager.save_to_slot(TEST_SLOT)["ok"])
+		var path := SaveManager.slot_path(TEST_SLOT)
+		assert_true(FileAccess.file_exists(path + ".bak"), "previous main kept as .bak")
+		assert_true(not FileAccess.file_exists(path + ".tmp"), "no temp left behind")
+		assert_eq(int(SaveManager._read_save_file(path + ".bak")["player"]["cash"]), 111)
+		assert_eq(int(SaveManager._read_save_file(path)["player"]["cash"]), 222)
+		SaveManager.delete_slot(TEST_SLOT)
+	)
+
+	run_case("failed_write_leaves_previous_main_intact", func():
+		GameState.reset()
+		GameState.state["player"]["cash"] = 333
+		assert_true(SaveManager.save_to_slot(TEST_SLOT)["ok"])
+		var path := SaveManager.slot_path(TEST_SLOT)
+		# A directory squatting on the temp path makes the open fail.
+		DirAccess.make_dir_recursive_absolute(path + ".tmp")
+		var result := SaveManager._write_json(path, { "x": 1 })
+		assert_true(not result["ok"], "write fails")
+		assert_true(result.has("reason"))
+		assert_eq(int(SaveManager._read_save_file(path)["player"]["cash"]), 333, "main untouched")
+		DirAccess.remove_absolute(path + ".tmp")
+		SaveManager.delete_slot(TEST_SLOT)
+	)
+
+	run_case("corrupt_main_loads_from_bak_with_notice", func():
+		GameState.reset()
+		GameState.state["player"]["cash"] = 444
+		assert_true(SaveManager.save_to_slot(TEST_SLOT)["ok"])
+		assert_true(SaveManager.save_to_slot(TEST_SLOT)["ok"])
+		var path := SaveManager.slot_path(TEST_SLOT)
+		var file := FileAccess.open(path, FileAccess.WRITE)
+		file.store_string("{\"world\": {\"da")
+		file.close()
+		assert_eq(SaveManager.slot_summary(TEST_SLOT).get("cash"), 444, "summary falls back to .bak")
+		GameState.reset()
+		var result := SaveManager.load_from_slot(TEST_SLOT)
+		assert_true(result["ok"], "falls back to .bak")
+		assert_true(result.get("usedBackup", false))
+		assert_eq(GameState.state["player"]["cash"], 444)
+		var texts: Array = GameState.state["notifications"].map(func(n): return n["text"])
+		assert_true(texts.has(result["notice"]), "player-visible notification pushed")
+		SaveManager.delete_slot(TEST_SLOT)
+	)
+
+	run_case("corrupt_main_and_no_bak_fails", func():
+		var path := SaveManager.slot_path(TEST_SLOT)
+		DirAccess.make_dir_recursive_absolute(SaveManager.saves_dir)
+		var file := FileAccess.open(path, FileAccess.WRITE)
+		file.store_string("garbage")
+		file.close()
+		assert_true(not SaveManager.load_from_slot(TEST_SLOT)["ok"])
+		SaveManager.delete_slot(TEST_SLOT)
+	)

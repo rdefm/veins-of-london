@@ -32,15 +32,12 @@ func slot_exists(slot: int) -> bool:
 # slot doesn't exist or is unreadable.
 func slot_summary(slot: int) -> Dictionary:
 	var path := slot_path(slot)
-	if not FileAccess.file_exists(path):
+	var parsed := _read_save_file(path)
+	if parsed.is_empty():
+		parsed = _read_save_file(path + ".bak")
+	if parsed.is_empty():
 		return {}
-	var file := FileAccess.open(path, FileAccess.READ)
-	if file == null:
-		return {}
-	var parsed = JSON.parse_string(file.get_as_text())
-	if parsed == null or typeof(parsed) != TYPE_DICTIONARY:
-		return {}
-		# JSON returns numbers as float; cast explicitly (see _restore_int_types).
+	# JSON returns numbers as float; cast explicitly (see _restore_int_types).
 	return {
 		"day": int(parsed.get("world", {}).get("day", 0)),
 		"cash": int(parsed.get("player", {}).get("cash", 0)),
@@ -58,8 +55,9 @@ func load_from_slot(slot: int) -> Dictionary:
 
 func delete_slot(slot: int) -> void:
 	var path := slot_path(slot)
-	if FileAccess.file_exists(path):
-		DirAccess.remove_absolute(path)
+	for p in [path, path + ".bak", path + ".tmp"]:
+		if FileAccess.file_exists(p):
+			DirAccess.remove_absolute(p)
 
 
 # Writes to whichever of the AUTOSAVE_COUNT rotation slots is emptiest/
@@ -135,25 +133,67 @@ func _encode_rng_states(node: Variant) -> void:
 			_encode_rng_states(item)
 
 
+# Atomic: write `path.tmp`, check it, move the existing main to `path.bak`, then
+# rename the temp over main. A failure at any step leaves the existing main
+# (or its .bak) intact.
 func _write_json(path: String, data: Dictionary) -> Dictionary:
-	var file := FileAccess.open(path, FileAccess.WRITE)
+	var tmp_path := path + ".tmp"
+	var bak_path := path + ".bak"
+	var file := FileAccess.open(tmp_path, FileAccess.WRITE)
 	if file == null:
-		return { "ok": false, "reason": "Could not open %s for writing (error %d)." % [path, FileAccess.get_open_error()] }
-	file.store_string(JSON.stringify(data))
+		return { "ok": false, "reason": "Could not open %s for writing (error %d)." % [tmp_path, FileAccess.get_open_error()] }
+	var stored := file.store_string(JSON.stringify(data))
+	var write_error := file.get_error()
+	file.close()
+	if not stored or write_error != OK:
+		DirAccess.remove_absolute(tmp_path)
+		return { "ok": false, "reason": "Could not write %s (error %d)." % [tmp_path, write_error] }
+	if FileAccess.file_exists(path):
+		var bak_error := DirAccess.rename_absolute(path, bak_path)
+		if bak_error != OK:
+			DirAccess.remove_absolute(tmp_path)
+			return { "ok": false, "reason": "Could not back up %s (error %d)." % [path, bak_error] }
+	var rename_error := DirAccess.rename_absolute(tmp_path, path)
+	if rename_error != OK:
+		# Put the previous main back so it isn't left only as .bak.
+		if FileAccess.file_exists(bak_path):
+			DirAccess.rename_absolute(bak_path, path)
+		DirAccess.remove_absolute(tmp_path)
+		return { "ok": false, "reason": "Could not finalise %s (error %d)." % [path, rename_error] }
 	return { "ok": true }
 
 
-func _load_json_into_state(path: String) -> Dictionary:
+# Parses a save file into a Dictionary; empty if missing/unreadable/corrupt.
+func _read_save_file(path: String) -> Dictionary:
 	if not FileAccess.file_exists(path):
-		return { "ok": false, "reason": "No save at %s." % path }
+		return {}
 	var file := FileAccess.open(path, FileAccess.READ)
 	if file == null:
-		return { "ok": false, "reason": "Could not open %s for reading (error %d)." % [path, FileAccess.get_open_error()] }
-	var text := file.get_as_text()
-	var parsed = JSON.parse_string(text)
+		return {}
+	var parsed = JSON.parse_string(file.get_as_text())
 	if parsed == null or typeof(parsed) != TYPE_DICTIONARY:
-		return { "ok": false, "reason": "Corrupt save data." }
-	return _load_save_dict(parsed)
+		return {}
+	return parsed
+
+
+func _load_json_into_state(path: String) -> Dictionary:
+	var bak_path := path + ".bak"
+	if not FileAccess.file_exists(path) and not FileAccess.file_exists(bak_path):
+		return { "ok": false, "reason": "No save at %s." % path }
+	var parsed := _read_save_file(path)
+	var used_backup := false
+	if parsed.is_empty():
+		parsed = _read_save_file(bak_path)
+		if parsed.is_empty():
+			return { "ok": false, "reason": "Corrupt save data." }
+		used_backup = true
+	var result := _load_save_dict(parsed)
+	if result["ok"] and used_backup:
+		var notice := "Your save was damaged; loaded the previous backup instead."
+		Notify.push(notice, Notify.CATEGORY_WARNING)
+		result["usedBackup"] = true
+		result["notice"] = notice
+	return result
 
 
 func _load_save_dict(raw: Dictionary) -> Dictionary:
