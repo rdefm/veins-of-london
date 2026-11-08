@@ -72,7 +72,7 @@ static func equip(index: int, recipe_key: String, tier: int, contact_id: String 
 		loadout["slots"][index]["multi"] = true
 	loadout["lastRecipe"][index] = recipe_key
 	_set_last_multi(loadout, index, multi)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true }
 
 
@@ -88,7 +88,7 @@ static func unequip(index: int, contact_id: String = "") -> Dictionary:
 		return { "ok": false, "reason": "Slot is empty." }
 	Crafting.inventory_add(Crafting.inventory_key(entry["recipe"], entry.get("multi", false)), int(entry["tier"]), 1)
 	loadout["slots"][index] = null
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true }
 
 
@@ -101,7 +101,7 @@ static func debug_grant(units: Array) -> void:
 		if unit is Dictionary:
 			loadout["slots"][i] = { "recipe": str(unit["recipe"]), "tier": int(unit["tier"]) }
 			loadout["lastRecipe"][i] = str(unit["recipe"])
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # Equippable stock the player can reach (shared plus stash) as [{ recipe, tier, qty, multi }, ...]:

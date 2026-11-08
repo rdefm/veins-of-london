@@ -359,6 +359,7 @@ func run() -> void:
 					lab_open = b
 		assert_true(lab_open != null, "Lab card has an Open button")
 		lab_open.pressed.emit()
+		EventBus.flush_now()
 		assert_eq(_find_buttons_by_text(phone, "Refill calc").size(), 1, "Lab page shows Refill calc")
 
 		var known: CheckBox = null
@@ -368,9 +369,11 @@ func run() -> void:
 				known = n as CheckBox
 		assert_true(known != null, "timePearl has a Known toggle")
 		known.button_pressed = true
+		EventBus.flush_now()
 		assert_true(Lab.is_known("timePearl"), "toggle granted the recipe")
 
 		var exact := _find_buttons_by_text(phone, "Exact")
+		EventBus.flush_now()
 		assert_true(not exact.is_empty(), "known recipe shows step grant buttons")
 		exact[0].pressed.emit()
 		assert_true(not Lab.step_specificity("timePearl", int(Lab.procedure_def("timePearl")["hints"][0]["step"])).is_empty(), "first hint step granted")

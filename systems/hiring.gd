@@ -242,7 +242,7 @@ static func hire(candidate_id: String, top_up: bool = false) -> Dictionary:
 	else:
 		LodedInnitFeed.post_status(LodedInnitFeed.STATUS_HIRED, candidate_id)
 	Notify.push("%s starts in the %s today." % [Contacts.display_name(candidate_id), GameData.HOME_ROOMS[role(candidate_id)["room"]]["name"]], Notify.CATEGORY_SUCCESS)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true, "paid": weekly, "toppedUp": needed }
 
 
@@ -266,7 +266,7 @@ static func let_go(candidate_id: String) -> Dictionary:
 	LodedInnitFeed.post_status(LodedInnitFeed.STATUS_LET_GO, candidate_id)
 	# PROSE-REVIEW: let-go notification.
 	Notify.push("%s clears their desk." % Contacts.display_name(candidate_id))
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true }
 
 
@@ -370,7 +370,7 @@ static func daily_poach_tick() -> void:
 		entry["pending"] = { "factionId": faction_id, "offer": poach_offer_wage(candidate_id), "expiresDay": day + 2 }
 		# PROSE-REVIEW: poach alert notification.
 		Notify.push("%s has an offer from %s." % [Contacts.display_name(candidate_id), faction_name(faction_id)])
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 static func faction_name(faction_id: String) -> String:
@@ -394,7 +394,7 @@ static func match_poach(candidate_id: String) -> Dictionary:
 		wage["wageMult"] = float(offer) / float(_formula_wage(candidate_id))
 		wage["weekly"] = offer
 	_poach_entry(candidate_id)["pending"] = null
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true, "weekly": offer }
 
 
@@ -408,5 +408,5 @@ static func decline_poach(candidate_id: String) -> Dictionary:
 	LodedInnitFeed.post_status(LodedInnitFeed.STATUS_POACHED_AWAY, candidate_id, faction_id)
 	# PROSE-REVIEW: poached-away notification.
 	Notify.push("%s has gone to %s." % [Contacts.display_name(candidate_id), faction_name(faction_id)])
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true, "factionId": faction_id }

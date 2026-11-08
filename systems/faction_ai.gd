@@ -179,7 +179,7 @@ static func update_stances() -> void:
 		var target := _player_band(faction_id, relation, player_overlaps(faction_id), GameState.state["flags"])
 		if _step(entry, target):
 			_announce_player_flip(faction_id, entry["stance"])
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 static func _log_pair_flip(faction_a: String, faction_b: String, stance: String) -> void:
@@ -444,7 +444,7 @@ static func apply_pressure() -> void:
 			continue
 		var mean: float = (float(snapshots[pair[0]][pair[1]]["delta"]) + float(snapshots[pair[1]][pair[0]]["delta"])) / 2.0
 		Factions.adjust_relation(pair[0], pair[1], roundi(mean + pair_recovery(pair[0], pair[1])))
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # The pair relation's daily pull back toward its starting relation:
@@ -677,7 +677,7 @@ static func apply_escalation() -> void:
 			if target != observer and not moves_blocked(observer, target):
 				_escalate(observer, target)
 	_apply_shortfall_steals()
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 static func _escalate(observer: String, target: String) -> void:
@@ -1004,7 +1004,7 @@ static func accept_lowball(pending_id: String) -> Dictionary:
 	var result := VeinTrade.sell_at_price(payload["veinId"], faction_id, price)
 	if result.get("ok", false):
 		GameState.state["factions"][faction_id]["resources"] -= price
-		EventBus.state_changed.emit()
+		EventBus.mark_changed()
 	return result
 
 
@@ -1763,7 +1763,7 @@ static func update_wars() -> void:
 	_make_faction_peace()
 	_offer_player_peace()
 	_check_nags()
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 static func _start_war(party_a: String, party_b: String, day: int) -> void:
@@ -1956,7 +1956,7 @@ static func sign_truce(party_a: String, party_b: String, terms: Dictionary) -> v
 	if party_a != Shares.PLAYER and party_b != Shares.PLAYER:
 		Barometer.push_headline(_tcfg()["headlines"]["signed"] % [_party_name(party_a), _party_name(party_b)],
 			"truceSigned", { "first": party_a, "second": party_b, "endDay": end_day })
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # breaker moved against its truce partner: the truce ends and every faction
@@ -1977,7 +1977,7 @@ static func break_truce(breaker: String, victim: String) -> void:
 		else:
 			log_activity(breaker, log_cfg["brokePair"] % _party_name(victim))
 			log_activity(victim, log_cfg["brokenByPair"] % _party_name(breaker))
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # Truces past their endDay lapse; the rest add their daily bonus.
@@ -2230,7 +2230,7 @@ static func _new_talks(faction_id: String, binding: bool, draft: Dictionary, cou
 		"factionId": faction_id, "round": 1, "binding": binding, "final": false,
 		"draft": draft, "counter": counter,
 	}
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # { ok } when the player may open talks with faction_id now.
@@ -2311,7 +2311,7 @@ static func set_draft_term(key: String, value: int) -> void:
 	else:
 		value = maxi(0, value)
 	talks["draft"][key] = value
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # Adds the vein to (or takes it off) the draft's veinsToFaction or
@@ -2325,7 +2325,7 @@ static func toggle_draft_vein(key: String, vein_id: String) -> void:
 		ids.erase(vein_id)
 	else:
 		ids.append(vein_id)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # The player puts the draft to the faction. Returns { ok, result } with
@@ -2353,11 +2353,11 @@ static func propose_terms() -> Dictionary:
 	talks["counter"] = _counter_terms(faction_id, draft, w)
 	if int(talks["round"]) < int(_ncfg()["maxRounds"]):
 		talks["round"] = int(talks["round"]) + 1
-		EventBus.state_changed.emit()
+		EventBus.mark_changed()
 		return { "ok": true, "result": "countered" }
 	if talks["binding"]:
 		talks["final"] = true
-		EventBus.state_changed.emit()
+		EventBus.mark_changed()
 		return { "ok": true, "result": "final" }
 	_fail_talks(faction_id, "failed")
 	return { "ok": true, "result": "failed" }
@@ -2374,7 +2374,7 @@ static func accept_counter() -> Dictionary:
 	var w := _talks_weariness(faction_id)
 	if not _terms_payable(faction_id, counter)["ok"] or not accepts(faction_id, _proposal(faction_id, counter), w):
 		talks["counter"] = _counter_terms(faction_id, counter, w)
-		EventBus.state_changed.emit()
+		EventBus.mark_changed()
 		return { "ok": false, "reason": "Things have changed. They've revised their terms." }
 	_sign_talks(faction_id, counter)
 	return { "ok": true }
@@ -2400,7 +2400,7 @@ static func _fail_talks(faction_id: String, line_key: String) -> void:
 	Factions.adjust_player_relation(faction_id, -int(cfg["failRelation"]))
 	log_activity(faction_id, cfg["log"]["failed"])
 	KeyMembers.send(faction_id, cfg["lines"][line_key])
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # One-off cash and veins change hands now, then the truce is signed with
@@ -2641,7 +2641,7 @@ static func squeeze_wars() -> void:
 			continue
 		squeezed[party] = day
 		_squeeze(conclave_id, party, float(intensity[party]))
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 static func _squeeze(conclave_id: String, party: String, intensity: float) -> void:
@@ -2715,7 +2715,7 @@ static func run_positions() -> void:
 				position["pushed"] = int(position["pushed"]) + strength
 				_push_ticker(_scfg()["factionId"], position["section"], position["state"], strength)
 				break
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 static func _close_positions() -> void:

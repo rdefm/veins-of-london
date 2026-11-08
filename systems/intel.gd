@@ -103,7 +103,7 @@ static func relocate_stockpile(faction_id: String) -> void:
 	for observer in GameState.state["intel"].keys():
 		if meter(observer, faction_id) > cap:
 			_set_meter(observer, faction_id, cap)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # ── Timers ──────────────────────────────────────────────────────────────

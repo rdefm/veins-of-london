@@ -275,7 +275,7 @@ static func finish_rollover(context: Dictionary) -> Dictionary:
 		"exceptions": context["exceptions"],
 	}
 	GameState.state["morningAccounts"]["latest"] = account
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return account
 
 

@@ -55,7 +55,7 @@ static func mark_acted(key: String) -> void:
 	if ticks.has(key):
 		return
 	ticks.append(key)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # Urgent + Story rows: what the Phone home BizBrief badge counts.

@@ -28,6 +28,7 @@ func run() -> void:
 		assert_eq(GameState.state["modal"]["data"]["target"], { "kind": "vein", "veinId": "v1" })
 		Crafting.inventory_add("blast", 1, 1)
 		assert_true(GuardKit.stock_target({ "kind": "vein", "veinId": "v1" }, "blast", 1, 1)["ok"])
+		EventBus.flush_now()
 		var texts := NodeQuery.button_texts(screen)
 		assert_true(texts.any(func(t: String): return t.ends_with("Guard kit 2/2 · Blast ×1 · Shield ×1 ›")), "rebuilt on state_changed")
 		screen.free()

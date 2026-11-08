@@ -20,6 +20,7 @@ func run() -> void:
 
 func run_case(case_name: String, fn: Callable) -> void:
 	_case_failures = []
+	EventBus.flush_now()
 	var eventbus_before := _snapshot_eventbus_connections()
 	# `await` here is a no-op for the overwhelming majority of cases, whose
 	# `fn` never itself awaits anything -- GDScript only actually suspends at

@@ -11,6 +11,7 @@ func run() -> void:
 		var on_changed := func(): received[0] = true
 		EventBus.state_changed.connect(on_changed)
 		MapNav.select_district("camden")
+		EventBus.flush_now()
 		EventBus.state_changed.disconnect(on_changed)
 
 		assert_eq(GameState.state["mapNav"]["selectedDistrict"], "camden", "selectedDistrict should update")

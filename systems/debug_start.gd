@@ -146,7 +146,7 @@ static func apply(model: String = "") -> void:
 	Barometer.ensure_progress()
 
 	PhoneNav.route_home()
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # The flag loop marks the cultivating tutorial seen, so prologue_archie_cultivation

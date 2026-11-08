@@ -47,6 +47,7 @@ func run() -> void:
 		EventBus.state_changed.connect(on_change)
 		Stash.move_ore_to_stash("time", 0)
 		Stash.move_ore_to_stash("time", -3)
+		EventBus.flush_now()
 		EventBus.state_changed.disconnect(on_change)
 		assert_eq(GameState.state["player"]["orichalchum"]["time"], 5, "nothing moved")
 		assert_true(not received[0], "no-op move should not emit state_changed")
@@ -59,6 +60,7 @@ func run() -> void:
 		var on_change := func(): received[0] = true
 		EventBus.state_changed.connect(on_change)
 		Stash.move_ore_to_stash("time", 2)
+		EventBus.flush_now()
 		EventBus.state_changed.disconnect(on_change)
 		assert_true(received[0], "state_changed should fire")
 	)
@@ -105,6 +107,7 @@ func run() -> void:
 		EventBus.state_changed.connect(on_change)
 		Stash.move_item_to_stash("timePearl", 5)
 		Stash.move_item_to_stash("rewind", 0)
+		EventBus.flush_now()
 		EventBus.state_changed.disconnect(on_change)
 		assert_eq(Stash.stashed_item_qty("timePearl"), 0, "nothing to move")
 		assert_true(not received[0], "no-op move should not emit state_changed")

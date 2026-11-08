@@ -92,14 +92,14 @@ static func _set_offered_job(job: Dictionary) -> void:
 	GameState.state["flags"]["jamesJobAccepted"] = false
 	# PROSE-REVIEW: new daily-tick offer notification, drafted against CONTENT-GUIDE.md's tone bible.
 	Notify.push("James has work going. Check Contacts.")
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 static func decline_job() -> void:
 	GameState.state["flags"]["jamesJobActive"] = false
 	GameState.state["flags"]["jamesJobAccepted"] = false
 	GameState.state["jamesJob"] = null
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 static func accept_job() -> Dictionary:
@@ -113,7 +113,7 @@ static func accept_job() -> Dictionary:
 		Notify.push("James wants a hand for an afternoon. Pay: £%d." % job["pay"])
 	else:
 		Notify.push("James wants %d× %s. Pay: £%d." % [job["qty"], job["recipeName"], job["totalPay"]])
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true }
 
 

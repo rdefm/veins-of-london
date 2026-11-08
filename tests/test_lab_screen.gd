@@ -39,6 +39,7 @@ func run() -> void:
 		UiSim.tap_zone(screen, "notebookRecipes")
 		assert_true(NodeQuery.label_texts(screen).has("No Time recipes known."), "a new game knows nothing")
 		Lab.grant_recipe("timePearl")
+		EventBus.flush_now()
 		assert_true(NodeQuery.label_texts(screen).has(_name("timePearl")), "a granted recipe joins its ore tab")
 		assert_true(not NodeQuery.label_texts(screen).has(_name("healingSalve")), "an unknown recipe stays out")
 		screen._open_tab("life")
@@ -67,6 +68,7 @@ func run() -> void:
 			var rung_label := ladder.find_child("Rung_%s" % row["rung"], true, false) as Label
 			assert_true(rung_label != null and rung_label.text == row["text"], "%s rung rendered" % row["rung"])
 		RecipeKnowledge.grant_rung("timePearl", "hint2", "vague")
+		EventBus.flush_now()
 		ladder = screen.find_child("LadderRegion", true, false)
 		var hint2_text: String = RecipeKnowledge.ladder_rows("timePearl")[2]["text"]
 		assert_eq((ladder.find_child("Rung_hint2", true, false) as Label).text, hint2_text, "a grant redraws the ladder")
@@ -156,6 +158,7 @@ func run() -> void:
 		assert_eq(Lab.active_run(), null, "an off-recipe jar starts nothing")
 		UiSim.tap_zone(screen, "ore_time")
 		assert_eq(Lab.calc_available("time"), 5, "a recipe jar spends real calc")
+		EventBus.flush_now()
 		assert_true(NodeQuery.label_texts(screen.get_node("OreBadge_time")).has("5"), "the badge reads real calc")
 		UiSim.tap_zone(screen, "apparatus_heat")
 		var gauge = _find_gauge(screen)

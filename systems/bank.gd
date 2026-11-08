@@ -17,4 +17,4 @@ static func record(amount: int, label: String) -> void:
 	log.append(entry)
 	while log.size() > LOG_CAP:
 		log.remove_at(0)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()

@@ -21,7 +21,7 @@ static func award_relation(contact_id: String, amount: int) -> void:
 	if not contacts.has(contact_id):
 		return
 	contacts[contact_id]["relation"] = contacts[contact_id]["relation"] + ActiveEffects.boosted_relation_gain(amount)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 static func can_recruit(contact_id: String) -> bool:
@@ -44,7 +44,7 @@ static func recruit(contact_id: String) -> Dictionary:
 	c["recruited"] = true
 	Dial.grant_contact_dial(contact_id)
 	Notify.push("%s is now working with you. Assign them to a room via HQ." % display_name(contact_id), Notify.CATEGORY_SUCCESS)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true }
 
 
@@ -56,7 +56,7 @@ static func force_recruit(contact_id: String) -> void:
 		return
 	contacts[contact_id]["recruited"] = true
 	Dial.grant_contact_dial(contact_id)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # Room-free contacts (constants.json roomFreeRoles) may hold a staff role without a room.
@@ -127,7 +127,7 @@ static func set_role(contact_id: String, role: Variant) -> Dictionary:
 	c["assignedRole"] = role
 	if role != null:
 		c["assignedRoom"] = null
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true }
 
 
@@ -161,7 +161,7 @@ static func assign_to_room(contact_id: String, room_id: String) -> Dictionary:
 		for cid in contacts.keys():
 			if contacts[cid]["assignedRoom"] == room_id:
 				contacts[cid]["assignedRoom"] = null
-		EventBus.state_changed.emit()
+		EventBus.mark_changed()
 		return { "ok": true }
 	if not contacts.has(contact_id):
 		return { "ok": false, "reason": "Not working with you." }
@@ -172,7 +172,7 @@ static func assign_to_room(contact_id: String, room_id: String) -> Dictionary:
 		return { "ok": false, "reason": "No free seat." }
 	c["assignedRoom"] = room_id
 	c["assignedRole"] = null
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true }
 
 
@@ -181,7 +181,7 @@ static func unassign_from_room(contact_id: String) -> void:
 	var contacts: Dictionary = GameState.state["contacts"]
 	if contacts.has(contact_id):
 		contacts[contact_id]["assignedRoom"] = null
-		EventBus.state_changed.emit()
+		EventBus.mark_changed()
 
 
 # The XP ladder for a contact skill: levels[n] is the XP that reaches level n.
@@ -280,7 +280,7 @@ static func knock_out(contact_id: String, current_day: int) -> void:
 		return
 	var c: Dictionary = contacts[contact_id]
 	c["koCooldownUntilDay"] = current_day + c["koCooldownDays"]
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # Recruited contacts still on a KO cooldown (what Smelling Salts can clear).
@@ -305,7 +305,7 @@ static func use_smelling_salts(contact_id: String) -> Dictionary:
 	GameState.state["contacts"][contact_id]["koCooldownUntilDay"] = null
 	# PROSE-REVIEW: Smelling Salts bag-use notification.
 	Notify.push("%s sits up. Asks what day it is." % display_name(contact_id), Notify.CATEGORY_SUCCESS)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true }
 
 

@@ -300,6 +300,7 @@ func run() -> void:
 		var q: Button = _options_of(screen).get_children()[0].find_children("", "Button", true, false)[1]
 		q.pressed.emit()
 		assert_true(Events.is_awaiting_choice(), "? commits nothing")
+		EventBus.flush_now()
 		assert_true(is_instance_valid(screen._context_modal), "modal open")
 		var lines: Array = screen._context_modal.find_children("", "Label", true, false).map(func(l): return l.text)
 		assert_eq(lines, ["Push", "60% chance", "Base odds 40%", "+20% Flagged"], "title, always a percentage, base, signed mods")
@@ -349,6 +350,7 @@ func run() -> void:
 		assert_eq(Events.active_toggles(0), ["prophetsBreath"], "tap goes through Events.toggle_item()")
 
 		assert_true(is_instance_valid(screen._context_modal), "modal survives the refresh")
+		EventBus.flush_now()
 		var lines: Array = screen._context_modal.find_children("", "Label", true, false).map(func(l): return l.text)
 		assert_true(lines.has("65% chance"), "odds read the toggle")
 		assert_true(_button_with_text(screen._context_modal, "Use Prophet's Breath · +25%").button_pressed, "renders on")
@@ -376,6 +378,7 @@ func run() -> void:
 		var q: Button = bribe.get_parent().find_children("", "Button", true, false)[1]
 		assert_eq(q.text, "?", "a locked option carries a ?")
 		q.pressed.emit()
+		EventBus.flush_now()
 		var lines: Array = screen._context_modal.find_children("", "Label", true, false)
 		var reason: Label = lines.filter(func(l): return l.text == "Needs £50 — the doorman doesn't do favours")[0]
 		assert_true(reason.autowrap_mode != TextServer.AUTOWRAP_OFF, "reason wraps")
@@ -1121,6 +1124,7 @@ func run() -> void:
 		assert_true(not screen._vn_caption.visible, "text step shows the card text itself")
 		Events.advance()
 		assert_true(Events.is_choosing(), "advance reaches the option step")
+		EventBus.flush_now()
 		assert_true(screen._vn_caption.visible, "caption shows on the option step")
 		assert_eq(screen._vn_caption_label.text, "Push?")
 		assert_eq(screen._vn_caption_label.max_lines_visible, EventScreen.CAPTION_CLAMP_LINES)

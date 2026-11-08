@@ -142,7 +142,7 @@ static func execute_sale(items: Array) -> Dictionary:
 		Modal.close()
 		GameState.state["pendingSaleCut"] = player_cut
 		CombatPrep.request(CombatPrep.KIND_MUGGING, { "veinIncluded": vein_included })
-		EventBus.state_changed.emit()
+		EventBus.mark_changed()
 		return { "ok": true, "mugged": true, "gross": gross }
 	else:
 		player["cash"] += player_cut
@@ -171,12 +171,12 @@ static func complete_mugged_sale() -> Dictionary:
 # row's ceiling: held qty to sell, get_faction_buy_max_qty() to buy.
 static func set_sell_qty(key: String, qty: int, max_qty: int) -> void:
 	GameState.state["sellState"][key] = clampi(qty, 0, maxi(max_qty, 0))
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 static func clear_sell_state() -> void:
 	GameState.state["sellState"] = {}
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # A vein isn't stackable, so this is a plain 0/1 flip (unlike set_sell_qty);
@@ -185,7 +185,7 @@ static func toggle_sell_vein(vein_id: String) -> void:
 	var sell_state: Dictionary = GameState.state["sellState"]
 	var key := "vein_%s" % vein_id
 	sell_state[key] = 0 if sell_state.get(key, 0) > 0 else 1
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # Buy-side counterpart to toggle_sell_vein() -- a distinct "buyVein_<id>"
@@ -194,7 +194,7 @@ static func toggle_buy_vein(vein_id: String) -> void:
 	var sell_state: Dictionary = GameState.state["sellState"]
 	var key := "buyVein_%s" % vein_id
 	sell_state[key] = 0 if sell_state.get(key, 0) > 0 else 1
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # Consumable lines of the sellState cart: "con_<recipe>_<tier>" for single-target
@@ -346,7 +346,7 @@ static func execute_faction_purchase(faction_id: String, items: Array, unit_pric
 		else:
 			for leg in FactionSim.take_items(faction_id, item_type, qty):
 				Crafting.inventory_add(item_type, leg["tier"], leg["qty"])
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	SaveManager.autosave()  # R§6: autosave on purchase
 	return { "ok": true, "cost": total_cost }
 
@@ -436,7 +436,7 @@ static func execute_faction_sale(faction_id: String, items: Array, contact_id: S
 	if contact_id != "":
 		RelationAccrual.accrue_contact_trade(contact_id, total_earned)
 	Objectives.refresh()
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true, "earned": total_earned, "sold": sold }
 
 

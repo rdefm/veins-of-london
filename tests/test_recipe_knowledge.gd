@@ -340,6 +340,7 @@ func _register_buying_cases() -> void:
 		var entry: Dictionary = GameState.state["bankLog"].back()
 		assert_eq(int(entry["amount"]), -cost, "bank log")
 		assert_true(str(entry["label"]).contains("Blast"), "label names the recipe")
+		EventBus.flush_now()
 		assert_true(emitted[0] > 0, "state_changed emitted")
 		assert_eq(RecipeKnowledge.buy("blast", "base")["ok"], false, "second base refused")
 	)

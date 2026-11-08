@@ -54,7 +54,7 @@ static func tick() -> void:
 	_apply_organic_drift()
 	for section in SECTIONS:
 		_resolve_section(section)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # Every faction's barometer prefs nudge progress daily, regardless of
@@ -166,7 +166,7 @@ static func push_headline(text: String, source: String = "", details: Dictionary
 	while entries.size() > int(GameData.FACTION_ESCALATION["headlineCap"]):
 		entries.pop_front()
 	Notify.push("📰 %s" % text)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # Faction headlines, newest first.
@@ -261,7 +261,7 @@ static func _manual_action(section: String, state_id: String, direction: String)
 	else:
 		progress[state_id] = clampi(progress[state_id] - 20, 0, 100)
 
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	SaveManager.autosave()  # R§6: autosave on purchase
 	return { "ok": true }
 
@@ -273,7 +273,7 @@ static func shift_state(section: String, state_id: String, delta: int) -> void:
 	var progress: Dictionary = GameState.state["barometer"]["progress"][section]
 	progress[state_id] = clampi(int(progress[state_id]) + delta, 0, 100)
 	_resolve_section(section)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # Sum of the three currently-active states' `effects` dicts; `itemDemand`

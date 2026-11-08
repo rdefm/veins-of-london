@@ -41,7 +41,7 @@ static func record(faction_id: String, district_id: String, site_id: String = ""
 	if site_id != "":
 		grudge["siteId"] = site_id
 	GameState.state["grudges"][faction_id] = grudge
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # The answer hook: the player acted against faction_id (a raid on it). A no-op
@@ -57,7 +57,7 @@ static func answer(faction_id: String) -> void:
 		_effects()["revenge"][String(grudge["siteId"])] = _day() + int(_cfg()["revengeDays"])
 	Factions.adjust_player_relation(faction_id, int(_cfg()["answerRelationGain"]))
 	Notify.push(String(_cfg()["log"]["answered"]) % GameData.FACTIONS[faction_id]["shortName"], Notify.CATEGORY_SUCCESS)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # The answer hook for a security upgrade on a vein in district_id: answers
@@ -86,7 +86,7 @@ static func use_clean_slate(faction_id: String) -> Dictionary:
 		_effects()["revenge"].erase(String(grudge["siteId"]))
 	# PROSE-REVIEW: Clean Slate bag-use notification.
 	Notify.push("%s remember it differently now." % GameData.FACTIONS[faction_id]["shortName"], Notify.CATEGORY_SUCCESS)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true }
 
 
@@ -113,7 +113,7 @@ static func daily_tick() -> void:
 	for site_id in revenge.keys():
 		if int(revenge[site_id]) < day:
 			revenge.erase(site_id)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # Extra Threat toward the player from every faction: softThreat per mark,

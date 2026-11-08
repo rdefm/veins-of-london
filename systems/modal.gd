@@ -15,7 +15,7 @@ static func open(type: String, data: Dictionary = {}) -> void:
 	if follow != null and not data.has("followEvent"):
 		data["followEvent"] = follow
 	GameState.state["modal"] = { "type": type, "data": data }
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # data.returnTo ({ type, data }) names the modal Modal.close() reopens in place
@@ -30,13 +30,13 @@ static func close() -> void:
 	if return_to != null:
 		open(return_to["type"], return_to.get("data", {}).duplicate(true))
 		return
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # Sets one key of the open modal's data and re-renders it. Caller checks a modal is open.
 static func set_data(key: String, value: Variant) -> void:
 	GameState.state["modal"]["data"][key] = value
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # Parks a return target on the open modal; Modal.close() reopens it. Caller checks a modal is open.

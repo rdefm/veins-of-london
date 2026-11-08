@@ -116,7 +116,7 @@ static func after_run(result: Dictionary) -> Dictionary:
 		s["met"] = true
 		s["pool"] = {}
 		outcome["met"] = true
-		EventBus.state_changed.emit()
+		EventBus.mark_changed()
 		return outcome
 	s["failedRuns"] = int(s["failedRuns"]) + 1
 	s["pool"] = Lab.base_calc(s["recipe"])
@@ -126,7 +126,7 @@ static func after_run(result: Dictionary) -> Dictionary:
 		outcome["hintExact"] = true
 	if s["failedRuns"] == talk_through_after():
 		outcome["talkThrough"] = true
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return outcome
 
 

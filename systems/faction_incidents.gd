@@ -184,7 +184,7 @@ static func daily_tick() -> void:
 	for key in cooldowns.keys():
 		if int(cooldowns[key]) < day:
 			cooldowns.erase(key)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # Queues the entry's event and sends its notice; false (nothing queued) when no

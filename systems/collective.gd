@@ -38,7 +38,7 @@ static func supply_nadia(qty: int) -> Dictionary:
 	runtime["progress"] = progress
 	GameState.state["objectives"]["col_a1_nadia_supply"] = runtime
 	Objectives.refresh()
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return result
 
 
@@ -113,7 +113,7 @@ static func report_des_site(ore_type: String) -> Dictionary:
 	objectives[objective_id] = runtime
 
 	Objectives.refresh()
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true, "oreType": ore_type, "siteId": found["id"] }
 
 
@@ -595,7 +595,7 @@ static func force_vein_loss(vein_id: Variant, to_faction: String) -> bool:
 			return false
 		GuardKit.return_kit_to_inventory(player_vein)
 		Raiding.transfer_player_vein_to_faction(player_vein, player_site, to_faction)
-		EventBus.state_changed.emit()
+		EventBus.mark_changed()
 		return true
 
 	for site in Sites.sites_with_faction_vein("collective"):
@@ -605,7 +605,7 @@ static func force_vein_loss(vein_id: Variant, to_faction: String) -> bool:
 		vein["factionId"] = to_faction
 		Factions.adjust_relation("collective", to_faction, Factions.RIVALRY_RELATION_PENALTY)
 		MapEvents.queue_seed_claim(site["district"], vein["id"], to_faction)
-		EventBus.state_changed.emit()
+		EventBus.mark_changed()
 		return true
 	return false
 
@@ -700,7 +700,7 @@ static func ruin_hakim_site() -> bool:
 	maybe_retarget_nadia_defend_vein(vein_id)
 	site["claimed"] = true
 	site["ruinedByFirm"] = true
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return true
 
 

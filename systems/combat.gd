@@ -840,7 +840,7 @@ static func _start_combat(context: String, vein_id, enemies: Array, log_lines: A
 static func _enter_combat_screen() -> void:
 	GameState.state["currentScreen"] = "combat"
 	EventBus.screen_changed.emit("combat")
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	# Sets currentScreen/emits screen_changed itself rather than via
 	# Nav.go_to(), so it needs the same abandon-after-both-emits treatment,
 	# since Raiding.maybe_trigger_defend() can fire this synchronously
@@ -1225,7 +1225,7 @@ static func _demo_play(play: Callable) -> Dictionary:
 		return { "ok": false, "reason": "No demo on." }
 	var beats: Array = play.call(combat)
 	_sync_round_outcome(combat)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true, "beats": beats, "outcome": combat["outcome"] }
 
 
@@ -1259,7 +1259,7 @@ static func _play_round_pick(combat: Dictionary, action: Dictionary) -> Dictiona
 		_settle_round_dials(combat)
 		_keep_round_frame(combat)
 	_sync_round_outcome(combat)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return result
 
 
@@ -1448,7 +1448,7 @@ static func round_rewind(pay: String = REWIND_PAY_ANY) -> Dictionary:
 		var free_view := _restore_round_snapshot(combat, int(combat["spar"]["rewindRounds"]), false)
 		_push_round_line(combat, LINE_REWIND)
 		_sync_round_outcome(combat)
-		EventBus.state_changed.emit()
+		EventBus.mark_changed()
 		free_view["ok"] = true
 		return free_view
 	var slot := Loadout.find_slot("rewind") if pay != REWIND_PAY_DIAL else -1
@@ -1461,7 +1461,7 @@ static func round_rewind(pay: String = REWIND_PAY_ANY) -> Dictionary:
 		combat["dialRewindsPaid"] = int(combat.get("dialRewindsPaid", 0)) + 1
 	_push_round_line(combat, LINE_REWIND)
 	_sync_round_outcome(combat)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	view["ok"] = true
 	return view
 
@@ -1770,7 +1770,7 @@ static func exit_combat() -> Dictionary:
 		Sparring.settle(combat["spar"], outcome)
 		GameState.state["combat"] = idle_state()
 		SaveManager.autosave()
-		EventBus.state_changed.emit()
+		EventBus.mark_changed()
 		if context == CONTEXT_SCRIPTED:
 			return _exit_scripted(script_resume)
 		return _exit_default(outcome, context)
@@ -1806,7 +1806,7 @@ static func exit_combat() -> Dictionary:
 	# The per-context handlers below only emit screen_changed (some emit
 	# nothing) -- top_bar.gd's merged board needs state_changed specifically
 	# to know combat.active flipped false, so guarantee it fires here.
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 	if context == CONTEXT_MUGGING and outcome == "win":
 		return _exit_mugging_win()
@@ -1966,5 +1966,5 @@ static func train() -> Dictionary:
 		Notify.push("A session on the bar and the bag. You feel it tomorrow.", Notify.CATEGORY_SUCCESS)
 	else:
 		Notify.push("Press-ups and shadow boxing on the flat floor. You feel it tomorrow.", Notify.CATEGORY_SUCCESS)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true }

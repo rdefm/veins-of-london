@@ -172,7 +172,7 @@ static func accept(pending_id: String) -> Dictionary:
 	if payload.get("owed", false):
 		_clear_owed(faction_id)
 	accepted().append(record)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	if favour["kind"] == EVENT:
 		Events.start_or_defer(favour["eventId"], { "faction_id": faction_id, "favour_id": favour["id"] })
 	return { "ok": true, "favour": record }
@@ -262,7 +262,7 @@ static func ask_aid(faction_id: String, enemy_id: String) -> Dictionary:
 		_state()["owed"].append({ "factionId": faction_id, "sinceDay": day })
 	var lines: Dictionary = _acfg()["acceptLines" if accepted_aid else "refuseLines"]
 	KeyMembers.send(faction_id, lines[faction_id])
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true, "accepted": accepted_aid }
 
 
@@ -335,7 +335,7 @@ static func _close(entry: Dictionary, kept: bool, deltas: Dictionary = {}) -> vo
 		Contacts.award_relation(KeyMembers.speaker_for(faction_id), int(deltas["memberRelation"]))
 	KeyMembers.note_favour(String(entry.get("memberId", KeyMembers.speaker_for(faction_id))), kept)
 	KeyMembers.send(faction_id, _cfg()["lines"][faction_id]["done" if kept else "failed"])
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # favour_kept / favour_failed event ops: settles the accepted favour named by
@@ -492,5 +492,5 @@ static func _land_gift(contact_id: String, gain: int, reaction: String) -> Dicti
 	Contacts.award_relation(contact_id, gain)
 	KeyMembers.introduce(contact_id)
 	Messages.append(contact_id, "them", _gcfg()["lines"][contact_id][reaction])
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true, "gain": gain }

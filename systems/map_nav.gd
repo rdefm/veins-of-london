@@ -9,7 +9,7 @@ extends RefCounted
 
 static func select_district(district_id: String) -> void:
 	GameState.state["mapNav"]["selectedDistrict"] = district_id
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # Backs out of the district panel to the district list. Also closes any
@@ -19,7 +19,7 @@ static func back_to_list() -> void:
 	GameState.state["mapNav"]["selectedDistrict"] = null
 	GameState.state["mapNav"]["selectedSiteId"] = null
 	GameState.state["mapNav"]["selectedVeinId"] = null
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # Clears selectedVeinId too -- the site sheet and the vein detail panel are
@@ -27,12 +27,12 @@ static func back_to_list() -> void:
 static func select_site(site_id: String) -> void:
 	GameState.state["mapNav"]["selectedSiteId"] = site_id
 	GameState.state["mapNav"]["selectedVeinId"] = null
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 static func close_site_sheet() -> void:
 	GameState.state["mapNav"]["selectedSiteId"] = null
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # Opened by VeinBubble's info tap -- the larger detail panel for one
@@ -40,9 +40,9 @@ static func close_site_sheet() -> void:
 static func select_vein_detail(vein_id: String) -> void:
 	GameState.state["mapNav"]["selectedVeinId"] = vein_id
 	GameState.state["mapNav"]["selectedSiteId"] = null
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 static func close_vein_detail() -> void:
 	GameState.state["mapNav"]["selectedVeinId"] = null
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()

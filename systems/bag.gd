@@ -12,12 +12,12 @@ extends RefCounted
 
 static func open() -> void:
 	GameState.state["bagDrawerOpen"] = true
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 static func close() -> void:
 	GameState.state["bagDrawerOpen"] = false
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # ── Projection ───────────────────────────────────────────────────────────

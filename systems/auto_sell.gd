@@ -48,7 +48,7 @@ static func set_sell_above(recipe_key: String, sell_above: int) -> void:
 		return
 	var keep := int(GameState.state["labThresholds"].get(recipe_key, 0))
 	_store_rule(recipe_key, clampi(sell_above, keep, GameData.PRODUCTION_TARGET_MAX), rule(recipe_key)["mood"])
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # Locked while no one works Sales.
@@ -56,7 +56,7 @@ static func set_mood(recipe_key: String, mood: String) -> void:
 	if not Contracts.has_staffed_sales() or not _config()["moods"].has(mood):
 		return
 	_store_rule(recipe_key, int(rule(recipe_key)["sellAbove"]), mood)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # Stock at or below this is never auto-sold. keep / sell_above >= 0 preview
@@ -141,7 +141,7 @@ static func daily_pass() -> Dictionary:
 		return sold
 	Contracts.receive_revenue(total, "Auto-sales")
 	Contacts.award_contact_xp(Contacts.sales_contact(), "sales", int(_config()["salesXp"]))
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return sold
 
 

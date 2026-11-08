@@ -67,7 +67,7 @@ static func _append(entry: Dictionary) -> void:
 	var cap := int(GameData.LODEDINNIT_FEED["cap"])
 	while feed.size() > cap:
 		feed.pop_front()
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 static func _voice(author: String) -> Array:

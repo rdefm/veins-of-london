@@ -55,7 +55,7 @@ static func request(kind: String, args: Dictionary = {}) -> void:
 	}
 	GameState.state["currentScreen"] = SCREEN
 	EventBus.screen_changed.emit(SCREEN)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	MapEvents.abandon_playback()
 
 
@@ -124,7 +124,7 @@ static func _clear_and_leave(return_screen: String) -> void:
 static func _leave(return_screen: String) -> void:
 	GameState.state["currentScreen"] = return_screen
 	EventBus.screen_changed.emit(return_screen)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # ── who is in the fight ──────────────────────────────────────────────────
@@ -178,7 +178,7 @@ static func set_rack_slot(index: int, recipe_key: String) -> bool:
 	else:
 		rack[index] = recipe_key
 	prep["args"]["rack"] = rack
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return true
 
 
@@ -244,7 +244,7 @@ static func toggle_muscle() -> bool:
 	if prep.is_empty() or not (kind == KIND_VEIN_RAID or kind == KIND_STOCKPILE_RAID) or not Perks.muscle_available():
 		return false
 	prep["args"]["muscle"] = not bool(prep["args"].get("muscle", false))
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return true
 
 
@@ -259,7 +259,7 @@ static func toggle_recruit(contact_id: String) -> bool:
 	else:
 		ids.append(contact_id)
 	prep["args"]["allyIds"] = ids
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return true
 
 
@@ -276,7 +276,7 @@ static func move_recruit(contact_id: String, step: int) -> bool:
 	ids.remove_at(from)
 	ids.insert(to, contact_id)
 	prep["args"]["allyIds"] = ids
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return true
 
 

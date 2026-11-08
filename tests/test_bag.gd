@@ -12,6 +12,7 @@ func run() -> void:
 		var on_change := func(): received[0] = true
 		EventBus.state_changed.connect(on_change)
 		Bag.open()
+		EventBus.flush_now()
 		EventBus.state_changed.disconnect(on_change)
 
 		assert_eq(GameState.state["bagDrawerOpen"], true, "bagDrawerOpen set")

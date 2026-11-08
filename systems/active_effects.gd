@@ -145,7 +145,7 @@ static func use(item: String, tier: int = 0) -> Dictionary:
 	var name: String = GameData.RECIPES[item]["name"]
 	# PROSE-REVIEW: active-effect start notification.
 	Notify.push("%s taken. %d block%s." % [name, blocks, "" if blocks == 1 else "s"], Notify.CATEGORY_SUCCESS)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true, "level": level, "expiresAtBlock": expires }
 
 

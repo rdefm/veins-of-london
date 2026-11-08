@@ -19,7 +19,7 @@ const SPAWN_FACTION := "firm"
 
 static func add_cash(amount: int) -> void:
 	GameState.state["player"]["cash"] += amount
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # Jumps straight to a Monday meeting with the current state: enables board
@@ -46,7 +46,7 @@ static func board_judge() -> Dictionary:
 static func add_calc(ore_type: String, amount: int) -> void:
 	var orichalchum: Dictionary = GameState.state["player"]["orichalchum"]
 	orichalchum[ore_type] = orichalchum.get(ore_type, 0) + amount
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 ## Grants qty of any recipe item at the given tier.
@@ -54,7 +54,7 @@ static func add_item(recipe_key: String, tier: int, qty: int) -> void:
 	if not GameData.RECIPES.has(recipe_key) or qty <= 0:
 		return
 	Crafting.inventory_add(recipe_key, tier, qty)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 ## Teaches recipe_key exact through rung and every rung below it, so
@@ -114,7 +114,7 @@ static func prepare_event(event_id: String) -> Dictionary:
 		context = { "site_id": Sites.spawn_unclaimed_site(SPAWN_DISTRICT, SPAWN_TIER, SPAWN_ORE)["id"] }
 	if event_id == GameData.BOARD_MEETING["eventId"]:
 		context = BoardMeetings.meeting_context(int(GameState.state["boardMeetings"]["week"]))
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return context
 
 

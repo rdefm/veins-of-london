@@ -1892,7 +1892,7 @@
 					"c4"
 				],
 				"kind": "code",
-				"sha": "89961dbaca99a1fdb3747db82bdb93d9684ddb8573450fa42e1108719de91f03"
+				"sha": "84679b837b831a88c87c94c36b0316b47b66961cd67999056a0d06633521d345"
 			}
 		],
 		"james_experiment": [
@@ -1994,7 +1994,7 @@
 					"stand"
 				],
 				"kind": "code",
-				"sha": "89961dbaca99a1fdb3747db82bdb93d9684ddb8573450fa42e1108719de91f03"
+				"sha": "84679b837b831a88c87c94c36b0316b47b66961cd67999056a0d06633521d345"
 			},
 			{
 				"file": "tests/test_event_content_lint.gd",
@@ -2026,7 +2026,7 @@
 					"c4"
 				],
 				"kind": "code",
-				"sha": "89961dbaca99a1fdb3747db82bdb93d9684ddb8573450fa42e1108719de91f03"
+				"sha": "84679b837b831a88c87c94c36b0316b47b66961cd67999056a0d06633521d345"
 			},
 			{
 				"file": "tests/test_event_content_lint.gd",

@@ -105,7 +105,7 @@ static func pay_monday_bill() -> Dictionary:
 		record_payment(place_id, weekly_cost(int(places[place_id])))
 	result["paid"] = result["due"]
 	Notify.push("Guard wages: -£%d for %d guard%s this week." % [result["paid"], result["guards"], "" if result["guards"] == 1 else "s"])
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return result
 
 
@@ -216,7 +216,7 @@ static func start_shortfall(places: Dictionary, reserve: int, due: int) -> void:
 	}
 	GameState.state["guardUpkeep"]["pendingShortfall"] = shortfall
 	Notify.push("Guard wages short: £%d due. Unpaid guards walk on %s — %s." % [due, Calendar.format_day(shortfall["deadline"]), places_text(places.keys())], Notify.CATEGORY_WARNING, { Notify.META_GUARD_SHORTFALL: true })
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # Rollover step (R§3.1 ①b): once the grace deadline is reached, the pending
@@ -275,7 +275,7 @@ static func _close_shortfall(leftover_reserve: int, paid: int, kept: int, walked
 	if not walked.is_empty():
 		GameState.state["guardUpkeep"]["lastWalkDay"] = int(GameState.state["world"]["day"])
 		Notify.push("Unpaid guards walked off: %s." % walked_text(walked), Notify.CATEGORY_WARNING)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # The short-pay menu's rows: the pending shortfall's guards still at risk,

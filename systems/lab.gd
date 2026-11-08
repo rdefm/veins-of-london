@@ -104,7 +104,7 @@ static func grant_recipe(recipe_key: String) -> Dictionary:
 	var known: Dictionary = _root()["known"]
 	if not known.has(recipe_key):
 		known[recipe_key] = { "steps": {}, "vagueHits": {} }
-		EventBus.state_changed.emit()
+		EventBus.mark_changed()
 	return { "ok": true }
 
 
@@ -131,7 +131,7 @@ static func grant_steps(recipe_key: String, ideal_indices: Array, specificity: S
 		entry["vagueHits"].erase(key)
 		granted.append(i)
 	if not granted.is_empty():
-		EventBus.state_changed.emit()
+		EventBus.mark_changed()
 	return { "ok": true, "granted": granted }
 
 
@@ -603,7 +603,7 @@ static func add_ore(recipe_key: String, ore_type: String) -> Dictionary:
 	run["calcSpent"][ore_type] = int(run["calcSpent"].get(ore_type, 0)) + amount
 	if not run["added"].has(ore_type):
 		run["added"].append(ore_type)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true }
 
 
@@ -628,7 +628,7 @@ static func perform_step(apparatus: String, value: float) -> Dictionary:
 		var result := _close_run("cracked")
 		result["cracked"] = true
 		return result
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true }
 
 
@@ -642,7 +642,7 @@ static func perform_grind(readings: Array) -> Dictionary:
 	for i in int(gauge("grinding")["strokes"]):
 		clamped.append(clampf(float(readings[i]), 0.0, 100.0) if i < readings.size() else null)
 	_perform("grinding", { "readings": clamped })
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true }
 
 
@@ -652,7 +652,7 @@ static func perform_distil(tap_msecs: Array) -> Dictionary:
 	if not check["ok"]:
 		return check
 	_perform("distilling", distil_readings(tap_msecs))
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true }
 
 
@@ -797,7 +797,7 @@ static func _close_run(outcome: String) -> Dictionary:
 	var xp := floori(float(GameData.RECIPES[recipe_key]["xpReward"]) / float(_data().get("failedRunXpDivisor", 3)))
 	_root()["activeRun"] = null
 	Crafting.award_crafting_xp(xp)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	var result := {
 		"ok": true, "recipe": recipe_key, "outcome": outcome, "score": 0, "rank": 0,
 		"items": 0, "xp": xp,
@@ -1029,7 +1029,7 @@ static func rewind(source: String = "") -> Dictionary:
 	_root()["activeRun"] = null
 	_root()["lastCraft"] = null
 	Rewind.pay(payment)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true }
 
 
@@ -1058,12 +1058,12 @@ static func _filed_in_stock(filed_list: Array) -> bool:
 
 static func set_skill_override(skill: int) -> void:
 	_root()["skillOverride"] = clampi(skill, 0, int(_data()["debug"]["skillMax"]))
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 static func clear_skill_override() -> void:
 	_root()["skillOverride"] = null
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # Forgets a recipe and every hidden step granted for it. Its best rank and
@@ -1073,7 +1073,7 @@ static func revoke_recipe(recipe_key: String) -> Dictionary:
 	if run != null and run["recipe"] == recipe_key:
 		return { "ok": false, "reason": "Run open." }
 	if _root()["known"].erase(recipe_key):
-		EventBus.state_changed.emit()
+		EventBus.mark_changed()
 	return { "ok": true }
 
 
@@ -1086,7 +1086,7 @@ static func set_best_rank(recipe_key: String, rank: int) -> Dictionary:
 		best.erase(recipe_key)
 	else:
 		best[recipe_key] = mini(rank, int(_data()["rankThresholds"].size()))
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true }
 
 
@@ -1096,4 +1096,4 @@ static func refill_calc() -> void:
 	var orichalchum: Dictionary = GameState.state["player"]["orichalchum"]
 	for ore_type in GameData.ORE_TYPES.keys():
 		orichalchum[ore_type] = maxi(int(orichalchum.get(ore_type, 0)), target)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()

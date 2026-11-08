@@ -82,7 +82,7 @@ static func set_buy_calc(contract_id: String, enabled: bool) -> Dictionary:
 	if contract.is_empty():
 		return { "ok": false, "reason": "Contract not found." }
 	contract["buyCalc"] = enabled
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true, "buyCalc": enabled }
 
 
@@ -189,7 +189,7 @@ static func _deliver(contract: Dictionary) -> void:
 	if is_complete(contract):
 		settle(contract["id"])
 	else:
-		EventBus.state_changed.emit()
+		EventBus.mark_changed()
 
 
 static func reorder(contract_id: String, destination_index: int) -> bool:
@@ -199,7 +199,7 @@ static func reorder(contract_id: String, destination_index: int) -> bool:
 	order.erase(contract_id)
 	order.insert(clampi(destination_index, 0, order.size()), contract_id)
 	_sort_active_to_priority()
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return true
 
 
@@ -223,7 +223,7 @@ static func cancel(contract_id: String) -> Dictionary:
 	BusinessQuest.note_starter_closed(template_id, false)
 	BusinessQuest.note_recurring_closed(template_id)
 	Diplomacy.note_contract_closed(contract_id, false)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true }
 
 
@@ -241,7 +241,7 @@ static func daily_tick() -> void:
 			continue
 		if is_period_filled(contract):
 			_close_period(contract)
-			EventBus.state_changed.emit()
+			EventBus.mark_changed()
 		else:
 			settle(contract["id"])
 
@@ -305,7 +305,7 @@ static func settle(contract_id: String) -> Dictionary:
 	BusinessQuest.maybe_trigger_owen_intro()
 	BusinessQuest.maybe_trigger_put_to_work()
 	BusinessQuest.note_proof_met()
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true, "settlement": settlement }
 
 

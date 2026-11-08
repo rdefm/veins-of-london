@@ -20,7 +20,7 @@ static func join(faction_id: String) -> Dictionary:
 		return { "ok": false, "reason": "Not eligible yet." }
 	GameState.state["factions"][faction_id]["joined"] = true
 	Perks.sync_lore()
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true }
 
 
@@ -30,7 +30,7 @@ static func join(faction_id: String) -> Dictionary:
 static func adjust_player_relation(faction_id: String, delta: int) -> void:
 	var f: Dictionary = GameState.state["factions"][faction_id]
 	f["relation"] = FactionAI.clamp_relation(int(f["relation"]) + delta)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # ── Economic identity (R§1.8) ───────────────────────────────────────────
@@ -587,7 +587,7 @@ static func seed_day_one_veins() -> void:
 			for ore_type in group["ores"]:
 				_seed_day_one_vein(faction_id, group["district"], ore_type, placed < at_cap)
 				placed += 1
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # New Game entry point: the faction rosters plus the unowned-district veins.
@@ -595,7 +595,7 @@ static func seed_day_one_veins() -> void:
 static func seed_new_game_veins() -> void:
 	seed_day_one_veins()
 	_seed_unowned_districts(GameData.VEIN_GROWTH["dayOneFactionMaxLevelShare"])
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # Districts with no factionPresence start with a split of faction veins (constants.json

@@ -124,7 +124,9 @@ func run() -> void:
 		var on_changed := func(): hits[0] += 1
 		EventBus.state_changed.connect(on_changed)
 		GuardKit.stock("v1", "blast", 1, 1)
+		EventBus.flush_now()
 		GuardKit.unstock("v1", "blast", 1, 1)
+		EventBus.flush_now()
 		EventBus.state_changed.disconnect(on_changed)
 		assert_eq(hits[0], 2)
 	)

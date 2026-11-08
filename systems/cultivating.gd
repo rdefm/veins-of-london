@@ -304,7 +304,7 @@ static func apply_item(vein_id: String, item: String, tier: int) -> Dictionary:
 	var until: int = result["until"]
 	# PROSE-REVIEW: item-on-vein notification.
 	Notify.push("%s on the %s vein. %d day%s." % [GameData.VEIN_GROWTH["boostItems"][item]["label"], GameData.ORE_TYPES[vein["oreType"]]["name"], days, "" if days == 1 else "s"], Notify.CATEGORY_SUCCESS)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true, "until": until, "days": days }
 
 
@@ -445,7 +445,7 @@ static func cultivate(vein_id: String) -> Dictionary:
 	award_xp(15)
 	Objectives.refresh()
 	EventBus.vein_cultivated.emit(vein_id, shown_growth, vein["growth"], vein.get("level", 1) > level_before)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	if spent_block:
 		Ambush.maybe_trigger(vein["district"])
 	return { "ok": true, "success": true, "gain": gain, "veinId": vein_id, "growth": vein["growth"], "freeAction": spend }
@@ -554,7 +554,7 @@ static func prune(vein_id: String, depth: int) -> Dictionary:
 	Shares.record_ore(Shares.PLAYER, ore_type, amount)
 
 	Objectives.refresh()
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	if not spend["free"]:
 		Ambush.maybe_trigger(vein["district"])
 	return { "ok": true, "amount": amount, "oreType": ore_type, "veinId": vein_id, "growth": vein["growth"], "freeAction": spend }
@@ -583,7 +583,7 @@ static func drift_veins() -> void:
 		if site["factionVein"] != null:
 			collapse_vein(site["factionVein"])
 
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # R§3.4: a player vein sat at its ceiling for rampantSeedDays consecutive ticks
@@ -904,7 +904,7 @@ static func upgrade_vein_security(vein_id: String) -> Dictionary:
 		Notify.push("Hired another guard for your %s vein — %d guards on watch now." % [GameData.ORE_TYPES[vein["oreType"]]["name"], vein["extraGuards"]], Notify.CATEGORY_SUCCESS)
 
 	Grudges.answer_district(vein["district"])
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	SaveManager.autosave()  # R§6: autosave on purchase
 	return { "ok": true }
 
@@ -936,6 +936,6 @@ static func add_alarm(vein_id: String) -> Dictionary:
 	Bank.record(-cost, "Vein alarm: %s" % upgrade_data["label"])
 	vein["alarmUpgrades"].append(ALARM_UPGRADE_ID)
 	Notify.push("Installed %s on your %s vein." % [upgrade_data["label"], GameData.ORE_TYPES[vein["oreType"]]["name"]], Notify.CATEGORY_SUCCESS)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	SaveManager.autosave()  # R§6: autosave on purchase
 	return { "ok": true }

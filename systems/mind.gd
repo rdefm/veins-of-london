@@ -16,7 +16,7 @@ static func study() -> Dictionary:
 		Notify.push("Hours among the stacks. Something sticks.", Notify.CATEGORY_SUCCESS)
 	else:
 		Notify.push("Library cards and a borrowed desk lamp. Something sticks.", Notify.CATEGORY_SUCCESS)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true }
 
 

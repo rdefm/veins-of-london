@@ -27,13 +27,13 @@ static func append(contact_id: String, from: String, text: String) -> void:
 	})
 	while thread.size() > CAP:
 		thread.remove_at(0)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 static func mark_read(contact_id: String) -> void:
 	for msg in GameState.state["messages"].get(contact_id, []):
 		msg["read"] = true
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # The Messages index row's clear: the thread read and the contact's
@@ -108,7 +108,7 @@ static func queue_pending(contact_id: String, kind: String, text: String, payloa
 	GameState.state["pendingMessages"].append({
 		"id": id, "contactId": contact_id, "kind": kind, "payload": payload, "text": text,
 	})
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 static func pending_for(contact_id: String) -> Array[Dictionary]:
@@ -124,5 +124,5 @@ static func resolve_pending(id: String) -> void:
 	for i in range(pending.size()):
 		if pending[i]["id"] == id:
 			pending.remove_at(i)
-			EventBus.state_changed.emit()
+			EventBus.mark_changed()
 			return

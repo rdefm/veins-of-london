@@ -118,7 +118,7 @@ static func spine_unlocked(beat_id: String) -> bool:
 
 static func mark_spine_done(beat_id: String) -> void:
 	_complete_spine(beat_id)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 static func _complete_spine(beat_id: Variant) -> void:
@@ -228,7 +228,7 @@ static func agenda(week: int) -> Array:
 	_mark_competing(picked, week)
 	board["agenda"] = picked
 	board["agendaWeek"] = week
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return picked
 
 
@@ -370,7 +370,7 @@ static func _take(id: String, is_skip: bool) -> Dictionary:
 		weights[voice_id] = float(weights.get(voice_id, 0.0)) + float(GameData.BOARD_VOICES[voice_id]["unpickedBump"])
 	weights[card["voice"]] = float(GameData.BOARD_VOICES[card["voice"]]["baseWeight"])
 	_lock_stretch(board["active"])
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true, "card": card }
 
 
@@ -431,7 +431,7 @@ static func judge_week() -> Dictionary:
 	while history.size() > cap:
 		history.pop_front()
 	board["active"] = null
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return entry
 
 
@@ -526,7 +526,7 @@ static func open_week() -> void:
 		board["firstMeetingDay"] = int(GameState.state["world"]["day"])
 	agenda(int(board["week"]))
 	board["pendingWeek"] = int(board["week"])
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 static func meeting_pending() -> bool:

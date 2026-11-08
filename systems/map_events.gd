@@ -100,7 +100,7 @@ static func set_pacing_mode(mode: String) -> void:
 	if not PACING_MODES.has(mode):
 		return
 	GameState.state["mapEvents"]["pacingMode"] = mode
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # Snapshot before a "simultaneous" batch starts its concurrent tweens, so
@@ -157,7 +157,7 @@ static func begin_playback() -> bool:
 	if GameState.state["mapEvents"]["playing"] or not has_pending():
 		return false
 	GameState.state["mapEvents"]["playing"] = true
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return true
 
 
@@ -170,7 +170,7 @@ static func advance() -> bool:
 		queue.pop_front()
 	if queue.is_empty():
 		GameState.state["mapEvents"]["playing"] = false
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return not queue.is_empty()
 
 

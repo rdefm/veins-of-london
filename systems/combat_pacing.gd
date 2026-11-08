@@ -16,4 +16,4 @@ static func set_pacing_mode(mode: String) -> void:
 	if not MODES.has(mode):
 		return
 	GameState.state["combatPacingMode"] = mode
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()

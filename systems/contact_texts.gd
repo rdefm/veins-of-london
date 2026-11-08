@@ -134,7 +134,7 @@ static func reply(contact_id: String, index: int) -> Dictionary:
 	if correct:
 		_grant(contact_id, GameData.CONTACT_TEXTS[contact_id].get("correctReward", {}))
 	_grant(contact_id, chosen.get("reward", {}))
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true, "correct": correct }
 
 

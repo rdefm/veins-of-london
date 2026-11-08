@@ -82,7 +82,7 @@ static func introduce(contact_id: String) -> void:
 	var intro: String = member(contact_id).get("intro", "")
 	if intro != "":
 		Messages.append(contact_id, "them", intro)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # Sends text from faction_id's speaker, introducing them first if needed.
@@ -382,7 +382,7 @@ static func accept_offer(contact_id: String) -> bool:
 	adjust_standing(leader_of(faction_id), -int(cfg["offerLeaderLoss"]))
 	var gratitude: Dictionary = GameState.state["factions"][faction_id]["gratitude"]
 	gratitude[contact_id] = float(gratitude.get(contact_id, 0.0)) + 1.0
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return true
 
 

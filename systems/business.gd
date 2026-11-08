@@ -32,7 +32,7 @@ static func activate() -> Dictionary:
 		"weekly": int(GameData.BUSINESS_WEEKLY_WAGES["owen"]), "owed": 0, "unpaid": false,
 		"hiredDay": day, "daysWorked": 0, "promptPending": false,
 	}
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true }
 
 
@@ -44,7 +44,7 @@ static func receive(amount: int) -> void:
 	business["week"]["receipts"] += amount
 	BusinessStats.record_revenue(amount)
 	pay_covered_owed()
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # Moves player cash into the float (not revenue); then any owed wage the pot
@@ -53,7 +53,7 @@ static func donate(amount: int) -> Dictionary:
 	var added := _add_float(amount)
 	if added["ok"]:
 		pay_covered_owed()
-		EventBus.state_changed.emit()
+		EventBus.mark_changed()
 	return added
 
 
@@ -77,7 +77,7 @@ static func withdraw(amount: int) -> Dictionary:
 	business["float"] -= amount
 	GameState.state["player"]["cash"] += amount
 	Bank.record(amount, "Float withdrawal")
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true }
 
 
@@ -110,7 +110,7 @@ static func pay_calc_purchase(contract_id: String, legs: Array) -> bool:
 		expense["kind"] = "calc"
 		expense["contractId"] = contract_id
 		business["week"]["expenses"].append(expense)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return true
 
 
@@ -148,7 +148,7 @@ static func prepay_hire_wage(contact_id: String, weekly: int, top_up: int = 0, w
 		entry["promptPending"] = previous["promptPending"]
 	business["wages"][contact_id] = entry
 	pay_covered_owed()
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true }
 
 
@@ -273,7 +273,7 @@ static func top_up_and_pay_owed(contact_id: String) -> Dictionary:
 			return added
 	_pay_owed(contact_id)
 	_drop_settled_leavers()
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true, "paid": amount, "toppedUp": top_up }
 
 
@@ -306,7 +306,7 @@ static func decline_wage_prompt(contact_id: String) -> void:
 	if wage.is_empty():
 		return
 	wage["promptPending"] = false
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # Rollover step, after due contract settlements: accrue a worked day for
@@ -326,7 +326,7 @@ static func daily_tick() -> Dictionary:
 			wage["daysWorked"] += 1
 	if Calendar.is_monday(day):
 		result = _payday(day)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return result
 
 

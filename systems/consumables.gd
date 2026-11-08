@@ -18,7 +18,7 @@ static func use_healing_salve(tier: int = 0) -> Dictionary:
 	player["healingSalveDailyAmount"] = power
 	# PROSE-REVIEW: new salve-activation notification, drafted against CONTENT-GUIDE.md's tone bible.
 	Notify.push("Salve applied. Healing %s HP a day for 2 days." % str(power), Notify.CATEGORY_SUCCESS)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true }
 
 
@@ -34,5 +34,5 @@ static func use_healing_burst(tier: int = 0) -> Dictionary:
 	var healed: int = player["hp"] - old_hp
 	# PROSE-REVIEW: new healing-burst result line, drafted against CONTENT-GUIDE.md's tone bible.
 	Notify.push("You down a healing burst — +%d HP. %d/%d HP." % [healed, player["hp"], player["hpMax"]], Notify.CATEGORY_SUCCESS)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true }

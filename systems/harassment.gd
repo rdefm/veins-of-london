@@ -124,19 +124,19 @@ static func add(faction_id: String, kind: String, vein_id: String, params: Dicti
 	if params.has("days"):
 		row["untilDay"] = day + int(params["days"])
 	state["active"].append(row)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return row
 
 
 static func clear(effect_id: String) -> void:
 	GameState.state["harassment"]["active"] = active().filter(func(r: Dictionary) -> bool: return r["id"] != effect_id)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 static func clear_where(faction_id: String, kind: String, vein_id: String) -> void:
 	GameState.state["harassment"]["active"] = active().filter(func(r: Dictionary) -> bool:
 		return not (r["factionId"] == faction_id and (kind == "" or r["kind"] == kind) and (vein_id == "" or r.get("veinId", "") == vein_id)))
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # harassment_add event op: context supplies faction_id and vein_id.
@@ -250,7 +250,7 @@ static func repair_security(vein_id: String) -> Dictionary:
 	Bank.record(-cost, "Vein security repair")
 	GameState.state["harassment"]["active"] = active().filter(func(r: Dictionary) -> bool:
 		return not (r.get("veinId", "") == vein_id and r["kind"] == KIND_SECURITY_DEGRADE))
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true }
 
 
@@ -312,4 +312,4 @@ static func is_shop_barred(faction_id: String) -> bool:
 static func raise_intel(amount: int) -> void:
 	for faction_id in GameData.FACTIONS.keys():
 		Intel.raise(faction_id, Shares.PLAYER, amount)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()

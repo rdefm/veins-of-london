@@ -78,7 +78,7 @@ static func get_craft_multi(recipe_key: String) -> bool:
 
 static func set_craft_multi(recipe_key: String, multi: bool) -> void:
 	GameState.state["craftMulti"][recipe_key] = multi
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # True for items that always hit every target (Black Hole): no checkbox.
@@ -182,7 +182,7 @@ static func file_crafted(recipe_key: String, tier: int, qty: int, multi: bool, c
 	Objectives.refresh()
 	Collective.award_a2_missions()
 	Collective.maybe_trigger_a2_nadia_defend_brief()
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # No skill-up notification here — matches the HTML prototype, where

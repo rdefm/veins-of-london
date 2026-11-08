@@ -49,7 +49,7 @@ static func attempt_seed(haft_id: String) -> Dictionary:
 	if success:
 		player["dial"] = new_dial(haft_id)
 
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true, "success": success }
 
 
@@ -62,7 +62,7 @@ static func set_haft(haft_id: String) -> Dictionary:
 		return { "ok": false, "reason": "Unknown haft." }
 
 	player["dial"]["haftId"] = haft_id
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true }
 
 
@@ -194,11 +194,11 @@ static func attempt_craft_movement(archetype: String, ore_type: String) -> Dicti
 		var movement := _new_movement(archetype, ore_type, tier)
 		player["movementInventory"].append(movement)
 		Crafting.award_crafting_xp(m["xpReward"], true)
-		EventBus.state_changed.emit()
+		EventBus.mark_changed()
 		return { "ok": true, "success": true, "archetype": archetype, "oreType": ore_type, "tier": tier }
 	else:
 		Crafting.award_crafting_xp(int(floor(float(m["xpReward"]) / 3.0)), true)
-		EventBus.state_changed.emit()
+		EventBus.mark_changed()
 		return { "ok": true, "success": false }
 
 
@@ -227,7 +227,7 @@ static func seat_movement(inventory_index: int, owner_id: String = "") -> Dictio
 	dial["movement"] = incoming
 	_activate_charge_pool(dial)
 
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true }
 
 
@@ -245,7 +245,7 @@ static func unseat_movement(owner_id: String = "") -> Dictionary:
 	dial["movement"] = null
 	_deactivate_charge_pool(dial)
 
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true }
 
 
@@ -321,7 +321,7 @@ static func load_complication(recipe_key: String, tier: int, owner_id: String = 
 		entry["multi"] = true
 	loaded.append(entry)
 
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true }
 
 
@@ -339,7 +339,7 @@ static func unload_complication(index: int, owner_id: String = "") -> Dictionary
 	loaded.remove_at(index)
 	Crafting.inventory_add(Crafting.inventory_key(entry["recipeKey"], entry.get("multi", false)), entry["tier"], 1)
 
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true }
 
 
@@ -466,7 +466,7 @@ static func wind(amount: int = 1, owner_id: String = "") -> Dictionary:
 	orichalchum[ore_type] -= total_cost
 	dial["currentCharge"] = minf(dial["maxCharge"], dial["currentCharge"] + actual_amount)
 
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true, "chargeAdded": actual_amount, "calcSpent": total_cost }
 
 
@@ -481,7 +481,7 @@ static func daily_regen() -> void:
 		if dial != null and dial["lastRegenDay"] < day:
 			dial["currentCharge"] = minf(dial["maxCharge"], dial["currentCharge"] + dial["rechargeRate"])
 			dial["lastRegenDay"] = day
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # Casting a loaded Complication (R§3.5). Spends one charge from the pool rather
@@ -523,7 +523,7 @@ static func cast_complication(index: int, owner_id: String = "") -> Dictionary:
 	if owner_id == "":
 		Progression.award_bucket_share("soul", xp_gain)
 
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true, "recipeKey": recipe_key, "power": amplified["power"], "targets": amplified["targets"], "turnPower": amplified["turnPower"], "turnBonus": amplified["turnBonus"], "tier": int(entry["tier"]), "magnitudeMult": amplified["magnitudeMult"], "multi": bool(entry.get("multi", false)) }
 
 
@@ -603,4 +603,4 @@ static func combat_turn_tick(owner_id: String = "") -> void:
 		dial["combatRegenTurnCounter"] = 0
 		dial["currentCharge"] = minf(dial["maxCharge"], dial["currentCharge"] + GameData.DIAL_RECHARGE_COMBAT_REGEN_AMOUNT)
 
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()

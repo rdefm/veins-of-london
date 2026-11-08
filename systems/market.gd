@@ -611,7 +611,7 @@ static func add_story_rise(story_id: String) -> void:
 		market["storyRises"] = []
 	var rises: Array = market["storyRises"]
 	rises.append({ "story": story_id, "ore": rise["ore"], "fraction": float(rise["fraction"]), "startDay": day, "endDay": day + int(rise["days"]) })
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # Summed civilian-demand fraction added to an ore today by active story rises.

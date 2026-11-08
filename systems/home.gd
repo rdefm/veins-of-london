@@ -88,7 +88,7 @@ static func _apply_raid_loss() -> void:
 		parts.append("%d %s" % [lost[ore_type], ore_type])
 	var summary: String = ", ".join(parts) if not parts.is_empty() else "nothing"
 	Notify.push("Home raided. Lost %s." % summary, Notify.CATEGORY_DANGER)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # The HQ ore readout's "Apply Deadweight" entry (ADR 0007): spends one
@@ -101,7 +101,7 @@ static func apply_deadweight(tier: int) -> Dictionary:
 	var days: int = result["days"]
 	# PROSE-REVIEW: Deadweight-on-HQ notification.
 	Notify.push("Deadweight at HQ. %d day%s." % [days, "" if days == 1 else "s"], Notify.CATEGORY_SUCCESS)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return result
 
 
@@ -400,7 +400,7 @@ static func change_tier(new_tier_id: String, tenure: String) -> Dictionary:
 
 	home["tier"] = new_tier_id
 	home["tenure"] = tenure
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return {
 		"roomsLost": plan["dropped"], "roomsKept": plan["kept"], "seatsLost": plan["seatsLost"],
 		"refund": refund, "securityLost": security_lost, "guardsLost": guards_lost,
@@ -591,7 +591,7 @@ static func buy_out() -> Dictionary:
 	home["tenure"] = TENURE_OWNED
 	_refund_deposit()
 	Notify.push("Bought out the %s. No more rent." % GameData.HOME_TIERS[tier_id]["name"], Notify.CATEGORY_SUCCESS)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	SaveManager.autosave()  # R§6: autosave on purchase
 	return { "ok": true }
 
@@ -680,7 +680,7 @@ static func add_security(security_id: String) -> Dictionary:
 		home["security"].append(security_id)
 		Notify.push("Installed %s." % security_data["name"], Notify.CATEGORY_SUCCESS)
 
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	SaveManager.autosave()  # R§6: autosave on purchase
 	return { "ok": true }
 
@@ -770,7 +770,7 @@ static func set_room_use(slot: int, room_id: String) -> Dictionary:
 	else:
 		Notify.push("Built %s." % room_data["name"], Notify.CATEGORY_SUCCESS)
 	BusinessQuest.maybe_trigger_partnership()  # Beat 4 needs a Workshop
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	SaveManager.autosave()  # R§6: autosave on purchase
 	return { "ok": true }
 
@@ -848,7 +848,7 @@ static func buy_seat_upgrade(room_id: String) -> Dictionary:
 	GameState.state["home"]["roomSeats"][room_id] = int(upgrade["seats"])
 	# PROSE-REVIEW: drafted against CONTENT-GUIDE.md's tone.
 	Notify.push("%s now seats %d." % [room_name, int(upgrade["seats"])], Notify.CATEGORY_SUCCESS)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	SaveManager.autosave()  # R§6: autosave on purchase
 	return { "ok": true }
 

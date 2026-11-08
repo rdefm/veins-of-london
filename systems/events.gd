@@ -350,7 +350,7 @@ static func advance() -> void:
 		# goes through choose(). No snapshot: nothing but the step changes.
 		if not is_choosing():
 			GameState.state["event"]["choosing"] = true
-			EventBus.state_changed.emit()
+			EventBus.mark_changed()
 		return
 
 	_snapshot_before_mutation()
@@ -414,7 +414,7 @@ static func _continue() -> void:
 				event_state["jumps"][str(here)] = dest
 		_tick_reinforcement()
 		_arrive(event_state, dest if dest >= 0 and dest <= here else _next_index(here))
-		EventBus.state_changed.emit()
+		EventBus.mark_changed()
 
 
 # A scripted fight's exit picks the event up again at `card`.
@@ -759,7 +759,7 @@ static func use_clean_slate() -> void:
 	if is_silent_text(resolution["text"]) and is_same(GameState.state["event"], event_state):
 		_continue()
 	else:
-		EventBus.state_changed.emit()
+		EventBus.mark_changed()
 
 
 # Continue on a held fail: applies its effects and records its goto. False when
@@ -1462,7 +1462,7 @@ static func reveal_card() -> Dictionary:
 	if not event_state.has("revealed"):
 		event_state["revealed"] = {}
 	event_state["revealed"][str(int(event_state["cardIndex"]))] = true
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true }
 
 
@@ -1755,7 +1755,7 @@ static func toggle_item(choice_index: int, item: String) -> Dictionary:
 	else:
 		stored.append(item)
 	event_state["toggles"][key] = stored
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true }
 
 
@@ -1959,7 +1959,7 @@ static func rewind(source: String = "") -> Dictionary:
 		Dial.cast_complication(rewind_index)
 
 	Notify.push("⟲ Time unspools. The moment resets. Only you remember.")
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true, "rearmed": rearmed }
 
 
@@ -1971,7 +1971,7 @@ static func apply_effects(effects: Array, context: Dictionary = {}) -> void:
 	# Every tutorial checkpoint flag is set exclusively via the set_flag op below,
 	# same as several Collective flags, so this is one of the boundaries objectives.gd's own doc lists.
 	Objectives.refresh()
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 static func _apply_one(effect: Dictionary, context: Dictionary = {}) -> void:

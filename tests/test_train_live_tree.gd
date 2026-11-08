@@ -21,6 +21,7 @@ func run() -> void:
 				overlay = child
 		assert_true(overlay != null, "overlay is in Main")
 		Modal.open("hq_gym")
+		EventBus.flush_now()
 		assert_true(modal_layer.visible, "modal layer visible")
 		var train := _find_button(modal_layer, "Train")
 		assert_true(train != null, "Train button present")

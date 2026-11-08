@@ -23,6 +23,7 @@ func run() -> void:
 
 		Bank.record(100, "Archie sale")
 
+		EventBus.flush_now()
 		EventBus.state_changed.disconnect(on_state)
 		assert_true(got_state_changed[0], "state_changed should fire")
 	)

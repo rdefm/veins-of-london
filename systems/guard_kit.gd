@@ -67,7 +67,7 @@ static func stock(vein_id: String, recipe_key: String, tier: int, qty: int) -> D
 		return _refuse("No guards on this vein.")
 	var result := stock_into(vein, "guardKit", capacity(vein), recipe_key, tier, qty)
 	if result["ok"]:
-		EventBus.state_changed.emit()
+		EventBus.mark_changed()
 	return result
 
 
@@ -79,7 +79,7 @@ static func unstock(vein_id: String, recipe_key: String, tier: int, qty: int) ->
 		return _refuse("Not your vein.")
 	var result := unstock_from(vein, "guardKit", recipe_key, tier, qty)
 	if result["ok"]:
-		EventBus.state_changed.emit()
+		EventBus.mark_changed()
 	return result
 
 
@@ -97,7 +97,7 @@ static func stock_hq(recipe_key: String, tier: int, qty: int) -> Dictionary:
 		return _refuse("No guards at HQ.")
 	var result := stock_into(GameState.state["home"], "guardKit", hq_capacity(), recipe_key, tier, qty)
 	if result["ok"]:
-		EventBus.state_changed.emit()
+		EventBus.mark_changed()
 	return result
 
 
@@ -105,7 +105,7 @@ static func stock_hq(recipe_key: String, tier: int, qty: int) -> Dictionary:
 static func unstock_hq(recipe_key: String, tier: int, qty: int) -> Dictionary:
 	var result := unstock_from(GameState.state["home"], "guardKit", recipe_key, tier, qty)
 	if result["ok"]:
-		EventBus.state_changed.emit()
+		EventBus.mark_changed()
 	return result
 
 

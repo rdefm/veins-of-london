@@ -64,7 +64,7 @@ static func decline_deal(pending_id: String) -> void:
 	Messages.resolve_pending(pending_id)
 	GameState.state["flags"]["archieDealActive"] = false
 	Contacts.award_relation("archie", DECLINE_RELATION_LOSS)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # Rolls a fresh deal's ore type and tier-scaled quantity, priced via the
@@ -104,7 +104,7 @@ static func accept_deal(pending_id: String) -> void:
 		# mugging resolves; resolve_mugging() opens it once that happens.
 		GameState.state["pendingArchieDealCut"] = player_cut
 		CombatPrep.request(CombatPrep.KIND_ARCHIE_DEAL_MUGGING)
-		EventBus.state_changed.emit()
+		EventBus.mark_changed()
 		return
 
 	GameState.state["player"]["cash"] += player_cut
@@ -112,7 +112,7 @@ static func accept_deal(pending_id: String) -> void:
 	BusinessStats.record_sale(player_cut)
 	GameState.state["flags"]["archieDealActive"] = false
 	Modal.open("archie_deal_result", { "earned": player_cut, "gross": deal["gross"], "mugged": false })
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # Called by combat.gd's exit_combat() for the archie_deal_mugging context,
@@ -126,7 +126,7 @@ static func resolve_mugging(won: bool) -> void:
 	GameState.state["flags"]["archieDealActive"] = false
 
 	if not won:
-		EventBus.state_changed.emit()
+		EventBus.mark_changed()
 		return
 
 	if earned > 0:
