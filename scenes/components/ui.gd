@@ -244,6 +244,87 @@ static func button(text: String, callback: Callable) -> Button:
 	return b
 
 
+const SEGMENT_HEIGHT := 40.0
+const SWITCH_ROW_HEIGHT := 44.0
+const SWITCH_TRACK_SIZE := Vector2(44, 24)
+const SWITCH_KNOB_SIZE := 18.0
+const SEGMENT_LOCKED_ALPHA := 0.5
+const _SEG_RULE := Color("#e9353c")
+const _SEG_FILL := Color("#172431")
+const _SEG_TEXT := Color("#fbfaf6")
+const _SEG_MUTED := Color("#a9b5bd")
+const _SWITCH_OFF := Color("#354454")
+
+
+# Equal-width options; the selected one gets a bottom red rule. Each option is
+# {"key", "label", "name"}; on_select receives the key. Disabled dims the row.
+static func segmented_control(options: Array, selected_key: String, on_select: Callable, disabled: bool = false) -> HBoxContainer:
+	var row := hbox(0)
+	row.clip_contents = true
+	row.modulate.a = SEGMENT_LOCKED_ALPHA if disabled else 1.0
+	for opt in options:
+		var key: String = opt["key"]
+		var b := button(opt["label"], func(): on_select.call(key))
+		b.name = opt.get("name", "Segment_%s" % key)
+		b.custom_minimum_size = Vector2(0, SEGMENT_HEIGHT)
+		b.disabled = disabled
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var is_sel: bool = key == selected_key
+		var box := StyleBoxFlat.new()
+		box.bg_color = _SEG_FILL if is_sel else Color(0, 0, 0, 0)
+		box.border_color = _SEG_RULE
+		box.border_width_bottom = 3 if is_sel else 0
+		box.set_content_margin_all(6)
+		for state in ["normal", "hover", "pressed", "disabled"]:
+			b.add_theme_stylebox_override(state, box)
+		for state in ["font_color", "font_hover_color", "font_pressed_color", "font_disabled_color"]:
+			b.add_theme_color_override(state, _SEG_TEXT if is_sel else _SEG_MUTED)
+		row.add_child(b)
+	return row
+
+
+# Label + track/knob switch; whole row is the 44px tap target. on_toggle gets the new value.
+static func switch_row(text: String, value: bool, on_toggle: Callable, disabled: bool = false) -> Control:
+	var b := TapButton.new()
+	b.flat = true
+	b.toggle_mode = false
+	b.custom_minimum_size = Vector2(0, SWITCH_ROW_HEIGHT)
+	b.disabled = disabled
+	b.pressed.connect(func(): on_toggle.call(not value))
+	var row := hbox(8)
+	row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var l := label(text)
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	l.clip_text = true
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(l)
+	var track := PanelContainer.new()
+	track.custom_minimum_size = SWITCH_TRACK_SIZE
+	track.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	track.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var ts := StyleBoxFlat.new()
+	ts.bg_color = _SEG_RULE if value else _SWITCH_OFF
+	ts.set_corner_radius_all(12)
+	track.add_theme_stylebox_override("panel", ts)
+	var knob := Panel.new()
+	knob.custom_minimum_size = Vector2(SWITCH_KNOB_SIZE, SWITCH_KNOB_SIZE)
+	knob.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var ks := StyleBoxFlat.new()
+	ks.bg_color = _SEG_TEXT
+	ks.set_corner_radius_all(9)
+	knob.add_theme_stylebox_override("panel", ks)
+	var knob_holder := HBoxContainer.new()
+	knob_holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	knob_holder.alignment = BoxContainer.ALIGNMENT_END if value else BoxContainer.ALIGNMENT_BEGIN
+	knob_holder.add_child(knob)
+	track.add_child(knob_holder)
+	row.add_child(track)
+	b.add_child(row)
+	b.modulate.a = SEGMENT_LOCKED_ALPHA if disabled else 1.0
+	return b
+
+
 static func action_button(text: String, callback: Callable, disabled: bool = false, reason: String = "") -> Control:
 	var row := vbox(2)
 	var b := button(text, callback)

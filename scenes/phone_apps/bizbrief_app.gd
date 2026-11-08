@@ -34,7 +34,6 @@ const SALES_EMPTY_TEXT := "No offers or orders yet."
 
 const STOCK_TEXT := "%d in stock"
 const MOOD_BUTTON_HEIGHT := 40.0
-const MOOD_LOCKED_ALPHA := 0.5
 const AUTO_SELL_LOCKED_TEXT := "Locked. Put someone on Sales to set this."
 const MASTER_HEADING := "Master settings · %d recipes follow"
 const MASTER_SUMMARY := "Today: following recipes would sell %d across %d for about £%d"
@@ -1421,16 +1420,10 @@ func _build_master_controller() -> Control:
 
 
 func _build_master_mood_row(selected_mood: String, sales_staffed: bool) -> Control:
-	var row := UI.hbox(4)
-	row.modulate.a = 1.0 if sales_staffed else MOOD_LOCKED_ALPHA
+	var options: Array = []
 	for mood in AUTO_SELL_MOODS:
-		var button := UI.button(AUTO_SELL_MOODS[mood]["label"], func(): AutoSell.set_master_mood(mood))
-		button.name = "MasterMood_%s" % mood
-		button.custom_minimum_size.y = MOOD_BUTTON_HEIGHT
-		button.disabled = not sales_staffed
-		_style_stats_toggle(button, mood == selected_mood)
-		row.add_child(UI.expand_fill(button))
-	return row
+		options.append({"key": mood, "label": AUTO_SELL_MOODS[mood]["label"], "name": "MasterMood_%s" % mood})
+	return UI.segmented_control(options, selected_mood, func(mood: String): AutoSell.set_master_mood(mood), not sales_staffed)
 
 
 static func _master_summary_text(projected: Dictionary, sales_staffed: bool) -> String:
@@ -1545,16 +1538,10 @@ static func _auto_sell_text(projected: Dictionary) -> String:
 
 
 func _build_mood_row(recipe_key: String, selected_mood: String, sales_staffed: bool) -> Control:
-	var row := UI.hbox(4)
-	row.modulate.a = 1.0 if sales_staffed else MOOD_LOCKED_ALPHA
+	var options: Array = []
 	for mood in AUTO_SELL_MOODS:
-		var button := UI.button(AUTO_SELL_MOODS[mood]["label"], func(): AutoSell.set_mood(recipe_key, mood))
-		button.name = "AutoSellMood_%s_%s" % [recipe_key, mood]
-		button.custom_minimum_size.y = MOOD_BUTTON_HEIGHT
-		button.disabled = not sales_staffed
-		_style_stats_toggle(button, mood == selected_mood)
-		row.add_child(UI.expand_fill(button))
-	return row
+		options.append({"key": mood, "label": AUTO_SELL_MOODS[mood]["label"], "name": "AutoSellMood_%s_%s" % [recipe_key, mood]})
+	return UI.segmented_control(options, selected_mood, func(mood: String): AutoSell.set_mood(recipe_key, mood), not sales_staffed)
 
 
 # Each cultivator's assigned veins, or the Assign vein chooser for one of
