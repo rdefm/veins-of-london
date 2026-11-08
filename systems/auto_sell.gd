@@ -35,22 +35,16 @@ static func _store_rule(recipe_key: String, sell_above: int, mood: String) -> vo
 	ProductionSettings.set_field(recipe_key, "mood", mood)
 
 
-# Sets the Production target; a Keep past the cutoff pushes the cutoff with it.
+# Sets Keep; a Keep at or past Sell-above pushes Sell-above up with it.
 static func set_keep(recipe_key: String, keep: int) -> void:
-	var clamped := Rooms.clamp_lab_threshold(keep)
-	var current := rule(recipe_key)
-	if clamped > int(current["sellAbove"]):
-		ProductionSettings.set_field(recipe_key, "sellAbove", clamped)
-	Rooms.set_lab_threshold(recipe_key, clamped)
+	ProductionSettings.set_keep(recipe_key, keep)
 
 
-# Moves the cutoff, stopping at Keep. Locked while no one works Sales.
+# Moves Sell-above, stopping one above Keep. Locked while no one works Sales.
 static func set_sell_above(recipe_key: String, sell_above: int) -> void:
 	if not Contracts.has_staffed_sales():
 		return
-	var keep := Rooms.lab_target(recipe_key)
-	_store_rule(recipe_key, clampi(sell_above, keep, GameData.PRODUCTION_TARGET_MAX), rule(recipe_key)["mood"])
-	EventBus.mark_changed()
+	ProductionSettings.set_sell_above(recipe_key, sell_above)
 
 
 # Locked while no one works Sales.
@@ -61,11 +55,14 @@ static func set_mood(recipe_key: String, mood: String) -> void:
 	EventBus.mark_changed()
 
 
-# Stock at or below this is never auto-sold. keep / sell_above >= 0 preview
-# values not yet stored (a handle mid-drag).
+# Stock at or below this is never auto-sold: max(Sell-above, Keep, contract
+# need while covering). keep / sell_above >= 0 preview values not yet stored
+# (a handle mid-drag).
 static func protected_floor(recipe_key: String, keep: int = -1, sell_above: int = -1) -> int:
 	var cutoff: int = sell_above if sell_above >= 0 else int(rule(recipe_key)["sellAbove"])
-	return maxi(cutoff, Rooms.effective_lab_target(recipe_key, keep))
+	var kept: int = keep if keep >= 0 else Rooms.lab_keep(recipe_key)
+	var need := Rooms.contract_need(recipe_key) if Rooms.lab_covers_contracts(recipe_key) else 0
+	return maxi(maxi(cutoff, kept), need)
 
 
 # Extra London stock that would lower the price by max_drop on the market curve.

@@ -335,9 +335,8 @@ func run() -> void:
 		assert_eq(ContractsSystem.delivered_qty(mixed, "fate"), 0, "nothing left for the uncoverable partial")
 	)
 
-	# Production contract-coverage toggle: the personal-target portion of a
-	# covered item's shared stock is a protected buffer.
-	run_case("delivery_cannot_draw_below_the_covered_personal_target_reserve", func():
+	# Keep is a protected buffer contract delivery never draws from.
+	run_case("delivery_cannot_draw_below_keep", func():
 		_staff_sales()
 		ProductionSettings.set_field("timePearl", "keep", 5)
 		Rooms.set_lab_cover_contracts("timePearl", true)
@@ -346,18 +345,28 @@ func run() -> void:
 		var contract: Dictionary = OffersSystem.accept_offer(created["offer"]["id"])["contract"]
 		ContractsSystem.process_sales_deliveries()
 		assert_eq(ContractsSystem.delivered_qty(contract), 3, "only the unreserved portion (8 in stock minus the 5 reserve) should be deliverable")
-		assert_eq(Crafting.inventory_qty("timePearl"), 5, "the personal-target reserve should remain untouched")
+		assert_eq(Crafting.inventory_qty("timePearl"), 5, "the Keep reserve should remain untouched")
 	)
 
-	run_case("shared_stock_is_undivided_when_the_item_is_not_covering_contracts", func():
+	run_case("keep_reserve_holds_even_when_the_item_is_not_covering_contracts", func():
 		_staff_sales()
 		ProductionSettings.set_master_field("coverContracts", false)
 		ProductionSettings.set_field("timePearl", "keep", 5)
 		Crafting.inventory_add("timePearl", 1, 8)
+		var created: Dictionary = OffersSystem.create_offer({ "id": "t_keep_off", "source": "random", "contractType": "oneOff", "request": { "kind": "consumable", "type": "timePearl", "qty": 10 } })
+		var contract: Dictionary = OffersSystem.accept_offer(created["offer"]["id"])["contract"]
+		ContractsSystem.process_sales_deliveries()
+		assert_eq(ContractsSystem.delivered_qty(contract), 3)
+	)
+
+	run_case("shared_stock_is_undivided_when_keep_is_zero", func():
+		_staff_sales()
+		ProductionSettings.set_master_field("coverContracts", false)
+		Crafting.inventory_add("timePearl", 1, 8)
 		var created: Dictionary = OffersSystem.create_offer({ "id": "t_open", "source": "random", "contractType": "oneOff", "request": { "kind": "consumable", "type": "timePearl", "qty": 10 } })
 		var contract: Dictionary = OffersSystem.accept_offer(created["offer"]["id"])["contract"]
 		ContractsSystem.process_sales_deliveries()
-		assert_eq(ContractsSystem.delivered_qty(contract), 8, "toggle off -- no reserve, full shared stock available")
+		assert_eq(ContractsSystem.delivered_qty(contract), 8, "toggle off, Keep 0 -- full shared stock available")
 	)
 
 	run_case("full_oneoff_delivery_settles_immediately_and_cannot_repeat", func():

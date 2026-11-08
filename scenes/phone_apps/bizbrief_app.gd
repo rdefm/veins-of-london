@@ -1296,7 +1296,8 @@ func _production_entry_lines(entry: Dictionary) -> Array[String]:
 
 func _build_production_recipe_row(recipe_key: String) -> Control:
 	var recipe: Dictionary = GameData.RECIPES[recipe_key]
-	var target: int = Rooms.lab_target(recipe_key)
+	var production: int = Rooms.lab_target(recipe_key)
+	var keep: int = Rooms.lab_keep(recipe_key)
 	var covering: bool = Rooms.lab_covers_contracts(recipe_key)
 	var rule := AutoSell.rule(recipe_key)
 	var sales_staffed := Contracts.has_staffed_sales()
@@ -1311,16 +1312,17 @@ func _build_production_recipe_row(recipe_key: String) -> Control:
 	box.add_child(title)
 
 	# Target, contract need and coverage sit above the controls.
-	var target_label := UI.muted_label(_target_text(recipe_key, target, covering))
+	var target_label := UI.muted_label(_target_text(recipe_key, keep, covering))
 	box.add_child(target_label)
+	box.add_child(_build_production_control(recipe_key, production))
 
 	var bar := StockBar.new()
 	bar.name = "StockBar_%s" % recipe_key
-	bar.configure(GameData.PRODUCTION_TARGET_MAX, target, int(rule["sellAbove"]), Rooms.effective_lab_target(recipe_key), stock, not sales_staffed)
+	bar.configure(GameData.PRODUCTION_TARGET_MAX, keep, int(rule["sellAbove"]), AutoSell.protected_floor(recipe_key), stock, not sales_staffed)
 	box.add_child(bar)
 	var hold_label := UI.muted_label("")
 	hold_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	_show_contract_hold(hold_label, recipe_key, target, bar.cutoff)
+	_show_contract_hold(hold_label, recipe_key, keep, bar.cutoff)
 	box.add_child(hold_label)
 
 	box.add_child(UI.muted_label(AUTO_SELL_HEADING))
@@ -1331,7 +1333,7 @@ func _build_production_recipe_row(recipe_key: String) -> Control:
 	box.add_child(result_label)
 
 	bar.changed.connect(func(keep: int, cutoff: int) -> void:
-		bar.set_held_floor(Rooms.effective_lab_target(recipe_key, keep))
+		bar.set_held_floor(AutoSell.protected_floor(recipe_key, keep, cutoff))
 		target_label.text = _target_text(recipe_key, keep, covering)
 		_show_contract_hold(hold_label, recipe_key, keep, cutoff)
 		result_label.text = _auto_sell_text(AutoSell.projection(recipe_key, keep, cutoff)))
@@ -1347,12 +1349,28 @@ func _build_production_recipe_row(recipe_key: String) -> Control:
 	return box
 
 
-# "Keep: 5 · contract need: 3 · crafting to: 8" while covering contracts,
-# "... · contracts not covered" otherwise.
-static func _target_text(recipe_key: String, target: int, covering: bool) -> String:
-	var text := "Keep: %d · contract need: %d" % [target, Rooms.contract_need(recipe_key)]
+# Production +/- row; Production is a plain 0..max craft target.
+func _build_production_control(recipe_key: String, production: int) -> Control:
+	var row := UI.hbox(6)
+	row.name = "ProductionControl_%s" % recipe_key
+	row.add_child(UI.expand_fill(UI.label("Production: %d" % production)))
+	var less := UI.button("−", func(): Rooms.set_lab_threshold(recipe_key, Rooms.lab_target(recipe_key) - 1))
+	less.name = "ProductionLess_%s" % recipe_key
+	less.disabled = production <= 0
+	row.add_child(less)
+	var more := UI.button("+", func(): Rooms.set_lab_threshold(recipe_key, Rooms.lab_target(recipe_key) + 1))
+	more.name = "ProductionMore_%s" % recipe_key
+	more.disabled = production >= GameData.PRODUCTION_TARGET_MAX
+	row.add_child(more)
+	return row
+
+
+# "Keep: 5 · Sell above: 20 · contract need: 3 · crafting to: 8" while covering
+# contracts, "... · contracts not covered" otherwise.
+static func _target_text(recipe_key: String, keep: int, covering: bool) -> String:
+	var text := "Keep: %d · Sell above: %d · contract need: %d" % [keep, int(AutoSell.rule(recipe_key)["sellAbove"]), Rooms.contract_need(recipe_key)]
 	if covering:
-		return text + " · crafting to: %d" % Rooms.effective_lab_target(recipe_key, target)
+		return text + " · crafting to: %d" % Rooms.effective_lab_target(recipe_key)
 	return text + " · contracts not covered"
 
 

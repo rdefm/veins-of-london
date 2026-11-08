@@ -41,7 +41,7 @@ func run() -> void:
 		GameState.state["contacts"]["des"]["recruited"] = true
 		Contacts.assign_to_room("des", "lab")
 		GameState.state["contacts"]["des"]["specialities"] = ["time"]
-		ProductionSettings.set_field("timePearl", "keep", 5)
+		ProductionSettings.set_field("timePearl", "production", 5)
 		GameState.state["player"]["orichalchum"]["time"] = 1000
 		_owe_wage("des", 100)
 		for i in TimeSystem.BLOCKS_PER_DAY:

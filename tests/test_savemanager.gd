@@ -977,7 +977,7 @@ func run() -> void:
 	run_case("loading_clamps_production_targets_above_the_cap", func():
 		GameState.reset()
 		var legacy: Dictionary = GameState.deep_copy(GameState.state)
-		legacy["production"]["overrides"] = { "timePearl": { "production": 0, "keep": 80.0, "sellAbove": 99.0, "mood": "bogus", "coverContracts": true }, "rewind": { "keep": 10.0 } }
+		legacy["production"]["overrides"] = { "timePearl": { "production": 80.0, "keep": 0, "sellAbove": 99.0, "mood": "bogus", "coverContracts": true }, "rewind": { "production": 10.0 } }
 
 		assert_true(SaveManager._load_save_dict(legacy)["ok"])
 		assert_eq(Rooms.lab_target("timePearl"), GameData.PRODUCTION_TARGET_MAX, "over-cap target clamps")

@@ -59,6 +59,52 @@ static func set_master_field(field: String, value: Variant) -> void:
 	EventBus.mark_changed()
 
 
+# Keep (never-sell floor) stays strictly below Sell-above. Raising Keep pushes
+# Sell-above up; lowering Sell-above stops one above Keep. Both clamp to
+# 0..productionTargetMax. Production is not part of the ordering.
+static func set_keep(recipe_key: String, keep: int) -> void:
+	var ordered := ordered_pair(keep, int(resolve(recipe_key)["sellAbove"]))
+	set_field(recipe_key, "keep", ordered["keep"])
+	set_field(recipe_key, "sellAbove", ordered["sellAbove"])
+	EventBus.mark_changed()
+
+
+static func set_sell_above(recipe_key: String, sell_above: int) -> void:
+	var ordered := ordered_pair(int(resolve(recipe_key)["keep"]), sell_above)
+	set_field(recipe_key, "keep", ordered["keep"])
+	set_field(recipe_key, "sellAbove", ordered["sellAbove"])
+	EventBus.mark_changed()
+
+
+static func set_master_production(production: int) -> void:
+	master()["production"] = clampi(production, 0, GameData.PRODUCTION_TARGET_MAX)
+	EventBus.mark_changed()
+
+
+static func set_master_keep(keep: int) -> void:
+	var ordered := ordered_pair(keep, int(master()["sellAbove"]))
+	master()["keep"] = ordered["keep"]
+	master()["sellAbove"] = ordered["sellAbove"]
+	EventBus.mark_changed()
+
+
+static func set_master_sell_above(sell_above: int) -> void:
+	var ordered := ordered_pair(int(master()["keep"]), sell_above)
+	master()["keep"] = ordered["keep"]
+	master()["sellAbove"] = ordered["sellAbove"]
+	EventBus.mark_changed()
+
+
+# { keep, sellAbove } with keep < sellAbove. Keep never exceeds max-1, so Sell-above always has room above it.
+static func ordered_pair(keep: int, sell_above: int) -> Dictionary:
+	var top: int = GameData.PRODUCTION_TARGET_MAX
+	keep = clampi(keep, 0, top - 1)
+	sell_above = clampi(sell_above, 0, top)
+	if sell_above <= keep:
+		sell_above = keep + 1
+	return { "keep": keep, "sellAbove": sell_above }
+
+
 # Load fix-up: fills missing fields from defaults, int-ifies and clamps
 # numbers, drops unknown moods back to the default.
 static func sanitize(production: Dictionary) -> void:
@@ -78,6 +124,9 @@ static func _sanitize_set(setting_set: Dictionary, defaults: Dictionary) -> void
 			setting_set[field] = defaults[field]
 	for field in ["production", "keep", "sellAbove"]:
 		setting_set[field] = clampi(int(setting_set[field]), 0, GameData.PRODUCTION_TARGET_MAX)
+	var ordered := ordered_pair(setting_set["keep"], setting_set["sellAbove"])
+	setting_set["keep"] = ordered["keep"]
+	setting_set["sellAbove"] = ordered["sellAbove"]
 	if not GameData.MARKET["autoSell"]["moods"].has(setting_set["mood"]):
 		setting_set["mood"] = defaults["mood"]
 	setting_set["coverContracts"] = bool(setting_set["coverContracts"])

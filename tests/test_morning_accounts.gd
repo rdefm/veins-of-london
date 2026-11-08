@@ -38,7 +38,7 @@ func run() -> void:
 		GameState.state["contacts"]["archie"]["recruited"] = true
 		Contacts.assign_to_room("archie", "lab")
 		GameState.state["contacts"]["archie"]["specialities"] = ["time"]
-		ProductionSettings.set_field("timePearl", "keep", 2)
+		ProductionSettings.set_field("timePearl", "production", 2)
 		GameState.state["player"]["orichalchum"]["time"] = 10000
 		Rng.set_seed(7)
 		for i in 30:
@@ -51,7 +51,7 @@ func run() -> void:
 		assert_true(account["exceptions"].is_empty())
 		assert_eq(GameState.state["morningAccounts"]["blockProduction"], { "ore": {}, "items": {}, "oreMovement": {} }, "the rollover consumes the day's block output")
 
-		ProductionSettings.set_field("timePearl", "keep", 5)
+		ProductionSettings.set_field("timePearl", "production", 5)
 		GameState.state["player"]["orichalchum"]["time"] = 0
 		TimeSystem.run_staff_block()
 		context = MorningAccountsSystem.begin_rollover()

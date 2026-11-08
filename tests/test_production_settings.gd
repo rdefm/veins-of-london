@@ -36,7 +36,7 @@ func run() -> void:
 	run_case("master_edits_reach_only_non_overridden_recipes", func():
 		GameState.reset()
 		Rooms.set_lab_threshold(SALVE, 7)
-		ProductionSettings.set_master_field("keep", 3)
+		ProductionSettings.set_master_field("production", 3)
 		assert_eq(Rooms.lab_target(SALVE), 7, "override keeps its own copy")
 		assert_eq(Rooms.lab_target("timePearl"), 3, "followers pick up the master")
 	)

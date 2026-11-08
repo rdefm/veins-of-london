@@ -529,7 +529,7 @@ func run() -> void:
 		assert_true(Contacts.set_role("james", "production")["ok"])
 		GameState.state["player"]["orichalchum"] = { "time": 0, "life": 0 }
 		assert_eq(_kind("oreShort"), [], "no target, nothing short")
-		ProductionSettings.set_field("timePearl", "keep", 3)
+		ProductionSettings.set_field("timePearl", "production", 3)
 		var rows := _kind("oreShort")
 		assert_eq(rows.size(), 1)
 		assert_eq([rows[0]["tier"], rows[0]["key"], rows[0]["action"]], ["routine", "oreShort:timePearl", { "to": "bizbrief_production", "recipeKey": "timePearl" }])

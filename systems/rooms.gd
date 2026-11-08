@@ -38,7 +38,7 @@ static func production_recipes() -> Array:
 
 
 static func set_lab_threshold(recipe_key: String, target: int) -> void:
-	ProductionSettings.set_field(recipe_key, "keep", clamp_lab_threshold(target))
+	ProductionSettings.set_field(recipe_key, "production", clamp_lab_threshold(target))
 	EventBus.mark_changed()
 
 
@@ -47,7 +47,7 @@ static func clamp_lab_threshold(target: int) -> int:
 
 
 # Per-item opt-in for Production to also craft toward accepted-contract
-# need on top of the personal Keep target.
+# need on top of the Production target.
 static func set_lab_cover_contracts(recipe_key: String, enabled: bool) -> void:
 	ProductionSettings.set_field(recipe_key, "coverContracts", enabled)
 	EventBus.mark_changed()
@@ -57,8 +57,13 @@ static func lab_covers_contracts(recipe_key: String) -> bool:
 	return ProductionSettings.resolve(recipe_key)["coverContracts"]
 
 
-# The recipe's personal Keep target (the craft target until Production splits).
+# The recipe's Production target: the stock level staff craft up to.
 static func lab_target(recipe_key: String) -> int:
+	return int(ProductionSettings.resolve(recipe_key)["production"])
+
+
+# The recipe's Keep: the never-sell floor and the contract-delivery reserve.
+static func lab_keep(recipe_key: String) -> int:
 	return int(ProductionSettings.resolve(recipe_key)["keep"])
 
 
@@ -117,24 +122,20 @@ static func _matching_active_contracts(recipe_key: String) -> Array:
 	return matches
 
 
-# Additive combination: personal target plus contract need, with the
-# personal-target portion reserved. Toggled off, this is just the
-# personal target.
-# personal_target >= 0 previews a target not yet stored (a slider mid-drag).
-static func effective_lab_target(recipe_key: String, personal_target: int = -1) -> int:
-	var target: int = personal_target if personal_target >= 0 else lab_target(recipe_key)
+# Additive combination: Production target plus contract need. Toggled off,
+# this is just the Production target.
+# production >= 0 previews a target not yet stored (a slider mid-drag).
+static func effective_lab_target(recipe_key: String, production: int = -1) -> int:
+	var target: int = production if production >= 0 else lab_target(recipe_key)
 	if lab_covers_contracts(recipe_key):
 		target += contract_need(recipe_key)
 	return target
 
 
-# The personal-target portion of stock is a protected buffer Sales may never
-# draw from -- see Contracts._shared_stock(). Only reserved while the item
-# is toggled to cover contracts; otherwise Sales draws freely.
+# Stock at or below Keep is a protected buffer contract delivery may never
+# draw from -- see Contracts._shared_stock_for_line().
 static func production_reserved_qty(recipe_key: String) -> int:
-	if not lab_covers_contracts(recipe_key):
-		return 0
-	return lab_target(recipe_key)
+	return lab_keep(recipe_key)
 
 
 # "The contract-card priority order wins, then player-set inventory-target
