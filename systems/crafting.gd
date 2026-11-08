@@ -29,11 +29,28 @@ static func recipe_ore_types(recipe_key: String) -> Array:
 
 
 static func calc_cost(recipe_key: String, skill: int) -> Dictionary:
+	return calc_cost_shared(recipe_key, skill).duplicate()
+
+
+# calc_cost memoised by recipe+skill. The returned Dictionary is shared:
+# read-only callers only (use calc_cost when the result is stored or mutated).
+static var _cost_cache: Dictionary = {}
+static var _cost_cache_recipes: Dictionary = {}
+
+
+static func calc_cost_shared(recipe_key: String, skill: int) -> Dictionary:
+	if not is_same(_cost_cache_recipes, GameData.RECIPES):
+		_cost_cache = {}
+		_cost_cache_recipes = GameData.RECIPES
+	var key := "%s|%d|%s" % [recipe_key, skill, GameData.CRAFT_COST_PER_SKILL]
+	if _cost_cache.has(key):
+		return _cost_cache[key]
 	var r: Dictionary = GameData.RECIPES[recipe_key]
 	var costs := {}
 	for ingredient in r["ingredients"]:
 		var base: int = r["ingredients"][ingredient]
 		costs[ingredient] = maxi(1, GameState.round_epsilon(base - (skill - 1) * GameData.CRAFT_COST_PER_SKILL))
+	_cost_cache[key] = costs
 	return costs
 
 

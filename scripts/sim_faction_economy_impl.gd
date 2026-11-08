@@ -8,6 +8,7 @@ const SETTLE_FROM := 31  # price range columns cover days SETTLE_FROM..end
 # Returns the turf summary (see _turf_summary) so tests can assert on it;
 # opts.quiet = 1 skips the report.
 func run(opts: Dictionary) -> Dictionary:
+	Rng.set_seed(opts["seed"])
 	GameState.reset()
 	Rng.set_seed(opts["seed"])
 	GameData.FACTION_RIVALRY = int(opts.get("rivalry", 1)) != 0

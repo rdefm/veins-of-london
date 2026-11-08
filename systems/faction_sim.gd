@@ -374,7 +374,7 @@ static func craft_chance(faction_id: String, recipe_key: String) -> float:
 
 static func _craft_toward_target(faction_id: String, recipe_key: String) -> void:
 	var skill: int = GameData.FACTIONS[faction_id]["craftSkill"]
-	var costs: Dictionary = Crafting.calc_cost(recipe_key, skill)
+	var costs: Dictionary = Crafting.calc_cost_shared(recipe_key, skill)
 	var gap: int = craft_target(faction_id, recipe_key) - item_held(faction_id, recipe_key)
 	var chance := craft_chance(faction_id, recipe_key)
 	for i in gap:
@@ -409,7 +409,7 @@ static func _craft_outside(faction_id: String) -> void:
 	var cap: int = int(cfg["dailyCap"][faction_id])
 	for entry in ranked:
 		var recipe_key: String = entry[1]
-		var costs: Dictionary = Crafting.calc_cost(recipe_key, skill)
+		var costs: Dictionary = Crafting.calc_cost_shared(recipe_key, skill)
 		while cap > 0:
 			if not _buy_outside_ore(faction_id, costs, int(cfg["walletFloor"])):
 				break
@@ -429,7 +429,7 @@ static func _craft_outside(faction_id: String) -> void:
 # London price of one unit minus the London cost of its ore at `skill`.
 static func _outside_margin(recipe_key: String, skill: int) -> int:
 	var cost := 0
-	var costs := Crafting.calc_cost(recipe_key, skill)
+	var costs := Crafting.calc_cost_shared(recipe_key, skill)
 	for ore_type in costs:
 		cost += Market.line_total("ore", Market.quote("ore", ore_type), int(costs[ore_type]))
 	return Market.quote("consumable", recipe_key) - cost
@@ -671,8 +671,10 @@ static func vein_kit(site_id: String) -> Dictionary:
 static func trade() -> void:
 	refresh_reserve_boosts()
 	var order := trade_order()
+	FactionAI.begin_withhold_cache()
 	for faction_id in order:
-		for good in traded_goods(faction_id):
+		var goods := traded_goods(faction_id)
+		for good in goods:
 			_sell_surplus(faction_id, good["kind"], good["type"])
 	for faction_id in order:
 		var goods := traded_goods(faction_id)
@@ -680,6 +682,7 @@ static func trade() -> void:
 			_buy_shortfall(faction_id, good["kind"], good["type"])
 		if GameData.FACTIONS[faction_id]["trading"].has("arbBuyMult"):
 			_arbitrage(faction_id)
+	FactionAI.end_withhold_cache()
 
 
 # Factions in the order they are served today: GameData.FACTIONS order rotated
@@ -699,7 +702,7 @@ static func ore_reserve(faction_id: String, ore_type: String) -> int:
 	var reserve_days: float = float(data["trading"]["reserveDays"])
 	var reserve := 0
 	for recipe_key in data.get("crafts", []):
-		var qty: int = int(Crafting.calc_cost(recipe_key, int(data["craftSkill"])).get(ore_type, 0))
+		var qty: int = int(Crafting.calc_cost_shared(recipe_key, int(data["craftSkill"])).get(ore_type, 0))
 		if qty <= 0:
 			continue
 		var target := craft_target(faction_id, recipe_key)

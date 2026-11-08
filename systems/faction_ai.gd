@@ -557,8 +557,31 @@ static func _withholds() -> Array:
 	return escalation["withholds"]
 
 
+# Set of active "faction|kind|good" keys while a scoped cache is open (see
+# begin_withhold_cache); null otherwise, when is_withholding scans the list.
+static var _withhold_set: Variant = null
+
+
+# Builds the active-withhold set once for a span that doesn't change withholds
+# or the day (FactionSim.trade). Pair with end_withhold_cache().
+static func begin_withhold_cache() -> void:
+	_withhold_set = null
+	var set := {}
+	var day: int = GameState.state["world"]["day"]
+	for entry in GameState.state["factionEscalation"].get("withholds", []):
+		if day <= int(entry["untilDay"]):
+			set["%s|%s|%s" % [entry["factionId"], entry["kind"], entry["good"]]] = true
+	_withhold_set = set
+
+
+static func end_withhold_cache() -> void:
+	_withhold_set = null
+
+
 # True while faction_id is withholding the good: through untilDay inclusive.
 static func is_withholding(faction_id: String, kind: String, good_type: String) -> bool:
+	if _withhold_set != null:
+		return _withhold_set.has("%s|%s|%s" % [faction_id, kind, good_type])
 	var day: int = GameState.state["world"]["day"]
 	for entry in GameState.state["factionEscalation"].get("withholds", []):
 		if entry["factionId"] == faction_id and entry["kind"] == kind and entry["good"] == good_type and day <= int(entry["untilDay"]):
