@@ -11,7 +11,7 @@ file owns today, no history.
 | GameData.gd | Loads/validates every `data/*.json` table at boot; scans `assets/combat/territorial<N>/` folders into `TERRITORIAL_VARIANTS` and builds their sprite sets in `combat_templates()` |
 | GameState.gd | Pure state tree (Dicts/Arrays/primitives); screens read only |
 | Rng.gd | Seeded RNG for every probabilistic system; `stable_unit()` keyed hash rolls + `fresh_seed()` off the global stream |
-| SaveManager.gd | Atomic save/load/autosave (.tmp→.bak→main; corrupt main loads .bak + warning notification); VEIN1:+base64(gzip(JSON)) export/import; backfills missing keys, restores JSON ints, version migrations and founder fix-ups |
+| SaveManager.gd | Atomic binary (var_to_bytes) save/load/autosave, legacy JSON files still load (.tmp→.bak→main; corrupt main loads .bak + warning notification); VEIN1:+base64(gzip(JSON)) export/import; backfills missing keys, restores JSON ints, version migrations and founder fix-ups |
 | Snapshots.gd | Bounded snapshot-stack helper backing rewind |
 
 ## systems/*.gd — static-func systems

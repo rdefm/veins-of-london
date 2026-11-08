@@ -46,7 +46,7 @@ func slot_summary(slot: int) -> Dictionary:
 
 func save_to_slot(slot: int) -> Dictionary:
 	DirAccess.make_dir_recursive_absolute(saves_dir)
-	return _write_json(slot_path(slot), _saveable_state())
+	return _write_save(slot_path(slot), _binary_state())
 
 
 func load_from_slot(slot: int) -> Dictionary:
@@ -65,7 +65,7 @@ func delete_slot(slot: int) -> void:
 func autosave() -> Dictionary:
 	DirAccess.make_dir_recursive_absolute(autosave_dir)
 	var index := _find_autosave_slot_to_write()
-	return _write_json(autosave_path(index), _saveable_state())
+	return _write_save(autosave_path(index), _binary_state())
 
 
 func _find_autosave_slot_to_write() -> int:
@@ -83,6 +83,8 @@ func _find_autosave_slot_to_write() -> int:
 
 
 const EXPORT_PREFIX := "VEIN1:"
+# Header of a binary save file; anything without it is read as legacy JSON.
+var BINARY_MAGIC: PackedByteArray = "VEINBIN1".to_utf8_buffer()
 
 
 # VEIN1: + base64(gzip(save JSON)); small enough for an Android clipboard.
@@ -115,6 +117,12 @@ func _saveable_state() -> Dictionary:
 	return saveable
 
 
+# On-disk form: binary keeps 64-bit ints and int/float exact, so no RNG-state
+# string encoding.
+func _binary_state() -> Dictionary:
+	return GameState.snapshot_state(true)
+
+
 # A round fight's RNG states (CombatRounds rngState/fogRngState, in its
 # Rewind frames too) are full 64-bit ints, past what a JSON number holds
 # exactly; they save as decimal strings, read back by _restore_round_combat_types().
@@ -136,13 +144,13 @@ func _encode_rng_states(node: Variant) -> void:
 # Atomic: write `path.tmp`, check it, move the existing main to `path.bak`, then
 # rename the temp over main. A failure at any step leaves the existing main
 # (or its .bak) intact.
-func _write_json(path: String, data: Dictionary) -> Dictionary:
+func _write_save(path: String, data: Dictionary) -> Dictionary:
 	var tmp_path := path + ".tmp"
 	var bak_path := path + ".bak"
 	var file := FileAccess.open(tmp_path, FileAccess.WRITE)
 	if file == null:
 		return { "ok": false, "reason": "Could not open %s for writing (error %d)." % [tmp_path, FileAccess.get_open_error()] }
-	var stored := file.store_string(JSON.stringify(data))
+	var stored := file.store_buffer(BINARY_MAGIC + var_to_bytes(data))
 	var write_error := file.get_error()
 	file.close()
 	if not stored or write_error != OK:
@@ -164,13 +172,21 @@ func _write_json(path: String, data: Dictionary) -> Dictionary:
 
 
 # Parses a save file into a Dictionary; empty if missing/unreadable/corrupt.
+# Binary (magic header + var_to_bytes) first, legacy JSON text otherwise.
+# bytes_to_var, never the with-objects variant: a file can't instantiate objects.
 func _read_save_file(path: String) -> Dictionary:
 	if not FileAccess.file_exists(path):
 		return {}
 	var file := FileAccess.open(path, FileAccess.READ)
 	if file == null:
 		return {}
-	var parsed = JSON.parse_string(file.get_as_text())
+	var bytes := file.get_buffer(file.get_length())
+	file.close()
+	var parsed: Variant
+	if bytes.slice(0, BINARY_MAGIC.size()) == BINARY_MAGIC:
+		parsed = bytes_to_var(bytes.slice(BINARY_MAGIC.size()))
+	else:
+		parsed = JSON.parse_string(bytes.get_string_from_utf8())
 	if parsed == null or typeof(parsed) != TYPE_DICTIONARY:
 		return {}
 	return parsed

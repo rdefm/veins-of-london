@@ -1705,8 +1705,7 @@ func run() -> void:
 		SaveManager.autosave()
 		var day_4_count := 0
 		for i in range(SaveManager.AUTOSAVE_COUNT):
-			var file := FileAccess.open(SaveManager.autosave_path(i), FileAccess.READ)
-			var parsed = JSON.parse_string(file.get_as_text())
+			var parsed := SaveManager._read_save_file(SaveManager.autosave_path(i))
 			if parsed["world"]["day"] == 4:
 				day_4_count += 1
 		assert_eq(day_4_count, 1, "exactly one of the 3 rotation slots should now hold the 4th autosave")
@@ -1747,7 +1746,7 @@ func run() -> void:
 		var path := SaveManager.slot_path(TEST_SLOT)
 		# A directory squatting on the temp path makes the open fail.
 		DirAccess.make_dir_recursive_absolute(path + ".tmp")
-		var result := SaveManager._write_json(path, { "x": 1 })
+		var result := SaveManager._write_save(path, { "x": 1 })
 		assert_true(not result["ok"], "write fails")
 		assert_true(result.has("reason"))
 		assert_eq(int(SaveManager._read_save_file(path)["player"]["cash"]), 333, "main untouched")
@@ -1772,6 +1771,65 @@ func run() -> void:
 		assert_eq(GameState.state["player"]["cash"], 444)
 		var texts: Array = GameState.state["notifications"].map(func(n): return n["text"])
 		assert_true(texts.has(result["notice"]), "player-visible notification pushed")
+		SaveManager.delete_slot(TEST_SLOT)
+	)
+
+	run_case("binary_round_trip_equals_state_with_int_types", func():
+		GameState.reset()
+		GameState.state["player"]["cash"] = 4242
+		assert_true(SaveManager.save_to_slot(TEST_SLOT)["ok"])
+		var path := SaveManager.slot_path(TEST_SLOT)
+		var file := FileAccess.open(path, FileAccess.READ)
+		var head := file.get_buffer(SaveManager.BINARY_MAGIC.size())
+		file.close()
+		assert_eq(head, SaveManager.BINARY_MAGIC, "file is binary, not JSON")
+		var expected: Dictionary = GameState.snapshot_state(true)
+		var read := SaveManager._read_save_file(path)
+		assert_eq(read, expected, "binary read equals the saved state exactly")
+		assert_true(read["player"]["cash"] is int, "cash stays int")
+		GameState.reset()
+		assert_true(SaveManager.load_from_slot(TEST_SLOT)["ok"])
+		assert_eq(GameState.state["player"]["cash"], 4242)
+		assert_true(GameState.state["player"]["cash"] is int)
+		SaveManager.delete_slot(TEST_SLOT)
+	)
+
+	run_case("binary_save_keeps_64bit_rng_state_exact", func():
+		var big := 9223372036854775000
+		var path := SaveManager.slot_path(TEST_SLOT)
+		DirAccess.make_dir_recursive_absolute(SaveManager.saves_dir)
+		assert_true(SaveManager._write_save(path, { "x": { "rngState": big } })["ok"])
+		assert_eq(SaveManager._read_save_file(path)["x"]["rngState"], big)
+		SaveManager.delete_slot(TEST_SLOT)
+	)
+
+	run_case("legacy_json_save_file_still_loads", func():
+		GameState.reset()
+		GameState.state["player"]["cash"] = 777
+		var legacy_text := JSON.stringify(SaveManager._saveable_state())
+		var path := SaveManager.slot_path(TEST_SLOT)
+		DirAccess.make_dir_recursive_absolute(SaveManager.saves_dir)
+		var file := FileAccess.open(path, FileAccess.WRITE)
+		file.store_string(legacy_text)
+		file.close()
+		GameState.reset()
+		var result := SaveManager.load_from_slot(TEST_SLOT)
+		assert_true(result["ok"], "JSON fixture loads")
+		assert_eq(GameState.state["player"]["cash"], 777)
+		assert_true(GameState.state["player"]["cash"] is int, "legacy int restoration still runs")
+		SaveManager.delete_slot(TEST_SLOT)
+	)
+
+	run_case("binary_save_cannot_instantiate_objects", func():
+		var path := SaveManager.slot_path(TEST_SLOT)
+		DirAccess.make_dir_recursive_absolute(SaveManager.saves_dir)
+		var file := FileAccess.open(path, FileAccess.WRITE)
+		file.store_buffer(SaveManager.BINARY_MAGIC + var_to_bytes_with_objects(RefCounted.new()))
+		file.close()
+		assert_true(SaveManager._read_save_file(path).is_empty(), "object payload rejected")
+		var packed := var_to_bytes_with_objects(RefCounted.new()).compress(FileAccess.COMPRESSION_GZIP)
+		var imported := SaveManager.import_string(SaveManager.EXPORT_PREFIX + Marshalls.raw_to_base64(packed))
+		assert_true(not imported["ok"], "imported string with an object payload is rejected")
 		SaveManager.delete_slot(TEST_SLOT)
 	)
 

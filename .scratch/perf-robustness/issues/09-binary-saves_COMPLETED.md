@@ -8,7 +8,7 @@
 
 **Relevant files:** `autoload/SaveManager.gd` (`_restore_int_types` from ~line 1001, `_encode_rng_states`, `export_string`), `tests/test_savemanager.gd`, `tests/test_phone_saveload.gd`; review §4.6
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [ ] Binary round trip equals the original state with int types preserved (tested)
 - [ ] A legacy JSON save still loads (tested with a fixture)
