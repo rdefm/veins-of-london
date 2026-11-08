@@ -120,7 +120,7 @@ Data file per system: see `data/*.json` below.
 | soul.gd | Soul bucket: `meditate()` HQ action (1 block, `GameData.MEDITATE` XP, larger with Garden built; refused when time spent) + `award_xp`, level perks `seed_chance_bonus()` / `cultivate_gain_bonus()` / `dial_xp_mult()` / `level_xp_mult()` (L3/L5 XP bonus) from `GameData.SOUL_PERKS` |
 | free_action.gd | `FreeAction.spend(bucket, district_id)`: refuses when time spent; else free via Guild internship, L5 per-block freebie, or L3 25% stable-hash roll (Rewind-safe); otherwise advances the block. Returns bucket/level/rule/line. State `player.freeAction`. Rules: `GameData.FREE_ACTION`. Used by Cultivating (cultivate, prune), Sites (prospect, attempt_seed). |
 | sense.gd | Sense skill XP award (level-up notify) via `Progression.award_xp` |
-| sites.gd | Sites & prospecting; each prospect awards Cultivating and Sense XP |
+| sites.gd | Sites & prospecting, `layout_signature()` for Map rebuild cache; each prospect awards Cultivating and Sense XP |
 | loadout.gd | Two personal consumable slots for the player (`player.loadout`) and combat recruits (`contacts[id].loadout`): equip/unequip (refused in combat; allies refuse Wormhole), consume, settlement refill (player, then recruits in roster order), equippable stock; multi-target units (`multi` flag, refilled as the same variant); `debug_grant()` for the debug setup |
 | stash.gd | Shared vs. Stash pools: instant tier-preserving moves, plus the player spend seam (`player_*` qty/spend/remove, shared then stash) used by Bag use (`player_item_take_one` by tier), hand-applied vein items, loadout equip and Lab crafting |
 | station_bubble.gd | Site/vein-stop tap-bubble decision |

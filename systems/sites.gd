@@ -92,6 +92,22 @@ static func sites_with_faction_vein(faction_id: String) -> Array:
 	return result
 
 
+# Cheap summary of everything the Map's layout reads from sites/veins: ids,
+# districts, slots, claim state, owners, growth and level. Equal signatures
+# mean the Map's stop layout is unchanged.
+static func layout_signature() -> String:
+	var parts: PackedStringArray = PackedStringArray()
+	for site in GameState.state["world"]["sites"]:
+		var fv: Variant = site.get("factionVein")
+		var fv_part := ""
+		if fv != null:
+			fv_part = "%s/%s/%d/%d" % [fv.get("id", ""), fv.get("factionId", ""), fv.get("growth", 0), fv.get("level", 1)]
+		parts.append("%s,%s,%d,%s,%s" % [site["id"], site["district"], site.get("slotIndex", 0), str(site.get("claimed", false)), fv_part])
+	for vein in GameState.state["player"]["veins"]:
+		parts.append("p%s,%s,%d,%d,%s" % [vein["id"], vein.get("district", ""), vein.get("growth", 0), vein.get("level", 1), str(vein.get("oreType", ""))])
+	return "|".join(parts)
+
+
 static func sites_in_district(district_id: String) -> Array:
 	var result: Array = []
 	for site in GameState.state["world"]["sites"]:

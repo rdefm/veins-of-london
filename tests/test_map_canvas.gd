@@ -76,6 +76,35 @@ func run() -> void:
 	# A fresh MapCanvas.new() per case, freed at the end of each — never
 	# added to the tree (this file only calls the one pure seam that never
 	# touches get_tree()/get_viewport()), so nothing frees it automatically.
+	run_case("rebuild_signature_ignores_cash_only_change", func():
+		var canvas := MapCanvas.new()
+		var before := canvas._rebuild_signature()
+		GameState.state["player"]["cash"] = GameState.state["player"]["cash"] + 500
+		assert_eq(canvas._rebuild_signature(), before, "cash change: signature unchanged")
+		canvas.free()
+	)
+
+	run_case("rebuild_signature_changes_on_site_vein_owner_growth", func():
+		var canvas := MapCanvas.new()
+		var base := canvas._rebuild_signature()
+		var district_id: String = GameData.DISTRICTS.keys()[0]
+		Sites.spawn_unclaimed_site(district_id, "common", "time")
+		var after_site := canvas._rebuild_signature()
+		assert_true(after_site != base, "new site: signature changes")
+		var sites: Array = GameState.state["world"]["sites"]
+		sites[sites.size() - 1]["claimed"] = true
+		var after_claim := canvas._rebuild_signature()
+		assert_true(after_claim != after_site, "claim flag: signature changes")
+		var new_vein := _canvas_vein("time", 10)
+		new_vein["id"] = "v_test"
+		GameState.state["player"]["veins"].append(new_vein)
+		var after_vein := canvas._rebuild_signature()
+		assert_true(after_vein != after_claim, "new player vein: signature changes")
+		GameState.state["player"]["veins"][-1]["growth"] = 60
+		assert_true(canvas._rebuild_signature() != after_vein, "growth change: signature changes")
+		canvas.free()
+	)
+
 	run_case("vein_ring_style_matches_MapStyle_directly_in_ownership_mode", func():
 		var canvas := MapCanvas.new()
 		canvas.filter_mode = "ownership"

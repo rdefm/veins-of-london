@@ -89,6 +89,8 @@ var _unclaimed_stops: Array = []
 var _line_vein_stops: Array = []
 var _line_faction_stops: Dictionary = {}
 
+var _last_rebuild_signature: String = ""
+
 var _pins: Array = []
 var _here_position: Vector2
 
@@ -421,12 +423,28 @@ func _skip_current() -> void:
 func _rebuild() -> void:
 	if is_queued_for_deletion():
 		return
+	var signature := _rebuild_signature()
+	if signature == _last_rebuild_signature:
+		return
+	_last_rebuild_signature = signature
 	_partition_stops()
 	_halos.rebuild(_vein_stops)
 	_rebuild_pins()
 	queue_redraw()
 	_pins_layer.queue_redraw()
 	_labels_layer.queue_redraw()
+
+
+# Everything _rebuild reads; equal to the last one means nothing to redo.
+func _rebuild_signature() -> String:
+	return "%s#%s#%s#%s#%s#%s" % [
+		Sites.layout_signature(),
+		str(MapEvents.pending_site_ids()),
+		str(MapEvents.pending_vein_ids()),
+		str(MapEvents.pending_join_line_vein_ids()),
+		str(MapPins.active_contact_pins()),
+		str(MapPalette.is_dark()),
+	]
 
 
 func set_filter(mode: String) -> void:
