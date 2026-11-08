@@ -1275,12 +1275,12 @@ func _filtered_recipes(recipe_keys: Array) -> Array:
 func _build_production_filters() -> Control:
 	var box := UI.vbox(4)
 	box.name = "ProductionFilters"
-	var ore_row := UI.hbox(4)
+	var ore_row := UI.hflow(4)
 	ore_row.add_child(_filter_button("FilterOre_all", "All ores", _filter_ore == "", func(): _set_filter_ore("")))
 	for ore_type in GameData.ORE_TYPES:
 		ore_row.add_child(_filter_button("FilterOre_%s" % ore_type, GameData.ORE_TYPES[ore_type]["name"], _filter_ore == ore_type, func(): _set_filter_ore(ore_type)))
 	box.add_child(ore_row)
-	var follow_row := UI.hbox(4)
+	var follow_row := UI.hflow(4)
 	follow_row.add_child(_filter_button("FilterFollow_all", "All", _filter_follow == "", func(): _set_filter_follow("")))
 	follow_row.add_child(_filter_button("FilterFollow_following", FOLLOW_TEXT, _filter_follow == FILTER_FOLLOWING, func(): _set_filter_follow(FILTER_FOLLOWING)))
 	follow_row.add_child(_filter_button("FilterFollow_overridden", OVERRIDDEN_TEXT, _filter_follow == FILTER_OVERRIDDEN, func(): _set_filter_follow(FILTER_OVERRIDDEN)))
