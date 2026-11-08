@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Production tab prototype</title>
+  <style>
+    /* Throwaway prototype: three Production-tab control directions on one phone, ?variant=A|B|C. Mock data only. */
+    :root{font-family:Arial,Helvetica,sans-serif;color:#fbfaf6;background:#dfe2e5;
+      --navy:#101923;--card:#1b2a38;--head:#172431;--line:#354454;--muted:#a9b5bd;--red:#e9353c;--redt:#ff646a;
+      --make:#f2c14e;--keep:#b4d6c2;--sell:#ff646a}
+    *{box-sizing:border-box}button,input,select{font:inherit;cursor:pointer}body{margin:0}
+    .stage{min-height:100vh;display:grid;place-items:center;padding:26px 12px 94px;gap:12px}
+    .note{width:min(390px,100%);color:#28313a;font-size:12px;line-height:1.45}.note strong{font-size:13px}
+    .phone{width:min(390px,100%);height:min(844px,calc(100vh - 150px));min-height:600px;border:5px solid #151b22;border-radius:34px;overflow:hidden;background:var(--navy);box-shadow:0 20px 50px #10192355;display:flex;flex-direction:column}
+    .gamebar{height:56px;flex:none;background:#050606;color:#ffbc0c;border-bottom:3px solid #383f49;padding:8px 11px;font:14px/1.1 monospace;text-transform:uppercase;letter-spacing:1px}
+    .phone-status{height:28px;flex:none;background:var(--head);display:flex;justify-content:space-between;padding:7px 16px 0;font-size:12px}
+    .apphead{background:var(--head);border-bottom:1px solid var(--line);padding:6px 14px 9px;flex:none;display:flex;align-items:center;gap:9px}
+    .brand{font:24px Georgia,serif;letter-spacing:-1px}.day{margin-left:auto;font-size:10px;color:var(--muted);text-transform:uppercase}.back{color:var(--muted);font-size:12px}
+    .tabs{height:42px;flex:none;display:flex;background:var(--head);border-bottom:1px solid var(--line)}.tab{flex:1;color:var(--muted);background:transparent;border:0;border-bottom:3px solid transparent;font-size:11px;cursor:default}.tab.active{color:#fbfaf6;border-bottom-color:var(--red)}
+    .viewport{flex:1;min-height:0;overflow-y:auto;scrollbar-color:#64717c transparent}.page{padding:12px 13px 28px}
+    .dock{height:44px;flex:none;background:#f6f4ef;color:var(--red);display:flex;align-items:center;justify-content:space-around;border-top:1px solid #bdc0c3;font-size:11px}
+    h1,h2,h3,p{margin:0}h2,h3{font-family:Georgia,'Times New Roman',serif;font-weight:400}h2{font-size:18px}h3{font-size:15px}
+    .filters,.list,.recipe,.hero{grid-template-columns:minmax(0,1fr)}
+    .muted{color:var(--muted)}.hint{font-size:11px;color:var(--muted);line-height:1.35}.eyebrow{color:var(--muted);font-size:10px;font-weight:700;letter-spacing:.11em;text-transform:uppercase}
+    .num{font-variant-numeric:tabular-nums}.row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+    .subnav{display:flex;gap:8px;align-items:center;margin-bottom:10px;font-size:12px}.subnav b{color:var(--redt);font-weight:400}.subnav span{color:var(--muted)}
+    .link{border:0;background:none;color:var(--redt);font-weight:700;font-size:12px;padding:4px 0}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:12px}.hero{background:#1e3040;border-left:3px solid var(--red)}
+    .lockcard{margin-top:10px}
+    /* filters */
+    .filters{margin:14px 0 6px;display:grid;gap:7px}.chips{display:flex;gap:5px;overflow-x:auto;padding-bottom:2px}
+    .chip{flex:none;border:1px solid #4a5965;background:none;color:#d6dde1;border-radius:99px;padding:5px 9px;font-size:11px;display:flex;align-items:center;gap:5px}
+    .chip.on{background:#fbfaf6;color:#14202c;border-color:#fbfaf6}
+    .seg{display:flex;border:1px solid #4a5965;border-radius:5px;overflow:hidden}.seg button{flex:1;border:0;background:none;color:#d6dde1;padding:6px 4px;font-size:11px}.seg button+button{border-left:1px solid #4a5965}.seg button.on{background:#2b3d4f;color:#fbfaf6;font-weight:700}
+    .dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+    /* recipe rows */
+    .list{display:grid}.recipe{border-bottom:1px solid var(--line);padding:12px 0;display:grid;gap:8px;position:relative}.recipe:last-child{border:0}
+    .recipe.ov{padding-left:9px}.recipe.ov:before{content:"";position:absolute;left:0;top:12px;bottom:12px;width:3px;background:var(--make);border-radius:2px}
+    .recipe.flash{animation:flash .9s ease-out}@keyframes flash{0%{background:#f2c14e33}100%{background:transparent}}
+    .rhead{display:flex;align-items:flex-start;gap:8px}.rhead .main{flex:1;min-width:0}.rhead .hint{margin-top:2px;display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+    .badge{font-size:9px;text-transform:uppercase;letter-spacing:.05em;border:1px solid #4a5965;border-radius:3px;padding:2px 5px;color:var(--muted)}.badge.ov{border-color:var(--make);color:var(--make)}
+    .follow{display:flex;align-items:center;gap:5px;font-size:11px;color:#d6dde1;white-space:nowrap;padding:2px 0 6px 6px}.follow input{width:18px;height:18px;accent-color:var(--red);margin:0}
+    .proj{font-size:12px;color:#d6dde1}.proj b{color:#fbfaf6}
+    /* shared bits */
+    .moods{display:flex;gap:4px}.moods button{flex:1;border:1px solid #4a5965;background:none;color:#d6dde1;border-radius:4px;padding:7px 2px;font-size:11px}.moods button.on{background:var(--red);border-color:var(--red);color:#fff}.moods button:disabled{opacity:.4;cursor:not-allowed}
+    .cover{display:flex;align-items:center;gap:8px;border:0;background:none;color:#d6dde1;font-size:12px;padding:3px 0;text-align:left}
+    .sw{width:30px;height:17px;border-radius:99px;background:#4a5965;position:relative;flex:none}.sw:after{content:"";position:absolute;left:2px;top:2px;width:13px;height:13px;border-radius:50%;background:#fbfaf6;transition:left .15s}.sw.on{background:var(--red)}.sw.on:after{left:15px}
+    .locked{font-size:11px;color:var(--muted);font-style:italic}
+    .k{color:var(--keep)}.s{color:var(--sell)}.m{color:var(--make)}.lt{color:var(--muted);font-weight:700}
+    .legend{display:flex;gap:10px;font-size:12px;align-items:baseline;flex-wrap:wrap}.legend b{font-size:14px}
+    /* A: stock bar */
+    .bar{position:relative;height:66px;margin:0 22px;touch-action:none;user-select:none}
+    .track{position:absolute;left:0;right:0;top:24px;height:14px;border-radius:3px;background:#0e1720;overflow:visible}
+    .zone{position:absolute;top:0;bottom:0}.zk{background:#5c857266}.zh{background:#2b3b4b}.zs{background:#e9353c55}
+    .stocktick{position:absolute;top:-4px;bottom:-4px;width:2px;background:#fbfaf6;margin-left:-1px}
+    .needband{position:absolute;bottom:-5px;height:3px;background:#7fa7d9}
+    .h{position:absolute;top:18px;width:26px;height:26px;border-radius:4px;border:2px solid;background:var(--navy);display:grid;place-items:center;font-size:10px;font-weight:700;touch-action:none;cursor:grab}
+    .h.keep{border-color:var(--keep);color:var(--keep);transform:translateX(-100%)}.h.sell{border-color:var(--sell);color:var(--sell)}
+    .h.dis{opacity:.35;cursor:not-allowed}
+    .pin{position:absolute;top:0;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;touch-action:none;cursor:grab}
+    .pin span{background:var(--make);color:#14202c;font-size:10px;font-weight:700;border-radius:3px;padding:2px 5px;white-space:nowrap}.pin i{width:2px;height:20px;background:var(--make)}
+    .axis{position:absolute;left:0;right:0;top:50px;display:flex;justify-content:space-between;font-size:9px;color:#64717c}
+    /* B: steppers */
+    .steps{display:grid;grid-template-columns:1fr 1px 1fr 10px 1fr;gap:5px;align-items:center}.vr{background:var(--line);height:44px}
+    .step{display:grid;gap:3px;justify-items:center}.step .eyebrow{font-size:9px}
+    .sv{display:flex;align-items:center;gap:2px}.sv b{min-width:30px;text-align:center;font:20px Georgia,serif}
+    .sv button{width:28px;height:30px;border-radius:4px;border:1px solid #4a5965;background:#14202c;color:#fbfaf6;font-size:16px;line-height:1;touch-action:none}.sv button:disabled{opacity:.3;cursor:not-allowed}
+    .strip{position:relative;height:6px;border-radius:3px;background:#0e1720;margin-top:2px}.strip .stocktick{top:-3px;bottom:-3px}
+    /* C: fields */
+    .summary{width:100%;display:flex;gap:10px;align-items:baseline;border:1px solid var(--line);background:#14202c;border-radius:5px;padding:8px 10px;color:#fbfaf6;font-size:12px;text-align:left}.summary b{font-size:15px}.summary .chev{margin-left:auto;color:var(--redt)}
+    .fields{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px}.field{display:grid;gap:3px}.field label{font-size:9px;font-weight:700;letter-spacing:.09em;text-transform:uppercase}
+    .field input{width:100%;background:#0e1720;border:1px solid #4a5965;border-radius:4px;color:#fbfaf6;padding:8px;font-size:18px;font-family:Georgia,serif}.field input:focus{outline:2px solid var(--red);border-color:transparent}.field input:disabled{opacity:.4}
+    .field.make input{border-color:#f2c14e66}.field.keep input{border-color:#b4d6c266}.field.sell input{border-color:#ff646a66}
+    .ruler{position:relative;height:22px}.ruler .base{position:absolute;left:0;right:0;top:10px;height:2px;background:var(--line)}.ruler .tk{position:absolute;top:0;transform:translateX(-50%);font-size:9px;font-weight:700}.ruler .tk:after{content:"";display:block;width:2px;height:8px;margin:1px auto 0;background:currentColor}
+    /* chrome */
+    .switcher{position:fixed;bottom:15px;left:50%;transform:translateX(-50%);z-index:10;display:flex;align-items:center;gap:9px;background:#f9fafb;color:#14202c;border:1px solid #9fa6ac;box-shadow:0 7px 25px #1118;border-radius:99px;padding:5px 8px;font-size:12px;white-space:nowrap}
+    .switcher button{border:0;border-radius:50%;background:#14202c;color:white;width:29px;height:29px}.switcher .label{min-width:150px;text-align:center;font-weight:700}
+    .sample{position:fixed;right:12px;top:12px;z-index:10;background:#fff;color:#263440;border:1px solid #acb2b6;border-radius:5px;font-size:11px;padding:6px;display:flex;gap:6px;align-items:center}
+    .sample select,.sample button{font-size:11px;padding:3px 5px;border:1px solid #acb2b6;border-radius:4px;background:#fff;color:#263440}
+    .toast{position:fixed;left:50%;bottom:66px;transform:translateX(-50%);background:#14202c;color:#fbfaf6;border:1px solid #4a5965;border-radius:5px;padding:7px 11px;font-size:12px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:11;max-width:330px;text-align:center}.toast.show{opacity:1}
+    @media(max-width:520px){.stage{padding:0 0 64px;display:block}.note{display:none}.phone{width:100%;height:calc(100dvh - 64px);min-height:0;border-radius:0;border:0;box-shadow:none}.sample{top:auto;bottom:60px;right:8px;opacity:.96}.toast{bottom:108px}.gamebar{height:46px}}
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <div class="note"><strong>Production tab prototype</strong> — mock data, no game code.<br>
+      <b>A</b> stock bar with three handles · <b>B</b> steppers · <b>C</b> collapsed summary + number fields.<br>
+      Try: edit a recipe (it flips to Overridden), tick "Master" to revert, change the master (only Master rows move, flashing), push Keep into Sell-above, use both filters, and the lock states (top right).</div>
+    <div class="phone" id="phone"></div>
+  </div>
+  <div class="sample">State
+    <select id="lock">
+      <option value="none">Normal</option>
+      <option value="lab">No Improved Lab</option>
+      <option value="crafter">No Production contact</option>
+      <option value="sales">Sales unstaffed</option>
+    </select>
+    <button id="reset" type="button">Reset</button>
+  </div>
+  <div class="toast" id="toast"></div>
+  <div class="switcher"><button id="prev" aria-label="Previous direction">‹</button><span class="label" id="variant-label"></span><button id="next" aria-label="Next direction">›</button></div>
+
+<script>
+const MAX = 50;
+const VARIANTS = { A: "A · Stock bar", B: "B · Steppers", C: "C · Fields" };
+const ORES = { time: ["Time", "#d9b45a"], physics: ["Physics", "#7fa7d9"], life: ["Life", "#79c08f"], fate: ["Fate", "#b48ad9"], emotion: ["Emotion", "#e07a8c"] };
+const MOODS = {
+  aggressive: ["Aggressive", "Sells more, and takes a softer price to do it.", 1.0, 0.8],
+  balanced: ["Balanced", "Sells at a fair price, without leaning on it.", 0.6, 1.0],
+  cautious: ["Cautious", "Sells a little, and only when London pays well.", 0.3, 1.15],
+};
+const RECIPES = [
+  { key: "timePearl", name: "Time Pearl", ores: ["time"], stock: 9, need: 2, price: 60 },
+  { key: "rewind", name: "Rewind", ores: ["time"], stock: 3, need: 0, price: 140 },
+  { key: "prophetsBreath", name: "Prophet's Breath", ores: ["time"], stock: 5, need: 0, price: 75 },
+  { key: "enhancementPowder", name: "Enhancement Powder", ores: ["life"], stock: 14, need: 4, price: 55 },
+  { key: "healingSalve", name: "Healing Salve", ores: ["life"], stock: 6, need: 0, price: 50 },
+  { key: "healingBurst", name: "Healing Burst", ores: ["time", "life"], stock: 2, need: 3, price: 110 },
+  { key: "blast", name: "Blast", ores: ["physics"], stock: 18, need: 0, price: 45 },
+  { key: "shield", name: "Shield", ores: ["physics"], stock: 4, need: 1, price: 65 },
+  { key: "wormhole", name: "Wormhole", ores: ["time", "physics"], stock: 1, need: 0, price: 160 },
+  { key: "beALady", name: "Be a Lady", ores: ["fate"], stock: 7, need: 0, price: 80 },
+  { key: "nearMiss", name: "Near Miss", ores: ["fate"], stock: 11, need: 2, price: 70 },
+  { key: "panic", name: "Panic", ores: ["emotion"], stock: 8, need: 0, price: 58 },
+];
+
+let S;
+function fresh() {
+  return {
+    variant: (new URLSearchParams(location.search).get("variant") || "A").toUpperCase(),
+    lock: "none",
+    master: { production: 10, keep: 3, sellAbove: 8, mood: "balanced", cover: true },
+    overrides: {
+      rewind: { production: 4, keep: 4, sellAbove: 50, mood: "cautious", cover: false },
+      blast: { production: 20, keep: 2, sellAbove: 6, mood: "aggressive", cover: true },
+    },
+    ore: "all", mode: "all", expanded: {}, flash: {},
+  };
+}
+S = fresh();
+if (!VARIANTS[S.variant]) S.variant = "A";
+
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+const pct = (v) => (v / MAX * 100) + "%";
+const salesLocked = () => S.lock === "sales";
+const eff = (scope) => scope === "master" ? S.master : (S.overrides[scope] || S.master);
+const recipe = (k) => RECIPES.find((r) => r.key === k);
+
+// The system rule: Production free 0..MAX; Keep < Sell-above, raising Keep pushes Sell-above, lowering Sell-above stops above Keep.
+function apply(set, field, v) {
+  const s = { ...set };
+  if (field === "production") s.production = clamp(v, 0, MAX);
+  else if (field === "keep") { s.keep = clamp(v, 0, MAX - 1); if (s.sellAbove <= s.keep) s.sellAbove = s.keep + 1; }
+  else if (field === "sellAbove") s.sellAbove = clamp(v, s.keep + 1, MAX);
+  else s[field] = v;
+  return s;
+}
+function ruleNote(before, after, field, asked) {
+  if (field === "keep" && after.sellAbove !== before.sellAbove) return `Sell-above moved to ${after.sellAbove} to stay above Keep`;
+  if (field === "sellAbove" && asked < after.sellAbove && after.sellAbove === after.keep + 1) return `Sell-above stops above Keep (${after.keep})`;
+  return "";
+}
+
+function edit(scope, field, v, quiet) {
+  if (field === "sellAbove" || field === "mood") { if (salesLocked()) return; }
+  const before = eff(scope);
+  const after = apply(before, field, v);
+  const note = ruleNote(before, after, field, v);
+  if (scope === "master") {
+    S.master = after;
+    S.flash = {};
+    RECIPES.forEach((r) => { if (!S.overrides[r.key]) S.flash[r.key] = true; });
+  } else {
+    S.overrides[scope] = after;
+    S.flash = {};
+  }
+  render();
+  S.flash = {};
+  if (note && !quiet) toast(note);
+}
+function setFollow(key, follow) {
+  if (follow) { delete S.overrides[key]; toast(`${recipe(key).name} follows the master again`); }
+  else S.overrides[key] = { ...S.master };
+  render();
+}
+
+function floorOf(r, s) { return Math.max(s.sellAbove, s.keep, s.cover ? r.need : 0); }
+function makeTo(r, s) { return s.production + (s.cover ? r.need : 0); }
+function projection(r, s) {
+  if (salesLocked()) return "No one on Sales";
+  if (s.sellAbove >= MAX) return "Not selling";
+  const floor = floorOf(r, s);
+  if (r.stock <= floor) return (s.cover && r.need > Math.max(s.sellAbove, s.keep) && r.stock > Math.max(s.sellAbove, s.keep)) ? "Held for contracts" : "Under your cutoff";
+  const m = MOODS[s.mood];
+  const qty = Math.max(1, Math.ceil((r.stock - floor) * m[2]));
+  return `Today: would sell <b>${qty}</b> at about <b>£${Math.round(qty * r.price * m[3])}</b>`;
+}
+
+// ---------- shared controls ----------
+function moodRow(scope, s) {
+  const lk = salesLocked();
+  return `<div class="moods">${Object.keys(MOODS).map((m) => `<button data-mood="${m}" data-scope="${scope}" class="${s.mood === m ? "on" : ""}" ${lk ? "disabled" : ""}>${MOODS[m][0]}</button>`).join("")}</div>
+    <div class="${lk ? "locked" : "hint"}">${lk ? "Locked. Put someone on Sales to set this." : MOODS[s.mood][1]}</div>`;
+}
+function coverRow(scope, s, r) {
+  const extra = r && s.cover && r.need ? ` · making to ${makeTo(r, s)}` : "";
+  return `<button class="cover" data-cover="${scope}"><span class="sw ${s.cover ? "on" : ""}"></span>Cover contracts${r ? ` <span class="muted">(need ${r.need}${extra})</span>` : ""}</button>`;
+}
+function sellLabel(v) { return v >= MAX ? "none" : v; }
+function zones(s) {
+  const sellZone = s.sellAbove < MAX ? `<div class="zone zs" style="left:${pct(s.sellAbove)};right:0"></div>` : "";
+  return `<div class="zone zk" style="left:0;width:${pct(s.keep)}"></div><div class="zone zh" style="left:${pct(s.keep)};width:${pct(s.sellAbove - s.keep)}"></div>${sellZone}`;
+}
+function stockTick(r) { return r ? `<div class="stocktick" style="left:${pct(Math.min(r.stock, MAX))}" title="Stock ${r.stock}"></div>` : ""; }
+function legend(s, r) {
+  return `<div class="legend num"><span class="m">Make <b>${s.production}</b></span><span class="k">Keep <b>${s.keep}</b></span><span class="lt">&lt;</span><span class="s">Sell above <b>${sellLabel(s.sellAbove)}</b></span></div>`;
+}
+
+// ---------- A: stock bar ----------
+function barInner(scope, s, r) {
+  const lk = salesLocked();
+  const need = r && s.cover && r.need ? `<div class="needband" style="left:${pct(s.production)};width:${pct(Math.min(r.need, MAX - s.production))}"></div>` : "";
+  return `<div class="bar" data-bar="${scope}">
+      <div class="pin" data-drag="production" style="left:${pct(s.production)};transform:translateX(${s.production < 5 ? -15 : s.production > 45 ? -85 : -50}%)"><span>Make ${s.production}</span><i></i></div>
+      <div class="track">${zones(s)}${stockTick(r)}${need}</div>
+      <div class="h keep" data-drag="keep" style="left:${pct(s.keep)}">${s.keep}</div>
+      <div class="h sell ${lk ? "dis" : ""}" data-drag="${lk ? "" : "sellAbove"}" style="left:${pct(s.sellAbove)};${s.sellAbove >= MAX ? "transform:translateX(-100%)" : ""}">${s.sellAbove >= MAX ? "∅" : s.sellAbove}</div>
+      <div class="axis"><span>0</span><span>${r ? `stock ${r.stock}` : "kept · held · sold"}</span><span>50</span></div>
+    </div>${legend(s, r)}`;
+}
+// ---------- B: steppers ----------
+function stepper(scope, field, label, cls, v, disabled, sub) {
+  const s = eff(scope);
+  const lo = field === "sellAbove" ? s.keep + 1 : 0, hi = field === "keep" ? MAX - 1 : MAX;
+  return `<div class="step"><span class="eyebrow ${cls}">${label}</span><div class="sv">
+      <button data-step="${field}" data-d="-1" data-scope="${scope}" ${disabled || v <= lo ? "disabled" : ""}>−</button><b class="num ${cls}">${field === "sellAbove" ? sellLabel(v) : v}</b>
+      <button data-step="${field}" data-d="1" data-scope="${scope}" ${disabled || v >= hi ? "disabled" : ""}>+</button></div><span class="hint">${sub}</span></div>`;
+}
+function stepsInner(scope, s, r) {
+  const lk = salesLocked();
+  return `<div class="steps">
+      ${stepper(scope, "production", "Make to", "m", s.production, false, r && s.cover && r.need ? `+${r.need} contracts` : "0–50")}
+      <div class="vr"></div>
+      ${stepper(scope, "keep", "Keep", "k", s.keep, false, "never sold")}
+      <span class="lt" style="text-align:center">&lt;</span>
+      ${stepper(scope, "sellAbove", "Sell above", "s", s.sellAbove, lk, lk ? "locked" : "sells excess")}
+    </div><div class="strip">${zones(s)}${stockTick(r)}</div>`;
+}
+// ---------- C: fields ----------
+function fieldsInner(scope, s, r) {
+  const lk = salesLocked();
+  const tk = (v, cls, l) => `<span class="tk ${cls}" style="left:${pct(v)}">${l}</span>`;
+  return `<div class="fields">
+      <div class="field make"><label class="m">Make to</label><input type="number" inputmode="numeric" min="0" max="50" value="${s.production}" data-field="production" data-scope="${scope}"></div>
+      <div class="field keep"><label class="k">Keep</label><input type="number" inputmode="numeric" min="0" max="49" value="${s.keep}" data-field="keep" data-scope="${scope}"></div>
+      <div class="field sell"><label class="s">Sell above</label><input type="number" inputmode="numeric" min="${s.keep + 1}" max="50" value="${s.sellAbove}" data-field="sellAbove" data-scope="${scope}" ${lk ? "disabled" : ""}></div>
+    </div>
+    <div class="ruler"><div class="base"></div>${tk(s.keep, "k", "K")}${tk(s.sellAbove, "s", s.sellAbove >= MAX ? "S∅" : "S")}${tk(s.production, "m", "M")}${r ? tk(Math.min(r.stock, MAX), "", "▾") : ""}</div>
+    <div class="hint">Keep stays below Sell-above. Make is free, 0–50. 50 = sell none.${r ? ` ▾ stock ${r.stock}.` : ""}</div>`;
+}
+function controls(scope, s, r) {
+  const inner = S.variant === "A" ? barInner(scope, s, r) : S.variant === "B" ? stepsInner(scope, s, r) : fieldsInner(scope, s, r);
+  return `<div class="ctl" data-ctl="${scope}">${inner}</div>`;
+}
+function summary(key, s) {
+  return `<button class="summary num" data-expand="${key}"><span class="m">Make <b>${s.production}</b></span><span class="k">Keep <b>${s.keep}</b></span><span class="lt">&lt;</span><span class="s">Sell &gt; <b>${sellLabel(s.sellAbove)}</b></span><span class="muted">${MOODS[s.mood][0]}</span><span class="chev">${S.expanded[key] ? "▴" : "▾"}</span></button>`;
+}
+
+// ---------- page ----------
+function masterCard() {
+  const following = RECIPES.filter((r) => !S.overrides[r.key]).length;
+  return `<div class="card hero" style="display:grid;gap:9px">
+      <div class="row"><span class="eyebrow">Master settings</span><span class="hint">${following} of ${RECIPES.length} recipes follow</span></div>
+      ${controls("master", S.master, null)}
+      <div class="eyebrow" style="margin-top:2px">Sales approach</div>${moodRow("master", S.master)}
+      ${coverRow("master", S.master, null)}
+    </div>`;
+}
+function filters() {
+  const ovN = RECIPES.filter((r) => S.overrides[r.key]).length;
+  const chip = (id, label, color) => `<button class="chip ${S.ore === id ? "on" : ""}" data-ore="${id}">${color ? `<span class="dot" style="background:${color}"></span>` : ""}${label}</button>`;
+  const seg = (id, label) => `<button class="${S.mode === id ? "on" : ""}" data-mode="${id}">${label}</button>`;
+  return `<div class="filters">
+      <div class="chips">${chip("all", "All ores")}${Object.entries(ORES).map(([k, [l, c]]) => chip(k, l, c)).join("")}</div>
+      <div class="seg">${seg("all", `All ${RECIPES.length}`)}${seg("master", `Master ${RECIPES.length - ovN}`)}${seg("overridden", `Overridden ${ovN}`)}</div>
+    </div>`;
+}
+function recipeRow(r) {
+  const ov = !!S.overrides[r.key];
+  const s = eff(r.key);
+  const dots = r.ores.map((o) => `<span class="dot" style="background:${ORES[o][1]}" title="${ORES[o][0]}"></span>`).join("");
+  const open = S.variant !== "C" || S.expanded[r.key];
+  const body = open
+    ? `${S.variant === "C" ? summary(r.key, s) : ""}${controls(r.key, s, r)}${moodRow(r.key, s)}${coverRow(r.key, s, r)}`
+    : summary(r.key, s);
+  return `<div class="recipe ${ov ? "ov" : ""} ${S.flash[r.key] ? "flash" : ""}">
+      <div class="rhead"><div class="main"><h3>${r.name}</h3>
+        <div class="hint">${dots}<span class="num">Stock ${r.stock}</span>${r.need ? `<span>· contracts ${r.need}</span>` : ""}<span class="badge ${ov ? "ov" : ""}">${ov ? "Overridden" : "Master"}</span></div></div>
+        <label class="follow"><input type="checkbox" data-follow="${r.key}" ${ov ? "" : "checked"}>Master</label></div>
+      ${body}
+      <div class="proj">${projection(r, s)}</div>
+    </div>`;
+}
+function pageBody() {
+  if (S.lock === "lab") return `<div class="card lockcard"><p class="muted">Requires the Improved Lab.</p></div>`;
+  if (S.lock === "crafter") return `<div class="card lockcard"><p class="muted">Nothing your crafters can make yet.</p><p class="hint" style="margin-top:6px">Put a contact with the right specialities on Production.</p></div>`;
+  const rows = RECIPES.filter((r) => (S.ore === "all" || r.ores.includes(S.ore)) && (S.mode === "all" || (S.mode === "overridden") === !!S.overrides[r.key]));
+  return `${masterCard()}${filters()}<div class="list">${rows.length ? rows.map(recipeRow).join("") : `<p class="hint" style="padding:14px 0">No recipes match.</p>`}</div>`;
+}
+function render() {
+  const scroll = document.querySelector(".viewport")?.scrollTop || 0;
+  document.getElementById("phone").innerHTML = `
+    <div class="gamebar">Day 24 · Morning<br><span style="font-size:11px;color:#8f969e">£4,210 · Soho</span></div>
+    <div class="phone-status"><span>09:12</span><span>●●● 82%</span></div>
+    <div class="apphead"><span class="back">‹</span><span class="brand">BizBrief</span><span class="day">Day 24 · Block 1</span></div>
+    <div class="tabs"><button class="tab">Brief</button><button class="tab active">Manage</button><button class="tab">Staff</button><button class="tab">Stats</button></div>
+    <div class="viewport"><div class="page">
+      <div class="subnav"><b>‹ Manage</b><span>/</span><span>Production</span></div>
+      <div class="row"><h2>Production</h2><button class="link">Log →</button></div>
+      ${pageBody()}
+    </div></div>
+    <div class="dock"><span>Home</span><span>Apps</span><span>Back</span></div>`;
+  document.querySelector(".viewport").scrollTop = scroll;
+  document.getElementById("variant-label").textContent = VARIANTS[S.variant];
+  document.getElementById("lock").value = S.lock;
+}
+
+let toastTimer;
+function toast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.classList.add("show");
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("show"), 1800);
+}
+
+// ---------- events ----------
+const phone = document.getElementById("phone");
+phone.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-mood],[data-cover],[data-ore],[data-mode],[data-expand]");
+  if (!b) return;
+  if (b.dataset.mood) edit(b.dataset.scope, "mood", b.dataset.mood);
+  else if (b.dataset.cover) edit(b.dataset.cover, "cover", !eff(b.dataset.cover).cover);
+  else if (b.dataset.ore) { S.ore = b.dataset.ore; render(); }
+  else if (b.dataset.mode) { S.mode = b.dataset.mode; render(); }
+  else if (b.dataset.expand) { S.expanded[b.dataset.expand] = !S.expanded[b.dataset.expand]; render(); }
+});
+phone.addEventListener("change", (e) => {
+  const t = e.target;
+  if (t.dataset.follow) return setFollow(t.dataset.follow, t.checked);
+  if (t.dataset.field) {
+    const v = parseInt(t.value, 10);
+    if (Number.isNaN(v)) return render();
+    edit(t.dataset.scope, t.dataset.field, v);
+  }
+});
+phone.addEventListener("keydown", (e) => { if (e.key === "Enter" && e.target.dataset.field) e.target.blur(); });
+
+// A: drag handles. Preview live in the bar, commit on release (as the game's StockBar does).
+let drag = null;
+phone.addEventListener("pointerdown", (e) => {
+  const h = e.target.closest("[data-drag]");
+  if (h && h.dataset.drag) {
+    const ctl = h.closest("[data-ctl]");
+    drag = { scope: ctl.dataset.ctl, field: h.dataset.drag, ctl, v: eff(ctl.dataset.ctl)[h.dataset.drag] };
+    e.preventDefault();
+    return;
+  }
+  const st = e.target.closest("[data-step]");
+  if (st && !st.disabled) startRepeat(st.dataset.scope, st.dataset.step, parseInt(st.dataset.d, 10));
+});
+window.addEventListener("pointermove", (e) => {
+  if (!drag) return;
+  const track = drag.ctl.querySelector(".track").getBoundingClientRect();
+  drag.v = clamp(Math.round((e.clientX - track.left) / track.width * MAX), 0, MAX);
+  const r = drag.scope === "master" ? null : recipe(drag.scope);
+  drag.ctl.innerHTML = barInner(drag.scope, apply(eff(drag.scope), drag.field, drag.v), r);
+});
+window.addEventListener("pointerup", () => {
+  stopRepeat();
+  if (!drag) return;
+  const d = drag; drag = null;
+  edit(d.scope, d.field, d.v);
+});
+
+// B: tap steps by 1; hold to repeat.
+let rep = null;
+function startRepeat(scope, field, d) {
+  stopRepeat();
+  const step = () => edit(scope, field, eff(scope)[field] + d, true);
+  step();
+  rep = { t: setTimeout(function loop() { step(); rep.t = setTimeout(loop, 70); }, 380) };
+  const s = eff(scope);
+  if (field === "keep" && d > 0 && s.sellAbove === s.keep + 1 && s.sellAbove < MAX) toast("Sell-above rises with Keep");
+}
+function stopRepeat() { if (rep) { clearTimeout(rep.t); rep = null; } }
+
+document.getElementById("lock").addEventListener("change", (e) => { S.lock = e.target.value; render(); });
+document.getElementById("reset").addEventListener("click", () => { const v = S.variant; S = fresh(); S.variant = v; render(); });
+function cycle(dir) {
+  const keys = Object.keys(VARIANTS);
+  S.variant = keys[(keys.indexOf(S.variant) + dir + keys.length) % keys.length];
+  history.replaceState(null, "", "?variant=" + S.variant);
+  render();
+}
+document.getElementById("prev").addEventListener("click", () => cycle(-1));
+document.getElementById("next").addEventListener("click", () => cycle(1));
+render();
+</script>
+</body>
+</html>
