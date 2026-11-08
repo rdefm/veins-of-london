@@ -749,6 +749,57 @@ func run() -> void:
 		phone.free()
 	)
 
+	run_case("recipe_rows_show_follow_state_tickbox_overrides_and_reverts", func():
+		var phone := _production_phone(true)
+		var tick := phone.find_child("FollowMaster_timePearl", true, false) as CheckBox
+		assert_true(tick.button_pressed, "fresh recipe follows master")
+		tick.button_pressed = false
+		EventBus.flush_now()
+		assert_true(ProductionSettings.has_override("timePearl"), "unticking overrides")
+		tick = phone.find_child("FollowMaster_timePearl", true, false) as CheckBox
+		assert_true(not tick.button_pressed)
+		Rooms.set_lab_threshold("timePearl", 4)
+		EventBus.flush_now()
+		assert_eq(ProductionSettings.master()["production"], 0, "master untouched")
+		tick = phone.find_child("FollowMaster_timePearl", true, false) as CheckBox
+		tick.button_pressed = true
+		EventBus.flush_now()
+		assert_true(not ProductionSettings.has_override("timePearl"), "ticking reverts")
+		assert_eq(Rooms.lab_target("timePearl"), 0)
+		phone.free()
+	)
+
+	run_case("recipe_filters_narrow_by_ore_and_override_state", func():
+		var phone := _production_phone(true)
+		var all_keys := Rooms.production_recipes()
+		assert_true(all_keys.size() > 1, "fixture lists several recipes")
+		ProductionSettings.set_field("timePearl", "production", 2)
+		EventBus.flush_now()
+		(phone.find_child("FilterFollow_overridden", true, false) as Button).pressed.emit()
+		EventBus.flush_now()
+		assert_true(phone.find_child("ProductionRecipe_timePearl", true, false) != null)
+		assert_true(phone.find_child("ProductionRecipe_rewind", true, false) == null, "following recipe hidden")
+		(phone.find_child("FilterFollow_following", true, false) as Button).pressed.emit()
+		EventBus.flush_now()
+		assert_true(phone.find_child("ProductionRecipe_timePearl", true, false) == null)
+		assert_true(phone.find_child("ProductionRecipe_rewind", true, false) != null)
+		(phone.find_child("FilterFollow_all", true, false) as Button).pressed.emit()
+		EventBus.flush_now()
+		(phone.find_child("FilterOre_physics", true, false) as Button).pressed.emit()
+		EventBus.flush_now()
+		for recipe_key in all_keys:
+			var shown := phone.find_child("ProductionRecipe_%s" % recipe_key, true, false) != null
+			assert_eq(shown, GameData.RECIPES[recipe_key].get("ingredients", {}).has("physics"), "ore filter: %s" % recipe_key)
+		(phone.find_child("FilterOre_all", true, false) as Button).pressed.emit()
+		EventBus.flush_now()
+		(phone.find_child("FilterFollow_overridden", true, false) as Button).pressed.emit()
+		EventBus.flush_now()
+		ProductionSettings.revert("timePearl")
+		EventBus.flush_now()
+		assert_true(phone.find_child("ProductionFilterEmpty", true, false) != null, "empty state shown")
+		phone.free()
+	)
+
 	run_case("master_sell_above_and_mood_lock_until_sales_is_staffed", func():
 		var phone := _production_phone(false)
 		assert_true(not (phone.find_child("MasterSellAbove", true, false) as SettingSlider)._slider.editable)

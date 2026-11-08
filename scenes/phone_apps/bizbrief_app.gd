@@ -39,6 +39,11 @@ const AUTO_SELL_LOCKED_TEXT := "Locked. Put someone on Sales to set this."
 const MASTER_HEADING := "Master settings · %d recipes follow"
 const MASTER_SUMMARY := "Today: following recipes would sell %d across %d for about £%d"
 const MASTER_SUMMARY_NONE := "Today: following recipes would sell nothing"
+const FILTER_OVERRIDDEN := "overridden"
+const FILTER_FOLLOWING := "following"
+const FILTER_EMPTY_TEXT := "No recipes match these filters."
+const FOLLOW_TEXT := "Follows master"
+const OVERRIDDEN_TEXT := "Overridden"
 const SELL_NONE_TEXT := "none"
 const MASTER_MAKE_COLOUR := Color("#f2c14e")
 const MASTER_KEEP_COLOUR := Color("#b4d6c2")
@@ -108,6 +113,10 @@ var _ore_source := "oreCultivator"
 # Production-log days shown expanded (view state), day -> true.
 var _expanded_log_days := {}
 var _production_log_open := false
+# Production list filters (view state): ore type id ("" = all) and
+# FILTER_OVERRIDDEN / FILTER_FOLLOWING ("" = all).
+var _filter_ore := ""
+var _filter_follow := ""
 var _sales_history_open := false
 var _sales_details_id := ""
 # Today card view state: rows past the cap shown, Routine and demand
@@ -1227,12 +1236,18 @@ func _build_production() -> Control:
 		c["content"].add_child(UI.muted_label("Requires the Improved Lab."))
 	else:
 		var recipe_keys := Rooms.production_recipes()
-		if not recipe_keys.is_empty():
-			c["content"].add_child(_build_master_controller())
-		for recipe_key in recipe_keys:
-			c["content"].add_child(_build_production_recipe_row(recipe_key))
 		if recipe_keys.is_empty():
 			c["content"].add_child(UI.muted_label("Nothing your crafters can make yet."))
+		else:
+			c["content"].add_child(_build_master_controller())
+			c["content"].add_child(_build_production_filters())
+			var shown := _filtered_recipes(recipe_keys)
+			if shown.is_empty():
+				var empty := UI.muted_label(FILTER_EMPTY_TEXT)
+				empty.name = "ProductionFilterEmpty"
+				c["content"].add_child(empty)
+			for recipe_key in shown:
+				c["content"].add_child(_build_production_recipe_row(recipe_key))
 	section.add_child(c["panel"])
 	if _production_log_open:
 		var log_card := UI.card()
@@ -1240,6 +1255,65 @@ func _build_production() -> Control:
 		log_card["content"].add_child(_build_production_log())
 		section.add_child(log_card["panel"])
 	return section
+
+
+# Recipes passing the ore-type and overridden/following filters.
+func _filtered_recipes(recipe_keys: Array) -> Array:
+	var shown: Array = []
+	for recipe_key in recipe_keys:
+		if _filter_ore != "" and not GameData.RECIPES[recipe_key].get("ingredients", {}).has(_filter_ore):
+			continue
+		var overridden := ProductionSettings.has_override(recipe_key)
+		if _filter_follow == FILTER_OVERRIDDEN and not overridden:
+			continue
+		if _filter_follow == FILTER_FOLLOWING and overridden:
+			continue
+		shown.append(recipe_key)
+	return shown
+
+
+func _build_production_filters() -> Control:
+	var box := UI.vbox(4)
+	box.name = "ProductionFilters"
+	var ore_row := UI.hbox(4)
+	ore_row.add_child(_filter_button("FilterOre_all", "All ores", _filter_ore == "", func(): _set_filter_ore("")))
+	for ore_type in GameData.ORE_TYPES:
+		ore_row.add_child(_filter_button("FilterOre_%s" % ore_type, GameData.ORE_TYPES[ore_type]["name"], _filter_ore == ore_type, func(): _set_filter_ore(ore_type)))
+	box.add_child(ore_row)
+	var follow_row := UI.hbox(4)
+	follow_row.add_child(_filter_button("FilterFollow_all", "All", _filter_follow == "", func(): _set_filter_follow("")))
+	follow_row.add_child(_filter_button("FilterFollow_following", FOLLOW_TEXT, _filter_follow == FILTER_FOLLOWING, func(): _set_filter_follow(FILTER_FOLLOWING)))
+	follow_row.add_child(_filter_button("FilterFollow_overridden", OVERRIDDEN_TEXT, _filter_follow == FILTER_OVERRIDDEN, func(): _set_filter_follow(FILTER_OVERRIDDEN)))
+	box.add_child(follow_row)
+	return box
+
+
+func _filter_button(node_name: String, text: String, selected: bool, on_press: Callable) -> Control:
+	var button := UI.button(text, on_press)
+	button.name = node_name
+	button.custom_minimum_size.y = MOOD_BUTTON_HEIGHT
+	_style_stats_toggle(button, selected)
+	return UI.expand_fill(button)
+
+
+func _set_filter_ore(ore_type: String) -> void:
+	_filter_ore = ore_type
+	refresh()
+
+
+func _set_filter_follow(mode: String) -> void:
+	_filter_follow = mode
+	refresh()
+
+
+# Ticked = follows the master; unticking makes an override of the master's
+# current settings, ticking deletes the override.
+func _set_follows_master(recipe_key: String, follows: bool) -> void:
+	if follows:
+		ProductionSettings.revert(recipe_key)
+	else:
+		ProductionSettings.set_field(recipe_key, "production", ProductionSettings.resolve(recipe_key)["production"])
+		EventBus.mark_changed()
 
 
 func _toggle_production_log() -> void:
@@ -1384,6 +1458,13 @@ func _build_production_recipe_row(recipe_key: String) -> Control:
 	title.add_child(UI.expand_fill(UI.heading(recipe["name"], 14)))
 	title.add_child(UI.muted_label(STOCK_TEXT % stock))
 	box.add_child(title)
+	var follows := not ProductionSettings.has_override(recipe_key)
+	var follow_box := CheckBox.new()
+	follow_box.name = "FollowMaster_%s" % recipe_key
+	follow_box.text = FOLLOW_TEXT if follows else OVERRIDDEN_TEXT + " · tick to follow master"
+	follow_box.button_pressed = follows
+	follow_box.toggled.connect(func(on: bool) -> void: _set_follows_master(recipe_key, on))
+	box.add_child(follow_box)
 
 	# Target, contract need and coverage sit above the controls.
 	var target_label := UI.muted_label(_target_text(recipe_key, keep, covering))
