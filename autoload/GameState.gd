@@ -317,13 +317,9 @@ func new_game_state() -> Dictionary:
 		# Archie's tag-along deal -- the gross-derived 50/50 cut, held
 		# across a mugging fight the same way pendingSaleCut is.
 		"pendingArchieDealCut": 0,
-		"labThresholds": {},
-		# Per-recipe opt-in { recipeKey: bool }; when true, Production adds
-		# undelivered active-contract need to labThresholds for that recipe.
-		"labCoverContracts": {},
-		# Per-recipe auto-sell rule { recipeKey: { sellAbove:int, mood:String } };
-		# a recipe with no rule is Off (R§3.6 "Auto-sell").
-		"autoSell": {},
+		# Production settings (R§3.10): { master, overrides: { recipeKey: set } },
+		# set = { production, keep, sellAbove, mood, coverContracts }.
+		"production": ProductionSettings.default_state(),
 		# { contactId: [veinId] } -- each cultivator's own vein list; a vein
 		# is on at most one list (R§3.10 "Staff roles").
 		"cultivatorVeins": {},

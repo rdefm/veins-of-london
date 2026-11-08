@@ -4,7 +4,7 @@ extends Node
 # autosaves. autosave() is called from daily_tick, exit_combat, event
 # completion, and every successful cash purchase.
 
-const SAVE_VERSION := 14
+const SAVE_VERSION := 15
 # Oldest save version _migrate_versions() can still bring forward.
 const MIN_SUPPORTED_VERSION := 3
 const SLOT_COUNT := 3
@@ -471,8 +471,19 @@ func _migrate_versions(save: Dictionary) -> void:
 				_migrate_from_v12(save)
 			13:
 				_migrate_from_v13(save)
+			14:
+				_migrate_from_v14(save)
 	meta["saveVersion"] = SAVE_VERSION
 	save["meta"] = meta
+
+
+# v15: per-recipe targets, cover flags and auto-sell rules give way to the
+# master + overrides setting model; every save resets to master defaults.
+func _migrate_from_v14(save: Dictionary) -> void:
+	save.erase("labThresholds")
+	save.erase("labCoverContracts")
+	save.erase("autoSell")
+	save["production"] = ProductionSettings.default_state()
 
 
 # v14: auto-sell moods take their approach ids, with the same limits. An Off
@@ -486,7 +497,6 @@ func _migrate_from_v13(save: Dictionary) -> void:
 		else:
 			rule["mood"] = default_mood
 			rule["sellAbove"] = GameData.PRODUCTION_TARGET_MAX
-
 
 # v13: Stealth folds into Sense. The player's senseXP becomes the larger of
 # the two XP totals (the curves share their first six entries), senseSkill is
@@ -1055,10 +1065,9 @@ func _restore_int_types(state: Dictionary) -> void:
 	_restore_whole_numbers(state.get("boardMeetings", {}))
 	_int_key(state, "pendingSaleCut")
 	_int_key(state, "pendingArchieDealCut")
-	_int_dict_values(state.get("labThresholds", {}))
-	Rooms.clamp_lab_thresholds(state.get("labThresholds", {}))
-	for auto_sell_rule in state.get("autoSell", {}).values():
-		_int_key(auto_sell_rule, "sellAbove")
+	if not state.has("production"):
+		state["production"] = {}
+	ProductionSettings.sanitize(state["production"])
 	_int_dict_values(state.get("veinStationTargets", {}))
 	_int_dict_values(state.get("siteWary", {}))
 	var sales: Dictionary = state.get("sales", {})

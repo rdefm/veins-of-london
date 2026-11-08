@@ -339,7 +339,7 @@ func run() -> void:
 	# covered item's shared stock is a protected buffer.
 	run_case("delivery_cannot_draw_below_the_covered_personal_target_reserve", func():
 		_staff_sales()
-		GameState.state["labThresholds"]["timePearl"] = 5
+		ProductionSettings.set_field("timePearl", "keep", 5)
 		Rooms.set_lab_cover_contracts("timePearl", true)
 		Crafting.inventory_add("timePearl", 1, 8)
 		var created: Dictionary = OffersSystem.create_offer({ "id": "t_reserve", "source": "random", "contractType": "oneOff", "request": { "kind": "consumable", "type": "timePearl", "qty": 10 } })
@@ -351,7 +351,8 @@ func run() -> void:
 
 	run_case("shared_stock_is_undivided_when_the_item_is_not_covering_contracts", func():
 		_staff_sales()
-		GameState.state["labThresholds"]["timePearl"] = 5
+		ProductionSettings.set_master_field("coverContracts", false)
+		ProductionSettings.set_field("timePearl", "keep", 5)
 		Crafting.inventory_add("timePearl", 1, 8)
 		var created: Dictionary = OffersSystem.create_offer({ "id": "t_open", "source": "random", "contractType": "oneOff", "request": { "kind": "consumable", "type": "timePearl", "qty": 10 } })
 		var contract: Dictionary = OffersSystem.accept_offer(created["offer"]["id"])["contract"]

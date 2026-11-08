@@ -2,9 +2,9 @@ class_name AutoSell
 extends RefCounted
 
 # Daily auto-sell pass (R§3.6 "Auto-sell"): the Sales role sells surplus stock
-# of Production-list items into London at each rollover, under one rule per
-# recipe in state.autoSell ({ recipeKey: { sellAbove, mood } }). A cutoff at
-# the top of the bar sells nothing, and a recipe with no rule starts there.
+# of Production-list items into London at each rollover, under each recipe's
+# sellAbove and mood from ProductionSettings.resolve(). A cutoff at the top of
+# the bar sells nothing, and the master starts there.
 # Static funcs only.
 
 const PRICE_EPSILON := 0.0001  # absorbs float error in base × minPriceMult
@@ -24,13 +24,15 @@ static func _config() -> Dictionary:
 	return GameData.MARKET["autoSell"]
 
 
-# The recipe's rule, or the default: cutoff at the top of the bar, default mood.
+# The recipe's effective setting set (override, else master); its sellAbove
+# and mood are the auto-sell rule.
 static func rule(recipe_key: String) -> Dictionary:
-	return GameState.state["autoSell"].get(recipe_key, { "sellAbove": GameData.PRODUCTION_TARGET_MAX, "mood": _config()["defaultMood"] })
+	return ProductionSettings.resolve(recipe_key)
 
 
 static func _store_rule(recipe_key: String, sell_above: int, mood: String) -> void:
-	GameState.state["autoSell"][recipe_key] = { "sellAbove": sell_above, "mood": mood }
+	ProductionSettings.set_field(recipe_key, "sellAbove", sell_above)
+	ProductionSettings.set_field(recipe_key, "mood", mood)
 
 
 # Sets the Production target; a Keep past the cutoff pushes the cutoff with it.
@@ -38,7 +40,7 @@ static func set_keep(recipe_key: String, keep: int) -> void:
 	var clamped := Rooms.clamp_lab_threshold(keep)
 	var current := rule(recipe_key)
 	if clamped > int(current["sellAbove"]):
-		_store_rule(recipe_key, clamped, current["mood"])
+		ProductionSettings.set_field(recipe_key, "sellAbove", clamped)
 	Rooms.set_lab_threshold(recipe_key, clamped)
 
 
@@ -46,7 +48,7 @@ static func set_keep(recipe_key: String, keep: int) -> void:
 static func set_sell_above(recipe_key: String, sell_above: int) -> void:
 	if not Contracts.has_staffed_sales():
 		return
-	var keep := int(GameState.state["labThresholds"].get(recipe_key, 0))
+	var keep := Rooms.lab_target(recipe_key)
 	_store_rule(recipe_key, clampi(sell_above, keep, GameData.PRODUCTION_TARGET_MAX), rule(recipe_key)["mood"])
 	EventBus.mark_changed()
 

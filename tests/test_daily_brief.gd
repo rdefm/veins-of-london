@@ -230,6 +230,7 @@ func run() -> void:
 
 	run_case("reserved_production_counts_only_when_covered_staffed_and_affordable", func():
 		GameState.reset()
+		ProductionSettings.set_master_field("coverContracts", false)
 		var contacts: Dictionary = GameState.state["contacts"]
 		contacts["james"]["recruited"] = true
 		contacts["james"]["craftingSkill"] = 5
@@ -238,7 +239,7 @@ func run() -> void:
 		var per_unit: int = Lab.base_calc("timePearl")["time"]
 		GameState.state["player"]["orichalchum"]["time"] = 2 * per_unit
 		assert_eq(_kind("contractAtRisk").size(), 1, "lab not covering contracts: calc alone is no cover")
-		GameState.state["labCoverContracts"]["timePearl"] = true
+		ProductionSettings.set_field("timePearl", "coverContracts", true)
 		assert_eq(_kind("contractAtRisk"), [], "covered, staffed, calc on hand")
 		GameState.state["player"]["orichalchum"]["time"] = per_unit
 		assert_true(String(_kind("contractAtRisk")[0]["label"]).find("short by 1") != -1, "calc for one unit")
@@ -528,7 +529,7 @@ func run() -> void:
 		assert_true(Contacts.set_role("james", "production")["ok"])
 		GameState.state["player"]["orichalchum"] = { "time": 0, "life": 0 }
 		assert_eq(_kind("oreShort"), [], "no target, nothing short")
-		GameState.state["labThresholds"]["timePearl"] = 3
+		ProductionSettings.set_field("timePearl", "keep", 3)
 		var rows := _kind("oreShort")
 		assert_eq(rows.size(), 1)
 		assert_eq([rows[0]["tier"], rows[0]["key"], rows[0]["action"]], ["routine", "oreShort:timePearl", { "to": "bizbrief_production", "recipeKey": "timePearl" }])

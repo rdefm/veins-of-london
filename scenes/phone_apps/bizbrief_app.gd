@@ -906,7 +906,7 @@ func _production_status() -> String:
 	var targeted := 0
 	var uncovered := 0
 	for recipe_key in recipe_keys:
-		if int(GameState.state["labThresholds"].get(recipe_key, 0)) > 0 or Rooms.lab_covers_contracts(recipe_key):
+		if Rooms.lab_target(recipe_key) > 0 or Rooms.lab_covers_contracts(recipe_key):
 			targeted += 1
 		if not Rooms.lab_covers_contracts(recipe_key):
 			uncovered += Rooms.contract_need(recipe_key)
@@ -1296,7 +1296,7 @@ func _production_entry_lines(entry: Dictionary) -> Array[String]:
 
 func _build_production_recipe_row(recipe_key: String) -> Control:
 	var recipe: Dictionary = GameData.RECIPES[recipe_key]
-	var target: int = GameState.state["labThresholds"].get(recipe_key, 0)
+	var target: int = Rooms.lab_target(recipe_key)
 	var covering: bool = Rooms.lab_covers_contracts(recipe_key)
 	var rule := AutoSell.rule(recipe_key)
 	var sales_staffed := Contracts.has_staffed_sales()

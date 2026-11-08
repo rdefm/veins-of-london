@@ -180,8 +180,8 @@ func run() -> void:
 		Hiring.hire("priya")
 		for recipe_key in Rooms.producible_recipes("priya"):
 			assert_true(GameData.RECIPES[recipe_key]["ingredients"].keys().all(func(o): return o == "physics"))
-		GameState.state["labThresholds"]["blast"] = 1
-		GameState.state["labThresholds"]["timePearl"] = 1
+		ProductionSettings.set_field("blast", "keep", 1)
+		ProductionSettings.set_field("timePearl", "keep", 1)
 		GameState.state["player"]["orichalchum"]["physics"] = 1000
 		GameState.state["player"]["orichalchum"]["time"] = 1000
 		Rng.set_seed(1)
@@ -516,7 +516,7 @@ func run() -> void:
 		_setup()
 		GameData.HIRING_TRAITS["distracted"]["skipChance"] = 1.0
 		GameState.state["flags"]["craftingUnlocked"] = true
-		GameState.state["labThresholds"]["timePearl"] = 1000
+		ProductionSettings.set_field("timePearl", "keep", 1000)
 		GameState.state["player"]["orichalchum"]["time"] = 1000
 		GameState.state["contacts"]["ray"]["recruited"] = true
 		Contacts.assign_to_room("ray", "lab")

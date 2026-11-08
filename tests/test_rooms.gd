@@ -5,7 +5,7 @@ const Fixtures := preload("res://tests/support/fixtures.gd")
 func run() -> void:
 	run_case("staff_block_is_a_no_op_without_staff", func():
 		GameState.reset()
-		GameState.state["labThresholds"]["timePearl"] = 5
+		ProductionSettings.set_field("timePearl", "keep", 5)
 		GameState.state["flags"]["craftingUnlocked"] = true
 		GameState.state["player"]["orichalchum"]["time"] = 1000
 		var output: Dictionary = Rooms.process_staff_block()
@@ -16,7 +16,7 @@ func run() -> void:
 	run_case("producer_crafts_until_ore_runs_out_within_one_block", func():
 		GameState.reset()
 		_staff_lab("archie", 1)
-		GameState.state["labThresholds"]["timePearl"] = 1000  # unreachable target
+		ProductionSettings.set_field("timePearl", "keep", 1000)  # unreachable target
 		var cost: int = Lab.base_calc("timePearl")["time"]
 		GameState.state["player"]["orichalchum"]["time"] = 3 * cost + 2
 		Rng.set_seed(1)
@@ -34,7 +34,7 @@ func run() -> void:
 		for candidate in range(200):
 			GameState.reset()
 			_staff_lab("archie", 1)
-			GameState.state["labThresholds"]["timePearl"] = 1000
+			ProductionSettings.set_field("timePearl", "keep", 1000)
 			GameState.state["player"]["orichalchum"]["time"] = 3 * int(Lab.base_calc("timePearl")["time"])
 			Rng.set_seed(candidate)
 			var output: Dictionary = Rooms.process_staff_block()
@@ -51,7 +51,7 @@ func run() -> void:
 	run_case("producer_stops_exactly_at_the_target_within_one_block", func():
 		GameState.reset()
 		_staff_lab("archie", 3)
-		GameState.state["labThresholds"]["timePearl"] = 10
+		ProductionSettings.set_field("timePearl", "keep", 10)
 		GameState.state["player"]["orichalchum"]["time"] = 10000  # ore never the bottleneck here
 		Rng.set_seed(7)
 		var output: Dictionary = Rooms.process_staff_block()
@@ -65,7 +65,7 @@ func run() -> void:
 	run_case("producer_loop_is_bounded", func():
 		GameState.reset()
 		_staff_lab("archie", 1)
-		GameState.state["labThresholds"]["timePearl"] = 1000000
+		ProductionSettings.set_field("timePearl", "keep", 1000000)
 		GameState.state["player"]["orichalchum"]["time"] = 10000000
 		Rooms.process_staff_block()
 		var spent: int = 10000000 - GameState.state["player"]["orichalchum"]["time"]
@@ -86,9 +86,9 @@ func run() -> void:
 		_staff_lab("archie", 1)
 		GameState.state["contacts"]["archie"]["specialities"] = ["life"]
 		GameState.state["flags"]["craftingUnlocked"] = false
-		GameState.state["labThresholds"]["timePearl"] = 5
-		GameState.state["labThresholds"]["enhancementPowder"] = 1
-		GameState.state["labThresholds"]["wormhole"] = 5
+		ProductionSettings.set_field("timePearl", "keep", 5)
+		ProductionSettings.set_field("enhancementPowder", "keep", 1)
+		ProductionSettings.set_field("wormhole", "keep", 5)
 		GameState.state["player"]["orichalchum"] = { "time": 1000, "life": 1000, "physics": 1000 }
 		_run_blocks(3)
 		assert_eq(Crafting.inventory_qty("timePearl"), 0, "time recipe outside a life-only crafter's specialities")
@@ -100,7 +100,7 @@ func run() -> void:
 		GameState.reset()
 		_staff_lab("archie", 1)
 		GameState.state["contacts"]["archie"]["specialities"] = []
-		GameState.state["labThresholds"]["timePearl"] = 5
+		ProductionSettings.set_field("timePearl", "keep", 5)
 		GameState.state["player"]["orichalchum"]["time"] = 1000
 		var output: Dictionary = Rooms.process_staff_block()
 		assert_eq(output["items"], {})
@@ -113,7 +113,7 @@ func run() -> void:
 		GameState.state["flags"]["bizJamesProductionRole"] = true
 		assert_true(Contacts.set_role("james", "production")["ok"])
 		GameState.state["contacts"]["james"]["craftingSkill"] = 5
-		GameState.state["labThresholds"]["healingBurst"] = 2
+		ProductionSettings.set_field("healingBurst", "keep", 2)
 		GameState.state["player"]["orichalchum"] = { "time": 1000, "life": 1000 }
 		_run_blocks(3)
 		assert_eq(Crafting.inventory_qty("healingBurst"), 2, "time+life recipe within James's specialities")
@@ -136,7 +136,7 @@ func run() -> void:
 		GameState.state["contacts"]["james"]["recruited"] = true
 		GameState.state["flags"]["bizJamesProductionRole"] = true
 		assert_true(Contacts.set_role("james", "production")["ok"])
-		GameState.state["labThresholds"]["timePearl"] = 6
+		ProductionSettings.set_field("timePearl", "keep", 6)
 		GameState.state["player"]["orichalchum"]["time"] = 10000
 		Rng.set_seed(3)
 		var output: Dictionary = Rooms.process_staff_block()
@@ -152,7 +152,7 @@ func run() -> void:
 		GameState.state["contacts"]["james"]["recruited"] = true
 		GameState.state["flags"]["bizJamesProductionRole"] = true
 		assert_true(Contacts.set_role("james", "production")["ok"])
-		GameState.state["labThresholds"]["timePearl"] = 1000
+		ProductionSettings.set_field("timePearl", "keep", 1000)
 		GameState.state["player"]["orichalchum"]["time"] = 100
 		Rng.set_seed(1)
 		Rooms.process_staff_block()
@@ -164,7 +164,7 @@ func run() -> void:
 		for skill in [1, 3, 4, 5, 10]:
 			GameState.reset()
 			_staff_lab("archie", skill)
-			GameState.state["labThresholds"]["timePearl"] = 1
+			ProductionSettings.set_field("timePearl", "keep", 1)
 			GameState.state["player"]["orichalchum"]["time"] = 100
 			Rng.set_seed(1)
 			for i in 20:
@@ -179,7 +179,7 @@ func run() -> void:
 		_staff_lab("archie", 2)
 		GameState.state["lab"]["bestRanks"]["timePearl"] = 5
 		GameState.state["player"]["craftingSkill"] = 10
-		GameState.state["labThresholds"]["timePearl"] = 1
+		ProductionSettings.set_field("timePearl", "keep", 1)
 		GameState.state["player"]["orichalchum"]["time"] = 100
 		Rng.set_seed(1)
 		for i in 20:
@@ -191,7 +191,7 @@ func run() -> void:
 		for skill in [1, 5]:
 			GameState.reset()
 			_staff_lab("archie", skill)
-			GameState.state["labThresholds"]["timePearl"] = 1000
+			ProductionSettings.set_field("timePearl", "keep", 1000)
 			GameState.state["player"]["orichalchum"]["time"] = 30
 			Rng.set_seed(1)
 			Rooms.process_staff_block()
@@ -204,7 +204,7 @@ func run() -> void:
 		GameState.reset()
 		_staff_lab("des", 1)
 		GameState.state["business"]["wages"]["des"] = { "weekly": 250, "owed": 100, "unpaid": true, "hiredDay": 1, "daysWorked": 0, "promptPending": true }
-		GameState.state["labThresholds"]["timePearl"] = 5
+		ProductionSettings.set_field("timePearl", "keep", 5)
 		GameState.state["player"]["orichalchum"]["time"] = 100
 		Rooms.process_staff_block()
 		assert_eq(GameState.state["player"]["orichalchum"]["time"], 100)
@@ -212,7 +212,8 @@ func run() -> void:
 
 	run_case("effective_lab_target_adds_contract_need_only_when_covering", func():
 		GameState.reset()
-		GameState.state["labThresholds"]["timePearl"] = 5
+		ProductionSettings.set_master_field("coverContracts", false)
+		ProductionSettings.set_field("timePearl", "keep", 5)
 		var created: Dictionary = Offers.create_offer({ "id": "t1", "source": "random", "contractType": "oneOff", "request": { "kind": "consumable", "type": "timePearl", "qty": 10 } })
 		Offers.accept_offer(created["offer"]["id"])
 		assert_eq(Rooms.effective_lab_target("timePearl"), 5, "toggle off -- personal target only, contract need ignored")
@@ -222,6 +223,7 @@ func run() -> void:
 
 	run_case("toggle_all_cover_contracts_flips_every_listed_item", func():
 		GameState.reset()
+		ProductionSettings.set_master_field("coverContracts", false)
 		GameState.state["contacts"]["owen"]["recruited"] = true
 		GameState.state["flags"]["bizOwenProductionRole"] = true
 		var keys: Array = Rooms.production_recipes()
@@ -240,7 +242,8 @@ func run() -> void:
 
 	run_case("production_reserved_qty_protects_only_the_personal_target_while_covering", func():
 		GameState.reset()
-		GameState.state["labThresholds"]["timePearl"] = 5
+		ProductionSettings.set_master_field("coverContracts", false)
+		ProductionSettings.set_field("timePearl", "keep", 5)
 		assert_eq(Rooms.production_reserved_qty("timePearl"), 0, "no reserve while the toggle is off")
 		Rooms.set_lab_cover_contracts("timePearl", true)
 		assert_eq(Rooms.production_reserved_qty("timePearl"), 5, "reserve equals the personal target once covering, never the contract-need portion")
@@ -248,8 +251,9 @@ func run() -> void:
 
 	run_case("producer_ignores_contract_need_when_toggle_is_off", func():
 		GameState.reset()
+		ProductionSettings.set_master_field("coverContracts", false)
 		_staff_lab("archie", 3)
-		GameState.state["labThresholds"]["timePearl"] = 2
+		ProductionSettings.set_field("timePearl", "keep", 2)
 		GameState.state["player"]["orichalchum"]["time"] = 10000
 		var created: Dictionary = Offers.create_offer({ "id": "t2", "source": "random", "contractType": "oneOff", "request": { "kind": "consumable", "type": "timePearl", "qty": 5 } })
 		Offers.accept_offer(created["offer"]["id"])
@@ -261,8 +265,8 @@ func run() -> void:
 	run_case("producer_crafts_toward_the_combined_personal_target_and_contract_need", func():
 		GameState.reset()
 		_staff_lab("archie", 6)
-		GameState.state["labThresholds"]["timePearl"] = 2
-		GameState.state["labCoverContracts"]["timePearl"] = true
+		ProductionSettings.set_field("timePearl", "keep", 2)
+		ProductionSettings.set_field("timePearl", "coverContracts", true)
 		GameState.state["player"]["orichalchum"]["time"] = 10000
 		var created: Dictionary = Offers.create_offer({ "id": "t3", "source": "random", "contractType": "oneOff", "request": { "kind": "consumable", "type": "timePearl", "qty": 3 } })
 		Offers.accept_offer(created["offer"]["id"])
@@ -274,8 +278,8 @@ func run() -> void:
 	run_case("producer_orders_scarce_shared_ore_by_contract_priority_then_by_personal_target", func():
 		GameState.reset()
 		_staff_lab("archie", 1)
-		GameState.state["labCoverContracts"]["timePearl"] = true
-		GameState.state["labCoverContracts"]["rewind"] = true
+		ProductionSettings.set_field("timePearl", "coverContracts", true)
+		ProductionSettings.set_field("rewind", "coverContracts", true)
 		# timePearl costs 5 "time" ore/attempt, rewind costs 6, both at skill 1.
 		GameState.state["player"]["orichalchum"]["time"] = 13
 		var pearl_offer: Dictionary = Offers.create_offer({ "id": "t4_pearl", "source": "random", "contractType": "oneOff", "request": { "kind": "consumable", "type": "timePearl", "qty": 1000 } })
@@ -510,16 +514,16 @@ func run() -> void:
 		GameState.reset()
 		assert_eq(GameData.PRODUCTION_TARGET_MAX, 50, "the cap lives in constants.json")
 		Rooms.set_lab_threshold("timePearl", 12)
-		assert_eq(GameState.state["labThresholds"]["timePearl"], 12)
+		assert_eq(Rooms.lab_target("timePearl"), 12)
 		Rooms.set_lab_threshold("timePearl", -10)
-		assert_eq(GameState.state["labThresholds"]["timePearl"], 0, "should floor at 0, not go negative")
+		assert_eq(Rooms.lab_target("timePearl"), 0, "should floor at 0, not go negative")
 		Rooms.set_lab_threshold("timePearl", 80)
-		assert_eq(GameState.state["labThresholds"]["timePearl"], 50, "should cap at PRODUCTION_TARGET_MAX")
+		assert_eq(Rooms.lab_target("timePearl"), 50, "should cap at PRODUCTION_TARGET_MAX")
 	)
 
 	run_case("effective_lab_target_previews_an_unstored_personal_target", func():
 		GameState.reset()
-		GameState.state["labThresholds"]["timePearl"] = 4
+		ProductionSettings.set_field("timePearl", "keep", 4)
 		assert_eq(Rooms.effective_lab_target("timePearl"), 4, "defaults to the stored target")
 		assert_eq(Rooms.effective_lab_target("timePearl", 9), 9, "a passed target overrides the stored one")
 	)
@@ -624,7 +628,7 @@ func run() -> void:
 	run_case("production_log_records_each_blocks_made_and_failed_per_crafter", func():
 		GameState.reset()
 		_staff_lab("archie", 1)
-		GameState.state["labThresholds"]["timePearl"] = 1000
+		ProductionSettings.set_field("timePearl", "keep", 1000)
 		GameState.state["player"]["orichalchum"]["time"] = 50
 		GameState.state["world"]["day"] = 4
 		Rng.set_seed(3)
@@ -650,7 +654,7 @@ func run() -> void:
 	run_case("production_log_notes_the_ore_a_crafter_ran_short_of", func():
 		GameState.reset()
 		_staff_lab("archie", 1)
-		GameState.state["labThresholds"]["timePearl"] = 1000
+		ProductionSettings.set_field("timePearl", "keep", 1000)
 		GameState.state["player"]["orichalchum"]["time"] = 2
 		Rooms.process_staff_block(0)
 		var entry: Dictionary = GameState.state["productionLog"][0]["blocks"][0]["entries"][0]
@@ -662,7 +666,7 @@ func run() -> void:
 	run_case("production_log_has_no_ore_short_note_when_targets_are_met", func():
 		GameState.reset()
 		_staff_lab("archie", 1)
-		GameState.state["labThresholds"]["timePearl"] = 1
+		ProductionSettings.set_field("timePearl", "keep", 1)
 		GameState.state["player"]["orichalchum"]["time"] = 1000
 		Rng.set_seed(1)
 		Rooms.process_staff_block(0)
@@ -693,7 +697,7 @@ func run() -> void:
 	run_case("rest_logs_each_remaining_block_under_its_own_index", func():
 		GameState.reset()
 		_staff_lab("archie", 1)
-		GameState.state["labThresholds"]["timePearl"] = 1000
+		ProductionSettings.set_field("timePearl", "keep", 1000)
 		GameState.state["player"]["orichalchum"]["time"] = 2
 		GameState.state["world"]["timeBlock"] = 1
 		TimeSystem.do_rest()

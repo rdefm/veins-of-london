@@ -647,6 +647,7 @@ func run() -> void:
 
 	run_case("production_lists_james_speciality_recipes_and_adjusts_target_and_toggle", func():
 		GameState.reset()
+		ProductionSettings.set_master_field("coverContracts", false)
 		GameState.state["home"]["rooms"].append("lab")
 		GameState.state["contacts"]["james"]["recruited"] = true
 		GameState.state["flags"]["bizJamesProductionRole"] = true
@@ -674,15 +675,15 @@ func run() -> void:
 		assert_eq([bar.keep, bar.cutoff, bar.max_value], [0, GameData.PRODUCTION_TARGET_MAX, GameData.PRODUCTION_TARGET_MAX], "handles start at either end of 0..the data cap")
 		_drag_keep(bar, 5)
 		assert_true(NodeQuery.label_texts(phone).has("Keep: 5 · contract need: 3 · contracts not covered"), "label follows the drag")
-		assert_eq(GameState.state["labThresholds"].get("timePearl", 0), 0, "nothing commits mid-drag")
+		assert_eq(Rooms.lab_target("timePearl"), 0, "nothing commits mid-drag")
 		_release(bar)
-		assert_eq(GameState.state["labThresholds"]["timePearl"], 5)
+		assert_eq(Rooms.lab_target("timePearl"), 5)
 
 		var cover := _button_with_text(phone, "Cover contract needs")
 		assert_true(cover != null)
 		cover.pressed.emit()
 		EventBus.flush_now()
-		assert_true(GameState.state["labCoverContracts"]["timePearl"])
+		assert_true(Rooms.lab_covers_contracts("timePearl"))
 		assert_true(NodeQuery.label_texts(phone).has("Keep: 5 · contract need: 3 · crafting to: 8"))
 		phone.free()
 	)
@@ -700,8 +701,9 @@ func run() -> void:
 
 		_drag_keep(bar, 5)
 		_release(bar)
-		assert_eq(GameState.state["labThresholds"]["timePearl"], 5, "Keep still works")
-		assert_eq(GameState.state["autoSell"], {}, "nothing written to the rule")
+		assert_eq(Rooms.lab_target("timePearl"), 5, "Keep still works")
+		assert_eq(AutoSell.rule("timePearl")["mood"], "balanced", "mood untouched")
+		assert_eq(AutoSell.rule("timePearl")["sellAbove"], GameData.PRODUCTION_TARGET_MAX, "cutoff untouched")
 		phone.free()
 	)
 
@@ -709,14 +711,14 @@ func run() -> void:
 		var phone := _production_phone(true)
 		Crafting.inventory_add("timePearl", 1, 30)
 		EventBus.flush_now()
-		GameState.state["autoSell"]["timePearl"] = { "sellAbove": GameData.PRODUCTION_TARGET_MAX, "mood": "balanced" }
+		ProductionSettings.set_field("timePearl", "sellAbove", GameData.PRODUCTION_TARGET_MAX); ProductionSettings.set_field("timePearl", "mood", "balanced")
 		EventBus.state_changed.emit()
 		assert_true(NodeQuery.label_texts(phone).has("30 in stock"), "stock sits on the item's row")
 		assert_true(NodeQuery.label_texts(phone).has("Not selling"))
 		assert_true(NodeQuery.label_texts(phone).has(BizBriefApp.AUTO_SELL_HEADING))
 		assert_eq(BizBriefApp.AUTO_SELL_MOODS.keys(), ["aggressive", "balanced", "cautious"], "button order")
 
-		GameState.state["autoSell"]["timePearl"]["sellAbove"] = 10
+		ProductionSettings.set_field("timePearl", "sellAbove", 10)
 		(phone.find_child("AutoSellMood_timePearl_aggressive", true, false) as Button).pressed.emit()
 		EventBus.flush_now()
 		assert_eq(AutoSell.rule("timePearl")["mood"], "aggressive")
@@ -753,7 +755,7 @@ func run() -> void:
 		EventBus.flush_now()
 		Rooms.set_lab_threshold("timePearl", 3)
 		EventBus.flush_now()
-		GameState.state["autoSell"]["timePearl"] = { "sellAbove": 5, "mood": "aggressive" }
+		ProductionSettings.set_field("timePearl", "sellAbove", 5); ProductionSettings.set_field("timePearl", "mood", "aggressive")
 		EventBus.state_changed.emit()
 
 		var bar := _stock_bar(phone, "timePearl")
@@ -773,6 +775,7 @@ func run() -> void:
 
 	run_case("production_status_and_today_ore_short_route_land_on_the_recipe", func():
 		GameState.reset()
+		ProductionSettings.set_master_field("coverContracts", false)
 		for id in GameState.state["objectives"]:
 			GameState.state["objectives"][id]["active"] = false
 		GameState.state["home"]["rooms"].append("lab")
@@ -780,7 +783,7 @@ func run() -> void:
 		GameState.state["flags"]["bizJamesProductionRole"] = true
 		assert_true(Contacts.set_role("james", "production")["ok"])
 		GameState.state["player"]["orichalchum"] = { "time": 0, "life": 0 }
-		GameState.state["labThresholds"]["timePearl"] = 3
+		ProductionSettings.set_field("timePearl", "keep", 3)
 		var created: Dictionary = Offers.create_offer({ "id": "status_need", "source": "random", "contractType": "oneOff", "request": { "kind": "consumable", "type": "rewind", "qty": 2 } })
 		EventBus.flush_now()
 		Offers.accept_offer(created["offer"]["id"])

@@ -13,10 +13,10 @@ func run() -> void:
 
 	run_case("new_and_old_saves_default_to_off", func():
 		_setup()
-		assert_eq(GameState.state["autoSell"], {}, "new game has no rules")
+		assert_eq(GameState.state["production"]["overrides"], {}, "new game has no overrides")
 		var old_save: Dictionary = GameState.deep_copy(GameState.state)
-		old_save.erase("autoSell")
-		assert_eq(SaveManager.backfill_defaults(old_save)["autoSell"], {}, "old save backfills empty")
+		old_save.erase("production")
+		assert_eq(SaveManager.backfill_defaults(old_save)["production"]["overrides"], {}, "old save backfills empty")
 		assert_eq(AutoSell.rule(SALVE)["mood"], "balanced")
 		assert_eq(AutoSell.rule(SALVE)["sellAbove"], GameData.PRODUCTION_TARGET_MAX, "cutoff starts at the top of the bar")
 	)
@@ -25,10 +25,11 @@ func run() -> void:
 		_setup()
 		_rule("aggressive", 7)
 		var exported: String = SaveManager.export_string()
-		GameState.state["autoSell"] = {}
+		ProductionSettings.revert(SALVE)
 		assert_true(SaveManager.import_string(exported)["ok"])
-		assert_eq(GameState.state["autoSell"][SALVE], { "sellAbove": 7, "mood": "aggressive" })
-		assert_eq(typeof(GameState.state["autoSell"][SALVE]["sellAbove"]), TYPE_INT, "sellAbove restores as int")
+		assert_eq(AutoSell.rule(SALVE)["sellAbove"], 7)
+		assert_eq(AutoSell.rule(SALVE)["mood"], "aggressive")
+		assert_eq(typeof(AutoSell.rule(SALVE)["sellAbove"]), TYPE_INT, "sellAbove restores as int")
 	)
 
 	run_case("no_one_in_sales_sells_nothing", func():
@@ -49,7 +50,7 @@ func run() -> void:
 		assert_eq(Crafting.inventory_qty(SALVE), over_the_top)
 	)
 
-	run_case("v13_moods_migrate_with_their_limits_and_off_moves_the_cutoff", func():
+	run_case("v13_save_migrates_to_master_defaults", func():
 		_setup()
 		var save: Dictionary = GameState.deep_copy(GameState.state)
 		save["meta"]["saveVersion"] = 13
@@ -60,18 +61,13 @@ func run() -> void:
 			"shield": { "sellAbove": 10, "mood": "off" },
 		}
 		assert_true(SaveManager.import_string(JSON.stringify(save))["ok"])
-		assert_eq(GameState.state["autoSell"], {
-			"bloom": { "sellAbove": 7, "mood": "cautious" },
-			"blast": { "sellAbove": 8, "mood": "balanced" },
-			SALVE: { "sellAbove": 9, "mood": "aggressive" },
-			"shield": { "sellAbove": GameData.PRODUCTION_TARGET_MAX, "mood": "balanced" },
-		})
+		assert_eq(GameState.state["production"], ProductionSettings.default_state())
 	)
 
 	run_case("only_production_list_recipes_sell", func():
 		_setup()
 		assert_true(not Rooms.production_recipes().has("timePearl"), "fixture: Owen can't make Time Pearls")
-		GameState.state["autoSell"]["timePearl"] = { "sellAbove": 0, "mood": "aggressive" }
+		ProductionSettings.set_field("timePearl", "sellAbove", 0); ProductionSettings.set_field("timePearl", "mood", "aggressive")
 		Crafting.inventory_add("timePearl", 1, 30)
 		assert_eq(AutoSell.daily_pass(), {})
 		assert_eq(Crafting.inventory_qty("timePearl"), 30)
@@ -89,7 +85,7 @@ func run() -> void:
 	run_case("keep_alone_raises_the_floor_above_sell_above", func():
 		_setup()
 		_rule("aggressive", 10)
-		GameState.state["labThresholds"][SALVE] = 28
+		ProductionSettings.set_field(SALVE, "keep", 28)
 		_stock(30)
 		assert_eq(AutoSell.protected_floor(SALVE), 28)
 		assert_eq(AutoSell.daily_pass()[SALVE]["qty"], 2)
@@ -97,15 +93,16 @@ func run() -> void:
 
 	run_case("contract_need_raises_the_floor_only_while_covering_contracts", func():
 		_setup()
+		ProductionSettings.set_master_field("coverContracts", false)
 		_rule("aggressive", 10)
-		GameState.state["labThresholds"][SALVE] = 5
+		ProductionSettings.set_field(SALVE, "keep", 5)
 		var created: Dictionary = OffersSystem.create_offer({
 			"id": "t_auto_sell", "source": "scripted", "contractType": "recurring", "weekday": 1,
 			"request": { "kind": "consumable", "type": SALVE, "qty": 20 },
 		})
 		OffersSystem.accept_offer(created["offer"]["id"])
 		assert_eq(AutoSell.protected_floor(SALVE), 10, "not covering contracts: need doesn't count")
-		GameState.state["labCoverContracts"][SALVE] = true
+		ProductionSettings.set_field(SALVE, "coverContracts", true)
 		assert_eq(AutoSell.protected_floor(SALVE), 25, "Keep + contract need beats sellAbove")
 		_stock(30)
 		assert_eq(AutoSell.daily_pass()[SALVE]["qty"], 5)
@@ -248,7 +245,7 @@ func run() -> void:
 
 	run_case("a_sale_day_awards_sales_xp_once_and_a_quiet_day_none", func():
 		_rollover_fixture("aggressive")
-		GameState.state["autoSell"]["bloom"] = { "sellAbove": 0, "mood": "aggressive" }
+		ProductionSettings.set_field("bloom", "sellAbove", 0); ProductionSettings.set_field("bloom", "mood", "aggressive")
 		Crafting.inventory_add("bloom", 1, 50)
 		assert_eq(_xp_from_a_rollover(), 2, "one flat award for the day")
 		assert_eq(MorningAccountsSystem.latest()["sales"].size(), 2, "two items sold")
@@ -263,7 +260,7 @@ func run() -> void:
 		AutoSell.set_keep(SALVE, 12)
 		assert_eq(AutoSell.rule(SALVE)["sellAbove"], 20, "a Keep under the cutoff leaves it")
 		AutoSell.set_keep(SALVE, 30)
-		assert_eq(GameState.state["labThresholds"][SALVE], 30)
+		assert_eq(Rooms.lab_target(SALVE), 30)
 		assert_eq(AutoSell.rule(SALVE)["sellAbove"], 30, "pushed along")
 		AutoSell.set_keep(SALVE, 5)
 		assert_eq(AutoSell.rule(SALVE)["sellAbove"], 30, "stays when Keep backs off")
@@ -277,9 +274,9 @@ func run() -> void:
 		_setup(false)
 		AutoSell.set_sell_above(SALVE, 10)
 		AutoSell.set_mood(SALVE, "aggressive")
-		assert_eq(GameState.state["autoSell"], {})
+		assert_eq(AutoSell.rule(SALVE), ProductionSettings.master())
 		AutoSell.set_keep(SALVE, 10)
-		assert_eq(GameState.state["labThresholds"][SALVE], 10)
+		assert_eq(Rooms.lab_target(SALVE), 10)
 	)
 
 	run_case("set_mood_keeps_the_cutoff_and_refuses_an_unknown_mood", func():
@@ -288,7 +285,8 @@ func run() -> void:
 		AutoSell.set_mood(SALVE, "balanced")
 		AutoSell.set_mood(SALVE, "reckless")
 		AutoSell.set_mood(SALVE, "off")
-		assert_eq(AutoSell.rule(SALVE), { "sellAbove": 15, "mood": "balanced" })
+		assert_eq(AutoSell.rule(SALVE)["sellAbove"], 15)
+		assert_eq(AutoSell.rule(SALVE)["mood"], "balanced")
 	)
 
 	run_case("rule_set_through_the_controls_survives_save_and_load", func():
@@ -296,9 +294,10 @@ func run() -> void:
 		AutoSell.set_sell_above(SALVE, 15)
 		AutoSell.set_mood(SALVE, "cautious")
 		var exported: String = SaveManager.export_string()
-		GameState.state["autoSell"] = {}
+		ProductionSettings.revert(SALVE)
 		assert_true(SaveManager.import_string(exported)["ok"])
-		assert_eq(AutoSell.rule(SALVE), { "sellAbove": 15, "mood": "cautious" })
+		assert_eq(AutoSell.rule(SALVE)["sellAbove"], 15)
+		assert_eq(AutoSell.rule(SALVE)["mood"], "cautious")
 	)
 
 	run_case("projection_matches_what_the_rollover_sells_across_mixed_tiers", func():
@@ -336,7 +335,7 @@ func run() -> void:
 		assert_eq(AutoSell.projection(SALVE)["reason"], AutoSell.REASON_UNDER_CUTOFF)
 
 		_rollover_fixture("aggressive", 45)
-		GameState.state["labThresholds"][SALVE] = 40
+		ProductionSettings.set_field(SALVE, "keep", 40)
 		_cover_contracts(70)
 		assert_eq(AutoSell.protected_floor(SALVE), 110, "fixture: contract need lifts the floor over the stock")
 		assert_eq(AutoSell.projection(SALVE)["reason"], AutoSell.REASON_CONTRACTS)
@@ -488,7 +487,7 @@ func _cover_contracts(qty: int) -> void:
 
 
 func _rule(mood: String, sell_above: int) -> void:
-	GameState.state["autoSell"][SALVE] = { "sellAbove": sell_above, "mood": mood }
+	ProductionSettings.set_field(SALVE, "sellAbove", sell_above); ProductionSettings.set_field(SALVE, "mood", mood)
 
 
 func _stock(qty: int) -> void:

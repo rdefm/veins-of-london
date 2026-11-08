@@ -977,10 +977,13 @@ func run() -> void:
 	run_case("loading_clamps_production_targets_above_the_cap", func():
 		GameState.reset()
 		var legacy: Dictionary = GameState.deep_copy(GameState.state)
-		legacy["labThresholds"] = { "timePearl": 80.0, "rewind": 10.0 }
+		legacy["production"]["overrides"] = { "timePearl": { "production": 0, "keep": 80.0, "sellAbove": 99.0, "mood": "bogus", "coverContracts": true }, "rewind": { "keep": 10.0 } }
 
 		assert_true(SaveManager._load_save_dict(legacy)["ok"])
-		assert_eq(GameState.state["labThresholds"], { "timePearl": GameData.PRODUCTION_TARGET_MAX, "rewind": 10 }, "over-cap target clamps; in-range one is kept")
+		assert_eq(Rooms.lab_target("timePearl"), GameData.PRODUCTION_TARGET_MAX, "over-cap target clamps")
+		assert_eq(Rooms.lab_target("rewind"), 10, "in-range one is kept as int")
+		assert_eq(GameState.state["production"]["overrides"]["timePearl"]["mood"], "balanced", "unknown mood resets")
+		assert_eq(GameState.state["production"]["overrides"]["rewind"]["sellAbove"], GameData.PRODUCTION_TARGET_MAX, "missing fields fill from defaults")
 	)
 
 	run_case("loading_an_old_vein_station_list_moves_it_to_the_station_occupant", func():

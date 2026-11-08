@@ -254,7 +254,7 @@ var LODEDINNIT_COMMENTS: Array = []
 # Hire-status post templates by event kind: {kind: [text with {name}/{employer}]}.
 var LODEDINNIT_STATUS: Dictionary = {}
 
-# Ceiling on a Production personal target (state.labThresholds), R§3.10.
+# Ceiling on a Production personal target (state.production keep), R§3.10.
 var PRODUCTION_TARGET_MAX: int = 0
 
 # Days of business performance kept in state.businessStats.days, R§2.

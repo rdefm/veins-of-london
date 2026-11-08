@@ -38,7 +38,7 @@ static func production_recipes() -> Array:
 
 
 static func set_lab_threshold(recipe_key: String, target: int) -> void:
-	GameState.state["labThresholds"][recipe_key] = clamp_lab_threshold(target)
+	ProductionSettings.set_field(recipe_key, "keep", clamp_lab_threshold(target))
 	EventBus.mark_changed()
 
 
@@ -46,22 +46,20 @@ static func clamp_lab_threshold(target: int) -> int:
 	return clampi(target, 0, GameData.PRODUCTION_TARGET_MAX)
 
 
-# Pulls every stored target into 0..PRODUCTION_TARGET_MAX; SaveManager runs
-# it on load so a save from before the cap never sits above it.
-static func clamp_lab_thresholds(thresholds: Dictionary) -> void:
-	for recipe_key in thresholds.keys():
-		thresholds[recipe_key] = clamp_lab_threshold(int(thresholds[recipe_key]))
-
-
 # Per-item opt-in for Production to also craft toward accepted-contract
-# need on top of the personal labThresholds target.
+# need on top of the personal Keep target.
 static func set_lab_cover_contracts(recipe_key: String, enabled: bool) -> void:
-	GameState.state["labCoverContracts"][recipe_key] = enabled
+	ProductionSettings.set_field(recipe_key, "coverContracts", enabled)
 	EventBus.mark_changed()
 
 
 static func lab_covers_contracts(recipe_key: String) -> bool:
-	return GameState.state["labCoverContracts"].get(recipe_key, false)
+	return ProductionSettings.resolve(recipe_key)["coverContracts"]
+
+
+# The recipe's personal Keep target (the craft target until Production splits).
+static func lab_target(recipe_key: String) -> int:
+	return int(ProductionSettings.resolve(recipe_key)["keep"])
 
 
 # True when every producible recipe is covering contracts (vacuously false
@@ -80,7 +78,7 @@ static func lab_covers_all_contracts() -> bool:
 static func toggle_all_lab_cover_contracts() -> void:
 	var enable := not lab_covers_all_contracts()
 	for recipe_key in production_recipes():
-		GameState.state["labCoverContracts"][recipe_key] = enable
+		ProductionSettings.set_field(recipe_key, "coverContracts", enable)
 	EventBus.mark_changed()
 
 
@@ -124,7 +122,7 @@ static func _matching_active_contracts(recipe_key: String) -> Array:
 # personal target.
 # personal_target >= 0 previews a target not yet stored (a slider mid-drag).
 static func effective_lab_target(recipe_key: String, personal_target: int = -1) -> int:
-	var target: int = personal_target if personal_target >= 0 else GameState.state["labThresholds"].get(recipe_key, 0)
+	var target: int = personal_target if personal_target >= 0 else lab_target(recipe_key)
 	if lab_covers_contracts(recipe_key):
 		target += contract_need(recipe_key)
 	return target
@@ -136,16 +134,16 @@ static func effective_lab_target(recipe_key: String, personal_target: int = -1) 
 static func production_reserved_qty(recipe_key: String) -> int:
 	if not lab_covers_contracts(recipe_key):
 		return 0
-	return int(GameState.state["labThresholds"].get(recipe_key, 0))
+	return lab_target(recipe_key)
 
 
 # "The contract-card priority order wins, then player-set inventory-target
 # priority" for scarce shared ore. Recipes with covered, unmet contract need
 # are ordered by the best rank of any matching active contract in
-# sales.priorityOrder; everything else follows labThresholds' own
+# sales.priorityOrder; everything else follows the overrides' own
 # key-insertion order (the player's de facto priority).
 static func _production_order() -> Array:
-	var threshold_keys: Array = GameState.state["labThresholds"].keys()
+	var threshold_keys: Array = ProductionSettings.overrides().keys()
 	var recipe_keys: Array = GameData.RECIPES.keys()
 	var ranked: Array = []
 	for i in recipe_keys.size():

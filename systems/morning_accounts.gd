@@ -70,8 +70,8 @@ static func record_block(output: Dictionary, ore_before: Dictionary) -> void:
 static func capture_production_shortfalls(context: Dictionary) -> void:
 	if Contacts.contacts_in_role("production").is_empty():
 		return
-	for recipe_key in GameState.state["labThresholds"]:
-		var target: int = GameState.state["labThresholds"][recipe_key]
+	for recipe_key in GameData.RECIPES:
+		var target: int = Rooms.lab_target(recipe_key)
 		var actual: int = Crafting.inventory_qty(recipe_key)
 		if target > 0 and actual < target:
 			context["exceptions"].append({ "kind": "productionShortfall", "recipeKey": recipe_key, "target": target, "actual": actual })
