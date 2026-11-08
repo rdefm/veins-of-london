@@ -43,6 +43,20 @@ const FILTER_FOLLOWING := "following"
 const FILTER_EMPTY_TEXT := "No recipes match these filters."
 const FOLLOW_TEXT := "Follows master"
 const OVERRIDDEN_TEXT := "Overridden"
+const FOLLOWING_CHIP_TEXT := "Following"
+const CUSTOM_CHIP_TEXT := "Custom"
+const CUSTOM_SETTINGS_TEXT := "Custom settings"
+const FOLLOWING_DEFAULTS_TEXT := "Following the defaults"
+const CUSTOMISE_TEXT := "Customise"
+const RESET_TEXT := "Reset to defaults"
+const RECIPE_HEADER_HEIGHT := 56.0
+const RECIPE_TILE_SIZE := 46.0
+const RECIPE_PIP_SIZE := 12.0
+const HEALTH_GREEN := Color("#4caf6a")
+const HEALTH_AMBER := Color("#e0a030")
+const HEALTH_RED := Color("#d9453f")
+const CUSTOM_BORDER := Color("#c9954a")
+const CUSTOM_SURFACE := Color("#2a2620")
 const SELL_NONE_TEXT := "none"
 const MASTER_MAKE_COLOUR := Color("#f2c14e")
 const MASTER_KEEP_COLOUR := Color("#b4d6c2")
@@ -115,6 +129,8 @@ var _production_log_open := false
 # Production list filters (view state): ore type id ("" = all) and
 # FILTER_OVERRIDDEN / FILTER_FOLLOWING ("" = all).
 var _filter_ore := ""
+# Recipe cards expanded on the Production page (view state), recipe key -> true.
+var _open_recipes := {}
 var _filter_follow := ""
 var _sales_history_open := false
 var _sales_details_id := ""
@@ -1305,16 +1321,6 @@ func _set_filter_follow(mode: String) -> void:
 	refresh()
 
 
-# Ticked = follows the master; unticking makes an override of the master's
-# current settings, ticking deletes the override.
-func _set_follows_master(recipe_key: String, follows: bool) -> void:
-	if follows:
-		ProductionSettings.revert(recipe_key)
-	else:
-		ProductionSettings.set_field(recipe_key, "production", ProductionSettings.resolve(recipe_key)["production"])
-		EventBus.mark_changed()
-
-
 func _toggle_production_log() -> void:
 	_production_log_open = not _production_log_open
 	refresh()
@@ -1443,42 +1449,85 @@ func _build_production_recipe_row(recipe_key: String) -> Control:
 	var rule := AutoSell.rule(recipe_key)
 	var sales_staffed := Contracts.has_staffed_sales()
 	var stock := Crafting.inventory_qty(recipe_key)
+	var custom := ProductionSettings.has_override(recipe_key)
+	var ore_type := _main_ore(recipe_key)
+	var ore_colour := _ore_colour(ore_type)
 
+	var card := PanelContainer.new()
+	card.name = "ProductionRecipe_%s" % recipe_key
+	card.add_theme_stylebox_override("panel", _recipe_card_style(custom))
+	_recipe_anchors[recipe_key] = card
 	var box := UI.vbox(5)
-	box.name = "ProductionRecipe_%s" % recipe_key
-	_recipe_anchors[recipe_key] = box
-	var title := UI.hbox(6)
-	title.add_child(UI.expand_fill(UI.heading(recipe["name"], 14)))
-	title.add_child(UI.muted_label(STOCK_TEXT % stock))
-	box.add_child(title)
-	var follows := not ProductionSettings.has_override(recipe_key)
-	var follow_box := CheckBox.new()
-	follow_box.name = "FollowMaster_%s" % recipe_key
-	follow_box.text = FOLLOW_TEXT if follows else OVERRIDDEN_TEXT + " · tick to follow master"
-	follow_box.button_pressed = follows
-	follow_box.toggled.connect(func(on: bool) -> void: _set_follows_master(recipe_key, on))
-	box.add_child(follow_box)
+	card.add_child(box)
+
+	var body := UI.vbox(5)
+	body.name = "RecipeBody_%s" % recipe_key
+	body.visible = _open_recipes.has(recipe_key)
+
+	var header := TapButton.new()
+	header.name = "RecipeToggle_%s" % recipe_key
+	header.flat = true
+	header.custom_minimum_size = Vector2(0, RECIPE_HEADER_HEIGHT)
+	header.pressed.connect(func() -> void:
+		body.visible = not body.visible
+		if body.visible:
+			_open_recipes[recipe_key] = true
+		else:
+			_open_recipes.erase(recipe_key))
+	var head_row := UI.hbox(8)
+	head_row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	head_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	head_row.add_child(_recipe_icon_tile(recipe_key, ore_colour, stock, keep))
+	var names := UI.vbox(1)
+	names.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	names.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	names.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var name_label := UI.heading(recipe["name"], 14)
+	name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	names.add_child(name_label)
+	var ore_name: String = GameData.ORE_TYPES[ore_type]["name"] if ore_type != "" else "no ore"
+	var sub := UI.muted_label("%s · make to %d" % [ore_name, production])
+	sub.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	names.add_child(sub)
+	head_row.add_child(names)
+	var side := UI.vbox(2)
+	side.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	side.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var stock_label := UI.muted_label(STOCK_TEXT % stock)
+	stock_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	stock_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	side.add_child(stock_label)
+	side.add_child(_recipe_status_chip(recipe_key, custom))
+	head_row.add_child(side)
+	header.add_child(head_row)
+	box.add_child(header)
+
+	var mini := RecipeMiniBar.new()
+	mini.name = "MiniBar_%s" % recipe_key
+	mini.configure(stock, keep, GameData.PRODUCTION_TARGET_MAX, ore_colour)
+	box.add_child(mini)
+	box.add_child(body)
 
 	# Target, contract need and coverage sit above the controls.
 	var target_label := UI.muted_label(_target_text(recipe_key, keep, covering))
-	box.add_child(target_label)
-	box.add_child(_build_production_control(recipe_key, production))
+	body.add_child(target_label)
 
 	var bar := StockBar.new()
 	bar.name = "StockBar_%s" % recipe_key
 	bar.configure(GameData.PRODUCTION_TARGET_MAX, keep, int(rule["sellAbove"]), AutoSell.protected_floor(recipe_key), stock, not sales_staffed)
-	box.add_child(bar)
+	body.add_child(bar)
 	var hold_label := UI.muted_label("")
 	hold_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_show_contract_hold(hold_label, recipe_key, keep, bar.cutoff)
-	box.add_child(hold_label)
+	body.add_child(hold_label)
+	body.add_child(_build_production_control(recipe_key, production))
 
-	box.add_child(UI.muted_label(AUTO_SELL_HEADING))
-	box.add_child(_build_mood_row(recipe_key, rule["mood"], sales_staffed))
-	box.add_child(UI.muted_label(AUTO_SELL_MOODS[rule["mood"]]["meaning"] if sales_staffed else AUTO_SELL_LOCKED_TEXT))
+	body.add_child(UI.muted_label(AUTO_SELL_HEADING))
+	body.add_child(_build_mood_row(recipe_key, rule["mood"], sales_staffed))
+	body.add_child(UI.muted_label(AUTO_SELL_MOODS[rule["mood"]]["meaning"] if sales_staffed else AUTO_SELL_LOCKED_TEXT))
 	var result_label := UI.label(_auto_sell_text(AutoSell.projection(recipe_key)))
 	result_label.name = "AutoSellLine_%s" % recipe_key
-	box.add_child(result_label)
+	body.add_child(result_label)
 
 	bar.changed.connect(func(keep: int, cutoff: int) -> void:
 		bar.set_held_floor(AutoSell.protected_floor(recipe_key, keep, cutoff))
@@ -1488,20 +1537,172 @@ func _build_production_recipe_row(recipe_key: String) -> Control:
 	bar.keep_committed.connect(func(keep: int) -> void: AutoSell.set_keep(recipe_key, keep))
 	bar.cutoff_committed.connect(func(cutoff: int) -> void: AutoSell.set_sell_above(recipe_key, cutoff))
 
-	var target_row := UI.hbox()
-	target_row.add_child(UI.button("Stop covering contracts" if covering else "Cover contract needs", func(): Rooms.set_lab_cover_contracts(recipe_key, not covering)))
-	box.add_child(target_row)
-	var separator := HSeparator.new()
-	box.add_child(separator)
+	var cover := UI.switch_row("Cover contracts", covering, func(on: bool) -> void: Rooms.set_lab_cover_contracts(recipe_key, on))
+	cover.name = "CoverSwitch_%s" % recipe_key
+	body.add_child(cover)
 
-	return box
+	var footer := UI.hbox(6)
+	footer.add_child(UI.expand_fill(UI.muted_label(CUSTOM_SETTINGS_TEXT if custom else FOLLOWING_DEFAULTS_TEXT)))
+	var link := UI.button(RESET_TEXT if custom else CUSTOMISE_TEXT, func() -> void: _toggle_override(recipe_key, custom))
+	link.name = "OverrideLink_%s" % recipe_key
+	link.flat = true
+	footer.add_child(link)
+	body.add_child(footer)
+	return card
+
+
+# Customise copies the master's current settings into an override; Reset
+# deletes it.
+func _toggle_override(recipe_key: String, custom: bool) -> void:
+	if custom:
+		ProductionSettings.revert(recipe_key)
+	else:
+		ProductionSettings.set_field(recipe_key, "production", ProductionSettings.resolve(recipe_key)["production"])
+		EventBus.mark_changed()
+
+
+# The ingredient ore with the largest quantity; ties go to the first listed.
+static func _main_ore(recipe_key: String) -> String:
+	var best := ""
+	var best_qty := -1
+	var ingredients: Dictionary = GameData.RECIPES[recipe_key].get("ingredients", {})
+	for ore_type in ingredients:
+		if int(ingredients[ore_type]) > best_qty:
+			best = ore_type
+			best_qty = int(ingredients[ore_type])
+	return best
+
+
+static func _ore_colour(ore_type: String) -> Color:
+	if ore_type == "":
+		return MUTED
+	return Color(GameData.ORE_TYPES[ore_type]["colour"])
+
+
+# Green at or above Keep, amber below Keep, red at 0 stock.
+static func _health_colour(stock: int, keep: int) -> Color:
+	if stock <= 0:
+		return HEALTH_RED
+	if stock >= keep:
+		return HEALTH_GREEN
+	return HEALTH_AMBER
+
+
+static func _recipe_card_style(custom: bool) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.set_content_margin_all(8)
+	style.set_corner_radius_all(8)
+	if custom:
+		style.bg_color = CUSTOM_SURFACE
+		style.set_border_width_all(1)
+		style.border_color = CUSTOM_BORDER
+	else:
+		style.bg_color = Color(0, 0, 0, 0)
+	return style
+
+
+func _recipe_icon_tile(recipe_key: String, ore_colour: Color, stock: int, keep: int) -> Control:
+	var holder := Control.new()
+	holder.custom_minimum_size = Vector2(RECIPE_TILE_SIZE, RECIPE_TILE_SIZE)
+	holder.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var tile := PanelContainer.new()
+	tile.name = "IconTile_%s" % recipe_key
+	tile.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	tile.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var tile_style := StyleBoxFlat.new()
+	tile_style.bg_color = ore_colour.darkened(0.55)
+	tile_style.set_corner_radius_all(8)
+	tile.add_theme_stylebox_override("panel", tile_style)
+	var texture := ItemIcons.texture(recipe_key)
+	if texture != null:
+		var rect := TextureRect.new()
+		rect.name = "Icon_%s" % recipe_key
+		rect.texture = texture
+		rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		rect.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		tile.add_child(rect)
+	else:
+		var glyph := SymbolGlyph.new()
+		glyph.name = "IconPlaceholder_%s" % recipe_key
+		glyph.symbol = ""
+		glyph.draw_fallback = SymbolGlyph.generic_fallback()
+		glyph.color = ore_colour
+		glyph.glyph_radius = RECIPE_TILE_SIZE * 0.3
+		glyph.custom_minimum_size = Vector2(RECIPE_TILE_SIZE, RECIPE_TILE_SIZE)
+		glyph.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		tile.add_child(glyph)
+	holder.add_child(tile)
+	var pip := Panel.new()
+	pip.name = "HealthPip_%s" % recipe_key
+	pip.position = Vector2(RECIPE_TILE_SIZE - RECIPE_PIP_SIZE + 3.0, -3.0)
+	pip.size = Vector2(RECIPE_PIP_SIZE, RECIPE_PIP_SIZE)
+	pip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var pip_style := StyleBoxFlat.new()
+	pip_style.bg_color = _health_colour(stock, keep)
+	pip_style.set_corner_radius_all(int(RECIPE_PIP_SIZE))
+	pip_style.set_border_width_all(2)
+	pip_style.border_color = CARD
+	pip.add_theme_stylebox_override("panel", pip_style)
+	holder.add_child(pip)
+	return holder
+
+
+func _recipe_status_chip(recipe_key: String, custom: bool) -> Control:
+	var chip := PanelContainer.new()
+	chip.name = "StatusChip_%s" % recipe_key
+	chip.size_flags_horizontal = Control.SIZE_SHRINK_END
+	chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var style := StyleBoxFlat.new()
+	style.set_content_margin_all(2)
+	style.content_margin_left = 6
+	style.content_margin_right = 6
+	style.set_corner_radius_all(8)
+	style.bg_color = CUSTOM_SURFACE if custom else Color(1, 1, 1, 0.06)
+	if custom:
+		style.set_border_width_all(1)
+		style.border_color = CUSTOM_BORDER
+	chip.add_theme_stylebox_override("panel", style)
+	var text := UI.label(CUSTOM_CHIP_TEXT if custom else FOLLOWING_CHIP_TEXT)
+	text.add_theme_font_size_override("font_size", 11)
+	text.add_theme_color_override("font_color", CUSTOM_BORDER if custom else MUTED)
+	text.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	chip.add_child(text)
+	return chip
+
+
+# Thin stock bar on a collapsed card: stock fill in the ore colour, a tick at Keep.
+class RecipeMiniBar extends Control:
+	var stock := 0
+	var keep := 0
+	var top := 1
+	var colour := Color.WHITE
+
+	func configure(new_stock: int, new_keep: int, new_top: int, new_colour: Color) -> void:
+		stock = new_stock
+		keep = new_keep
+		top = maxi(new_top, 1)
+		colour = new_colour
+		custom_minimum_size = Vector2(0, 6)
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		queue_redraw()
+
+	func _draw() -> void:
+		draw_rect(Rect2(Vector2.ZERO, size), Color(1, 1, 1, 0.08))
+		var fill := clampf(float(stock) / float(top), 0.0, 1.0)
+		draw_rect(Rect2(0, 0, size.x * fill, size.y), colour)
+		if keep > 0:
+			var x := clampf(float(keep) / float(top), 0.0, 1.0) * size.x
+			draw_rect(Rect2(x - 1.0, -1.0, 2.0, size.y + 2.0), Color(1, 1, 1, 0.85))
 
 
 # Production +/- row; Production is a plain 0..max craft target.
 func _build_production_control(recipe_key: String, production: int) -> Control:
 	var row := UI.hbox(6)
 	row.name = "ProductionControl_%s" % recipe_key
-	row.add_child(UI.expand_fill(UI.label("Production: %d" % production)))
+	row.add_child(UI.expand_fill(UI.label("Make to: %d" % production)))
 	var less := UI.button("−", func(): Rooms.set_lab_threshold(recipe_key, Rooms.lab_target(recipe_key) - 1))
 	less.name = "ProductionLess_%s" % recipe_key
 	less.disabled = production <= 0

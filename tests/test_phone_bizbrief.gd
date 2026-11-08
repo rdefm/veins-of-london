@@ -667,7 +667,7 @@ func run() -> void:
 		assert_true(not texts.has("Wormhole"), "time+physics recipe stays off James's list")
 		var summary := _label_with_text(phone, "Keep: 0 · Sell above: 50 · contract need: 3 · contracts not covered")
 		assert_true(summary != null, "target, need and coverage in one summary line")
-		var row: Node = phone.find_child("ProductionRecipe_timePearl", true, false)
+		var row: Node = phone.find_child("RecipeBody_timePearl", true, false)
 		var bar := _stock_bar(phone, "timePearl")
 		assert_true(summary.get_parent() == row and bar.get_parent() == row and summary.get_index() < bar.get_index(), "summary sits before the controls")
 
@@ -686,7 +686,7 @@ func run() -> void:
 		Rooms.set_lab_threshold("timePearl", 5)
 		EventBus.flush_now()
 
-		var cover := _button_with_text(row, "Cover contract needs")
+		var cover := phone.find_child("CoverSwitch_timePearl", true, false) as Button
 		assert_true(cover != null)
 		cover.pressed.emit()
 		EventBus.flush_now()
@@ -749,23 +749,58 @@ func run() -> void:
 		phone.free()
 	)
 
-	run_case("recipe_rows_show_follow_state_tickbox_overrides_and_reverts", func():
+	run_case("recipe_cards_collapse_by_default_expand_and_survive_refresh", func():
 		var phone := _production_phone(true)
-		var tick := phone.find_child("FollowMaster_timePearl", true, false) as CheckBox
-		assert_true(tick.button_pressed, "fresh recipe follows master")
-		tick.button_pressed = false
+		var body := phone.find_child("RecipeBody_timePearl", true, false) as Control
+		assert_true(not body.visible, "collapsed by default")
+		for part in ["IconTile_timePearl", "HealthPip_timePearl", "StatusChip_timePearl", "MiniBar_timePearl"]:
+			assert_true(phone.find_child(part, true, false) != null, part)
+		assert_true(NodeQuery.label_texts(phone).has("0 in stock"))
+		(phone.find_child("RecipeToggle_timePearl", true, false) as Button).pressed.emit()
+		assert_true(body.visible, "tap expands")
+		EventBus.mark_changed()
 		EventBus.flush_now()
-		assert_true(ProductionSettings.has_override("timePearl"), "unticking overrides")
-		tick = phone.find_child("FollowMaster_timePearl", true, false) as CheckBox
-		assert_true(not tick.button_pressed)
+		body = phone.find_child("RecipeBody_timePearl", true, false) as Control
+		assert_true(body.visible, "open state survives refresh")
+		assert_true(not (phone.find_child("RecipeBody_rewind", true, false) as Control).visible, "others stay collapsed")
+		(phone.find_child("RecipeToggle_timePearl", true, false) as Button).pressed.emit()
+		assert_true(not body.visible, "tap collapses")
+		phone.free()
+	)
+
+	run_case("recipe_card_pip_follows_stock_against_keep", func():
+		var phone := _production_phone(true)
+		var pip_colour := func() -> Color:
+			return ((phone.find_child("HealthPip_timePearl", true, false) as Panel).get_theme_stylebox("panel") as StyleBoxFlat).bg_color
+		assert_eq(pip_colour.call(), BizBriefApp.HEALTH_RED, "0 stock is red")
+		Crafting.inventory_add("timePearl", 1, 3)
+		EventBus.mark_changed()
+		EventBus.flush_now()
+		assert_eq(pip_colour.call(), BizBriefApp.HEALTH_GREEN, "stock at or above Keep is green")
+		AutoSell.set_keep("timePearl", 5)
+		EventBus.flush_now()
+		assert_eq(pip_colour.call(), BizBriefApp.HEALTH_AMBER, "stock below Keep is amber")
+		phone.free()
+	)
+
+	run_case("recipe_card_customise_creates_override_and_reset_removes_it", func():
+		var phone := _production_phone(true)
+		assert_true(phone.find_child("IconPlaceholder_timePearl", true, false) != null or phone.find_child("Icon_timePearl", true, false) != null, "icon or placeholder shown")
+		assert_true(not ProductionSettings.has_override("timePearl"))
+		(phone.find_child("OverrideLink_timePearl", true, false) as Button).pressed.emit()
+		EventBus.flush_now()
+		assert_true(ProductionSettings.has_override("timePearl"), "Customise overrides")
+		var link := phone.find_child("OverrideLink_timePearl", true, false) as Button
+		assert_eq(link.text, "Reset to defaults")
 		Rooms.set_lab_threshold("timePearl", 4)
 		EventBus.flush_now()
 		assert_eq(ProductionSettings.master()["production"], 0, "master untouched")
-		tick = phone.find_child("FollowMaster_timePearl", true, false) as CheckBox
-		tick.button_pressed = true
+		link = phone.find_child("OverrideLink_timePearl", true, false) as Button
+		link.pressed.emit()
 		EventBus.flush_now()
-		assert_true(not ProductionSettings.has_override("timePearl"), "ticking reverts")
+		assert_true(not ProductionSettings.has_override("timePearl"), "Reset removes the override")
 		assert_eq(Rooms.lab_target("timePearl"), 0)
+		assert_eq((phone.find_child("OverrideLink_timePearl", true, false) as Button).text, "Customise")
 		phone.free()
 	)
 
