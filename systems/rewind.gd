@@ -61,7 +61,7 @@ static func mark_block_start() -> void:
 	GameState.state["blockStart"] = null
 	if GameState.state["event"] != null or GameState.state["combat"]["active"]:
 		return
-	GameState.state["blockStart"] = GameState.deep_copy(GameState.state)
+	GameState.state["blockStart"] = GameState.snapshot_state()
 
 
 static func has_block_start() -> bool:

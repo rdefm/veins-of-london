@@ -2,10 +2,6 @@ extends Node
 
 # Bounded snapshot-stack helper (R§3.9). Stacks live inside GameState.state
 # (e.g. state.combat.snapshots), so state stays a pure, save/load-safe tree.
-#
-# CAUTION: a caller building `snapshot` via GameState.deep_copy(GameState.state)
-# must empty this stack first, or each push embeds the whole stack recursively,
-# roughly doubling data size per push. See systems/events.gd's advance()/rewind().
 
 const MAX_SIZES := {
 	"combat": 2,
@@ -15,6 +11,14 @@ const MAX_SIZES := {
 
 func push(stack_id: String, stack: Array, snapshot: Variant) -> void:
 	stack.append(GameState.deep_copy(snapshot))
+	var max_size: int = MAX_SIZES.get(stack_id, 999999)
+	while stack.size() > max_size:
+		stack.remove_at(0)
+
+
+# Appends a snapshot the caller already owns (a fresh copy) without copying again.
+func push_owned(stack_id: String, stack: Array, snapshot: Variant) -> void:
+	stack.append(snapshot)
 	var max_size: int = MAX_SIZES.get(stack_id, 999999)
 	while stack.size() > max_size:
 		stack.remove_at(0)

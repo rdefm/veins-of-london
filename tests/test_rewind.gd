@@ -30,6 +30,29 @@ func run() -> void:
 		assert_eq(GameState.deep_copy(5), 5, "primitive as-is")
 	)
 
+	run_case("snapshot_state_omits_block_start_and_event_stack", func():
+		_fresh_block()
+		GameState.state["event"] = { "id": "x", "snapshots": [{ "old": 1 }] }
+		var snap: Dictionary = GameState.snapshot_state()
+		assert_eq(snap["blockStart"], null, "no blockStart")
+		assert_eq(snap["event"]["snapshots"], [], "no nested stack")
+		assert_eq(snap["event"]["id"], "x", "rest of event kept")
+		assert_true(Rewind.has_block_start(), "live blockStart untouched")
+		assert_eq(GameState.state["event"]["snapshots"].size(), 1, "live stack untouched")
+		assert_eq(GameState.snapshot_state(true)["event"]["snapshots"].size(), 1, "kept for saves")
+	)
+
+	run_case("event_card_pushes_one_whole_state_copy", func():
+		_fresh_block()
+		GameState.state["event"] = { "id": "x", "snapshots": [] }
+		Events._snapshot_before_mutation()
+		Events._snapshot_before_mutation()
+		var stack: Array = GameState.state["event"]["snapshots"]
+		assert_eq(stack.size(), 2, "one frame per card")
+		assert_eq(stack[1]["blockStart"], null, "no blockStart in frame")
+		assert_eq(stack[1]["event"]["snapshots"], [], "frame holds no stack")
+	)
+
 	run_case("a_block_opening_takes_the_rewind_point", func():
 		GameState.reset()
 		assert_true(not Rewind.has_block_start(), "none before the clock moves")

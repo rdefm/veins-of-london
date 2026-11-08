@@ -613,6 +613,21 @@ func read_path(path: String, default: Variant = null) -> Variant:
 	return current
 
 
+# One deep copy of the whole state with transient keys left out: blockStart is
+# null and event.snapshots is empty (so no snapshot ever embeds another).
+# keep_event_snapshots keeps the event stack (saves persist it for Rewind).
+# Only the top level and event are shallow-copied; the live state is untouched.
+func snapshot_state(keep_event_snapshots: bool = false) -> Dictionary:
+	var shell: Dictionary = state.duplicate()
+	shell["blockStart"] = null
+	var event: Variant = shell.get("event")
+	if not keep_event_snapshots and event is Dictionary and event.has("snapshots"):
+		var event_shell: Dictionary = event.duplicate()
+		event_shell["snapshots"] = []
+		shell["event"] = event_shell
+	return deep_copy(shell)
+
+
 # Recursive deep copy of a pure data value (Dictionary/Array/primitive).
 # What Snapshots.gd and SaveManager.gd build on.
 static func deep_copy(value: Variant) -> Variant:

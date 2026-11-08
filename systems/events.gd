@@ -1903,21 +1903,11 @@ static func choice_id(event_id: String, card_key: String) -> Variant:
 	return choice_record(event_id, card_key).get("id")
 
 
-# Shared by advance()/choose(). event.snapshots must be emptied before the deep
-# copy -- it lives inside the tree being copied, and left in place would embed
-# every prior snapshot into the new one, compounding across a long event.
-# state.blockStart (a whole-state copy, Rewind) is left out the same way;
-# rewind() keeps the live one.
+# Shared by advance()/choose(). One whole-state copy per card
+# (GameState.snapshot_state); rewind() keeps the live blockStart.
 static func _snapshot_before_mutation() -> void:
-	var event_state: Dictionary = GameState.state["event"]
-	var stack: Array = event_state["snapshots"]
-	event_state["snapshots"] = []
-	var block_start: Variant = GameState.state.get("blockStart")
-	GameState.state["blockStart"] = null
-	var snap: Dictionary = GameState.deep_copy(GameState.state)
-	GameState.state["blockStart"] = block_start
-	event_state["snapshots"] = stack
-	Snapshots.push("event", stack, snap)
+	var stack: Array = GameState.state["event"]["snapshots"]
+	Snapshots.push_owned("event", stack, GameState.snapshot_state())
 
 
 # source: "consumable" or "dial" pays from that source only; "" prefers the

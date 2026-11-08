@@ -111,12 +111,9 @@ func import_string(text: String) -> Dictionary:
 # GameState.state minus state.blockStart (Rewind's whole-state copy), which
 # is never saved.
 func _saveable_state() -> Dictionary:
-	var saveable: Dictionary = GameState.state.duplicate()
-	saveable["blockStart"] = null
+	var saveable: Dictionary = GameState.snapshot_state(true)
 	if saveable["combat"]["active"]:
-		var combat: Dictionary = GameState.deep_copy(saveable["combat"])
-		_encode_rng_states(combat)
-		saveable["combat"] = combat
+		_encode_rng_states(saveable["combat"])
 	return saveable
 
 
