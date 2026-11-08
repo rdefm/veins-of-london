@@ -89,8 +89,7 @@ fi
 # Systems call EventBus.mark_changed() (coalesced); only EventBus flushes.
 emit_hits="$(grep -rnE '^[^#]*state_changed\.emit\(' --include='*.gd' systems || true)"
 if [ -n "$emit_hits" ]; then
-	printf '%s
-' "$emit_hits" | awk -F: '{print $1 ":" $2 ": direct state_changed.emit() (use EventBus.mark_changed())"}'
+	printf '%s\n' "$emit_hits" | awk -F: '{print $1 ":" $2 ": direct state_changed.emit() (use EventBus.mark_changed())"}'
 	status=1
 fi
 
