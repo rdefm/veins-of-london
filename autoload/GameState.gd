@@ -616,18 +616,9 @@ func read_path(path: String, default: Variant = null) -> Variant:
 # Recursive deep copy of a pure data value (Dictionary/Array/primitive).
 # What Snapshots.gd and SaveManager.gd build on.
 static func deep_copy(value: Variant) -> Variant:
-	if value is Dictionary:
-		var copy := {}
-		for key in value.keys():
-			copy[key] = deep_copy(value[key])
-		return copy
-	elif value is Array:
-		var copy := []
-		for item in value:
-			copy.append(deep_copy(item))
-		return copy
-	else:
-		return value
+	if value is Dictionary or value is Array:
+		return value.duplicate(true)
+	return value
 
 
 # round() with a tiny epsilon safety margin. Use this (never plain round())

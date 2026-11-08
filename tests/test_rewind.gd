@@ -18,6 +18,18 @@ func _fresh_block() -> Dictionary:
 
 
 func run() -> void:
+	run_case("deep_copy_equals_and_shares_nothing", func():
+		GameState.reset()
+		var copy: Dictionary = GameState.deep_copy(GameState.state)
+		assert_true(copy == GameState.state, "equal")
+		assert_true(not is_same(copy, GameState.state), "new root")
+		copy["player"]["cash"] = int(copy["player"]["cash"]) + 999
+		copy["market"]["__probe"] = [1, {"a": 1}]
+		assert_true(copy != GameState.state, "mutation diverges")
+		assert_true(not GameState.state["market"].has("__probe"), "original untouched")
+		assert_eq(GameState.deep_copy(5), 5, "primitive as-is")
+	)
+
 	run_case("a_block_opening_takes_the_rewind_point", func():
 		GameState.reset()
 		assert_true(not Rewind.has_block_start(), "none before the clock moves")
