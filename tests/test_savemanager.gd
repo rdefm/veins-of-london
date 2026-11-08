@@ -984,6 +984,7 @@ func run() -> void:
 		assert_eq(Rooms.lab_target("rewind"), 10, "in-range one is kept as int")
 		assert_eq(GameState.state["production"]["overrides"]["timePearl"]["mood"], "balanced", "unknown mood resets")
 		assert_eq(GameState.state["production"]["overrides"]["rewind"]["sellAbove"], GameData.PRODUCTION_TARGET_MAX, "missing fields fill from defaults")
+		assert_true(not GameState.state["production"]["overrides"]["timePearl"].has("keep"), "legacy Keep dropped")
 	)
 
 	run_case("loading_an_old_vein_station_list_moves_it_to_the_station_occupant", func():

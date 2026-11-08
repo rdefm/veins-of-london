@@ -240,16 +240,6 @@ func run() -> void:
 		assert_true(Rooms.lab_covers_all_contracts(), "all off -> all on")
 	)
 
-	run_case("production_reserved_qty_is_keep_regardless_of_production_or_coverage", func():
-		GameState.reset()
-		ProductionSettings.set_master_field("coverContracts", false)
-		ProductionSettings.set_field("timePearl", "keep", 5)
-		Rooms.set_lab_threshold("timePearl", 12)
-		assert_eq(Rooms.production_reserved_qty("timePearl"), 5, "reserve is Keep, not Production")
-		Rooms.set_lab_cover_contracts("timePearl", true)
-		assert_eq(Rooms.production_reserved_qty("timePearl"), 5, "same while covering")
-	)
-
 	run_case("producer_ignores_contract_need_when_toggle_is_off", func():
 		GameState.reset()
 		ProductionSettings.set_master_field("coverContracts", false)

@@ -12,3 +12,5 @@
 - [ ] Ordering rule (Keep below Sell above) holds while dragging and on commit.
 - [ ] Recipe card bars show a read-only Make-to tick.
 - [ ] Stock bar tests cover the Make-to handle; slider component removed (or remaining users noted) with CODEMAP updated; all tests pass. Human on-device drag check listed.
+
+**Scope change (agreed with user):** two markers, not three. Keep is removed everywhere (state field, `set_keep`, `lab_keep`, contract-delivery reserve, per-recipe handle); Defaults bar has Make to (gold) and Sell above (red) only. Contract delivery may draw any held stock.

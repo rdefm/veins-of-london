@@ -496,12 +496,8 @@ static func _find_active(contract_id: String) -> Dictionary:
 static func _shared_stock_for_line(line: Dictionary) -> int:
 	if line["kind"] == "ore":
 		return int(GameState.state["player"]["orichalchum"].get(line["type"], 0))
-	# Production's personal-target portion of a covered item's stock is a
-	# protected buffer — Sales may only draw the contract-need portion. A
-	# line's minTier (assay commissions) counts only items at that tier or up.
-	var reserved := Rooms.production_reserved_qty(line["type"])
-	var free := maxi(0, Crafting.inventory_qty(line["type"]) - reserved)
-	return mini(free, Crafting.inventory_qty(line["type"], int(line.get("minTier", 0))))
+	# A line's minTier (assay commissions) counts only items at that tier or up.
+	return Crafting.inventory_qty(line["type"], int(line.get("minTier", 0)))
 
 
 # Returns the item tiers taken from stock ([{ tier, qty }]); empty for ore.

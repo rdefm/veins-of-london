@@ -4503,7 +4503,6 @@
 		"production",
 		"production.master",
 		"production.master.coverContracts",
-		"production.master.keep",
 		"production.master.mood",
 		"production.master.production",
 		"production.master.sellAbove",

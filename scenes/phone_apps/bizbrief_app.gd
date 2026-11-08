@@ -53,7 +53,7 @@ const RECIPE_HEADER_HEIGHT := 56.0
 const DEFAULTS_HEADER_HEIGHT := 44.0
 const DEFAULTS_SURFACE := Color("#2f3a47")
 const DEFAULTS_TAG_TEXT := "DEFAULTS"
-const DEFAULTS_COLLAPSED := "%d follow · Make %d · Keep %d · Sell %s"
+const DEFAULTS_COLLAPSED := "%d follow · Make %d · Sell %s"
 const RECIPE_TILE_SIZE := 46.0
 const RECIPE_PIP_SIZE := 12.0
 const HEALTH_GREEN := Color("#4caf6a")
@@ -63,7 +63,6 @@ const CUSTOM_BORDER := Color("#c9954a")
 const CUSTOM_SURFACE := Color("#2a2620")
 const SELL_NONE_TEXT := "none"
 const MASTER_MAKE_COLOUR := Color("#f2c14e")
-const MASTER_KEEP_COLOUR := Color("#b4d6c2")
 const AUTO_SELL_HEADING := "Sales approach"
 const AUTO_SELL_MOODS := {
 	"aggressive": { "label": "Aggressive", "meaning": "Sells more, and takes a softer price to do it." },
@@ -1382,7 +1381,7 @@ func _production_entry_lines(entry: Dictionary) -> Array[String]:
 
 
 # Master settings for every recipe that has no override: a slider each for
-# Production, Keep and Sell above, the sales mood, Cover contracts, and a live
+# one bar with Make to and Sell above markers, the sales mood, Cover contracts, and a live
 # line of what auto-sell would do today across the following recipes.
 func _build_master_controller() -> Control:
 	var master := ProductionSettings.master()
@@ -1428,23 +1427,28 @@ func _build_master_controller() -> Control:
 	outer.add_child(summary_line)
 	outer.add_child(box)
 
-	var make := SettingSlider.new()
-	make.name = "MasterProduction"
-	make.configure("Make to", MASTER_MAKE_COLOUR, top, 0, int(master["production"]), false)
-	make.committed.connect(func(v: int) -> void: ProductionSettings.set_master_production(v))
-	box.add_child(make)
-
-	var keep := SettingSlider.new()
-	keep.name = "MasterKeep"
-	keep.configure("Keep", MASTER_KEEP_COLOUR, top - 1, 0, int(master["keep"]), false)
-	keep.committed.connect(func(v: int) -> void: ProductionSettings.set_master_keep(v))
-	box.add_child(keep)
-
-	var sell := SettingSlider.new()
-	sell.name = "MasterSellAbove"
-	sell.configure("Sell above", SIGNAL if sales_staffed else MUTED, top, int(master["keep"]) + 1, int(master["sellAbove"]), not sales_staffed, SELL_NONE_TEXT)
-	sell.committed.connect(func(v: int) -> void: AutoSell.set_master_sell_above(v))
-	box.add_child(sell)
+	var bar := StockBar.new()
+	bar.name = "MasterBar"
+	bar.configure(top, int(master["production"]), int(master["sellAbove"]), 0, -1, not sales_staffed, true)
+	box.add_child(bar)
+	var legend := UI.hbox(8)
+	legend.name = "MasterLegend"
+	var make_legend := UI.label("")
+	make_legend.name = "MasterLegendMake"
+	make_legend.add_theme_color_override("font_color", MASTER_MAKE_COLOUR)
+	make_legend.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var sell_legend := UI.label("")
+	sell_legend.name = "MasterLegendSell"
+	sell_legend.add_theme_color_override("font_color", SIGNAL if sales_staffed else MUTED)
+	sell_legend.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	sell_legend.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	legend.add_child(make_legend)
+	legend.add_child(sell_legend)
+	box.add_child(legend)
+	_show_master_legend(make_legend, sell_legend, bar.make_to, bar.cutoff, top)
+	bar.changed.connect(func(make_to: int, cutoff: int) -> void: _show_master_legend(make_legend, sell_legend, make_to, cutoff, top))
+	bar.make_to_committed.connect(func(v: int) -> void: ProductionSettings.set_master_production(v))
+	bar.cutoff_committed.connect(func(v: int) -> void: AutoSell.set_master_sell_above(v))
 
 	box.add_child(UI.muted_label(AUTO_SELL_HEADING))
 	box.add_child(_build_master_mood_row(master["mood"], sales_staffed))
@@ -1461,9 +1465,17 @@ func _build_master_controller() -> Control:
 	return panel
 
 
+static func _sell_above_text(sell_above: int, top: int) -> String:
+	return SELL_NONE_TEXT if sell_above >= top else ">%d" % sell_above
+
+
 static func _defaults_collapsed_text(following: int, master: Dictionary, top: int) -> String:
-	var sell: String = SELL_NONE_TEXT if int(master["sellAbove"]) >= top else ">%d" % int(master["sellAbove"])
-	return DEFAULTS_COLLAPSED % [following, int(master["production"]), int(master["keep"]), sell]
+	return DEFAULTS_COLLAPSED % [following, int(master["production"]), _sell_above_text(int(master["sellAbove"]), top)]
+
+
+static func _show_master_legend(make_label: Label, sell_label: Label, make_to: int, sell_above: int, top: int) -> void:
+	make_label.text = "Make to %d" % make_to
+	sell_label.text = "Sell above %s" % _sell_above_text(sell_above, top)
 
 
 static func _defaults_panel_style() -> StyleBoxFlat:
@@ -1514,7 +1526,6 @@ static func _master_summary_text(projected: Dictionary, sales_staffed: bool) -> 
 func _build_production_recipe_row(recipe_key: String) -> Control:
 	var recipe: Dictionary = GameData.RECIPES[recipe_key]
 	var production: int = Rooms.lab_target(recipe_key)
-	var keep: int = Rooms.lab_keep(recipe_key)
 	var covering: bool = Rooms.lab_covers_contracts(recipe_key)
 	var rule := AutoSell.rule(recipe_key)
 	var sales_staffed := Contracts.has_staffed_sales()
@@ -1547,7 +1558,7 @@ func _build_production_recipe_row(recipe_key: String) -> Control:
 	var head_row := UI.hbox(8)
 	head_row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	head_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	head_row.add_child(_recipe_icon_tile(recipe_key, ore_colour, stock, keep))
+	head_row.add_child(_recipe_icon_tile(recipe_key, ore_colour, stock, production))
 	var names := UI.vbox(1)
 	names.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	names.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -1574,21 +1585,21 @@ func _build_production_recipe_row(recipe_key: String) -> Control:
 
 	var mini := RecipeMiniBar.new()
 	mini.name = "MiniBar_%s" % recipe_key
-	mini.configure(stock, keep, GameData.PRODUCTION_TARGET_MAX, ore_colour)
+	mini.configure(stock, production, GameData.PRODUCTION_TARGET_MAX, ore_colour)
 	box.add_child(mini)
 	box.add_child(body)
 
 	# Target, contract need and coverage sit above the controls.
-	var target_label := UI.muted_label(_target_text(recipe_key, keep, covering))
+	var target_label := UI.muted_label(_target_text(recipe_key, covering))
 	body.add_child(target_label)
 
 	var bar := StockBar.new()
 	bar.name = "StockBar_%s" % recipe_key
-	bar.configure(GameData.PRODUCTION_TARGET_MAX, keep, int(rule["sellAbove"]), AutoSell.protected_floor(recipe_key), stock, not sales_staffed)
+	bar.configure(GameData.PRODUCTION_TARGET_MAX, production, int(rule["sellAbove"]), AutoSell.protected_floor(recipe_key), stock, not sales_staffed)
 	body.add_child(bar)
 	var hold_label := UI.muted_label("")
 	hold_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	_show_contract_hold(hold_label, recipe_key, keep, bar.cutoff)
+	_show_contract_hold(hold_label, recipe_key, bar.cutoff)
 	body.add_child(hold_label)
 	body.add_child(_build_production_control(recipe_key, production))
 
@@ -1599,12 +1610,11 @@ func _build_production_recipe_row(recipe_key: String) -> Control:
 	result_label.name = "AutoSellLine_%s" % recipe_key
 	body.add_child(result_label)
 
-	bar.changed.connect(func(keep: int, cutoff: int) -> void:
-		bar.set_held_floor(AutoSell.protected_floor(recipe_key, keep, cutoff))
-		target_label.text = _target_text(recipe_key, keep, covering)
-		_show_contract_hold(hold_label, recipe_key, keep, cutoff)
-		result_label.text = _auto_sell_text(AutoSell.projection(recipe_key, keep, cutoff)))
-	bar.keep_committed.connect(func(keep: int) -> void: AutoSell.set_keep(recipe_key, keep))
+	bar.changed.connect(func(_make_to: int, cutoff: int) -> void:
+		bar.set_held_floor(AutoSell.protected_floor(recipe_key, cutoff))
+		target_label.text = _target_text(recipe_key, covering, cutoff)
+		_show_contract_hold(hold_label, recipe_key, cutoff)
+		result_label.text = _auto_sell_text(AutoSell.projection(recipe_key, cutoff)))
 	bar.cutoff_committed.connect(func(cutoff: int) -> void: AutoSell.set_sell_above(recipe_key, cutoff))
 
 	var cover := UI.switch_row("Cover contracts", covering, func(on: bool) -> void: Rooms.set_lab_cover_contracts(recipe_key, on))
@@ -1649,11 +1659,11 @@ static func _ore_colour(ore_type: String) -> Color:
 	return Color(GameData.ORE_TYPES[ore_type]["colour"])
 
 
-# Green at or above Keep, amber below Keep, red at 0 stock.
-static func _health_colour(stock: int, keep: int) -> Color:
+# Green at or above Make to, amber below it, red at 0 stock.
+static func _health_colour(stock: int, make_to: int) -> Color:
 	if stock <= 0:
 		return HEALTH_RED
-	if stock >= keep:
+	if stock >= make_to:
 		return HEALTH_GREEN
 	return HEALTH_AMBER
 
@@ -1671,7 +1681,7 @@ static func _recipe_card_style(custom: bool) -> StyleBoxFlat:
 	return style
 
 
-func _recipe_icon_tile(recipe_key: String, ore_colour: Color, stock: int, keep: int) -> Control:
+func _recipe_icon_tile(recipe_key: String, ore_colour: Color, stock: int, make_to: int) -> Control:
 	var holder := Control.new()
 	holder.custom_minimum_size = Vector2(RECIPE_TILE_SIZE, RECIPE_TILE_SIZE)
 	holder.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -1711,7 +1721,7 @@ func _recipe_icon_tile(recipe_key: String, ore_colour: Color, stock: int, keep: 
 	pip.size = Vector2(RECIPE_PIP_SIZE, RECIPE_PIP_SIZE)
 	pip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var pip_style := StyleBoxFlat.new()
-	pip_style.bg_color = _health_colour(stock, keep)
+	pip_style.bg_color = _health_colour(stock, make_to)
 	pip_style.set_corner_radius_all(int(RECIPE_PIP_SIZE))
 	pip_style.set_border_width_all(2)
 	pip_style.border_color = CARD
@@ -1743,16 +1753,16 @@ func _recipe_status_chip(recipe_key: String, custom: bool) -> Control:
 	return chip
 
 
-# Thin stock bar on a collapsed card: stock fill in the ore colour, a tick at Keep.
+# Thin stock bar on a collapsed card: stock fill in the ore colour, a tick at Make to.
 class RecipeMiniBar extends Control:
 	var stock := 0
-	var keep := 0
+	var make_to := 0
 	var top := 1
 	var colour := Color.WHITE
 
-	func configure(new_stock: int, new_keep: int, new_top: int, new_colour: Color) -> void:
+	func configure(new_stock: int, new_make_to: int, new_top: int, new_colour: Color) -> void:
 		stock = new_stock
-		keep = new_keep
+		make_to = new_make_to
 		top = maxi(new_top, 1)
 		colour = new_colour
 		custom_minimum_size = Vector2(0, 6)
@@ -1763,8 +1773,8 @@ class RecipeMiniBar extends Control:
 		draw_rect(Rect2(Vector2.ZERO, size), Color(1, 1, 1, 0.08))
 		var fill := clampf(float(stock) / float(top), 0.0, 1.0)
 		draw_rect(Rect2(0, 0, size.x * fill, size.y), colour)
-		if keep > 0:
-			var x := clampf(float(keep) / float(top), 0.0, 1.0) * size.x
+		if make_to > 0:
+			var x := clampf(float(make_to) / float(top), 0.0, 1.0) * size.x
 			draw_rect(Rect2(x - 1.0, -1.0, 2.0, size.y + 2.0), Color(1, 1, 1, 0.85))
 
 
@@ -1784,18 +1794,20 @@ func _build_production_control(recipe_key: String, production: int) -> Control:
 	return row
 
 
-# "Keep: 5 · Sell above: 20 · contract need: 3 · crafting to: 8" while covering
-# contracts, "... · contracts not covered" otherwise.
-static func _target_text(recipe_key: String, keep: int, covering: bool) -> String:
-	var text := "Keep: %d · Sell above: %d · contract need: %d" % [keep, int(AutoSell.rule(recipe_key)["sellAbove"]), Rooms.contract_need(recipe_key)]
+# "Sell above: 20 · contract need: 3 · crafting to: 8" while covering
+# contracts, "... · contracts not covered" otherwise. sell_above >= 0 previews
+# a cutoff mid-drag.
+static func _target_text(recipe_key: String, covering: bool, sell_above: int = -1) -> String:
+	var cutoff: int = sell_above if sell_above >= 0 else int(AutoSell.rule(recipe_key)["sellAbove"])
+	var text := "Sell above: %d · contract need: %d" % [cutoff, Rooms.contract_need(recipe_key)]
 	if covering:
 		return text + " · crafting to: %d" % Rooms.effective_lab_target(recipe_key)
 	return text + " · contracts not covered"
 
 
 # The contract floor when it sits above the cutoff; the line hides otherwise.
-static func _show_contract_hold(label: Label, recipe_key: String, keep: int, cutoff: int) -> void:
-	var floor_qty := AutoSell.protected_floor(recipe_key, keep, cutoff)
+static func _show_contract_hold(label: Label, recipe_key: String, cutoff: int) -> void:
+	var floor_qty := AutoSell.protected_floor(recipe_key, cutoff)
 	label.text = "Contracts hold %d" % floor_qty if floor_qty > cutoff else ""
 	label.visible = floor_qty > cutoff
 

@@ -10,7 +10,6 @@ func run() -> void:
 		assert_eq(production["overrides"], {})
 		assert_eq(production["master"], {
 			"production": 0,
-			"keep": 0,
 			"sellAbove": GameData.PRODUCTION_TARGET_MAX,
 			"mood": GameData.MARKET["autoSell"]["defaultMood"],
 			"coverContracts": true,
@@ -20,13 +19,13 @@ func run() -> void:
 
 	run_case("editing_any_field_copies_the_whole_master_into_an_override", func():
 		GameState.reset()
-		ProductionSettings.set_master_field("keep", 4)
+		ProductionSettings.set_master_production(4)
 		ProductionSettings.set_master_field("mood", "aggressive")
 		assert_true(not ProductionSettings.has_override(SALVE))
 		Rooms.set_lab_cover_contracts(SALVE, false)
 		assert_true(ProductionSettings.has_override(SALVE))
 		var setting_set := ProductionSettings.resolve(SALVE)
-		assert_eq(setting_set["keep"], 4, "other fields copied from master")
+		assert_eq(setting_set["production"], 4, "other fields copied from master")
 		assert_eq(setting_set["mood"], "aggressive")
 		assert_eq(setting_set["coverContracts"], false, "the edit applied")
 		assert_true(not is_same(ProductionSettings.master(), setting_set), "override is a copy")
@@ -72,5 +71,5 @@ func run() -> void:
 		ProductionSettings.revert(SALVE)
 		assert_true(SaveManager.import_string(exported)["ok"])
 		assert_eq(Rooms.lab_target(SALVE), 7)
-		assert_eq(typeof(ProductionSettings.resolve(SALVE)["keep"]), TYPE_INT)
+		assert_eq(typeof(ProductionSettings.resolve(SALVE)["sellAbove"]), TYPE_INT)
 	)

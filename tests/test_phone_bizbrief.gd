@@ -65,9 +65,9 @@ static func _stock_bar(root: Node, recipe_key: String) -> StockBar:
 	return bar
 
 
-static func _drag_keep(bar: StockBar, value: int) -> void:
-	bar._press(bar._value_x(bar.keep) - 2.0)
-	bar._drag_to(bar._value_x(value) - 2.0)
+static func _drag_cutoff(bar: StockBar, value: int) -> void:
+	bar._press(bar._value_x(bar.cutoff) + 2.0)
+	bar._drag_to(bar._value_x(value) + 2.0)
 
 
 static func _release(bar: StockBar) -> void:
@@ -665,24 +665,19 @@ func run() -> void:
 			assert_true(texts.has(name), "%s within time+life is listed" % name)
 		assert_true(not texts.has("Blast"), "physics recipe stays off James's list")
 		assert_true(not texts.has("Wormhole"), "time+physics recipe stays off James's list")
-		var summary := _label_with_text(phone, "Keep: 0 · Sell above: 50 · contract need: 3 · contracts not covered")
+		var summary := _label_with_text(phone, "Sell above: 50 · contract need: 3 · contracts not covered")
 		assert_true(summary != null, "target, need and coverage in one summary line")
 		var row: Node = phone.find_child("RecipeBody_timePearl", true, false)
 		var bar := _stock_bar(phone, "timePearl")
 		assert_true(summary.get_parent() == row and bar.get_parent() == row and summary.get_index() < bar.get_index(), "summary sits before the controls")
 
 		assert_eq(phone.find_children("StockBar_*", "Control", true, false).size(), Rooms.producible_recipes("james").size(), "one bar per listed recipe")
-		assert_eq([bar.keep, bar.cutoff, bar.max_value], [0, GameData.PRODUCTION_TARGET_MAX, GameData.PRODUCTION_TARGET_MAX], "handles start at either end of 0..the data cap")
-		_drag_keep(bar, 5)
-		assert_true(NodeQuery.label_texts(phone).has("Keep: 5 · Sell above: 50 · contract need: 3 · contracts not covered"), "label follows the drag")
-		assert_eq(Rooms.lab_keep("timePearl"), 0, "nothing commits mid-drag")
-		_release(bar)
-		assert_eq(Rooms.lab_keep("timePearl"), 5)
-		assert_eq(Rooms.lab_target("timePearl"), 0, "Keep leaves Production alone")
+		assert_eq([bar.make_to, bar.cutoff, bar.max_value], [0, GameData.PRODUCTION_TARGET_MAX, GameData.PRODUCTION_TARGET_MAX], "Make-to tick at 0, cutoff at the data cap")
+		assert_true(not bar.make_to_editable, "recipe card Make-to tick is read-only")
+		assert_true(bar.cutoff_locked, "no one on Sales: cutoff locked")
 		(phone.find_child("ProductionMore_timePearl", true, false) as Button).pressed.emit()
 		EventBus.flush_now()
 		assert_eq(Rooms.lab_target("timePearl"), 1, "Production control raises the craft target")
-		assert_eq(Rooms.lab_keep("timePearl"), 5)
 		Rooms.set_lab_threshold("timePearl", 5)
 		EventBus.flush_now()
 
@@ -691,37 +686,37 @@ func run() -> void:
 		cover.pressed.emit()
 		EventBus.flush_now()
 		assert_true(Rooms.lab_covers_contracts("timePearl"))
-		assert_true(NodeQuery.label_texts(phone).has("Keep: 5 · Sell above: 50 · contract need: 3 · crafting to: 8"))
+		assert_true(NodeQuery.label_texts(phone).has("Sell above: 50 · contract need: 3 · crafting to: 8"))
 		phone.free()
 	)
 
-	run_case("master_sliders_edit_master_and_only_following_recipes_move", func():
+	run_case("master_bar_edits_master_and_only_following_recipes_move", func():
 		var phone := _production_phone(true)
-		ProductionSettings.set_field("rewind", "keep", 2)
+		ProductionSettings.set_field("rewind", "sellAbove", 2)
 		EventBus.flush_now()
-		var cap: int = GameData.PRODUCTION_TARGET_MAX
-		var make: SettingSlider = phone.find_child("MasterProduction", true, false)
-		make._slider.value = 7
-		make.committed.emit(7)
+		var bar := phone.find_child("MasterBar", true, false) as StockBar
+		bar.size = Vector2(300.0, StockBar.BAR_HEIGHT)
+		assert_true(bar.make_to_editable and bar.stock < 0, "two draggable markers, no stock fill")
+		bar._press(bar._value_x(bar.make_to) - 2.0)
+		bar._drag_to(bar._value_x(7) - 2.0)
+		assert_eq(ProductionSettings.master()["production"], 0, "nothing commits mid-drag")
+		assert_eq((phone.find_child("MasterLegendMake", true, false) as Label).text, "Make to 7", "legend follows the drag")
+		bar._release()
 		EventBus.flush_now()
 		assert_eq(ProductionSettings.master()["production"], 7)
 		assert_eq(Rooms.lab_target("timePearl"), 7, "following recipe moves")
 		assert_eq(Rooms.lab_target("rewind"), 0, "overridden recipe untouched")
 
-		phone.find_child("MasterKeep", true, false).committed.emit(cap - 1)
-		EventBus.flush_now()
-		assert_eq(ProductionSettings.master()["keep"], cap - 1)
-		assert_eq(ProductionSettings.master()["sellAbove"], cap, "Keep pushes Sell above")
-		var sell: SettingSlider = phone.find_child("MasterSellAbove", true, false)
-		assert_eq(sell._slider.min_value, float(cap), "Sell above slider floor is Keep + 1")
-		assert_eq(sell.value_text(), BizBriefApp.SELL_NONE_TEXT)
-
-		phone.find_child("MasterKeep", true, false).committed.emit(3)
-		EventBus.flush_now()
-		phone.find_child("MasterSellAbove", true, false).committed.emit(10)
+		bar = phone.find_child("MasterBar", true, false) as StockBar
+		bar.size = Vector2(300.0, StockBar.BAR_HEIGHT)
+		bar._press(bar._value_x(bar.cutoff) + 2.0)
+		bar._drag_to(bar._value_x(10) + 2.0)
+		assert_eq((phone.find_child("MasterLegendSell", true, false) as Label).text, "Sell above >10")
+		bar._release()
 		EventBus.flush_now()
 		assert_eq(ProductionSettings.master()["sellAbove"], 10)
-		assert_eq(Rooms.lab_keep("rewind"), 2, "override keeps its own Keep")
+		assert_eq(ProductionSettings.master()["production"], 7, "Make to unmoved by Sell above")
+		assert_eq(AutoSell.rule("rewind")["sellAbove"], 2, "override keeps its own Sell above")
 
 		(phone.find_child("MasterMood_aggressive", true, false) as Button).pressed.emit()
 		EventBus.flush_now()
@@ -761,7 +756,7 @@ func run() -> void:
 		var following := Rooms.production_recipes().size()
 		var top: int = GameData.PRODUCTION_TARGET_MAX
 		assert_eq(BizBriefApp._defaults_collapsed_text(following, master, top),
-			"%d follow · Make %d · Keep %d · Sell %s" % [following, master["production"], master["keep"], BizBriefApp.SELL_NONE_TEXT if int(master["sellAbove"]) >= top else ">%d" % master["sellAbove"]])
+			"%d follow · Make %d · Sell %s" % [following, master["production"], BizBriefApp.SELL_NONE_TEXT if int(master["sellAbove"]) >= top else ">%d" % master["sellAbove"]])
 		assert_eq(line.text, BizBriefApp._defaults_collapsed_text(following, master, top))
 		EventBus.mark_changed()
 		EventBus.flush_now()
@@ -788,7 +783,7 @@ func run() -> void:
 		phone.free()
 	)
 
-	run_case("recipe_card_pip_follows_stock_against_keep", func():
+	run_case("recipe_card_pip_follows_stock_against_make_to", func():
 		var phone := _production_phone(true)
 		var pip_colour := func() -> Color:
 			return ((phone.find_child("HealthPip_timePearl", true, false) as Panel).get_theme_stylebox("panel") as StyleBoxFlat).bg_color
@@ -796,10 +791,10 @@ func run() -> void:
 		Crafting.inventory_add("timePearl", 1, 3)
 		EventBus.mark_changed()
 		EventBus.flush_now()
-		assert_eq(pip_colour.call(), BizBriefApp.HEALTH_GREEN, "stock at or above Keep is green")
-		AutoSell.set_keep("timePearl", 5)
+		assert_eq(pip_colour.call(), BizBriefApp.HEALTH_GREEN, "stock at or above Make to is green")
+		Rooms.set_lab_threshold("timePearl", 5)
 		EventBus.flush_now()
-		assert_eq(pip_colour.call(), BizBriefApp.HEALTH_AMBER, "stock below Keep is amber")
+		assert_eq(pip_colour.call(), BizBriefApp.HEALTH_AMBER, "stock below Make to is amber")
 		phone.free()
 	)
 
@@ -857,14 +852,14 @@ func run() -> void:
 
 	run_case("master_sell_above_and_mood_lock_until_sales_is_staffed", func():
 		var phone := _production_phone(false)
-		assert_true(not (phone.find_child("MasterSellAbove", true, false) as SettingSlider)._slider.editable)
+		var master_bar := phone.find_child("MasterBar", true, false) as StockBar
+		assert_true(master_bar.cutoff_locked, "Sell above locked")
 		assert_true((phone.find_child("MasterMood_balanced", true, false) as Button).disabled)
 		AutoSell.set_master_sell_above(10)
 		AutoSell.set_master_mood("cautious")
 		assert_eq(ProductionSettings.master()["sellAbove"], GameData.PRODUCTION_TARGET_MAX)
 		assert_eq(ProductionSettings.master()["mood"], "balanced")
-		assert_true((phone.find_child("MasterProduction", true, false) as SettingSlider)._slider.editable, "Production stays open")
-		assert_true((phone.find_child("MasterKeep", true, false) as SettingSlider)._slider.editable, "Keep stays open")
+		assert_true(master_bar.make_to_editable, "Make to stays open")
 		assert_true(NodeQuery.label_texts(phone).has("No one on Sales"))
 		phone.free()
 	)
@@ -890,9 +885,8 @@ func run() -> void:
 		assert_true(texts.has("No one on Sales"))
 		assert_true(texts.has("Time Pearl"))
 
-		_drag_keep(bar, 5)
+		_drag_cutoff(bar, 5)
 		_release(bar)
-		assert_eq(Rooms.lab_keep("timePearl"), 5, "Keep still works")
 		assert_eq(AutoSell.rule("timePearl")["mood"], "balanced", "mood untouched")
 		assert_eq(AutoSell.rule("timePearl")["sellAbove"], GameData.PRODUCTION_TARGET_MAX, "cutoff untouched")
 		phone.free()
@@ -950,14 +944,14 @@ func run() -> void:
 		EventBus.state_changed.emit()
 
 		var bar := _stock_bar(phone, "timePearl")
-		assert_eq(bar.held_floor, 15, "contract need beats the cutoff and Keep")
+		assert_eq(bar.held_floor, 15, "contract need beats the cutoff")
 		assert_eq(bar.cutoff, 5)
 		var texts := NodeQuery.label_texts(phone)
 		assert_true(texts.has("Contracts hold 15"))
 		assert_true(texts.has("Held for contracts"), "stock over the cutoff but inside the floor isn't sellable")
 
 		var hold := Label.new()
-		BizBriefApp._show_contract_hold(hold, "timePearl", 3, 20)
+		BizBriefApp._show_contract_hold(hold, "timePearl", 20)
 		EventBus.flush_now()
 		assert_true(not hold.visible, "a cutoff over the floor hides the line")
 		hold.free()

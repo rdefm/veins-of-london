@@ -93,20 +93,10 @@ func run() -> void:
 		assert_eq(GameState.state["business"]["autoSoldUnits"], 5, "a pass that sells nothing adds nothing")
 	)
 
-	run_case("keep_alone_raises_the_floor_above_sell_above", func():
-		_setup()
-		_rule("aggressive", 10)
-		ProductionSettings.set_field(SALVE, "keep", 28)
-		_stock(30)
-		assert_eq(AutoSell.protected_floor(SALVE), 28)
-		assert_eq(AutoSell.daily_pass()[SALVE]["qty"], 2)
-	)
-
 	run_case("contract_need_raises_the_floor_only_while_covering_contracts", func():
 		_setup()
 		ProductionSettings.set_master_field("coverContracts", false)
 		_rule("aggressive", 10)
-		ProductionSettings.set_field(SALVE, "keep", 5)
 		var created: Dictionary = OffersSystem.create_offer({
 			"id": "t_auto_sell", "source": "scripted", "contractType": "recurring", "weekday": 1,
 			"request": { "kind": "consumable", "type": SALVE, "qty": 20 },
@@ -114,7 +104,7 @@ func run() -> void:
 		OffersSystem.accept_offer(created["offer"]["id"])
 		assert_eq(AutoSell.protected_floor(SALVE), 10, "not covering contracts: need doesn't count")
 		ProductionSettings.set_field(SALVE, "coverContracts", true)
-		assert_eq(AutoSell.protected_floor(SALVE), 20, "contract need beats sellAbove and Keep")
+		assert_eq(AutoSell.protected_floor(SALVE), 20, "contract need beats sellAbove")
 		_stock(30)
 		assert_eq(AutoSell.daily_pass()[SALVE]["qty"], 10)
 		assert_eq(Crafting.inventory_qty(SALVE), 20)
@@ -265,45 +255,32 @@ func run() -> void:
 		assert_eq(_xp_from_a_rollover(), 0, "no auto-sale, no XP")
 	)
 
-	run_case("keep_pushes_the_cutoff_and_the_cutoff_stops_at_keep", func():
+	run_case("sell_above_clamps_to_the_bar_and_leaves_production_alone", func():
 		_setup()
 		AutoSell.set_sell_above(SALVE, 20)
-		AutoSell.set_keep(SALVE, 12)
-		assert_eq(AutoSell.rule(SALVE)["sellAbove"], 20, "a Keep under the cutoff leaves it")
-		AutoSell.set_keep(SALVE, 30)
-		assert_eq(Rooms.lab_keep(SALVE), 30)
-		assert_eq(Rooms.lab_target(SALVE), 0, "Production is untouched by Keep")
-		assert_eq(AutoSell.rule(SALVE)["sellAbove"], 31, "pushed strictly above Keep")
-		AutoSell.set_keep(SALVE, 5)
-		assert_eq(AutoSell.rule(SALVE)["sellAbove"], 31, "stays when Keep backs off")
-		AutoSell.set_sell_above(SALVE, 1)
-		assert_eq(AutoSell.rule(SALVE)["sellAbove"], 6, "stops one above Keep")
-		AutoSell.set_keep(SALVE, 999)
-		assert_eq(Rooms.lab_keep(SALVE), GameData.PRODUCTION_TARGET_MAX - 1, "Keep tops out one under the max")
-		assert_eq(AutoSell.rule(SALVE)["sellAbove"], GameData.PRODUCTION_TARGET_MAX)
+		assert_eq(AutoSell.rule(SALVE)["sellAbove"], 20)
+		AutoSell.set_sell_above(SALVE, 0)
+		assert_eq(AutoSell.rule(SALVE)["sellAbove"], 0, "Sell all is reachable")
 		AutoSell.set_sell_above(SALVE, 999)
 		assert_eq(AutoSell.rule(SALVE)["sellAbove"], GameData.PRODUCTION_TARGET_MAX, "tops out at the bar's end")
+		assert_eq(Rooms.lab_target(SALVE), 0, "Production is untouched by Sell-above")
 	)
 
-	run_case("cutoff_and_mood_are_locked_until_sales_is_staffed_but_keep_is_not", func():
+	run_case("cutoff_and_mood_are_locked_until_sales_is_staffed", func():
 		_setup(false)
 		AutoSell.set_sell_above(SALVE, 10)
 		AutoSell.set_mood(SALVE, "aggressive")
 		assert_eq(AutoSell.rule(SALVE), ProductionSettings.master())
-		AutoSell.set_keep(SALVE, 10)
-		assert_eq(Rooms.lab_keep(SALVE), 10)
 	)
 
-	run_case("ordering_rule_holds_for_master_and_production_is_unconstrained", func():
+	run_case("master_sell_above_and_production_are_independent", func():
 		_setup()
-		ProductionSettings.set_master_keep(40)
-		assert_eq(ProductionSettings.master()["sellAbove"], GameData.PRODUCTION_TARGET_MAX)
-		ProductionSettings.set_master_keep(GameData.PRODUCTION_TARGET_MAX)
-		assert_true(ProductionSettings.master()["keep"] < ProductionSettings.master()["sellAbove"])
 		ProductionSettings.set_master_sell_above(0)
-		assert_eq(ProductionSettings.master()["sellAbove"], ProductionSettings.master()["keep"] + 1)
+		assert_eq(ProductionSettings.master()["sellAbove"], 0)
+		ProductionSettings.set_master_production(GameData.PRODUCTION_TARGET_MAX)
+		assert_eq(ProductionSettings.master()["sellAbove"], 0, "Make to doesn't push Sell above")
 		Rooms.set_lab_threshold(SALVE, GameData.PRODUCTION_TARGET_MAX)
-		assert_eq(Rooms.lab_target(SALVE), GameData.PRODUCTION_TARGET_MAX, "Production ignores Keep and Sell-above")
+		assert_eq(Rooms.lab_target(SALVE), GameData.PRODUCTION_TARGET_MAX, "Production ignores Sell-above")
 	)
 
 	run_case("set_mood_keeps_the_cutoff_and_refuses_an_unknown_mood", func():
@@ -339,14 +316,13 @@ func run() -> void:
 		assert_eq([projected["qty"], projected["income"]], [sold[SALVE]["qty"], sold[SALVE]["income"]])
 	)
 
-	run_case("projection_previews_unstored_keep_and_cutoff", func():
+	run_case("projection_previews_an_unstored_cutoff", func():
 		_rollover_fixture("aggressive", 10)
 		_held(45)
 		var limit := AutoSell.market_limit(SALVE, GameData.MARKET["autoSell"]["moods"]["aggressive"]["maxPriceDrop"])
 		assert_eq(AutoSell.projection(SALVE)["qty"], mini(35, limit))
-		assert_eq(AutoSell.projection(SALVE, -1, 40)["qty"], 5, "a dragged cutoff")
-		assert_eq(AutoSell.projection(SALVE, 42)["qty"], 3, "a dragged Keep")
-		assert_eq(AutoSell.projection(SALVE, -1, GameData.PRODUCTION_TARGET_MAX)["reason"], AutoSell.REASON_SELL_NONE, "dragged to the top")
+		assert_eq(AutoSell.projection(SALVE, 40)["qty"], 5, "a dragged cutoff")
+		assert_eq(AutoSell.projection(SALVE, GameData.PRODUCTION_TARGET_MAX)["reason"], AutoSell.REASON_SELL_NONE, "dragged to the top")
 		assert_eq(AutoSell.rule(SALVE)["sellAbove"], 10, "preview stores nothing")
 	)
 
@@ -362,7 +338,6 @@ func run() -> void:
 		assert_eq(AutoSell.projection(SALVE)["reason"], AutoSell.REASON_UNDER_CUTOFF)
 
 		_rollover_fixture("aggressive", 45)
-		ProductionSettings.set_field(SALVE, "keep", 40)
 		_cover_contracts(110)
 		assert_eq(AutoSell.protected_floor(SALVE), 110, "fixture: contract need lifts the floor over the stock")
 		assert_eq(AutoSell.projection(SALVE)["reason"], AutoSell.REASON_CONTRACTS)

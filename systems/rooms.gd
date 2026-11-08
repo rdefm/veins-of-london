@@ -62,11 +62,6 @@ static func lab_target(recipe_key: String) -> int:
 	return int(ProductionSettings.resolve(recipe_key)["production"])
 
 
-# The recipe's Keep: the never-sell floor and the contract-delivery reserve.
-static func lab_keep(recipe_key: String) -> int:
-	return int(ProductionSettings.resolve(recipe_key)["keep"])
-
-
 # True when every producible recipe is covering contracts (vacuously false
 # with none).
 static func lab_covers_all_contracts() -> bool:
@@ -130,12 +125,6 @@ static func effective_lab_target(recipe_key: String, production: int = -1) -> in
 	if lab_covers_contracts(recipe_key):
 		target += contract_need(recipe_key)
 	return target
-
-
-# Stock at or below Keep is a protected buffer contract delivery may never
-# draw from -- see Contracts._shared_stock_for_line().
-static func production_reserved_qty(recipe_key: String) -> int:
-	return lab_keep(recipe_key)
 
 
 # "The contract-card priority order wins, then player-set inventory-target

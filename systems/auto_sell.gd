@@ -35,12 +35,7 @@ static func _store_rule(recipe_key: String, sell_above: int, mood: String) -> vo
 	ProductionSettings.set_field(recipe_key, "mood", mood)
 
 
-# Sets Keep; a Keep at or past Sell-above pushes Sell-above up with it.
-static func set_keep(recipe_key: String, keep: int) -> void:
-	ProductionSettings.set_keep(recipe_key, keep)
-
-
-# Moves Sell-above, stopping one above Keep. Locked while no one works Sales.
+# Moves Sell-above. Locked while no one works Sales.
 static func set_sell_above(recipe_key: String, sell_above: int) -> void:
 	if not Contracts.has_staffed_sales():
 		return
@@ -85,14 +80,13 @@ static func master_projection() -> Dictionary:
 	return total
 
 
-# Stock at or below this is never auto-sold: max(Sell-above, Keep, contract
-# need while covering). keep / sell_above >= 0 preview values not yet stored
-# (a handle mid-drag).
-static func protected_floor(recipe_key: String, keep: int = -1, sell_above: int = -1) -> int:
+# Stock at or below this is never auto-sold: max(Sell-above, contract need
+# while covering). sell_above >= 0 previews a value not yet stored (a handle
+# mid-drag).
+static func protected_floor(recipe_key: String, sell_above: int = -1) -> int:
 	var cutoff: int = sell_above if sell_above >= 0 else int(rule(recipe_key)["sellAbove"])
-	var kept: int = keep if keep >= 0 else Rooms.lab_keep(recipe_key)
 	var need := Rooms.contract_need(recipe_key) if Rooms.lab_covers_contracts(recipe_key) else 0
-	return maxi(maxi(cutoff, kept), need)
+	return maxi(cutoff, need)
 
 
 # Extra London stock that would lower the price by max_drop on the market curve.
@@ -111,18 +105,18 @@ static func off_market_limit(on_market_limit: int) -> int:
 
 # Units the rule would sell on the market at today's stock and price.
 static func sellable_qty(recipe_key: String) -> int:
-	return _assess(recipe_key, -1, -1)["qty"]
+	return _assess(recipe_key, -1)["qty"]
 
 
 # { qty, offMarketQty, reason }: what the rule sells today, and why not when
 # qty is 0. Off-market units come from surplus the market didn't take.
-static func _assess(recipe_key: String, keep: int, sell_above: int) -> Dictionary:
+static func _assess(recipe_key: String, sell_above: int) -> Dictionary:
 	var cutoff: int = sell_above if sell_above >= 0 else int(rule(recipe_key)["sellAbove"])
 	if cutoff >= GameData.PRODUCTION_TARGET_MAX:
 		return { "qty": 0, "offMarketQty": 0, "reason": REASON_SELL_NONE }
 	var mood: Dictionary = _config()["moods"][rule(recipe_key)["mood"]]
 	var held := Crafting.inventory_qty(recipe_key)
-	var surplus := held - protected_floor(recipe_key, keep, sell_above)
+	var surplus := held - protected_floor(recipe_key, sell_above)
 	if surplus <= 0:
 		return { "qty": 0, "offMarketQty": 0, "reason": REASON_CONTRACTS if held > cutoff else REASON_UNDER_CUTOFF }
 	var min_price: float = Market.base_price("consumable", recipe_key) * float(mood["minPriceMult"])
@@ -137,13 +131,13 @@ static func _assess(recipe_key: String, keep: int, sell_above: int) -> Dictionar
 
 # What daily_pass() would do for a Production-list recipe from the current
 # state: { qty, offMarketQty, income, reason }, reason "" when it sells; income
-# covers both channels. keep / sell_above >= 0 preview values not yet stored.
-static func projection(recipe_key: String, keep: int = -1, sell_above: int = -1) -> Dictionary:
+# covers both channels. sell_above >= 0 previews a value not yet stored.
+static func projection(recipe_key: String, sell_above: int = -1) -> Dictionary:
 	if not Contracts.has_staffed_sales():
 		return { "qty": 0, "offMarketQty": 0, "income": 0, "reason": REASON_NO_SALES }
 	if not Market.is_running():
 		return { "qty": 0, "offMarketQty": 0, "income": 0, "reason": REASON_CLOSED }
-	var assessed := _assess(recipe_key, keep, sell_above)
+	var assessed := _assess(recipe_key, sell_above)
 	var income := 0
 	for lot in Crafting.inventory_lots(recipe_key, assessed["qty"] + assessed["offMarketQty"]):
 		income += _lot_income(recipe_key, lot)
@@ -160,7 +154,7 @@ static func daily_pass() -> Dictionary:
 		return sold
 	var total := 0
 	for recipe_key in Rooms.production_recipes():
-		var assessed := _assess(recipe_key, -1, -1)
+		var assessed := _assess(recipe_key, -1)
 		if assessed["qty"] <= 0:
 			continue
 		var income := _sell(recipe_key, assessed["qty"]) + _sell_off_market(recipe_key, assessed["offMarketQty"])

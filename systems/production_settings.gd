@@ -1,19 +1,18 @@
 class_name ProductionSettings
 extends RefCounted
 
-# Master + per-recipe override production settings (R§3.10). A setting set is
-# { production, keep, sellAbove, mood, coverContracts }. state.production holds
+# Master + per-recipe override production settings (RÂ§3.10). A setting set is
+# { production, sellAbove, mood, coverContracts }. state.production holds
 # { master, overrides: { recipeKey: set } }; a recipe without an override
 # follows the master. Editing any field copies the whole master into an
 # override first, revert deletes it. Static funcs only.
 
-const FIELDS := ["production", "keep", "sellAbove", "mood", "coverContracts"]
+const FIELDS := ["production", "sellAbove", "mood", "coverContracts"]
 
 
 static func default_master() -> Dictionary:
 	return {
 		"production": 0,
-		"keep": 0,
 		"sellAbove": GameData.PRODUCTION_TARGET_MAX,
 		"mood": GameData.MARKET["autoSell"]["defaultMood"],
 		"coverContracts": true,
@@ -59,20 +58,9 @@ static func set_master_field(field: String, value: Variant) -> void:
 	EventBus.mark_changed()
 
 
-# Keep (never-sell floor) stays strictly below Sell-above. Raising Keep pushes
-# Sell-above up; lowering Sell-above stops one above Keep. Both clamp to
-# 0..productionTargetMax. Production is not part of the ordering.
-static func set_keep(recipe_key: String, keep: int) -> void:
-	var ordered := ordered_pair(keep, int(resolve(recipe_key)["sellAbove"]))
-	set_field(recipe_key, "keep", ordered["keep"])
-	set_field(recipe_key, "sellAbove", ordered["sellAbove"])
-	EventBus.mark_changed()
-
-
+# Sell-above clamps to 0..productionTargetMax; it is independent of Production.
 static func set_sell_above(recipe_key: String, sell_above: int) -> void:
-	var ordered := ordered_pair(int(resolve(recipe_key)["keep"]), sell_above)
-	set_field(recipe_key, "keep", ordered["keep"])
-	set_field(recipe_key, "sellAbove", ordered["sellAbove"])
+	set_field(recipe_key, "sellAbove", clampi(sell_above, 0, GameData.PRODUCTION_TARGET_MAX))
 	EventBus.mark_changed()
 
 
@@ -81,28 +69,9 @@ static func set_master_production(production: int) -> void:
 	EventBus.mark_changed()
 
 
-static func set_master_keep(keep: int) -> void:
-	var ordered := ordered_pair(keep, int(master()["sellAbove"]))
-	master()["keep"] = ordered["keep"]
-	master()["sellAbove"] = ordered["sellAbove"]
-	EventBus.mark_changed()
-
-
 static func set_master_sell_above(sell_above: int) -> void:
-	var ordered := ordered_pair(int(master()["keep"]), sell_above)
-	master()["keep"] = ordered["keep"]
-	master()["sellAbove"] = ordered["sellAbove"]
+	master()["sellAbove"] = clampi(sell_above, 0, GameData.PRODUCTION_TARGET_MAX)
 	EventBus.mark_changed()
-
-
-# { keep, sellAbove } with keep < sellAbove. Keep never exceeds max-1, so Sell-above always has room above it.
-static func ordered_pair(keep: int, sell_above: int) -> Dictionary:
-	var top: int = GameData.PRODUCTION_TARGET_MAX
-	keep = clampi(keep, 0, top - 1)
-	sell_above = clampi(sell_above, 0, top)
-	if sell_above <= keep:
-		sell_above = keep + 1
-	return { "keep": keep, "sellAbove": sell_above }
 
 
 # Load fix-up: fills missing fields from defaults, int-ifies and clamps
@@ -122,11 +91,9 @@ static func _sanitize_set(setting_set: Dictionary, defaults: Dictionary) -> void
 	for field in FIELDS:
 		if not setting_set.has(field):
 			setting_set[field] = defaults[field]
-	for field in ["production", "keep", "sellAbove"]:
+	for field in ["production", "sellAbove"]:
 		setting_set[field] = clampi(int(setting_set[field]), 0, GameData.PRODUCTION_TARGET_MAX)
-	var ordered := ordered_pair(setting_set["keep"], setting_set["sellAbove"])
-	setting_set["keep"] = ordered["keep"]
-	setting_set["sellAbove"] = ordered["sellAbove"]
+	setting_set.erase("keep")
 	if not GameData.MARKET["autoSell"]["moods"].has(setting_set["mood"]):
 		setting_set["mood"] = defaults["mood"]
 	setting_set["coverContracts"] = bool(setting_set["coverContracts"])
