@@ -213,7 +213,7 @@ static func refresh_marks() -> void:
 static func mark_seen(page_id: String) -> void:
 	var marks: Dictionary = GameState.state["todo"]
 	marks["seen"][page_id] = marks["changed"].get(page_id, 0)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # The Act 2 spine as a questline-shaped section (BOARD_SPINE beats in order):

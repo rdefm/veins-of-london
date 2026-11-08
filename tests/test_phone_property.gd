@@ -38,6 +38,7 @@ func run() -> void:
 		GameState.state["home"]["arrears"] = 320
 		GameState.state["home"]["arrearsWeeks"] = 1
 		var before: Dictionary = GameState.deep_copy(GameState.state)
+		EventBus.flush_now()
 		phone = PhoneScreen.new()
 		phone._ready()
 		var texts := NodeQuery.label_texts(phone)
@@ -161,6 +162,7 @@ func run() -> void:
 			assert_eq(has_section, FloorplanView.has_plan(tier_id), "%s plan section matches whether it has a plan" % tier_id)
 			assert_eq(NodeQuery.label_texts(phone).has("Floorplan"), FloorplanView.has_plan(tier_id), "%s shows no empty Floorplan heading" % tier_id)
 			NodeQuery.find_button(phone, "← Back to listings").pressed.emit()
+			EventBus.flush_now()
 		phone.free()
 	)
 
@@ -197,6 +199,7 @@ func run() -> void:
 		var rent_button := NodeQuery.find_button(phone, "Rent for £420/week")
 		assert_true(not rent_button.disabled, "renting needs only the deposit")
 		rent_button.pressed.emit()
+		EventBus.flush_now()
 		assert_eq(GameState.state["home"]["tier"], "studio")
 		assert_eq(GameState.state["home"]["tenure"], "rented")
 		assert_true(NodeQuery.find_button(phone, "← Back to listings") == null, "a move closes the particulars")
@@ -211,6 +214,7 @@ func run() -> void:
 		phone._ready()
 		_open_listing(phone, "studio")
 		NodeQuery.find_button(phone, "Buy for £80000").pressed.emit()
+		EventBus.flush_now()
 		assert_eq(GameState.state["home"]["tenure"], "owned", "buy button calls Home.buy_up")
 		phone.free()
 	)
@@ -229,6 +233,7 @@ func run() -> void:
 		phone._ready()
 		assert_true(NodeQuery.label_texts(phone).has("Then £406/week in utilities. Rooms stay."))
 		NodeQuery.find_button(phone, "Buy out for £200000").pressed.emit()
+		EventBus.flush_now()
 		assert_eq(GameState.state["home"]["tenure"], "owned")
 		assert_eq(GameState.state["home"]["tier"], "flat")
 		phone.free()
@@ -262,6 +267,7 @@ func run() -> void:
 		assert_true(texts.has("Left behind: CCTV."))
 		assert_true(NodeQuery.find_button(phone, "Buy for £80000") != null, "the studio can be bought on the way down")
 		NodeQuery.find_button(phone, "Rent for £420/week").pressed.emit()
+		EventBus.flush_now()
 		assert_eq(GameState.state["home"]["tier"], "studio")
 		assert_eq(GameState.state["home"]["security"], ["lock"])
 		phone.free()
@@ -271,6 +277,7 @@ func run() -> void:
 		_open_listing(phone, "bedsit")
 		assert_eq(NodeQuery.find_button(phone, "Buy for £0"), null, "the bedsit can't be bought")
 		NodeQuery.find_button(phone, "Rent for £350/week").pressed.emit()
+		EventBus.flush_now()
 		assert_eq(GameState.state["home"]["tier"], "bedsit")
 		assert_eq(GameState.state["home"]["security"], ["lock"])
 		phone.free()
@@ -292,6 +299,7 @@ func run() -> void:
 		assert_true(phone.find_child(PropertyApp.listing_node_name("studio"), true, false) == null)
 
 		NodeQuery.find_button(phone, "← Back to listings").pressed.emit()
+		EventBus.flush_now()
 		texts = NodeQuery.label_texts(phone)
 		assert_true(texts.has("YOUR PLACE"), "back returns to the listings")
 		assert_true(not texts.has(particulars))
@@ -353,6 +361,7 @@ func run() -> void:
 		assert_eq(NodeQuery.find_button(phone, "‹ Back"), null, "the brand bar's back replaces the shared one")
 
 		NodeQuery.find_button(phone, "‹ Phone").pressed.emit()
+		EventBus.flush_now()
 		assert_eq(GameState.state["phoneNav"]["app"], "home", "‹ Phone returns to the phone home")
 		assert_true(phone.device_shell.content_scroll.visible, "the shared column is back for the home screen")
 		phone.free()
@@ -419,6 +428,7 @@ func run() -> void:
 		var buy_button := NodeQuery.find_button(phone, "Buy for £500000")
 		assert_true(not buy_button.disabled, "net 300000 is affordable though the price isn't")
 		buy_button.pressed.emit()
+		EventBus.flush_now()
 		assert_eq(GameState.state["home"]["tier"], "townhouse")
 		assert_eq(GameState.state["player"]["cash"], 0, "cash moves by the net amount")
 		phone.free()
@@ -438,6 +448,7 @@ func run() -> void:
 		assert_true(buy_button != null and buy_button.disabled, "unaffordable buy is shown, disabled")
 		assert_true(texts.has("Not enough cash. You have £16800."))
 		NodeQuery.find_button(phone, "Rent for £4200/week").pressed.emit()
+		EventBus.flush_now()
 		assert_eq(GameState.state["home"]["tier"], "compound", "renting jumps five tiers in one move")
 		assert_eq(GameState.state["home"]["tenure"], "rented")
 		phone.free()
@@ -448,6 +459,7 @@ func run() -> void:
 		_open_listing(phone, "flat")
 		assert_true(NodeQuery.label_texts(phone).has("MOVE DOWN"))
 		NodeQuery.find_button(phone, "Buy for £200000").pressed.emit()
+		EventBus.flush_now()
 		assert_eq(GameState.state["home"]["tier"], "flat", "buying jumps three tiers down")
 		assert_eq(GameState.state["home"]["tenure"], "owned")
 		assert_eq(GameState.state["player"]["cash"], 16800, "the compound deposit comes back")
@@ -481,6 +493,7 @@ func _open_listing(phone: PhoneScreen, tier_id: String) -> void:
 	assert_true(tap != null, "listing for %s is tappable" % tier_id)
 	if tap != null:
 		tap.pressed.emit()
+		EventBus.flush_now()
 
 
 func _plans_of(phone: PhoneScreen, tier_id: String) -> Array:

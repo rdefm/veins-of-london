@@ -80,7 +80,7 @@ static func reveal_vulnerable_vein(site_id: String, effect: String, duration_day
 		"effect": effect,
 		"magnitude": CLAIM_BONUS_MAGNITUDE if effect == EFFECT_CLAIM_BONUS else 0.0,
 	}
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return true
 
 
@@ -266,7 +266,7 @@ static func _faction_name(faction_id: String) -> String:
 
 static func _send(text: String) -> void:
 	Messages.append(CONTACT_ID, "them", text)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # Planned moves against the player within the horizon, texted as a list.
@@ -421,7 +421,7 @@ static func faction_purchases() -> void:
 			budget -= price
 			wallet["resources"] -= price
 			GameState.state["factions"]["network"]["resources"] += price
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # Applies product_id for buyer when it has a use; false (nothing bought)
@@ -521,5 +521,5 @@ static func _charge(price: int, bank_label: String) -> bool:
 	Bank.record(-price, bank_label)
 	Factions.adjust_player_relation("network", RELATION_GAIN)
 	RelationAccrual.accrue_faction("network", price)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return true

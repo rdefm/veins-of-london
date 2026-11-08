@@ -89,6 +89,7 @@ func run() -> void:
 		var close := _find_cost_button(layer, "Close")
 		assert_true(close != null)
 		close.pressed.emit()
+		EventBus.flush_now()
 		assert_eq(GameState.state["modal"], null)
 		layer.free()
 	)
@@ -101,6 +102,7 @@ func run() -> void:
 		var fight := _find_cost_button(layer, "Fight")
 		assert_true(fight != null)
 		fight.pressed.emit()
+		EventBus.flush_now()
 		assert_eq(GameState.state["modal"], null)
 		assert_eq(GameState.state["combatPrep"]["kind"], CombatPrep.KIND_DEBUG)
 		CombatPrep.commit()
@@ -120,8 +122,10 @@ func run() -> void:
 		var toggle := _find_cost_button(layer, "☐")
 		assert_true(toggle != null)
 		toggle.pressed.emit()
+		EventBus.flush_now()
 		assert_eq(toggle.text, "☑")
 		_find_cost_button(layer, "Fight").pressed.emit()
+		EventBus.flush_now()
 		CombatPrep.commit()
 		assert_eq(GameState.state["combat"]["allies"].size(), 1)
 		assert_eq(GameState.state["combat"]["allies"][0]["contactId"], "james")
@@ -141,6 +145,7 @@ func run() -> void:
 			if location_select.get_item_text(i) == "camden":
 				location_select.select(i)
 		_find_cost_button(layer, "Fight").pressed.emit()
+		EventBus.flush_now()
 		CombatPrep.commit()
 		assert_eq(GameState.state["combat"]["context"], Combat.CONTEXT_MUGGING)
 		assert_eq(GameState.state["combat"]["locationKey"], "camden", "picked location overrides the derived key")
@@ -165,6 +170,7 @@ func run() -> void:
 		pick.call(_find_option_with_item(layer, "turtleV2"), "turtleV2")
 		pick.call(_find_option_with_item(layer, "1 debug ally"), "1 debug ally")
 		_find_cost_button(layer, "Fight").pressed.emit()
+		EventBus.flush_now()
 		assert_eq(GameState.state["player"]["loadout"]["slots"][0], { "recipe": "blast", "tier": 2 }, "slot pick lands in the real slot")
 		CombatPrep.commit()
 		var combat: Dictionary = GameState.state["combat"]
@@ -186,6 +192,7 @@ func run() -> void:
 		var button := _find_cost_button(layer, "Train — last block today")
 		assert_true(button != null)
 		button.pressed.emit()
+		EventBus.flush_now()
 		assert_eq(GameState.state["world"]["day"], 2)
 		assert_eq(GameState.state["world"]["timeBlock"], 0)
 		assert_eq(GameState.state["player"]["bodyXP"], Combat.COMBAT_XP_PER_WORKOUT_SESSION)
@@ -295,6 +302,7 @@ func run() -> void:
 		var slider := _find_slider(view, "Time Orichalchum quantity")
 		assert_true(slider != null and stock_label.get_global_rect().end.x <= slider.get_global_rect().position.x, "ore metadata does not overlap quantity controls")
 		_find_cost_button(view, "Items").pressed.emit()
+		EventBus.flush_now()
 		await (Engine.get_main_loop() as SceneTree).process_frame
 		var group := _find_button_prefix(view, "Blast")
 		var tier_label: Label = null
@@ -349,6 +357,7 @@ func run() -> void:
 		assert_eq(vein["guardKit"], {}, "picking alone changes nothing")
 		_last_button(view, "Review kit →").pressed.emit()
 		_last_button(view, "Confirm kit").pressed.emit()
+		EventBus.flush_now()
 		assert_eq(vein["guardKit"], { "blast": { "2": 2 } })
 		assert_eq(GameState.state["player"]["inventory"]["blast"]["2"], 1)
 		assert_eq(GameState.state["modal"], null)
@@ -365,11 +374,13 @@ func run() -> void:
 		layer._ready()
 		var view: PanelContainer = layer._kit_view
 		_last_button(view, "Return").pressed.emit()
+		EventBus.flush_now()
 		assert_true(_find_button_prefix(view, "Shield") != null, "kit item listed on Return")
 		for i in 3:
 			_last_button(view, "Shield · tier 3 more").pressed.emit()
 		_last_button(view, "Review kit →").pressed.emit()
 		_last_button(view, "Confirm kit").pressed.emit()
+		EventBus.flush_now()
 		assert_eq(vein["guardKit"], {})
 		assert_eq(GameState.state["player"]["inventory"]["shield"]["3"], 3)
 		layer.free()
@@ -385,6 +396,7 @@ func run() -> void:
 		layer._ready()
 		var view: PanelContainer = layer._trade_view
 		_find_cost_button(view, "Items").pressed.emit()
+		EventBus.flush_now()
 		var group := _find_button_prefix(view, "Blast")
 		assert_true(group != null and group.accessibility_name.contains("2 tiers"), "one group for Blast's two stocked tiers")
 		assert_true(NodeQuery.label_texts_with_symbols(view).has("Tier 2"))
@@ -397,6 +409,7 @@ func run() -> void:
 		assert_eq(GameState.state["sellState"]["con_blast_3"], 1)
 		group = _find_button_prefix(view, "Blast")
 		group.pressed.emit()
+		EventBus.flush_now()
 		assert_true(_find_button_prefix(view, "Blast").accessibility_name.contains("2 selected"), "collapsed group keeps its selection count")
 		assert_true(not NodeQuery.label_texts_with_symbols(view).has("Tier 2"), "tier rows hide when collapsed")
 		_find_cost_button(view, "Review trade →").pressed.emit()
@@ -419,6 +432,7 @@ func run() -> void:
 		assert_eq((glyphs[0] as SymbolGlyph).symbol, "", "empty symbol forces the Map vector fallback")
 		assert_true((glyphs[0] as SymbolGlyph).draw_fallback.is_valid())
 		_find_cost_button(view, "Veins").pressed.emit()
+		EventBus.flush_now()
 		glyphs = view.find_children("", "SymbolGlyph", true, false)
 		assert_eq(glyphs.size(), 1)
 		assert_eq((glyphs[0] as SymbolGlyph).symbol, "")
@@ -439,9 +453,12 @@ func run() -> void:
 		layer._ready()
 		var view: PanelContainer = layer._trade_view
 		_find_cost_button(view, "Veins").pressed.emit()
+		EventBus.flush_now()
 		assert_true(NodeQuery.label_texts_with_symbols(view).has(" · Lv 3"), "sell row shows the player vein's level")
 		_find_cost_button(view, "Buy from contact").pressed.emit()
+		EventBus.flush_now()
 		_find_cost_button(view, "Veins").pressed.emit()
+		EventBus.flush_now()
 		assert_true(NodeQuery.label_texts_with_symbols(view).has(" · Lv 2"), "buy row shows the faction vein's level")
 		layer.free()
 	)
@@ -459,6 +476,7 @@ func run() -> void:
 		var view: PanelContainer = layer._trade_view
 		Economy.set_sell_qty("ore_time", 2, 10)
 		_find_cost_button(view, "Buy from contact").pressed.emit()
+		EventBus.flush_now()
 		Economy.set_sell_qty("buyOre_time", 1, 8)
 		assert_eq(GameState.state["sellState"]["ore_time"], 2, "switching direction retains sales")
 		assert_eq(GameState.state["sellState"]["buyOre_time"], 1)
@@ -468,6 +486,7 @@ func run() -> void:
 		assert_true(NodeQuery.label_texts_with_symbols(view).any(func(t: String): return t.contains("Sell 2 × Time Orichalchum")))
 		assert_true(NodeQuery.label_texts_with_symbols(view).any(func(t: String): return t.contains("Buy 1 × Time Orichalchum")))
 		_find_cost_button(view, "Confirm trade").pressed.emit()
+		EventBus.flush_now()
 		assert_eq(GameState.state["player"]["cash"], 1000 + Market.line_total("ore", sell_price, 2) - Market.line_total("ore", buy_price, 1))
 		assert_eq(GameState.state["player"]["orichalchum"]["time"], 9)
 		assert_eq(FactionSim.ore_held("collective", "time"), 9, "8 held - 1 bought + 2 sold")
@@ -490,6 +509,7 @@ func run() -> void:
 		assert_eq(int(sell_slider.value), 0)
 		assert_eq(int(sell_slider.max_value), 7, "selling maxes at what's held")
 		_find_cost_button(view, "Buy from contact").pressed.emit()
+		EventBus.flush_now()
 		assert_eq(int(_find_slider(view, "Time Orichalchum quantity").max_value), 3, "cash covers 3, below stock 8")
 		layer.free()
 
@@ -498,6 +518,7 @@ func run() -> void:
 		layer = ModalLayer.new()
 		layer._ready()
 		_find_cost_button(layer._trade_view, "Buy from contact").pressed.emit()
+		EventBus.flush_now()
 		var buy_slider := _find_slider(layer._trade_view, "Time Orichalchum quantity")
 		assert_eq(int(buy_slider.max_value), 8, "stock 8 caps below the 20 cash covers")
 		buy_slider.value = 5
@@ -514,6 +535,7 @@ func run() -> void:
 		layer._ready()
 		var view: PanelContainer = layer._trade_view
 		_find_cost_button(view, "Buy from contact").pressed.emit()
+		EventBus.flush_now()
 		var sold_out := 0
 		for label in NodeQuery.label_texts(view):
 			if label == "Sold out":
@@ -549,6 +571,7 @@ func run() -> void:
 		var view: PanelContainer = layer._trade_view
 		_find_cost_button(view, "Buy from %s" % GameData.FACTIONS["firm"]["shortName"]).pressed.emit()
 		_find_cost_button(view, "Items").pressed.emit()
+		EventBus.flush_now()
 		var recipe_name: String = GameData.RECIPES["timePearl"]["name"]
 		var slider := _find_slider(view, "%s quantity" % recipe_name)
 		assert_true(slider != null, "shop buy side lists items")
@@ -556,6 +579,7 @@ func run() -> void:
 		Economy.set_sell_qty("buyCon_timePearl", 2, int(slider.max_value))
 		_find_cost_button(view, "Review trade →").pressed.emit()
 		_find_cost_button(view, "Confirm trade").pressed.emit()
+		EventBus.flush_now()
 		assert_eq(Crafting.inventory_qty("timePearl"), 2)
 		assert_eq(GameState.state["player"]["cash"], 100000 - Market.line_total("consumable", buy_price, 2))
 		assert_eq(GameState.state["factions"]["firm"]["resources"], resources_before + Market.line_total("consumable", buy_price, 2))
@@ -575,13 +599,16 @@ func run() -> void:
 		layer._ready()
 		var view: PanelContainer = layer._trade_view
 		_find_cost_button(view, "Buy from contact").pressed.emit()
+		EventBus.flush_now()
 		_find_cost_button(view, "Items").pressed.emit()
+		EventBus.flush_now()
 		var slider := _find_slider(view, "%s quantity" % GameData.RECIPES["timePearl"]["name"])
 		assert_true(slider != null, "contact buy side lists items")
 		assert_eq(int(slider.max_value), Economy.get_faction_buy_max_qty("collective", "consumable", "timePearl"))
 		Economy.set_sell_qty("buyCon_timePearl", 1, int(slider.max_value))
 		_find_cost_button(view, "Review trade →").pressed.emit()
 		_find_cost_button(view, "Confirm trade").pressed.emit()
+		EventBus.flush_now()
 		assert_eq(Crafting.inventory_qty("timePearl"), 1)
 		assert_eq(GameState.state["player"]["cash"], 100000 - Market.line_total("consumable", buy_price, 1))
 		assert_eq(GameState.state["modal"]["type"], "sale_result")
@@ -674,6 +701,7 @@ func run() -> void:
 		layer._ready()
 
 		_find_cost_button(layer, "Close").pressed.emit()
+		EventBus.flush_now()
 
 		assert_eq(GameState.state["modal"], null, "Close must dismiss the menu")
 
@@ -712,6 +740,7 @@ func run() -> void:
 		var layer := ModalLayer.new()
 		layer._ready()
 		_find_cost_button(layer, "Keep").pressed.emit()
+		EventBus.flush_now()
 		assert_eq(GameState.state["modal"], null, "Keep closes the pop-up")
 		assert_eq(Contracts.active_contracts().size(), 1, "Keep leaves the contract")
 		layer.free()
@@ -720,6 +749,7 @@ func run() -> void:
 		layer = ModalLayer.new()
 		layer._ready()
 		_find_cost_button(layer, "Confirm").pressed.emit()
+		EventBus.flush_now()
 		assert_eq(GameState.state["modal"], null)
 		assert_true(Contracts.active_contracts().is_empty(), "Confirm cancels it")
 		layer.free()
@@ -736,6 +766,7 @@ func run() -> void:
 		layer._ready()
 
 		_find_cost_button(layer, "Cancel").pressed.emit()
+		EventBus.flush_now()
 
 		assert_eq(GameState.state["modal"], null, "Cancel must dismiss the picker")
 		assert_eq(GameState.state["player"]["dial"]["movement"], null, "Cancel must not seat anything")
@@ -793,6 +824,7 @@ func run() -> void:
 		layer._ready()
 
 		_find_cost_button(layer, "Cancel").pressed.emit()
+		EventBus.flush_now()
 
 		assert_eq(GameState.state["modal"], null, "Cancel must dismiss the picker")
 		assert_eq(GameState.state["player"]["dial"]["loadedComplications"], [], "Cancel must not load anything")
@@ -842,6 +874,7 @@ func run() -> void:
 		var button := _find_cost_button(layer, "%s%s — %d calc, chance %d%%" % [ore["symbol"], ore["name"], cost, chance_pct])
 		assert_true(button != null, "time row must be present")
 		button.pressed.emit()
+		EventBus.flush_now()
 
 		assert_eq(GameState.state["player"]["orichalchum"]["time"], 999 - cost, "calc is spent on the attempt regardless of outcome, same as Dial.attempt_craft_movement always did")
 		assert_eq(GameState.state["modal"], null, "the modal closes once the attempt resolves")
@@ -865,6 +898,7 @@ func run() -> void:
 			var button := _find_cost_button(layer, "%s%s — %d calc, chance %d%%" % [ore["symbol"], ore["name"], cost, chance_pct])
 			Rng.set_seed(candidate)
 			button.pressed.emit()
+			EventBus.flush_now()
 			layer.free()
 
 			var inventory: Array = GameState.state["player"]["movementInventory"]
@@ -901,6 +935,7 @@ func run() -> void:
 			var button := _find_cost_button(layer, "%s%s — %d calc, chance %d%%" % [ore["symbol"], ore["name"], cost, chance_pct])
 			Rng.set_seed(candidate)
 			button.pressed.emit()
+			EventBus.flush_now()
 			layer.free()
 
 			if GameState.state["player"]["movementInventory"].is_empty():
@@ -969,6 +1004,7 @@ func run() -> void:
 		layer._ready()
 
 		_find_cost_button(layer, "Close").pressed.emit()
+		EventBus.flush_now()
 		assert_eq(GameState.state["modal"], null, "Close must dismiss the readout")
 
 		layer.free()
@@ -1067,6 +1103,7 @@ func run() -> void:
 		assert_true(to_stash != null, "a shared-only row must offer a Stash button")
 		assert_true(not to_stash.disabled, "default move qty (1) is within the 12 available")
 		to_stash.pressed.emit()
+		EventBus.flush_now()
 
 		assert_eq(GameState.state["player"]["orichalchum"]["life"], 11, "shared pool debited by the default qty of 1")
 		assert_eq(Stash.stashed_ore_qty("life"), 1, "stash credited")
@@ -1091,6 +1128,7 @@ func run() -> void:
 		var to_shared := _find_cost_button(layer, "← Shared")
 		assert_true(not to_shared.disabled, "5 available to bring back")
 		to_shared.pressed.emit()
+		EventBus.flush_now()
 
 		assert_eq(GameState.state["player"]["orichalchum"]["life"], 1, "shared pool credited back by the default qty of 1")
 		assert_eq(Stash.stashed_ore_qty("life"), 4, "stash debited")
@@ -1125,6 +1163,7 @@ func run() -> void:
 
 		var to_stash := _find_cost_button(layer, "→ Stash")
 		to_stash.pressed.emit()
+		EventBus.flush_now()
 
 		assert_eq(Crafting.inventory_qty("timePearl"), 3, "shared inventory debited by the default qty of 1")
 		assert_eq(Stash.stashed_item_qty("timePearl"), 1, "stash credited")
@@ -1150,6 +1189,7 @@ func run() -> void:
 		assert_eq(layer.find_children("*", "ProgressBar", true, false).size(), 1, "one XP bar")
 
 		_find_cost_button(layer, "Train").pressed.emit()
+		EventBus.flush_now()
 
 		var xp: int = Combat.COMBAT_XP_PER_WORKOUT_SESSION
 		assert_true(NodeQuery.label_texts_with_symbols(layer).has("%d / %d XP" % [xp, s["xpNext"]]), "xp label updates right after Train")
@@ -1215,6 +1255,7 @@ func run() -> void:
 		layer._ready()
 
 		_find_cost_button(layer, "Train").pressed.emit()
+		EventBus.flush_now()
 
 		assert_eq(GameState.state["player"]["bodyXP"], Combat.COMBAT_XP_PER_WORKOUT_SESSION, "pressing Train without a Home Gym should award the lower workout XP")
 		assert_eq(GameState.state["world"]["timeBlocksDone"].size(), 1, "pressing Train should spend one of the day's time blocks")
@@ -1234,6 +1275,7 @@ func run() -> void:
 		assert_true(train_button != null, "a built Home Gym must expose a Train button")
 
 		train_button.pressed.emit()
+		EventBus.flush_now()
 
 		assert_eq(GameState.state["player"]["bodyXP"], Combat.COMBAT_XP_PER_GYM_SESSION, "pressing Train should award the gym-session XP")
 		assert_eq(GameState.state["world"]["timeBlocksDone"].size(), 1, "pressing Train should spend one of the day's time blocks")
@@ -1265,6 +1307,7 @@ func run() -> void:
 		layer._ready()
 
 		_find_cost_button(layer, "Close").pressed.emit()
+		EventBus.flush_now()
 		assert_eq(GameState.state["modal"], null, "Close must dismiss the gym modal")
 
 		layer.free()

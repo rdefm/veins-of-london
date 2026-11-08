@@ -17,7 +17,9 @@ func run() -> void:
 		GameState.state["flags"]["cultivationTutorialSeen"] = true
 		GameState.state["world"]["sites"] = [Fixtures.site("s1", "time", "fair", false, null, "camden")]
 		MapNav.select_district("camden")
+		EventBus.flush_now()
 		MapNav.select_site("s1")
+		EventBus.flush_now()
 
 		var host := Control.new()
 		host.size = Vector2(390, 844)
@@ -34,6 +36,7 @@ func run() -> void:
 		_assert_overlays(screen, false, "light before toggling")
 
 		Preferences.set_map_dark_mode(true)
+		EventBus.flush_now()
 		await tree.process_frame
 		_assert_overlays(screen, true, "after toggling dark")
 		assert_true(screen._bubble.visible, "the open bubble stays open")
@@ -45,6 +48,7 @@ func run() -> void:
 		assert_eq(GameState.state["mapNav"]["selectedSiteId"], "s1", "the site sheet stays open")
 
 		Preferences.set_map_dark_mode(false)
+		EventBus.flush_now()
 		await tree.process_frame
 		_assert_overlays(screen, false, "after toggling back")
 
@@ -62,11 +66,13 @@ func run() -> void:
 		bubble._rebuild()
 
 		Preferences.set_map_dark_mode(true)
+		EventBus.flush_now()
 		assert_eq(_panel_bg(bubble._panel), MapPalette.colour_in("cardPaper", true), "vein bubble card goes dark")
 		assert_true(bubble.visible, "vein bubble stays open")
 		assert_true(bubble._chooser_open, "the Harvest chooser stays showing")
 
 		Preferences.set_map_dark_mode(false)
+		EventBus.flush_now()
 		assert_eq(_panel_bg(bubble._panel), MapPalette.colour_in("cardPaper", false), "vein bubble card goes back to light")
 
 		bubble.free()
@@ -90,10 +96,15 @@ func run() -> void:
 
 func _assert_overlays(screen: MapScreen, dark: bool, context: String) -> void:
 	var paper := MapPalette.colour_in("cardPaper", dark)
+	EventBus.flush_now()
 	var ink := MapPalette.colour_in("cardInk", dark)
+	EventBus.flush_now()
 	var dim := MapPalette.colour_in("cardDim", dark)
+	EventBus.flush_now()
 	var chrome := MapPalette.colour_in("chromePaper", dark)
+	EventBus.flush_now()
 	var chrome_ink := MapPalette.colour_in("chromeInk", dark)
+	EventBus.flush_now()
 
 	var district_panel: PanelContainer = _live_children(screen._content)[0]
 	assert_eq(_panel_bg(district_panel), paper, "%s: district panel paper" % context)

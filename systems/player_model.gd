@@ -12,5 +12,5 @@ static func set_model(key: String) -> bool:
 	if not GameData.TERRITORIAL_VARIANTS.has(key):
 		return false
 	GameState.state["player"]["model"] = key
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return true

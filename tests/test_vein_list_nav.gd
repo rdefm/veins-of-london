@@ -55,6 +55,7 @@ func run() -> void:
 		var on_changed := func(): received[0] = true
 		EventBus.state_changed.connect(on_changed)
 		VeinListNav.open_all()
+		EventBus.flush_now()
 		EventBus.state_changed.disconnect(on_changed)
 
 		assert_true(received[0])

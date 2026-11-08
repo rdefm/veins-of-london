@@ -19,7 +19,7 @@ static func open_app(app_id: String) -> void:
 	GameState.state["phoneNav"]["selectedFaction"] = null
 	GameState.state["phoneNav"]["confirmingNewGame"] = false
 	GameState.state["phoneNav"]["bizbriefView"] = null
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 static func go_home() -> void:
@@ -29,7 +29,7 @@ static func go_home() -> void:
 	GameState.state["phoneNav"]["selectedFaction"] = null
 	GameState.state["phoneNav"]["confirmingNewGame"] = false
 	GameState.state["phoneNav"]["bizbriefView"] = null
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # Shared "route to phone home" idiom: navigate to the phone screen AND
@@ -44,19 +44,19 @@ static func route_home() -> void:
 static func select_axis(section: String) -> void:
 	GameState.state["phoneNav"]["app"] = "ticker"
 	GameState.state["phoneNav"]["selectedAxis"] = section
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # Opens one faction's Register dossier ("" = back to the directory).
 static func select_faction(faction_id: String) -> void:
 	GameState.state["phoneNav"]["app"] = "factions"
 	GameState.state["phoneNav"]["selectedFaction"] = null if faction_id == "" else faction_id
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 static func back_to_ticker() -> void:
 	GameState.state["phoneNav"]["selectedAxis"] = null
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # Drills into a single conversation, same "selectedX drives a sub-view"
@@ -71,13 +71,13 @@ static func select_conversation(contact_id: String) -> void:
 	GameState.state["phoneNav"]["selectedContactId"] = contact_id
 	GameState.state["phoneNav"]["revealFromIndex"] = maxi(thread.size() - Messages.unread_count(contact_id), 0)
 	Messages.clear(contact_id)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 static func back_to_messages() -> void:
 	GameState.state["phoneNav"]["app"] = "messages"
 	GameState.state["phoneNav"]["selectedContactId"] = null
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # BizBrief's short-pay sub-view (spec §Short-pay flow), from the Today
@@ -86,7 +86,7 @@ static func open_short_pay() -> void:
 	Nav.go_to("phone")
 	open_app("bizbrief")
 	GameState.state["phoneNav"]["bizbriefView"] = BIZBRIEF_SHORT_PAY_VIEW
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # BizBrief's Guard Costs sub-view (spec §Visibility), from the expenses
@@ -95,7 +95,7 @@ static func open_guard_costs() -> void:
 	Nav.go_to("phone")
 	open_app("bizbrief")
 	GameState.state["phoneNav"]["bizbriefView"] = BIZBRIEF_GUARD_COSTS_VIEW
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # Profile's Move Book on `owner` ("" = the player) with `move_id` expanded.
@@ -103,7 +103,7 @@ static func open_move_book(owner: String, move_id: String) -> void:
 	Nav.go_to("phone")
 	open_app("profile")
 	GameState.state["phoneNav"]["moveBookTarget"] = { "owner": owner, "move": move_id }
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # The pending { owner, move } target (null if none), cleared as it is read; no
@@ -116,7 +116,7 @@ static func take_move_book_target() -> Variant:
 
 static func close_bizbrief_view() -> void:
 	GameState.state["phoneNav"]["bizbriefView"] = null
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # Save/Load app's New Game confirm gate — no destructive action in that app
@@ -125,9 +125,9 @@ static func close_bizbrief_view() -> void:
 # (scenes/phone_apps/saveload_app.gd's _on_confirm_new_game_pressed).
 static func arm_new_game_confirm() -> void:
 	GameState.state["phoneNav"]["confirmingNewGame"] = true
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 static func cancel_new_game_confirm() -> void:
 	GameState.state["phoneNav"]["confirmingNewGame"] = false
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()

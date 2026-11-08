@@ -106,7 +106,7 @@ static func recompute() -> void:
 		if from_id != to_id:
 			_report_flip(district_id, from_id, to_id)
 	GameState.state["turf"] = fresh
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 static func _report_flip(district_id: String, from_id: String, to_id: String) -> void:

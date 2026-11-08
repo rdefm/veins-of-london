@@ -43,7 +43,7 @@ static func record(act: String) -> void:
 	var state: Dictionary = GameState.state["warmonger"]
 	state["log"].append({ "day": _day(), "act": act, "weight": float(_cfg()["weights"][act]) })
 	_recompute()
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 static func coalition_active() -> bool:
@@ -79,7 +79,7 @@ static func daily_tick() -> void:
 		_drift_pairs()
 	if coordinating():
 		_share_intel()
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # Nudges every pair of factions not at war with the player (and not held)

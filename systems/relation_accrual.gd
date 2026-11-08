@@ -84,4 +84,4 @@ static func _accrue(lane_id: String, amount: int) -> void:
 			Notify.push("Trade builds your standing with %s (+%d)." % [Contacts.display_name(lane["id"]), points], Notify.CATEGORY_SUCCESS)
 	else:
 		# tradeProgress still moved above — every mutation must signal.
-		EventBus.state_changed.emit()
+		EventBus.mark_changed()

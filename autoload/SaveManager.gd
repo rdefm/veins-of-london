@@ -181,7 +181,7 @@ func _load_save_dict(raw: Dictionary) -> Dictionary:
 	_remap_retired_lab_screen(filled)
 	_remap_retired_notes_app(filled)
 	GameState.state = filled
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true }
 
 

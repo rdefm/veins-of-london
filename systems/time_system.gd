@@ -24,7 +24,7 @@ static func advance_time_block() -> void:
 		world["blockDebt"] = mini(int(world.get("blockDebt", 0)) + int(world.get("borrowedDebtPer", 0)), MAX_BLOCK_DEBT)
 		Rewind.mark_block_start()
 		EventBus.time_advanced.emit(source, { "day": world["day"], "phase": world["timeBlock"] })
-		EventBus.state_changed.emit()
+		EventBus.mark_changed()
 		return
 	world["timeBlocksDone"].append(world["timeBlock"])
 	world["timeBlock"] += 1
@@ -33,7 +33,7 @@ static func advance_time_block() -> void:
 	ActiveEffects.expire()
 	Rewind.mark_block_start()
 	EventBus.time_advanced.emit(source, { "day": world["day"], "phase": world["timeBlock"] })
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # Starts the next day: daily_tick, then the booked block debt. Each owed block
@@ -71,7 +71,7 @@ static func use_borrowed_time(tier: int = 0) -> Dictionary:
 	world["borrowedDebtPer"] = int(_tier_value(table["debtByLevel"], level))
 	# PROSE-REVIEW: Borrowed Time use notification.
 	Notify.push("Borrowed Time. +%d block%s." % [charges, "" if charges == 1 else "s"], Notify.CATEGORY_SUCCESS)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true, "charges": charges }
 
 
@@ -107,7 +107,7 @@ static func advance_to_block(block_name: String) -> bool:
 		world["timeBlock"] += 1
 	ActiveEffects.expire()
 	Rewind.mark_block_start()
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return true
 
 
@@ -149,7 +149,7 @@ static func do_rest() -> void:
 
 	Notify.push("Rested. %s. +%d HP." % [Calendar.format_day(world["day"]),actual_heal], Notify.CATEGORY_SUCCESS)
 	EventBus.time_advanced.emit(source, { "day": world["day"], "phase": world["timeBlock"] })
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # R§3.10 "Staff block step": staffed cultivators and producers act at the

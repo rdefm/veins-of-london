@@ -44,7 +44,7 @@ static func travel_to(district: String, skip_triggers: bool = false) -> Dictiona
 		return { "ok": false, "reason": "Already there." }
 
 	GameState.state["world"]["currentDistrict"] = district
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	if skip_triggers:
 		return { "ok": true }
 	# Checked first: a pending alarm-defend raid targeting this district takes

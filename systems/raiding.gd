@@ -100,7 +100,7 @@ static func claim_vein(site_id: String) -> void:
 	Grudges.answer(faction_id)
 	Warmonger.record(Warmonger.ACT_RAID_CLAIM)
 	MapEvents.queue_seed_claim(district, vein_id, "player")
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # One-time ore payoff -- ownership stays with the faction. Lowers the vein's
@@ -129,7 +129,7 @@ static func loot_vein(site_id: String, caught: bool, depth: int = -1) -> void:
 		FactionAI.note_hostile_act(Shares.PLAYER, vein["factionId"])
 		FactionAI.note_loss(vein["factionId"], Shares.PLAYER, float(Market.line_total("ore", Market.quote("ore", vein["oreType"]), qty)))
 
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # ── raid entry point ─────────────────────────────────────────────────────
@@ -182,7 +182,7 @@ static func back_out(site_id: String, alert: int) -> void:
 	var wary: Dictionary = GameState.state.get("siteWary", {})
 	wary[site_id] = int(GameState.state["world"]["day"]) + int(cfg["days"])
 	GameState.state["siteWary"] = wary
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # Standard travel/time-block gating, then hands off to the event engine.
@@ -1014,7 +1014,7 @@ static func leave_undefended(vein_id: String, notification_id: String) -> bool:
 		FactionSim.log_kit_burn(outcome["attackerId"], "attack", "raid")
 		if not _guards_repel_defend_raid(outcome):
 			resolve_raid_outcome(outcome)
-		EventBus.state_changed.emit()
+		EventBus.mark_changed()
 		return true
 	return false
 

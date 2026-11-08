@@ -39,7 +39,7 @@ static func production_recipes() -> Array:
 
 static func set_lab_threshold(recipe_key: String, target: int) -> void:
 	GameState.state["labThresholds"][recipe_key] = clamp_lab_threshold(target)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 static func clamp_lab_threshold(target: int) -> int:
@@ -57,7 +57,7 @@ static func clamp_lab_thresholds(thresholds: Dictionary) -> void:
 # need on top of the personal labThresholds target.
 static func set_lab_cover_contracts(recipe_key: String, enabled: bool) -> void:
 	GameState.state["labCoverContracts"][recipe_key] = enabled
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 static func lab_covers_contracts(recipe_key: String) -> bool:
@@ -81,7 +81,7 @@ static func toggle_all_lab_cover_contracts() -> void:
 	var enable := not lab_covers_all_contracts()
 	for recipe_key in production_recipes():
 		GameState.state["labCoverContracts"][recipe_key] = enable
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # Production targets are settable with an Improved Lab, or once any room-free contact
@@ -242,7 +242,7 @@ static func assign_vein(contact_id: String, vein_id: String) -> Dictionary:
 		targets[vein_id] = VEIN_STATION_DEFAULT_TARGET
 	if not GameState.state["veinStationAutoFeed"].has(vein_id):
 		GameState.state["veinStationAutoFeed"][vein_id] = true
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true }
 
 
@@ -253,7 +253,7 @@ static func unassign_vein(vein_id: String) -> void:
 	GameState.state["cultivatorVeins"][previous].erase(vein_id)
 	GameState.state["veinStationTargets"].erase(vein_id)
 	GameState.state["veinStationAutoFeed"].erase(vein_id)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # Clamped to the vein's own ceiling (100, or 120 with the wildCeiling bonus)
@@ -263,7 +263,7 @@ static func set_vein_station_target(vein_id: String, target: int) -> void:
 	if vein == null:
 		return
 	GameState.state["veinStationTargets"][vein_id] = clampi(target, 0, Cultivating.ceiling(vein))
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 static func vein_station_target(vein_id: String) -> int:
@@ -277,7 +277,7 @@ static func vein_auto_feed(vein_id: String) -> bool:
 
 static func set_vein_auto_feed(vein_id: String, on: bool) -> void:
 	GameState.state["veinStationAutoFeed"][vein_id] = on
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # The read-only "Cultivated by X · target N" summary shared by Procurement

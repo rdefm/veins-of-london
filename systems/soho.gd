@@ -206,5 +206,5 @@ static func trade(side: String, cart: Array) -> Dictionary:
 	if side == SELL:
 		BusinessStats.record_sale(int(rows["net"]))
 	Objectives.refresh()
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true, "rows": rows }

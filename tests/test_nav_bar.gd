@@ -33,21 +33,29 @@ func run() -> void:
 
 		for screen_id in ["phone", "map", "hq"]:
 			Nav.go_to(screen_id)
+			EventBus.flush_now()
 			_assert_dock(nav, false, "dark off on %s" % screen_id)
 
 		Preferences.set_map_dark_mode(true)
+		EventBus.flush_now()
 		Nav.go_to("phone")
+		EventBus.flush_now()
 		_assert_dock(nav, false, "dark on, Phone")
 		Nav.go_to("map")
+		EventBus.flush_now()
 		_assert_dock(nav, true, "dark on, Map")
 		assert_true(nav._tiles["map"]._active_bar.visible, "Map's active bar still shows in dark")
 		Nav.go_to("hq")
+		EventBus.flush_now()
 		_assert_dock(nav, false, "dark on, HQ")
 
 		Nav.go_to("map")
+		EventBus.flush_now()
 		Preferences.set_map_dark_mode(false)
+		EventBus.flush_now()
 		_assert_dock(nav, false, "toggled off live on Map")
 		Preferences.set_map_dark_mode(true)
+		EventBus.flush_now()
 		_assert_dock(nav, true, "toggled on live on Map")
 
 		nav.free()

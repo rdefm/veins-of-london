@@ -9,14 +9,14 @@ extends RefCounted
 
 static func open_for_district(district_id: String) -> void:
 	GameState.state["veinListNav"] = { "districtId": district_id, "bandFilter": null, "originScreen": "map" }
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 static func open_all() -> void:
 	GameState.state["veinListNav"] = { "districtId": null, "bandFilter": null, "originScreen": "hq" }
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 static func set_band_filter(band_id: Variant) -> void:
 	GameState.state["veinListNav"]["bandFilter"] = band_id
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()

@@ -14,7 +14,7 @@ static func go_to(screen_id: String) -> void:
 		return
 	GameState.state["currentScreen"] = screen_id
 	EventBus.screen_changed.emit(screen_id)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	# Called after both emits, not before: navigating away can abandon a
 	# still-queued MapEvents animation; clearing it before the emits would let
 	# the outgoing MapCanvas's still-connected listener re-claim the queue.

@@ -53,6 +53,7 @@ func run() -> void:
 		EventBus.state_changed.connect(on_state)
 
 		Notify.push("Test notification.")
+		EventBus.flush_now()
 
 		EventBus.notification_pushed.disconnect(on_notification)
 		EventBus.state_changed.disconnect(on_state)

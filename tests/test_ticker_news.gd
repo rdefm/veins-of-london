@@ -15,6 +15,7 @@ func run() -> void:
 			{ "day": 2, "text": "Newer report" },
 		]
 		PhoneNav.open_app("ticker")
+		EventBus.flush_now()
 		var phone := PhoneScreen.new()
 		phone._ready()
 		var root: Node = phone.find_child("TickerRoot", true, false)
@@ -36,8 +37,10 @@ func run() -> void:
 	run_case("ticker_news_shows_empty_wires_and_rumblings", func():
 		GameState.reset()
 		Barometer.ensure_progress()
+		EventBus.flush_now()
 		GameState.state["barometer"]["progress"]["economic"]["boom"] = 70
 		PhoneNav.open_app("ticker")
+		EventBus.flush_now()
 		var phone := PhoneScreen.new()
 		phone._ready()
 		var root: Node = phone.find_child("TickerRoot", true, false)
@@ -52,9 +55,11 @@ func run() -> void:
 		GameState.state["barometer"]["economic"] = "boom"
 		GameState.state["player"]["cash"] = 5000
 		PhoneNav.open_app("ticker")
+		EventBus.flush_now()
 		var phone := PhoneScreen.new()
 		phone._ready()
 		(phone.find_child("TickerStory_economic", true, false) as Button).pressed.emit()
+		EventBus.flush_now()
 		var article: Node = phone.find_child("TickerArticleSheet", true, false)
 		assert_true(article != null, "story opens an article in the phone")
 		var article_labels := NodeQuery.label_texts(article)
@@ -63,6 +68,7 @@ func run() -> void:
 		assert_true(article_labels.has(GameData.BAROMETER_STATES["economic"]["boom"]["article"]["body"]), "full story appears")
 		assert_true(article_labels.has("All crafted-item demand: +10%."), "impact uses canonical effects")
 		(phone.find_child("TickerInfluenceOpen", true, false) as Button).pressed.emit()
+		EventBus.flush_now()
 		var sheet: Node = phone.find_child("TickerInfluenceSheet", true, false)
 		assert_true(sheet != null, "influence opens direct axis sheet")
 		assert_true(NodeQuery.label_texts(sheet).has("Influence · Economic"), "same axis, no chooser")
@@ -75,6 +81,7 @@ func run() -> void:
 		assert_true((phone.find_child("TickerM4_floodMarket", true, false) as Button).disabled, "M4 action greyed")
 		assert_true(NodeQuery.label_texts(sheet).has("Cost: £2000, 50 ore"), "M4 full cost visible")
 		push.pressed.emit()
+		EventBus.flush_now()
 		assert_eq(GameState.state["player"]["cash"], 3000, "system executes action")
 		EventBus.flush_now()
 		assert_true(phone.find_child("TickerInfluenceSheet", true, false) != null, "action keeps influence sheet open")
@@ -83,6 +90,7 @@ func run() -> void:
 		EventBus.flush_now()
 		assert_true(phone.find_child("TickerArticleSheet", true, false) != null, "closing influence returns to article")
 		(phone.find_child("TickerInfluenceOpen", true, false) as Button).pressed.emit()
+		EventBus.flush_now()
 		NodeQuery.find_button(phone.find_child("TickerInfluenceSheet", true, false), "✕").pressed.emit()
 		EventBus.flush_now()
 		assert_true(phone.find_child("TickerArticleSheet", true, false) != null, "Influence close returns to the same article")
@@ -119,9 +127,11 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["barometer"]["political"] = "regulation"
 		PhoneNav.open_app("ticker")
+		EventBus.flush_now()
 		var phone := PhoneScreen.new()
 		phone._ready()
 		(phone.find_child("TickerStory_political", true, false) as Button).pressed.emit()
+		EventBus.flush_now()
 		var article: Node = phone.find_child("TickerArticleSheet", true, false)
 		assert_true(article != null, "Regulation story opens its article")
 		var labels := NodeQuery.label_texts(article)
@@ -134,9 +144,11 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["player"]["cash"] = 100
 		PhoneNav.select_axis("social")
+		EventBus.flush_now()
 		var phone := PhoneScreen.new()
 		phone._ready()
 		(phone.find_child("TickerInfluenceOpen", true, false) as Button).pressed.emit()
+		EventBus.flush_now()
 		var push := phone.find_child("TickerPush_social_unrest", true, false) as Button
 		var pull := phone.find_child("TickerPull_social_unrest", true, false) as Button
 		assert_true(push.disabled and pull.disabled, "both directions disabled below £2,000")
@@ -148,9 +160,11 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["barometer"]["headlines"] = [{ "day": 2, "text": "Saved wire" }]
 		PhoneNav.open_app("ticker")
+		EventBus.flush_now()
 		var phone := PhoneScreen.new()
 		phone._ready()
 		(phone.find_child("TickerWire", true, false) as Button).pressed.emit()
+		EventBus.flush_now()
 		var wire: Node = phone.find_child("TickerWireArticleSheet", true, false)
 		assert_true(wire != null, "wire article opens")
 		assert_true(NodeQuery.label_texts(wire).has("Saved wire"), "saved text survives")
@@ -158,14 +172,20 @@ func run() -> void:
 		assert_true(NodeQuery.label_texts(wire).has(Barometer.wire_article({ "day": 2, "text": "Saved wire" })["body"]), "old wire has readable fallback copy")
 		assert_true(wire.find_child("TickerInfluenceOpen", true, false) == null, "wire has no influence")
 		(wire.find_child("TickerArticleBack", true, false) as Button).pressed.emit()
+		EventBus.flush_now()
 		assert_true(phone.find_child("TickerWireArticleSheet", true, false) == null, "wire Back returns to News")
 		assert_true(phone.find_child("TickerWire", true, false) != null, "wire remains in feed")
 		(phone.find_child("TickerWire", true, false) as Button).pressed.emit()
+		EventBus.flush_now()
 		(phone.find_child("TickerArticleClose", true, false) as Button).pressed.emit()
+		EventBus.flush_now()
 		assert_true(phone.find_child("TickerWireArticleSheet", true, false) == null, "wire close returns to News")
 		(phone.find_child("TickerWire", true, false) as Button).pressed.emit()
+		EventBus.flush_now()
 		PhoneNav.go_home()
+		EventBus.flush_now()
 		PhoneNav.open_app("ticker")
+		EventBus.flush_now()
 		assert_true(phone.find_child("TickerWireArticleSheet", true, false) == null, "leaving clears wire sheet")
 		phone.free()
 	)
@@ -176,13 +196,16 @@ func run() -> void:
 			"attacker": "collective", "defender": "firm", "ore": "time", "district": "shoreditch",
 		})
 		PhoneNav.open_app("ticker")
+		EventBus.flush_now()
 		var phone := PhoneScreen.new()
 		phone._ready()
 		(phone.find_child("TickerWire", true, false) as Button).pressed.emit()
+		EventBus.flush_now()
 		var wire: Node = phone.find_child("TickerWireArticleSheet", true, false)
 		var labels := NodeQuery.label_texts(wire)
 		var entry: Dictionary = GameState.state["barometer"]["headlines"][0]
 		var article := Barometer.wire_article(entry)
+		EventBus.flush_now()
 		assert_true(labels.has(article["deck"]), "wire deck uses live details")
 		assert_true(labels.has(article["body"]), "wire body uses live details")
 		assert_true(str(article["body"]).contains(GameData.DISTRICTS["shoreditch"]["name"]), "district name resolved")
@@ -194,9 +217,11 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["barometer"]["economic"] = "boom"
 		PhoneNav.open_app("ticker")
+		EventBus.flush_now()
 		var phone := PhoneScreen.new()
 		phone._ready()
 		(phone.find_child("TickerStory_economic", true, false) as Button).pressed.emit()
+		EventBus.flush_now()
 		var article: Node = phone.find_child("TickerArticleSheet", true, false)
 		var back := article.find_child("TickerArticleBack", true, false) as Button
 		var close := article.find_child("TickerArticleClose", true, false) as Button
@@ -212,6 +237,7 @@ func run() -> void:
 		assert_true(influence.has_theme_font_override("font"), "Influence uses Ticker sans font")
 		assert_eq(influence.custom_minimum_size.y, 44.0, "Influence action has compact height")
 		influence.pressed.emit()
+		EventBus.flush_now()
 		var sheet: Node = phone.find_child("TickerInfluenceSheet", true, false)
 		var push := phone.find_child("TickerPush_economic_recession", true, false) as Button
 		var pull := phone.find_child("TickerPull_economic_recession", true, false) as Button
@@ -229,11 +255,13 @@ func run() -> void:
 	await run_case("state_story_navigation_has_room_and_both_returns_work", func():
 		GameState.reset()
 		PhoneNav.open_app("ticker")
+		EventBus.flush_now()
 		var phone := PhoneScreen.new()
 		phone.theme = preload("res://theme/main_theme.tres")
 		(Engine.get_main_loop() as SceneTree).root.add_child(phone)
 		await (Engine.get_main_loop() as SceneTree).process_frame
 		(phone.find_child("TickerStory_economic", true, false) as Button).pressed.emit()
+		EventBus.flush_now()
 		await (Engine.get_main_loop() as SceneTree).process_frame
 		var article := phone.find_child("TickerArticleSheet", true, false) as Control
 		var back := article.find_child("TickerArticleBack", true, false) as Button
@@ -242,9 +270,12 @@ func run() -> void:
 		assert_true(close.size.x >= 44.0 and close.size.y >= 44.0, "close is fully laid out")
 		assert_true(back.get_global_rect().end.x <= close.get_global_rect().position.x, "article controls do not overlap")
 		back.pressed.emit()
+		EventBus.flush_now()
 		assert_true(phone.find_child("TickerArticleSheet", true, false) == null, "Back returns state story to News")
 		(phone.find_child("TickerStory_economic", true, false) as Button).pressed.emit()
+		EventBus.flush_now()
 		(phone.find_child("TickerArticleClose", true, false) as Button).pressed.emit()
+		EventBus.flush_now()
 		assert_true(phone.find_child("TickerArticleSheet", true, false) == null, "close returns state story to News")
 		phone.queue_free()
 		await (Engine.get_main_loop() as SceneTree).process_frame
@@ -253,6 +284,7 @@ func run() -> void:
 	await run_case("ticker_tabs_keep_visible_text_and_selection_after_refresh", func():
 		GameState.reset()
 		PhoneNav.open_app("ticker")
+		EventBus.flush_now()
 		var phone := PhoneScreen.new()
 		phone.theme = preload("res://theme/main_theme.tres")
 		(Engine.get_main_loop() as SceneTree).root.add_child(phone)
@@ -276,8 +308,10 @@ func run() -> void:
 				assert_true(phone.find_child("TickerMarketBrief", true, false) != null, "Stock Market content opens")
 			if selected_id == TickerApp.NEWS_TAB:
 				(phone.find_child("TickerTab_stock", true, false) as Button).pressed.emit()
+				EventBus.flush_now()
 			else:
 				(phone.find_child("TickerTab_news", true, false) as Button).pressed.emit()
+				EventBus.flush_now()
 			await (Engine.get_main_loop() as SceneTree).process_frame
 		phone.queue_free()
 		await (Engine.get_main_loop() as SceneTree).process_frame

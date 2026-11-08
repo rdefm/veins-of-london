@@ -15,18 +15,24 @@ func run() -> void:
 		assert_eq(bar._status_line_text(), "☀ TUE 1 APR Morning")
 		assert_true(bar._progress_line_text().begins_with("▣□□"))
 		TimeSystem.advance_time_block()
+		EventBus.flush_now()
 		assert_eq(bar._status_line_text(), "☀ TUE 1 APR Afternoon")
 		assert_true(bar._progress_line_text().begins_with("✓▣□"))
 		TimeSystem.advance_time_block()
+		EventBus.flush_now()
 		assert_eq(bar._status_line_text(), "☾ TUE 1 APR Evening")
 		assert_true(bar._progress_line_text().begins_with("✓✓▣"))
 		var saved := SaveManager.export_string()
+		EventBus.flush_now()
 		TimeSystem.advance_time_block()
+		EventBus.flush_now()
 		assert_eq(bar._status_line_text(), "☀ WED 2 APR Morning")
 		SaveManager.import_string(saved)
+		EventBus.flush_now()
 		assert_eq(bar._board.target_text(), "☾ TUE 1 APR EVENING")
 		assert_true(bar._board.target_text(1).begins_with("✓✓▣"))
 		TimeSystem.do_rest()
+		EventBus.flush_now()
 		assert_eq(bar._status_line_text(), "☀ WED 2 APR Morning")
 		assert_true(bar._progress_line_text().begins_with("▣□□"))
 		bar.free()
@@ -38,6 +44,7 @@ func run() -> void:
 		bar._ready()
 		assert_eq(bar._board.target_text(), "☀ TUE 1 APR MORNING")
 		Events.start_event("prologue_cold_open")  # at: evening, advance
+		EventBus.flush_now()
 		assert_eq(bar._board.target_text(), "☾ TUE 1 APR EVENING")
 		bar.free()
 	)
@@ -74,6 +81,7 @@ func run() -> void:
 
 		var viewport_width := 390.0
 		var text_width: float = DotMatrixFont.text_width(bar._status_line_text(), TopBar.STATUS_DOT_SIZE, DotMatrixBoard.CHAR_GAP)
+		EventBus.flush_now()
 		assert_true(DotMatrixBoard.SIDE_PADDING + text_width <= viewport_width - bar._board.reserved_right, "the full status string fits before the reserved bag-button zone on a 390-wide viewport")
 
 		bar.free()
@@ -139,6 +147,7 @@ func run() -> void:
 		var on_screen_changed := func(_screen): got_screen_change[0] = true
 		EventBus.screen_changed.connect(on_screen_changed)
 		bar._bag_button.pressed.emit()
+		EventBus.flush_now()
 		EventBus.screen_changed.disconnect(on_screen_changed)
 
 		assert_eq(GameState.state["bagDrawerOpen"], true, "tapping the bag button opens the drawer")
@@ -166,7 +175,9 @@ func run() -> void:
 	run_case("boot_puts_the_latest_existing_notification_straight_on_the_board", func():
 		GameState.reset()
 		Notify.push("First.")
+		EventBus.flush_now()
 		Notify.push("Second.")
+		EventBus.flush_now()
 
 		var bar := TopBar.new()
 		bar._ready()
@@ -184,8 +195,11 @@ func run() -> void:
 		bar._ready()
 
 		Notify.push("One.")
+		EventBus.flush_now()
 		Notify.push("Two.")
+		EventBus.flush_now()
 		Notify.push("Three.")
+		EventBus.flush_now()
 
 		assert_eq(bar._ticker.current_text, "ONE.", "the first rolls straight up")
 		assert_eq(bar._ticker.phase, NotificationTicker.Phase.ROLLING)
@@ -200,9 +214,11 @@ func run() -> void:
 		var bar := TopBar.new()
 		bar._ready()
 		var a := Notify.push("Sticks around.")
+		EventBus.flush_now()
 
 		EventBus.state_changed.emit()
 		Notify.dismiss(a["id"])
+		EventBus.flush_now()
 
 		assert_eq(bar._ticker.current_text, "STICKS AROUND.")
 		assert_eq(bar._ticker.queued(), [] as Array[String], "a refresh isn't a new notification")
@@ -215,12 +231,17 @@ func run() -> void:
 		var bar := TopBar.new()
 		bar._ready()
 		Notify.push("One.")
+		EventBus.flush_now()
 		Notify.push("Owen texted.", Notify.CATEGORY_INFO, { Notify.META_CONTACT_ID: "owen" })
+		EventBus.flush_now()
 		Notify.push("Two.")
+		EventBus.flush_now()
 		Notify.push("Owen again.", Notify.CATEGORY_INFO, { Notify.META_CONTACT_ID: "owen" })
+		EventBus.flush_now()
 		assert_eq(bar._ticker.queued(), ["OWEN TEXTED.", "TWO.", "OWEN AGAIN."] as Array[String], "sanity")
 
 		Messages.clear("owen")
+		EventBus.flush_now()
 
 		assert_eq(bar._ticker.current_text, "ONE.", "the showing message stays")
 		assert_eq(bar._ticker.queued(), ["TWO."] as Array[String], "only that contact's waiting lines drop")
@@ -237,8 +258,11 @@ func run() -> void:
 		bar._ready()
 		GameState.state["combat"]["active"] = true
 		Notify.push("Owen texted.", Notify.CATEGORY_INFO, { Notify.META_CONTACT_ID: "owen" })
+		EventBus.flush_now()
 		Notify.push("Held.")
+		EventBus.flush_now()
 		Messages.clear("owen")
+		EventBus.flush_now()
 		GameState.state["combat"]["active"] = false
 		EventBus.state_changed.emit()
 
@@ -254,7 +278,9 @@ func run() -> void:
 		bar._ready()
 		bar._ticker.size = Vector2(2000, NotificationTicker.row_height())
 		Notify.push("One.")
+		EventBus.flush_now()
 		Notify.push("Two.")
+		EventBus.flush_now()
 
 		bar._ticker.advance(60.0)
 
@@ -267,13 +293,18 @@ func run() -> void:
 	run_case("a_load_or_rewind_resets_the_board_to_that_states_latest_without_replaying", func():
 		GameState.reset()
 		Notify.push("Before save.")
+		EventBus.flush_now()
 		var saved := SaveManager.export_string()
+		EventBus.flush_now()
 		var bar := TopBar.new()
 		bar._ready()
 		Notify.push("After save 1.")
+		EventBus.flush_now()
 		Notify.push("After save 2.")
+		EventBus.flush_now()
 
 		SaveManager.import_string(saved)
+		EventBus.flush_now()
 
 		assert_eq(bar._ticker.current_text, "BEFORE SAVE.")
 		assert_eq(bar._ticker.queued(), [] as Array[String], "the discarded timeline's queue is cleared")
@@ -304,7 +335,9 @@ func run() -> void:
 		GameState.state["combat"]["active"] = true
 
 		Notify.push("Held 1.")
+		EventBus.flush_now()
 		Notify.push("Held 2.")
+		EventBus.flush_now()
 
 		assert_eq(bar._ticker.current_text, "", "nothing reaches the board mid-fight")
 		assert_eq(bar._ticker.queued(), [] as Array[String], "everything holds")
@@ -321,12 +354,16 @@ func run() -> void:
 	run_case("a_load_drops_a_saved_combat_log_notification", func():
 		GameState.reset()
 		Notify.push("Before the fight.")
+		EventBus.flush_now()
 		Notify.push("You attack - 3 damage.", Notify.CATEGORY_INFO, { "combatLog": true })
+		EventBus.flush_now()
 		var saved := SaveManager.export_string()
+		EventBus.flush_now()
 		var bar := TopBar.new()
 		bar._ready()
 
 		SaveManager.import_string(saved)
+		EventBus.flush_now()
 
 		assert_eq(bar._ticker.current_text, "BEFORE THE FIGHT.")
 		assert_eq(GameState.state["notifications"].map(func(n): return n["text"]), ["Before the fight."])
@@ -339,6 +376,7 @@ func run() -> void:
 		var before: int = GameState.state["notifications"].size()
 
 		Combat.start_raid("no_such_vein", 1)
+		EventBus.flush_now()
 		assert_true(Combat.choose_move(CombatRounds.MOVE_STRIKE)["ok"])
 
 		assert_eq(GameState.state["notifications"].size(), before, "fight lines go to the transcript")
@@ -351,6 +389,7 @@ func run() -> void:
 		bar._ready()
 
 		var tap := InputEventMouseButton.new()
+		EventBus.flush_now()
 		tap.button_index = MOUSE_BUTTON_LEFT
 		tap.pressed = true
 		bar._gui_input(tap)

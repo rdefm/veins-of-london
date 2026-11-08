@@ -265,7 +265,7 @@ static func set_racket(on: bool) -> Dictionary:
 	if on and not racket_available():
 		return { "ok": false, "reason": "The Firm has no time for you yet." }
 	GameState.state["perks"]["racket"] = on
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true }
 
 
@@ -291,12 +291,12 @@ static func pay_racket_fee() -> int:
 	if int(player["cash"]) < fee:
 		GameState.state["perks"]["racket"] = false
 		Notify.push("You can't cover the Firm's £%d. The protection ends." % fee, Notify.CATEGORY_WARNING)
-		EventBus.state_changed.emit()
+		EventBus.mark_changed()
 		return 0
 	player["cash"] -= fee
 	Bank.record(-fee, "Protection")
 	Notify.push("Protection: -£%d to the Firm this week." % fee)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return fee
 
 
@@ -406,7 +406,7 @@ static func set_intel_target(faction_id: String) -> Dictionary:
 	if faction_id != "" and not GameData.FACTIONS.has(faction_id):
 		return { "ok": false, "reason": "Unknown faction." }
 	GameState.state["perks"]["intelTarget"] = faction_id
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true }
 
 
@@ -459,7 +459,7 @@ static func commission_market_move(move_id: String, target_id: String) -> Dictio
 	Bank.record(-cost, "Network commission")
 	GameState.state["perks"]["commissionDay"] = int(GameState.state["world"]["day"])
 	FactionAI._make_move(NETWORK, target_id, candidate)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true, "cost": cost }
 
 
@@ -522,7 +522,7 @@ static func recover_vein(vein_id: String) -> Dictionary:
 		perks_state["recoveryUsed"] = true
 		perks_state["raidLost"] = []
 		Notify.push("Conclave lawyers find the paperwork. The vein is yours again.", Notify.CATEGORY_INFO)
-		EventBus.state_changed.emit()
+		EventBus.mark_changed()
 		return { "ok": true }
 	return { "ok": false, "reason": "Nothing there to recover." }
 

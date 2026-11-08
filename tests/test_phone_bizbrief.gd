@@ -21,6 +21,7 @@ static func _label_with_text(root: Node, text: String) -> Label:
 # Opens a Brief detail page (morning/money) from its row below Today.
 static func _open_brief_page(root: Node, page: String) -> void:
 	(root.find_child("BriefRowButton_%s" % page, true, false) as Button).pressed.emit()
+	EventBus.flush_now()
 
 
 static func _row_texts(root: Node, page: String) -> Array:
@@ -29,12 +30,15 @@ static func _row_texts(root: Node, page: String) -> Array:
 
 static func _expand_routine(root: Node) -> void:
 	_button_with_text(root.find_child("TodayRow_routine", true, false), GameData.DAILY_BRIEF["routineExpandLabel"]).pressed.emit()
+	EventBus.flush_now()
 
 
 # Manage tab, then one workstream page (sales/production/procurement).
 static func _open_manage_page(root: Node, page: String) -> void:
 	_button_with_text(root, "Manage").pressed.emit()
+	EventBus.flush_now()
 	(root.find_child("ManageRowButton_%s" % page, true, false) as Button).pressed.emit()
+	EventBus.flush_now()
 
 
 # A phone on the Production page with James crafting; Archie on Sales when staffed.
@@ -46,6 +50,7 @@ static func _production_phone(staffed: bool) -> Control:
 	if staffed:
 		GameState.state["contacts"]["archie"]["recruited"] = true
 		Contacts.assign_to_room("archie", "ops")
+		EventBus.flush_now()
 	GameState.state["phoneNav"]["app"] = "bizbrief"
 	var phone := PhoneScreen.new()
 	phone._ready()
@@ -72,6 +77,7 @@ static func _release(bar: StockBar) -> void:
 # Staff roster → one recruit's detail.
 static func _open_staff_person(root: Node, contact_id: String) -> void:
 	(root.find_child("StaffRowButton_%s" % contact_id, true, false) as Button).pressed.emit()
+	EventBus.flush_now()
 
 
 static func _today_rows(today: Node) -> Array:
@@ -105,6 +111,7 @@ func run() -> void:
 		assert_eq((phone.find_child("BizBriefDayBlock", true, false) as Label).text, "DAY 24 · AFTERNOON")
 		assert_true(_label_with_text(phone, "BizBrief") != null)
 		_button_with_text(phone, "‹ Phone").pressed.emit()
+		EventBus.flush_now()
 		assert_eq(GameState.state["phoneNav"]["app"], "home")
 		phone.free()
 	)
@@ -120,18 +127,22 @@ func run() -> void:
 		assert_true(brief.disabled)
 		assert_eq((brief.get_theme_stylebox("disabled") as StyleBoxFlat).border_width_bottom, 3)
 		_button_with_text(phone, "Manage").pressed.emit()
+		EventBus.flush_now()
 		assert_true(_button_with_text(phone, "Manage").disabled)
 		assert_true(phone.find_child("ManageRow_sales", true, false) != null)
 		GameState.state["flags"]["bizStaffTabOpen"] = true
 		Business.activate()
+		EventBus.flush_now()
 		phone._refresh()
 		assert_true(_button_with_text(phone, "Manage").disabled)
 		assert_true(_button_with_text(phone, "Staff") != null)
 		assert_true(_button_with_text(phone, "Stats") != null)
 		_button_with_text(phone, "Staff").pressed.emit()
+		EventBus.flush_now()
 		assert_true(_button_with_text(phone, "Staff").disabled)
 		assert_true(NodeQuery.label_texts(phone).has("Staff"))
 		_button_with_text(phone, "Stats").pressed.emit()
+		EventBus.flush_now()
 		assert_true(_button_with_text(phone, "Stats").disabled)
 		assert_true(NodeQuery.label_texts(phone).has("Expenses by kind"))
 		GameState.state["business"]["potActive"] = false
@@ -169,6 +180,7 @@ func run() -> void:
 			"exceptions": [],
 		}
 		Messages.append("archie", "them", "Call me.")
+		EventBus.flush_now()
 		GameState.state["phoneNav"]["app"] = "bizbrief"
 		var phone := PhoneScreen.new()
 		phone._ready()
@@ -191,6 +203,7 @@ func run() -> void:
 		assert_eq(texts.count("Opening £200 · Closing £145"), 1, "each figure once")
 		assert_true(not _button_with_text(phone, "Brief").disabled, "Brief tab returns from the page")
 		(phone.find_child("BriefBack", true, false) as Button).pressed.emit()
+		EventBus.flush_now()
 		assert_true(phone.find_child("BizBriefToday", true, false) != null, "back returns to Today")
 		phone.free()
 	)
@@ -209,6 +222,7 @@ func run() -> void:
 		var row: Node = phone.find_child("TodayRow_development_eligible", true, false)
 		assert_true(row != null, "row keyed by vein")
 		_button_with_text(row, "Tend vein").pressed.emit()
+		EventBus.flush_now()
 		assert_eq(GameState.state["currentScreen"], "map")
 		assert_eq(GameState.state["mapNav"]["selectedSiteId"], "site_eligible")
 		assert_eq(GameState.state["morningAccounts"]["briefTicks"], ["development:eligible"], "the tap records the tick")
@@ -224,18 +238,23 @@ func run() -> void:
 		GameState.state["flags"]["canSellConsumables"] = true
 		GameState.state["barometer"]["social"] = "festival"
 		Crafting.inventory_add("blast", 1, 2)
+		EventBus.flush_now()
 		var faction_id: String = GameData.FACTIONS.keys()[0]
 		var contact_id := KeyMembers.speaker_for(faction_id)
+		EventBus.flush_now()
 		Messages.queue_pending(contact_id, Diplomacy.FAVOUR_KIND, "A favour.", { "factionId": faction_id, "favourId": "f1", "expiresDay": 99 })
+		EventBus.flush_now()
 		GameState.state["phoneNav"]["app"] = "bizbrief"
 		var phone := PhoneScreen.new()
 		phone._ready()
 		var offer_node := "OfferCard_%s" % String(offer["id"]).validate_node_name()
 		assert_true(phone.find_child(offer_node, true, false) == null, "Brief tab: no offer cards yet")
 		_button_with_text(phone.find_child("TodayRow_offer_%s" % String(offer["id"]).validate_node_name(), true, false), "View offer").pressed.emit()
+		EventBus.flush_now()
 		assert_true(phone.find_child(offer_node, true, false) != null, "View offer opens Sales on the offer card")
 		assert_true(phone.find_child("ManageSubnav", true, false) != null, "on the Sales page")
 		_button_with_text(phone, "‹ Manage").pressed.emit()
+		EventBus.flush_now()
 		assert_true(phone.find_child("ManageRow_sales", true, false) != null, "back returns to the Manage index")
 		assert_true(_button_with_text(phone, "Manage").disabled)
 		phone.free()
@@ -244,10 +263,12 @@ func run() -> void:
 		phone = PhoneScreen.new()
 		phone._ready()
 		_button_with_text(phone.find_child("TodayRow_demand_blast", true, false), "Sell").pressed.emit()
+		EventBus.flush_now()
 		assert_eq(GameState.state["modal"]["type"], "sell_menu", "Sell opens the Trade sheet")
 		GameState.state["modal"] = null
 		var favour_row: Node = phone.find_child("TodayRow_favour_%s" % String(GameState.state["pendingMessages"][0]["id"]).validate_node_name(), true, false)
 		_button_with_text(favour_row, "Read message").pressed.emit()
+		EventBus.flush_now()
 		assert_eq([GameState.state["phoneNav"]["app"], GameState.state["phoneNav"]["selectedContactId"]], ["messages", contact_id], "favour opens the key member's thread")
 		phone.free()
 	)
@@ -264,6 +285,7 @@ func run() -> void:
 		assert_true(texts.has(BizBriefApp.MORNING_REPORT_EMPTY_TEXT))
 		assert_true(not texts.any(func(t: String): return t.begins_with("Opening £")), "no sample account")
 		_button_with_text(phone, "Brief").pressed.emit()
+		EventBus.flush_now()
 		_open_brief_page(phone, "money")
 		texts = NodeQuery.label_texts(phone)
 		assert_true(texts.has("/ Business money"))
@@ -276,6 +298,7 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["player"]["cash"] = 300
 		Business.activate()
+		EventBus.flush_now()
 		GameState.state["business"]["pot"] = 120
 		GameState.state["phoneNav"]["app"] = "bizbrief"
 		var phone := PhoneScreen.new()
@@ -291,12 +314,14 @@ func run() -> void:
 		assert_true(NodeQuery.label_texts(float_card).has("Cash in hand £300"))
 		assert_true(_button_with_text(phone, "Withdraw").disabled, "empty float: nothing to withdraw")
 		_button_with_text(phone, "Donate").pressed.emit()
+		EventBus.flush_now()
 		assert_eq(GameState.state["business"]["float"], 1)
 		assert_eq(GameState.state["player"]["cash"], 299)
 		assert_eq(GameState.state["business"]["pot"], 120, "the pot is untouched")
 		EventBus.flush_now()
 		assert_true(NodeQuery.label_texts(phone.find_child("BizBriefFloat", true, false)).has("£1"), "page stays open on refresh")
 		_button_with_text(phone, "Withdraw").pressed.emit()
+		EventBus.flush_now()
 		assert_eq(GameState.state["business"]["float"], 0)
 		assert_eq(GameState.state["player"]["cash"], 300)
 		phone.free()
@@ -309,7 +334,9 @@ func run() -> void:
 		GameState.state["world"]["day"] = Calendar.monday_on_or_after(8)
 		GameState.state["player"]["cash"] = 0
 		GuardUpkeep.pay_monday_bill()
+		EventBus.flush_now()
 		PhoneNav.open_short_pay()
+		EventBus.flush_now()
 		var phone := PhoneScreen.new()
 		phone._ready()
 		assert_true(phone.find_child("BizBriefShortPay", true, false) != null)
@@ -318,12 +345,16 @@ func run() -> void:
 		assert_true(NodeQuery.label_texts(phone).has("This week £500 · Reserve £0"))
 		assert_true(_button_with_text(phone, "Confirm").disabled)
 		_button_with_text(phone, "‹ BizBrief").pressed.emit()
+		EventBus.flush_now()
 		assert_eq(GameState.state["phoneNav"]["bizbriefView"], null)
 		PhoneNav.open_short_pay()
+		EventBus.flush_now()
 		_button_with_text(phone, "−").pressed.emit()
+		EventBus.flush_now()
 		assert_true(NodeQuery.label_texts(phone).has("Keep 0"))
 		assert_true(NodeQuery.label_texts(phone).has("This week £0 · Reserve £0"))
 		_button_with_text(phone, "Confirm").pressed.emit()
+		EventBus.flush_now()
 		assert_eq(GuardUpkeep.pending_shortfall(), null)
 		assert_eq(GameState.state["phoneNav"]["bizbriefView"], null)
 		phone.free()
@@ -376,8 +407,10 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["world"]["day"] = 2
 		Business.activate()
+		EventBus.flush_now()
 		for i in 6:
 			TimeSystem.do_rest()
+			EventBus.flush_now()
 		GameState.state["morningAccounts"]["latest"]["payday"] = {
 			"payday": "payday-1", "day": 7, "receipts": 750,
 			"expenses": [{ "kind": "wage", "contactId": "owen", "amount": 250 }, { "kind": "calc", "source": "The Firm", "amount": 30 }],
@@ -400,7 +433,9 @@ func run() -> void:
 		]:
 			assert_true(texts.has(expected), "missing %s" % expected)
 		_button_with_text(phone, "‹ Brief").pressed.emit()
+		EventBus.flush_now()
 		_button_with_text(phone, "Yes").pressed.emit()
+		EventBus.flush_now()
 		assert_eq(Business.owed("owen"), 0, "Yes tops up the float and pays from it")
 		assert_eq(GameState.state["player"]["cash"], 786)
 		assert_eq(GameState.state["business"]["float"], 0)
@@ -411,12 +446,15 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["world"]["day"] = 2
 		Business.activate()
+		EventBus.flush_now()
 		for i in 6:
 			TimeSystem.do_rest()
+			EventBus.flush_now()
 		GameState.state["phoneNav"]["app"] = "bizbrief"
 		var phone := PhoneScreen.new()
 		phone._ready()
 		_button_with_text(phone, "No").pressed.emit()
+		EventBus.flush_now()
 		assert_true(Business.is_unpaid("owen"))
 		assert_eq(Business.pending_wage_prompts(), [])
 		phone.free()
@@ -427,6 +465,7 @@ func run() -> void:
 		for id in GameState.state["objectives"]:
 			GameState.state["objectives"][id]["active"] = false
 		MorningAccountsSystem.finish_rollover(MorningAccountsSystem.begin_rollover())
+		EventBus.flush_now()
 		GameState.state["phoneNav"]["app"] = "bizbrief"
 		var phone := PhoneScreen.new()
 		phone._ready()
@@ -444,12 +483,14 @@ func run() -> void:
 		for id in GameState.state["objectives"]:
 			GameState.state["objectives"][id]["active"] = false
 		var created: Dictionary = Offers.create_offer({ "id": "t_today_contract", "source": "random", "contractType": "oneOff", "request": { "kind": "ore", "type": "physics", "qty": 5 } })
+		EventBus.flush_now()
 		var contract: Dictionary = Offers.accept_offer(created["offer"]["id"])["contract"]
 		GameState.state["phoneNav"]["app"] = "bizbrief"
 		var phone := PhoneScreen.new()
 		phone._ready()
 		var row: Node = phone.find_child("TodayRow_%s" % ("contract:%s" % contract["id"]).validate_node_name(), true, false)
 		_button_with_text(row, "Check order").pressed.emit()
+		EventBus.flush_now()
 		var card: Node = phone.find_child("ContractCard_%s" % String(contract["id"]).validate_node_name(), true, false)
 		assert_true(card != null, "Check order opens Sales on the contract card")
 		assert_true(_button_with_text(card, "Details ▾") != null, "with its details open")
@@ -466,25 +507,30 @@ func run() -> void:
 		var manage := _button_with_text(phone, "Manage")
 		assert_true(manage != null, "BizBrief exposes Manage beside Brief")
 		manage.pressed.emit()
+		EventBus.flush_now()
 		var texts := NodeQuery.label_texts(phone)
 		for expected in ["Sales", "No offers or orders yet.", "Production", "Needs the Improved Lab.", "Procurement", "Needs the Vein Cultivation Station."]:
 			assert_true(texts.has(expected), "missing %s" % expected)
 		assert_true(phone.find_children("OfferCard_*", "", true, false).is_empty(), "index carries no offer cards")
 		assert_true(not texts.has("Yesterday"), "Manage does not duplicate the Brief tab")
 		(phone.find_child("ManageRowButton_sales", true, false) as Button).pressed.emit()
+		EventBus.flush_now()
 		texts = NodeQuery.label_texts(phone)
 		assert_eq(texts.count("No offers or orders yet."), 1, "one empty Sales state")
 		for repeated in ["No pending offers.", "No accepted contracts.", "Offered · 0", "Accepted · 0"]:
 			assert_true(not texts.has(repeated), "no repeated empty line %s" % repeated)
 		assert_true(not _button_with_text(phone, "Manage").disabled, "Manage tab returns to the index from a page")
 		_button_with_text(phone, "Manage").pressed.emit()
+		EventBus.flush_now()
 		assert_true(phone.find_child("ManageRow_production", true, false) != null)
 		Offers.create_scripted_offer("scripted_life_order")
+		EventBus.flush_now()
 		phone._refresh()
 		assert_true(NodeQuery.label_texts(phone).has("1 offer waiting"), "Sales status follows live offers")
 		var brief := _button_with_text(phone, "Brief")
 		assert_true(brief != null, "Manage keeps the Brief tab available")
 		brief.pressed.emit()
+		EventBus.flush_now()
 		assert_true(NodeQuery.label_texts(phone).has("Yesterday"), "Brief keeps its Yesterday summary")
 		phone.free()
 	)
@@ -503,13 +549,16 @@ func run() -> void:
 		assert_true(texts.has("Offered · 1"))
 		assert_true(texts.has("expires %s · £%d per delivery" % [Calendar.format_day(int(offer["expiresDay"])), payment]))
 		_button_with_text(phone, "Accept").pressed.emit()
+		EventBus.flush_now()
 		assert_eq(Contracts.active_contracts().size(), 1)
 		assert_true(NodeQuery.label_texts(phone).has("1 active. %s" % BizBriefApp.SALES_STATUS_TEXT[false]))
 		assert_true(NodeQuery.label_texts(phone).has("Accepted · 1"))
 		assert_true(_button_with_text(phone, "Details →") != null)
 		_button_with_text(phone, "Details →").pressed.emit()
+		EventBus.flush_now()
 		assert_true(NodeQuery.label_texts(phone).has("£%d per delivery" % payment))
 		_button_with_text(phone, "Buy missing calc: off").pressed.emit()
+		EventBus.flush_now()
 		assert_true(bool(Contracts.active_contracts()[0].get("buyCalc", false)))
 		phone.free()
 	)
@@ -522,24 +571,34 @@ func run() -> void:
 		phone._ready()
 		_open_manage_page(phone, "sales")
 		_button_with_text(phone, "Decline").pressed.emit()
+		EventBus.flush_now()
 		assert_true(Offers.pending_offers().is_empty())
 		var first: Dictionary = Offers.accept_offer(Offers.create_scripted_offer("scripted_life_order")["offer"]["id"])["contract"]
+		EventBus.flush_now()
 		var second: Dictionary = Offers.accept_offer(Offers.create_scripted_offer("scripted_life_order")["offer"]["id"])["contract"]
+		EventBus.flush_now()
 		var cards: Array = phone.find_children("", "ContractCard", true, false)
 		assert_eq(cards.size(), 2)
 		cards[0]._drop_data(Vector2.ZERO, { "contractId": second["id"] })
+		EventBus.flush_now()
 		assert_eq(Contracts.active_contracts()[0]["id"], second["id"])
 		_button_with_text(phone, "Details →").pressed.emit()
+		EventBus.flush_now()
 		_button_with_text(phone, "Cancel contract").pressed.emit()
+		EventBus.flush_now()
 		var layer := ModalLayer.new()
 		layer._ready()
 		assert_true((layer._card.get_theme_stylebox("panel") as StyleBoxFlat).bg_color.is_equal_approx(Color("#172431")))
 		_button_with_text(layer, "Keep").pressed.emit()
+		EventBus.flush_now()
 		assert_eq(Contracts.active_contracts().size(), 2)
 		_button_with_text(phone, "Cancel contract").pressed.emit()
+		EventBus.flush_now()
 		_button_with_text(layer, "Confirm").pressed.emit()
+		EventBus.flush_now()
 		assert_eq(Contracts.active_contracts().size(), 1)
 		_button_with_text(phone, "History →").pressed.emit()
+		EventBus.flush_now()
 		assert_true(NodeQuery.label_texts(phone).any(func(t: String): return t.contains("cancelled")))
 		layer.free()
 		phone.free()
@@ -557,6 +616,7 @@ func run() -> void:
 		assert_true(NodeQuery.label_texts(phone).has("Renewal. Same order, today's price."))
 		assert_true(_button_with_text(phone, "Accept") == null)
 		_button_with_text(phone, "Match £12").pressed.emit()
+		EventBus.flush_now()
 		assert_eq(Contracts.active_contracts()[0]["signedQuote"]["payment"], 12)
 		phone.free()
 	)
@@ -591,7 +651,9 @@ func run() -> void:
 		GameState.state["contacts"]["james"]["recruited"] = true
 		GameState.state["flags"]["bizJamesProductionRole"] = true
 		var created: Dictionary = Offers.create_offer({ "id": "manage_need", "source": "random", "contractType": "oneOff", "request": { "kind": "consumable", "type": "timePearl", "qty": 3 } })
+		EventBus.flush_now()
 		Offers.accept_offer(created["offer"]["id"])
+		EventBus.flush_now()
 		GameState.state["phoneNav"]["app"] = "bizbrief"
 		var phone := PhoneScreen.new()
 		phone._ready()
@@ -619,6 +681,7 @@ func run() -> void:
 		var cover := _button_with_text(phone, "Cover contract needs")
 		assert_true(cover != null)
 		cover.pressed.emit()
+		EventBus.flush_now()
 		assert_true(GameState.state["labCoverContracts"]["timePearl"])
 		assert_true(NodeQuery.label_texts(phone).has("Keep: 5 · contract need: 3 · crafting to: 8"))
 		phone.free()
@@ -645,6 +708,7 @@ func run() -> void:
 	run_case("production_mood_and_cutoff_drive_the_live_line_from_the_projection", func():
 		var phone := _production_phone(true)
 		Crafting.inventory_add("timePearl", 1, 30)
+		EventBus.flush_now()
 		GameState.state["autoSell"]["timePearl"] = { "sellAbove": GameData.PRODUCTION_TARGET_MAX, "mood": "balanced" }
 		EventBus.state_changed.emit()
 		assert_true(NodeQuery.label_texts(phone).has("30 in stock"), "stock sits on the item's row")
@@ -654,10 +718,12 @@ func run() -> void:
 
 		GameState.state["autoSell"]["timePearl"]["sellAbove"] = 10
 		(phone.find_child("AutoSellMood_timePearl_aggressive", true, false) as Button).pressed.emit()
+		EventBus.flush_now()
 		assert_eq(AutoSell.rule("timePearl")["mood"], "aggressive")
 		EventBus.flush_now()
 		assert_true(NodeQuery.label_texts(phone).has(BizBriefApp.AUTO_SELL_MOODS["aggressive"]["meaning"]))
 		var projected := AutoSell.projection("timePearl")
+		EventBus.flush_now()
 		assert_true(int(projected["qty"]) > 0, "fixture: London takes some")
 		var line := (phone.find_child("AutoSellLine_timePearl", true, false) as Label)
 		assert_eq(line.text, "Today: would sell %d at about £%d" % [projected["qty"], projected["income"]])
@@ -678,10 +744,15 @@ func run() -> void:
 	run_case("production_shows_contract_floor_above_the_cutoff", func():
 		var phone := _production_phone(true)
 		Crafting.inventory_add("timePearl", 1, 12)
+		EventBus.flush_now()
 		var created: Dictionary = Offers.create_offer({ "id": "floor_need", "source": "random", "contractType": "oneOff", "request": { "kind": "consumable", "type": "timePearl", "qty": 9 } })
+		EventBus.flush_now()
 		Offers.accept_offer(created["offer"]["id"])
+		EventBus.flush_now()
 		Rooms.set_lab_cover_contracts("timePearl", true)
+		EventBus.flush_now()
 		Rooms.set_lab_threshold("timePearl", 3)
+		EventBus.flush_now()
 		GameState.state["autoSell"]["timePearl"] = { "sellAbove": 5, "mood": "aggressive" }
 		EventBus.state_changed.emit()
 
@@ -694,6 +765,7 @@ func run() -> void:
 
 		var hold := Label.new()
 		BizBriefApp._show_contract_hold(hold, "timePearl", 3, 20)
+		EventBus.flush_now()
 		assert_true(not hold.visible, "a cutoff over the floor hides the line")
 		hold.free()
 		phone.free()
@@ -710,18 +782,24 @@ func run() -> void:
 		GameState.state["player"]["orichalchum"] = { "time": 0, "life": 0 }
 		GameState.state["labThresholds"]["timePearl"] = 3
 		var created: Dictionary = Offers.create_offer({ "id": "status_need", "source": "random", "contractType": "oneOff", "request": { "kind": "consumable", "type": "rewind", "qty": 2 } })
+		EventBus.flush_now()
 		Offers.accept_offer(created["offer"]["id"])
+		EventBus.flush_now()
 		GameState.state["phoneNav"]["app"] = "bizbrief"
 		var phone := PhoneScreen.new()
 		phone._ready()
 		_button_with_text(phone, "Manage").pressed.emit()
+		EventBus.flush_now()
 		var total: int = Rooms.production_recipes().size()
+		EventBus.flush_now()
 		assert_true(NodeQuery.label_texts(phone).has("1 of %d recipes targeted · 2 contract need not covered" % total), "Manage status counts targets and uncovered need")
 		_button_with_text(phone, "Brief").pressed.emit()
+		EventBus.flush_now()
 		_expand_routine(phone)
 		var today_row: Node = phone.find_child("TodayRow_oreShort_timePearl", true, false)
 		assert_true(today_row != null, "ore-short Today row present")
 		_button_with_text(today_row, "Fix production").pressed.emit()
+		EventBus.flush_now()
 		assert_true(phone.find_child("ProductionRecipe_timePearl", true, false) != null, "Fix production opens the Production page")
 		assert_true(NodeQuery.label_texts(phone).has("/ Production"))
 		phone.free()
@@ -742,6 +820,7 @@ func run() -> void:
 		assert_true(_button_with_text(phone, "Log →") != null)
 		assert_true(_button_with_text(phone, "TUE 2 APR · 7 made · 2 failed ▸") == null)
 		_button_with_text(phone, "Log →").pressed.emit()
+		EventBus.flush_now()
 		assert_true(_button_with_text(phone, "Log ▾") != null)
 
 		var row := _button_with_text(phone, "TUE 2 APR · 7 made · 2 failed ▸")
@@ -750,7 +829,9 @@ func run() -> void:
 		var entry_label := _label_with_text(phone, "James made 7 Time Pearl (tier 3)")
 		assert_true(entry_label != null and not entry_label.get_parent().visible, "collapsed hides entries")
 		var before: Dictionary = GameState.deep_copy(GameState.state)
+		EventBus.flush_now()
 		row.pressed.emit()
+		EventBus.flush_now()
 		assert_eq(GameState.state, before, "expanding only changes view state")
 		assert_true(entry_label.get_parent().visible, "tap expands the day")
 
@@ -759,8 +840,10 @@ func run() -> void:
 		assert_true(texts.has("James failed 2 Time Pearl"))
 		assert_true(texts.has("James stopped: not enough Time Orichalchum for Time Pearl"), "ore-short note")
 		row.pressed.emit()
+		EventBus.flush_now()
 		assert_true(not entry_label.get_parent().visible, "tap again collapses")
 		_button_with_text(phone, "Log ▾").pressed.emit()
+		EventBus.flush_now()
 		assert_true(_button_with_text(phone, "TUE 2 APR · 7 made · 2 failed ▸") == null)
 		phone.free()
 	)
@@ -785,6 +868,7 @@ func run() -> void:
 		GameState.state["player"]["veins"] = [_brief_vein()]
 		GameState.state["contacts"]["archie"]["recruited"] = true
 		Contacts.assign_to_room("archie", "veinStation")
+		EventBus.flush_now()
 		GameState.state["phoneNav"]["app"] = "bizbrief"
 		var phone := PhoneScreen.new()
 		phone._ready()
@@ -794,12 +878,14 @@ func run() -> void:
 		assert_true(NodeQuery.label_texts(phone).has("No veins assigned."))
 		assert_true(phone.find_child("VeinChoice_v1", true, false) == null, "list page does not repeat unassigned veins")
 		_button_with_text(phone, "Assign vein").pressed.emit()
+		EventBus.flush_now()
 
 		assert_true(phone.find_child("VeinChooser", true, false) != null, "chooser opens")
 		assert_true(NodeQuery.label_texts(phone).has("Assign vein · Archie"))
 		var choice := phone.find_child("VeinChoice_v1", true, false).get_child(0) as Button
 		assert_true(choice.text.contains("Time Orichalchum"), "choice identifies the ore/district")
 		choice.pressed.emit()
+		EventBus.flush_now()
 
 		assert_eq(Rooms.cultivator_veins("archie"), ["v1"])
 		assert_true(phone.find_child("VeinChooser", true, false) == null, "picking closes the chooser")
@@ -814,12 +900,15 @@ func run() -> void:
 		GameState.state["player"]["veins"] = [_brief_vein()]
 		GameState.state["contacts"]["archie"]["recruited"] = true
 		Contacts.assign_to_room("archie", "veinStation")
+		EventBus.flush_now()
 		GameState.state["phoneNav"]["app"] = "bizbrief"
 		var phone := PhoneScreen.new()
 		phone._ready()
 		_open_manage_page(phone, "procurement")
 		_button_with_text(phone, "Assign vein").pressed.emit()
+		EventBus.flush_now()
 		_button_with_text(phone, "Cancel").pressed.emit()
+		EventBus.flush_now()
 
 		assert_true(phone.find_child("VeinChooser", true, false) == null)
 		assert_true(NodeQuery.label_texts(phone).has("No veins assigned."))
@@ -833,11 +922,15 @@ func run() -> void:
 		GameState.state["player"]["veins"] = [_brief_vein()]
 		GameState.state["contacts"]["archie"]["recruited"] = true
 		Contacts.assign_to_room("archie", "veinStation")
+		EventBus.flush_now()
 		GameState.state["contacts"]["owen"]["recruited"] = true
 		GameState.state["flags"]["bizOwenCultivationRole"] = true
 		Contacts.set_role("owen", "cultivation")
+		EventBus.flush_now()
 		Rooms.assign_vein("archie", "v1")
+		EventBus.flush_now()
 		Rooms.set_vein_station_target("v1", 85)
+		EventBus.flush_now()
 		GameState.state["phoneNav"]["app"] = "bizbrief"
 		var phone := PhoneScreen.new()
 		phone._ready()
@@ -845,8 +938,10 @@ func run() -> void:
 
 		assert_true(phone.find_child("Cultivator_archie", true, false).find_children("", "Button", true, false).all(func(b: Button) -> bool: return b.text != "Assign vein"), "Archie holds every vein")
 		_button_with_text(phone.find_child("Cultivator_owen", true, false), "Assign vein").pressed.emit()
+		EventBus.flush_now()
 		assert_true(NodeQuery.label_texts(phone).has("Cultivated by Archie · target 85"), "chooser names the current holder")
 		(phone.find_child("VeinChoice_v1", true, false).get_child(0) as Button).pressed.emit()
+		EventBus.flush_now()
 
 		assert_eq(Rooms.cultivator_veins("archie"), [])
 		assert_eq(Rooms.cultivator_veins("owen"), ["v1"])
@@ -868,6 +963,7 @@ func run() -> void:
 		GameState.state["player"]["veins"] = []
 		GameState.state["contacts"]["archie"]["recruited"] = true
 		Contacts.assign_to_room("archie", "veinStation")
+		EventBus.flush_now()
 		phone = PhoneScreen.new()
 		phone._ready()
 		_open_manage_page(phone, "procurement")
@@ -882,6 +978,7 @@ func run() -> void:
 		GameState.state["contacts"]["owen"]["recruited"] = true
 		GameState.state["flags"]["bizOwenCultivationRole"] = true
 		Contacts.set_role("owen", "cultivation")
+		EventBus.flush_now()
 		GameState.state["phoneNav"]["app"] = "bizbrief"
 		var phone := PhoneScreen.new()
 		phone._ready()
@@ -898,7 +995,9 @@ func run() -> void:
 		GameState.state["player"]["veins"] = [_brief_vein()]
 		GameState.state["contacts"]["archie"]["recruited"] = true
 		Contacts.assign_to_room("archie", "veinStation")
+		EventBus.flush_now()
 		Rooms.assign_vein("archie", "v1")
+		EventBus.flush_now()
 		GameState.state["phoneNav"]["app"] = "bizbrief"
 		var phone := PhoneScreen.new()
 		phone._ready()
@@ -907,12 +1006,15 @@ func run() -> void:
 		assert_true(NodeQuery.label_texts(phone).has("Target: 70"))
 
 		_button_with_text(phone, "+5").pressed.emit()
+		EventBus.flush_now()
 		assert_eq(GameState.state["veinStationTargets"]["v1"], 75)
 
 		_button_with_text(phone, "-5").pressed.emit()
+		EventBus.flush_now()
 		assert_eq(GameState.state["veinStationTargets"]["v1"], 70)
 
 		_button_with_text(phone, "Unassign").pressed.emit()
+		EventBus.flush_now()
 		assert_eq(Rooms.cultivator_veins("archie"), [])
 		phone.free()
 	)
@@ -941,6 +1043,7 @@ func run() -> void:
 		phone.free()
 
 		Business.activate()
+		EventBus.flush_now()
 		GameState.state["world"]["day"] = 13
 		GameState.state["businessStats"]["days"] = [
 			{ "day": 3, "revenue": 400, "expenses": 90, "expensesStaff": 20, "expensesGuard": 50, "expensesCalc": 20, "oreCultivator": 8, "orePlayer": 2, "items": 3 },
@@ -949,6 +1052,7 @@ func run() -> void:
 		phone = PhoneScreen.new()
 		phone._ready()
 		_button_with_text(phone, "Stats").pressed.emit()
+		EventBus.flush_now()
 		var charts := phone.find_children("*", "LineChart", true, false)
 		assert_eq(charts.size(), 3, "daily trend, ore yield, item production")
 		assert_eq((charts[0] as LineChart)._values, BusinessStats.series("revenue"))
@@ -965,6 +1069,7 @@ func run() -> void:
 		assert_eq((charts[1] as LineChart)._values, BusinessStats.series("oreCultivator"))
 		assert_eq((_button_with_text(phone, "Cultivators").get_theme_stylebox("disabled") as StyleBoxFlat).border_color, BizBriefApp.SIGNAL)
 		_button_with_text(phone, "You").pressed.emit()
+		EventBus.flush_now()
 		assert_true(_button_with_text(phone, "You").disabled)
 		assert_true(not _button_with_text(phone, "Cultivators").disabled)
 		charts = phone.find_children("*", "LineChart", true, false)
@@ -977,11 +1082,13 @@ func run() -> void:
 	run_case("stats_labels_short_and_empty_history_without_today", func():
 		GameState.reset()
 		Business.activate()
+		EventBus.flush_now()
 		GameState.state["phoneNav"]["app"] = "bizbrief"
 		GameState.state["businessStats"]["today"]["revenue"] = 999
 		var phone := PhoneScreen.new()
 		phone._ready()
 		_button_with_text(phone, "Stats").pressed.emit()
+		EventBus.flush_now()
 		var texts := NodeQuery.label_texts(phone)
 		assert_eq(phone.find_children("*", "LineChart", true, false).size(), 0, "no chart before a completed day")
 		assert_true(texts.has("No full day on the books yet. Figures start once today ends."))
@@ -995,6 +1102,7 @@ func run() -> void:
 		phone = PhoneScreen.new()
 		phone._ready()
 		_button_with_text(phone, "Stats").pressed.emit()
+		EventBus.flush_now()
 		texts = NodeQuery.label_texts(phone)
 		assert_eq(phone.find_children("*", "LineChart", true, false).size(), 3)
 		assert_true(texts.has("TOTALS · LAST 2 DAYS"), "short window names its real length")
@@ -1006,14 +1114,18 @@ func run() -> void:
 	run_case("guard_costs_view_opens_from_the_guard_legend_and_filters_lines", func():
 		GameState.reset()
 		Business.activate()
+		EventBus.flush_now()
 		GameState.state["phoneNav"]["app"] = "bizbrief"
 		var phone := PhoneScreen.new()
 		phone._ready()
 		_button_with_text(phone, "Stats").pressed.emit()
+		EventBus.flush_now()
 		_button_with_text(phone, "GUARD WAGES ↗").pressed.emit()
+		EventBus.flush_now()
 		assert_eq(GameState.state["phoneNav"]["bizbriefView"], PhoneNav.BIZBRIEF_GUARD_COSTS_VIEW)
 		assert_true(phone.find_child("BizBriefGuardCosts", true, false) != null)
 		_button_with_text(phone, "‹ BizBrief").pressed.emit()
+		EventBus.flush_now()
 		assert_eq(GameState.state["phoneNav"]["bizbriefView"], null)
 		assert_true(_button_with_text(phone, "Stats").disabled, "back returns to Stats")
 		phone.free()
@@ -1025,7 +1137,9 @@ func run() -> void:
 		vein["security"] = "guarded"
 		GameState.state["world"]["day"] = Calendar.monday_on_or_after(8)
 		GuardUpkeep.record_payment("v1", 500)
+		EventBus.flush_now()
 		PhoneNav.open_guard_costs()
+		EventBus.flush_now()
 		var phone := PhoneScreen.new()
 		phone._ready()
 		assert_true(_label_with_text(phone, "Next Monday: £500") != null, "next bill header")
@@ -1033,6 +1147,7 @@ func run() -> void:
 		var hq := _button_with_text(phone, "● HQ")
 		assert_true(hq != null, "HQ in the filter, on by default")
 		hq.pressed.emit()
+		EventBus.flush_now()
 		assert_true(_button_with_text(phone, "○ HQ") != null, "toggled off")
 		phone.free()
 
@@ -1053,12 +1168,16 @@ func run() -> void:
 		GameState.state["world"]["day"] = Calendar.monday_on_or_after(8)
 		GameState.state["player"]["cash"] = 0
 		GuardUpkeep.pay_monday_bill()
+		EventBus.flush_now()
 		PhoneNav.open_guard_costs()
+		EventBus.flush_now()
 		var phone := PhoneScreen.new()
 		phone._ready()
 		var deadline := Calendar.format_day(int(GuardUpkeep.pending_shortfall()["deadline"]))
+		EventBus.flush_now()
 		assert_true(_label_with_text(phone, "Unpaid this week: £500 · reserve £0 · decide by %s" % deadline) != null)
 		_button_with_text(phone, "Choose who stays ›").pressed.emit()
+		EventBus.flush_now()
 		assert_eq(GameState.state["phoneNav"]["bizbriefView"], PhoneNav.BIZBRIEF_SHORT_PAY_VIEW)
 		phone.free()
 	)
@@ -1070,13 +1189,16 @@ func run() -> void:
 		GameState.state["contacts"]["archie"]["recruited"] = true
 		GameState.state["contacts"]["owen"]["recruited"] = true
 		Contacts.set_role("owen", "cultivation")
+		EventBus.flush_now()
 		Business.activate()
+		EventBus.flush_now()
 		GameState.state["business"]["wages"]["owen"]["unpaid"] = true
 		GameState.state["business"]["wages"]["owen"]["owed"] = 120
 		GameState.state["phoneNav"]["app"] = "bizbrief"
 		var phone := PhoneScreen.new()
 		phone._ready()
 		_button_with_text(phone, "Staff").pressed.emit()
+		EventBus.flush_now()
 
 		var texts := NodeQuery.label_texts(phone)
 		for expected in ["ROSTER / 02 RECRUITED", "PAYROLL EXPOSURE", "£120 owed"]:
@@ -1103,11 +1225,14 @@ func run() -> void:
 		GameState.state["contacts"]["owen"]["cultivatingSkill"] = 2
 		GameState.state["contacts"]["owen"]["cultivatingXP"] = 40
 		Contacts.set_role("owen", "cultivation")
+		EventBus.flush_now()
 		Business.activate()
+		EventBus.flush_now()
 		GameState.state["phoneNav"]["app"] = "bizbrief"
 		var phone := PhoneScreen.new()
 		phone._ready()
 		_button_with_text(phone, "Staff").pressed.emit()
+		EventBus.flush_now()
 		_open_staff_person(phone, "owen")
 
 		var texts := NodeQuery.label_texts(phone)
@@ -1116,11 +1241,13 @@ func run() -> void:
 		assert_true(phone.find_child("StaffRow_archie", true, false) == null, "detail replaces the roster")
 		assert_true(not _button_with_text(phone, "Staff").disabled, "Staff tab returns to the roster")
 		_button_with_text(phone, "‹ Staff").pressed.emit()
+		EventBus.flush_now()
 		assert_true(phone.find_child("StaffRow_archie", true, false) != null)
 		_open_staff_person(phone, "archie")
 		assert_true(NodeQuery.label_texts(phone).has("No role · ⅓ share"))
 		assert_true(not NodeQuery.label_texts(phone).has("Assignments"), "no vein work, no Assignments link")
 		_button_with_text(phone, "Staff").pressed.emit()
+		EventBus.flush_now()
 		assert_true(phone.find_child("StaffRow_owen", true, false) != null)
 		phone.free()
 	)
@@ -1131,6 +1258,7 @@ func run() -> void:
 		GameState.state["contacts"]["owen"]["recruited"] = true
 		GameState.state["contacts"]["james"]["recruited"] = true
 		Business.activate()
+		EventBus.flush_now()
 		GameState.state["business"]["wages"]["owen"]["unpaid"] = true
 		GameState.state["business"]["wages"]["owen"]["owed"] = 120
 		GameState.state["business"]["wages"]["james"] = {
@@ -1142,10 +1270,12 @@ func run() -> void:
 		var phone := PhoneScreen.new()
 		phone._ready()
 		_button_with_text(phone, "Staff").pressed.emit()
+		EventBus.flush_now()
 		assert_true(NodeQuery.label_texts(phone).has("£160 owed"))
 		_open_staff_person(phone, "owen")
 		assert_true(_button_with_text(phone, "Top up £120 and pay").disabled)
 		_button_with_text(phone, "‹ Staff").pressed.emit()
+		EventBus.flush_now()
 		_open_staff_person(phone, "james")
 		assert_true(NodeQuery.label_texts(phone).has("Unpaid · owed £40"))
 		assert_true(not _button_with_text(phone, "Top up £40 and pay").disabled)
@@ -1157,10 +1287,12 @@ func run() -> void:
 		GameState.state["flags"]["bizStaffTabOpen"] = true
 		GameState.state["contacts"]["des"]["recruited"] = true
 		Contacts.assign_to_room("des", "lab")
+		EventBus.flush_now()
 		GameState.state["phoneNav"]["app"] = "bizbrief"
 		var phone := PhoneScreen.new()
 		phone._ready()
 		_button_with_text(phone, "Staff").pressed.emit()
+		EventBus.flush_now()
 		_open_staff_person(phone, "des")
 		assert_true(NodeQuery.label_texts(phone).has("Production · No pay"), "only a business wage entry carries pay terms")
 		for button in phone.find_children("", "Button", true, false):
@@ -1177,14 +1309,17 @@ func run() -> void:
 		var phone := PhoneScreen.new()
 		phone._ready()
 		_button_with_text(phone, "Staff").pressed.emit()
+		EventBus.flush_now()
 		_open_staff_person(phone, "owen")
 
 		assert_true(_button_with_text(phone, "Production") == null, "production not yet available")
 		_button_with_text(phone, "Cultivation").pressed.emit()
+		EventBus.flush_now()
 		assert_eq(Contacts.role_of("owen"), "cultivation")
 		assert_true(NodeQuery.label_texts(phone).has("/ Owen"), "role change keeps the detail open")
 
 		_button_with_text(phone, "Clear role").pressed.emit()
+		EventBus.flush_now()
 		assert_eq(Contacts.role_of("owen"), null)
 		phone.free()
 	)
@@ -1194,10 +1329,12 @@ func run() -> void:
 		GameState.state["flags"]["bizStaffTabOpen"] = true
 		GameState.state["contacts"]["owen"]["recruited"] = true
 		Business.activate()
+		EventBus.flush_now()
 		GameState.state["phoneNav"]["app"] = "bizbrief"
 		var phone := PhoneScreen.new()
 		phone._ready()
 		_button_with_text(phone, "Staff").pressed.emit()
+		EventBus.flush_now()
 		_open_staff_person(phone, "owen")
 		assert_true(_button_with_text(phone, "Top up £120 and pay") == null)
 		phone.free()
@@ -1208,8 +1345,10 @@ func run() -> void:
 		phone = PhoneScreen.new()
 		phone._ready()
 		_button_with_text(phone, "Staff").pressed.emit()
+		EventBus.flush_now()
 		_open_staff_person(phone, "owen")
 		_button_with_text(phone, "Top up £120 and pay").pressed.emit()
+		EventBus.flush_now()
 		assert_eq(GameState.state["player"]["cash"], 380)
 		assert_eq(GameState.state["business"]["float"], 0, "the top-up is spent on the wage")
 		assert_true(not Business.is_unpaid("owen"))
@@ -1226,14 +1365,18 @@ func run() -> void:
 		GameState.state["player"]["veins"] = [_brief_vein()]
 		GameState.state["contacts"]["owen"]["recruited"] = true
 		Contacts.set_role("owen", "cultivation")
+		EventBus.flush_now()
 		Rooms.assign_vein("owen", "v1")
+		EventBus.flush_now()
 		GameState.state["phoneNav"]["app"] = "bizbrief"
 		var phone := PhoneScreen.new()
 		phone._ready()
 		_button_with_text(phone, "Staff").pressed.emit()
+		EventBus.flush_now()
 		_open_staff_person(phone, "owen")
 		assert_true(NodeQuery.label_texts(phone).has("1 vein assigned"))
 		(phone.find_child("StaffAssignmentsLink", true, false) as Button).pressed.emit()
+		EventBus.flush_now()
 		assert_true(NodeQuery.label_texts(phone).has("/ Procurement"), "opens the Procurement page")
 		var section := phone.find_child("Cultivator_owen", true, false)
 		assert_true(section != null, "Owen's procurement controls are on the page")
@@ -1245,22 +1388,26 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["world"]["day"] = 9
 		Business.activate()
+		EventBus.flush_now()
 		GameState.state["flags"]["bizStaffTabOpen"] = true
 		GameState.state["flags"]["bizA1JamesJoined"] = true
 		GameState.state["home"]["rooms"] = ["veinStation", "lab"]
 		GameState.state["business"]["float"] = 5000
 		Hiring.hire("priya")
+		EventBus.flush_now()
 		var faction_id: String = GameState.state["factions"].keys()[0]
 		GameState.state["hiring"]["poach"]["priya"] = { "attempts": 1, "pending": { "factionId": faction_id, "offer": 999, "expiresDay": 11 } }
 		GameState.state["phoneNav"]["app"] = "bizbrief"
 		var phone := PhoneScreen.new()
 		phone._ready()
 		_button_with_text(phone, "Staff").pressed.emit()
+		EventBus.flush_now()
 		assert_true(NodeQuery.label_texts(phone.find_child("StaffRow_priya", true, false)).has("OFFER"))
 		assert_true(phone.find_child("PoachMatch", true, false) == null, "decision is on the detail, not the roster")
 		_open_staff_person(phone, "priya")
 		assert_true(phone.find_child("BizBriefPoach_priya", true, false) != null)
 		(phone.find_child("PoachMatch", true, false) as Button).pressed.emit()
+		EventBus.flush_now()
 		assert_eq(GameState.state["business"]["wages"]["priya"]["weekly"], 999)
 		assert_true(Hiring.pending_poach("priya").is_empty())
 		EventBus.flush_now()
@@ -1271,6 +1418,7 @@ func run() -> void:
 	run_case("today_wage_row_opens_the_persons_wage_decision_and_clears_when_paid", func():
 		GameState.reset()
 		Business.activate()
+		EventBus.flush_now()
 		GameState.state["flags"]["bizStaffTabOpen"] = true
 		GameState.state["contacts"]["owen"]["recruited"] = true
 		var wage: Dictionary = GameState.state["business"]["wages"]["owen"]
@@ -1285,6 +1433,7 @@ func run() -> void:
 		var today: Node = phone.find_child("BizBriefToday", true, false)
 		assert_true(today.find_child("TodayRow_wages_owen", true, false) != null, "the decision sits in Today")
 		_button_with_text(phone.find_child("TodayRow_wages_owen", true, false), "Answer").pressed.emit()
+		EventBus.flush_now()
 		var prompt: Node = phone.find_child("BizBriefWagePrompt_owen", true, false)
 		assert_true(prompt != null, "the row opens Owen's detail with the decision")
 		assert_true(NodeQuery.label_texts(phone).has("/ Owen"))
@@ -1297,6 +1446,7 @@ func run() -> void:
 		GameState.state["player"]["cash"] = 1000
 		phone._refresh()
 		_button_with_text(phone, "Top up £214 and pay").pressed.emit()
+		EventBus.flush_now()
 		assert_eq(Business.owed("owen"), 0)
 		_button_with_text(phone, "Brief").pressed.emit()
 		EventBus.flush_now()
@@ -1309,13 +1459,16 @@ func run() -> void:
 			GameState.reset()
 			GameState.state["world"]["day"] = 9
 			Business.activate()
+			EventBus.flush_now()
 			GameState.state["flags"]["bizStaffTabOpen"] = true
 			GameState.state["home"]["rooms"] = ["veinStation", "lab"]
 			GameState.state["business"]["float"] = 5000
 			Hiring.hire("priya")
+			EventBus.flush_now()
 			var faction_id: String = GameState.state["factions"].keys()[0]
 			GameState.state["hiring"]["poach"]["priya"] = { "attempts": 1, "pending": { "factionId": faction_id, "offer": 999, "expiresDay": 11 } }
 			var badge := DailyBrief.badge_count()
+			EventBus.flush_now()
 			GameState.state["phoneNav"]["app"] = "bizbrief"
 			var phone := PhoneScreen.new()
 			phone._ready()
@@ -1324,11 +1477,14 @@ func run() -> void:
 			assert_true(row != null, "the offer sits in Today")
 			assert_true(phone.find_child("TodayTier_urgent", true, false) != null)
 			_button_with_text(row, GameData.DAILY_BRIEF["rows"]["poach"]["actionLabel"]).pressed.emit()
+			EventBus.flush_now()
 			assert_true(phone.find_child("BizBriefPoach_priya", true, false) != null, "the row opens Priya's decision")
 			(phone.find_child(answer, true, false) as Button).pressed.emit()
+			EventBus.flush_now()
 			assert_true(Hiring.pending_poach("priya").is_empty(), "%s resolves the offer" % answer)
 			assert_eq(DailyBrief.badge_count(), badge - 1, "badge follows Urgent + Story")
 			_button_with_text(phone, "Brief").pressed.emit()
+			EventBus.flush_now()
 			assert_true(phone.find_child("TodayRow_poach_priya", true, false) == null, "resolved offer leaves Today")
 			phone.free()
 	)
@@ -1336,6 +1492,7 @@ func run() -> void:
 	run_case("with_staff_locked_today_decision_rows_land_on_their_brief_cards", func():
 		GameState.reset()
 		Business.activate()
+		EventBus.flush_now()
 		GameState.state["flags"]["bizStaffTabOpen"] = false
 		var wage: Dictionary = GameState.state["business"]["wages"]["owen"]
 		wage["owed"] = 214
@@ -1347,6 +1504,7 @@ func run() -> void:
 		var prompt: Node = phone.find_child("BizBriefWagePrompt_owen", true, false)
 		assert_true(prompt != null, "locked Staff keeps the decision reachable on Brief")
 		_button_with_text(phone.find_child("TodayRow_wages_owen", true, false), "Answer").pressed.emit()
+		EventBus.flush_now()
 		assert_true(_button_with_text(phone, "Brief").disabled, "stays on Brief")
 		assert_true(_button_with_text(phone, "Staff") == null, "Staff stays locked")
 		assert_true(phone.find_child("BizBriefWagePrompt_owen", true, false) != null)
@@ -1357,11 +1515,16 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["world"]["day"] = 1
 		Shares.record_ore("player", "time", 1)
+		EventBus.flush_now()
 		Shares.record_ore("guild", "time", 1)
+		EventBus.flush_now()
 		GameState.state["world"]["day"] = 8
 		Shares.record_ore("player", "time", 1)
+		EventBus.flush_now()
 		Shares.record_ore("guild", "time", 3)
+		EventBus.flush_now()
 		Shares.record_craft("player", { "life": 2 })
+		EventBus.flush_now()
 		GameState.state["phoneNav"]["app"] = "bizbrief"
 		var phone := PhoneScreen.new()
 		phone._ready()
@@ -1377,8 +1540,11 @@ func run() -> void:
 	run_case("brief_shows_supplier_share_per_faction_delivered_to", func():
 		GameState.reset()
 		Shares.record_delivery("guild", 3)
+		EventBus.flush_now()
 		Shares.record_delivery("collective", 1)
+		EventBus.flush_now()
 		Shares.record_london_buy("guild", 9)
+		EventBus.flush_now()
 		GameState.state["phoneNav"]["app"] = "bizbrief"
 		var phone := PhoneScreen.new()
 		phone._ready()
@@ -1415,7 +1581,9 @@ func run() -> void:
 			GameState.state["world"]["day"] = 20
 			if pot_active:
 				Business.activate()
+				EventBus.flush_now()
 			FactionAI.log_activity("guild", "Undercut your buyers.", { "target": Shares.PLAYER })
+			EventBus.flush_now()
 			GameState.state["factionWar"]["wars"] = [{ "parties": [Shares.PLAYER, "conclave"], "startDay": 12, "lastHostileDay": 19, "weariness": { Shares.PLAYER: 0.0, "conclave": 0.0 } }]
 			GameState.state["factionWar"]["weariness"][Shares.PLAYER] = 40.0
 			GameState.state["phoneNav"]["app"] = "bizbrief"
@@ -1431,6 +1599,7 @@ func run() -> void:
 			for expected in ["40 / 100", "At war with %s · since %s" % [GameData.FACTIONS["conclave"]["shortName"], Calendar.format_day(12)], "Last clash %s" % Calendar.format_day(19)]:
 				assert_true(war.has(expected), "missing %s" % expected)
 			(phone.find_child("BriefBack", true, false) as Button).pressed.emit()
+			EventBus.flush_now()
 			assert_true(phone.find_child("BizBriefToday", true, false) != null, "back returns to Brief (pot %s)" % pot_active)
 			phone.free()
 	)
@@ -1453,6 +1622,7 @@ func run() -> void:
 		assert_eq(_today_rows(today).size(), cap, "capped")
 		assert_true(today.find_child("TodayRow_routine", true, false) == null, "the summary sits past the cap")
 		_button_with_text(today, String(GameData.DAILY_BRIEF["moreLabel"]).format({ "n": 8 - cap })).pressed.emit()
+		EventBus.flush_now()
 		today = phone.find_child("BizBriefToday", true, false)
 		assert_eq(_today_rows(today).size(), 8, "+N more shows the rest")
 		_expand_routine(phone)
@@ -1468,7 +1638,9 @@ func run() -> void:
 		GameState.state["flags"]["canSellConsumables"] = true
 		GameState.state["barometer"]["social"] = "festival"
 		Crafting.inventory_add("blast", 1, 3)
+		EventBus.flush_now()
 		Crafting.inventory_add("shield", 1, 2)
+		EventBus.flush_now()
 		GameState.state["phoneNav"]["app"] = "bizbrief"
 		var phone := PhoneScreen.new()
 		phone._ready()
@@ -1476,6 +1648,7 @@ func run() -> void:
 		var heading := phone.find_child("TodayTier_opportunity", true, false).get_child(0) as Label
 		assert_true(heading.text.ends_with("· 1"), "the summary is one visible row")
 		_button_with_text(phone.find_child("TodayRow_demand", true, false), GameData.DAILY_BRIEF["demandExpandLabel"]).pressed.emit()
+		EventBus.flush_now()
 		for recipe_key in ["blast", "shield"]:
 			var row: Node = phone.find_child("TodayRow_demand_%s" % recipe_key, true, false)
 			assert_true(row != null, "%s listed" % recipe_key)
@@ -1483,6 +1656,7 @@ func run() -> void:
 			assert_true(texts.any(func(t: String): return t.find(GameData.RECIPES[recipe_key]["name"]) != -1), "names the good")
 			assert_true(texts.any(func(t: String): return t.find(str(Crafting.inventory_qty(recipe_key))) != -1), "names held quantity")
 		_button_with_text(phone.find_child("TodayRow_demand_shield", true, false), "Sell").pressed.emit()
+		EventBus.flush_now()
 		assert_eq(GameState.state["modal"]["type"], "sell_menu", "Sell opens the Trade sheet")
 		assert_true(GameState.state["morningAccounts"]["briefTicks"].has("demand:shield"), "ticks that good")
 		GameState.state["modal"] = null
@@ -1495,6 +1669,7 @@ func run() -> void:
 			GameState.state["meta"]["reducedMotion"] = reduced
 			GameState.state["home"]["pendingRaid"] = true
 			DailyBrief.mark_acted("alarm:home")
+			EventBus.flush_now()
 			GameState.state["phoneNav"]["app"] = "bizbrief"
 			var phone := PhoneScreen.new()
 			phone._ready()
@@ -1540,6 +1715,7 @@ func run() -> void:
 		var offer: Dictionary = Offers.create_offer({ "id": "t_tier_offer", "source": "scripted", "contractType": "oneOff", "request": { "kind": "ore", "type": "life", "qty": 10 } })["offer"]
 		offer["expiresDay"] = int(GameState.state["world"]["day"]) + 1
 		PhoneNav.open_app("bizbrief")
+		EventBus.flush_now()
 		var phone := PhoneScreen.new()
 		phone._ready()
 		var today: Node = phone.find_child("BizBriefToday", true, false)

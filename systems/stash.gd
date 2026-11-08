@@ -38,7 +38,7 @@ static func _move_ore(source: Dictionary, dest: Dictionary, ore_type: String, qt
 		return
 	source[ore_type] = int(source.get(ore_type, 0)) - take
 	dest[ore_type] = int(dest.get(ore_type, 0)) + take
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 static func move_item_to_stash(recipe_key: String, qty: int) -> void:
@@ -81,7 +81,7 @@ static func _move_item(source: Dictionary, dest: Dictionary, recipe_key: String,
 		if buckets[tier_key] <= 0:
 			buckets.erase(tier_key)
 	if moved:
-		EventBus.state_changed.emit()
+		EventBus.mark_changed()
 
 
 # --- Player spend seam -------------------------------------------------
@@ -201,7 +201,7 @@ static func adjust_ore_move_qty(ore_type: String, delta: int, max_qty: int) -> v
 	var key := "ore_%s" % ore_type
 	var current: int = clampi(get_ore_move_qty(ore_type), 1, maxi(max_qty, 1))
 	GameState.state["stashQty"][key] = clampi(current + delta, 1, maxi(max_qty, 1))
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 static func get_item_move_qty(recipe_key: String) -> int:
@@ -212,7 +212,7 @@ static func adjust_item_move_qty(recipe_key: String, delta: int, max_qty: int) -
 	var key := "item_%s" % recipe_key
 	var current: int = clampi(get_item_move_qty(recipe_key), 1, maxi(max_qty, 1))
 	GameState.state["stashQty"][key] = clampi(current + delta, 1, maxi(max_qty, 1))
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # Removes one unit: the exact tier when tier > 0 (and held), else lowest tier first.

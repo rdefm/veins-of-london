@@ -8,21 +8,21 @@ const SAVED_KEYS: Array[String] = ["reducedMotion", "vibrationEnabled", "mapDark
 # .get()), same convention as every other read-only consumer of this dict.
 static func set_reduced_motion(enabled: bool) -> void:
 	GameState.state["meta"]["reducedMotion"] = enabled
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # Default true (opt-out, not opt-in) -- scenes/components/alarm_presentation.gd
 # reads GameState.state["meta"].get("vibrationEnabled", true) before buzzing.
 static func set_vibration_enabled(enabled: bool) -> void:
 	GameState.state["meta"]["vibrationEnabled"] = enabled
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # Map tab's dark Network diagram (M1.5 §Map palette); default false.
 # scenes/components/map_palette.gd reads it to pick the dark token set.
 static func set_map_dark_mode(enabled: bool) -> void:
 	GameState.state["meta"]["mapDarkMode"] = enabled
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # A whole-state snapshot restore (systems/events.gd rewind()) would otherwise

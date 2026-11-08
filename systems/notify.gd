@@ -45,7 +45,7 @@ static func push(text: String, category: String = CATEGORY_INFO, meta: Dictionar
 	while notifications.size() > LOG_CAP:
 		notifications.remove_at(0)
 	EventBus.notification_pushed.emit()
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return notification
 
 
@@ -55,7 +55,7 @@ static func dismiss(id: String) -> void:
 		if notification.get("id") == id:
 			notification["seen"] = true
 			break
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 # Marks every notification tagged with `contact_id` seen; TopBar drops a seen
@@ -64,7 +64,7 @@ static func dismiss_contact(contact_id: String) -> void:
 	for notification in GameState.state["notifications"]:
 		if notification.get(META_CONTACT_ID) == contact_id:
 			notification["seen"] = true
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 
 
 static func has_unseen_for_contact(contact_id: String) -> bool:

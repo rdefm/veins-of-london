@@ -265,7 +265,7 @@ static func prospect(district_id: String) -> Dictionary:
 		site = _create_site(district_id, false, forced_ore)
 
 	Objectives.refresh()
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	# The story beat is checked first -- it's Rng-free, so a genuine early return
 	# never touches the deck's own seeded roll. DistrictDeck.maybe_trigger() must stay the last thing either branch does.
 	if not Collective.maybe_trigger_weather_beat(site) and not (not spend["free"] and Ambush.maybe_trigger(district_id)):
@@ -383,7 +383,7 @@ static func spawn_unclaimed_site(district_id: String, tier: String, ore_type: St
 		"slotIndex": next_slot_index(district_id),
 	}
 	GameState.state["world"]["sites"].append(site)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return site
 
 

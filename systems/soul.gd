@@ -16,7 +16,7 @@ static func meditate() -> Dictionary:
 		Notify.push("An hour on the bench. The noise settles.", Notify.CATEGORY_SUCCESS)
 	else:
 		Notify.push("Cross-legged on the floor, counting breaths. The noise settles, mostly.", Notify.CATEGORY_SUCCESS)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true }
 
 

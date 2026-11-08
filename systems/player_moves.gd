@@ -83,7 +83,7 @@ static func perform(move_id: String, faction_id: String, site_id: String = "") -
 	Factions.adjust_player_relation(faction_id, -int(_cfg()["relationHit"]))
 	Grudges.answer(faction_id)
 	Notify.push(String(m["log"]) % GameData.FACTIONS[faction_id]["shortName"])
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true }
 
 

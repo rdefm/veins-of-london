@@ -256,7 +256,7 @@ static func accept_trouble(pending_id: String, option: String) -> Dictionary:
 	Messages.resolve_pending(pending_id)
 	Factions.adjust_player_relation(faction_id, int(_cfg()["trouble"]["relationGain"]))
 	KeyMembers.send(faction_id, _line(faction_id, "thanks"))
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return result
 
 
@@ -423,4 +423,4 @@ static func daily_tick() -> void:
 	warn_player()
 	warn_factions()
 	leak_intel()
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()

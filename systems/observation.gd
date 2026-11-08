@@ -96,7 +96,7 @@ static func toggle_reveal() -> Dictionary:
 		return { "ok": false, "reason": "None on you." }
 	else:
 		event_state["toggles"][key] = [toggle["item"]]
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true }
 
 

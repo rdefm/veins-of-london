@@ -240,7 +240,7 @@ static func create_offer(template: Dictionary, bypass_cap: bool = false) -> Dict
 		var contact_id: Variant = Contacts.sales_contact()
 		if contact_id != null:
 			Contacts.award_contact_xp(contact_id, "sales", 5)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true, "offer": offer }
 
 
@@ -248,7 +248,7 @@ static func create_offer(template: Dictionary, bypass_cap: bool = false) -> Dict
 # counterparty, quoted fresh today. Bypasses PENDING_CAP.
 static func create_renewal_offer(contract: Dictionary) -> Dictionary:
 	var offer := _issue_offer(contract.get("templateId", ""), "renewal", "recurring", contract["request"].duplicate(true), 0, ensure_counterparty(contract))
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return offer
 
 
@@ -392,7 +392,7 @@ static func accept_offer(offer_id: String) -> Dictionary:
 			_note_poach_lapsed(offer)
 			BusinessQuest.note_starter_closed(offer.get("templateId", ""), false)
 			BusinessQuest.note_recurring_closed(offer.get("templateId", ""))
-			EventBus.state_changed.emit()
+			EventBus.mark_changed()
 			return { "ok": false, "reason": "Offer expired." }
 		if offer.has("poach"):
 			return { "ok": false, "reason": "A rival has undercut this renewal. Match it or let it go." }
@@ -415,7 +415,7 @@ static func accept_offer(offer_id: String) -> Dictionary:
 		pending.remove_at(index)
 		active_contracts().append(contract)
 		sales["priorityOrder"].append(contract["id"])
-		EventBus.state_changed.emit()
+		EventBus.mark_changed()
 		return { "ok": true, "contract": contract }
 	return { "ok": false, "reason": "Offer not found." }
 
@@ -450,7 +450,7 @@ static func decline_offer(offer_id: String) -> Dictionary:
 			pending.remove_at(index)
 			BusinessQuest.note_starter_closed(template_id, false)
 			BusinessQuest.note_recurring_closed(template_id)
-			EventBus.state_changed.emit()
+			EventBus.mark_changed()
 			return { "ok": true }
 	return { "ok": false, "reason": "Offer not found." }
 
@@ -471,7 +471,7 @@ static func expire_pending_offers() -> void:
 			BusinessQuest.note_recurring_closed(template_id)
 			changed = true
 	if changed:
-		EventBus.state_changed.emit()
+		EventBus.mark_changed()
 
 
 # business-spec.md "Offer and contract types": mixed requests are one-off

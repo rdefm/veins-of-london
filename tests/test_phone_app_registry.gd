@@ -40,6 +40,7 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["contacts"]["des"]["unlocked"] = true
 		PhoneNav.select_conversation("des")
+		EventBus.flush_now()
 		var phone := PhoneScreen.new()
 		phone._ready()
 		var messages: MessagesApp = phone.app_instance("messages")
@@ -47,6 +48,7 @@ func run() -> void:
 		assert_true(root != null and root.get_parent() == phone.device_shell.custom_mount, "conversation root mounts inside the device content area")
 		assert_true(not phone.device_shell.content_scroll.visible, "shared scroll body hidden while a conversation is open")
 		PhoneNav.go_home()
+		EventBus.flush_now()
 		assert_true(messages._conversation_root == null, "teardown clears the app's root ref")
 		assert_true(root.is_queued_for_deletion(), "old root queued for free")
 		assert_true(phone.device_shell.content_scroll.visible, "shared scroll body visible again on home")

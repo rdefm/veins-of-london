@@ -320,7 +320,7 @@ static func buy(recipe_key: String, rung: String) -> Dictionary:
 	_teach(recipe_key, rung, "exact")
 	var recipe_name := str(GameData.RECIPES[recipe_key].get("name", recipe_key))
 	Bank.record(-cost, str(_data()["bankLabel"]) % [recipe_name, rung_label(rung), seller_name(seller_id)])
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true, "price": cost }
 
 
@@ -378,7 +378,7 @@ static func _console(source_id: String, recipe_key: String, rung: String) -> Dic
 		Factions.adjust_player_relation(source_id, int(collision["relation"]))
 	var lines: Dictionary = collision["lines"]
 	var line: String = lines.get(source_id, lines.get(_resolve_source(source_id), lines["default"]))
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true, "path": "consolation", "recipe": recipe_key, "rung": rung, "line": line }
 
 

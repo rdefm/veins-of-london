@@ -49,7 +49,7 @@ static func _sell(vein_id: String, faction_id: String, price: int, count_as_play
 	GameState.state["player"]["cash"] += price
 	Bank.record(price, "Sold vein to %s" % faction_id.capitalize())
 	BusinessStats.record_sale(price)
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true, "price": price, "factionId": faction_id, "factionVeinId": result["factionVeinId"] }
 
 
@@ -97,7 +97,7 @@ static func transfer_to_faction(vein_id: String, faction_id: String, price: int,
 	# stays ignorant of which faction/objective it is.
 	Collective.maybe_trigger_nadia_vein_done()
 	Collective.maybe_trigger_a2_checkpoint()
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true, "factionVeinId": faction_vein["id"] }
 
 
@@ -133,7 +133,7 @@ static func buy_from_faction(vein_id: String, faction_id: String, contact_id: St
 
 	Objectives.refresh()
 	BusinessQuest.maybe_trigger_proposition()
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true, "price": price, "factionId": faction_id }
 
 
@@ -146,7 +146,7 @@ static func transfer_from_faction(vein_id: String, faction_id: String) -> Dictio
 	_take_from_faction(site)
 	Objectives.refresh()
 	BusinessQuest.maybe_trigger_proposition()
-	EventBus.state_changed.emit()
+	EventBus.mark_changed()
 	return { "ok": true }
 
 
