@@ -665,11 +665,14 @@ func run() -> void:
 			assert_true(texts.has(name), "%s within time+life is listed" % name)
 		assert_true(not texts.has("Blast"), "physics recipe stays off James's list")
 		assert_true(not texts.has("Wormhole"), "time+physics recipe stays off James's list")
-		var summary := _label_with_text(phone, "Sell above: 50 · contract need: 3 · contracts not covered")
-		assert_true(summary != null, "target, need and coverage in one summary line")
-		var row: Node = phone.find_child("RecipeBody_timePearl", true, false)
+		var texts_now := NodeQuery.label_texts(phone)
+		for old_text in ["Sell above: 50 · contract need: 3 · contracts not covered", "Make to: 0"]:
+			assert_true(not texts_now.has(old_text), "old wording gone: %s" % old_text)
+		for text in texts_now:
+			assert_true(not text.contains("crafting to") and not text.begins_with("Production:"), "no legacy wording: %s" % text)
 		var bar := _stock_bar(phone, "timePearl")
-		assert_true(summary.get_parent() == row and bar.get_parent() == row and summary.get_index() < bar.get_index(), "summary sits before the controls")
+		var hold_chip := phone.find_child("ContractsHold_timePearl", true, false) as Label
+		assert_true(hold_chip != null and not hold_chip.visible, "floor 3 under cutoff 50: no Contracts hold chip")
 
 		assert_eq(phone.find_children("StockBar_*", "Control", true, false).size(), Rooms.producible_recipes("james").size(), "one bar per listed recipe")
 		assert_eq([bar.make_to, bar.cutoff, bar.max_value], [0, GameData.PRODUCTION_TARGET_MAX, GameData.PRODUCTION_TARGET_MAX], "Make-to tick at 0, cutoff at the data cap")
@@ -686,7 +689,7 @@ func run() -> void:
 		cover.pressed.emit()
 		EventBus.flush_now()
 		assert_true(Rooms.lab_covers_contracts("timePearl"))
-		assert_true(NodeQuery.label_texts(phone).has("Sell above: 50 · contract need: 3 · crafting to: 8"))
+		assert_true(NodeQuery.label_texts(phone).has("Make to 5"), "card header shows Make to")
 		phone.free()
 	)
 
@@ -819,34 +822,41 @@ func run() -> void:
 		phone.free()
 	)
 
-	run_case("recipe_filters_narrow_by_ore_and_override_state", func():
+	run_case("ore_strip_filters_recipes_inside_their_groups", func():
 		var phone := _production_phone(true)
 		var all_keys := Rooms.production_recipes()
 		assert_true(all_keys.size() > 1, "fixture lists several recipes")
 		ProductionSettings.set_field("timePearl", "production", 2)
 		EventBus.flush_now()
-		(phone.find_child("FilterFollow_overridden", true, false) as Button).pressed.emit()
-		EventBus.flush_now()
-		assert_true(phone.find_child("ProductionRecipe_timePearl", true, false) != null)
-		assert_true(phone.find_child("ProductionRecipe_rewind", true, false) == null, "following recipe hidden")
-		(phone.find_child("FilterFollow_following", true, false) as Button).pressed.emit()
-		EventBus.flush_now()
-		assert_true(phone.find_child("ProductionRecipe_timePearl", true, false) == null)
-		assert_true(phone.find_child("ProductionRecipe_rewind", true, false) != null)
-		(phone.find_child("FilterFollow_all", true, false) as Button).pressed.emit()
-		EventBus.flush_now()
-		(phone.find_child("FilterOre_physics", true, false) as Button).pressed.emit()
+		var strip := phone.find_child("OreStrip", true, false) as ScrollContainer
+		assert_true(strip != null and phone.find_child("OreChip_all", true, false) != null, "strip with an All chip")
+		assert_eq(strip.get_child(0).get_child_count(), GameData.ORE_TYPES.size() + 1, "All plus one chip per ore")
+		assert_true(phone.find_child("FilterFollow_all", true, false) == null, "follow filter row is gone")
+		assert_true(strip.get_combined_minimum_size().x < 100.0, "strip scrolls inside itself, never widens the page")
+		(phone.find_child("OreChip_physics", true, false) as Button).pressed.emit()
 		EventBus.flush_now()
 		for recipe_key in all_keys:
 			var shown := phone.find_child("ProductionRecipe_%s" % recipe_key, true, false) != null
 			assert_eq(shown, GameData.RECIPES[recipe_key].get("ingredients", {}).has("physics"), "ore filter: %s" % recipe_key)
-		(phone.find_child("FilterOre_all", true, false) as Button).pressed.emit()
+		var custom_group := phone.find_child("RecipeGroup_Custom", true, false)
+		var time_pearl_has_physics: bool = GameData.RECIPES["timePearl"].get("ingredients", {}).has("physics")
+		assert_eq(custom_group != null, time_pearl_has_physics, "Custom group header follows its filtered members")
+		(phone.find_child("OreChip_all", true, false) as Button).pressed.emit()
 		EventBus.flush_now()
-		(phone.find_child("FilterFollow_overridden", true, false) as Button).pressed.emit()
-		EventBus.flush_now()
-		ProductionSettings.revert("timePearl")
-		EventBus.flush_now()
-		assert_true(phone.find_child("ProductionFilterEmpty", true, false) != null, "empty state shown")
+		for recipe_key in all_keys:
+			assert_true(phone.find_child("ProductionRecipe_%s" % recipe_key, true, false) != null, "All shows %s" % recipe_key)
+		# An ore no listed recipe uses empties the list.
+		var unused := ""
+		for ore_type in GameData.ORE_TYPES:
+			var used := false
+			for recipe_key in all_keys:
+				used = used or GameData.RECIPES[recipe_key].get("ingredients", {}).has(ore_type)
+			if not used:
+				unused = ore_type
+		if unused != "":
+			(phone.find_child("OreChip_%s" % unused, true, false) as Button).pressed.emit()
+			EventBus.flush_now()
+			assert_true(phone.find_child("ProductionFilterEmpty", true, false) != null, "empty state shown")
 		phone.free()
 	)
 
@@ -913,8 +923,8 @@ func run() -> void:
 		EventBus.flush_now()
 		assert_true(int(projected["qty"]) > 0, "fixture: London takes some")
 		var line := (phone.find_child("AutoSellLine_timePearl", true, false) as Label)
-		assert_eq(line.text, "Today: would sell %d at about £%d" % [projected["qty"], projected["income"]])
-		assert_eq(BizBriefApp._auto_sell_text({ "qty": 8, "offMarketQty": 2, "income": 500, "reason": "" }), "Today: would sell 8, +2 placed privately, at about £500")
+		assert_eq(line.text, "Today: would sell %d, about £%d" % [projected["qty"], projected["income"]])
+		assert_eq(BizBriefApp._auto_sell_text({ "qty": 8, "offMarketQty": 2, "income": 500, "reason": "" }), "Today: would sell 8, +2 placed privately, about £500")
 
 		var bar := _stock_bar(phone, "timePearl")
 		bar._press(bar._value_x(10) + 2.0)
@@ -1008,10 +1018,7 @@ func run() -> void:
 		GameState.state["phoneNav"]["app"] = "bizbrief"
 		var phone := PhoneScreen.new()
 		phone._ready()
-		_button_with_text(phone, "Manage").pressed.emit()
-		EventBus.flush_now()
-		_button_with_text(phone, "Production").pressed.emit()
-		EventBus.flush_now()
+		_open_manage_page(phone, "production")
 		assert_true(phone.find_child("RecipeGroup_Needsattention", true, false) != null, "Needs attention header shown")
 		assert_true(phone.find_child("RecipeGroup_Custom", true, false) == null, "short + overridden recipe is not also under Custom")
 		var chip: Node = phone.find_child("StatusChip_timePearl", true, false)

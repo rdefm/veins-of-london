@@ -35,14 +35,18 @@ const SALES_EMPTY_TEXT := "No offers or orders yet."
 const STOCK_TEXT := "%d in stock"
 const MOOD_BUTTON_HEIGHT := 40.0
 const AUTO_SELL_LOCKED_TEXT := "Locked. Put someone on Sales to set this."
-const MASTER_HEADING := "Master settings · %d recipes follow"
-const MASTER_SUMMARY := "Today: following recipes would sell %d across %d for about £%d"
-const MASTER_SUMMARY_NONE := "Today: following recipes would sell nothing"
-const FILTER_OVERRIDDEN := "overridden"
-const FILTER_FOLLOWING := "following"
-const FILTER_EMPTY_TEXT := "No recipes match these filters."
-const FOLLOW_TEXT := "Follows master"
-const OVERRIDDEN_TEXT := "Overridden"
+const MASTER_HEADING := "%d recipes follow these"
+const MASTER_SUMMARY := "Today: would sell %d across %d recipes, about £%d"
+const MASTER_SUMMARY_NONE := "Today: would sell nothing"
+const PROJECTION_SELL := "Today: would sell %d, about £%d"
+const PROJECTION_SELL_PRIVATE := "Today: would sell %d, +%d placed privately, about £%d"
+const MAKE_TO_TEXT := "Make to %d"
+const SELL_ABOVE_TEXT := "Sell above %s"
+const CONTRACTS_HOLD_TEXT := "Contracts hold %d"
+const FILTER_EMPTY_TEXT := "No recipes match this ore."
+const ORE_ALL_TEXT := "All ores"
+const ORE_CHIP_HEIGHT := 40.0
+const ORE_DOT_SIZE := 18.0
 const FOLLOWING_CHIP_TEXT := "Following"
 const CUSTOM_CHIP_TEXT := "Custom"
 const ATTENTION_CHIP_TEXT := "Out of %s ore"
@@ -133,13 +137,11 @@ var _ore_source := "oreCultivator"
 # Production-log days shown expanded (view state), day -> true.
 var _expanded_log_days := {}
 var _production_log_open := false
-# Production list filters (view state): ore type id ("" = all) and
-# FILTER_OVERRIDDEN / FILTER_FOLLOWING ("" = all).
+# Production list ore filter (view state): ore type id ("" = all).
 var _filter_ore := ""
 # Recipe cards expanded on the Production page (view state), recipe key -> true.
 var _open_recipes := {}
 var _defaults_collapsed := false
-var _filter_follow := ""
 var _sales_history_open := false
 var _sales_details_id := ""
 # Today card view state: rows past the cap shown, Routine and demand
@@ -1265,7 +1267,7 @@ func _build_production() -> Control:
 			c["content"].add_child(UI.muted_label("Nothing your crafters can make yet."))
 		else:
 			c["content"].add_child(_build_master_controller())
-			c["content"].add_child(_build_production_filters())
+			c["content"].add_child(_build_ore_strip())
 			var shown := _filtered_recipes(recipe_keys)
 			if shown.is_empty():
 				var empty := UI.muted_label(FILTER_EMPTY_TEXT)
@@ -1317,52 +1319,76 @@ func _group_header(title: String, count: int) -> Control:
 	return box
 
 
-# Recipes passing the ore-type and overridden/following filters.
+# Recipes using the filtered ore type (all when none is picked).
 func _filtered_recipes(recipe_keys: Array) -> Array:
 	var shown: Array = []
 	for recipe_key in recipe_keys:
 		if _filter_ore != "" and not GameData.RECIPES[recipe_key].get("ingredients", {}).has(_filter_ore):
 			continue
-		var overridden := ProductionSettings.has_override(recipe_key)
-		if _filter_follow == FILTER_OVERRIDDEN and not overridden:
-			continue
-		if _filter_follow == FILTER_FOLLOWING and overridden:
-			continue
 		shown.append(recipe_key)
 	return shown
 
 
-func _build_production_filters() -> Control:
-	var box := UI.vbox(4)
-	box.name = "ProductionFilters"
-	var ore_row := UI.hflow(4)
-	ore_row.add_child(_filter_button("FilterOre_all", "All ores", _filter_ore == "", func(): _set_filter_ore("")))
+# One sideways-scrolling row of ore chips; scrolls inside itself so the page
+# never widens.
+func _build_ore_strip() -> Control:
+	var strip := ScrollContainer.new()
+	strip.name = "OreStrip"
+	strip.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	strip.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	strip.clip_contents = true
+	var row := UI.hbox(4)
+	strip.add_child(row)
+	row.add_child(_ore_chip("OreChip_all", "", ORE_ALL_TEXT, ""))
 	for ore_type in GameData.ORE_TYPES:
-		ore_row.add_child(_filter_button("FilterOre_%s" % ore_type, GameData.ORE_TYPES[ore_type]["name"], _filter_ore == ore_type, func(): _set_filter_ore(ore_type)))
-	box.add_child(ore_row)
-	var follow_row := UI.hflow(4)
-	follow_row.add_child(_filter_button("FilterFollow_all", "All", _filter_follow == "", func(): _set_filter_follow("")))
-	follow_row.add_child(_filter_button("FilterFollow_following", FOLLOW_TEXT, _filter_follow == FILTER_FOLLOWING, func(): _set_filter_follow(FILTER_FOLLOWING)))
-	follow_row.add_child(_filter_button("FilterFollow_overridden", OVERRIDDEN_TEXT, _filter_follow == FILTER_OVERRIDDEN, func(): _set_filter_follow(FILTER_OVERRIDDEN)))
-	box.add_child(follow_row)
-	return box
+		row.add_child(_ore_chip("OreChip_%s" % ore_type, ore_type, GameData.ORE_TYPES[ore_type]["name"], GameData.ORE_TYPES[ore_type]["symbol"]))
+	return strip
 
 
-func _filter_button(node_name: String, text: String, selected: bool, on_press: Callable) -> Control:
-	var button := UI.button(text, on_press)
+func _ore_chip(node_name: String, ore_type: String, text: String, symbol: String) -> Control:
+	var selected := _filter_ore == ore_type
+	var button := UI.button(text, func() -> void: _set_filter_ore(ore_type))
 	button.name = node_name
-	button.custom_minimum_size.y = MOOD_BUTTON_HEIGHT
-	_style_stats_toggle(button, selected)
-	return UI.expand_fill(button)
+	button.custom_minimum_size.y = ORE_CHIP_HEIGHT
+	var left := 8.0
+	if symbol != "":
+		left = ORE_DOT_SIZE + 14.0
+	var box := StyleBoxFlat.new()
+	box.bg_color = HEADER if selected else CARD
+	box.border_color = SIGNAL if selected else LINE
+	box.set_border_width_all(1)
+	box.set_corner_radius_all(4)
+	box.set_content_margin_all(8)
+	box.content_margin_left = left
+	for state in ["normal", "hover", "pressed", "disabled"]:
+		button.add_theme_stylebox_override(state, box)
+	for state in ["font_color", "font_hover_color", "font_pressed_color", "font_disabled_color"]:
+		button.add_theme_color_override(state, PAPER if selected else MUTED)
+	if symbol != "":
+		var dot := PanelContainer.new()
+		dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		dot.custom_minimum_size = Vector2(ORE_DOT_SIZE, ORE_DOT_SIZE)
+		dot.set_anchors_and_offsets_preset(Control.PRESET_CENTER_LEFT)
+		dot.offset_left = 8.0
+		dot.offset_right = 8.0 + ORE_DOT_SIZE
+		dot.offset_top = -ORE_DOT_SIZE / 2.0
+		dot.offset_bottom = ORE_DOT_SIZE / 2.0
+		var dot_style := StyleBoxFlat.new()
+		dot_style.bg_color = _ore_colour(ore_type)
+		dot_style.set_corner_radius_all(int(ORE_DOT_SIZE))
+		dot.add_theme_stylebox_override("panel", dot_style)
+		var glyph := UI.label(symbol)
+		glyph.add_theme_font_size_override("font_size", 11)
+		glyph.add_theme_color_override("font_color", PAPER)
+		glyph.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		glyph.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		dot.add_child(glyph)
+		button.add_child(dot)
+	return button
 
 
 func _set_filter_ore(ore_type: String) -> void:
 	_filter_ore = ore_type
-	refresh()
-
-
-func _set_filter_follow(mode: String) -> void:
-	_filter_follow = mode
 	refresh()
 
 
@@ -1496,7 +1522,7 @@ func _build_master_controller() -> Control:
 	box.add_child(UI.muted_label(AUTO_SELL_MOODS[master["mood"]]["meaning"] if sales_staffed else AUTO_SELL_LOCKED_TEXT))
 
 	var covering: bool = master["coverContracts"]
-	var cover := UI.switch_row("Cover contract needs", covering, func(on: bool) -> void: ProductionSettings.set_master_field("coverContracts", on))
+	var cover := UI.switch_row("Cover contracts", covering, func(on: bool) -> void: ProductionSettings.set_master_field("coverContracts", on))
 	cover.name = "MasterCover"
 	box.add_child(cover)
 
@@ -1515,8 +1541,8 @@ static func _defaults_collapsed_text(following: int, master: Dictionary, top: in
 
 
 static func _show_master_legend(make_label: Label, sell_label: Label, make_to: int, sell_above: int, top: int) -> void:
-	make_label.text = "Make to %d" % make_to
-	sell_label.text = "Sell above %s" % _sell_above_text(sell_above, top)
+	make_label.text = MAKE_TO_TEXT % make_to
+	sell_label.text = SELL_ABOVE_TEXT % _sell_above_text(sell_above, top)
 
 
 static func _defaults_panel_style() -> StyleBoxFlat:
@@ -1609,7 +1635,7 @@ func _build_production_recipe_row(recipe_key: String) -> Control:
 	name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	names.add_child(name_label)
 	var ore_name: String = GameData.ORE_TYPES[ore_type]["name"] if ore_type != "" else "no ore"
-	var sub := UI.muted_label("%s · make to %d" % [ore_name, production])
+	var sub := UI.muted_label("%s · %s" % [ore_name, MAKE_TO_TEXT % production])
 	sub.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	names.add_child(sub)
 	head_row.add_child(names)
@@ -1631,15 +1657,12 @@ func _build_production_recipe_row(recipe_key: String) -> Control:
 	box.add_child(mini)
 	box.add_child(body)
 
-	# Target, contract need and coverage sit above the controls.
-	var target_label := UI.muted_label(_target_text(recipe_key, covering))
-	body.add_child(target_label)
-
 	var bar := StockBar.new()
 	bar.name = "StockBar_%s" % recipe_key
 	bar.configure(GameData.PRODUCTION_TARGET_MAX, production, int(rule["sellAbove"]), AutoSell.protected_floor(recipe_key), stock, not sales_staffed)
 	body.add_child(bar)
 	var hold_label := UI.muted_label("")
+	hold_label.name = "ContractsHold_%s" % recipe_key
 	hold_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_show_contract_hold(hold_label, recipe_key, bar.cutoff)
 	body.add_child(hold_label)
@@ -1654,7 +1677,6 @@ func _build_production_recipe_row(recipe_key: String) -> Control:
 
 	bar.changed.connect(func(_make_to: int, cutoff: int) -> void:
 		bar.set_held_floor(AutoSell.protected_floor(recipe_key, cutoff))
-		target_label.text = _target_text(recipe_key, covering, cutoff)
 		_show_contract_hold(hold_label, recipe_key, cutoff)
 		result_label.text = _auto_sell_text(AutoSell.projection(recipe_key, cutoff)))
 	bar.cutoff_committed.connect(func(cutoff: int) -> void: AutoSell.set_sell_above(recipe_key, cutoff))
@@ -1828,7 +1850,7 @@ class RecipeMiniBar extends Control:
 func _build_production_control(recipe_key: String, production: int) -> Control:
 	var row := UI.hbox(6)
 	row.name = "ProductionControl_%s" % recipe_key
-	row.add_child(UI.expand_fill(UI.label("Make to: %d" % production)))
+	row.add_child(UI.expand_fill(UI.label(MAKE_TO_TEXT % production)))
 	var less := UI.button("−", func(): Rooms.set_lab_threshold(recipe_key, Rooms.lab_target(recipe_key) - 1))
 	less.name = "ProductionLess_%s" % recipe_key
 	less.disabled = production <= 0
@@ -1840,29 +1862,18 @@ func _build_production_control(recipe_key: String, production: int) -> Control:
 	return row
 
 
-# "Sell above: 20 · contract need: 3 · crafting to: 8" while covering
-# contracts, "... · contracts not covered" otherwise. sell_above >= 0 previews
-# a cutoff mid-drag.
-static func _target_text(recipe_key: String, covering: bool, sell_above: int = -1) -> String:
-	var cutoff: int = sell_above if sell_above >= 0 else int(AutoSell.rule(recipe_key)["sellAbove"])
-	var text := "Sell above: %d · contract need: %d" % [cutoff, Rooms.contract_need(recipe_key)]
-	if covering:
-		return text + " · crafting to: %d" % Rooms.effective_lab_target(recipe_key)
-	return text + " · contracts not covered"
-
-
-# The contract floor when it sits above the cutoff; the line hides otherwise.
+# The contract floor when it sits above the cutoff; the chip hides otherwise.
 static func _show_contract_hold(label: Label, recipe_key: String, cutoff: int) -> void:
 	var floor_qty := AutoSell.protected_floor(recipe_key, cutoff)
-	label.text = "Contracts hold %d" % floor_qty if floor_qty > cutoff else ""
+	label.text = CONTRACTS_HOLD_TEXT % floor_qty if floor_qty > cutoff else ""
 	label.visible = floor_qty > cutoff
 
 
 static func _auto_sell_text(projected: Dictionary) -> String:
 	if int(projected["offMarketQty"]) > 0:
-		return "Today: would sell %d, +%d placed privately, at about £%d" % [projected["qty"], projected["offMarketQty"], projected["income"]]
+		return PROJECTION_SELL_PRIVATE % [projected["qty"], projected["offMarketQty"], projected["income"]]
 	if int(projected["qty"]) > 0:
-		return "Today: would sell %d at about £%d" % [projected["qty"], projected["income"]]
+		return PROJECTION_SELL % [projected["qty"], projected["income"]]
 	return AUTO_SELL_REASON_TEXT[projected["reason"]]
 
 
