@@ -12,19 +12,9 @@ static func layout_directory_row(card: Control, contact_id: String) -> void:
 		content.remove_child(child)
 
 	var header := UI.hbox(10)
-	var avatar := Panel.new()
-	avatar.custom_minimum_size = Vector2(50, 50)
-	var avatar_style := StyleBoxFlat.new()
-	avatar_style.bg_color = Color("#70444d") if contact_id == "archie" else Color("#465b68")
-	avatar_style.set_corner_radius_all(25)
-	avatar.add_theme_stylebox_override("panel", avatar_style)
-	var initial := Label.new()
-	initial.text = Contacts.display_name(contact_id).substr(0, 1).to_upper()
-	initial.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	initial.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	initial.add_theme_font_size_override("font_size", 22)
-	UI.anchor_full_rect(initial)
-	avatar.add_child(initial)
+	var fill := Color("#70444d") if contact_id == "archie" else Color("#465b68")
+	var avatar := ContactAvatar.build(contact_id, 50, 25,
+			Contacts.display_name(contact_id).substr(0, 1).to_upper(), fill, Color.WHITE, 22)
 	header.add_child(avatar)
 
 	var copy := UI.vbox(2)

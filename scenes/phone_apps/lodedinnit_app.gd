@@ -385,7 +385,7 @@ func _post_card(view: Dictionary) -> Control:
 	var content := UI.vbox(0)
 	panel.add_child(content)
 	var head := UI.hbox(9)
-	head.add_child(_avatar(view["initials"]))
+	head.add_child(_avatar(view["author"], view["initials"]))
 	var who := UI.vbox(2)
 	var name_label := UI.tinted_label(view["name"], _ink())
 	name_label.add_theme_font_size_override("font_size", 13)
@@ -471,21 +471,8 @@ func _feed_comment(comment: Dictionary) -> Control:
 	return margin
 
 
-func _avatar(initials: String) -> Control:
-	var panel := PanelContainer.new()
-	var style := StyleBoxFlat.new()
-	style.bg_color = AVATAR_FILL
-	style.set_corner_radius_all(18)
-	panel.add_theme_stylebox_override("panel", style)
-	panel.custom_minimum_size = Vector2(36, 36)
-	panel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	var l := UI.tinted_label(initials, _ink())
-	l.add_theme_font_size_override("font_size", 11)
-	l.add_theme_font_override("font", _bold_font())
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	panel.add_child(l)
-	return panel
+func _avatar(contact_id: String, initials: String) -> Control:
+	return ContactAvatar.build(contact_id, 36, 18, initials, AVATAR_FILL, _ink(), 11, _bold_font())
 
 
 func _build_people(content: VBoxContainer) -> void:
@@ -673,7 +660,7 @@ func _person_row(candidate_id: String) -> Control:
 	body.add_child(pad)
 	var row := UI.hbox(9)
 	pad.add_child(row)
-	row.add_child(_people_avatar(LodedInnitFeed.initials(Contacts.display_name(candidate_id))))
+	row.add_child(_people_avatar(candidate_id))
 	var who := UI.vbox(3)
 	who.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(who)
@@ -735,20 +722,9 @@ func _on_person_row_input(event: InputEvent, row: Control, candidate_id: String)
 				_open_profile(candidate_id)
 
 
-func _people_avatar(initials: String) -> Control:
-	var panel := PanelContainer.new()
-	var style := StyleBoxFlat.new()
-	style.bg_color = AVATAR_FILL
-	style.set_corner_radius_all(16)
-	panel.add_theme_stylebox_override("panel", style)
-	panel.custom_minimum_size = Vector2(31, 31)
-	panel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	var label := UI.tinted_label(initials, plum_light())
-	label.add_theme_font_size_override("font_size", 10)
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	panel.add_child(label)
-	return panel
+func _people_avatar(candidate_id: String) -> Control:
+	var initials := LodedInnitFeed.initials(Contacts.display_name(candidate_id))
+	return ContactAvatar.build(candidate_id, 31, 16, initials, AVATAR_FILL, plum_light(), 10)
 
 
 func _ignore_mouse_tree(node: Node) -> void:
@@ -789,20 +765,11 @@ func _build_profile(content: VBoxContainer) -> void:
 	var title_margin := _people_margin(14, 16)
 	var title := UI.vbox(5)
 	title_margin.add_child(title)
-	var avatar := PanelContainer.new()
+	var avatar := ContactAvatar.build(candidate_id, 56, 12,
+			LodedInnitFeed.initials(Contacts.display_name(candidate_id)),
+			Color("#5c4964"), _ink(), 17, _bold_font())
 	avatar.name = PROFILE_AVATAR_NODE_NAME
-	avatar.custom_minimum_size = Vector2(56, 56)
 	avatar.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	var avatar_style := StyleBoxFlat.new()
-	avatar_style.bg_color = Color("#5c4964")
-	avatar_style.set_corner_radius_all(12)
-	avatar.add_theme_stylebox_override("panel", avatar_style)
-	var initials := UI.tinted_label(LodedInnitFeed.initials(Contacts.display_name(candidate_id)), _ink())
-	initials.add_theme_font_size_override("font_size", 17)
-	initials.add_theme_font_override("font", _bold_font())
-	initials.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	initials.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	avatar.add_child(initials)
 	title.add_child(avatar)
 	var name := UI.tinted_label(Contacts.display_name(candidate_id), _ink())
 	name.add_theme_font_size_override("font_size", 26)

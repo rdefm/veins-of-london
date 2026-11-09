@@ -141,7 +141,7 @@ static func card(entry: Dictionary) -> Dictionary:
 		var parts: PackedStringArray = String(ref).split(":")
 		comments.append({ "author": Contacts.display_name(parts[0]), "text": _comment_text(parts[1]) })
 	return {
-		"name": Contacts.display_name(author), "initials": initials(Contacts.display_name(author)),
+		"author": author, "name": Contacts.display_name(author), "initials": initials(Contacts.display_name(author)),
 		"meta": "%s · %s" % [Hiring.role(author)["label"], status_text(author)],
 		"time": time_label(int(entry["day"]), int(entry["block"])),
 		"body": body_text(entry), "likes": int(entry["likes"]), "comments": comments,
