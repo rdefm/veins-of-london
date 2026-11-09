@@ -195,7 +195,6 @@ static func file_crafted(recipe_key: String, tier: int, qty: int, multi: bool, c
 	var counts: Dictionary = GameState.state["player"]["craftedCounts"]
 	counts[recipe_key] = int(counts.get(recipe_key, 0)) + qty
 	award_crafting_xp(xp)
-	Contracts.note_player_supplied(recipe_key)
 	Objectives.refresh()
 	Collective.award_a2_missions()
 	Collective.maybe_trigger_a2_nadia_defend_brief()

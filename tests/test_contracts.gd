@@ -69,85 +69,15 @@ func run() -> void:
 		_fill_and_settle(contract)
 		var before_count := Objectives.completed_contract_count()
 		var before_template := Objectives.completed_period_count(contract["templateId"])
-		var before_proof := Objectives.recurring_proof()
 		ContractsSystem.cancel(contract["id"])
 		var one_off := _accept_life_contract()
 		ContractsSystem.cancel(one_off["id"])
 		assert_eq(Objectives.completed_contract_count(), before_count)
 		assert_eq(Objectives.completed_period_count(contract["templateId"]), before_template)
 		assert_eq(Objectives.completed_period_count(one_off["templateId"]), 0)
-		assert_eq(Objectives.recurring_proof(), before_proof)
 	)
 
-	run_case("unattended_short_first_period_qualifies", func():
-		var contract := _proof_contract()
-		var settlement := _fill_and_settle(contract)
-		assert_true(settlement["complete"])
-		assert_true(settlement["qualified"], "untouched, after the flag")
-	)
-
-	run_case("unattended_needs_recurring_completion_and_the_flag", func():
-		var contract := _proof_contract()
-		GameState.state["flags"].erase(ContractsSystem.PROOF_FLAG)
-		assert_true(not _fill_and_settle(contract)["qualified"], "settled before the Beat 7 flag")
-		GameState.state["flags"][ContractsSystem.PROOF_FLAG] = true
-		_next_period(contract)
-		_next_period(contract)
-		var last: Dictionary = GameState.state["sales"]["settlements"].back()
-		assert_true(not last["complete"] and not last["qualified"], "an empty period is incomplete")
-		assert_true(_fill_and_settle(contract)["qualified"])
-
-		_accept_life_contract()
-		GameState.state["player"]["orichalchum"]["life"] = 5
-		ContractsSystem.process_sales_deliveries()
-		assert_true(not GameState.state["sales"]["settlements"].back()["qualified"], "one-offs never qualify")
-	)
-
-	run_case("unattended_player_actions_on_the_requested_type_taint", func():
-		var contract := _proof_contract()
-		Economy.execute_faction_purchase("guild", [{ "kind": "ore", "type": "physics", "qty": 1 }])
-		assert_true(not _fill_and_settle(contract)["qualified"], "bought the requested ore")
-		_next_period(contract)
-
-		GameState.state["player"]["stash"]["orichalchum"]["physics"] = 1
-		Stash.move_ore_to_shared("physics", 1)
-		assert_true(not _fill_and_settle(contract)["qualified"], "unstashed the requested ore")
-
-		var pearls := _add_weekly_contract({ "kind": "consumable", "type": "timePearl", "qty": 1 })
-		_craft_one_time_pearl()
-		ContractsSystem.process_sales_deliveries()
-		var settlements: Array = GameState.state["sales"]["settlements"]
-		assert_eq(settlements.back()["contractId"], pearls["id"])
-		assert_true(not settlements.back()["qualified"], "crafted the requested recipe")
-	)
-
-	run_case("unattended_tending_a_cultivator_vein_taints_every_period", func():
-		var contract := _proof_contract()
-		GameState.state["player"]["veins"] = [Fixtures.player_vein_with()]
-		GameState.state["contacts"]["owen"]["recruited"] = true
-		GameState.state["flags"]["bizOwenCultivationRole"] = true
-		Contacts.set_role("owen", "cultivation")
-		Rooms.assign_vein("owen", "v1")
-		assert_true(Cultivating.cultivate("v1")["ok"])
-		assert_true(not _fill_and_settle(contract)["qualified"], "cultivated an assigned vein")
-		_next_period(contract)
-		assert_true(Cultivating.prune("v1", GameData.VEIN_GROWTH["pruneLightDepth"])["ok"])
-		assert_true(not _fill_and_settle(contract)["qualified"], "pruned an assigned vein")
-	)
-
-	run_case("unattended_unrelated_player_actions_leave_the_period_intact", func():
-		var contract := _proof_contract()
-		GameState.state["player"]["veins"] = [Fixtures.player_vein_with()]
-		assert_true(Cultivating.cultivate("v1")["ok"], "a vein on no cultivator's list")
-		assert_true(Cultivating.prune("v1", GameData.VEIN_GROWTH["pruneLightDepth"])["ok"])
-		Fixtures.craft("timePearl")
-		Economy.execute_faction_purchase("guild", [{ "kind": "ore", "type": "time", "qty": 1 }])
-		GameState.state["player"]["stash"]["orichalchum"]["life"] = 1
-		Stash.move_ore_to_shared("life", 1)
-		assert_true(_fill_and_settle(contract)["qualified"])
-	)
-
-	run_case("unattended_sales_calc_purchases_never_taint", func():
+	run_case("sales_calc_purchases_are_recorded_as_pot_expenses", func():
 		_setup_buy_calc_lanes()
 		GameState.state["business"]["pot"] = 5000
 		var created: Dictionary = OffersSystem.create_offer({
@@ -158,7 +88,6 @@ func run() -> void:
 		ContractsSystem.set_buy_calc(contract["id"], true)
 		ContractsSystem.process_daily_sales()
 		assert_eq(GameState.state["business"]["week"]["expenses"].size(), 1)
-		assert_true(GameState.state["sales"]["settlements"][0]["qualified"])
 	)
 
 	run_case("block_advance_delivers_coverable_contracts_after_the_staff_step", func():
@@ -407,7 +336,6 @@ func run() -> void:
 		assert_eq(ContractsSystem.delivered_qty(contract), 0, "the fresh period waits for the next Sales pass")
 		ContractsSystem.process_sales_deliveries()
 		assert_eq(GameState.state["player"]["cash"], cash_before + payment * 2, "the new period takes deliveries")
-		assert_true(GameState.state["sales"]["settlements"].back()["qualified"])
 	)
 
 	run_case("unfilled_recurring_period_settles_partial_on_monday_and_renews", func():
@@ -718,14 +646,12 @@ func _setup_buy_calc_lanes() -> void:
 	GameState.state["factions"]["collective"]["relation"] = 90
 	GameState.state["factions"]["collective"]["holdings"]["ore"] = { "life": 2 }
 	GameState.state["factions"]["guild"]["holdings"]["ore"] = { "life": 50, "time": 50 }
-	GameState.state["flags"][ContractsSystem.PROOF_FLAG] = true
 
 
-# Fresh state with the Beat 7 flag set and Sales staffed, then a weekly
+# Fresh state with Sales staffed, then a weekly
 # physics ×3 contract.
 func _proof_contract() -> Dictionary:
 	_staff_sales()
-	GameState.state["flags"][ContractsSystem.PROOF_FLAG] = true
 	GameState.state["player"]["cash"] = 100000
 	return _add_weekly_contract({ "kind": "ore", "type": "physics", "qty": 3 })
 

@@ -30,17 +30,13 @@ const PRODUCTION_KIND := "biz_a1_production"
 # PROSE-REVIEW: James's Beat 6 summons.
 const PRODUCTION_TEXT := "You are on my books now, so you may as well see how I keep them. Come to the unit. Bring your phone."
 
-const PUT_TO_WORK_KIND := "biz_a1_put_to_work"
-# PROSE-REVIEW: Archie's Beat 7 summons.
-const PUT_TO_WORK_TEXT := "\"Right, partner. Time we stopped running every order by hand. Come to the unit, I'll show you how it's done.\""
-
 const OWEN_CRAFT_KIND := "biz_owen_craft"
 # PROSE-REVIEW: James's summons for Owen's crafting event.
 const OWEN_CRAFT_TEXT := "Owen has been at my second bench. Come and see what he has made before I change my mind about letting him."
 
 const CLOSING_KIND := "biz_a1_closing"
-# PROSE-REVIEW: Archie's Beat 8 summons.
-const CLOSING_TEXT := "\"Payday. Two orders ran a whole week and nobody held their hand. Come to the unit, I've got the numbers up.\""
+# PROSE-REVIEW: Archie's Beat 7 summons.
+const CLOSING_TEXT := "\"Payday. Fifteen items sold and nobody held their hand. Come to the unit, I've got the numbers up.\""
 
 
 # Beat 1: two or more of the player's own veins (Hakim's, at
@@ -115,30 +111,15 @@ static func set_james_crafting_skill() -> void:
 
 # Beat 6: once James has joined (Beat 5), James texts the Production
 # summons. Called after event completion and at rollover;
-# bizA1ProductionQueued blocks re-firing permanently. A save that had
-# already queued Beat 7 skips this beat.
+# bizA1ProductionQueued blocks re-firing permanently.
 static func maybe_trigger_production() -> bool:
 	var flags: Dictionary = GameState.state["flags"]
-	if flags.get("bizA1ProductionQueued", false) or flags.get("bizA1PutToWorkQueued", false):
+	if flags.get("bizA1ProductionQueued", false):
 		return false
 	if not flags.get("bizA1JamesJoined", false):
 		return false
 	flags["bizA1ProductionQueued"] = true
 	Messages.queue_pending("james", PRODUCTION_KIND, PRODUCTION_TEXT)
-	Objectives.refresh()
-	return true
-
-
-# Beat 7: once Beat 6's first Time Pearl period has completed, Archie texts
-# the put-it-to-work summons. Called after event completion, contract
-# settlement and at rollover; bizA1PutToWorkQueued blocks re-firing
-# permanently.
-static func maybe_trigger_put_to_work() -> bool:
-	var flags: Dictionary = GameState.state["flags"]
-	if flags.get("bizA1PutToWorkQueued", false) or not flags.get("bizA1FirstOrderDone", false):
-		return false
-	flags["bizA1PutToWorkQueued"] = true
-	Messages.queue_pending("archie", PUT_TO_WORK_KIND, PUT_TO_WORK_TEXT)
 	Objectives.refresh()
 	return true
 
@@ -162,14 +143,14 @@ static func maybe_trigger_owen_craft() -> bool:
 
 
 # Archie's recurring offers: the two ore orders from Beat 3 (Owen joined),
-# the Time Pearl order from the Beat 6 scene (or from Beat 7's scene, for a
-# save that skipped Beat 6). All stop once Beat 7 is met.
+# the Time Pearl order from the Beat 6 scene. All stop once the Beat 7
+# closing is queued.
 static func recurring_offer_active(template_id: String) -> bool:
 	var flags: Dictionary = GameState.state["flags"]
-	if flags.get("bizA1ProofDone", false):
+	if flags.get("bizA1ClosingQueued", false):
 		return false
 	if template_id == RECURRING_GUARANTEED:
-		return flags.get("bizA1ProductionSeen", false) or flags.get(Contracts.PROOF_FLAG, false)
+		return flags.get("bizA1ProductionSeen", false)
 	if RECURRING_CHOICES.has(template_id):
 		return flags.get("bizA1OwenJoined", false)
 	return false
@@ -228,27 +209,27 @@ static func _template_outstanding(template_id: String) -> bool:
 	return false
 
 
-# Stamps the ledger length when Beat 7 is first seen met, so Beat 8 waits
-# for the next payday record, the first to include the proof's receipts.
-# Called after every settlement and from maybe_trigger_closing().
-static func note_proof_met() -> void:
+# Stamps the ledger length when Beat 6 is first seen met, so Beat 7 waits
+# for the next payday record, the first to include its sales. Called after
+# every settlement and from maybe_trigger_closing().
+static func note_first_order_met() -> void:
 	var chain: Dictionary = GameState.state["businessQuest"]
-	if not GameState.state["flags"].get("bizA1ProofDone", false) or chain.get("proofLedgerSize") != null:
+	if not GameState.state["flags"].get("bizA1FirstOrderDone", false) or chain.get("firstOrderLedgerSize") != null:
 		return
-	chain["proofLedgerSize"] = GameState.state["business"]["ledger"].size()
+	chain["firstOrderLedgerSize"] = GameState.state["business"]["ledger"].size()
 
 
-# Beat 8: after Beat 7 is met and a payday has since been recorded, Archie
+# Beat 7: after Beat 6 is met and a payday has since been recorded, Archie
 # texts the closing summons, carrying that record's numbers as the scene's
 # context. Called at rollover after payday; bizA1ClosingQueued blocks
 # re-firing permanently.
 static func maybe_trigger_closing() -> bool:
 	var flags: Dictionary = GameState.state["flags"]
-	if flags.get("bizA1ClosingQueued", false) or not flags.get("bizA1ProofDone", false):
+	if flags.get("bizA1ClosingQueued", false) or not flags.get("bizA1FirstOrderDone", false):
 		return false
-	note_proof_met()
+	note_first_order_met()
 	var ledger: Array = GameState.state["business"]["ledger"]
-	if ledger.size() <= int(GameState.state["businessQuest"]["proofLedgerSize"]):
+	if ledger.size() <= int(GameState.state["businessQuest"]["firstOrderLedgerSize"]):
 		return false
 	flags["bizA1ClosingQueued"] = true
 	Messages.queue_pending("archie", CLOSING_KIND, CLOSING_TEXT, closing_context(ledger.back()))
@@ -256,52 +237,21 @@ static func maybe_trigger_closing() -> bool:
 	return true
 
 
-# The Beat 8 scene's fill-ins, as display strings: the two proving periods
-# (a crafted contract's first qualified period, then another contract's)
-# and the payday record's receipts, Owen's wage and the three shares.
+# The Beat 7 scene's fill-ins, as display strings: the payday record's
+# receipts, Owen's wage and the three shares.
 static func closing_context(record: Dictionary) -> Dictionary:
-	var periods := _proof_periods()
 	var wage := 0
 	for expense in record["expenses"]:
 		if expense["kind"] == "wage" and expense.get("contactId", "") == "owen":
 			wage += int(expense["amount"])
 	var shares: Dictionary = record["shares"]
 	return {
-		"periodOne": _period_line(periods[0]) if periods.size() > 0 else "",
-		"periodTwo": _period_line(periods[1]) if periods.size() > 1 else "",
 		"receipts": "£%d" % int(record["receipts"]),
 		"owenWage": "£%d" % wage,
 		"playerShare": "£%d" % int(shares.get("player", 0)),
 		"archieShare": "£%d" % int(shares.get("archie", 0)),
 		"jamesShare": "£%d" % int(shares.get("james", 0)),
 	}
-
-
-# contractHistory entries: the first qualified period of each contract,
-# a crafted-request contract's first, capped at two.
-static func _proof_periods() -> Array:
-	var firsts: Array = []
-	var seen := {}
-	for entry in GameState.state["sales"]["contractHistory"]:
-		var contract_id: String = entry["contract"]["id"]
-		if entry.get("settlement", {}).get("qualified", false) and not seen.has(contract_id):
-			seen[contract_id] = true
-			firsts.append(entry)
-	for index in firsts.size():
-		if Objectives.requests_crafted(firsts[index]["contract"]["request"]):
-			var crafted: Dictionary = firsts[index]
-			firsts.remove_at(index)
-			firsts.push_front(crafted)
-			break
-	return firsts.slice(0, 2)
-
-
-static func _period_line(entry: Dictionary) -> String:
-	var parts: Array[String] = []
-	for line in Contracts.request_lines(entry["contract"]["request"]):
-		var names: Dictionary = GameData.ORE_TYPES if line["kind"] == "ore" else GameData.RECIPES
-		parts.append("%s ×%d" % [names[line["type"]]["name"], int(line["qty"])])
-	return "%s, £%d" % [", ".join(parts), int(entry["settlement"]["payment"])]
 
 
 # The chain runs from the Beat 1 scene until Beat 2 is met by any source.

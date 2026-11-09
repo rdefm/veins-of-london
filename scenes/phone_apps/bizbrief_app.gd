@@ -45,6 +45,10 @@ const FOLLOW_TEXT := "Follows master"
 const OVERRIDDEN_TEXT := "Overridden"
 const FOLLOWING_CHIP_TEXT := "Following"
 const CUSTOM_CHIP_TEXT := "Custom"
+const ATTENTION_CHIP_TEXT := "Out of %s ore"
+const GROUP_ATTENTION := "Needs attention"
+const GROUP_CUSTOM := "Custom"
+const GROUP_FOLLOWING := "Following defaults"
 const CUSTOM_SETTINGS_TEXT := "Custom settings"
 const FOLLOWING_DEFAULTS_TEXT := "Following the defaults"
 const CUSTOMISE_TEXT := "Customise"
@@ -398,6 +402,8 @@ func _open_manage_page(page: String, focus_id: String = "") -> void:
 	_brief_page = ""
 	_manage_page = page
 	_page_focus_id = focus_id
+	if page == PRODUCTION_PAGE and GameData.RECIPES.has(focus_id):
+		_open_recipes[focus_id] = true
 	_vein_chooser_for = ""
 	_staff_person = ""
 	if focus_id != "" and ContractsSystem.active_contracts().any(func(c: Dictionary) -> bool: return c["id"] == focus_id):
@@ -1265,8 +1271,14 @@ func _build_production() -> Control:
 				var empty := UI.muted_label(FILTER_EMPTY_TEXT)
 				empty.name = "ProductionFilterEmpty"
 				c["content"].add_child(empty)
-			for recipe_key in shown:
-				c["content"].add_child(_build_production_recipe_row(recipe_key))
+			var groups := _recipe_groups(shown)
+			for group in [GROUP_ATTENTION, GROUP_CUSTOM, GROUP_FOLLOWING]:
+				var keys: Array = groups[group]
+				if keys.is_empty():
+					continue
+				c["content"].add_child(_group_header(group, keys.size()))
+				for recipe_key in keys:
+					c["content"].add_child(_build_production_recipe_row(recipe_key))
 	section.add_child(c["panel"])
 	if _production_log_open:
 		var log_card := UI.card()
@@ -1274,6 +1286,35 @@ func _build_production() -> Control:
 		log_card["content"].add_child(_build_production_log())
 		section.add_child(log_card["panel"])
 	return section
+
+
+# Splits recipes into status groups, keeping their order within each; an
+# ore-short recipe is only in Needs attention.
+func _recipe_groups(recipe_keys: Array) -> Dictionary:
+	var groups := { GROUP_ATTENTION: [], GROUP_CUSTOM: [], GROUP_FOLLOWING: [] }
+	for recipe_key in recipe_keys:
+		if not Rooms.ore_short_types(recipe_key).is_empty():
+			groups[GROUP_ATTENTION].append(recipe_key)
+		elif ProductionSettings.has_override(recipe_key):
+			groups[GROUP_CUSTOM].append(recipe_key)
+		else:
+			groups[GROUP_FOLLOWING].append(recipe_key)
+	return groups
+
+
+func _group_header(title: String, count: int) -> Control:
+	var box := UI.vbox(2)
+	box.name = "RecipeGroup_%s" % title.replace(" ", "")
+	var row := UI.hbox(6)
+	var label := UI.muted_label(title.to_upper())
+	label.add_theme_font_size_override("font_size", 11)
+	row.add_child(label)
+	var count_label := UI.muted_label(str(count))
+	count_label.add_theme_font_size_override("font_size", 11)
+	row.add_child(count_label)
+	box.add_child(row)
+	box.add_child(HSeparator.new())
+	return box
 
 
 # Recipes passing the ore-type and overridden/following filters.
@@ -1531,6 +1572,7 @@ func _build_production_recipe_row(recipe_key: String) -> Control:
 	var sales_staffed := Contracts.has_staffed_sales()
 	var stock := Crafting.inventory_qty(recipe_key)
 	var custom := ProductionSettings.has_override(recipe_key)
+	var short_ore: Array = Rooms.ore_short_types(recipe_key)
 	var ore_type := _main_ore(recipe_key)
 	var ore_colour := _ore_colour(ore_type)
 
@@ -1578,7 +1620,7 @@ func _build_production_recipe_row(recipe_key: String) -> Control:
 	stock_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	stock_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	side.add_child(stock_label)
-	side.add_child(_recipe_status_chip(recipe_key, custom))
+	side.add_child(_recipe_status_chip(recipe_key, custom, short_ore))
 	head_row.add_child(side)
 	header.add_child(head_row)
 	box.add_child(header)
@@ -1730,7 +1772,8 @@ func _recipe_icon_tile(recipe_key: String, ore_colour: Color, stock: int, make_t
 	return holder
 
 
-func _recipe_status_chip(recipe_key: String, custom: bool) -> Control:
+func _recipe_status_chip(recipe_key: String, custom: bool, short_ore: Array = []) -> Control:
+	var warn := not short_ore.is_empty()
 	var chip := PanelContainer.new()
 	chip.name = "StatusChip_%s" % recipe_key
 	chip.size_flags_horizontal = Control.SIZE_SHRINK_END
@@ -1740,14 +1783,17 @@ func _recipe_status_chip(recipe_key: String, custom: bool) -> Control:
 	style.content_margin_left = 6
 	style.content_margin_right = 6
 	style.set_corner_radius_all(8)
-	style.bg_color = CUSTOM_SURFACE if custom else Color(1, 1, 1, 0.06)
-	if custom:
+	style.bg_color = Color(HEALTH_AMBER, 0.15) if warn else (CUSTOM_SURFACE if custom else Color(1, 1, 1, 0.06))
+	if custom or warn:
 		style.set_border_width_all(1)
-		style.border_color = CUSTOM_BORDER
+		style.border_color = HEALTH_AMBER if warn else CUSTOM_BORDER
 	chip.add_theme_stylebox_override("panel", style)
-	var text := UI.label(CUSTOM_CHIP_TEXT if custom else FOLLOWING_CHIP_TEXT)
+	var chip_text := CUSTOM_CHIP_TEXT if custom else FOLLOWING_CHIP_TEXT
+	if warn:
+		chip_text = ATTENTION_CHIP_TEXT % ", ".join(short_ore.map(func(t: String) -> String: return GameData.ORE_TYPES[t]["name"]))
+	var text := UI.label(chip_text)
 	text.add_theme_font_size_override("font_size", 11)
-	text.add_theme_color_override("font_color", CUSTOM_BORDER if custom else MUTED)
+	text.add_theme_color_override("font_color", HEALTH_AMBER if warn else (CUSTOM_BORDER if custom else MUTED))
 	text.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	chip.add_child(text)
 	return chip

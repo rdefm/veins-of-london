@@ -395,7 +395,6 @@ static func _continue() -> void:
 		BusinessQuest.maybe_trigger_owen_intro()
 		BusinessQuest.maybe_trigger_partnership()
 		BusinessQuest.maybe_trigger_production()
-		BusinessQuest.maybe_trigger_put_to_work()
 		BusinessQuest.maybe_trigger_owen_craft()
 		# A Monday meeting held back by an event live at rollover starts now.
 		BoardMeetings.maybe_start_meeting()

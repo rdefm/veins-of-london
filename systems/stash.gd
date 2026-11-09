@@ -26,10 +26,7 @@ static func move_ore_to_stash(ore_type: String, qty: int) -> void:
 
 
 static func move_ore_to_shared(ore_type: String, qty: int) -> void:
-	var before := stashed_ore_qty(ore_type)
 	_move_ore(GameState.state["player"]["stash"]["orichalchum"], GameState.state["player"]["orichalchum"], ore_type, qty)
-	if stashed_ore_qty(ore_type) < before:
-		Contracts.note_player_supplied(ore_type)
 
 
 static func _move_ore(source: Dictionary, dest: Dictionary, ore_type: String, qty: int) -> void:
@@ -46,10 +43,7 @@ static func move_item_to_stash(recipe_key: String, qty: int) -> void:
 
 
 static func move_item_to_shared(recipe_key: String, qty: int) -> void:
-	var before := stashed_item_qty(recipe_key)
 	_move_item(GameState.state["player"]["stash"]["inventory"], GameState.state["player"]["inventory"], recipe_key, qty)
-	if stashed_item_qty(recipe_key) < before:
-		Contracts.note_player_supplied(recipe_key)
 
 
 # Tier-preserving move, lowest-tier-first (same policy Crafting.

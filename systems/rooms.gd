@@ -127,6 +127,28 @@ static func effective_lab_target(recipe_key: String, production: int = -1) -> in
 	return target
 
 
+# Short ore type ids for a recipe under its effective target that no working
+# production-role crafter able to make it can afford one attempt of from
+# shared ore (the check _producer_act makes); the ids are the first such
+# crafter's. Empty when the recipe is at target, unmakeable, or affordable.
+static func ore_short_types(recipe_key: String) -> Array:
+	if Crafting.inventory_qty(recipe_key) >= effective_lab_target(recipe_key):
+		return []
+	var ore: Dictionary = GameState.state["player"]["orichalchum"]
+	var costs: Dictionary = Lab.base_calc(recipe_key)
+	var lacking: Array = costs.keys().filter(func(ingredient: String) -> bool: return ore.get(ingredient, 0) < costs[ingredient])
+	var short_types: Array = []
+	var makers := 0
+	for contact_id in Contacts.contacts_in_role("production"):
+		if not Payroll.is_working(contact_id) or not producible_recipes(contact_id).has(recipe_key):
+			continue
+		makers += 1
+		if lacking.is_empty():
+			return []
+		short_types = lacking
+	return short_types if makers > 0 else []
+
+
 # "The contract-card priority order wins, then player-set inventory-target
 # priority" for scarce shared ore. Recipes with covered, unmet contract need
 # are ordered by the best rank of any matching active contract in

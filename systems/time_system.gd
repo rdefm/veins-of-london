@@ -252,7 +252,6 @@ static func daily_tick() -> void:
 	BusinessQuest.maybe_trigger_owen_intro()   # ⑧e backstop for the settle/event-completion checks
 	BusinessQuest.maybe_trigger_partnership()  # ⑧f backstop for the staff-block/room-build checks
 	BusinessQuest.maybe_trigger_production()   # ⑧g backstop for the event-completion check
-	BusinessQuest.maybe_trigger_put_to_work()  # ⑧g1 backstop for the settle/event-completion checks
 	BusinessQuest.maybe_trigger_owen_craft()     # ⑧g2 Owen's crafting event, not an Act 1 beat
 	ContactTexts.daily_tick()                    # ⑧g3 after ⑥'s payroll/payday so the working check is today's
 	RecipeKnowledge.maybe_queue_introductions()  # ⑧g4 Wren's message the day after james_experiment

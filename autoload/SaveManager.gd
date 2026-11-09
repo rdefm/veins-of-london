@@ -227,6 +227,7 @@ func _load_save_dict(raw: Dictionary) -> Dictionary:
 	_fix_up_room_free_roles(filled)
 	_migrate_nadia_supply_order(filled)
 	_migrate_soho_unlock(filled)
+	_migrate_drop_put_to_work_message(filled)
 	_migrate_faction_holdings(filled)
 	_migrate_key_member_standing(filled)
 	_migrate_player_model(filled)
@@ -348,6 +349,12 @@ func _migrate_soho_unlock(save: Dictionary) -> void:
 	if flags.get("bizA1Complete", false):
 		flags["sohoUnlocked"] = true
 		save["flags"] = flags
+
+
+# Strips undelivered biz_a1_put_to_work summons: that event has no data file.
+func _migrate_drop_put_to_work_message(save: Dictionary) -> void:
+	var pending: Array = save.get("pendingMessages", [])
+	save["pendingMessages"] = pending.filter(func(entry): return entry.get("kind", "") != "biz_a1_put_to_work")
 
 
 # A save with an in-progress col_a1_nadia_supply objective can't identify
@@ -1210,7 +1217,7 @@ func _restore_int_types(state: Dictionary) -> void:
 	var business_quest: Dictionary = state.get("businessQuest", {})
 	_int_key(business_quest, "starterIndex")
 	_int_key(business_quest, "starterReissueDay")
-	_int_key(business_quest, "proofLedgerSize")
+	_int_key(business_quest, "firstOrderLedgerSize")
 	var reissue_days: Dictionary = business_quest.get("recurringReissueDay", {})
 	for template_id in reissue_days:
 		_int_key(reissue_days, template_id)

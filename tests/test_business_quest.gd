@@ -269,14 +269,13 @@ func run() -> void:
 		assert_true(GameState.state["flags"]["bizA1JamesJoined"])
 	)
 
-	run_case("beat_6_text_follows_james_joining_and_gates_beat_7", func():
+	run_case("beat_6_text_follows_james_joining", func():
 		_to_beat_5()
 		EventPlay.play_event(BusinessQuest.PARTNERSHIP_KIND)
 		assert_eq(_pending_kinds("james").count(BusinessQuest.PRODUCTION_KIND), 1)
 		assert_true(GameState.state["objectives"]["biz_a1_production"]["active"])
 		TimeSystem.do_rest()
 		assert_eq(_pending_kinds("james").count(BusinessQuest.PRODUCTION_KIND), 1, "the permanent flag blocks re-firing")
-		assert_eq(_pending_kinds("archie").count(BusinessQuest.PUT_TO_WORK_KIND), 0, "Beat 7 waits for Beat 6")
 		assert_true(Rooms.production_settings_open(), "James's Production role opens targets without a lab")
 	)
 
@@ -308,44 +307,17 @@ func run() -> void:
 		assert_eq(Objectives.count_progress(GameData.OBJECTIVES["biz_a1_first_order"])["current"], 3)
 	)
 
-	run_case("fifteen_auto_sold_units_since_activation_meet_beat_6_and_queue_beat_7", func():
+	run_case("fifteen_auto_sold_units_since_activation_meet_beat_6", func():
 		_to_production()
 		GameState.state["business"]["autoSoldUnits"] += 4
 		Objectives.refresh()
 		assert_true(not GameState.state["flags"]["bizA1FirstOrderDone"], "sales short of 15 do not count")
-		assert_eq(_pending_kinds("archie").count(BusinessQuest.PUT_TO_WORK_KIND), 0)
+		assert_eq(_pending_kinds("archie").count(BusinessQuest.CLOSING_KIND), 0)
 		GameState.state["business"]["autoSoldUnits"] += BIZ_FIRST_ORDER_UNITS - 4
 		Objectives.refresh()
-		BusinessQuest.maybe_trigger_put_to_work()
 		assert_true(GameState.state["flags"]["bizA1FirstOrderDone"])
 		assert_true(_business_item("biz_a1_first_order")["done"])
-		assert_eq(_pending_kinds("archie").count(BusinessQuest.PUT_TO_WORK_KIND), 1, "settlement queues Beat 7")
-		assert_true(GameState.state["objectives"]["biz_a1_demo"]["active"])
-	)
-
-	run_case("beat_7_scene_starts_the_proof_without_issuing_the_pearl_offer", func():
-		_to_first_order_done()
-		_strip_random_offers()
-		EventPlay.play_event(BusinessQuest.PUT_TO_WORK_KIND)
-		assert_true(GameState.state["flags"][Contracts.PROOF_FLAG])
-		assert_true(_recurring_offer("biz_recurring_time_pearl").is_empty(), "the pearl order already runs")
-		assert_true(GameState.state["objectives"]["biz_a1_put_to_work"]["active"])
-	)
-
-	run_case("save_already_at_beat_7_skips_beat_6_and_gets_the_pearl_offer", func():
-		_to_beat_5()
-		# A save from before Beat 6 existed, with Beat 7 queued and played.
-		var flags: Dictionary = GameState.state["flags"]
-		flags["bizA1JamesJoined"] = true
-		flags["bizA1PutToWorkQueued"] = true
-		flags["bizA1DelegationUnlocked"] = true
-		_tick()
-		assert_eq(_pending_kinds("james").count(BusinessQuest.PRODUCTION_KIND), 0)
-		assert_true(not GameState.state["objectives"]["biz_a1_production"]["active"])
-		assert_true(not GameState.state["objectives"]["biz_a1_first_order"]["active"])
-		# The rollover's own issue can wait on a pending list the random roll filled.
-		BusinessQuest.maybe_issue_recurring()
-		assert_true(not _recurring_offer("biz_recurring_time_pearl").is_empty())
+		assert_eq(_pending_kinds("archie").count(BusinessQuest.CLOSING_KIND), 0, "Beat 7 waits for a payday")
 	)
 
 	run_case("beat_3_scene_issues_the_ore_recurring_offers_only", func():
@@ -412,22 +384,22 @@ func run() -> void:
 		assert_eq(templates, ["biz_recurring_life_ore", "biz_recurring_time_ore"])
 	)
 
-	run_case("lapsed_recurring_offers_reissue_next_day_until_beat_7_is_met", func():
-		_to_beat_7()
+	run_case("lapsed_recurring_offers_reissue_next_day_until_the_closing_is_queued", func():
+		_to_orders_running()
 		var expires_day: int = _recurring_offer("biz_recurring_time_ore")["expiresDay"]
 		while GameState.state["world"]["day"] < expires_day:
 			_tick()
 		assert_true(_recurring_offer("biz_recurring_time_ore").is_empty(), "expired on its expiry day")
 		_tick()
-		assert_true(not _recurring_offer("biz_recurring_time_ore").is_empty(), "reissued a day later while Beat 7 is unmet")
-		GameState.state["flags"]["bizA1ProofDone"] = true
+		assert_true(not _recurring_offer("biz_recurring_time_ore").is_empty(), "reissued a day later while the closing is unqueued")
+		GameState.state["flags"]["bizA1ClosingQueued"] = true
 		for i in 3:
 			_tick()
-		assert_eq(_recurring_offer_templates().size(), 0, "no reissue once Beat 7 is met")
+		assert_eq(_recurring_offer_templates().size(), 0, "no reissue once the closing is queued")
 	)
 
 	run_case("declined_recurring_offer_reissues_next_day_once_the_pending_cap_allows", func():
-		_to_beat_7()
+		_to_orders_running()
 		Offers.decline_offer(_recurring_offer("biz_recurring_time_ore")["id"])
 		while Offers.random_pending_count() < Offers.PENDING_CAP:
 			Offers.create_offer(Offers.random_templates()[0])
@@ -442,7 +414,7 @@ func run() -> void:
 	)
 
 	run_case("declined_choice_is_not_reissued_while_the_other_choice_runs", func():
-		_to_beat_7()
+		_to_orders_running()
 		Offers.accept_offer(_recurring_offer("biz_recurring_time_ore")["id"])
 		Offers.decline_offer(_recurring_offer("biz_recurring_life_ore")["id"])
 		_tick()
@@ -450,68 +422,9 @@ func run() -> void:
 		assert_true(_recurring_offer("biz_recurring_life_ore").is_empty())
 	)
 
-	run_case("beat_7_needs_two_qualified_contracts_one_crafted_in_any_weeks", func():
-		_to_beat_7()
-		var pearls := _pearl_contract()
-		var time_ore := _accept_recurring("biz_recurring_time_ore")
-		var life_ore := _accept_recurring("biz_recurring_life_ore")
-		_stock_ore("time", 6)
-		for i in 8:
-			_tick()
-		_stock_ore("life", 6)
-		assert_eq(Objectives.recurring_proof(), { "contracts": 2, "crafted": 0 })
-		assert_true(not GameState.state["flags"]["bizA1ProofDone"], "two ore orders alone don't prove it")
-		var todo_checks: Array = _business_item("biz_a1_put_to_work")["checks"]
-		assert_eq(todo_checks[0]["detail"], "2 of 2")
-		assert_true(not todo_checks[1]["done"])
-		_stock_pearls(5)
-		assert_true(GameState.state["flags"]["bizA1ProofDone"])
-		assert_true(_business_item("biz_a1_put_to_work")["done"])
-		assert_true(time_ore["id"] != life_ore["id"] and pearls["id"] != time_ore["id"])
-	)
-
-	run_case("pre_existing_recurring_contract_without_period_tracking_counts", func():
-		_to_beat_5()
-		EventPlay.play_event(BusinessQuest.PARTNERSHIP_KIND)
-		var created: Dictionary = Offers.create_scripted_offer("scripted_physics_weekly")
-		var physics: Dictionary = Offers.accept_offer(created["offer"]["id"])["contract"]
-		# A save from before period tracking.
-		physics.erase("periodStartDay")
-		_strip_random_offers()
-		EventPlay.play_event(BusinessQuest.PUT_TO_WORK_KIND)
-		BusinessQuest.maybe_issue_recurring()
-		Contacts.set_role("archie", "sales")
-		_stock_ore("physics", 3)
-		assert_eq(Objectives.recurring_proof()["contracts"], 1)
-		_accept_recurring("biz_recurring_time_pearl")
-		_stock_pearls(5)
-		assert_true(GameState.state["flags"]["bizA1ProofDone"])
-	)
-
-	run_case("sales_calc_purchases_do_not_disqualify_the_proof", func():
-		_to_beat_7()
-		GameState.state["factions"]["guild"]["joined"] = true
-		GameState.state["business"]["pot"] = 5000
-		var time_ore := _accept_recurring("biz_recurring_time_ore")
-		Contracts.set_buy_calc(time_ore["id"], true)
-		Contracts.process_daily_sales()
-		var settlement: Dictionary = GameState.state["sales"]["settlements"].back()
-		assert_eq(settlement["contractId"], time_ore["id"])
-		assert_true(settlement["complete"] and settlement["qualified"])
-		assert_eq(Objectives.recurring_proof()["contracts"], 1)
-	)
-
-	run_case("beat_8_waits_for_payday_then_closes_the_act_and_business_runs_on", func():
-		_to_beat_7()
-		var pearls := _pearl_contract()
-		# Beat 6's filled pearl period stays locked until Monday, whose
-		# payday banks it before the proof is met.
-		while Contracts.is_period_filled(pearls):
-			_tick()
-		var time_ore := _accept_recurring("biz_recurring_time_ore")
-		_stock_pearls(5)
-		_stock_ore("time", 6)
-		assert_true(GameState.state["flags"]["bizA1ProofDone"])
+	run_case("beat_7_waits_for_payday_then_closes_the_act_and_business_runs_on", func():
+		_to_orders_running()
+		BusinessQuest.note_first_order_met()
 		assert_true(not GameState.state["flags"]["bizA1ClosingQueued"])
 		var ledger: Array = GameState.state["business"]["ledger"]
 		var ledger_before := ledger.size()
@@ -522,19 +435,16 @@ func run() -> void:
 		assert_eq(entries.size(), 1)
 		var record: Dictionary = ledger.back()
 		var payload: Dictionary = entries[0]["payload"]
-		# The two proof periods.
-		var receipts: int = int(pearls["signedQuote"]["payment"]) + int(time_ore["signedQuote"]["payment"])
-		assert_eq(record["receipts"], receipts)
-		assert_eq(payload["receipts"], "£%d" % receipts)
+		assert_eq(payload["receipts"], "£%d" % int(record["receipts"]))
 		assert_eq(payload["playerShare"], "£%d" % int(record["shares"]["player"]))
 		assert_eq(payload["jamesShare"], "£%d" % int(record["shares"]["james"]))
-		assert_true(String(payload["periodOne"]).begins_with("Time Pearl ×5"), "the crafted order reads first")
 		assert_true(String(payload["owenWage"]) != "£0")
 
 		Events.start_event(BusinessQuest.CLOSING_KIND, payload)
 		Events.advance()
-		assert_true(String(Events.revealed_cards()[1]["text"]).contains(payload["periodOne"]))
-		for i in GameData.EVENTS[BusinessQuest.CLOSING_KIND]["cards"].size() - 1:
+		Events.advance()
+		assert_true(String(Events.revealed_cards()[2]["text"]).contains(payload["receipts"]))
+		for i in GameData.EVENTS[BusinessQuest.CLOSING_KIND]["cards"].size() - 2:
 			Events.advance()
 		assert_true(GameState.state["flags"]["bizA1Complete"])
 		assert_eq(_business_section()["status"], "done")
@@ -547,7 +457,7 @@ func run() -> void:
 	)
 
 	run_case("two_realistic_recurring_orders_leave_a_positive_weekly_share", func():
-		_to_beat_7()
+		_to_orders_running()
 		var weekly: int = int(_pearl_contract()["signedQuote"]["payment"]) + int(_recurring_offer("biz_recurring_time_ore")["quote"]["payment"])
 		var owen_wage: int = GameData.BUSINESS_WEEKLY_WAGES["owen"]
 		assert_true(Business.split(weekly - owen_wage, 2)["player"] > 0)
@@ -645,17 +555,16 @@ func _to_first_order_done() -> Dictionary:
 	assert_true(Contracts.is_period_filled(contract))
 	GameState.state["business"]["autoSoldUnits"] += BIZ_FIRST_ORDER_UNITS
 	Objectives.refresh()
-	BusinessQuest.maybe_trigger_put_to_work()
 	return contract
 
 
-# Beat 7 scene played, Archie in Sales, the pearl contract running and both
-# ore offers pending.
-func _to_beat_7() -> void:
-	_to_first_order_done()
+# Beat 6 met, Archie in Sales, the pearl contract running and both ore offers
+# pending. Returns the pearl contract.
+func _to_orders_running() -> Dictionary:
+	var contract := _to_first_order_done()
 	_strip_random_offers()
-	EventPlay.play_event(BusinessQuest.PUT_TO_WORK_KIND)
 	assert_true(Contacts.set_role("archie", "sales")["ok"])
+	return contract
 
 
 func _pearl_contract() -> Dictionary:
@@ -681,23 +590,6 @@ func _recurring_offer(template_id: String) -> Dictionary:
 
 func _recurring_offer_templates() -> Array:
 	return Offers.pending_offers().filter(func(o): return BusinessQuest.is_recurring_template(o["templateId"])).map(func(o): return o["templateId"])
-
-
-func _accept_recurring(template_id: String) -> Dictionary:
-	return Offers.accept_offer(_recurring_offer(template_id)["id"])["contract"]
-
-
-# Stock appearing without the player (as a cultivator or producer would
-# supply it), then Sales' block-end pass.
-func _stock_ore(ore_type: String, qty: int) -> void:
-	var ore: Dictionary = GameState.state["player"]["orichalchum"]
-	ore[ore_type] = int(ore.get(ore_type, 0)) + qty
-	Contracts.process_sales_deliveries()
-
-
-func _stock_pearls(qty: int) -> void:
-	Crafting.inventory_add("timePearl", 1, qty)
-	Contracts.process_sales_deliveries()
 
 
 func _build_workshop() -> void:

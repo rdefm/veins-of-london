@@ -2923,7 +2923,7 @@ func _validate_deck_entry(deck: Dictionary, context: String, errors: Array[Strin
 const OBJECTIVE_TYPES: Array[String] = [
 	"sites_discovered_matching", "traded_with_faction", "supplied_to_contact", "vein_sold_to_faction", "vein_growth_above", "flag_true",
 	"alarm_defend_wins", "faction_vein_seeded_count", "items_crafted_set", "contracts_completed", "all_of",
-	"recurring_proof", "template_periods_completed", "recipe_known",
+	"template_periods_completed", "recipe_known",
 	"auto_sold_units",
 ]
 const OBJECTIVE_TYPE_PARAMS: Dictionary = {
@@ -2938,7 +2938,6 @@ const OBJECTIVE_TYPE_PARAMS: Dictionary = {
 	"items_crafted_set": ["recipeKeys", "minEach"],
 	"contracts_completed": ["minCount"],
 	"all_of": ["conditions"],
-	"recurring_proof": ["minContracts", "minCrafted"],
 	"template_periods_completed": ["templateId", "minCount"],
 	"recipe_known": ["recipe"],
 	"auto_sold_units": ["minCount"],

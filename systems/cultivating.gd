@@ -424,8 +424,6 @@ static func cultivate(vein_id: String) -> Dictionary:
 	var shown_growth: int = vein["growth"]
 	var lady := ActiveEffects.lady_active()
 	var level_before: int = vein.get("level", 1)
-	# Tainted before the block ends, so a rollover settlement sees it.
-	Contracts.note_player_tended_vein(vein_id)
 	Perks.note_player_tended(vein_id)
 	var spend := FreeAction.spend("soul", vein["district"])
 	var spent_block: bool = not spend["free"]
@@ -534,7 +532,6 @@ static func prune(vein_id: String, depth: int) -> Dictionary:
 	if TimeSystem.is_time_exhausted():
 		return { "ok": false, "reason": "No time blocks left today." }
 
-	Contracts.note_player_tended_vein(vein_id)
 	Perks.note_player_tended(vein_id)
 	var lady := ActiveEffects.lady_active()
 	var spend := FreeAction.spend("soul", vein["district"])

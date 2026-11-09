@@ -129,7 +129,7 @@ func run() -> void:
 		flags["colA2DefendBriefed"] = true
 		Objectives.refresh()
 		assert_true(GameState.state["objectives"]["col_a2_nadia_supplies"]["active"], "supplies mission active")
-		var contract := { "request": { "type": "blast", "qty": 3 }, "playerAssisted": false }
+		var contract := { "request": { "type": "blast", "qty": 3 } }
 		GameState.state["sales"]["activeContracts"].append(contract)
 		var relation_before := int(GameState.state["factions"]["collective"]["relation"])
 		var xp_before := int(player["craftingXP"])
@@ -139,7 +139,6 @@ func run() -> void:
 		assert_eq(player["craftedCounts"]["blast"], 2, "craftedCounts per item")
 		assert_eq(GameState.state["shares"]["days"][-1]["craft"][Shares.PLAYER], { "physics": 8 }, "each item's calc credited once")
 		assert_eq(int(player["craftingXP"]) - xp_before, 30, "XP awarded once")
-		assert_true(contract["playerAssisted"], "contract marked player-supplied")
 
 		Crafting.file_crafted("shield", 1, 1, false, { "physics": 4 }, 0)
 		Crafting.file_crafted("panic", 1, 1, true, { "emotion": 4 }, 0)

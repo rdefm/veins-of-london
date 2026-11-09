@@ -990,6 +990,32 @@ func run() -> void:
 		EventBus.flush_now()
 		assert_true(phone.find_child("ProductionRecipe_timePearl", true, false) != null, "Fix production opens the Production page")
 		assert_true(NodeQuery.label_texts(phone).has("/ Production"))
+		var body: Node = phone.find_child("RecipeBody_timePearl", true, false)
+		assert_true(body != null and body.visible, "deep link opens the card expanded")
+		phone.free()
+	)
+
+	run_case("production_groups_put_ore_short_recipes_under_needs_attention_once", func():
+		GameState.reset()
+		ProductionSettings.set_master_field("coverContracts", false)
+		GameState.state["home"]["rooms"].append("lab")
+		GameState.state["contacts"]["james"]["recruited"] = true
+		GameState.state["flags"]["bizJamesProductionRole"] = true
+		assert_true(Contacts.set_role("james", "production")["ok"])
+		GameState.state["player"]["orichalchum"] = { "time": 0, "life": 0 }
+		ProductionSettings.set_field("timePearl", "production", 3)
+		assert_true(Rooms.ore_short_types("timePearl").size() > 0, "timePearl short of ore")
+		GameState.state["phoneNav"]["app"] = "bizbrief"
+		var phone := PhoneScreen.new()
+		phone._ready()
+		_button_with_text(phone, "Manage").pressed.emit()
+		EventBus.flush_now()
+		_button_with_text(phone, "Production").pressed.emit()
+		EventBus.flush_now()
+		assert_true(phone.find_child("RecipeGroup_Needsattention", true, false) != null, "Needs attention header shown")
+		assert_true(phone.find_child("RecipeGroup_Custom", true, false) == null, "short + overridden recipe is not also under Custom")
+		var chip: Node = phone.find_child("StatusChip_timePearl", true, false)
+		assert_true(chip != null and NodeQuery.label_texts(chip).any(func(t: String) -> bool: return t.begins_with("Out of ")), "chip names short ore")
 		phone.free()
 	)
 

@@ -393,34 +393,15 @@ static func _idle_staff_rows(rows: Array[Dictionary]) -> void:
 # check Rooms._producer_act makes); the short ore types are the first such
 # producer's.
 static func _ore_short_rows(rows: Array[Dictionary]) -> void:
-	var producers: Array = Contacts.contacts_in_role("production").filter(func(contact_id: String) -> bool: return Payroll.is_working(contact_id))
-	var ore: Dictionary = GameState.state["player"]["orichalchum"]
 	for recipe_key in GameData.RECIPES:
-		var held := Crafting.inventory_qty(recipe_key)
-		var target := Rooms.effective_lab_target(recipe_key)
-		if held >= target:
-			continue
-		var short_types: Array = []
-		var makers := 0
-		var affordable := false
-		for contact_id in producers:
-			if not Rooms.producible_recipes(contact_id).has(recipe_key):
-				continue
-			makers += 1
-			var costs: Dictionary = Lab.base_calc(recipe_key)
-			var lacking: Array = costs.keys().filter(func(ingredient: String) -> bool: return ore.get(ingredient, 0) < costs[ingredient])
-			if lacking.is_empty():
-				affordable = true
-				break
-			if short_types.is_empty():
-				short_types = lacking
-		if makers == 0 or affordable:
+		var short_types: Array = Rooms.ore_short_types(recipe_key)
+		if short_types.is_empty():
 			continue
 		var values := {
 			"item": GameData.RECIPES[recipe_key]["name"],
 			"ore": ", ".join(short_types.map(func(t: String) -> String: return GameData.ORE_TYPES[t]["name"])),
-			"held": held,
-			"target": target,
+			"held": Crafting.inventory_qty(recipe_key),
+			"target": Rooms.effective_lab_target(recipe_key),
 		}
 		rows.append(_row("oreShort", "oreShort:%s" % recipe_key, values, { "to": "bizbrief_production", "recipeKey": recipe_key }, 0))
 

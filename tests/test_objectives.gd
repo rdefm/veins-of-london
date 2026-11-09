@@ -721,5 +721,5 @@ func _settle_contracts(count: int) -> void:
 	for i in count:
 		GameState.state["sales"]["contractHistory"].append({
 			"contract": { "id": "c_test_%d" % GameState.state["sales"]["contractHistory"].size(), "templateId": "t_test" },
-			"settlement": { "complete": true, "qualified": true },
+			"settlement": { "complete": true },
 		})

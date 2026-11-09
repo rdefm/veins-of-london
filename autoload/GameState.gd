@@ -127,7 +127,7 @@ func new_game_state() -> Dictionary:
 		# Archie's Beat 2 starter-offer chain (systems/business_quest.gd):
 		# which starter template is next, and the day it may be (re)issued
 		# (null = as soon as none is outstanding).
-		"businessQuest": { "starterIndex": 0, "starterReissueDay": null, "recurringReissueDay": {}, "proofLedgerSize": null },
+		"businessQuest": { "starterIndex": 0, "starterReissueDay": null, "recurringReissueDay": {}, "firstOrderLedgerSize": null },
 		# Transient UI qty-steppers, not restored by SaveManager (same
 		# convention as sellState): craftMulti keys recipe key -> the Lab's
 		# multi-target checkbox; stashQty keys "ore_<oreType>"/"item_<recipeKey>"
@@ -367,7 +367,6 @@ func new_game_state() -> Dictionary:
 			"bizA1OwenIntroQueued": false, "bizA1OwenJoined": false,
 			"bizA1ApprenticeReady": false, "bizA1PartnershipQueued": false, "bizA1JamesJoined": false,
 			"bizA1ProductionQueued": false, "bizA1ProductionSeen": false, "bizA1FirstOrderDone": false,
-			"bizA1PutToWorkQueued": false, "bizA1DelegationUnlocked": false, "bizA1ProofDone": false,
 			"bizA1ClosingQueued": false, "bizA1Complete": false,
 			# Soho Marketplace open (set by biz_a1_closing; Soho.is_unlocked).
 			"sohoUnlocked": false,
