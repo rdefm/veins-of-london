@@ -50,20 +50,6 @@ func run() -> void:
 		assert_true(not ProductionSettings.has_override(SALVE), "reverting nothing is harmless")
 	)
 
-	run_case("v14_save_resets_to_master_defaults_and_drops_old_fields", func():
-		GameState.reset()
-		var save: Dictionary = GameState.deep_copy(GameState.state)
-		save.erase("production")
-		save["meta"]["saveVersion"] = 14
-		save["labThresholds"] = { SALVE: 9 }
-		save["labCoverContracts"] = { SALVE: true }
-		save["autoSell"] = { SALVE: { "sellAbove": 3, "mood": "aggressive" } }
-		assert_true(SaveManager.import_string(JSON.stringify(save))["ok"])
-		assert_eq(GameState.state["production"], ProductionSettings.default_state())
-		assert_true(not GameState.state.has("labThresholds") and not GameState.state.has("labCoverContracts") and not GameState.state.has("autoSell"))
-		assert_eq(GameState.state["meta"]["saveVersion"], SaveManager.SAVE_VERSION)
-	)
-
 	run_case("overrides_survive_a_save_round_trip", func():
 		GameState.reset()
 		Rooms.set_lab_threshold(SALVE, 7)

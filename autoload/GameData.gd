@@ -219,6 +219,20 @@ var GUARD_UPKEEP: Dictionary = {}
 #   guardAlly {name, hpMax, attackMin, attackMax, speed} }.
 var GUARD_KIT: Dictionary = {}
 
+# Muscle (hired guards): level table, XP, training, injury, post caps, board,
+# score and strength-word numbers (data/constants.json "muscle").
+var MUSCLE: Dictionary = {}
+
+# data/muscle_traits.json: trait id -> {label, kind, effect, params}, plus
+# the trait pairs that never co-occur.
+var MUSCLE_TRAITS: Dictionary = {}
+var MUSCLE_BLOCKED_PAIRS: Array = []
+
+# data/muscle_names.json: first-name, surname and nickname pools.
+var MUSCLE_FIRST_NAMES: Array = []
+var MUSCLE_SURNAMES: Array = []
+var MUSCLE_NICKNAMES: Array = []
+
 # Player loadout config: { slotCount, items (equippable recipe allowlist) }.
 var LOADOUT: Dictionary = {}
 
@@ -549,6 +563,7 @@ const MANIFEST: Array[Dictionary] = [
 		{"field": "GUARD_REPEL_CHANCE_CAP", "key": "guardRepel.cap", "type": TYPE_FLOAT},
 		{"field": "GUARD_UPKEEP", "key": "guardUpkeep", "type": TYPE_DICTIONARY},
 		{"field": "GUARD_KIT", "key": "guardKit", "type": TYPE_DICTIONARY},
+		{"field": "MUSCLE", "key": "muscle", "type": TYPE_DICTIONARY},
 		{"field": "LOADOUT", "key": "loadout", "type": TYPE_DICTIONARY},
 		{"field": "CULTIVATOR_ACTION_XP", "key": "cultivatorActionXp", "type": TYPE_INT},
 		{"field": "CULTIVATOR_SPECIALITY_YIELD_MULT", "key": "cultivatorSpecialityYieldMult", "type": TYPE_FLOAT},
@@ -620,6 +635,15 @@ const MANIFEST: Array[Dictionary] = [
 		{"field": "HIRING_CANDIDATES", "key": "candidates", "type": TYPE_DICTIONARY},
 		{"field": "HIRING_MARKET", "key": "market", "type": TYPE_DICTIONARY},
 		{"field": "HIRING_TRAITS", "key": "traits", "type": TYPE_DICTIONARY},
+	]},
+	{"table": "muscle_traits", "file": "res://data/muscle_traits.json", "fields": [
+		{"field": "MUSCLE_TRAITS", "key": "traits", "type": TYPE_DICTIONARY},
+		{"field": "MUSCLE_BLOCKED_PAIRS", "key": "blockedPairs", "type": TYPE_ARRAY},
+	]},
+	{"table": "muscle_names", "file": "res://data/muscle_names.json", "fields": [
+		{"field": "MUSCLE_FIRST_NAMES", "key": "first", "type": TYPE_ARRAY},
+		{"field": "MUSCLE_SURNAMES", "key": "surnames", "type": TYPE_ARRAY},
+		{"field": "MUSCLE_NICKNAMES", "key": "nicknames", "type": TYPE_ARRAY},
 	]},
 	{"table": "wards", "file": "res://data/wards.json", "fields": [
 		{"field": "WARDS", "key": "", "type": TYPE_DICTIONARY},

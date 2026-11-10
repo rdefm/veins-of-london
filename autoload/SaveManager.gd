@@ -4,9 +4,9 @@ extends Node
 # autosaves. autosave() is called from daily_tick, exit_combat, event
 # completion, and every successful cash purchase.
 
-const SAVE_VERSION := 15
-# Oldest save version _migrate_versions() can still bring forward.
-const MIN_SUPPORTED_VERSION := 3
+const SAVE_VERSION := 16
+# Oldest save version still loadable; older saves are refused.
+const MIN_SUPPORTED_VERSION := 16
 const SLOT_COUNT := 3
 const AUTOSAVE_COUNT := 3
 # Test runner redirects these to an isolated workspace directory. Gameplay
@@ -439,9 +439,7 @@ func _remap_retired_notes_app(save: Dictionary) -> void:
 # A save older than MIN_SUPPORTED_VERSION, or newer than SAVE_VERSION, is
 # rejected outright with a clear reason rather than half-loaded. A save with
 # no meta.saveVersion at all is treated as current (matches
-# new_game_state()'s own default). v3's break: every site carries a stamped
-# slotIndex MapLayout.assign_positions() depends on, with no way to
-# reconstruct historical discovery order to backfill it.
+# new_game_state()'s own default).
 func _check_save_version(save: Dictionary) -> Dictionary:
 	var meta: Dictionary = save.get("meta", {})
 	var version: int = meta.get("saveVersion", SAVE_VERSION)
@@ -450,213 +448,19 @@ func _check_save_version(save: Dictionary) -> Dictionary:
 	return { "ok": true }
 
 
-# Ordered, reusable migration hook: runs _migrate_from_v<N>() for every version
-# N from the save's own up to SAVE_VERSION - 1, then stamps SAVE_VERSION. A new
-# schema change bumps SAVE_VERSION and adds one `match` arm.
+# Ordered, reusable migration hook: runs a per-version step for every version
+# N from the save's own up to SAVE_VERSION - 1, then stamps SAVE_VERSION. A
+# schema change that can be migrated adds one `match` arm; v16 (muscle) broke
+# compatibility, so no arms exist and everything older is refused.
 func _migrate_versions(save: Dictionary) -> void:
 	var meta: Dictionary = save.get("meta", {})
 	var version: int = int(meta.get("saveVersion", SAVE_VERSION))
 	for from_version in range(version, SAVE_VERSION):
 		match from_version:
-			3:
-				_migrate_from_v3(save)
-			4:
-				_migrate_from_v4(save)
-			5:
-				_migrate_from_v5(save)
-			6:
-				_migrate_from_v6(save)
-			7:
-				_migrate_from_v7(save)
-			8:
-				_migrate_from_v8(save)
-			10:
-				_migrate_from_v10(save)
-			11:
-				_migrate_from_v11(save)
-			12:
-				_migrate_from_v12(save)
-			13:
-				_migrate_from_v13(save)
-			14:
-				_migrate_from_v14(save)
+			_:
+				pass
 	meta["saveVersion"] = SAVE_VERSION
 	save["meta"] = meta
-
-
-# v15: per-recipe targets, cover flags and auto-sell rules give way to the
-# master + overrides setting model; every save resets to master defaults.
-func _migrate_from_v14(save: Dictionary) -> void:
-	save.erase("labThresholds")
-	save.erase("labCoverContracts")
-	save.erase("autoSell")
-	save["production"] = ProductionSettings.default_state()
-
-
-# v14: auto-sell moods take their approach ids, with the same limits. An Off
-# rule becomes a cutoff at the top of the bar under the default mood.
-func _migrate_from_v13(save: Dictionary) -> void:
-	var renames := { "careful": "cautious", "steady": "balanced", "eager": "aggressive" }
-	var default_mood: String = GameData.MARKET["autoSell"]["defaultMood"]
-	for rule in save.get("autoSell", {}).values():
-		if renames.has(rule["mood"]):
-			rule["mood"] = renames[rule["mood"]]
-		else:
-			rule["mood"] = default_mood
-			rule["sellAbove"] = GameData.PRODUCTION_TARGET_MAX
-
-# v13: Stealth folds into Sense. The player's senseXP becomes the larger of
-# the two XP totals (the curves share their first six entries), senseSkill is
-# re-derived from it, and every stealth field is dropped, contacts' included.
-func _migrate_from_v12(save: Dictionary) -> void:
-	var player: Variant = save.get("player")
-	if player is Dictionary:
-		var xp: int = maxi(int(player.get("senseXP", 0)), int(player.get("stealthXP", 0)))
-		var level: int = int(player.get("senseSkill", 1))
-		var levels: Array = GameData.SENSE_XP_LEVELS
-		while level < levels.size() - 1 and xp >= levels[level + 1]:
-			level += 1
-		player["senseXP"] = xp
-		player["senseSkill"] = level
-		player.erase("stealthSkill")
-		player.erase("stealthXP")
-	var contacts: Variant = save.get("contacts")
-	if contacts is Dictionary:
-		for contact in contacts.values():
-			if contact is Dictionary:
-				contact.erase("stealthSkill")
-				contact.erase("stealthXP")
-
-
-# v12: drops the lottery bench's state (player.bench, labBenchNav, craftQty)
-# and closes an open modal of a retired type.
-const RETIRED_MODAL_TYPES := ["craft_result", "craft_batch_result", "lab_bench_recipe_book", "lab_bench_recipe_detail", "lab_bench_notes", "lab_bench_probe_result", "lab_bench_confirm"]
-
-
-func _migrate_from_v11(save: Dictionary) -> void:
-	var player: Variant = save.get("player")
-	if player is Dictionary:
-		player.erase("bench")
-	save.erase("labBenchNav")
-	save.erase("craftQty")
-	var modal: Variant = save.get("modal")
-	if modal is Dictionary and RETIRED_MODAL_TYPES.has(modal.get("type")):
-		save["modal"] = null
-
-
-# v11: the `pansPrank` id becomes `panic` wherever it appears as a key or string
-# value (inventories, kits, holdings, crafted counts, bench cells, loadouts).
-func _migrate_from_v10(save: Dictionary) -> void:
-	_rename_recipe_id(save, "pansPrank", "panic")
-
-
-func _rename_recipe_id(node: Variant, old_id: String, new_id: String) -> Variant:
-	if node is Dictionary:
-		if node.has(old_id):
-			node[new_id] = node[old_id]
-			node.erase(old_id)
-		for key in node.keys():
-			node[key] = _rename_recipe_id(node[key], old_id, new_id)
-	elif node is Array:
-		for i in node.size():
-			node[i] = _rename_recipe_id(node[i], old_id, new_id)
-	elif node is String and node == old_id:
-		return new_id
-	return node
-
-
-# v9 drops HQ kit capacity from three to two units per guard: overflow returns
-# to player inventory, highest tiers staying in the kit.
-func _migrate_from_v8(save: Dictionary) -> void:
-	var home: Variant = save.get("home")
-	var player: Variant = save.get("player")
-	if not (home is Dictionary) or not (player is Dictionary) or not (home.get("guardKit") is Dictionary):
-		return
-	if not (player.get("inventory") is Dictionary):
-		player["inventory"] = {}
-	var cap := GuardKit.capacity_of(int(home.get("guardCount", 0)), int(GameData.GUARD_KIT["hqSlotsPerGuard"]))
-	GuardKit.return_overflow(home["guardKit"], cap, player["inventory"])
-
-
-# v8 makes Dials per-owner: a recruited contact with a grantDial (James) gains
-# it, charge full, and the per-day dialCharges counter is dropped. Player
-# stock is untouched.
-func _migrate_from_v7(save: Dictionary) -> void:
-	var contacts: Variant = save.get("contacts")
-	if not (contacts is Dictionary):
-		return
-	var day: int = int(save.get("world", {}).get("day", 1))
-	for contact_id in contacts:
-		var contact: Variant = contacts[contact_id]
-		if not (contact is Dictionary):
-			continue
-		contact.erase("dialCharges")
-		var spec: Variant = GameData.CONTACTS_DEFAULTS.get(contact_id, {}).get("grantDial")
-		if spec is Dictionary and contact.get("recruited", false) and contact.get("dial") == null:
-			contact["dial"] = Dial.build_granted_dial(spec, day)
-
-
-# v7 retires the contact combat stash (Archie's self-heal); recruits gain loadout
-# slots through the new-contact-key backfill.
-func _migrate_from_v6(save: Dictionary) -> void:
-	var contacts: Variant = save.get("contacts")
-	if not (contacts is Dictionary):
-		return
-	for contact in contacts.values():
-		if contact is Dictionary:
-			for key in ["combatStashMax", "combatStash", "combatHealAmount"]:
-				contact.erase(key)
-
-
-# v6 raises the unarmed base attack from 3–7 to 7–15 (the crowbar total);
-# a save whose base was edited away from 3–7 is left alone.
-func _migrate_from_v5(save: Dictionary) -> void:
-	var player: Dictionary = save.get("player", {})
-	if int(player.get("attackMin", 3)) == 3 and int(player.get("attackMax", 7)) == 7:
-		player["attackMin"] = 7
-		player["attackMax"] = 15
-
-
-# v5 retires player weapons: the crowbar item list and the equipped-weapon slot
-# are dropped with no compensation.
-func _migrate_from_v4(save: Dictionary) -> void:
-	var player: Dictionary = save.get("player", {})
-	player.erase("items")
-	var equipment: Variant = player.get("equipment")
-	if equipment is Dictionary:
-		equipment.erase("weapon")
-
-
-# v4 retires tier 0: every tier-0 unit in every store becomes tier 1, merged
-# into the existing tier-1 bucket (counts conserved).
-func _migrate_from_v3(save: Dictionary) -> void:
-	var player: Dictionary = save.get("player", {})
-	_retire_tier_zero(player.get("inventory", {}))
-	_retire_tier_zero(player.get("stash", {}).get("inventory", {}))
-	for vein in player.get("veins", []):
-		_retire_tier_zero(vein.get("guardKit", {}))
-	_retire_tier_zero(save.get("home", {}).get("guardKit", {}))
-	for faction in save.get("factions", {}).values():
-		_retire_tier_zero(faction.get("holdings", {}).get("items", {}))
-	var combat: Dictionary = save.get("combat", {})
-	for pool_key in ["guardKit", "raiderKit"]:
-		var pool: Dictionary = combat.get(pool_key, {})
-		_retire_tier_zero(pool.get("items", {}))
-		_retire_tier_zero(pool.get("used", {}))
-	var dial: Variant = player.get("dial")
-	if dial is Dictionary:
-		for entry in dial.get("loadedComplications", []):
-			if int(entry.get("tier", 1)) < 1:
-				entry["tier"] = 1
-
-
-# `stores` is { recipeKey: { "<tier>": count } }; folds each "0" bucket into "1".
-func _retire_tier_zero(stores: Dictionary) -> void:
-	for recipe_key in stores:
-		var buckets: Variant = stores[recipe_key]
-		if buckets is Dictionary and buckets.has("0"):
-			buckets["1"] = int(buckets.get("1", 0)) + int(buckets["0"])
-			buckets.erase("0")
 
 
 # Fills any missing TOP-LEVEL keys from a fresh new_game_state() (R§6:
@@ -1070,6 +874,7 @@ func _restore_dial_ints(dial: Dictionary) -> void:
 
 func _restore_int_types(state: Dictionary) -> void:
 	_restore_whole_numbers(state.get("boardMeetings", {}))
+	_restore_whole_numbers(state.get("muscle", {}))
 	_int_key(state, "pendingSaleCut")
 	_int_key(state, "pendingArchieDealCut")
 	if not state.has("production"):

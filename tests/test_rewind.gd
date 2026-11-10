@@ -93,6 +93,20 @@ func run() -> void:
 		assert_true(Rewind.has_block_start(), "can rewind to the same block again")
 	)
 
+	run_case("block_rewind_restores_the_muscle_roster_exactly", func():
+		GameState.reset()
+		Crafting.inventory_add("rewind", 1, 2)
+		Rng.set_seed(5)
+		var hired := Muscle.create_guard(2)
+		GameState.state["muscle"]["guards"].append(hired)
+		TimeSystem.advance_time_block()
+		var before: Dictionary = GameState.deep_copy(GameState.state["muscle"])
+		GameState.state["muscle"]["guards"].append(Muscle.create_guard(3))
+		GameState.state["muscle"]["guards"][0]["xp"] = 99
+		assert_true(Rewind.rewind_to_block_start()["ok"], "rewound")
+		assert_eq(GameState.state["muscle"], before, "roster back exactly")
+	)
+
 	run_case("block_rewind_restores_tiered_market_stock_as_ints", func():
 		GameState.reset()
 		Crafting.inventory_add("rewind", 1, 2)

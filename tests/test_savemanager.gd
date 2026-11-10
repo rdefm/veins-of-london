@@ -1311,153 +1311,21 @@ func run() -> void:
 		assert_true(result["reason"].contains("incompatible version"), "the rejection reason should be clear about why")
 	)
 
+	run_case("loading_the_previous_version_save_is_refused_with_the_standard_message", func():
+		GameState.reset()
+		var save: Dictionary = GameState.deep_copy(GameState.state)
+		save["meta"]["saveVersion"] = SaveManager.SAVE_VERSION - 1
+		var result := SaveManager.import_string(JSON.stringify(save))
+		assert_true(not result["ok"], "a pre-muscle save must be refused")
+		assert_true(result["reason"].contains("incompatible version"), "standard message")
+	)
+
 	run_case("loading_a_save_with_no_meta_saveVersion_is_treated_as_current_and_succeeds", func():
 		GameState.reset()
 		var save: Dictionary = GameState.deep_copy(GameState.state)
 		save.erase("meta")
 		var result := SaveManager.import_string(JSON.stringify(save))
 		assert_true(result["ok"], "a save with no meta.saveVersion at all should be treated as the current version")
-	)
-
-	run_case("loading_a_v4_save_drops_crowbars_and_the_equipped_weapon", func():
-		GameState.reset()
-		var save: Dictionary = GameState.deep_copy(GameState.state)
-		save["meta"]["saveVersion"] = 4
-		save["player"]["items"] = [{ "id": "item1", "type": "crowbar" }]
-		save["player"]["equipment"] = { "weapon": "item1" }
-		var result := SaveManager.import_string(JSON.stringify(save))
-		assert_true(result["ok"], "a v4 save should load")
-		var player: Dictionary = GameState.state["player"]
-		assert_true(not player.has("items"), "held crowbars removed")
-		assert_true(not player.get("equipment", {}).has("weapon"), "equipped weapon removed")
-		assert_eq(GameState.state["meta"]["saveVersion"], SaveManager.SAVE_VERSION, "stamped current")
-	)
-
-	run_case("loading_a_v10_save_renames_pansPrank_to_panic", func():
-		GameState.reset()
-		var save: Dictionary = GameState.deep_copy(GameState.state)
-		save["meta"]["saveVersion"] = 10
-		save["player"]["inventory"] = { "pansPrank": { "2": 3 } }
-		save["player"]["craftedCounts"] = { "pansPrank": 4 }
-		save["player"]["equippedLoadout"] = ["pansPrank"]
-		var result := SaveManager.import_string(JSON.stringify(save))
-		assert_true(result["ok"], "a v10 save should load")
-		var player: Dictionary = GameState.state["player"]
-		assert_eq(player["inventory"]["panic"]["2"], 3, "inventory key renamed")
-		assert_true(not player["inventory"].has("pansPrank"), "old inventory key gone")
-		assert_eq(player["craftedCounts"]["panic"], 4)
-		assert_eq(player["equippedLoadout"], ["panic"], "string values renamed")
-		assert_eq(GameState.state["meta"]["saveVersion"], SaveManager.SAVE_VERSION)
-	)
-
-	run_case("loading_a_v11_save_drops_the_lottery_bench_state", func():
-		GameState.reset()
-		var save: Dictionary = GameState.deep_copy(GameState.state)
-		save["meta"]["saveVersion"] = 11
-		save["player"]["bench"] = { "surveyed": { "time": 1 }, "cells": {}, "notes": {} }
-		save["labBenchNav"] = { "selectedOre": ["time"] }
-		save["craftQty"] = { "timePearl": 2 }
-		save["modal"] = { "type": "lab_bench_notes", "data": {} }
-		var result := SaveManager.import_string(JSON.stringify(save))
-		assert_true(result["ok"], "a v11 save should load")
-		assert_true(not GameState.state["player"].has("bench"), "player.bench dropped")
-		assert_true(not GameState.state.has("labBenchNav") and not GameState.state.has("craftQty"), "bench nav and qty state dropped")
-		assert_eq(GameState.state["modal"], null, "a retired modal closes")
-		assert_eq(GameState.state["meta"]["saveVersion"], SaveManager.SAVE_VERSION)
-	)
-
-	run_case("loading_a_v12_save_merges_stealth_xp_into_sense_taking_the_max", func():
-		GameState.reset()
-		var save: Dictionary = GameState.deep_copy(GameState.state)
-		save["meta"]["saveVersion"] = 12
-		save["player"]["stealthSkill"] = 3
-		save["player"]["stealthXP"] = 230
-		save["player"]["senseSkill"] = 2
-		save["player"]["senseXP"] = 90
-		save["contacts"]["archie"]["stealthSkill"] = 2
-		save["contacts"]["archie"]["stealthXP"] = 30
-		var result := SaveManager.import_string(JSON.stringify(save))
-		assert_true(result["ok"], "a v12 save should load")
-		var player: Dictionary = GameState.state["player"]
-		assert_eq(player["senseXP"], 230, "stealth XP above sense XP wins")
-		assert_eq(player["senseSkill"], 3, "sense level re-derived from the merged XP")
-		assert_true(not player.has("stealthSkill") and not player.has("stealthXP"), "player stealth fields dropped")
-		assert_true(not GameState.state["contacts"]["archie"].has("stealthXP"), "contact stealth fields dropped")
-		assert_eq(GameState.state["meta"]["saveVersion"], SaveManager.SAVE_VERSION)
-	)
-
-	run_case("loading_a_v12_save_keeps_higher_sense_xp", func():
-		GameState.reset()
-		var save: Dictionary = GameState.deep_copy(GameState.state)
-		save["meta"]["saveVersion"] = 12
-		save["player"]["stealthSkill"] = 2
-		save["player"]["stealthXP"] = 90
-		save["player"]["senseSkill"] = 4
-		save["player"]["senseXP"] = 600
-		assert_true(SaveManager.import_string(JSON.stringify(save))["ok"], "a v12 save should load")
-		assert_eq(GameState.state["player"]["senseXP"], 600, "higher sense XP kept")
-		assert_eq(GameState.state["player"]["senseSkill"], 4, "sense level kept")
-	)
-
-	run_case("loading_a_v8_save_returns_hq_kit_overflow_to_inventory", func():
-		GameState.reset()
-		var save: Dictionary = GameState.deep_copy(GameState.state)
-		save["meta"]["saveVersion"] = 8
-		save["home"]["guardCount"] = 1
-		save["home"]["guardKit"] = { "blast": { "1": 2 }, "shield": { "3": 1 } }
-		save["player"]["inventory"] = { "blast": { "1": 1 } }
-		var result := SaveManager.import_string(JSON.stringify(save))
-		assert_true(result["ok"], "a v8 save should load")
-		assert_eq(GameState.state["home"]["guardKit"], { "blast": { "1": 1 }, "shield": { "3": 1 } })
-		assert_eq(GameState.state["player"]["inventory"]["blast"]["1"], 2, "overflow unit back in inventory")
-	)
-
-	run_case("loading_a_v7_save_grants_a_recruited_james_his_dial_and_leaves_stock_alone", func():
-		GameState.reset()
-		var save: Dictionary = GameState.deep_copy(GameState.state)
-		save["meta"]["saveVersion"] = 7
-		save["contacts"]["james"]["recruited"] = true
-		save["contacts"]["james"].erase("dial")
-		save["contacts"]["james"]["dialCharges"] = 1
-		save["player"]["inventory"] = { "timePearl": { "2": 3 } }
-		var result := SaveManager.import_string(JSON.stringify(save))
-		assert_true(result["ok"], "a v7 save should load")
-		var james: Dictionary = GameState.state["contacts"]["james"]
-		assert_true(not james.has("dialCharges"), "per-day counter retired")
-		assert_eq(james["dial"]["level"], 2)
-		assert_eq(james["dial"]["movement"]["archetype"], "recharge")
-		assert_eq(james["dial"]["loadedComplications"].size(), 2)
-		assert_eq(james["dial"]["currentCharge"], float(james["dial"]["maxCharge"]))
-		assert_eq(GameState.state["player"]["inventory"], { "timePearl": { "2": 3 } })
-		assert_eq(GameState.state["contacts"]["archie"]["dial"], null)
-	)
-
-	run_case("loading_a_v6_save_drops_the_contact_stash_and_gives_combat_recruits_slots", func():
-		GameState.reset()
-		var save: Dictionary = GameState.deep_copy(GameState.state)
-		save["meta"]["saveVersion"] = 6
-		save["contacts"]["archie"].erase("loadout")
-		save["contacts"]["archie"]["combatStash"] = 2
-		save["contacts"]["archie"]["combatStashMax"] = 2
-		save["contacts"]["archie"]["combatHealAmount"] = 15
-		var result := SaveManager.import_string(JSON.stringify(save))
-		assert_true(result["ok"], "a v6 save should load")
-		var archie: Dictionary = GameState.state["contacts"]["archie"]
-		assert_true(not archie.has("combatStash") and not archie.has("combatHealAmount"), "stash retired")
-		assert_eq(archie["loadout"]["slots"], [null, null])
-		assert_true(not GameState.state["contacts"]["des"].has("loadout"), "noncombat contacts have no slots")
-	)
-
-	run_case("loading_a_v5_save_raises_stock_unarmed_attack_to_7_15", func():
-		GameState.reset()
-		var save: Dictionary = GameState.deep_copy(GameState.state)
-		save["meta"]["saveVersion"] = 5
-		save["player"]["attackMin"] = 3
-		save["player"]["attackMax"] = 7
-		var result := SaveManager.import_string(JSON.stringify(save))
-		assert_true(result["ok"], "a v5 save should load")
-		assert_eq(GameState.state["player"]["attackMin"], 7, "attackMin raised")
-		assert_eq(GameState.state["player"]["attackMax"], 15, "attackMax raised")
 	)
 
 	run_case("loading_a_save_at_the_current_version_succeeds", func():
@@ -1717,16 +1585,6 @@ func run() -> void:
 		for i in range(SaveManager.AUTOSAVE_COUNT):
 			if FileAccess.file_exists(SaveManager.autosave_path(i)):
 				DirAccess.remove_absolute(SaveManager.autosave_path(i))
-	)
-
-	run_case("a_v10_save_migrates_pansPrank_to_panic", func():
-		GameState.reset()
-		var legacy: Dictionary = GameState.deep_copy(GameState.state)
-		legacy["meta"]["saveVersion"] = 10
-		legacy["player"]["craftedCounts"]["pansPrank"] = 2
-		assert_true(SaveManager._load_save_dict(legacy)["ok"])
-		assert_eq(GameState.state["player"]["craftedCounts"].get("panic", 0), 2)
-		assert_true(not GameState.state["player"]["craftedCounts"].has("pansPrank"))
 	)
 
 	run_case("second_save_rotates_previous_main_to_bak", func():

@@ -50,20 +50,6 @@ func run() -> void:
 		assert_eq(Crafting.inventory_qty(SALVE), over_the_top)
 	)
 
-	run_case("v13_save_migrates_to_master_defaults", func():
-		_setup()
-		var save: Dictionary = GameState.deep_copy(GameState.state)
-		save["meta"]["saveVersion"] = 13
-		save["autoSell"] = {
-			"bloom": { "sellAbove": 7, "mood": "careful" },
-			"blast": { "sellAbove": 8, "mood": "steady" },
-			SALVE: { "sellAbove": 9, "mood": "eager" },
-			"shield": { "sellAbove": 10, "mood": "off" },
-		}
-		assert_true(SaveManager.import_string(JSON.stringify(save))["ok"])
-		assert_eq(GameState.state["production"], ProductionSettings.default_state())
-	)
-
 	run_case("only_production_list_recipes_sell", func():
 		_setup()
 		assert_true(not Rooms.production_recipes().has("timePearl"), "fixture: Owen can't make Time Pearls")

@@ -1,0 +1,128 @@
+{
+  "traits": {
+    "quickStudy": {
+      "label": "Quick study",
+      "kind": "positive",
+      "effect": "Learns fast: XP x1.5 from every source.",
+      "params": {
+        "xpMult": 1.5
+      }
+    },
+    "brawler": {
+      "label": "Brawler",
+      "kind": "positive",
+      "effect": "Hits harder: fight attack x1.25.",
+      "params": {
+        "attackMult": 1.25
+      }
+    },
+    "solid": {
+      "label": "Solid",
+      "kind": "positive",
+      "effect": "Takes a punch: fight HP x1.25.",
+      "params": {
+        "hpMult": 1.25
+      }
+    },
+    "watchful": {
+      "label": "Watchful",
+      "kind": "positive",
+      "effect": "Spots trouble: +0.25 weight when repelling.",
+      "params": {
+        "repelWeightMod": 0.25
+      }
+    },
+    "hardToKeepDown": {
+      "label": "Hard to keep down",
+      "kind": "positive",
+      "effect": "Back on their feet after 1 day, not 3.",
+      "params": {
+        "injuryDays": 1
+      }
+    },
+    "cheap": {
+      "label": "Cheap",
+      "kind": "positive",
+      "effect": "Works for less: wage x0.8.",
+      "params": {
+        "wageMult": 0.8
+      }
+    },
+    "mouthy": {
+      "label": "Mouthy",
+      "kind": "mixed",
+      "effect": "Wage x1.1, but scares trouble off: +0.25 weight when repelling.",
+      "params": {
+        "wageMult": 1.1,
+        "repelWeightMod": 0.25
+      }
+    },
+    "hothead": {
+      "label": "Hothead",
+      "kind": "mixed",
+      "effect": "Fight attack x1.25, fight HP x0.8.",
+      "params": {
+        "attackMult": 1.25,
+        "hpMult": 0.8
+      }
+    },
+    "flaky": {
+      "label": "Flaky",
+      "kind": "negative",
+      "effect": "Not always there: -0.25 weight when repelling.",
+      "params": {
+        "repelWeightMod": -0.25
+      }
+    },
+    "glassJaw": {
+      "label": "Glass jaw",
+      "kind": "negative",
+      "effect": "Folds early: fight HP x0.75.",
+      "params": {
+        "hpMult": 0.75
+      }
+    },
+    "slowLearner": {
+      "label": "Slow learner",
+      "kind": "negative",
+      "effect": "Takes a while: XP x0.5 from every source.",
+      "params": {
+        "xpMult": 0.5
+      }
+    },
+    "lazy": {
+      "label": "Lazy",
+      "kind": "negative",
+      "effect": "No daily XP for time on post.",
+      "params": {
+        "noPassiveXp": true
+      }
+    },
+    "lightFingered": {
+      "label": "Light-fingered",
+      "kind": "negative",
+      "effect": "10% each Monday that a kit unit at their post goes missing.",
+      "params": {
+        "kitLossChance": 0.1
+      }
+    }
+  },
+  "blockedPairs": [
+    [
+      "solid",
+      "glassJaw"
+    ],
+    [
+      "quickStudy",
+      "slowLearner"
+    ],
+    [
+      "watchful",
+      "flaky"
+    ],
+    [
+      "quickStudy",
+      "lazy"
+    ]
+  ]
+}

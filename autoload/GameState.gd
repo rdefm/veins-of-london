@@ -96,6 +96,8 @@ func new_game_state() -> Dictionary:
 		# pendingShortfall is the one unpaid Monday guard bill in its grace day
 		# ({ day, deadline, places: { veinId|"home": guards }, reserve }) or null.
 		"guardUpkeep": { "history": [], "pendingShortfall": null, "lastWalkDay": -1 },
+		# Hired guards (Muscle is the only writer): see Muscle.new_state().
+		"muscle": Muscle.new_state(),
 		# Ore/crafting/delivery shares (R§3.14): daily buckets, oldest first,
 		# trimmed to SHARES_DAYS at rollover; Shares is the only writer.
 		"shares": Shares.new_state(),

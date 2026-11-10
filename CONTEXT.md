@@ -131,6 +131,12 @@ _Avoid_: "turn" — a round holds several actions per combatant.
 **Round plan** _(combat port, REFERENCE §3.7b)_:
 A combatant's ordered [[Action]]s for one round. Enemies commit theirs at round start (shown as intents, some unread under fog); allies plan by reading them; the player picks one action at each pause as the timeline reaches it.
 
+**Muscle** _(.scratch/muscle/spec.md)_:
+The player's hired guards as individual records in `state.muscle` — each has a generated name (sometimes a nickname), level 1–5, XP, one or two traits, a post and injury/training countdowns. The only source of guard bodies. Not a [[Contact]]; LodedInnit stays skilled staff.
+
+**Former guard**:
+A dismissed or walked-off [[Muscle]] guard, kept in `state.muscle.former` (cap 20, oldest dropped). May reappear on the hiring board as they left, tagged "Worked for you before".
+
 **Known recipe**:
 A recipe in `state.lab.known` — granted by story (James grants Time Pearl) or, later, bought or earned. Knowing it gives its base procedure; only known recipes appear in the recipe book.
 _Avoid_: "found"/"discovered" recipe — lottery-bench terms.

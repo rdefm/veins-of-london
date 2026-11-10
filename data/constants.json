@@ -88,6 +88,39 @@
     "guardCostHistoryDays": 28,
     "faction": { "maxExtraGuardsPerVein": 3, "wageReserveWeeks": 2 }
   },
+  "muscle": {
+    "levels": [
+      { "level": 1, "weight": 1.0, "wage": 500, "boardOdds": 50, "xpToReach": 0 },
+      { "level": 2, "weight": 1.25, "wage": 600, "boardOdds": 30, "xpToReach": 50 },
+      { "level": 3, "weight": 1.5, "wage": 750, "boardOdds": 15, "xpToReach": 100 },
+      { "level": 4, "weight": 1.75, "wage": 900, "boardOdds": 5, "xpToReach": 200 },
+      { "level": 5, "weight": 2.0, "wage": 1100, "boardOdds": 0, "xpToReach": 400 }
+    ],
+    "xp": { "passivePerDay": 1, "perRepel": 5, "perDefendFight": 3 },
+    "training": { "costPerLevel": 200, "xp": 10, "days": 1 },
+    "injuryDays": 3,
+    "postCaps": { "home": 4, "vein": 4 },
+    "reserveResponders": 2,
+    "board": { "size": 4, "formerChance": 0.1, "formerCap": 20 },
+    "secondTraitChance": 0.25,
+    "nicknameChance": 0.15,
+    "score": {
+      "hardwareWeight": 40,
+      "repelWeight": 60,
+      "repelFull": 0.75,
+      "bands": [
+        { "min": 0, "label": "Exposed" },
+        { "min": 25, "label": "Light" },
+        { "min": 50, "label": "Solid" },
+        { "min": 75, "label": "Fortified" }
+      ]
+    },
+    "strengthWords": [
+      { "below": 1.25, "label": "green" },
+      { "below": 1.75, "label": "hardened" },
+      { "below": 99, "label": "seasoned" }
+    ]
+  },
   "cultivatorActionXp": 2,
   "cultivatorSpecialityYieldMult": 1.2,
   "productionLogDays": 10,
