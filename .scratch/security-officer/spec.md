@@ -2,6 +2,12 @@
 
 Status: ready-for-agent
 
+> **Merged with muscle (2026-11-10), see `.scratch/muscle/spec.md`.** Build muscle first, then rebase this spec onto it.
+> - The Security Office is the muscle spec's room: minTier **townhouse**, £2,500. Buying it unlocks guard management and fires the Archie/Arnie intro.
+> - Officer bonuses stack **per posted guard on top of level weights**: resist + bonus per guard; repel + bonus × count and + cap bonus; ally block × weight + bonus.
+> - Old saves aren't supported (save version bump), so the backfill story (39) and backfill decisions are dropped.
+> - The out-of-scope line "Changing anonymous guards' wage, hire flow or kit rules" is superseded: guards are muscle.
+
 ## Problem Statement
 
 Guards are interchangeable £500/week units. Once the player has hired a few, the only lever left is "hire more". Nothing in the business handles security, and no person on LodedInnit makes the guards better at their job. The player can't build a security operation the way they build a cultivation or production one: they can't pick a specialist, watch them improve, or bring them along into a fight.

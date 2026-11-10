@@ -41,6 +41,8 @@ const MASTER_SUMMARY_NONE := "Today: would sell nothing"
 const PROJECTION_SELL := "Today: would sell %d, about £%d"
 const PROJECTION_SELL_PRIVATE := "Today: would sell %d, +%d placed privately, about £%d"
 const MAKE_TO_TEXT := "Make to %d"
+const RECIPE_ROW_FONT := 11
+const RECIPE_SIDE_WIDTH := 92.0
 const SELL_ABOVE_TEXT := "Sell above %s"
 const CONTRACTS_HOLD_TEXT := "Contracts hold %d"
 const FILTER_EMPTY_TEXT := "No recipes match this ore."
@@ -1604,6 +1606,7 @@ func _build_production_recipe_row(recipe_key: String) -> Control:
 
 	var card := PanelContainer.new()
 	card.name = "ProductionRecipe_%s" % recipe_key
+	card.mouse_filter = Control.MOUSE_FILTER_PASS
 	card.add_theme_stylebox_override("panel", _recipe_card_style(custom))
 	_recipe_anchors[recipe_key] = card
 	var box := UI.vbox(5)
@@ -1631,18 +1634,25 @@ func _build_production_recipe_row(recipe_key: String) -> Control:
 	names.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	names.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	names.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var name_label := UI.heading(recipe["name"], 14)
+	names.custom_minimum_size.x = 0
+	var name_label := UI.heading(recipe["name"], RECIPE_ROW_FONT)
 	name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	name_label.clip_text = true
 	names.add_child(name_label)
 	var ore_name: String = GameData.ORE_TYPES[ore_type]["name"] if ore_type != "" else "no ore"
 	var sub := UI.muted_label("%s · %s" % [ore_name, MAKE_TO_TEXT % production])
+	sub.add_theme_font_size_override("font_size", RECIPE_ROW_FONT)
+	sub.custom_minimum_size.x = 0
 	sub.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	names.add_child(sub)
 	head_row.add_child(names)
 	var side := UI.vbox(2)
 	side.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	side.custom_minimum_size.x = RECIPE_SIDE_WIDTH
 	side.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var stock_label := UI.muted_label(STOCK_TEXT % stock)
+	stock_label.add_theme_font_size_override("font_size", RECIPE_ROW_FONT)
+	stock_label.custom_minimum_size.x = 0
 	stock_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	stock_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	side.add_child(stock_label)
@@ -1798,7 +1808,7 @@ func _recipe_status_chip(recipe_key: String, custom: bool, short_ore: Array = []
 	var warn := not short_ore.is_empty()
 	var chip := PanelContainer.new()
 	chip.name = "StatusChip_%s" % recipe_key
-	chip.size_flags_horizontal = Control.SIZE_SHRINK_END
+	chip.size_flags_horizontal = Control.SIZE_FILL
 	chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var style := StyleBoxFlat.new()
 	style.set_content_margin_all(2)
@@ -1814,7 +1824,9 @@ func _recipe_status_chip(recipe_key: String, custom: bool, short_ore: Array = []
 	if warn:
 		chip_text = ATTENTION_CHIP_TEXT % ", ".join(short_ore.map(func(t: String) -> String: return GameData.ORE_TYPES[t]["name"]))
 	var text := UI.label(chip_text)
-	text.add_theme_font_size_override("font_size", 11)
+	text.add_theme_font_size_override("font_size", RECIPE_ROW_FONT)
+	text.custom_minimum_size.x = 0
+	text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	text.add_theme_color_override("font_color", HEALTH_AMBER if warn else (CUSTOM_BORDER if custom else MUTED))
 	text.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	chip.add_child(text)
