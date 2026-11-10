@@ -17,6 +17,7 @@ const SCREEN_SCRIPTS := {
 	"vein_list": preload("res://scenes/screens/vein_list.gd"),
 	"hq_lab_bench": preload("res://scenes/screens/hq_lab_bench.gd"),
 	"hq_dial": preload("res://scenes/screens/hq_dial.gd"),
+	"security": preload("res://scenes/screens/security.gd"),
 }
 const RETIRED_SCREEN_IDS := {
 	"home": "phone", "you": "phone", "bag": "phone", "inventory": "phone",

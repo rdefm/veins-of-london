@@ -212,6 +212,7 @@ static func daily_tick() -> void:
 	ContractsSystem.daily_tick()         # ⑥.4 due periods settle; recurring periods renew
 	MorningAccountsSystem.capture_auto_sales(morning_context, AutoSell.daily_pass())  # ⑥.4-1 after ⑥.4 so the floor reads renewed contract need; before ⑥.4b so payday banks the revenue
 	MorningAccountsSystem.capture_guard_wages(morning_context, GuardUpkeep.pay_monday_bill())  # ⑥.4a player Monday guard bill (pot not active); before ⑥.4c so its expense lands in the ended day
+	Muscle.roll_board_if_due()           # ⑥.4a1 Monday hiring board refresh, with the Monday bills
 	Perks.pay_racket_fee()               # ⑥.4a2 Firm protection fee with the Monday bills, from cash in full
 	MorningAccountsSystem.capture_business(morning_context, Business.daily_tick())  # ⑥.4b after ⑥.4 so payday banks today's settlements; with the pot active, payday pays the Monday guard bill after staff wages
 	FactionAI.settle_truce_payments()    # ⑥.4b2 truce weekly payments, Mondays only, with the week's other bills; before ⑥.4c so they land in the ended day

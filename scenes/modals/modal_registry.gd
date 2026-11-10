@@ -36,4 +36,7 @@ static var REGISTRY: Dictionary = {
 	"gift": GiftModal,
 	"player_moves": PlayerMovesModal,
 	"active_effects": ActiveEffectsModal,
+	"guard_detail": GuardDetailModal,
+	"guard_dismiss": GuardDismissModal,
+	"guard_hire": GuardHireModal,
 }

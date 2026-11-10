@@ -167,3 +167,155 @@ static func full_name(g: Dictionary) -> String:
 	if String(g["nickname"]).is_empty():
 		return "%s %s." % [parts[0], initial]
 	return "%s \"%s\" %s." % [parts[0], g["nickname"], initial]
+
+
+# ── Security Office ───────────────────────────────────────────────────
+
+const SECURITY_OFFICE := "securityOffice"
+# Set once on the first purchase and never cleared; the intro event reads it.
+const FLAG_OFFICE_BOUGHT := "securityOfficeBought"
+
+
+# Guard management (hire, dismiss, posting) needs the Security Office.
+static func can_manage() -> bool:
+	return Home.has_room(SECURITY_OFFICE)
+
+
+# Called when the room is bought: sets the intro trigger on the first purchase
+# only, and stocks an empty board so the first visit isn't an empty week.
+static func on_room_bought() -> void:
+	var flags: Dictionary = GameState.state["flags"]
+	if not bool(flags.get(FLAG_OFFICE_BOUGHT, false)):
+		flags[FLAG_OFFICE_BOUGHT] = true
+	if GameState.state["muscle"]["board"]["cards"].is_empty():
+		roll_board()
+
+
+# ── hiring board ──────────────────────────────────────────────────────
+
+# The weekly board: slots of guard-shaped cards, null where hired.
+static func board() -> Array:
+	return GameState.state["muscle"]["board"]["cards"]
+
+
+# Rollover step: a fresh board on the first Monday it hasn't rolled for, with
+# the room owned.
+static func roll_board_if_due() -> void:
+	var day: int = GameState.state["world"]["day"]
+	if can_manage() and Calendar.is_monday(day) and int(GameState.state["muscle"]["board"]["day"]) != day:
+		roll_board()
+
+
+# Replaces the board with `board.size` fresh cards. Each card is, with
+# `formerChance`, a former guard returning as they left (injuries cleared,
+# tagged "returning"), else a new guard at a level from `boardOdds`.
+static func roll_board() -> void:
+	var muscle: Dictionary = GameState.state["muscle"]
+	var cards: Array = []
+	muscle["board"]["cards"] = cards
+	muscle["board"]["day"] = GameState.state["world"]["day"]
+	var settings: Dictionary = GameData.MUSCLE["board"]
+	for i in int(settings["size"]):
+		var card: Dictionary = {}
+		if not muscle["former"].is_empty() and Rng.chance(float(settings["formerChance"])):
+			card = _returning_card(cards)
+		if card.is_empty():
+			card = create_guard(roll_board_level())
+		cards.append(card)
+	EventBus.mark_changed()
+
+
+# A copy of a random former guard not already on the board, or {}.
+static func _returning_card(cards: Array) -> Dictionary:
+	var options: Array = former().filter(func(f): return not cards.any(func(c): return c["id"] == f["id"]))
+	if options.is_empty():
+		return {}
+	var card: Dictionary = (Rng.rand_from(options) as Dictionary).duplicate(true)
+	card["injuredUntilDay"] = 0
+	card["trainingUntilDay"] = 0
+	card["post"] = POST_RESERVE
+	card["returning"] = true
+	return card
+
+
+# A level drawn by `boardOdds`; a level with 0 odds never comes up.
+static func roll_board_level() -> int:
+	var rows: Array = GameData.MUSCLE["levels"]
+	var total := 0
+	for row in rows:
+		total += int(row["boardOdds"])
+	var roll := Rng.randi_range(1, total)
+	for row in rows:
+		roll -= int(row["boardOdds"])
+		if roll <= 0 and int(row["boardOdds"]) > 0:
+			return int(row["level"])
+	return 1
+
+
+# "" when card `index` can be hired, else why not.
+static func hire_block_reason(index: int) -> String:
+	if not can_manage():
+		return "Needs a Security Office."
+	if index < 0 or index >= board().size() or board()[index] == null:
+		return "No one there."
+	if int(GameState.state["player"]["cash"]) < GuardUpkeep.guard_hire_advance(board()[index]):
+		return "Not enough cash."
+	return ""
+
+
+# Hires board card `index`: pays that guard's prorated advance, lands them in
+# Reserve and leaves the slot empty until the next Monday roll. Returns
+# { ok, guard } or { ok: false, reason }.
+static func hire(index: int) -> Dictionary:
+	var reason := hire_block_reason(index)
+	if reason != "":
+		return { "ok": false, "reason": reason }
+	var card: Dictionary = board()[index]
+	var paid := GuardUpkeep.pay_hire_advance(POST_RESERVE, wage(card))
+	if not paid["ok"]:
+		return paid
+	var record: Dictionary = card.duplicate(true)
+	record.erase("returning")
+	record["post"] = POST_RESERVE
+	guards().append(record)
+	board()[index] = null
+	var former_list: Array = former()
+	for i in former_list.size():
+		if former_list[i]["id"] == record["id"]:
+			former_list.remove_at(i)
+			break
+	Notify.push("Hired %s." % short_name(record), Notify.CATEGORY_SUCCESS)
+	EventBus.mark_changed()
+	return { "ok": true, "guard": record }
+
+
+# Dismisses a guard at once: no severance, no refund, injured or not. They
+# join the former list (cap `formerCap`, oldest dropped).
+static func dismiss(id: String) -> Dictionary:
+	if not can_manage():
+		return { "ok": false, "reason": "Needs a Security Office." }
+	var list: Array = guards()
+	for i in list.size():
+		if list[i]["id"] == id:
+			var gone: Dictionary = list[i]
+			list.remove_at(i)
+			add_former(gone)
+			EventBus.mark_changed()
+			return { "ok": true }
+	return { "ok": false, "reason": "No such guard." }
+
+
+# Appends to the former list, dropping the oldest past the cap.
+static func add_former(g: Dictionary) -> void:
+	var former_list: Array = former()
+	former_list.append(g)
+	while former_list.size() > int(GameData.MUSCLE["board"]["formerCap"]):
+		former_list.remove_at(0)
+
+
+# A guard's XP floor for their next level, or -1 at the top level.
+static func next_level_xp(g: Dictionary) -> int:
+	var rows: Array = GameData.MUSCLE["levels"]
+	if int(g["level"]) >= rows.size():
+		return -1
+	return int(rows[int(g["level"])]["xpToReach"])

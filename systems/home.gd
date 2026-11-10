@@ -769,6 +769,8 @@ static func set_room_use(slot: int, room_id: String) -> Dictionary:
 		Notify.push("Replaced %s with %s." % [GameData.HOME_ROOMS[old_id]["name"], room_data["name"]], Notify.CATEGORY_SUCCESS)
 	else:
 		Notify.push("Built %s." % room_data["name"], Notify.CATEGORY_SUCCESS)
+	if room_id == Muscle.SECURITY_OFFICE:
+		Muscle.on_room_bought()
 	BusinessQuest.maybe_trigger_partnership()  # Beat 4 needs a Workshop
 	EventBus.mark_changed()
 	SaveManager.autosave()  # R§6: autosave on purchase

@@ -46,11 +46,18 @@ static func weekly_cost_text(guard_count: int) -> String:
 	return "£%d/week" % weekly_cost(guard_count)
 
 
+# The prorated advance for hiring muscle guard `g`: this week's remaining
+# share of that guard's own wage.
+static func guard_hire_advance(g: Dictionary) -> int:
+	return Business.prorated_wage(Muscle.wage(g), days_left_in_week(GameState.state["world"]["day"]))
+
+
 # Takes today's advance from player cash for one guard at place_id (a vein
-# id or HOME_PLACE_ID). Refused, with nothing changed, when cash is short.
-# The caller adds the guard itself.
-static func pay_hire_advance(place_id: String) -> Dictionary:
-	var advance := hire_advance()
+# id, HOME_PLACE_ID or Muscle.POST_RESERVE). `weekly` is the hired guard's own
+# wage, or -1 for the flat legacy wage. Refused, with nothing changed, when
+# cash is short. The caller adds the guard itself.
+static func pay_hire_advance(place_id: String, weekly: int = -1) -> Dictionary:
+	var advance := hire_advance() if weekly < 0 else Business.prorated_wage(weekly, days_left_in_week(GameState.state["world"]["day"]))
 	var player: Dictionary = GameState.state["player"]
 	if int(player["cash"]) < advance:
 		return { "ok": false, "reason": "Not enough cash." }
@@ -76,6 +83,22 @@ static func player_guards_by_place() -> Dictionary:
 	return places
 
 
+# Hired muscle's weekly wages by post (HOME_PLACE_ID, a vein id or
+# Muscle.POST_RESERVE): { post: £ }, Reserve guards included.
+static func muscle_wages_by_place() -> Dictionary:
+	var wages := {}
+	for g in Muscle.guards():
+		wages[g["post"]] = int(wages.get(g["post"], 0)) + Muscle.wage(g)
+	return wages
+
+
+static func muscle_wage_total() -> int:
+	var total := 0
+	for amount in muscle_wages_by_place().values():
+		total += int(amount)
+	return total
+
+
 # Player Monday bill before the pot exists (spec §Player Monday bill, R§3.1
 # ⑥.4a): on the rollover into a Monday, weeklyWage per guard on duty, from
 # cash in full or not at all (bank "Guard wages"). Short cash takes nothing
@@ -90,10 +113,11 @@ static func pay_monday_bill() -> Dictionary:
 	var places := player_guards_by_place()
 	for place_id in places:
 		result["guards"] += int(places[place_id])
+	result["guards"] += Muscle.guards().size()
 	if result["guards"] == 0:
 		return result
 	result["billed"] = true
-	result["due"] = weekly_cost(result["guards"])
+	result["due"] = weekly_cost(result["guards"] - Muscle.guards().size()) + muscle_wage_total()
 	var player: Dictionary = GameState.state["player"]
 	if int(player["cash"]) < result["due"]:
 		result["short"] = true
@@ -103,6 +127,9 @@ static func pay_monday_bill() -> Dictionary:
 	Bank.record(-result["due"], WAGES_BANK_LABEL)
 	for place_id in places:
 		record_payment(place_id, weekly_cost(int(places[place_id])))
+	var muscle_wages := muscle_wages_by_place()
+	for place_id in muscle_wages:
+		record_payment(place_id, int(muscle_wages[place_id]))
 	result["paid"] = result["due"]
 	Notify.push("Guard wages: -£%d for %d guard%s this week." % [result["paid"], result["guards"], "" if result["guards"] == 1 else "s"])
 	EventBus.mark_changed()
@@ -114,6 +141,8 @@ static func pay_monday_bill() -> Dictionary:
 static func place_label(place_id: String) -> String:
 	if place_id == HOME_PLACE_ID:
 		return "HQ"
+	if place_id == Muscle.POST_RESERVE:
+		return "Reserve"
 	var vein: Variant = Cultivating.find_vein(place_id)
 	if vein == null:
 		return "a lost vein"
@@ -176,12 +205,12 @@ static func cost_places() -> Array[String]:
 	return places
 
 
-# Next Monday's player guard bill: every guard on duty now × weeklyWage.
+# Next Monday's player guard bill: every legacy guard on duty now × weeklyWage plus each hired guard's own wage.
 static func next_monday_bill() -> int:
 	var guards := 0
 	for count in player_guards_by_place().values():
 		guards += int(count)
-	return weekly_cost(guards)
+	return weekly_cost(guards) + muscle_wage_total()
 
 
 # ── short-pay flow (spec §Short-pay flow) ──
@@ -215,7 +244,10 @@ static func start_shortfall(places: Dictionary, reserve: int, due: int) -> void:
 		"reserve": reserve,
 	}
 	GameState.state["guardUpkeep"]["pendingShortfall"] = shortfall
-	Notify.push("Guard wages short: £%d due. Unpaid guards walk on %s — %s." % [due, Calendar.format_day(shortfall["deadline"]), places_text(places.keys())], Notify.CATEGORY_WARNING, { Notify.META_GUARD_SHORTFALL: true })
+	var walk_text := "Unpaid guards walk on %s — %s." % [Calendar.format_day(shortfall["deadline"]), places_text(places.keys())]
+	if places.is_empty():
+		walk_text = "Pay by %s." % Calendar.format_day(shortfall["deadline"])
+	Notify.push("Guard wages short: £%d due. %s" % [due, walk_text], Notify.CATEGORY_WARNING, { Notify.META_GUARD_SHORTFALL: true })
 	EventBus.mark_changed()
 
 

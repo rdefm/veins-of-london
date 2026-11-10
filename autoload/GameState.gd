@@ -379,6 +379,8 @@ func new_game_state() -> Dictionary:
 			# Calc gym: Spar unlocked, and sessions taken (Sparring).
 			"gymUnlocked": false, "sparSessions": 0,
 			"archiePartnerSeen": false, "homeUnlocked": false, "securityContactUnlocked": false,
+			# Set once on the first Security Office purchase, never cleared (Muscle.on_room_bought).
+			"securityOfficeBought": false,
 			# M1-LONDON D5 — district event one-shot flags/counters.
 			"greenwichTipOff": false, "luckyOmen": false, "conclaveNoticed": false, "oddities": 0,
 			# M1-LONDON D6 — cultivating tutorial.

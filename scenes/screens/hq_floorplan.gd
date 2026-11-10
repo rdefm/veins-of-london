@@ -167,6 +167,8 @@ func _build_room_slot(room_id: String) -> Control:
 			c["content"].add_child(_build_room_contact_row(room_id))
 		if room_id == "veinStation":
 			c["content"].add_child(_build_vein_station_list_row())
+		if room_id == Muscle.SECURITY_OFFICE:
+			c["content"].add_child(MapCardStyle.text_button("Open Security", func(): Nav.go_to("security")))
 	elif not available:
 		c["content"].add_child(_tile_label("Locked", true))
 	elif full:

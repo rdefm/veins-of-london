@@ -135,3 +135,214 @@ func run() -> void:
 		var h := Muscle.create_guard(1)
 		assert_true(g["id"] != h["id"], "ids advance")
 	)
+
+	run_case("security_office_costs_2500_needs_townhouse_and_gates_can_manage", func():
+		GameState.reset()
+		var room: Dictionary = GameData.HOME_ROOMS["securityOffice"]
+		assert_eq(room["cost"], 2500)
+		assert_eq(room["minTier"], "townhouse")
+		assert_true(not Muscle.can_manage(), "no room, no management")
+		GameState.state["player"]["cash"] = 100000
+		GameState.state["home"]["tier"] = "flat"
+		assert_true(not Home.add_room("securityOffice")["ok"], "flat is too low")
+		GameState.state["home"]["tier"] = "townhouse"
+		assert_true(Home.add_room("securityOffice")["ok"])
+		assert_eq(GameState.state["player"]["cash"], 97500)
+		assert_true(Muscle.can_manage())
+	)
+
+	run_case("buying_the_office_sets_the_intro_flag_once_and_stocks_the_board", func():
+		GameState.reset()
+		GameState.state["player"]["cash"] = 100000
+		GameState.state["home"]["tier"] = "townhouse"
+		assert_true(not GameState.state["flags"]["securityOfficeBought"])
+		Home.add_room("securityOffice")
+		assert_true(GameState.state["flags"]["securityOfficeBought"])
+		assert_eq(Muscle.board().size(), 4)
+		# Lose the room and re-buy: the flag stays set, and the existing board isn't re-rolled.
+		var ids: Array = Muscle.board().map(func(c): return c["id"])
+		GameState.state["home"]["rooms"].erase("securityOffice")
+		Home.add_room("securityOffice")
+		assert_true(GameState.state["flags"]["securityOfficeBought"], "never cleared")
+		assert_eq(Muscle.board().map(func(c): return c["id"]), ids, "re-buy doesn't re-roll")
+	)
+
+	run_case("board_level_odds_hold_over_a_seeded_run_and_never_roll_level_5", func():
+		GameState.reset()
+		Rng.set_seed(11)
+		var counts := [0, 0, 0, 0, 0, 0]
+		var n := RUN_CAP * 10
+		for i in n:
+			counts[Muscle.roll_board_level()] += 1
+		assert_eq(counts[5], 0, "no level 5")
+		assert_true(absf(counts[1] / float(n) - 0.50) < 0.03, "L1 about 50%")
+		assert_true(absf(counts[2] / float(n) - 0.30) < 0.03, "L2 about 30%")
+		assert_true(absf(counts[3] / float(n) - 0.15) < 0.03, "L3 about 15%")
+		assert_true(absf(counts[4] / float(n) - 0.05) < 0.02, "L4 about 5%")
+	)
+
+	run_case("roll_board_makes_four_unique_cards_in_reserve", func():
+		GameState.reset()
+		Rng.set_seed(5)
+		Muscle.roll_board()
+		var cards := Muscle.board()
+		assert_eq(cards.size(), 4)
+		var names := {}
+		for c in cards:
+			names[c["name"]] = true
+			assert_eq(c["post"], "reserve")
+			assert_true(c["level"] < 5)
+		assert_eq(names.size(), 4, "unique names")
+	)
+
+	run_case("former_guards_return_as_they_left_with_injuries_cleared_and_the_tag", func():
+		GameState.reset()
+		Rng.set_seed(2)
+		var old := Muscle.create_guard(4)
+		old["xp"] = 250
+		old["injuredUntilDay"] = 99
+		old["post"] = "home"
+		Muscle.add_former(old)
+		var returned := 0
+		for i in 100:
+			Muscle.roll_board()
+			for c in Muscle.board():
+				if c["id"] == old["id"]:
+					returned += 1
+					assert_eq(c["name"], old["name"])
+					assert_eq(c["level"], 4)
+					assert_eq(c["xp"], 250)
+					assert_eq(c["traits"], old["traits"])
+					assert_eq(c["injuredUntilDay"], 0)
+					assert_eq(c["post"], "reserve")
+					assert_true(c["returning"], "tagged")
+		# Each of 4 cards is 10% former, but one former fills at most one slot.
+		assert_true(returned >= 20 and returned <= 45, "about 34 of 100 boards: %d" % returned)
+	)
+
+	run_case("no_former_means_no_returning_cards", func():
+		GameState.reset()
+		Rng.set_seed(8)
+		for i in 20:
+			Muscle.roll_board()
+			for c in Muscle.board():
+				assert_true(not c.has("returning"))
+	)
+
+	run_case("hire_pays_the_prorated_advance_empties_the_slot_and_lands_in_reserve", func():
+		GameState.reset()
+		Rng.set_seed(4)
+		GameState.state["home"]["rooms"] = ["securityOffice"]
+		GameState.state["world"]["day"] = Calendar.monday_on_or_after(8) + 3
+		GameState.state["player"]["cash"] = 10000
+		Muscle.roll_board()
+		var card: Dictionary = Muscle.board()[1]
+		var advance := GuardUpkeep.guard_hire_advance(card)
+		assert_eq(advance, Business.prorated_wage(Muscle.wage(card), 4), "4 days left from Thursday")
+		var result := Muscle.hire(1)
+		assert_true(result["ok"])
+		assert_eq(GameState.state["player"]["cash"], 10000 - advance)
+		assert_eq(Muscle.board()[1], null, "slot stays empty")
+		assert_eq(Muscle.guards().size(), 1)
+		assert_eq(Muscle.guards()[0]["id"], card["id"])
+		assert_eq(Muscle.guards()[0]["post"], "reserve")
+		assert_true(not Muscle.hire(1)["ok"], "no second hire from an empty slot")
+		assert_eq(Muscle.guards().size(), 1)
+	)
+
+	run_case("hire_refused_without_cash_or_without_the_room", func():
+		GameState.reset()
+		Rng.set_seed(4)
+		Muscle.roll_board()
+		GameState.state["player"]["cash"] = 100000
+		assert_true(not Muscle.hire(0)["ok"], "no Security Office")
+		GameState.state["home"]["rooms"] = ["securityOffice"]
+		GameState.state["player"]["cash"] = 0
+		assert_true(not Muscle.hire(0)["ok"], "no cash")
+		assert_eq(Muscle.guards(), [])
+		assert_true(Muscle.board()[0] != null, "card kept")
+	)
+
+	run_case("hiring_a_returning_guard_takes_them_off_the_former_list", func():
+		GameState.reset()
+		GameState.state["home"]["rooms"] = ["securityOffice"]
+		GameState.state["player"]["cash"] = 10000
+		Rng.set_seed(6)
+		var old := Muscle.create_guard(2)
+		Muscle.add_former(old)
+		var card: Dictionary = old.duplicate(true)
+		card["returning"] = true
+		GameState.state["muscle"]["board"]["cards"] = [card, null, null, null]
+		assert_true(Muscle.hire(0)["ok"])
+		assert_eq(Muscle.former(), [])
+		assert_true(not Muscle.guards()[0].has("returning"))
+	)
+
+	run_case("dismiss_moves_to_former_with_no_refund_even_when_injured", func():
+		GameState.reset()
+		GameState.state["home"]["rooms"] = ["securityOffice"]
+		GameState.state["player"]["cash"] = 500
+		Rng.set_seed(7)
+		var g := Muscle.create_guard(2)
+		g["injuredUntilDay"] = 50
+		Muscle.guards().append(g)
+		assert_true(Muscle.dismiss(g["id"])["ok"])
+		assert_eq(Muscle.guards(), [])
+		assert_eq(Muscle.former().size(), 1)
+		assert_eq(Muscle.former()[0]["name"], g["name"])
+		assert_eq(GameState.state["player"]["cash"], 500, "no refund")
+		assert_true(not Muscle.dismiss(g["id"])["ok"], "already gone")
+	)
+
+	run_case("former_list_is_capped_at_20_oldest_dropped", func():
+		GameState.reset()
+		Rng.set_seed(9)
+		var first_id := ""
+		for i in 25:
+			var g := Muscle.create_guard(1)
+			if i == 0:
+				first_id = g["id"]
+			Muscle.add_former(g)
+		assert_eq(Muscle.former().size(), 20)
+		assert_true(Muscle.former().all(func(f): return f["id"] != first_id), "oldest dropped")
+	)
+
+	run_case("board_rolls_on_monday_only_with_the_room_and_only_once_a_day", func():
+		GameState.reset()
+		Rng.set_seed(10)
+		var monday := Calendar.monday_on_or_after(8)
+		GameState.state["world"]["day"] = monday
+		Muscle.roll_board_if_due()
+		assert_eq(Muscle.board(), [], "no room, no roll")
+		GameState.state["home"]["rooms"] = ["securityOffice"]
+		Muscle.roll_board_if_due()
+		assert_eq(Muscle.board().size(), 4)
+		var ids: Array = Muscle.board().map(func(c): return c["id"])
+		Muscle.roll_board_if_due()
+		assert_eq(Muscle.board().map(func(c): return c["id"]), ids, "same day, no re-roll")
+		GameState.state["world"]["day"] = monday + 1
+		Muscle.roll_board_if_due()
+		assert_eq(Muscle.board().map(func(c): return c["id"]), ids, "not a Monday")
+		GameState.state["world"]["day"] = monday + 7
+		Muscle.roll_board_if_due()
+		assert_true(Muscle.board().map(func(c): return c["id"]) != ids, "next Monday rerolls")
+	)
+
+	run_case("monday_bill_sums_each_guards_own_wage_reserve_included", func():
+		GameState.reset()
+		Rng.set_seed(12)
+		GameState.state["world"]["day"] = Calendar.monday_on_or_after(8)
+		var a := Muscle.create_guard(1)
+		var b := Muscle.create_guard(3)
+		a["traits"] = []
+		b["traits"] = ["cheap"]
+		Muscle.guards().append(a)
+		Muscle.guards().append(b)
+		var expected := Muscle.wage(a) + Muscle.wage(b)
+		assert_eq(GuardUpkeep.next_monday_bill(), expected)
+		GameState.state["player"]["cash"] = 10000
+		var result := GuardUpkeep.pay_monday_bill()
+		assert_true(result["billed"] and not result["short"])
+		assert_eq(result["due"], expected)
+		assert_eq(GameState.state["player"]["cash"], 10000 - expected)
+	)
