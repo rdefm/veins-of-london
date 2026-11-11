@@ -1,0 +1,20 @@
+{
+  "id": "security_office_intro",
+  "cards": [
+    { "key": "c1", "type": "narration", "label": "HQ - the Security Office", "speaker": null, "text": "The new office smells of paint and printer toner. A desk, a kettle, a filing cabinet with nothing in it. Archie is looking at the cabinet as though it owes him money." },
+    { "key": "c2", "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Veins, stock, a front door, and the only thing guarding any of it is luck. That's not security, that's a hobby. We need help, so I've rung Arnie. You remember Arnie.\"" },
+    { "key": "c3", "type": "narration", "label": null, "speaker": null, "text": "Arnie fills the doorway, clipboard in one hand, carrier bag in the other. He puts the kettle on before he says hello." },
+    { "key": "c4", "type": "speaker", "label": null, "speaker": "Arnie", "text": "\"Morning. Archie says you want people to stand in doorways. Best qualification I've got, that. Sit down, it won't take long, and everything you need is on the Security screen.\"" },
+    { "key": "c5", "type": "speaker", "label": null, "speaker": "Arnie", "text": "\"Hiring first. Guards tab. There's a board of four, and it changes every Monday, so if you like one, don't dither. Check their level and what they're good at. Cheap and green is still cheap and green.\"" },
+    { "key": "c6", "type": "speaker", "label": null, "speaker": "Arnie", "text": "\"Then you post them. Posts tab: HQ, and every vein you own. Hit + Assign and pick a name. Four to a place, no more. Any more and they start rearranging the furniture.\"" },
+    { "key": "c7", "type": "speaker", "label": null, "speaker": "Arnie", "text": "\"Anyone you don't post sits in Reserve. That's your on-call lot. Alarm goes off, they come running: in for round three of a scrap, or helping hold a door nobody's watching. Once a time block each, mind. They're not machines.\"" },
+    { "key": "c8", "type": "speaker", "label": null, "speaker": "Archie", "text": "\"And they all get paid. Posted, Reserve, laid up with a black eye. Costs tab. Bigger than you're hoping, smaller than it'd be if we got robbed.\"" },
+    { "key": "c9", "type": "speaker", "label": null, "speaker": "Arnie", "text": "\"Someone gets hurt, they're out three days. Grumpy, but back. Nobody dies on this payroll.\" He glances at you. \"You'll want to hear that sort of thing said out loud.\"" },
+    { "key": "c10", "type": "narration", "label": null, "speaker": null, "text": "He takes the tea bags out of the carrier and puts them in the filing cabinet. First thing in it. Archie finds a reason to be somewhere else before anyone can thank anyone." }
+  ],
+  "on_complete": [
+    { "op": "set_flag", "flag": "securityIntroSeen", "value": true },
+    { "op": "set_flag", "flag": "securityIntroPending", "value": false },
+    { "op": "set_screen", "screen": "security" }
+  ]
+}

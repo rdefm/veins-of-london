@@ -187,6 +187,8 @@ static func on_room_bought() -> void:
 	var flags: Dictionary = GameState.state["flags"]
 	if not bool(flags.get(FLAG_OFFICE_BOUGHT, false)):
 		flags[FLAG_OFFICE_BOUGHT] = true
+		if not bool(flags.get("securityIntroSeen", false)):
+			flags["securityIntroPending"] = true
 	if GameState.state["muscle"]["board"]["cards"].is_empty():
 		roll_board()
 

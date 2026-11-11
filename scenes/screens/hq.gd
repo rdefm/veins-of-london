@@ -10,6 +10,9 @@ func _ready() -> void:
 	if flags["homeRaidEventPending"] and not flags["homeRaidEventSeen"]:
 		Events.start_event("prologue_home_raid_intro")
 		return
+	if flags["securityIntroPending"] and not flags["securityIntroSeen"]:
+		Events.start_event("security_office_intro")
+		return
 
 	EventBus.state_changed.connect(_refresh)
 	_refresh()

@@ -1333,6 +1333,10 @@
 			"choiceCards": {},
 			"observations": {}
 		},
+		"security_office_intro": {
+			"choiceCards": {},
+			"observations": {}
+		},
 		"shoreditch_archie": {
 			"choiceCards": {},
 			"observations": {}
@@ -1763,6 +1767,8 @@
 		"sReinfOpen",
 		"sYard",
 		"securityContactUnlocked",
+		"securityIntroPending",
+		"securityIntroSeen",
 		"securityOfficeBought",
 		"sohoUnlocked",
 		"sparSessions",
@@ -2266,6 +2272,19 @@
 					"s_win_out2",
 					"s_win_wit",
 					"s_yard"
+				],
+				"kind": "tests",
+				"sha": ""
+			}
+		],
+		"security_office_intro": [
+			{
+				"file": "tests/test_security_intro.gd",
+				"keys": [
+					"c5",
+					"c6",
+					"c7",
+					"c8"
 				],
 				"kind": "tests",
 				"sha": ""
@@ -3671,6 +3690,8 @@
 		"flags.rentGoal",
 		"flags.rentPaid",
 		"flags.securityContactUnlocked",
+		"flags.securityIntroPending",
+		"flags.securityIntroSeen",
 		"flags.securityOfficeBought",
 		"flags.sohoUnlocked",
 		"flags.sparSessions",
