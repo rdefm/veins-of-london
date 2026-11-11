@@ -185,4 +185,6 @@ static func post_text(g: Dictionary) -> String:
 	var text := GuardUpkeep.place_label(g["post"])
 	if int(g["injuredUntilDay"]) > int(GameState.state["world"]["day"]):
 		text += " · Injured"
+	if int(g["trainingUntilDay"]) > int(GameState.state["world"]["day"]):
+		text += " · Training"
 	return text

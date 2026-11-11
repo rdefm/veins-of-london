@@ -476,3 +476,107 @@ static func next_level_xp(g: Dictionary) -> int:
 	if int(g["level"]) >= rows.size():
 		return -1
 	return int(rows[int(g["level"])]["xpToReach"])
+
+
+# ── XP, levels, training ──────────────────────────────────────────────
+
+const XP_PASSIVE := "passive"
+const XP_REPEL := "repel"
+const XP_DEFEND := "defend"
+const XP_TRAINING := "training"
+
+
+# Base XP for a source id, from MUSCLE.xp / MUSCLE.training.
+static func xp_base(source: String) -> int:
+	var cfg: Dictionary = GameData.MUSCLE["xp"]
+	match source:
+		XP_PASSIVE:
+			return int(cfg["passivePerDay"])
+		XP_REPEL:
+			return int(cfg["perRepel"])
+		XP_DEFEND:
+			return int(cfg["perDefendFight"])
+		XP_TRAINING:
+			return int(GameData.MUSCLE["training"]["xp"])
+	return 0
+
+
+# Adds `source` XP to guard `id`, scaled by the guard's xpMult traits (XP may
+# be fractional). Each level crossed pushes one notification; the new wage
+# shows from the next Monday bill. Returns the XP gained.
+static func award_xp(id: String, source: String) -> float:
+	var g := guard(id)
+	if g.is_empty():
+		return 0.0
+	var gained := float(xp_base(source)) * trait_mult(g, "xpMult")
+	g["xp"] = float(g["xp"]) + gained
+	var rows: Array = GameData.MUSCLE["levels"]
+	while int(g["level"]) < rows.size() and float(g["xp"]) >= float(rows[int(g["level"])]["xpToReach"]):
+		g["level"] = int(g["level"]) + 1
+		Notify.push("%s is now level %d." % [short_name(g), int(g["level"])], Notify.CATEGORY_SUCCESS)
+	EventBus.mark_changed()
+	return gained
+
+
+# A successful repel at `post_id`: repel XP for each available guard posted
+# there (the guards whose weight counted).
+static func award_repel_xp(post_id: String) -> void:
+	for g in available_at(post_id):
+		award_xp(g["id"], XP_REPEL)
+
+
+static func train_cost(g: Dictionary) -> int:
+	return int(GameData.MUSCLE["training"]["costPerLevel"]) * int(g["level"])
+
+
+# "" when guard `id` can be trained now, else why not.
+static func train_block_reason(id: String) -> String:
+	if not can_manage():
+		return "Needs a Security Office."
+	var g := guard(id)
+	if g.is_empty():
+		return "No such guard."
+	if not is_available(id):
+		return "Not available."
+	if int(GameState.state["player"]["cash"]) < train_cost(g):
+		return "Not enough cash."
+	return ""
+
+
+# Pays for a training session: training XP, and the guard is away (off post,
+# uncounted) for `training.days` days, then back on their post. No time block.
+# Returns { ok, cost } or { ok: false, reason }.
+static func train(id: String) -> Dictionary:
+	var reason := train_block_reason(id)
+	if reason != "":
+		return { "ok": false, "reason": reason }
+	var g := guard(id)
+	var cost := train_cost(g)
+	GameState.state["player"]["cash"] -= cost
+	Bank.record(-cost, "Guard training")
+	BusinessStats.record_expense(cost, BusinessStats.EXPENSE_GUARD)
+	g["trainingUntilDay"] = int(GameState.state["world"]["day"]) + int(GameData.MUSCLE["training"]["days"])
+	award_xp(id, XP_TRAINING)
+	Notify.push("%s is away training for a day." % short_name(g), Notify.CATEGORY_INFO)
+	EventBus.mark_changed()
+	return { "ok": true, "cost": cost }
+
+
+# Muscle daily tick (R§3.1 ⑥.5j4): passive XP for every available guard on a
+# post (Reserve, Lazy, injured and training guards earn none), and clears
+# finished training countdowns.
+static func daily_tick() -> void:
+	var day: int = GameState.state["world"]["day"]
+	for g in guards():
+		if int(g["trainingUntilDay"]) != 0 and int(g["trainingUntilDay"]) <= day:
+			g["trainingUntilDay"] = 0
+		if g["post"] == POST_RESERVE or not is_available(g["id"]) or _no_passive_xp(g):
+			continue
+		award_xp(g["id"], XP_PASSIVE)
+
+
+static func _no_passive_xp(g: Dictionary) -> bool:
+	for t in g["traits"]:
+		if bool(GameData.MUSCLE_TRAITS[t]["params"].get("noPassiveXp", false)):
+			return true
+	return false

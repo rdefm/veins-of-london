@@ -68,7 +68,7 @@ Data file per system: see `data/*.json` below.
 | factions.gd | Faction joining |
 | guard_kit.gd | Guard kit: allowlisted items by tier on a vein's or HQ's (`home.guardKit`) kit; capacity (2 × guards), active units, `stock`/`unstock` and `*_hq` twins; repel boost/spend; post-defence `refill_*` (spent recipes only, highest tier first, capped) and `return_overflow`; kit-dict helpers (incl. `remove_units`); target helpers (vein/hq), summary/status text, `kit_veins` |
 | guard_upkeep.gd | Guard wages: hire advance, weekly cost/labels, per-day per-place `guardUpkeep.history`, pre-pot Monday bill from cash, faction Monday bill (vein + stockpile guards) and wage-reserve gate, muscle wages (per-guard bill and advance), pending guard shortfall (grace, auto-resolve, short-pay), place labels, Guard Costs reads |
-| muscle.gd | Hired guards: `state.muscle` records, unique names, trait rolls, level weight, trait-stacked wage, short/full name, posted weight/repel-weight sums, Security score + band. Security Office gate (`can_manage`, intro flag), Monday hiring board (4 cards, level odds, returning former guards), `hire` (prorated advance, to Reserve), `dismiss` (to former, cap 20) |
+| muscle.gd | Hired guards: `state.muscle` records, unique names, trait rolls, level weight, trait-stacked wage, short/full name, posted weight/repel-weight sums, Security score + band. Security Office gate (`can_manage`, intro flag), Monday hiring board (4 cards, level odds, returning former guards), `hire` (prorated advance, to Reserve), `dismiss` (to former, cap 20), `award_xp` (trait-scaled, level-ups notify), repel XP, `train` (£200 x level, +10 XP, away 1 day), `daily_tick` (passive XP, training countdown) |
 | home.gd | Home tier/tenure/security/rooms/raid chance; bill base, scaled bill due, next bill day; arrears countdown; tier moves via shared `change_tier`; HQ `get_guard_count` (posted guards); per-slot room purchase/replacement (`set_room_use`), seat upgrades; daily raid roll, alarm queue/expiry + guard (kit) repel, alarm-defend resolution (R§3.8); `deposit_goal()` / `rent_goal()` |
 | lodedinnit_directory.gd | LodedInnit People projection: role groups in roster order, Role/ore-specialism filters, per-group wage sort (roster → desc → asc alternating), filter option lists |
 | lodedinnit_profile.gd | LodedInnit profile projection: role-skill experience (xp / next-level threshold), role-room seat line (built, seats free), cultivator speciality-bonus text |
@@ -233,7 +233,7 @@ overlays; hides the top board on title/intro/combat and the nav dock per screen.
 | james_job_short_modal.gd | James job "not enough stock" card |
 | james_job_complete_modal.gd | James job payout card |
 | sell_menu_modal.gd | Trade modal registry adapter and Cancel action that clears sellState |
-| guard_detail_modal.gd | guard_detail modal: full name, level, XP/next, wage, post, tap-to-explain traits, Post ▾, Dismiss |
+| guard_detail_modal.gd | guard_detail modal: full name, level, XP/next, wage, post, tap-to-explain traits, Post ▾, Train ›, Dismiss |
 | guard_dismiss_modal.gd | guard_dismiss modal: confirm before Muscle.dismiss |
 | guard_post_modal.gd | guard_post modal: the Post picker (HQ, every vein, Reserve) for one guard |
 | guard_assign_modal.gd | guard_assign modal: Reserve guards to post at a place, or "No one in reserve — Hire ›" |

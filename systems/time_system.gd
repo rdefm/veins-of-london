@@ -243,6 +243,7 @@ static func daily_tick() -> void:
 	FactionIncidents.daily_tick()        # ⑥.5j2b incidents: queue authored events from today's raids, wars, truces and turf flips; after ⑥.5g2 and ⑤d3
 	Hiring.roll_market_flips()           # ⑥.5j3 LodedInnit candidates flip between open and employed; no ordering dependency
 	Hiring.daily_poach_tick()            # ⑥.5j4 lapsed poach offers resolve as refusals, then Monday offers roll; after ⑥.5h so stances are today's
+	Muscle.daily_tick()                  # ⑥.5j4 passive guard XP + training countdowns; after ⑥.4a/⑥.4b so a Monday level-up doesn't change that day's bill
 	Market.daily_reprice()               # ⑥.6 London reprice, after every step that trades in the tick and after ① so today's Ticker feeds it
 	Dial.daily_regen()                   # ⑦ Dial charge regen (player + ally Dials)
 	Objectives.refresh()                 # ⑧ objectives boundary

@@ -28,6 +28,7 @@ func _is_pure(node: Variant) -> bool:
 
 func run() -> void:
 	_posting_cases()
+	_xp_cases()
 	run_case("state_starts_empty_and_holds_only_primitives", func():
 		GameState.reset()
 		var m: Dictionary = GameState.state["muscle"]
@@ -540,4 +541,146 @@ func _posting_cases() -> void:
 		NodeQuery.find_button(layer, SecurityScreen.place_header("v1")).pressed.emit()
 		assert_eq(Muscle.guard(id)["post"], "v1")
 		layer.free()
+	)
+
+
+# ── XP, levels, training ──
+
+func _posted_guard(post_id: String, level: int, traits: Array) -> Dictionary:
+	var g := Muscle.create_guard(level)
+	g["traits"] = traits
+	g["post"] = post_id
+	Muscle.guards().append(g)
+	return g
+
+
+func _level_notes() -> Array:
+	return GameState.state["notifications"].filter(func(n): return String(n["text"]).contains("is now level"))
+
+
+func _xp_cases() -> void:
+	run_case("passive_xp_only_for_available_posted_guards", func():
+		_managed()
+		var posted := _posted_guard("v1", 1, [])
+		var lazy := _posted_guard("v1", 1, ["lazy"])
+		var idle := _posted_guard("reserve", 1, [])
+		var hurt := _posted_guard("home", 1, [])
+		hurt["injuredUntilDay"] = GameState.state["world"]["day"] + 2
+		Muscle.daily_tick()
+		assert_eq(posted["xp"], 1.0, "posted earns +1")
+		assert_eq(lazy["xp"], 0, "Lazy earns none")
+		assert_eq(idle["xp"], 0, "Reserve earns none")
+		assert_eq(hurt["xp"], 0, "injured earns none")
+	)
+
+	run_case("xp_multipliers_apply_to_every_source", func():
+		_managed()
+		var quick := _posted_guard("v1", 1, ["quickStudy"])
+		var slow := _posted_guard("v1", 1, ["slowLearner"])
+		Muscle.award_xp(quick["id"], Muscle.XP_PASSIVE)
+		Muscle.award_xp(slow["id"], Muscle.XP_PASSIVE)
+		assert_eq(quick["xp"], 1.5)
+		assert_eq(slow["xp"], 0.5)
+		Muscle.award_xp(quick["id"], Muscle.XP_REPEL)
+		Muscle.award_xp(slow["id"], Muscle.XP_REPEL)
+		assert_eq(quick["xp"], 9.0, "1.5 + 5 x 1.5")
+		assert_eq(slow["xp"], 3.0, "0.5 + 5 x 0.5")
+		Muscle.award_xp(quick["id"], Muscle.XP_TRAINING)
+		assert_eq(quick["xp"], 24.0, "training x1.5 too")
+	)
+
+	run_case("repel_xp_goes_to_each_available_guard_at_the_post", func():
+		_managed()
+		var a := _posted_guard("v1", 1, [])
+		var b := _posted_guard("v1", 1, [])
+		var hurt := _posted_guard("v1", 1, [])
+		hurt["injuredUntilDay"] = GameState.state["world"]["day"] + 2
+		var other := _posted_guard("home", 1, [])
+		Muscle.award_repel_xp("v1")
+		assert_eq(a["xp"], 5.0)
+		assert_eq(b["xp"], 5.0)
+		assert_eq(hurt["xp"], 0, "uncounted")
+		assert_eq(other["xp"], 0, "other post")
+	)
+
+	run_case("hq_repel_success_awards_repel_xp", func():
+		_managed()
+		var home_guards: Array = []
+		for i in 4:
+			home_guards.append(_posted_guard("home", 5, []))
+		var won := false
+		for seed in range(1, 60):
+			Rng.set_seed(seed)
+			if Home._guards_repel_pending_raid():
+				won = true
+				break
+		assert_true(won, "some seed repels")
+		assert_eq(home_guards[0]["xp"], 405.0, "400 for level 5 plus 5")
+	)
+
+	run_case("level_ups_at_thresholds_with_one_notification_each", func():
+		_managed()
+		var g := _posted_guard("v1", 1, [])
+		g["xp"] = 49.0
+		Muscle.award_xp(g["id"], Muscle.XP_PASSIVE)
+		assert_eq(g["level"], 2)
+		assert_eq(_level_notes().size(), 1)
+		g["xp"] = 399.0
+		g["level"] = 4
+		Muscle.award_xp(g["id"], Muscle.XP_PASSIVE)
+		assert_eq(g["level"], 5)
+		assert_eq(_level_notes().size(), 2)
+		Muscle.award_xp(g["id"], Muscle.XP_REPEL)
+		assert_eq(g["level"], 5, "top level holds")
+		assert_eq(_level_notes().size(), 2)
+	)
+
+	run_case("a_level_up_keeps_this_weeks_bill_and_raises_the_next", func():
+		_managed()
+		var g := _posted_guard("v1", 1, [])
+		g["xp"] = 49.0
+		var before := GuardUpkeep.muscle_wage_total()
+		assert_eq(before, 500)
+		GameState.state["world"]["day"] = Calendar.monday_on_or_after(8) + 2
+		Muscle.daily_tick()
+		assert_eq(g["level"], 2)
+		assert_eq(GuardUpkeep.muscle_wage_total(), 600, "the next Monday bill uses the new wage")
+		GameState.state["world"]["day"] = Calendar.monday_on_or_after(8)
+		GameState.state["player"]["cash"] = 10000
+		assert_eq(GuardUpkeep.pay_monday_bill()["due"], 600)
+	)
+
+	run_case("train_charges_gives_xp_and_takes_the_guard_away_for_a_day", func():
+		_managed()
+		var g := _posted_guard("v1", 3, [])
+		g["xp"] = 100.0
+		GameState.state["player"]["cash"] = 1000
+		var day: int = GameState.state["world"]["day"]
+		var result := Muscle.train(g["id"])
+		assert_true(result["ok"])
+		assert_eq(GameState.state["player"]["cash"], 400, "£200 x level 3")
+		assert_eq(g["xp"], 110.0)
+		assert_eq(g["post"], "v1", "post kept")
+		assert_true(not Muscle.is_available(g["id"]), "away")
+		assert_eq(Muscle.available_at("v1").size(), 0, "not counted at the post")
+		assert_true(not Muscle.train(g["id"])["ok"], "can't train while away")
+		GameState.state["world"]["day"] = day + 1
+		Muscle.daily_tick()
+		assert_true(Muscle.is_available(g["id"]), "back next day")
+		assert_eq(g["trainingUntilDay"], 0)
+		assert_eq(Muscle.available_at("v1").size(), 1)
+	)
+
+	run_case("train_refused_when_unaffordable_or_unavailable", func():
+		_managed()
+		var g := _posted_guard("v1", 2, [])
+		GameState.state["player"]["cash"] = 399
+		var r := Muscle.train(g["id"])
+		assert_true(not r["ok"])
+		assert_eq(GameState.state["player"]["cash"], 399, "nothing taken")
+		assert_eq(g["xp"], 50, "no XP")
+		GameState.state["player"]["cash"] = 5000
+		g["injuredUntilDay"] = GameState.state["world"]["day"] + 2
+		assert_true(not Muscle.train(g["id"])["ok"], "injured")
+		assert_eq(GameState.state["player"]["cash"], 5000)
 	)

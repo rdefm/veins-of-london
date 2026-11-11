@@ -3,7 +3,7 @@ extends RefCounted
 
 # "guard_detail" modal: data.guardId. Full name, level, XP and the next
 # threshold, wage, post, traits (tap one to read what it does), the Post
-# picker and Dismiss.
+# picker, Train and Dismiss.
 #
 # PROSE-REVIEW: the labels on this sheet.
 
@@ -29,6 +29,7 @@ static func build(container: VBoxContainer, data: Dictionary) -> void:
 	var gid: String = g["id"]
 	container.add_child(MapCardStyle.footer([
 		MapCardStyle.text_button("Close", func(): Modal.close()),
+		MapCardStyle.action_button("Train › £%d" % Muscle.train_cost(g), func(): _train(gid), Muscle.train_block_reason(gid) != "", Muscle.train_block_reason(gid)),
 		MapCardStyle.action_button("Post ▾", func(): Modal.open("guard_post", { "guardId": gid }), not Muscle.can_manage(), "Needs a Security Office."),
 		MapCardStyle.action_button("Dismiss", func(): Modal.open("guard_dismiss", { "guardId": gid }), not Muscle.can_manage(), "Needs a Security Office."),
 	]))
@@ -40,6 +41,11 @@ static func xp_text(g: Dictionary) -> String:
 	if next < 0:
 		return "XP %d (top level)" % int(g["xp"])
 	return "XP %d / %d" % [int(g["xp"]), next]
+
+
+static func _train(guard_id: String) -> void:
+	Muscle.train(guard_id)
+	Modal.open("guard_detail", { "guardId": guard_id })
 
 
 static func _toggle_trait(trait_id: String) -> void:
