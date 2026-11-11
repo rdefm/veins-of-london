@@ -11,9 +11,6 @@ extends RefCounted
 # ALARM_UPGRADE_ID (per-vein, data/vein_alarm.json), which shares the string.
 const ALARM_SECURITY_ID := "alarm"
 
-# Unlike other security ids (installed once, boolean membership via .has()),
-# "guard" stacks; its count lives in home["guardCount"] instead.
-const GUARD_SECURITY_ID := "guard"
 const TENURE_RENTED := "rented"
 const TENURE_OWNED := "owned"
 
@@ -37,7 +34,7 @@ static func get_raid_chance_for_tier(tier_id: String) -> float:
 	for security_id in home["security"]:
 		raid_reduction += GameData.HOME_SECURITY[security_id]["raidReduction"]
 	# Flat per-guard contribution, uncapped and non-escalating.
-	raid_reduction += GameData.HOME_SECURITY[GUARD_SECURITY_ID]["raidReduction"] * home.get("guardCount", 0)
+	raid_reduction += float(GameData.MUSCLE["hqRaidReductionPerGuard"]) * get_guard_count()
 	var total_stored: int = _sum_ore(player["orichalchum"])
 	var chance: float = tier_data["raidBaseChance"] + fx.get("homeRaid", 0.0) - raid_reduction + total_stored * 0.001
 	return max(0.002, chance)
@@ -114,7 +111,7 @@ static func _queue_pending_raid() -> void:
 	home["pendingRaidNotificationId"] = notification["id"]
 
 
-# Before a missed-defend window applies raid loss, guardCount gets a chance
+# Before a missed-defend window applies raid loss, HQ's guards get a chance
 # to repel it (rates shared with Raiding.guard_repel_chance()).
 static func guard_repel_chance(guard_count: int) -> float:
 	return clampf(guard_count * GameData.GUARD_REPEL_CHANCE_PER_GUARD, 0.0, GameData.GUARD_REPEL_CHANCE_CAP)
@@ -371,9 +368,9 @@ static func _refund_deposit() -> int:
 # room_carryover — dropped rooms lose their effects and staff, kept rooms
 # above their tier's seat cap shed seats and the staff in them — and the
 # half-price refund is credited. Security whose minTier is above the new tier
-# is lost (guards follow the "guard" row) and the tenure is set. No other
+# is lost and the tenure is set. No other
 # cash moves here — callers charge first. Returns { roomsLost, roomsKept,
-# seatsLost, refund, securityLost, guardsLost }.
+# seatsLost, refund, securityLost }.
 static func change_tier(new_tier_id: String, tenure: String) -> Dictionary:
 	var home: Dictionary = GameState.state["home"]
 	var plan: Dictionary = room_carryover(new_tier_id)
@@ -394,16 +391,13 @@ static func change_tier(new_tier_id: String, tenure: String) -> Dictionary:
 	var security_lost: Array = security_lost_moving_to(new_tier_id)
 	for security_id in security_lost:
 		home["security"].erase(security_id)
-	var guards_lost: int = guards_lost_moving_to(new_tier_id)
-	if guards_lost > 0:
-		home["guardCount"] = 0
 
 	home["tier"] = new_tier_id
 	home["tenure"] = tenure
 	EventBus.mark_changed()
 	return {
 		"roomsLost": plan["dropped"], "roomsKept": plan["kept"], "seatsLost": plan["seatsLost"],
-		"refund": refund, "securityLost": security_lost, "guardsLost": guards_lost,
+		"refund": refund, "securityLost": security_lost,
 	}
 
 
@@ -495,7 +489,7 @@ static func room_drop_text(result: Dictionary) -> String:
 	return " Left behind: %s. £%d back at half price." % [", ".join(parts), result["refund"]]
 
 
-# Installed security ids (not guards; see guards_lost_moving_to) a move to
+# Installed security ids a move to
 # tier_id would lose because their minTier is above it.
 static func security_lost_moving_to(tier_id: String) -> Array:
 	var lost: Array = []
@@ -503,12 +497,6 @@ static func security_lost_moving_to(tier_id: String) -> Array:
 		if _tier_below_min(tier_id, GameData.HOME_SECURITY[security_id]["minTier"]):
 			lost.append(security_id)
 	return lost
-
-
-static func guards_lost_moving_to(tier_id: String) -> int:
-	if _tier_below_min(tier_id, GameData.HOME_SECURITY[GUARD_SECURITY_ID]["minTier"]):
-		return get_guard_count()
-	return 0
 
 
 static func _tier_below_min(tier_id: String, min_tier_id: String) -> bool:
@@ -634,7 +622,7 @@ static func _sell_current_home() -> String:
 	return tier_name
 
 
-# One-off price of a non-guard security row, ×0.7 with securityContactUnlocked.
+# One-off price of a security row, ×0.7 with securityContactUnlocked.
 static func security_cost(security_id: String) -> int:
 	var cost: int = GameData.HOME_SECURITY[security_id]["cost"]
 	if GameState.state["flags"]["securityContactUnlocked"]:
@@ -646,9 +634,7 @@ static func add_security(security_id: String) -> Dictionary:
 	var home: Dictionary = GameState.state["home"]
 	var player: Dictionary = GameState.state["player"]
 
-	# "guard" never enters the array (see GUARD_SECURITY_ID above), so it
-	# skips the minTier/cash checks below.
-	if security_id != GUARD_SECURITY_ID and home["security"].has(security_id):
+	if home["security"].has(security_id):
 		return { "ok": false, "reason": "Already installed." }
 
 	var security_data: Dictionary = GameData.HOME_SECURITY[security_id]
@@ -658,46 +644,22 @@ static func add_security(security_id: String) -> Dictionary:
 	if current_index < min_index:
 		return { "ok": false, "reason": "Requires %s or better." % GameData.HOME_TIERS[security_data["minTier"]]["name"] }
 
-	# A guard has no purchase price, only today's hire advance (spec §Hiring).
-	if security_id == GUARD_SECURITY_ID:
-		var paid: Dictionary = GuardUpkeep.pay_hire_advance(GuardUpkeep.HOME_PLACE_ID)
-		if not paid["ok"]:
-			return paid
-	else:
-		var cost: int = security_cost(security_id)
-		if player["cash"] < cost:
-			return { "ok": false, "reason": "Not enough cash." }
-		player["cash"] -= cost
-		Bank.record(-cost, "HQ security: %s" % security_data["name"])
-
-	if security_id == GUARD_SECURITY_ID:
-		home["guardCount"] = home.get("guardCount", 0) + 1
-		var guard_count: int = home["guardCount"]
-		# PROSE-REVIEW: drafted against CONTENT-GUIDE.md's tone.
-		var guard_msg: String = "Hired a guard for HQ." if guard_count == 1 else "Hired another guard for HQ — %d guards on watch now." % guard_count
-		Notify.push(guard_msg, Notify.CATEGORY_SUCCESS)
-	else:
-		home["security"].append(security_id)
-		Notify.push("Installed %s." % security_data["name"], Notify.CATEGORY_SUCCESS)
+	var cost: int = security_cost(security_id)
+	if player["cash"] < cost:
+		return { "ok": false, "reason": "Not enough cash." }
+	player["cash"] -= cost
+	Bank.record(-cost, "HQ security: %s" % security_data["name"])
+	home["security"].append(security_id)
+	Notify.push("Installed %s." % security_data["name"], Notify.CATEGORY_SUCCESS)
 
 	EventBus.mark_changed()
 	SaveManager.autosave()  # R§6: autosave on purchase
 	return { "ok": true }
 
 
-# Saves without this key read as 0 (same convention as vein.get("extraGuards", 0)).
+# Available guards posted at HQ.
 static func get_guard_count() -> int:
-	return GameState.state["home"].get("guardCount", 0)
-
-
-# Removes one HQ guard. HQ has no tier to lose, so home.security is
-# untouched (spec §Guard counting). Returns false with no guards left.
-static func drop_guard() -> bool:
-	var count := get_guard_count()
-	if count <= 0:
-		return false
-	GameState.state["home"]["guardCount"] = count - 1
-	return true
+	return Muscle.available_at(Muscle.POST_HOME).size()
 
 
 # Fills the next empty selectable slot (home.rooms is in slot order, R§2).

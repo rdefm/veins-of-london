@@ -664,24 +664,21 @@ func run() -> void:
 
 	# ── 107-hq-stackable-guards ────────────────────────────────────────
 
-	run_case("save_mutate_load_round_trips_home_guardCount_as_int", func():
+	run_case("save_mutate_load_round_trips_posted_guards", func():
 		GameState.reset()
-		GameState.state["player"]["cash"] = 100000
-		GameState.state["home"]["tier"] = "compound"
-		Home.add_security("guard")
-		Home.add_security("guard")
+		seat_guards("home", 2)
 		var original: Dictionary = GameState.deep_copy(GameState.state)
 
 		var save_result := SaveManager.save_to_slot(TEST_SLOT)
 		assert_true(save_result["ok"], "save_to_slot should succeed")
 
-		GameState.state["home"]["guardCount"] = 0
+		Muscle.guards().clear()
 		var load_result := SaveManager.load_from_slot(TEST_SLOT)
 		assert_true(load_result["ok"], "load_from_slot should succeed")
 
-		assert_eq(GameState.state["home"]["guardCount"], 2, "guardCount should be restored")
-		assert_eq(typeof(GameState.state["home"]["guardCount"]), TYPE_INT, "guardCount should be restored as int, not float")
-		assert_eq(GameState.state, original, "the full state tree (including home.guardCount) should deep-equal what was saved")
+		assert_eq(Home.get_guard_count(), 2, "posted guards are restored")
+		assert_eq(typeof(Muscle.guards()[0]["level"]), TYPE_INT, "level restored as int, not float")
+		assert_eq(GameState.state, original, "the full state tree deep-equals what was saved")
 
 		SaveManager.delete_slot(TEST_SLOT)
 	)
@@ -852,16 +849,6 @@ func run() -> void:
 		Business.withdraw(120)
 		assert_true(Events.rewind()["ok"])
 		assert_eq(GameState.state["business"]["float"], 120)
-	)
-
-	run_case("loading_a_pre_107_save_backfills_home_guardCount_to_0", func():
-		GameState.reset()
-		# Pre-107 shape: state.home had no guardCount key at all.
-		var legacy: Dictionary = GameState.deep_copy(GameState.state)
-		legacy["home"].erase("guardCount")
-
-		var filled := SaveManager.backfill_defaults(legacy)
-		assert_eq(filled["home"]["guardCount"], 0, "a save from before guardCount existed should backfill it to 0")
 	)
 
 	run_case("loading_a_save_without_room_seats_backfills_one_per_room", func():

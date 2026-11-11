@@ -2,7 +2,8 @@ class_name GuardDetailModal
 extends RefCounted
 
 # "guard_detail" modal: data.guardId. Full name, level, XP and the next
-# threshold, wage, post, traits (tap one to read what it does) and Dismiss.
+# threshold, wage, post, traits (tap one to read what it does), the Post
+# picker and Dismiss.
 #
 # PROSE-REVIEW: the labels on this sheet.
 
@@ -28,6 +29,7 @@ static func build(container: VBoxContainer, data: Dictionary) -> void:
 	var gid: String = g["id"]
 	container.add_child(MapCardStyle.footer([
 		MapCardStyle.text_button("Close", func(): Modal.close()),
+		MapCardStyle.action_button("Post ▾", func(): Modal.open("guard_post", { "guardId": gid }), not Muscle.can_manage(), "Needs a Security Office."),
 		MapCardStyle.action_button("Dismiss", func(): Modal.open("guard_dismiss", { "guardId": gid }), not Muscle.can_manage(), "Needs a Security Office."),
 	]))
 

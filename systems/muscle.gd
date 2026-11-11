@@ -191,6 +191,95 @@ static func on_room_bought() -> void:
 		roll_board()
 
 
+# ── posting ───────────────────────────────────────────────────────────
+
+# Guards whose post is `post_id` (HQ, a vein id or Reserve), injured or not.
+static func guards_at(post_id: String) -> Array:
+	return guards().filter(func(g): return g["post"] == post_id)
+
+
+static func reserve() -> Array:
+	return guards_at(POST_RESERVE)
+
+
+# Not injured and not in training: only these count as bodies at a post.
+static func is_available(id: String) -> bool:
+	var g := guard(id)
+	if g.is_empty():
+		return false
+	var day: int = GameState.state["world"]["day"]
+	return int(g["injuredUntilDay"]) <= day and int(g["trainingUntilDay"]) <= day
+
+
+# Available guards posted at `post_id`: the bodies that resist, repel and carry kit.
+static func available_at(post_id: String) -> Array:
+	return guards_at(post_id).filter(func(g): return is_available(g["id"]))
+
+
+# Σ level weight of the available guards posted at `post_id`.
+static func post_weight_sum(post_id: String) -> float:
+	var total := 0.0
+	for g in available_at(post_id):
+		total += weight(g)
+	return total
+
+
+# A guard walks off: the lowest-level available guard posted at `post_id`
+# goes to the former list. False when nobody's posted there.
+static func walk_from(post_id: String) -> bool:
+	var pick: Dictionary = {}
+	for g in available_at(post_id):
+		if pick.is_empty() or int(g["level"]) <= int(pick["level"]):
+			pick = g
+	if pick.is_empty():
+		return false
+	guards().erase(pick)
+	add_former(pick)
+	return true
+
+
+# Guard slots at a post: the HQ / vein cap, or -1 for uncapped Reserve.
+static func cap(post_id: String) -> int:
+	if post_id == POST_RESERVE:
+		return -1
+	var caps: Dictionary = GameData.MUSCLE["postCaps"]
+	return int(caps["home"]) if post_id == POST_HOME else int(caps["vein"])
+
+
+# Whether `post_id` is Reserve, HQ or one of the player's veins.
+static func is_post(post_id: String) -> bool:
+	return post_id == POST_RESERVE or post_id == POST_HOME or Cultivating.find_vein(post_id) != null
+
+
+# Why guard `id` can't be moved to `post_id`, or "". The one rule behind every
+# posting entry point.
+static func post_block_reason(id: String, post_id: String) -> String:
+	if not can_manage():
+		return "Needs a Security Office."
+	if guard(id).is_empty():
+		return "No such guard."
+	if not is_post(post_id):
+		return "No such post."
+	if not is_available(id):
+		return "Not available."
+	if guard(id)["post"] != post_id and post_id != POST_RESERVE and guards_at(post_id).size() >= cap(post_id):
+		return "That post is full."
+	return ""
+
+
+# Moves guard `id` to `post_id`: instant, free, any time block. Returns { ok }
+# or { ok: false, reason }.
+static func post(id: String, post_id: String) -> Dictionary:
+	var reason := post_block_reason(id, post_id)
+	if reason != "":
+		return { "ok": false, "reason": reason }
+	var g := guard(id)
+	if g["post"] != post_id:
+		g["post"] = post_id
+		EventBus.mark_changed()
+	return { "ok": true }
+
+
 # ── hiring board ──────────────────────────────────────────────────────
 
 # The weekly board: slots of guard-shaped cards, null where hired.

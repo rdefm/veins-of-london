@@ -1060,7 +1060,7 @@ func _restore_int_types(state: Dictionary) -> void:
 			if slot is Dictionary:
 				_int_key(slot, "tier")
 		for vein in player.get("veins", []):
-			for key in ["growth", "rampantDays", "claimedOnDay", "slotIndex", "extraGuards", "level", "developmentStreak"]:
+			for key in ["growth", "rampantDays", "claimedOnDay", "slotIndex", "level", "developmentStreak"]:
 				_int_key(vein, key)
 			for buckets in vein.get("guardKit", {}).values():
 				_int_dict_values(buckets)
@@ -1106,7 +1106,6 @@ func _restore_int_types(state: Dictionary) -> void:
 	if state.has("home"):
 		var home: Dictionary = state["home"]
 		_int_key(home, "lastRaidDay")
-		_int_key(home, "guardCount")
 		_int_key(home, "arrears")
 		_int_key(home, "arrearsWeeks")
 		_int_key(home, "deposit")

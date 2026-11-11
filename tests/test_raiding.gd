@@ -655,22 +655,19 @@ func run() -> void:
 	# as extra guards stack past "guarded" -- no ceiling at the old fixed max.
 	# relation pinned very negative first so "guarded" alone isn't already
 	# clamped at the chance floor (masking any further decrease).
-	run_case("raid_success_chance_keeps_decreasing_as_extra_guards_stack_past_guarded", func():
+	run_case("raid_success_chance_keeps_decreasing_as_posted_guards_stack", func():
 		GameState.reset()
 		GameState.state["factions"]["collective"]["relation"] = -100
-		var guarded := _player_vein_of(30, "time", "guarded")
-		var one_extra := _player_vein_of(30, "time", "guarded")
-		one_extra["extraGuards"] = 1
-		var many_extra := _player_vein_of(30, "time", "guarded")
-		many_extra["extraGuards"] = 10
+		var vein := _player_vein_of(30, "time", "warded")
+		var chance_none := Raiding.raid_success_chance("collective", vein)
+		seat_guards("pv_test", 1)
+		var chance_one := Raiding.raid_success_chance("collective", vein)
+		seat_guards("pv_test", 9)
+		var chance_many := Raiding.raid_success_chance("collective", vein)
 
-		var chance_guarded := Raiding.raid_success_chance("collective", guarded)
-		var chance_one_extra := Raiding.raid_success_chance("collective", one_extra)
-		var chance_many_extra := Raiding.raid_success_chance("collective", many_extra)
-
-		assert_true(chance_guarded > chance_one_extra, "one extra guard should already lower the raid chance further (got %f vs %f)" % [chance_guarded, chance_one_extra])
-		assert_true(chance_one_extra > 0.0, "sanity: guarded-alone isn't already clamped at the floor, so this decrease is real")
-		assert_almost_eq(chance_many_extra, 0.0, 0.0001, "enough stacked guards clamps the chance at the floor, not negative")
+		assert_true(chance_none > chance_one, "one posted guard lowers the raid chance (got %f vs %f)" % [chance_none, chance_one])
+		assert_true(chance_one > 0.0, "sanity: one guard isn't already clamped at the floor, so this decrease is real")
+		assert_almost_eq(chance_many, 0.0, 0.0001, "enough guards clamps the chance at the floor, not negative")
 	)
 
 	run_case("raid_success_chance_increases_with_higher_dangerMod", func():
@@ -1355,7 +1352,7 @@ func run() -> void:
 			GameState.reset()
 			var vein := _player_vein_of(30, "life", "guarded", "shoreditch")
 			vein["alarmUpgrades"] = ["alarm"]
-			vein["extraGuards"] = 5  # 75% repel chance
+			seat_guards("pv_test", 5)  # 75% repel chance
 			GameState.state["player"]["veins"] = [vein]
 			GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
 			GameState.state["world"]["pendingDefendRaids"] = [{ "attackerId": "collective", "veinId": "pv_test", "siteId": "s_player", "success": true }]
@@ -1384,7 +1381,7 @@ func run() -> void:
 			GameState.reset()
 			var vein := _player_vein_of(30, "life", "guarded", "shoreditch")
 			vein["alarmUpgrades"] = ["alarm"]
-			vein["extraGuards"] = 5  # 75% repel chance -- still leaves a 25% fail lane
+			seat_guards("pv_test", 5)  # 75% repel chance -- still leaves a 25% fail lane
 			GameState.state["player"]["veins"] = [vein]
 			GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
 			GameState.state["world"]["pendingDefendRaids"] = [{ "attackerId": "collective", "veinId": "pv_test", "siteId": "s_player", "success": true }]
@@ -1402,13 +1399,13 @@ func run() -> void:
 		assert_true(site["factionVein"] != null, "ownership should transfer, same as the guardless auto-loss path")
 	)
 
-	run_case("missed_defend_repel_counts_the_tier_guard_plus_extras", func():
+	run_case("missed_defend_repel_counts_the_posted_guards", func():
 		for extras in [0, 2]:
 			for seed in range(30):
 				GameState.reset()
 				var vein := _player_vein_of(30, "life", "guarded", "shoreditch")
 				vein["alarmUpgrades"] = ["alarm"]
-				vein["extraGuards"] = extras
+				seat_guards("pv_test", 1 + extras)
 				GameState.state["player"]["veins"] = [vein]
 				GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
 				GameState.state["world"]["pendingDefendRaids"] = [{ "attackerId": "collective", "veinId": "pv_test", "siteId": "s_player", "success": true }]
@@ -1420,6 +1417,7 @@ func run() -> void:
 	)
 
 	run_case("guards_repel_on_an_unguarded_vein_consumes_no_roll", func():
+		GameState.reset()
 		var vein := _player_vein_of(30, "life", "warded", "shoreditch")
 		Rng.set_seed(7)
 		var first_roll: float = Rng.randf()
@@ -1445,6 +1443,7 @@ func run() -> void:
 		for seed in range(30):
 			GameState.reset()
 			var vein := _player_vein_of(30, "life", "guarded", "shoreditch")
+			seat_guards("pv_test", 1)
 			vein["alarmUpgrades"] = ["alarm"]
 			vein["guardKit"] = { "blackHole": { "1": 1 }, "shield": { "1": 1 } }
 			GameState.state["player"]["veins"] = [vein]
@@ -1463,6 +1462,7 @@ func run() -> void:
 			for seed in range(300):
 				GameState.reset()
 				var vein := _player_vein_of(30, "life", "guarded", "shoreditch")
+				seat_guards("pv_test", 1)
 				vein["alarmUpgrades"] = ["alarm"]
 				# 1 guard = 2 active slots: blast T3 + blast T1 active; shield inactive.
 				vein["guardKit"] = { "blast": { "1": 1, "3": 1 }, "shield": { "2": 1 } }
@@ -1550,7 +1550,7 @@ func run() -> void:
 			GameState.reset()
 			var vein := _player_vein_of(30, "life", "guarded", "shoreditch")
 			vein["alarmUpgrades"] = ["alarm"]
-			vein["extraGuards"] = 5
+			seat_guards("pv_test", 5)
 			GameState.state["player"]["veins"] = [vein]
 			GameState.state["world"]["sites"] = [_player_site_with_vein("s_player", vein)]
 			GameState.state["world"]["pendingDefendRaids"] = [{ "attackerId": "collective", "veinId": "pv_test", "siteId": "s_player", "success": true }]

@@ -329,8 +329,8 @@ func run() -> void:
 
 	run_case("short_pay_keeps_back_stepper_totals_and_confirmation", func():
 		GameState.reset()
-		var vein := Fixtures.seed_vein("shortpay", 50)
-		vein["security"] = "guarded"
+		Fixtures.seed_vein("shortpay", 50)
+		seat_guards("shortpay", 1)
 		GameState.state["world"]["day"] = Calendar.monday_on_or_after(8)
 		GameState.state["player"]["cash"] = 0
 		GuardUpkeep.pay_monday_bill()
@@ -1354,8 +1354,8 @@ func run() -> void:
 
 	run_case("guard_costs_view_renders_before_the_pot_with_header_and_filter", func():
 		GameState.reset()
-		var vein := Fixtures.seed_vein("v1", 50)
-		vein["security"] = "guarded"
+		Fixtures.seed_vein("v1", 50)
+		seat_guards("v1", 1)
 		GameState.state["world"]["day"] = Calendar.monday_on_or_after(8)
 		GuardUpkeep.record_payment("v1", 500)
 		EventBus.flush_now()
@@ -1384,8 +1384,8 @@ func run() -> void:
 
 	run_case("guard_costs_header_shows_a_pending_shortfall", func():
 		GameState.reset()
-		var vein := Fixtures.seed_vein("v1", 50)
-		vein["security"] = "guarded"
+		Fixtures.seed_vein("v1", 50)
+		seat_guards("v1", 1)
 		GameState.state["world"]["day"] = Calendar.monday_on_or_after(8)
 		GameState.state["player"]["cash"] = 0
 		GuardUpkeep.pay_monday_bill()

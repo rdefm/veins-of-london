@@ -5,10 +5,7 @@ const GRID_COLUMNS := 2
 const TILE_MIN_WIDTH := 160.0
 const TILE_LABEL_MAX_WIDTH := 130.0
 static func _installed_count(home: Dictionary) -> int:
-	var count: int = home["security"].size()
-	if Home.get_guard_count() > 0:
-		count += 1
-	return count
+	return home["security"].size()
 
 func _ready() -> void:
 	UI.anchor_full_rect(self)
@@ -67,11 +64,9 @@ func _build_security_slot(security_id: String) -> Control:
 	var order: Array = GameData.HOME_TIER_ORDER
 	var available: bool = order.find(home["tier"]) >= order.find(sec["minTier"])
 
-	var stackable: bool = security_id == Home.GUARD_SECURITY_ID
-	var adj_cost: int = GuardUpkeep.hire_advance() if stackable else Home.security_cost(security_id)
-	var count: int = Home.get_guard_count() if stackable else 0
-	var installed: bool = count > 0 if stackable else home["security"].has(security_id)
-	var label: String = sec["name"] if count == 0 else "%s ×%d" % [sec["name"], count]
+	var adj_cost: int = Home.security_cost(security_id)
+	var installed: bool = home["security"].has(security_id)
+	var label: String = sec["name"]
 
 	var c := MapCardStyle.card(12)
 	c["panel"].custom_minimum_size.x = TILE_MIN_WIDTH
@@ -83,15 +78,12 @@ func _build_security_slot(security_id: String) -> Control:
 	if not available:
 		desc += " Requires %s." % GameData.HOME_TIERS[sec["minTier"]]["name"]
 	c["content"].add_child(_tile_label(desc, true))
-	if stackable and count > 0:
-		c["content"].add_child(MapCardStyle.text_button("%s ›" % GuardUpkeep.weekly_cost_text(count), func(): PhoneNav.open_guard_costs()))
 
 	if not available:
 		c["content"].add_child(_tile_label("Locked", true))
-	elif installed and not stackable:
+	elif installed:
 		c["content"].add_child(_tile_label("Installed", true))
 	else:
-		var price_text: String = GuardUpkeep.hire_cost_text() if stackable else "£%d" % adj_cost
-		c["content"].add_child(MapCardStyle.text_button(price_text, func(): Home.add_security(security_id), GameState.state["player"]["cash"] < adj_cost))
+		c["content"].add_child(MapCardStyle.text_button("£%d" % adj_cost, func(): Home.add_security(security_id), GameState.state["player"]["cash"] < adj_cost))
 
 	return c["panel"]

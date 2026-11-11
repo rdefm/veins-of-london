@@ -654,7 +654,9 @@ func _build_vein_action_card(vein: Dictionary) -> Control:
 	actions.add_child(_build_prune_button("Prune (hard)", vein, GameData.VEIN_GROWTH["pruneHardDepth"], district))
 
 	c["content"].add_child(actions)
-	c["content"].add_child(_build_security_row(vein))
+	var security_row: Variant = _build_security_row(vein)
+	if security_row != null:
+		c["content"].add_child(security_row)
 	c["content"].add_child(_build_alarm_row(vein))
 	var vein_station_row: Variant = _build_vein_station_row(vein)
 	if vein_station_row != null:
@@ -680,14 +682,16 @@ func _build_vein_station_row(_vein: Dictionary) -> Variant:
 	if not GameState.state["home"]["rooms"].has("veinStation"):
 		return null
 	return _dim_label("Vein Station assignment: see BizBrief → Manage → Procurement.")
-func _build_security_row(vein: Dictionary) -> Control:
+func _build_security_row(vein: Dictionary) -> Variant:
 	var upgrade: Dictionary = Cultivating.next_security_upgrade(vein)
+	if upgrade.is_empty():
+		return null
 	var player: Dictionary = GameState.state["player"]
 	var vein_id: String = vein["id"]
 
-	var label: String = upgrade["label"] if upgrade["tierId"] == null else "Upgrade to %s" % upgrade["label"]
+	var label: String = "Upgrade to %s" % upgrade["label"]
 	var cost := { "label": label, "resource": "cash", "amount": upgrade["cost"] }
-	var text: String = "%s — %s" % [label, GuardUpkeep.hire_cost_text()] if upgrade["isGuard"] else UI.format_cost_label(cost, { "cash": player["cash"] })
+	var text: String = UI.format_cost_label(cost, { "cash": player["cash"] })
 
 	var b := UI.button(text, func(): Cultivating.upgrade_vein_security(vein_id))
 	b.disabled = player["cash"] < upgrade["cost"]

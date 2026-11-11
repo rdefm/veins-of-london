@@ -100,6 +100,7 @@
     "training": { "costPerLevel": 200, "xp": 10, "days": 1 },
     "injuryDays": 3,
     "postCaps": { "home": 4, "vein": 4 },
+    "hqRaidReductionPerGuard": 0.05,
     "reserveResponders": 2,
     "board": { "size": 4, "formerChance": 0.1, "formerCap": 20 },
     "secondTraitChance": 0.25,

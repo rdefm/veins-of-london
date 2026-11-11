@@ -68,9 +68,9 @@ static func pay_hire_advance(place_id: String, weekly: int = -1) -> Dictionary:
 	return { "ok": true, "amount": advance }
 
 
-# Guards on duty per place: { vein id or HOME_PLACE_ID: count }, player
-# veins in list order then HQ, places with no guards left out. Only veins in
-# player.veins count, so guards on a sold or lost vein aren't billed.
+# Available posted guards per place: { vein id or HOME_PLACE_ID: count }, player
+# veins in list order then HQ, empty places left out. Only veins in
+# player.veins count. Reserve isn't a place here; its wages are in the bill.
 static func player_guards_by_place() -> Dictionary:
 	var places := {}
 	for vein in GameState.state["player"]["veins"]:
@@ -110,23 +110,18 @@ static func pay_monday_bill() -> Dictionary:
 	var result := { "billed": false, "short": false, "due": 0, "paid": 0, "guards": 0 }
 	if not Calendar.is_monday(GameState.state["world"]["day"]) or Business.is_pot_active():
 		return result
-	var places := player_guards_by_place()
-	for place_id in places:
-		result["guards"] += int(places[place_id])
-	result["guards"] += Muscle.guards().size()
+	result["guards"] = Muscle.guards().size()
 	if result["guards"] == 0:
 		return result
 	result["billed"] = true
-	result["due"] = weekly_cost(result["guards"] - Muscle.guards().size()) + muscle_wage_total()
+	result["due"] = muscle_wage_total()
 	var player: Dictionary = GameState.state["player"]
 	if int(player["cash"]) < result["due"]:
 		result["short"] = true
-		start_shortfall(places, 0, result["due"])
+		start_shortfall(player_guards_by_place(), 0, result["due"])
 		return result
 	player["cash"] -= result["due"]
 	Bank.record(-result["due"], WAGES_BANK_LABEL)
-	for place_id in places:
-		record_payment(place_id, weekly_cost(int(places[place_id])))
 	var muscle_wages := muscle_wages_by_place()
 	for place_id in muscle_wages:
 		record_payment(place_id, int(muscle_wages[place_id]))
@@ -205,12 +200,9 @@ static func cost_places() -> Array[String]:
 	return places
 
 
-# Next Monday's player guard bill: every legacy guard on duty now × weeklyWage plus each hired guard's own wage.
+# Next Monday's player guard bill: each hired guard's own wage.
 static func next_monday_bill() -> int:
-	var guards := 0
-	for count in player_guards_by_place().values():
-		guards += int(count)
-	return weekly_cost(guards) + muscle_wage_total()
+	return muscle_wage_total()
 
 
 # ── short-pay flow (spec §Short-pay flow) ──
@@ -354,7 +346,7 @@ static func confirm_shortfall(keep: Dictionary) -> Dictionary:
 		var dropping := int(at_risk[place_id]) - keeping
 		for i in dropping:
 			if place_id == HOME_PLACE_ID:
-				Home.drop_guard()
+				Muscle.walk_from(Muscle.POST_HOME)
 			else:
 				Cultivating.drop_vein_guard(Cultivating.find_vein(place_id))
 		if dropping > 0:
@@ -378,7 +370,7 @@ static func _clamp_keep(at_risk: Dictionary, keep: Dictionary) -> Dictionary:
 
 
 # Each recorded place's guards still on duty, capped at its recorded count:
-# a vein outside player.veins drops out, and guards hired during grace (already
+# a vein outside player.veins drops out, and guards posted during grace (already
 # paid their advance) aren't at risk.
 static func _guards_at_risk(places: Dictionary) -> Dictionary:
 	var current := player_guards_by_place()
@@ -390,9 +382,9 @@ static func _guards_at_risk(places: Dictionary) -> Dictionary:
 	return at_risk
 
 
-# Drops `count` at-risk guards in drop order (spec §Short-pay flow): extras
-# on the least valuable vein first (Cultivating.value_order), then tier
-# guards least valuable first ("guarded" -> "warded"), then HQ guards.
+# Drops `count` at-risk guards in drop order (spec §Short-pay flow): every
+# guard on the least valuable vein first (Cultivating.value_order), then HQ
+# guards.
 # Returns { place id: guards dropped }.
 static func _drop_guards(at_risk: Dictionary, count: int) -> Dictionary:
 	var walked := {}
@@ -402,9 +394,15 @@ static func _drop_guards(at_risk: Dictionary, count: int) -> Dictionary:
 	for place_id in at_risk:
 		if place_id != HOME_PLACE_ID:
 			veins.append(Cultivating.find_vein(place_id))
-	count = drop_vein_guards(veins, at_risk, count, walked)
+	veins.sort_custom(Cultivating.value_order)
+	veins.reverse()
+	for vein in veins:
+		var id: String = vein["id"]
+		while count > 0 and int(walked.get(id, 0)) < int(at_risk[id]) and Cultivating.drop_vein_guard(vein):
+			walked[id] = int(walked.get(id, 0)) + 1
+			count -= 1
 	for i in mini(count, int(at_risk.get(HOME_PLACE_ID, 0))):
-		Home.drop_guard()
+		Muscle.walk_from(Muscle.POST_HOME)
 		walked[HOME_PLACE_ID] = int(walked.get(HOME_PLACE_ID, 0)) + 1
 	return walked
 

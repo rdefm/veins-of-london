@@ -324,7 +324,7 @@ func run() -> void:
 	run_case("dropping_an_hq_guard_keeps_the_kit_and_the_excess_goes_idle", func():
 		_seed_hq(2)
 		GameState.state["home"]["guardKit"] = { "blast": { "1": 5 } }
-		assert_true(Home.drop_guard())
+		Muscle.guards().remove_at(0)
 		assert_eq(GameState.state["home"]["guardKit"], { "blast": { "1": 5 } }, "kit kept")
 		assert_eq(GuardKit.hq_active_units(), { "blast": { "1": 2 } })
 		assert_true(GuardKit.unstock_hq("blast", 1, 5)["ok"], "over-capacity return allowed")
@@ -393,18 +393,16 @@ func _assert_kit_back() -> void:
 	assert_eq(inventory.get("shield", {}).get("1", 0), 1, "shield back at tier 1")
 
 
-# One player vein "v1" with `guards` guards (tier guard + extras).
+# One player vein "v1" with `guards` posted guards.
 func _seed(guards: int) -> Dictionary:
 	GameState.reset()
 	var vein := Fixtures.seed_vein("v1", 50)
 	vein["guardKit"] = {}
-	if guards > 0:
-		vein["security"] = "guarded"
-		vein["extraGuards"] = guards - 1
+	seat_guards("v1", guards)
 	return vein
 
 
 # Fresh state with `guards` HQ guards and an empty HQ kit.
 func _seed_hq(guards: int) -> void:
 	GameState.reset()
-	GameState.state["home"]["guardCount"] = guards
+	seat_guards("home", guards)

@@ -55,19 +55,6 @@ func run() -> void:
 		assert_eq(GuardUpkeep.pay_monday_bill()["paid"], 2000, "the next Monday bills")
 	)
 
-	run_case("guards_on_a_lost_vein_and_hq_guards_lost_to_a_tier_move_are_not_billed", func():
-		var monday := _seed_guards()
-		GameState.state["world"]["day"] = monday
-		GameState.state["player"]["cash"] = 100000
-		GameState.state["player"]["veins"] = GameState.state["player"]["veins"].filter(func(v): return v["id"] != "v1")
-		Home.change_tier("safehouse", "rented")
-		assert_eq(GameState.state["player"]["cash"], 100000, "no refund for the lost guards")
-		var result := GuardUpkeep.pay_monday_bill()
-		assert_eq(result["guards"], 1, "only v2's tier guard is left")
-		assert_eq(GameState.state["player"]["cash"], 100000 - 500)
-		assert_eq(GameState.state["guardUpkeep"]["history"][-1]["places"], { "v2": 500 })
-	)
-
 	run_case("short_cash_takes_nothing_and_starts_a_shortfall", func():
 		var monday := _seed_guards()
 		GameState.state["world"]["day"] = monday
@@ -189,14 +176,13 @@ func run() -> void:
 		TimeSystem.daily_tick()
 		GameState.state["world"]["day"] = monday + 1
 		var result := GuardUpkeep.resolve_due_shortfall()
-		assert_eq(result, { "paid": 1500, "kept": 3, "walked": { "v1": 1 } })
-		var v1: Dictionary = Cultivating.find_vein("v1")
-		assert_eq([v1["security"], v1["extraGuards"]], ["guarded", 0], "the extra walks first")
+		assert_eq(result, { "paid": 1500, "kept": 3, "walked": { "v2": 1 } })
+		assert_eq(Muscle.available_at("v2").size(), 0, "the least valuable vein's guard walks")
 		assert_eq(GameState.state["business"]["float"], 64, "1564 − 1500 back to the float")
 		assert_eq(GameState.state["player"]["cash"], 0, "cash never funds a pot-era shortfall")
-		assert_eq(GameState.state["guardUpkeep"]["history"][-1], { "day": monday + 1, "places": { "v1": 500, "v2": 500, "home": 500 } })
+		assert_eq(GameState.state["guardUpkeep"]["history"][-1], { "day": monday + 1, "places": { "v1": 1000, "home": 500 } })
 		assert_eq(GuardUpkeep.pending_shortfall(), null)
-		assert_true(Fixtures.has_notification("Unpaid guards walked off: %s (1)." % GuardUpkeep.place_label("v1")))
+		assert_true(Fixtures.has_notification("Unpaid guards walked off: %s (1)." % GuardUpkeep.place_label("v2")))
 	)
 
 	run_case("grace_rollover_resolves_early_and_notes_walk_offs_in_the_morning_account", func():
@@ -217,12 +203,11 @@ func run() -> void:
 		assert_eq(MorningAccounts.guard_shortfall_label(walked[0]), "Exception: unpaid guards walked off: %s." % GuardUpkeep.walked_text(walked[0]["walked"]))
 	)
 
-	run_case("drop_order_is_extras_least_valuable_first_then_tier_guards_then_hq", func():
-		for case in [[1500, ["guarded", 0], ["guarded", 0], 1], [500, ["warded", 0], ["warded", 0], 1], [1000, ["warded", 0], ["guarded", 0], 1], [0, ["warded", 0], ["warded", 0], 0], [2000, ["guarded", 0], ["guarded", 1], 1]]:
+	run_case("drop_order_is_least_valuable_vein_first_then_hq", func():
+		for case in [[1500, 0, 2, 1], [500, 0, 0, 1], [1000, 0, 1, 1], [0, 0, 0, 0], [2000, 1, 2, 1]]:
 			var monday := _seed_guards()
-			var v1: Dictionary = Cultivating.find_vein("v1")
 			var v2: Dictionary = Cultivating.find_vein("v2")
-			v2["extraGuards"] = 1
+			seat_guards("v2", 1)
 			v2["level"] = 3
 			GameState.state["world"]["day"] = monday
 			GameState.state["player"]["cash"] = 0
@@ -230,8 +215,8 @@ func run() -> void:
 			GameState.state["player"]["cash"] = case[0]
 			GameState.state["world"]["day"] = monday + 1
 			GuardUpkeep.resolve_due_shortfall()
-			assert_eq([v1["security"], v1["extraGuards"]], case[1], "v1 with £%d" % case[0])
-			assert_eq([v2["security"], v2["extraGuards"]], case[2], "v2 with £%d" % case[0])
+			assert_eq(Muscle.available_at("v1").size(), case[1], "v1 with £%d" % case[0])
+			assert_eq(Muscle.available_at("v2").size(), case[2], "v2 with £%d" % case[0])
 			assert_eq(Home.get_guard_count(), case[3], "HQ with £%d" % case[0])
 			assert_eq(Cultivating.find_vein("v3")["security"], "warded", "a ward rune is never lost")
 			assert_eq(GameState.state["player"]["cash"], case[0] % 500, "kept guards paid from cash")
@@ -246,7 +231,7 @@ func run() -> void:
 		GameState.state["player"]["cash"] = 500
 		GuardUpkeep.start_shortfall({ "home": 1 }, 0, 500)
 		assert_eq(GuardUpkeep.pending_shortfall()["places"], { "home": 1 }, "the older shortfall resolved first")
-		assert_eq(Cultivating.find_vein("v1")["security"], "warded", "and its guards walked")
+		assert_eq(Muscle.available_at("v1").size(), 0, "and its guards walked")
 		assert_eq(Home.get_guard_count(), 1, "the new shortfall's guards are still on duty")
 	)
 
@@ -270,9 +255,8 @@ func run() -> void:
 		assert_eq(GuardUpkeep.short_pay_quote({ "v1": 1, "v2": 0, "home": 1 }), { "cost": 1000, "reserve": 0, "cashNeeded": 1000 })
 		var result := GuardUpkeep.confirm_shortfall({ "v1": 1, "v2": 0, "home": 1 })
 		assert_eq(result, { "ok": true, "paid": 1000, "walked": { "v1": 1, "v2": 1 } })
-		var v1: Dictionary = Cultivating.find_vein("v1")
-		assert_eq([v1["security"], v1["extraGuards"]], ["guarded", 0], "the extra walks, the tier guard stays")
-		assert_eq(Cultivating.find_vein("v2")["security"], "warded", "keeping 0 loses the tier")
+		assert_eq(Muscle.available_at("v1").size(), 1, "one walks, one stays")
+		assert_eq(Muscle.available_at("v2").size(), 0, "keeping 0 loses the guard")
 		assert_eq(Home.get_guard_count(), 1)
 		assert_eq(GameState.state["player"]["cash"], 200)
 		assert_eq(GameState.state["bankLog"][-1]["label"], "Guard wages")
@@ -375,20 +359,18 @@ func run() -> void:
 	)
 
 
-# v1: tier guard + 1 extra, v2: tier guard, v3: ward rune only, HQ: 1 guard
-# at the compound. Returns the first Monday.
+# v1: 2 posted guards, v2: 1, v3: ward rune only, HQ: 1. Returns the first Monday.
 func _seed_guards() -> int:
 	GameState.reset()
 	Rng.set_seed(1)
 	var v1 := Fixtures.seed_vein("v1", 50)
-	v1["security"] = "guarded"
-	v1["extraGuards"] = 1
+	seat_guards("v1", 2)
 	var v2 := Fixtures.seed_vein("v2", 50)
-	v2["security"] = "guarded"
+	seat_guards("v2", 1)
 	var v3 := Fixtures.seed_vein("v3", 50)
 	v3["security"] = "warded"
 	GameState.state["home"]["tier"] = "compound"
-	GameState.state["home"]["guardCount"] = 1
+	seat_guards("home", 1)
 	return Calendar.monday_on_or_after(8)
 
 

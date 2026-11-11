@@ -1281,7 +1281,7 @@ func run() -> void:
 		assert_eq(GameState.state["player"]["veins"][0]["security"], "none", "security unchanged when refused")
 	)
 
-	# ── 72-stackable-guards-vein-defense: repeatable "+1 Guard" past guarded ──
+	# ── guard hire advance, guard resist and counts ──
 
 	run_case("guard_hire_advance_is_the_prorated_weekly_wage_for_the_rest_of_the_week", func():
 		GameState.reset()
@@ -1289,37 +1289,6 @@ func run() -> void:
 		for check in [[0, 500], [2, 357], [6, 71]]:
 			GameState.state["world"]["day"] = monday + int(check[0])
 			assert_eq(GuardUpkeep.hire_advance(), check[1], "advance %d days after Monday" % check[0])
-	)
-
-	run_case("hiring_the_tier_guard_pays_only_the_advance_and_records_it", func():
-		GameState.reset()
-		GameState.state["world"]["day"] = Calendar.monday_on_or_after(1) + 2
-		GameState.state["player"]["cash"] = 1000
-		var vein := _vein(50)
-		vein["security"] = "warded"
-		GameState.state["player"]["veins"] = [vein]
-		assert_true(Cultivating.upgrade_vein_security("test_vein")["ok"])
-		assert_eq(GameState.state["player"]["veins"][0]["security"], "guarded")
-		assert_eq(GameState.state["player"]["cash"], 1000 - 357, "Wednesday advance only")
-		var bank_log: Array = GameState.state["bankLog"]
-		assert_eq(bank_log[-1]["label"], "Guard hire")
-		assert_eq(bank_log[-1]["amount"], -357)
-		assert_eq(GameState.state["businessStats"]["today"]["expensesGuard"], 357)
-		assert_eq(GameState.state["businessStats"]["today"]["expenses"], 357)
-		var history: Array = GameState.state["guardUpkeep"]["history"]
-		assert_eq(history, [{ "day": GameState.state["world"]["day"], "places": { "test_vein": 357 } }])
-	)
-
-	run_case("guard_hire_is_refused_below_the_advance_with_no_state_change", func():
-		GameState.reset()
-		GameState.state["world"]["day"] = Calendar.monday_on_or_after(1)
-		GameState.state["player"]["cash"] = 499
-		var vein := _vein(50)
-		vein["security"] = "guarded"
-		GameState.state["player"]["veins"] = [vein]
-		var before: Dictionary = GameState.deep_copy(GameState.state)
-		assert_true(not Cultivating.upgrade_vein_security("test_vein")["ok"])
-		assert_eq(GameState.state, before, "nothing changed")
 	)
 
 	run_case("guard_cost_history_is_trimmed_to_guardCostHistoryDays", func():
@@ -1345,8 +1314,23 @@ func run() -> void:
 		assert_true(not GameData.VEIN_SECURITY["guarded"].has("cost"), "the Hired Guard tier has no purchase price")
 	)
 
-	run_case("vein_raid_resist_adds_a_flat_bonus_per_extra_guard_with_no_ceiling", func():
+	run_case("a_player_vein_adds_resist_per_posted_guard_weight_and_ignores_unavailable_guards", func():
+		GameState.reset()
 		var vein := _vein(50)
+		vein["security"] = "warded"
+		assert_eq(Cultivating.vein_raid_resist(vein), 35, "no guards: the ward rune alone")
+		seat_guards("test_vein", 3)
+		assert_eq(Cultivating.vein_raid_resist(vein), 35 + 3 * 20, "each L1 guard adds 20")
+		Muscle.guards_at("test_vein")[0]["injuredUntilDay"] = GameState.state["world"]["day"] + 3
+		assert_eq(Cultivating.vein_raid_resist(vein), 35 + 2 * 20, "an injured guard adds nothing")
+		assert_eq(Cultivating.vein_guard_count(vein), 2, "and isn't counted")
+		seat_guards("test_vein", 1, 3)
+		assert_eq(Cultivating.vein_raid_resist(vein), 35 + 2 * 20 + 30, "an L3 guard weighs 1.5")
+	)
+
+	run_case("vein_raid_resist_adds_a_flat_bonus_per_extra_guard_on_a_faction_vein", func():
+		var vein := _vein(50)
+		vein["factionId"] = "f"
 		vein["security"] = "guarded"
 		assert_eq(Cultivating.vein_raid_resist(vein), 55, "guarded alone, no extra guards: base raidResist only")
 		vein["extraGuards"] = 3
@@ -1356,13 +1340,15 @@ func run() -> void:
 	)
 
 	run_case("vein_raid_resist_defaults_extraGuards_to_zero_for_older_vein_dicts", func():
+		GameState.reset()
 		var vein := _vein(50)  # _vein() doesn't set extraGuards
 		assert_true(not vein.has("extraGuards"), "sanity: the fixture really omits the field")
 		assert_eq(Cultivating.vein_raid_resist(vein), 0, "missing extraGuards reads as 0, same as before this ticket")
 	)
 
-	run_case("vein_guard_count_is_the_tier_guard_plus_extras", func():
+	run_case("vein_guard_count_is_the_tier_guard_plus_extras_on_a_faction_vein", func():
 		var vein := _vein(50)
+		vein["factionId"] = "f"
 		assert_eq(Cultivating.vein_guard_count(vein), 0, "no tier guard, no extras")
 		vein["security"] = "warded"
 		vein["extraGuards"] = 2
@@ -1371,8 +1357,21 @@ func run() -> void:
 		assert_eq(Cultivating.vein_guard_count(vein), 3, "tier guard + 2 extras")
 	)
 
+	run_case("drop_vein_guard_walks_the_lowest_level_posted_guard_on_a_player_vein", func():
+		GameState.reset()
+		var vein := _vein(50)
+		seat_guards("test_vein", 1, 3)
+		seat_guards("test_vein", 1, 1)
+		assert_true(Cultivating.drop_vein_guard(vein))
+		assert_eq(Muscle.guards_at("test_vein").map(func(g): return g["level"]), [3], "the L1 goes")
+		assert_eq(Muscle.former().size(), 1, "to the former list")
+		assert_true(Cultivating.drop_vein_guard(vein))
+		assert_true(not Cultivating.drop_vein_guard(vein), "nobody left")
+	)
+
 	run_case("drop_vein_guard_takes_extras_first_then_the_tier_guard", func():
 		var vein := _vein(50)
+		vein["factionId"] = "f"
 		vein["security"] = "guarded"
 		vein["extraGuards"] = 2
 		vein["alarmUpgrades"] = ["alarm"]
@@ -1390,6 +1389,7 @@ func run() -> void:
 	)
 
 	run_case("drop_vein_guard_never_touches_a_lock", func():
+		GameState.reset()
 		var vein := _vein(50)
 		vein["security"] = "basic"
 		assert_true(not Cultivating.drop_vein_guard(vein))
@@ -1410,29 +1410,16 @@ func run() -> void:
 		assert_eq(veins, [high_a, high_b, levelled, low], "magnitude desc (level counts), ties by siteId asc")
 	)
 
-	run_case("upgrade_vein_security_past_guarded_hires_a_stack_of_guards_at_the_advance", func():
+	run_case("upgrade_vein_security_stops_at_warded_for_a_player_vein", func():
 		GameState.reset()
-		GameState.state["world"]["day"] = Calendar.monday_on_or_after(1)
 		GameState.state["player"]["cash"] = 100000
 		var vein := _vein(50)
-		vein["security"] = "guarded"
+		vein["security"] = "warded"
 		GameState.state["player"]["veins"] = [vein]
-
-		var result1 := Cultivating.upgrade_vein_security("test_vein")
-		assert_true(result1["ok"], "guarded is no longer a hard ceiling -- the button keeps working")
-		var live_vein: Dictionary = GameState.state["player"]["veins"][0]
-		assert_eq(live_vein["security"], "guarded", "tier itself stays put -- guards stack on top, not a new tier")
-		assert_eq(live_vein["extraGuards"], 1, "first extra guard hired")
-		assert_eq(GameState.state["player"]["cash"], 100000 - 500, "Monday advance")
-
-		var result2 := Cultivating.upgrade_vein_security("test_vein")
-		assert_true(result2["ok"], "hiring a second extra guard also succeeds")
-		assert_eq(live_vein["extraGuards"], 2)
-		assert_eq(GameState.state["player"]["cash"], 100000 - 1000, "flat advance, no escalating curve")
-		assert_eq(GameState.state["guardUpkeep"]["history"][0]["places"], { "test_vein": 1000 })
-
-		var bank_log: Array = GameState.state["bankLog"]
-		assert_eq(bank_log.size(), 2, "each guard hire records its own bank transaction")
+		assert_eq(Cultivating.next_security_upgrade(vein), {}, "nothing left to buy")
+		var before: Dictionary = GameState.deep_copy(GameState.state)
+		assert_true(not Cultivating.upgrade_vein_security("test_vein")["ok"])
+		assert_eq(GameState.state, before, "nothing changed")
 	)
 
 	run_case("security_label_appends_extra_guard_count_only_once_stacking_has_started", func():

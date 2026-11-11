@@ -167,6 +167,15 @@ func _walk_fail(reason: String, last_key: String) -> bool:
 	return false
 
 
+# Posts `count` available guards of `level` at `place_id` (HQ "home", a vein id
+# or "reserve") straight into state.muscle.
+func seat_guards(place_id: String, count: int, level: int = 1) -> void:
+	for i in count:
+		var g := Muscle.create_guard(level)
+		g["post"] = place_id
+		Muscle.guards().append(g)
+
+
 func assert_eq(actual, expected, msg: String = "") -> void:
 	if actual != expected:
 		_case_failures.append("assert_eq: got %s, expected %s. %s" % [str(actual), str(expected), msg])

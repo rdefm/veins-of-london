@@ -360,9 +360,6 @@ static func make_vein(ore_type: String, growth: int, district: String, site_id: 
 		"hospitability": GameState.deep_copy(hospitability),
 		# Consecutive daily ticks spent at the ceiling; drives self-seeding (R§3.4), 0 for any vein not at the ceiling.
 		"rampantDays": 0,
-		# Extra Hired Guards hired on top of "guarded" -- see next_security_upgrade()
-		# below. Reads elsewhere use .get("extraGuards", 0) so older hand-built vein dicts don't need updating.
-		"extraGuards": 0,
 		# Persistent earned level (R§1.2), 1..level_cap_for_tier(tier). Every
 		# fresh vein seeds at 1; later tickets add ways to raise/lose it.
 		"level": mini(1, level_cap_for_tier(hospitability.get("tier", "fair"))),
@@ -795,9 +792,9 @@ static func make_vein_id() -> String:
 
 # ── vein security (M1-LONDON §D4: site/vein sheet's "Upgrade security") ──
 
-# Null once at "guarded" -- the top of the fixed tier ladder. Past that, the
-# uncapped "+1 Guard" hire (next_security_upgrade() below) takes over; factions
-# hire capped extras instead (Factions.apply_security_upgrades()).
+# Null once at "guarded" -- the top of the faction tier ladder. Player veins
+# top out at "warded" (next_security_upgrade() below); factions hire capped
+# extras past it (Factions.apply_security_upgrades()).
 static func next_security_tier_id(current: String) -> Variant:
 	var idx: int = VEIN_SECURITY_ORDER.find(current)
 	if idx == -1 or idx >= VEIN_SECURITY_ORDER.size() - 1:
@@ -806,37 +803,52 @@ static func next_security_tier_id(current: String) -> Variant:
 
 
 # Today's price of moving a vein up to tier_id: the table cost for a lock or
-# ward rune, the guard hire advance for "guarded" (spec §Hiring).
+# ward rune, the guard hire advance for a faction's "guarded" tier (spec §Hiring).
 static func security_tier_cost(tier_id: String) -> int:
 	if tier_id == GUARDED_TIER_ID:
 		return GuardUpkeep.hire_advance()
 	return int(GameData.VEIN_SECURITY[tier_id]["cost"])
 
 
-# Flat raid-resist added per extra guard, matching "guarded"'s own marginal contribution over "warded" (55-35=20, R§1.6).
+# Flat raid-resist per guard weight: a faction extra guard, or one unit of
+# posted-guard weight on a player vein (matches "guarded" over "warded", R§1.6).
 const EXTRA_GUARD_RAID_RESIST := 20
 
 
 # Every raid-odds formula (Raiding.raid_factor_mods/raid_success_chance,
 # Factions.rivalry_success_chance) reads defensive strength through here rather
-# than indexing GameData.VEIN_SECURITY directly. extraGuards defaults to 0 via .get() for veins that predate it.
+# than indexing GameData.VEIN_SECURITY directly. A player vein adds
+# EXTRA_GUARD_RAID_RESIST per unit of available posted-guard weight; a faction
+# vein adds it per extraGuards (default 0).
 static func vein_raid_resist(vein: Dictionary) -> int:
 	var tier: String = VEIN_SECURITY_ORDER[maxi(0, VEIN_SECURITY_ORDER.find(vein["security"]) - Harassment.security_degrade_tiers(vein["id"]))]
 	var base: int = GameData.VEIN_SECURITY[tier]["raidResist"]
+	if is_player_vein(vein):
+		return base + roundi(Muscle.post_weight_sum(vein["id"]) * EXTRA_GUARD_RAID_RESIST)
 	return base + vein.get("extraGuards", 0) * EXTRA_GUARD_RAID_RESIST
 
 
-# Guards on a vein (player or faction): the "guarded" tier guard plus
-# extraGuards (spec §Guard counting).
+# Faction veins carry a factionId; the player's never do.
+static func is_player_vein(vein: Dictionary) -> bool:
+	return not vein.has("factionId")
+
+
+# Guards on a vein: a player vein's available posted guards; a faction vein's
+# "guarded" tier guard plus extraGuards (spec §Guard counting).
 static func vein_guard_count(vein: Dictionary) -> int:
+	if is_player_vein(vein):
+		return Muscle.available_at(vein["id"]).size()
 	var tier_guard := 1 if vein.get("security", "") == GUARDED_TIER_ID else 0
 	return tier_guard + int(vein.get("extraGuards", 0))
 
 
-# Removes a vein's last guard slot: the newest extra first, the tier guard
-# last ("guarded" -> "warded"). Lock, ward rune and alarm upgrades are never
+# Removes a vein's last guard: a player vein walks its lowest-level posted
+# guard; a faction vein loses the newest extra first, the tier guard last
+# ("guarded" -> "warded"). Lock, ward rune and alarm upgrades are never
 # touched. Returns false when the vein has no guard to drop.
 static func drop_vein_guard(vein: Dictionary) -> bool:
+	if is_player_vein(vein):
+		return Muscle.walk_from(vein["id"])
 	if int(vein.get("extraGuards", 0)) > 0:
 		vein["extraGuards"] = int(vein["extraGuards"]) - 1
 		return true
@@ -856,20 +868,21 @@ static func security_label(vein: Dictionary) -> String:
 
 
 # What upgrade_vein_security() would buy next, shared by the UI button and the
-# purchase itself. Never null -- "guarded" rolls into the uncapped "+1 Guard" hire (tierId null) instead of topping out.
-# isGuard marks a guard hire (Hired Guard tier or +1 Guard), whose cost is today's advance.
+# purchase itself: the next lock or ward rune, or {} once a player vein is
+# warded (guards come from Muscle posts).
 static func next_security_upgrade(vein: Dictionary) -> Dictionary:
+	if vein["security"] == WARDED_TIER_ID:
+		return {}
 	var next_id = next_security_tier_id(vein["security"])
-	if next_id != null:
-		var data: Dictionary = GameData.VEIN_SECURITY[next_id]
-		return { "tierId": next_id, "label": data["label"], "cost": security_tier_cost(next_id), "isGuard": next_id == GUARDED_TIER_ID }
-	return { "tierId": null, "label": "+1 Guard", "cost": GuardUpkeep.hire_advance(), "isGuard": true }
+	if next_id == null:
+		return {}
+	var data: Dictionary = GameData.VEIN_SECURITY[next_id]
+	return { "tierId": next_id, "label": data["label"], "cost": security_tier_cost(next_id) }
 
 
 # Cash-only, no block: M1-LONDON §D3's travel rule lists five districted actions
 # (prospect, seed, cultivate, harvest, sell) and security upgrades aren't one,
-# same as Home.add_security. next_security_upgrade() always has something to sell, so "can't afford it" is the only refusal.
-# A guard hire pays only today's advance (GuardUpkeep.pay_hire_advance).
+# same as Home.add_security. The only refusals are a warded vein and short cash.
 static func upgrade_vein_security(vein_id: String) -> Dictionary:
 	var vein = find_vein(vein_id)
 	if vein == null:
@@ -879,26 +892,18 @@ static func upgrade_vein_security(vein_id: String) -> Dictionary:
 	if not gate["ok"]:
 		return gate
 	var upgrade: Dictionary = next_security_upgrade(vein)
-	if upgrade["isGuard"]:
-		var paid: Dictionary = GuardUpkeep.pay_hire_advance(vein_id)
-		if not paid["ok"]:
-			return paid
-	else:
-		var cost: int = upgrade["cost"]
-		var player: Dictionary = GameState.state["player"]
-		if player["cash"] < cost:
-			return { "ok": false, "reason": "Not enough cash." }
-		player["cash"] -= cost
-		Bank.record(-cost, "Vein security: %s" % upgrade["label"])
-		FactionAI.note_spend(Shares.PLAYER, float(cost))
+	if upgrade.is_empty():
+		return { "ok": false, "reason": "Nothing left to install." }
+	var cost: int = upgrade["cost"]
+	var player: Dictionary = GameState.state["player"]
+	if player["cash"] < cost:
+		return { "ok": false, "reason": "Not enough cash." }
+	player["cash"] -= cost
+	Bank.record(-cost, "Vein security: %s" % upgrade["label"])
+	FactionAI.note_spend(Shares.PLAYER, float(cost))
 
-	if upgrade["tierId"] != null:
-		vein["security"] = upgrade["tierId"]
-		Notify.push("Installed %s on your %s vein." % [upgrade["label"], GameData.ORE_TYPES[vein["oreType"]]["name"]], Notify.CATEGORY_SUCCESS)
-	else:
-		vein["extraGuards"] = vein.get("extraGuards", 0) + 1
-		# PROSE-REVIEW: drafted against CONTENT-GUIDE.md's tone bible.
-		Notify.push("Hired another guard for your %s vein — %d guards on watch now." % [GameData.ORE_TYPES[vein["oreType"]]["name"], vein["extraGuards"]], Notify.CATEGORY_SUCCESS)
+	vein["security"] = upgrade["tierId"]
+	Notify.push("Installed %s on your %s vein." % [upgrade["label"], GameData.ORE_TYPES[vein["oreType"]]["name"]], Notify.CATEGORY_SUCCESS)
 
 	Grudges.answer_district(vein["district"])
 	EventBus.mark_changed()

@@ -134,6 +134,12 @@ A combatant's ordered [[Action]]s for one round. Enemies commit theirs at round 
 **Muscle** _(.scratch/muscle/spec.md)_:
 The player's hired guards as individual records in `state.muscle` — each has a generated name (sometimes a nickname), level 1–5, XP, one or two traits, a post and injury/training countdowns. The only source of guard bodies. Not a [[Contact]]; LodedInnit stays skilled staff.
 
+**Post**:
+Where a [[Muscle]] guard stands: HQ (`home`), one of the player's veins (cap 4 each) or [[Reserve]]. Moves are instant and free but need the Security Office. Only available guards (not injured, not training) posted at a place count as its guards. "Guarded" is the combat guard-state term, unrelated.
+
+**Reserve**:
+The uncapped post for guards not on a vein or HQ: paid, off duty, where new hires land.
+
 **Former guard**:
 A dismissed or walked-off [[Muscle]] guard, kept in `state.muscle.former` (cap 20, oldest dropped). May reappear on the hiring board as they left, tagged "Worked for you before".
 

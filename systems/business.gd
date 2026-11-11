@@ -399,26 +399,18 @@ static func _payday(day: int) -> Dictionary:
 static func _pay_guard_bill(expenses: Array) -> Dictionary:
 	var business := _business()
 	var result := { "billed": false, "short": false, "due": 0, "paid": 0, "guards": 0, "reserve": 0 }
-	var places := GuardUpkeep.player_guards_by_place()
-	for place_id in places:
-		result["guards"] += int(places[place_id])
-	var legacy_guards: int = result["guards"]
-	result["guards"] += Muscle.guards().size()
+	result["guards"] = Muscle.guards().size()
 	if result["guards"] == 0:
 		return result
 	result["billed"] = true
-	result["due"] = GuardUpkeep.weekly_cost(legacy_guards) + GuardUpkeep.muscle_wage_total()
+	result["due"] = GuardUpkeep.muscle_wage_total()
 	if not _draw(result["due"]):
 		result["short"] = true
 		result["reserve"] = int(business["pot"]) + int(business["float"])
 		business["pot"] = 0
 		business["float"] = 0
-		GuardUpkeep.start_shortfall(places, result["reserve"], result["due"])
+		GuardUpkeep.start_shortfall(GuardUpkeep.player_guards_by_place(), result["reserve"], result["due"])
 		return result
-	for place_id in places:
-		var amount := GuardUpkeep.weekly_cost(int(places[place_id]))
-		expenses.append({ "kind": "guard", "placeId": place_id, "amount": amount })
-		GuardUpkeep.record_payment(place_id, amount)
 	var muscle_wages := GuardUpkeep.muscle_wages_by_place()
 	for place_id in muscle_wages:
 		expenses.append({ "kind": "guard", "placeId": place_id, "amount": int(muscle_wages[place_id]) })

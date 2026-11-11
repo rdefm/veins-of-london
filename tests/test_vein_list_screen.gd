@@ -52,9 +52,10 @@ func run() -> void:
 		screen.free()
 	)
 
-	run_case("guarded_vein_row_links_its_weekly_guard_cost_to_guard_costs", func():
+	run_case("posted_guard_vein_row_links_its_weekly_guard_cost_to_guard_costs", func():
 		GameState.reset()
-		var vein := Fixtures.player_vein_with({ "growth": 60, "security": "guarded" })
+		var vein := Fixtures.player_vein_with({ "growth": 60 })
+		seat_guards(vein["id"], 1)
 
 		var screen := VeinListScreen.new()
 		var row: Control = screen._build_vein_row(vein)

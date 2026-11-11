@@ -238,43 +238,24 @@ func run() -> void:
 		panel.free()
 	)
 
-	run_case("guarded_vein_offers_an_enabled_plus_one_guard_that_buys_it", func():
+	run_case("warded_vein_offers_no_security_button_and_links_its_posted_guard_cost", func():
 		GameState.reset()
 		var vein := Fixtures.seed_vein("v1", 60)
-		vein["security"] = "guarded"
-		GameState.state["world"]["day"] = Calendar.monday_on_or_after(1) + 2
-		var cost: int = GuardUpkeep.hire_advance()
-		GameState.state["player"]["cash"] = cost
+		vein["security"] = "warded"
+		seat_guards("v1", 2)
 		var panel := VeinDetailPanel.build(vein)
-
-		var buttons: Array = panel.find_children("SecurityButton", "Button", true, false)
-		assert_eq(buttons.size(), 1)
-		var button := buttons[0] as Button
-		assert_true(button.text.begins_with("+1 Guard"), "guarded vein offers the uncapped +1 Guard purchase")
-		assert_true(button.text.contains("£357 today, then £500/week"), "shows today's advance and the weekly wage")
-		assert_true(not button.disabled,"+1 Guard is enabled when affordable")
-		button.pressed.emit()
-
-		assert_eq(vein["extraGuards"], 1)
-		assert_eq(GameState.state["player"]["cash"], 0)
-		panel.free()
-
-		GameState.state["player"]["cash"] = GuardUpkeep.hire_advance() - 1
-		var broke_panel := VeinDetailPanel.build(vein)
-		var broke_button := broke_panel.find_children("SecurityButton", "Button", true, false)[0] as Button
-		assert_true(broke_button.disabled, "disabled only when cash is short")
-		var cost_link := NodeQuery.find_button(broke_panel, "£1000/week ›")
+		assert_eq(panel.find_children("SecurityButton", "Button", true, false).size(), 0, "no further lock, and no +1 Guard purchase")
+		var cost_link := NodeQuery.find_button(panel, "£1000/week ›")
 		assert_true(cost_link != null, "security row shows the weekly guard cost")
 		cost_link.pressed.emit()
 		assert_eq(GameState.state["phoneNav"]["bizbriefView"], PhoneNav.BIZBRIEF_GUARD_COSTS_VIEW, "it taps through to Guard Costs")
-		broke_panel.free()
+		panel.free()
 	)
 
 	run_case("guard_kit_row_shows_slots_and_summary_and_opens_the_sheet", func():
 		GameState.reset()
 		var vein := Fixtures.seed_vein("v1", 50)
-		vein["security"] = "guarded"
-		vein["extraGuards"] = 1
+		seat_guards("v1", 2)
 		vein["guardKit"] = { "shield": { "3": 2 }, "blast": { "1": 1 } }
 		var panel := VeinDetailPanel.build(vein)
 		var row := panel.find_children("GuardKitButton", "Button", true, false)[0] as Button
@@ -296,7 +277,7 @@ func run() -> void:
 		assert_true(row.disabled, "no guards, no kit")
 		panel.free()
 
-		vein["security"] = "guarded"
+		seat_guards("v1", 1)
 		vein["guardKit"] = { "blast": { "1": 3 } }
 		panel = VeinDetailPanel.build(vein)
 		row = panel.find_children("GuardKitButton", "Button", true, false)[0] as Button

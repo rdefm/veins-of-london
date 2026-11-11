@@ -49,22 +49,13 @@ func run() -> void:
 		screen.free()
 	)
 
-	run_case("hq_door_guard_row_shows_the_advance_and_weekly_cost", func():
+	run_case("hq_door_has_no_hired_guard_tile", func():
 		GameState.reset()
-		GameState.state["world"]["day"] = Calendar.monday_on_or_after(1) + 2
 		GameState.state["home"]["tier"] = "compound"
-		GameState.state["home"]["guardCount"] = 2
-		GameState.state["player"]["cash"] = 100000
-
 		var screen := HqDoorScreen.new()
 		screen._ready()
-
-		assert_true(NodeQuery.find_button(screen, "£357 today, then £500/week") != null, "hire button shows the advance and weekly wage")
-		var cost_link := NodeQuery.find_button(screen, "£1000/week ›")
-		assert_true(cost_link != null, "the guard row shows the current weekly guard cost")
-		cost_link.pressed.emit()
-		assert_eq(GameState.state["phoneNav"]["bizbriefView"], PhoneNav.BIZBRIEF_GUARD_COSTS_VIEW, "it taps through to Guard Costs")
-
+		assert_true(NodeQuery.find_button(screen, "£357 today, then £500/week") == null, "no guard hire button")
+		assert_true(not GameData.HOME_SECURITY.has("guard"), "no Hired Guard security item")
 		screen.free()
 	)
 

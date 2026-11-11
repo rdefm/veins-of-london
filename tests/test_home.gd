@@ -6,7 +6,7 @@ func run() -> void:
 		GameState.reset()
 		# bedsit raidBaseChance is 0.15, but stack heavy reduction to push
 		# the raw formula well below the floor.
-		GameState.state["home"]["security"] = ["lock", "cameras", "reinforcedDoor", "alarm", "guard", "ward"]
+		GameState.state["home"]["security"] = ["lock", "cameras", "reinforcedDoor", "alarm", "ward"]
 		var chance := Home.get_home_raid_chance()
 		assert_almost_eq(chance, 0.002, 0.0001, "raid chance should floor at 0.002, never go negative")
 	)
@@ -198,7 +198,7 @@ func run() -> void:
 		GameState.state["world"]["day"] = 10
 		GameState.state["home"]["lastRaidDay"] = 10
 		GameState.state["home"]["security"] = ["alarm"]
-		GameState.state["home"]["guardCount"] = 5  # 75% repel chance
+		seat_guards("home", 5)  # 75% repel chance
 		GameState.state["home"]["pendingRaid"] = true
 		GameState.state["home"]["pendingRaidNotificationId"] = "n_stale"
 		GameState.state["player"]["orichalchum"] = { "time": 100 }
@@ -228,7 +228,7 @@ func run() -> void:
 		GameState.state["world"]["day"] = 10
 		GameState.state["home"]["lastRaidDay"] = 10
 		GameState.state["home"]["security"] = ["alarm"]
-		GameState.state["home"]["guardCount"] = 5  # 75% repel chance -- still leaves a 25% fail lane
+		seat_guards("home", 5)  # 75% repel chance -- still leaves a 25% fail lane
 		GameState.state["home"]["pendingRaid"] = true
 		GameState.state["home"]["pendingRaidNotificationId"] = "n_stale"
 		GameState.state["player"]["orichalchum"] = { "time": 100 }
@@ -252,7 +252,7 @@ func run() -> void:
 	run_case("hq_missed_defend_repel_rolls_at_the_kit_boosted_chance", func():
 		for seed in range(30):
 			GameState.reset()
-			GameState.state["home"]["guardCount"] = 1
+			seat_guards("home", 1)
 			GameState.state["home"]["guardKit"] = { "blackHole": { "1": 1 }, "shield": { "1": 1 } }
 			GameState.state["home"]["pendingRaid"] = true
 			GameState.state["player"]["orichalchum"] = { "time": 100 }
@@ -266,7 +266,7 @@ func run() -> void:
 
 	run_case("hq_missed_defend_repel_with_kit_caps_at_repel_cap", func():
 		GameState.reset()
-		GameState.state["home"]["guardCount"] = 10
+		seat_guards("home", 10)
 		var kit := {}
 		for recipe_key in GameData.GUARD_KIT["items"]:
 			kit[recipe_key] = { "1": 1 }
@@ -280,7 +280,7 @@ func run() -> void:
 			for seed in range(300):
 				GameState.reset()
 				# 2 guards = 4 active slots: blast T3 + 2x blast T1 + shield T2 active; timePearl inactive.
-				GameState.state["home"]["guardCount"] = 2
+				seat_guards("home", 2)
 				GameState.state["home"]["guardKit"] = { "blast": { "1": 2, "3": 1 }, "shield": { "2": 1 }, "timePearl": { "1": 1 } }
 				GameState.state["home"]["pendingRaid"] = true
 				GameState.state["player"]["orichalchum"] = { "time": 100 }
@@ -307,7 +307,7 @@ func run() -> void:
 		var found := false
 		for seed in range(300):
 			GameState.reset()
-			GameState.state["home"]["guardCount"] = 5
+			seat_guards("home", 5)
 			GameState.state["home"]["pendingRaid"] = true
 			GameState.state["player"]["orichalchum"] = { "time": 100 }
 			Rng.set_seed(seed)
@@ -322,7 +322,6 @@ func run() -> void:
 
 	run_case("hq_missed_defend_with_no_guards_rolls_nothing_and_keeps_the_kit", func():
 		GameState.reset()
-		GameState.state["home"]["guardCount"] = 0
 		GameState.state["home"]["guardKit"] = { "blast": { "1": 2 } }
 		Rng.set_seed(7)
 		var first_roll: float = Rng.randf()
@@ -627,12 +626,12 @@ func run() -> void:
 	run_case("add_security_enforces_minTier", func():
 		GameState.reset()
 		GameState.state["player"]["cash"] = 100000
-		# bedsit tier: lock's minTier is bedsit, guard's minTier is compound
+		# bedsit tier: lock's minTier is bedsit, ward's minTier is safehouse
 		var lock_result := Home.add_security("lock")
 		assert_true(lock_result["ok"], "bedsit-tier player should be able to install lock")
-		var guard_result := Home.add_security("guard")
-		assert_true(not guard_result["ok"], "bedsit-tier player should not be able to install guard (requires compound)")
-		assert_eq(GameState.state["home"]["security"], ["lock"], "guard should not have been added")
+		var ward_result := Home.add_security("ward")
+		assert_true(not ward_result["ok"], "bedsit-tier player should not be able to install ward (requires safehouse)")
+		assert_eq(GameState.state["home"]["security"], ["lock"], "ward should not have been added")
 	)
 
 	run_case("add_security_no_count_cap_at_top_tier", func():
@@ -642,86 +641,10 @@ func run() -> void:
 		for security_id in GameData.HOME_SECURITY.keys():
 			var result := Home.add_security(security_id)
 			assert_true(result["ok"], "compound-tier player should be able to install %s with no count-based block" % security_id)
-		# 107-hq-stackable-guards: "guard" is stackable and never lands in the
-		# boolean security array (see the guard_* cases below) -- every other
-		# id still does, so the array should hold everything except it.
-		var non_guard_count: int = GameData.HOME_SECURITY.size() - 1
-		assert_eq(GameState.state["home"]["security"].size(), non_guard_count, "every non-guard security upgrade should be installed")
-		assert_true(not GameState.state["home"]["security"].has("guard"), "guard tracks via guardCount, not the boolean security array")
-		assert_eq(GameState.state["home"]["guardCount"], 1, "the one guard purchase in the loop above should have incremented guardCount")
+		assert_eq(GameState.state["home"]["security"].size(), GameData.HOME_SECURITY.size(), "every security upgrade should be installed")
 	)
 
 	# ── 107-hq-stackable-guards ────────────────────────────────────────
-
-	run_case("guard_purchases_stack_as_a_count_not_a_boolean_flag", func():
-		GameState.reset()
-		GameState.state["player"]["cash"] = 100000
-		GameState.state["home"]["tier"] = "compound"
-
-		var first := Home.add_security("guard")
-		assert_true(first["ok"], "first guard purchase should succeed")
-		assert_eq(GameState.state["home"]["guardCount"], 1, "first purchase sets guardCount to 1")
-
-		var second := Home.add_security("guard")
-		assert_true(second["ok"], "a second guard purchase should succeed -- no longer blocked as 'already installed'")
-		assert_eq(GameState.state["home"]["guardCount"], 2, "second purchase increments guardCount")
-
-		var third := Home.add_security("guard")
-		assert_true(third["ok"], "guards keep stacking with no upper limit, same as vein extraGuards")
-		assert_eq(GameState.state["home"]["guardCount"], 3)
-
-		assert_eq(Home.get_guard_count(), 3, "get_guard_count() reflects the same total")
-	)
-
-	run_case("hq_guard_hire_pays_only_the_advance_and_records_it_against_home", func():
-		GameState.reset()
-		var sunday := Calendar.monday_on_or_after(1) + 6
-		GameState.state["world"]["day"] = sunday
-		GameState.state["home"]["tier"] = "compound"
-		GameState.state["player"]["cash"] = 1000
-		GameState.state["flags"]["securityContactUnlocked"] = true
-		assert_true(Home.add_security("guard")["ok"])
-		assert_eq(GameState.state["player"]["cash"], 1000 - 71, "Sunday advance, no purchase price or discount")
-		assert_eq(GameState.state["bankLog"][-1]["label"], "Guard hire")
-		assert_eq(GameState.state["businessStats"]["today"]["expensesGuard"], 71)
-		assert_eq(GameState.state["guardUpkeep"]["history"], [{ "day": sunday, "places": { "home": 71 } }])
-	)
-
-	run_case("hq_guard_hire_is_refused_below_the_advance_with_no_state_change", func():
-		GameState.reset()
-		GameState.state["world"]["day"] = Calendar.monday_on_or_after(1)
-		GameState.state["home"]["tier"] = "compound"
-		GameState.state["player"]["cash"] = 499
-		var before: Dictionary = GameState.deep_copy(GameState.state)
-		assert_true(not Home.add_security("guard")["ok"])
-		assert_eq(GameState.state, before)
-	)
-
-	run_case("drop_guard_decrements_guardCount_and_leaves_security_alone", func():
-		GameState.reset()
-		GameState.state["home"]["guardCount"] = 2
-		GameState.state["home"]["security"] = ["lock"]
-		assert_true(Home.drop_guard())
-		assert_eq(Home.get_guard_count(), 1)
-		assert_true(Home.drop_guard())
-		assert_true(not Home.drop_guard(), "nothing left to drop")
-		assert_eq(Home.get_guard_count(), 0)
-		assert_eq(GameState.state["home"]["security"], ["lock"], "home.security unchanged")
-	)
-
-	run_case("guard_purchase_still_enforces_minTier_and_cash", func():
-		GameState.reset()
-		GameState.state["player"]["cash"] = 100000
-		var blocked := Home.add_security("guard")
-		assert_true(not blocked["ok"], "bedsit-tier player should not be able to hire a guard (requires compound)")
-		assert_eq(GameState.state["home"]["guardCount"], 0, "a blocked purchase must not increment guardCount")
-
-		GameState.state["home"]["tier"] = "compound"
-		GameState.state["player"]["cash"] = 0
-		var poor := Home.add_security("guard")
-		assert_true(not poor["ok"], "should fail without enough cash")
-		assert_eq(GameState.state["home"]["guardCount"], 0)
-	)
 
 	run_case("guard_raidReduction_scales_flat_per_guard_like_vein_extraGuards", func():
 		GameState.reset()
@@ -730,13 +653,13 @@ func run() -> void:
 		# bedsit's own 0.15 base isn't enough headroom for 3 guards' combined
 		# 0.15 reduction on its own.
 		GameState.state["player"]["orichalchum"] = { "time": 1000 }
-		var per_guard: float = GameData.HOME_SECURITY["guard"]["raidReduction"]
+		var per_guard: float = GameData.MUSCLE["hqRaidReductionPerGuard"]
 
-		GameState.state["home"]["guardCount"] = 0
+		pass
 		var no_guard_chance := Home.get_home_raid_chance()
-		GameState.state["home"]["guardCount"] = 1
+		seat_guards("home", 1)
 		var one_guard_chance := Home.get_home_raid_chance()
-		GameState.state["home"]["guardCount"] = 3
+		seat_guards("home", 2)
 		var three_guard_chance := Home.get_home_raid_chance()
 
 		assert_almost_eq(no_guard_chance - one_guard_chance, per_guard, 0.0001, "a guard count of 1 must reproduce the pre-ticket single-guard raidReduction exactly")
@@ -955,12 +878,10 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["home"]["tier"] = "compound"
 		GameState.state["home"]["security"] = ["lock", "cameras", "alarm", "reinforcedDoor", "ward"]
-		GameState.state["home"]["guardCount"] = 3
+		seat_guards("home", 3)
 
 		var result := Home.change_tier("safehouse", "rented")
 		assert_eq(GameState.state["home"]["security"], ["lock", "cameras", "alarm", "reinforcedDoor", "ward"], "all still allowed at the safehouse")
-		assert_eq(GameState.state["home"]["guardCount"], 0, "guards need the compound")
-		assert_eq(result["guardsLost"], 3)
 
 		result = Home.change_tier("flat", "owned")
 		assert_eq(GameState.state["home"]["security"], ["lock", "cameras", "alarm"])
@@ -972,10 +893,10 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["home"]["tier"] = "compound"
 		GameState.state["home"]["security"] = ["lock", "ward"]
-		GameState.state["home"]["guardCount"] = 2
+		seat_guards("home", 2)
 		Home.change_tier("mansion", "owned")
 		assert_eq(GameState.state["home"]["security"], ["lock", "ward"])
-		assert_eq(GameState.state["home"]["guardCount"], 2)
+		assert_eq(Home.get_guard_count(), 2)
 	)
 
 	run_case("an_existing_room_list_save_loads_with_slots_intact", func():

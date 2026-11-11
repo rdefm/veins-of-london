@@ -662,8 +662,8 @@ func _quiet_story() -> void:
 # A guarded vein's Monday bill with no cash: a pending shortfall.
 func _seed_guard_shortfall() -> void:
 	GameState.reset()
-	var vein := Fixtures.seed_vein("guarded", 50)
-	vein["security"] = "guarded"
+	Fixtures.seed_vein("guarded", 50)
+	seat_guards("guarded", 1)
 	GameState.state["world"]["day"] = Calendar.monday_on_or_after(8)
 	GameState.state["player"]["cash"] = 0
 	GuardUpkeep.pay_monday_bill()

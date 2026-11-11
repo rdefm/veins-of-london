@@ -232,13 +232,10 @@ func new_game_state() -> Dictionary:
 		# immediately -- mirrors world.pendingDefendRaids/activeDefendRaid,
 		# collapsed to one flag since HQ has one raid slot.
 		# pendingRaidNotificationId is that warning's Notify id, so a stale
-		# resolved warning can't reactivate its Defend button. guardCount is
-		# the Hired Guard stack count -- unlike other security ids (boolean
-		# membership), "guard" is never appended to `security`.
-		# guardKit is the HQ guards' kit, shaped like vein.guardKit.
+		# resolved warning can't reactivate its Defend button. guardKit is the HQ guards' kit, shaped like vein.guardKit.
 		# tenure is "rented"/"owned" (ADR 0006); arrears is unpaid bill £, arrearsWeeks the consecutive Monday bills that left arrears.
 		# roomSeats is each room's staff seat count (hiring-spec §5).
-		"home": { "tier": "bedsit", "tenure": "rented", "arrears": 0, "arrearsWeeks": 0, "deposit": 0, "security": [], "rooms": [], "roomSeats": _new_room_seats(), "lastRaidDay": 0, "pendingRaid": false, "pendingRaidNotificationId": null, "guardCount": 0, "guardKit": {} },
+		"home": { "tier": "bedsit", "tenure": "rented", "arrears": 0, "arrearsWeeks": 0, "deposit": 0, "security": [], "rooms": [], "roomSeats": _new_room_seats(), "lastRaidDay": 0, "pendingRaid": false, "pendingRaidNotificationId": null, "guardKit": {} },
 
 		"factions": _new_factions_state(),
 

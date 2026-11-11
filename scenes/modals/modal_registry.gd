@@ -38,5 +38,7 @@ static var REGISTRY: Dictionary = {
 	"active_effects": ActiveEffectsModal,
 	"guard_detail": GuardDetailModal,
 	"guard_dismiss": GuardDismissModal,
+	"guard_post": GuardPostModal,
+	"guard_assign": GuardAssignModal,
 	"guard_hire": GuardHireModal,
 }

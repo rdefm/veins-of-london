@@ -203,8 +203,8 @@ var CONTACTS_DEFAULTS: Dictionary = {}
 var JAMES_JOB_TRUST_BANDS: Array = []
 
 # Missed-defend guard-repel chance, shared by Home._guards_repel_pending_
-# raid() (HQ's guardCount) and Raiding._guards_repel_defend_raid() (a
-# vein's extraGuards) -- one data source so retuning skips both .gd files.
+# raid() (HQ guards) and Raiding._guards_repel_defend_raid() (a
+# vein's guards) -- one data source so retuning skips both .gd files.
 var GUARD_REPEL_CHANCE_PER_GUARD: float = 0.0
 var ARCHIE_DEALS: Dictionary = {}
 var GUARD_REPEL_CHANCE_CAP: float = 0.0

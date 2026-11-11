@@ -715,7 +715,8 @@ func run() -> void:
 
 	run_case("start_defend_vein_with_three_guards_and_no_contacts_adds_three_guard_allies", func():
 		GameState.reset()
-		GameState.state["player"]["veins"].append({ "id": "gv", "district": "battersea", "security": Cultivating.GUARDED_TIER_ID, "extraGuards": 2 })
+		GameState.state["player"]["veins"].append({ "id": "gv", "district": "battersea", "security": "warded" })
+		seat_guards("gv", 3)
 		Combat.start_defend_vein("gv", 2)
 		var allies: Array = GameState.state["combat"]["allies"] + GameState.state["combat"]["allyQueue"]
 		assert_eq(allies.size(), 3, "two active, one queued")
@@ -731,7 +732,8 @@ func run() -> void:
 	run_case("start_defend_vein_contacts_join_first_and_guards_queue_behind", func():
 		GameState.reset()
 		GameState.state["contacts"]["archie"]["recruited"] = true
-		GameState.state["player"]["veins"].append({ "id": "gv", "district": "battersea", "security": Cultivating.GUARDED_TIER_ID, "extraGuards": 4 })
+		GameState.state["player"]["veins"].append({ "id": "gv", "district": "battersea", "security": "warded" })
+		seat_guards("gv", 5)
 		Combat.start_defend_vein("gv", 2)
 		var combat: Dictionary = GameState.state["combat"]
 		var allies: Array = combat["allies"]
@@ -743,7 +745,7 @@ func run() -> void:
 
 	run_case("start_defend_vein_with_no_guards_adds_no_guard_allies", func():
 		GameState.reset()
-		GameState.state["player"]["veins"].append({ "id": "gv", "district": "battersea", "security": "warded", "extraGuards": 0 })
+		GameState.state["player"]["veins"].append({ "id": "gv", "district": "battersea", "security": "warded" })
 		Combat.start_defend_vein("gv", 2)
 		assert_eq(GameState.state["combat"]["allies"], [])
 	)
@@ -752,8 +754,9 @@ func run() -> void:
 
 	run_case("start_defend_vein_copies_the_active_kit_into_the_guard_pool", func():
 		GameState.reset()
-		GameState.state["player"]["veins"].append({ "id": "gv", "district": "battersea", "security": Cultivating.GUARDED_TIER_ID, "extraGuards": 0,
+		GameState.state["player"]["veins"].append({ "id": "gv", "district": "battersea", "security": "warded",
 			"guardKit": { "blast": { "2": 1 }, "shield": { "1": 5 } } })
+		seat_guards("gv", 1)
 		Combat.start_defend_vein("gv", 2)
 		var pool: Dictionary = GameState.state["combat"]["guardKit"]
 		assert_eq(Fixtures.kit_units(pool), { "blast": { "2": 1 }, "shield": { "1": 1 } }, "only the 2 active units (1 guard x 2 slots)")
@@ -762,8 +765,9 @@ func run() -> void:
 	run_case("exit_combat_takes_used_units_off_the_vein_kit_on_win_loss_or_flee", func():
 		for outcome in ["win", "loss", "fled"]:
 			GameState.reset()
-			GameState.state["player"]["veins"].append({ "id": "gv", "district": "battersea", "security": Cultivating.GUARDED_TIER_ID, "extraGuards": 0,
+			GameState.state["player"]["veins"].append({ "id": "gv", "district": "battersea", "security": "warded",
 				"guardKit": { "blast": { "2": 2 }, "shield": { "1": 1 } } })
+			seat_guards("gv", 1)
 			Combat.start_defend_vein("gv", 2)
 			var pool: Dictionary = GameState.state["combat"]["guardKit"]
 			pool["items"] = { "blast": { "2": 2 }, "shield": { "1": 1 } }
@@ -779,7 +783,7 @@ func run() -> void:
 
 	run_case("home_alarm_defend_seeds_guard_allies_and_the_active_hq_kit", func():
 		GameState.reset()
-		GameState.state["home"]["guardCount"] = 4
+		seat_guards("home", 4)
 		GameState.state["home"]["guardKit"] = { "blast": { "2": 20 } }
 		Combat.start_home_alarm_defend_combat()
 		var combat: Dictionary = GameState.state["combat"]
@@ -800,7 +804,7 @@ func run() -> void:
 	run_case("exit_home_alarm_defend_takes_used_units_off_the_hq_kit_and_keeps_koed_guards", func():
 		for outcome in ["win", "loss", "fled"]:
 			GameState.reset()
-			GameState.state["home"]["guardCount"] = 1
+			seat_guards("home", 1)
 			GameState.state["home"]["guardKit"] = { "blast": { "2": 2 }, "shield": { "1": 1 } }
 			Combat.start_home_alarm_defend_combat()
 			var pool: Dictionary = GameState.state["combat"]["guardKit"]
@@ -818,7 +822,7 @@ func run() -> void:
 
 	run_case("tutorial_home_raid_has_no_guard_allies", func():
 		GameState.reset()
-		GameState.state["home"]["guardCount"] = 2
+		seat_guards("home", 2)
 		GameState.state["home"]["guardKit"] = { "blast": { "2": 2 } }
 		Combat.start_home_raid_combat()
 		assert_eq(GameState.state["combat"]["allies"], [])

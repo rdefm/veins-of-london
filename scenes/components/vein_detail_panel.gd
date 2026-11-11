@@ -45,7 +45,9 @@ static func build(vein: Dictionary) -> Control:
 		content.add_child(defend_row)
 	content.add_child(_divider())
 	content.add_child(_build_actions_section(vein))
-	content.add_child(_build_security_button(vein))
+	var security_button: Variant = _build_security_button(vein)
+	if security_button != null:
+		content.add_child(security_button)
 	content.add_child(_build_guard_kit_row(vein))
 	content.add_child(_build_apply_item_row(vein))
 	content.add_child(_divider())
@@ -289,13 +291,15 @@ static func _harvest_label(label_text: String, vein: Dictionary, depth: int, ava
 	return UI.format_block_cost_label(base, 1, available)
 
 
-static func _build_security_button(vein: Dictionary) -> Control:
+static func _build_security_button(vein: Dictionary) -> Variant:
 	var upgrade: Dictionary = Cultivating.next_security_upgrade(vein)
+	if upgrade.is_empty():
+		return null
 	var player: Dictionary = GameState.state["player"]
 	var vein_id: String = vein["id"]
-	var label_text: String = upgrade["label"] if upgrade["tierId"] == null else "Upgrade to %s" % upgrade["label"]
+	var label_text: String = "Upgrade to %s" % upgrade["label"]
 	var cost := { "label": label_text, "resource": "cash", "amount": upgrade["cost"] }
-	var text: String = "%s — %s" % [label_text, GuardUpkeep.hire_cost_text()] if upgrade["isGuard"] else UI.format_cost_label(cost, { "cash": player["cash"] })
+	var text: String = UI.format_cost_label(cost, { "cash": player["cash"] })
 	var button := UI.button(text, func(): Cultivating.upgrade_vein_security(vein_id))
 	button.name = "SecurityButton"
 	button.disabled = player["cash"] < upgrade["cost"]

@@ -461,9 +461,6 @@ func _offer_box(tier_id: String) -> Control:
 	var lost: Array[String] = []
 	for security_id in Home.security_lost_moving_to(tier_id):
 		lost.append(GameData.HOME_SECURITY[security_id]["name"])
-	var guards: int = Home.guards_lost_moving_to(tier_id)
-	if guards > 0:
-		lost.append("%d guard%s" % [guards, "" if guards == 1 else "s"])
 	if not lost.is_empty():
 		offer.add_child(_text("Left behind: %s." % ", ".join(lost), 12, MUTED))
 	return box

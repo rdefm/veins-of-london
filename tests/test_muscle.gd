@@ -2,6 +2,8 @@ extends "res://tests/test_base.gd"
 
 # systems/muscle.gd: guard records, names, traits, weights and wages.
 
+const Fixtures := preload("res://tests/support/fixtures.gd")
+const NodeQuery := preload("res://tests/support/node_query.gd")
 const RUN_CAP := 400
 
 
@@ -25,6 +27,7 @@ func _is_pure(node: Variant) -> bool:
 
 
 func run() -> void:
+	_posting_cases()
 	run_case("state_starts_empty_and_holds_only_primitives", func():
 		GameState.reset()
 		var m: Dictionary = GameState.state["muscle"]
@@ -345,4 +348,141 @@ func run() -> void:
 		assert_true(result["billed"] and not result["short"])
 		assert_eq(result["due"], expected)
 		assert_eq(GameState.state["player"]["cash"], 10000 - expected)
+	)
+
+
+# ── posting ────────────────────────────────────────────────────────────
+
+func _managed() -> void:
+	GameState.reset()
+	Rng.set_seed(3)
+	GameState.state["home"]["rooms"] = ["securityOffice"]
+	Fixtures.seed_vein("v1", 50)
+
+
+func _reserve_guard(level: int = 1) -> String:
+	var g := Muscle.create_guard(level)
+	Muscle.guards().append(g)
+	return g["id"]
+
+
+func _reserve_guard_with_no_traits() -> String:
+	var g := Muscle.create_guard(1)
+	g["traits"] = []
+	Muscle.guards().append(g)
+	return g["id"]
+
+
+func _posting_cases() -> void:
+	run_case("posting_needs_the_room_a_real_post_and_an_available_guard", func():
+		_managed()
+		var id := _reserve_guard()
+		GameState.state["home"]["rooms"] = []
+		assert_true(not Muscle.post(id, "home")["ok"], "no Security Office")
+		GameState.state["home"]["rooms"] = ["securityOffice"]
+		assert_true(not Muscle.post(id, "nowhere")["ok"], "no such post")
+		Muscle.guard(id)["injuredUntilDay"] = GameState.state["world"]["day"] + 2
+		assert_true(not Muscle.post(id, "home")["ok"], "injured")
+		Muscle.guard(id)["injuredUntilDay"] = 0
+		Muscle.guard(id)["trainingUntilDay"] = GameState.state["world"]["day"] + 1
+		assert_true(not Muscle.post(id, "v1")["ok"], "in training")
+		Muscle.guard(id)["trainingUntilDay"] = 0
+		assert_true(Muscle.post(id, "v1")["ok"])
+		assert_eq(Muscle.guard(id)["post"], "v1")
+		assert_true(Muscle.post(id, "reserve")["ok"], "back to Reserve")
+	)
+
+	run_case("a_post_holds_four_and_reserve_holds_any_number", func():
+		_managed()
+		var ids: Array = []
+		for i in 6:
+			ids.append(_reserve_guard())
+		for i in 4:
+			assert_true(Muscle.post(ids[i], "v1")["ok"])
+		assert_true(not Muscle.post(ids[4], "v1")["ok"], "v1 is full")
+		assert_true(Muscle.post(ids[4], "home")["ok"], "HQ has its own four")
+		assert_true(Muscle.post(ids[0], "v1")["ok"], "re-posting to the same post isn't blocked by the cap")
+		assert_eq(Muscle.cap("reserve"), -1)
+		assert_eq(Muscle.reserve().size(), 1)
+		for id in ids:
+			Muscle.post(id, "reserve")
+		assert_eq(Muscle.reserve().size(), 6)
+	)
+
+	run_case("counts_and_kit_capacity_equal_available_guards_posted_there", func():
+		_managed()
+		var vein: Dictionary = Cultivating.find_vein("v1")
+		var ids: Array = []
+		for i in 3:
+			ids.append(_reserve_guard())
+			Muscle.post(ids[i], "v1")
+		Muscle.post(_reserve_guard(), "home")
+		assert_eq(Cultivating.vein_guard_count(vein), 3)
+		assert_eq(Home.get_guard_count(), 1)
+		assert_eq(GuardKit.capacity(vein), 3 * int(GameData.GUARD_KIT["slotsPerGuard"]))
+		assert_eq(GuardKit.hq_capacity(), int(GameData.GUARD_KIT["hqSlotsPerGuard"]))
+		Muscle.guard(ids[0])["injuredUntilDay"] = GameState.state["world"]["day"] + 3
+		assert_eq(Cultivating.vein_guard_count(vein), 2, "an injured guard isn't a body")
+		assert_eq(GuardKit.capacity(vein), 2 * int(GameData.GUARD_KIT["slotsPerGuard"]))
+	)
+
+	run_case("an_all_l1_roster_matches_the_old_flat_numbers", func():
+		_managed()
+		var vein: Dictionary = Cultivating.find_vein("v1")
+		vein["security"] = "warded"
+		for i in 3:
+			Muscle.post(_reserve_guard_with_no_traits(), "v1")
+		assert_eq(Cultivating.vein_raid_resist(vein), 35 + 3 * 20, "resist: ward + 20 per guard")
+		assert_almost_eq(Raiding.guard_repel_chance(Cultivating.vein_guard_count(vein)), 0.45, 0.0001, "repel: 15% per guard")
+		assert_eq(GuardKit.capacity(vein), 6, "kit: 2 slots per guard")
+		GameState.state["world"]["day"] = Calendar.monday_on_or_after(8)
+		assert_eq(GuardUpkeep.next_monday_bill(), 3 * GuardUpkeep.weekly_wage(), "bill: weekly wage each")
+	)
+
+	run_case("the_security_screen_post_actions_all_go_through_muscle_post", func():
+		_managed()
+		var id := _reserve_guard()
+		var screen := SecurityScreen.new()
+		screen._ready()
+		var assign := NodeQuery.find_button(screen, "+ Assign")
+		assert_true(assign != null, "Posts tab offers + Assign")
+		assign.pressed.emit()
+		assert_eq(GameState.state["modal"]["type"], "guard_assign")
+		var layer := ModalLayer.new()
+		layer._ready()
+		var row := layer.find_children("AssignRow_%s" % id, "Button", true, false)
+		assert_eq(row.size(), 1, "Reserve guards are the choices")
+		(row[0] as Button).pressed.emit()
+		assert_eq(Muscle.guard(id)["post"], "home")
+		layer.free()
+		screen._refresh()
+		var back := screen.find_children("ToReserve_%s" % id, "Button", true, false)
+		assert_eq(back.size(), 1, "→ Reserve on a posted guard")
+		(back[0] as Button).pressed.emit()
+		assert_eq(Muscle.guard(id)["post"], "reserve")
+		screen.free()
+	)
+
+	run_case("an_empty_reserve_offers_a_hire_link_in_the_assign_sheet", func():
+		_managed()
+		Modal.open("guard_assign", { "place": "home" })
+		var layer := ModalLayer.new()
+		layer._ready()
+		var link := layer.find_children("HireLink", "Button", true, false)
+		assert_eq(link.size(), 1)
+		assert_eq((link[0] as Button).text, "No one in reserve — Hire ›")
+		layer.free()
+	)
+
+	run_case("the_post_picker_lists_hq_every_vein_and_reserve", func():
+		_managed()
+		var id := _reserve_guard()
+		Modal.open("guard_post", { "guardId": id })
+		var layer := ModalLayer.new()
+		layer._ready()
+		for place_id in ["home", "v1", "reserve"]:
+			assert_true(NodeQuery.find_button(layer, SecurityScreen.place_header(place_id)) != null, "row for %s" % place_id)
+		NodeQuery.find_button(layer, SecurityScreen.place_header("v1")).pressed.emit()
+		assert_eq(Muscle.guard(id)["post"], "v1")
+		layer.free()
 	)

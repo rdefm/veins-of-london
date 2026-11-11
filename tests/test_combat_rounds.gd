@@ -2593,8 +2593,9 @@ func run() -> void:
 
 	run_case("a_guard_plans_its_kit_items_and_the_vein_kit_settles_as_before", func():
 		_seeded()
-		GameState.state["player"]["veins"].append({ "id": "gv", "district": "battersea", "security": Cultivating.GUARDED_TIER_ID, "extraGuards": 0,
+		GameState.state["player"]["veins"].append({ "id": "gv", "district": "battersea", "security": "warded",
 			"guardKit": { "blast": { "2": 1 } } })
+		seat_guards("gv", 1)
 		Combat.start_defend_vein("gv", 2)
 		var combat: Dictionary = GameState.state["combat"]
 		var guard: int = CombatRounds.PLAYER_INDEX + 1

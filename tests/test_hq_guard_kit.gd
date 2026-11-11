@@ -58,7 +58,7 @@ func run() -> void:
 
 	run_case("hq_row_sits_on_top_and_opens_the_hq_sheet", func():
 		_seed()
-		GameState.state["home"]["guardCount"] = 1
+		seat_guards("home", 1)
 		GameState.state["home"]["guardKit"] = { "blast": { "1": 4 } }
 		var screen := HqGuardKitScreen.new()
 		screen._ready()
@@ -87,7 +87,7 @@ func run() -> void:
 func _seed() -> void:
 	GameState.reset()
 	var guarded := Fixtures.seed_vein("v1", 50)
-	guarded["security"] = "guarded"
+	seat_guards("v1", 1)
 	guarded["guardKit"] = { "shield": { "1": 1 } }
 	var stocked := Fixtures.seed_vein("v2", 50)
 	stocked["guardKit"] = { "blast": { "1": 1 } }

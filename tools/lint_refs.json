@@ -1886,7 +1886,7 @@
 					"c4"
 				],
 				"kind": "code",
-				"sha": "84679b837b831a88c87c94c36b0316b47b66961cd67999056a0d06633521d345"
+				"sha": "32d5f9f5a234615119ffd5bcadfe9d6f4ce70875cc73c5b0188ee995e4417f56"
 			}
 		],
 		"james_experiment": [
@@ -1988,7 +1988,7 @@
 					"stand"
 				],
 				"kind": "code",
-				"sha": "84679b837b831a88c87c94c36b0316b47b66961cd67999056a0d06633521d345"
+				"sha": "32d5f9f5a234615119ffd5bcadfe9d6f4ce70875cc73c5b0188ee995e4417f56"
 			},
 			{
 				"file": "tests/test_event_content_lint.gd",
@@ -2020,7 +2020,7 @@
 					"c4"
 				],
 				"kind": "code",
-				"sha": "84679b837b831a88c87c94c36b0316b47b66961cd67999056a0d06633521d345"
+				"sha": "32d5f9f5a234615119ffd5bcadfe9d6f4ce70875cc73c5b0188ee995e4417f56"
 			},
 			{
 				"file": "tests/test_event_content_lint.gd",
@@ -3706,7 +3706,6 @@
 		"home.arrears",
 		"home.arrearsWeeks",
 		"home.deposit",
-		"home.guardCount",
 		"home.guardKit",
 		"home.lastRaidDay",
 		"home.pendingRaid",

@@ -336,7 +336,7 @@ func run() -> void:
 	run_case("guard_kit_sheet_stocks_within_capacity_and_confirms_through_guard_kit", func():
 		GameState.reset()
 		var vein := Fixtures.seed_vein("v1", 50)
-		vein["security"] = "guarded"  # 1 guard, 2 slots
+		seat_guards("v1", 1)  # 1 guard, 2 slots
 		vein["guardKit"] = {}
 		Crafting.inventory_add("blast", 2, 3)
 		Crafting.inventory_add("healingSalve", 1, 2)
@@ -367,7 +367,7 @@ func run() -> void:
 	run_case("guard_kit_return_tab_lists_the_kit_and_returns_over_capacity", func():
 		GameState.reset()
 		var vein := Fixtures.seed_vein("v1", 50)
-		vein["security"] = "guarded"
+		seat_guards("v1", 1)
 		vein["guardKit"] = { "shield": { "3": 3 } }  # over the 2-slot capacity
 		Modal.open("guard_kit", { "target": { "kind": "vein", "veinId": "v1" } })
 		var layer := ModalLayer.new()

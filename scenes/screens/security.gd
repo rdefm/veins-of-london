@@ -1,11 +1,17 @@
 class_name SecurityScreen
 extends Control
 
-# Security screen, opened from the Security Office tile. Guards tab: one row
-# per hired guard (short name, level, wage, traits, post), a detail sheet on
-# tap and the Hire board. Reads state and calls Muscle only.
+# Security screen, opened from the Security Office tile. Posts tab: HQ, each
+# vein and Reserve with headcount, weekly cost and kit status, + Assign and
+# → Reserve. Guards tab: one row per hired guard (short name, level, wage,
+# traits, post), a detail sheet on tap and the Hire board. Reads state and
+# calls Muscle only.
 
 const SCREEN_ID := "security"
+const TAB_POSTS := "posts"
+const TAB_GUARDS := "guards"
+
+var _tab: String = TAB_POSTS
 
 
 func _ready() -> void:
@@ -41,7 +47,101 @@ func _build() -> void:
 	content.add_child(UI.heading("Security"))
 	if not Muscle.can_manage():
 		content.add_child(UI.muted_label("The Security Office is gone. Guards stay employed, but you can't manage them."))
-	content.add_child(MapCardStyle.section_label("Guards"))
+	content.add_child(_build_tabs())
+	if _tab == TAB_POSTS:
+		_build_posts(content)
+	else:
+		_build_guards(content)
+
+
+func _build_tabs() -> HBoxContainer:
+	var row := UI.hbox(8)
+	for entry in [[TAB_POSTS, "Posts"], [TAB_GUARDS, "Guards"]]:
+		var tab: String = entry[0]
+		var b := MapCardStyle.option_row(entry[1], func(): _set_tab(tab), _tab == tab)
+		b.name = "Tab_%s" % tab
+		row.add_child(b)
+	return row
+
+
+func _set_tab(tab: String) -> void:
+	_tab = tab
+	_refresh()
+
+
+# ── Posts tab ─────────────────────────────────────────────────────────
+
+# HQ, each player vein in list order, then Reserve.
+static func place_ids() -> Array[String]:
+	var ids: Array[String] = [Muscle.POST_HOME]
+	for vein in GameState.state["player"]["veins"]:
+		ids.append(vein["id"])
+	ids.append(Muscle.POST_RESERVE)
+	return ids
+
+
+# "HQ · 2/4" or "Reserve · 3" -- headcount against the post cap.
+static func place_header(place_id: String) -> String:
+	var count := Muscle.guards_at(place_id).size()
+	var cap := Muscle.cap(place_id)
+	var label := GuardUpkeep.place_label(place_id)
+	return "%s · %d" % [label, count] if cap < 0 else "%s · %d/%d" % [label, count, cap]
+
+
+# Weekly wages of everyone posted at `place_id`, "£1500/week" or "".
+static func place_cost_text(place_id: String) -> String:
+	var total := int(GuardUpkeep.muscle_wages_by_place().get(place_id, 0))
+	return "£%d/week" % total if total > 0 else ""
+
+
+# "Kit 1/4 …" for HQ and veins; "" for Reserve (no kit).
+static func place_kit_text(place_id: String) -> String:
+	if place_id == Muscle.POST_RESERVE:
+		return ""
+	if place_id == Muscle.POST_HOME:
+		return GuardKit.status_text(GameState.state["home"].get("guardKit", {}), GuardKit.hq_capacity())
+	var vein: Variant = Cultivating.find_vein(place_id)
+	if vein == null:
+		return ""
+	return GuardKit.status_text(vein.get("guardKit", {}), GuardKit.capacity(vein))
+
+
+func _build_posts(content: VBoxContainer) -> void:
+	for place_id in place_ids():
+		var c := MapCardStyle.card(12)
+		c["panel"].size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		c["panel"].name = "Post_%s" % place_id
+		content.add_child(c["panel"])
+		c["content"].add_child(MapCardStyle.section_label(place_header(place_id)))
+		var details: Array[String] = []
+		for text in [place_cost_text(place_id), place_kit_text(place_id)]:
+			if text != "":
+				details.append(text)
+		if not details.is_empty():
+			c["content"].add_child(UI.muted_label(" · ".join(details)))
+		for g in Muscle.guards_at(place_id):
+			c["content"].add_child(_build_post_row(g))
+		if place_id != Muscle.POST_RESERVE:
+			var full: bool = Muscle.guards_at(place_id).size() >= Muscle.cap(place_id)
+			var assign := MapCardStyle.action_button("+ Assign", func(): Modal.open("guard_assign", { "place": place_id }), full or not Muscle.can_manage())
+			assign.name = "Assign_%s" % place_id
+			c["content"].add_child(assign)
+
+
+func _build_post_row(g: Dictionary) -> Control:
+	var gid: String = g["id"]
+	var row := UI.hbox(6)
+	row.add_child(UI.expand_fill(MapCardStyle.option_row(summary_text(g), func(): Modal.open("guard_detail", { "guardId": gid }))))
+	if g["post"] != Muscle.POST_RESERVE:
+		var to_reserve := MapCardStyle.text_button("→ Reserve", func(): Muscle.post(gid, Muscle.POST_RESERVE), not Muscle.can_manage())
+		to_reserve.name = "ToReserve_%s" % gid
+		row.add_child(to_reserve)
+	return row
+
+
+# ── Guards tab ────────────────────────────────────────────────────────
+
+func _build_guards(content: VBoxContainer) -> void:
 	content.add_child(MapCardStyle.action_button("Hire", func(): Modal.open("guard_hire"), not Muscle.can_manage()))
 
 	var guards := Muscle.guards()
