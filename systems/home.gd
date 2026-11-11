@@ -376,6 +376,7 @@ static func _refund_deposit() -> int:
 static func change_tier(new_tier_id: String, tenure: String) -> Dictionary:
 	var home: Dictionary = GameState.state["home"]
 	var plan: Dictionary = room_carryover(new_tier_id)
+	var had_office := has_room(Muscle.SECURITY_OFFICE)
 	for room_id in plan["dropped"]:
 		_remove_room_effects(room_id)
 	for room_id in plan["seatsLost"]:
@@ -396,6 +397,8 @@ static func change_tier(new_tier_id: String, tenure: String) -> Dictionary:
 
 	home["tier"] = new_tier_id
 	home["tenure"] = tenure
+	if had_office and not has_room(Muscle.SECURITY_OFFICE):
+		Muscle.on_room_lost()
 	EventBus.mark_changed()
 	return {
 		"roomsLost": plan["dropped"], "roomsKept": plan["kept"], "seatsLost": plan["seatsLost"],
@@ -740,6 +743,8 @@ static func set_room_use(slot: int, room_id: String) -> Dictionary:
 		Notify.push("Built %s." % room_data["name"], Notify.CATEGORY_SUCCESS)
 	if room_id == Muscle.SECURITY_OFFICE:
 		Muscle.on_room_bought()
+	elif old_id == Muscle.SECURITY_OFFICE:
+		Muscle.on_room_lost()
 	BusinessQuest.maybe_trigger_partnership()  # Beat 4 needs a Workshop
 	EventBus.mark_changed()
 	SaveManager.autosave()  # R§6: autosave on purchase

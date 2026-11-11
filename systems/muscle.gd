@@ -704,6 +704,8 @@ static func injure(id: String) -> void:
 # finished injury and training countdowns.
 static func daily_tick() -> void:
 	var day: int = GameState.state["world"]["day"]
+	if Calendar.is_monday(day):
+		_roll_kit_losses()
 	for g in guards():
 		if int(g["injuredUntilDay"]) != 0 and int(g["injuredUntilDay"]) <= day:
 			g["injuredUntilDay"] = 0
@@ -712,6 +714,64 @@ static func daily_tick() -> void:
 		if g["post"] == POST_RESERVE or not is_available(g["id"]) or _no_passive_xp(g):
 			continue
 		award_xp(g["id"], XP_PASSIVE)
+
+
+# Monday roll: each Light-fingered guard on a post, kitLossChance, takes 1 unit
+# from that post's kit (HQ kit or the vein's guardKit).
+static func _roll_kit_losses() -> void:
+	for g in guards().duplicate():
+		if g["post"] == POST_RESERVE:
+			continue
+		var chance := trait_sum(g, "kitLossChance")
+		if chance <= 0.0 or not Rng.chance(chance):
+			continue
+		var kit := _post_kit(g["post"])
+		var units: Array = []
+		for recipe_key in kit:
+			for tier_key in kit[recipe_key]:
+				for i in int(kit[recipe_key][tier_key]):
+					units.append([recipe_key, tier_key])
+		if units.is_empty():
+			continue
+		var lost: Array = Rng.rand_from(units)
+		GuardKit.remove_units(kit, { lost[0]: { lost[1]: 1 } })
+		EventBus.mark_changed()
+
+
+# The kit dict stocked at a post ({} for Reserve or an unknown post).
+static func _post_kit(post_id: String) -> Dictionary:
+	if post_id == POST_HOME:
+		return GameState.state["home"].get("guardKit", {})
+	var vein = Cultivating.find_vein(post_id)
+	if vein == null:
+		return {}
+	return vein.get("guardKit", {})
+
+
+# A player vein left the player's hands (taken, sold, collapsed): its posted
+# guards go to Reserve unhurt. Guards never travel with a vein.
+static func on_vein_lost(vein_id: String) -> void:
+	for g in guards_at(vein_id):
+		g["post"] = POST_RESERVE
+	EventBus.mark_changed()
+
+
+# The Security Office left the HQ (tier move, no free slot, or replaced). Guards
+# stay employed and paid; below townhouse the HQ posts drop to Reserve. One
+# notification.
+static func on_room_lost() -> void:
+	if _hq_below_office_tier():
+		for g in guards_at(POST_HOME):
+			g["post"] = POST_RESERVE
+	if not guards().is_empty():
+		# PROSE-REVIEW: room-loss notification.
+		Notify.push("The Security Office is gone. Your guards hold their posts but can't take new orders.", Notify.CATEGORY_WARNING)
+	EventBus.mark_changed()
+
+
+static func _hq_below_office_tier() -> bool:
+	var order: Array = GameData.HOME_TIER_ORDER
+	return order.find(GameState.state["home"]["tier"]) < order.find(GameData.HOME_ROOMS[SECURITY_OFFICE]["minTier"])
 
 
 static func _no_passive_xp(g: Dictionary) -> bool:

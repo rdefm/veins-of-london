@@ -30,6 +30,7 @@ func run() -> void:
 	_posting_cases()
 	_xp_cases()
 	_responder_cases()
+	_loss_cases()
 	run_case("state_starts_empty_and_holds_only_primitives", func():
 		GameState.reset()
 		var m: Dictionary = GameState.state["muscle"]
@@ -373,6 +374,87 @@ func _reserve_guard_with_no_traits() -> String:
 	g["traits"] = []
 	Muscle.guards().append(g)
 	return g["id"]
+
+
+func _monday() -> int:
+	var day: int = GameState.state["world"]["day"]
+	for d in range(day + 1, day + 8):
+		if Calendar.is_monday(d):
+			return d
+	return day
+
+
+func _loss_cases() -> void:
+	run_case("vein_lost_sends_posted_guards_to_reserve_unhurt", func():
+		_managed()
+		var id := _reserve_guard()
+		assert_true(Muscle.post(id, "v1")["ok"])
+		Raiding.transfer_player_vein_to_faction(Cultivating.find_vein("v1"), Sites.find_site("site_v1"), "collective")
+		assert_eq(Muscle.guard(id)["post"], "reserve")
+		assert_eq(int(Muscle.guard(id)["injuredUntilDay"]), 0)
+	)
+	run_case("selling_a_vein_moves_its_guards_to_reserve", func():
+		_managed()
+		var id := _reserve_guard()
+		assert_true(Muscle.post(id, "v1")["ok"])
+		VeinTrade.transfer_to_faction("v1", "collective", 100, false)
+		assert_eq(Muscle.guard(id)["post"], "reserve")
+	)
+	run_case("losing_the_office_keeps_guards_and_locks_management", func():
+		_managed()
+		GameState.state["home"]["tier"] = "townhouse"
+		var hq := _reserve_guard()
+		var vein_guard := _reserve_guard()
+		Muscle.post(hq, "home")
+		Muscle.post(vein_guard, "v1")
+		var before: int = GameState.state["notifications"].size()
+		Home.change_tier("flat", Home.TENURE_RENTED)
+		var notes: Array = GameState.state["notifications"].slice(before).filter(func(n): return "can't take new orders" in n["text"])
+		assert_eq(notes.size(), 1, "one room-loss notification")
+		assert_true(not Muscle.can_manage())
+		assert_eq(Muscle.guards().size(), 2, "still employed")
+		assert_eq(Muscle.guard(hq)["post"], "reserve", "HQ drops below townhouse")
+		assert_eq(Muscle.guard(vein_guard)["post"], "v1", "vein post holds")
+		assert_true(not Muscle.post(vein_guard, "reserve")["ok"], "no new orders")
+		Home.change_tier("townhouse", Home.TENURE_RENTED)
+		GameState.state["player"]["cash"] = 1000000
+		GameState.state["flags"]["securityOfficeBought"] = true
+		GameState.state["muscle"]["board"]["cards"] = []
+		assert_true(Home.add_room("securityOffice")["ok"])
+		assert_true(Muscle.can_manage(), "re-buy restores management")
+		assert_true(bool(GameState.state["flags"]["securityOfficeBought"]), "intro flag stays set")
+	)
+	run_case("replacing_the_office_at_townhouse_keeps_hq_posts", func():
+		_managed()
+		GameState.state["home"]["tier"] = "townhouse"
+		var hq := _reserve_guard()
+		Muscle.post(hq, "home")
+		Muscle.on_room_lost()
+		assert_eq(Muscle.guard(hq)["post"], "home")
+	)
+	run_case("light_fingered_monday_roll_removes_one_kit_unit_at_ten_percent", func():
+		_managed()
+		var id := _reserve_guard()
+		var g := Muscle.guard(id)
+		g["traits"] = ["lightFingered"]
+		Muscle.post(id, "v1")
+		var vein: Dictionary = Cultivating.find_vein("v1")
+		var recipe: String = GameData.GUARD_KIT["items"].keys()[0]
+		vein["guardKit"] = { recipe: { "1": 1000 } }
+		GameState.state["world"]["day"] = _monday()
+		Rng.set_seed(5)
+		var weeks := 200
+		for i in weeks:
+			Muscle._roll_kit_losses()
+		var lost := 1000 - GuardKit.unit_count(vein["guardKit"])
+		assert_true(lost >= 5 and lost <= 40, "about 10%% of %d, got %d" % [weeks, lost])
+		# Reserve guards carry no kit and lose none.
+		Muscle.post(id, "reserve")
+		var left := GuardKit.unit_count(vein["guardKit"])
+		for i in 50:
+			Muscle._roll_kit_losses()
+		assert_eq(GuardKit.unit_count(vein["guardKit"]), left)
+	)
 
 
 func _posting_cases() -> void:

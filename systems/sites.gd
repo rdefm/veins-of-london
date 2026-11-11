@@ -60,6 +60,7 @@ static func release_slot_index(district_id: String, slot_index: int) -> void:
 # The vein also leaves its cultivator's list and loses its hold target.
 static func release_vein_slot(vein: Dictionary) -> void:
 	Rooms.unassign_vein(vein["id"])
+	Muscle.on_vein_lost(vein["id"])
 	if vein.has("slotIndex"):
 		release_slot_index(vein["district"], vein["slotIndex"])
 
