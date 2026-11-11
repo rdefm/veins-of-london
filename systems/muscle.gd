@@ -213,6 +213,59 @@ static func is_available(id: String) -> bool:
 	return int(g["injuredUntilDay"]) <= day and int(g["trainingUntilDay"]) <= day
 
 
+const STATUS_POSTED := "posted"
+const STATUS_RESERVE := "reserve"
+const STATUS_TRAINING := "training"
+const STATUS_INJURED := "injured"
+
+
+# Days of training left (0 when not training).
+static func training_days_left(g: Dictionary) -> int:
+	return maxi(0, int(g["trainingUntilDay"]) - int(GameState.state["world"]["day"]))
+
+
+# { kind: STATUS_*, days }: injured or training (with days left) win over the
+# post; otherwise posted (HQ / a vein) or reserve.
+static func status(g: Dictionary) -> Dictionary:
+	var injured := injury_days_left(g)
+	if injured > 0:
+		return { "kind": STATUS_INJURED, "days": injured }
+	var training := training_days_left(g)
+	if training > 0:
+		return { "kind": STATUS_TRAINING, "days": training }
+	return { "kind": STATUS_RESERVE if g["post"] == POST_RESERVE else STATUS_POSTED, "days": 0 }
+
+
+# Why guard `g` is off duty: "Injured · 2d", "Training · back tomorrow",
+# "Training · back in 2d"; "" when available.
+static func unavailable_reason(g: Dictionary) -> String:
+	var s := status(g)
+	match s["kind"]:
+		STATUS_INJURED:
+			return "Injured · %dd" % int(s["days"])
+		STATUS_TRAINING:
+			if int(s["days"]) == 1:
+				return "Training · back tomorrow"
+			return "Training · back in %dd" % int(s["days"])
+	return ""
+
+
+# { total, posted, ready, out }: posted = available at HQ or a vein, ready =
+# available in Reserve, out = injured or training.
+static func roster_counts() -> Dictionary:
+	var counts := { "total": 0, "posted": 0, "ready": 0, "out": 0 }
+	for g in guards():
+		counts["total"] += 1
+		match status(g)["kind"]:
+			STATUS_POSTED:
+				counts["posted"] += 1
+			STATUS_RESERVE:
+				counts["ready"] += 1
+			_:
+				counts["out"] += 1
+	return counts
+
+
 # Available guards posted at `post_id`: the bodies that resist, repel and carry kit.
 static func available_at(post_id: String) -> Array:
 	return guards_at(post_id).filter(func(g): return is_available(g["id"]))
@@ -241,10 +294,25 @@ static func post_repel_weight_sum(post_id: String) -> float:
 # `hardware` / `max_hardware` are the place's lock/ward resist or installed
 # HQ raidReduction; `repel` is the pre-kit repel chance.
 static func security_score(hardware: float, max_hardware: float, repel: float) -> int:
+	return int(security_score_parts(hardware, max_hardware, repel)["score"])
+
+
+# The score split for display: { score, hardware, guards, hardwareMax,
+# guardsMax }. hardware + guards == score.
+static func security_score_parts(hardware: float, max_hardware: float, repel: float) -> Dictionary:
 	var cfg: Dictionary = GameData.MUSCLE["score"]
 	var hw_share := clampf(hardware / max_hardware, 0.0, 1.0) if max_hardware > 0.0 else 0.0
 	var repel_share := minf(1.0, repel / float(cfg["repelFull"]))
-	return roundi(float(cfg["hardwareWeight"]) * hw_share + float(cfg["repelWeight"]) * repel_share)
+	var hw_points := float(cfg["hardwareWeight"]) * hw_share
+	var score := roundi(hw_points + float(cfg["repelWeight"]) * repel_share)
+	var hw_rounded := roundi(hw_points)
+	return {
+		"score": score,
+		"hardware": hw_rounded,
+		"guards": score - hw_rounded,
+		"hardwareMax": roundi(float(cfg["hardwareWeight"])),
+		"guardsMax": roundi(float(cfg["repelWeight"])),
+	}
 
 
 static func score_band(score: int) -> String:
@@ -257,15 +325,23 @@ static func score_band(score: int) -> String:
 
 # Security score of a player vein: ward/lock resist against the best tier.
 static func vein_security_score(vein: Dictionary) -> int:
+	return int(vein_score_parts(vein)["score"])
+
+
+static func vein_score_parts(vein: Dictionary) -> Dictionary:
 	var max_hw := 0.0
 	for tier_id in GameData.VEIN_SECURITY:
 		max_hw = maxf(max_hw, float(GameData.VEIN_SECURITY[tier_id]["raidResist"]))
 	var repel := Raiding.guard_repel_chance(post_repel_weight_sum(vein["id"]))
-	return security_score(float(Cultivating.vein_tier_resist(vein)), max_hw, repel)
+	return security_score_parts(float(Cultivating.vein_tier_resist(vein)), max_hw, repel)
 
 
 # Security score of HQ: installed hardware raidReduction (guards excluded).
 static func hq_security_score() -> int:
+	return int(hq_score_parts()["score"])
+
+
+static func hq_score_parts() -> Dictionary:
 	var have := 0.0
 	var max_hw := 0.0
 	for id in GameData.HOME_SECURITY:
@@ -275,21 +351,26 @@ static func hq_security_score() -> int:
 		max_hw += r
 		if GameState.state["home"]["security"].has(id):
 			have += r
-	return security_score(have, max_hw, Home.guard_repel_chance(Home.get_guard_weight_repel()))
+	return security_score_parts(have, max_hw, Home.guard_repel_chance(Home.get_guard_weight_repel()))
+
+
+# Score split (see security_score_parts) for HQ or a player vein; {} for
+# Reserve or an unknown post.
+static func post_score_parts(post_id: String) -> Dictionary:
+	if post_id == POST_HOME:
+		return hq_score_parts()
+	if post_id == POST_RESERVE:
+		return {}
+	var vein: Variant = Cultivating.find_vein(post_id)
+	return {} if vein == null else vein_score_parts(vein)
 
 
 # "52 · Solid" for a vein or HQ post; "" for Reserve.
 static func score_text(post_id: String) -> String:
-	var score := 0
-	if post_id == POST_RESERVE:
+	var parts := post_score_parts(post_id)
+	if parts.is_empty():
 		return ""
-	if post_id == POST_HOME:
-		score = hq_security_score()
-	else:
-		var vein: Variant = Cultivating.find_vein(post_id)
-		if vein == null:
-			return ""
-		score = vein_security_score(vein)
+	var score := int(parts["score"])
 	return "%d · %s" % [score, score_band(score)]
 
 
@@ -341,7 +422,7 @@ static func post_block_reason(id: String, post_id: String) -> String:
 	if not is_post(post_id):
 		return "No such post."
 	if not is_available(id):
-		return "Not available."
+		return unavailable_reason(guard(id))
 	if guard(id)["post"] != post_id and post_id != POST_RESERVE and guards_at(post_id).size() >= cap(post_id):
 		return "That post is full."
 	return ""
@@ -513,6 +594,32 @@ static func xp_base(source: String) -> int:
 	return 0
 
 
+# XP guard `g` would gain from one `source` award: base x xpMult traits.
+static func xp_gain(g: Dictionary, source: String) -> float:
+	return float(xp_base(source)) * trait_mult(g, "xpMult")
+
+
+# Progress through the current level, 0.0-1.0 (1.0 at the top level).
+static func level_progress(g: Dictionary) -> float:
+	var next := next_level_xp(g)
+	if next < 0:
+		return 1.0
+	var floor_xp := float(level_row(int(g["level"]))["xpToReach"])
+	if float(next) <= floor_xp:
+		return 1.0
+	return clampf((float(g["xp"]) - floor_xp) / (float(next) - floor_xp), 0.0, 1.0)
+
+
+# Display multipliers against a trait-less L1 guard: { repel, attack, hp }.
+static func stat_mults(g: Dictionary) -> Dictionary:
+	var base := level_weight(1)
+	return {
+		"repel": repel_weight(g) / base,
+		"attack": weight(g) * trait_mult(g, "attackMult") / base,
+		"hp": weight(g) * trait_mult(g, "hpMult") / base,
+	}
+
+
 # Adds `source` XP to guard `id`, scaled by the guard's xpMult traits (XP may
 # be fractional). Each level crossed pushes one notification; the new wage
 # shows from the next Monday bill. Returns the XP gained.
@@ -520,7 +627,7 @@ static func award_xp(id: String, source: String) -> float:
 	var g := guard(id)
 	if g.is_empty():
 		return 0.0
-	var gained := float(xp_base(source)) * trait_mult(g, "xpMult")
+	var gained := xp_gain(g, source)
 	g["xp"] = float(g["xp"]) + gained
 	var rows: Array = GameData.MUSCLE["levels"]
 	while int(g["level"]) < rows.size() and float(g["xp"]) >= float(rows[int(g["level"])]["xpToReach"]):
@@ -650,7 +757,7 @@ static func train_block_reason(id: String) -> String:
 	if g.is_empty():
 		return "No such guard."
 	if not is_available(id):
-		return "Not available."
+		return unavailable_reason(g)
 	if int(GameState.state["player"]["cash"]) < train_cost(g):
 		return "Not enough cash."
 	return ""

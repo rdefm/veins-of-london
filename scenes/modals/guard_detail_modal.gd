@@ -30,7 +30,7 @@ static func build(container: VBoxContainer, data: Dictionary) -> void:
 	container.add_child(MapCardStyle.footer([
 		MapCardStyle.text_button("Close", func(): Modal.close()),
 		MapCardStyle.action_button("Train › £%d" % Muscle.train_cost(g), func(): _train(gid), Muscle.train_block_reason(gid) != "", Muscle.train_block_reason(gid)),
-		MapCardStyle.action_button("Post ▾", func(): Modal.open("guard_post", { "guardId": gid }), not Muscle.can_manage(), "Needs a Security Office."),
+		MapCardStyle.action_button("Post ▾", func(): Modal.open("guard_post", { "guardId": gid }), _post_block_reason(g) != "", _post_block_reason(g)),
 		MapCardStyle.action_button("Dismiss", func(): Modal.open("guard_dismiss", { "guardId": gid }), not Muscle.can_manage(), "Needs a Security Office."),
 	]))
 
@@ -41,6 +41,13 @@ static func xp_text(g: Dictionary) -> String:
 	if next < 0:
 		return "XP %d (top level)" % int(g["xp"])
 	return "XP %d / %d" % [int(g["xp"]), next]
+
+
+# Why the Post picker is closed for `g`, or "".
+static func _post_block_reason(g: Dictionary) -> String:
+	if not Muscle.can_manage():
+		return "Needs a Security Office."
+	return Muscle.unavailable_reason(g)
 
 
 static func _train(guard_id: String) -> void:

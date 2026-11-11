@@ -31,6 +31,7 @@ func run() -> void:
 	_xp_cases()
 	_responder_cases()
 	_loss_cases()
+	_readout_cases()
 	run_case("state_starts_empty_and_holds_only_primitives", func():
 		GameState.reset()
 		var m: Dictionary = GameState.state["muscle"]
@@ -393,6 +394,102 @@ func _monday() -> int:
 		if Calendar.is_monday(d):
 			return d
 	return day
+
+
+# ── Security UI readouts ──
+
+func _readout_cases() -> void:
+	run_case("status_kind_and_days_for_each_state", func():
+		_managed()
+		var day: int = GameState.state["world"]["day"]
+		var posted := _posted_guard(Muscle.POST_HOME, 1, [])
+		var reserve := _posted_guard(Muscle.POST_RESERVE, 1, [])
+		var training := _posted_guard("v1", 1, [])
+		training["trainingUntilDay"] = day + 1
+		var injured := _posted_guard(Muscle.POST_RESERVE, 1, [])
+		injured["injuredUntilDay"] = day + 2
+		assert_eq(Muscle.status(posted), { "kind": Muscle.STATUS_POSTED, "days": 0 })
+		assert_eq(Muscle.status(reserve), { "kind": Muscle.STATUS_RESERVE, "days": 0 })
+		assert_eq(Muscle.status(training), { "kind": Muscle.STATUS_TRAINING, "days": 1 })
+		assert_eq(Muscle.status(injured), { "kind": Muscle.STATUS_INJURED, "days": 2 })
+		assert_eq(Muscle.unavailable_reason(posted), "")
+		assert_eq(Muscle.unavailable_reason(training), "Training · back tomorrow")
+		assert_eq(Muscle.unavailable_reason(injured), "Injured · 2d")
+		training["trainingUntilDay"] = day + 3
+		assert_eq(Muscle.unavailable_reason(training), "Training · back in 3d")
+	)
+
+	run_case("train_and_post_block_reasons_name_the_cause", func():
+		_managed()
+		GameState.state["player"]["cash"] = 100000
+		var day: int = GameState.state["world"]["day"]
+		var injured := _posted_guard(Muscle.POST_RESERVE, 1, [])
+		injured["injuredUntilDay"] = day + 2
+		assert_eq(Muscle.train_block_reason(injured["id"]), "Injured · 2d")
+		assert_eq(Muscle.post_block_reason(injured["id"], Muscle.POST_HOME), "Injured · 2d")
+		var g := _posted_guard(Muscle.POST_RESERVE, 1, [])
+		assert_true(Muscle.train(g["id"])["ok"])
+		assert_eq(Muscle.train_block_reason(g["id"]), "Training · back tomorrow")
+		assert_eq(Muscle.post_block_reason(g["id"], "v1"), "Training · back tomorrow")
+	)
+
+	run_case("roster_counts_split_posted_ready_out", func():
+		_managed()
+		var day: int = GameState.state["world"]["day"]
+		_posted_guard(Muscle.POST_HOME, 1, [])
+		_posted_guard("v1", 2, [])
+		_posted_guard(Muscle.POST_RESERVE, 1, [])
+		var training := _posted_guard(Muscle.POST_HOME, 1, [])
+		training["trainingUntilDay"] = day + 1
+		var injured := _posted_guard(Muscle.POST_RESERVE, 3, [])
+		injured["injuredUntilDay"] = day + 3
+		var c := Muscle.roster_counts()
+		assert_eq(c, { "total": 5, "posted": 2, "ready": 1, "out": 2 })
+		assert_eq(c["posted"] + c["ready"] + c["out"], c["total"])
+	)
+
+	run_case("level_progress_and_xp_gain_follow_thresholds_and_traits", func():
+		_managed()
+		var g := _posted_guard(Muscle.POST_RESERVE, 2, [])
+		g["xp"] = 65
+		assert_almost_eq(Muscle.level_progress(g), 0.3, 0.0001, "L2 65 of 50-100")
+		g["xp"] = 50
+		assert_almost_eq(Muscle.level_progress(g), 0.0, 0.0001)
+		var top := _posted_guard(Muscle.POST_RESERVE, 5, [])
+		assert_almost_eq(Muscle.level_progress(top), 1.0, 0.0001, "top level is full")
+		var base := float(GameData.MUSCLE["training"]["xp"])
+		assert_almost_eq(Muscle.xp_gain(g, Muscle.XP_TRAINING), base, 0.0001)
+		assert_almost_eq(Muscle.xp_gain(_posted_guard(Muscle.POST_RESERVE, 1, ["quickStudy"]), Muscle.XP_TRAINING), base * 1.5, 0.0001)
+		assert_almost_eq(Muscle.xp_gain(_posted_guard(Muscle.POST_RESERVE, 1, ["slowLearner"]), Muscle.XP_TRAINING), base * 0.5, 0.0001)
+	)
+
+	run_case("stat_mults_are_relative_to_a_plain_l1_guard", func():
+		_managed()
+		var plain := Muscle.stat_mults(_posted_guard(Muscle.POST_RESERVE, 1, []))
+		assert_almost_eq(float(plain["repel"]), 1.0, 0.0001)
+		assert_almost_eq(float(plain["attack"]), 1.0, 0.0001)
+		assert_almost_eq(float(plain["hp"]), 1.0, 0.0001)
+		var hot := Muscle.stat_mults(_posted_guard(Muscle.POST_RESERVE, 2, ["hothead", "watchful"]))
+		assert_almost_eq(float(hot["repel"]), 1.5, 0.0001, "1.25 + 0.25")
+		assert_almost_eq(float(hot["attack"]), 1.25 * 1.25, 0.0001)
+		assert_almost_eq(float(hot["hp"]), 1.25 * 0.8, 0.0001)
+	)
+
+	run_case("score_parts_sum_to_the_score", func():
+		_managed()
+		var full := Muscle.security_score_parts(35.0, 35.0, 0.75)
+		assert_eq([full["score"], full["hardware"], full["guards"]], [100, 40, 60])
+		assert_eq([full["hardwareMax"], full["guardsMax"]], [40, 60])
+		var half := Muscle.security_score_parts(17.5, 35.0, 0.0)
+		assert_eq([half["score"], half["hardware"], half["guards"]], [20, 20, 0])
+		_posted_guard(Muscle.POST_HOME, 2, [])
+		_posted_guard("v1", 1, [])
+		for post_id in [Muscle.POST_HOME, "v1"]:
+			var parts := Muscle.post_score_parts(post_id)
+			assert_eq(int(parts["hardware"]) + int(parts["guards"]), int(parts["score"]), post_id)
+			assert_true(Muscle.score_text(post_id).begins_with("%d · " % int(parts["score"])), post_id)
+		assert_eq(Muscle.post_score_parts(Muscle.POST_RESERVE), {})
+	)
 
 
 func _loss_cases() -> void:

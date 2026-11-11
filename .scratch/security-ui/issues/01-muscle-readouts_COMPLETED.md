@@ -16,12 +16,12 @@ Mockup: https://claude.ai/artifact/3F5zB6ctS4FBERj2k4SqDx (Detail artboard).
 
 **Relevant files:** `systems/muscle.gd` (`is_available`, `post_block_reason`, `train_block_reason`, `next_level_xp`, `award_xp`, `security_score`, `vein_security_score`, `hq_security_score`, `weight`, `repel_weight`, `trait_mult`), `scenes/modals/guard_detail_modal.gd`, `tests/test_muscle.gd`, `data/constants.json` (`muscle.score`, `muscle.training`, level table), `.scratch/muscle/spec.md` (Levels/XP/training, Security score).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Status readout returns the right kind and days left for posted, reserve, training and injured guards
-- [ ] Train and Post block reasons name training / injury with days left; the guard detail sheet shows them
-- [ ] Roster counts match a seeded roster (posted + ready + out = total)
-- [ ] XP progress and training-XP preview respect thresholds and Quick study / Slow learner
-- [ ] Score split parts sum to `score_text`'s score for HQ and a vein
-- [ ] Tests in `tests/test_muscle.gd`; check_all clean; full suite green
-- [ ] PROSE-REVIEW: the new reason strings
+- [x] Status readout returns the right kind and days left for posted, reserve, training and injured guards
+- [x] Train and Post block reasons name training / injury with days left; the guard detail sheet shows them
+- [x] Roster counts match a seeded roster (posted + ready + out = total)
+- [x] XP progress and training-XP preview respect thresholds and Quick study / Slow learner
+- [x] Score split parts sum to `score_text`'s score for HQ and a vein
+- [x] Tests in `tests/test_muscle.gd`; check_all clean; full suite green
+- [x] PROSE-REVIEW: the new reason strings
