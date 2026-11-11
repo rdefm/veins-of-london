@@ -22,6 +22,16 @@ func run() -> void:
 		assert_eq(rows, RaidAlarmsSystem.summary_rows(), "refresh derives the same rows and identities")
 	)
 
+	run_case("rows_show_the_reserve_responder_line", func():
+		GameState.reset()
+		GameState.state["player"]["veins"] = [Fixtures.alarmed_vein("v1", "camden", "time")]
+		GameState.state["world"]["pendingDefendRaids"] = [{ "attackerId": "firm", "veinId": "v1", "siteId": "site_v1", "success": true, "outcomeType": "claim", "notificationId": "n1" }]
+		assert_eq(RaidAlarmsSystem.summary_rows()[0]["responders"], "Reserve: none free")
+		var g := Muscle.create_guard(2)
+		Muscle.guards().append(g)
+		assert_eq(RaidAlarmsSystem.summary_rows()[0]["responders"], "Reserve: 1 responding")
+	)
+
 	run_case("deferral_and_phone_back_leave_pending_alarm_unchanged", func():
 		GameState.reset()
 		var vein := Fixtures.alarmed_vein("v1", "camden", "time")

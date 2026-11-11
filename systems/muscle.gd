@@ -531,9 +531,110 @@ static func award_xp(id: String, source: String) -> float:
 
 # A successful repel at `post_id`: repel XP for each available guard posted
 # there (the guards whose weight counted).
-static func award_repel_xp(post_id: String) -> void:
+static func award_repel_xp(post_id: String, responder_ids: Array = []) -> void:
 	for g in available_at(post_id):
 		award_xp(g["id"], XP_REPEL)
+	for id in responder_ids:
+		award_xp(str(id), XP_REPEL)
+
+
+# ── Reserve responders ────────────────────────────────────────────────
+
+# "day:block" key for the current time block.
+static func block_key() -> String:
+	var world: Dictionary = GameState.state["world"]
+	return "%d:%d" % [int(world["day"]), int(world["timeBlock"])]
+
+
+# Places with a live alarm in answer order: HQ, then player veins most
+# valuable first. `extra` (a place being resolved right now) is included even
+# if its pending flag is already cleared.
+static func alarm_places(extra: String = "") -> Array:
+	var veins: Array = []
+	for outcome in GameState.state["world"].get("pendingDefendRaids", []):
+		var vein: Variant = Cultivating.find_vein(outcome.get("veinId", ""))
+		if vein != null and not veins.has(vein):
+			veins.append(vein)
+	if extra != "" and extra != POST_HOME:
+		var extra_vein: Variant = Cultivating.find_vein(extra)
+		if extra_vein != null and not veins.has(extra_vein):
+			veins.append(extra_vein)
+	veins.sort_custom(Cultivating.value_order)
+	var places: Array = []
+	if Home.has_pending_raid() or extra == POST_HOME:
+		places.append(POST_HOME)
+	for vein in veins:
+		places.append(vein["id"])
+	return places
+
+
+# This block's committed claims: { place: [guard ids] }. Claims from earlier
+# blocks are dropped.
+static func _claims(write: bool = false) -> Dictionary:
+	var ledger: Dictionary = GameState.state["muscle"]["responders"]
+	var key := block_key()
+	if not write:
+		return ledger.get(key, {})
+	for k in ledger.keys():
+		if k != key:
+			ledger.erase(k)
+	if not ledger.has(key):
+		ledger[key] = {}
+	return ledger[key]
+
+
+# Who would answer each place this block: committed claims stand; the
+# remaining free Reserve guards (highest level first) go to uncommitted places
+# in priority order, `defending` first. Returns { place: [guard ids] }.
+static func responder_plan(extra: String = "", defending: String = "") -> Dictionary:
+	var claims := _claims()
+	var plan: Dictionary = {}
+	var taken: Dictionary = {}
+	for place in claims:
+		plan[place] = claims[place]
+		for id in claims[place]:
+			taken[id] = true
+	var free: Array = reserve().filter(func(g): return is_available(g["id"]) and not taken.has(g["id"]))
+	free.sort_custom(func(a, b): return int(a["level"]) > int(b["level"]) or (int(a["level"]) == int(b["level"]) and str(a["id"]) < str(b["id"])))
+	var order: Array = alarm_places(extra if extra != "" else defending)
+	if defending != "":
+		order.erase(defending)
+		order.push_front(defending)
+	var cap := int(GameData.MUSCLE["reserveResponders"])
+	for place in order:
+		if plan.has(place):
+			continue
+		var picked: Array = []
+		while picked.size() < cap and not free.is_empty():
+			picked.append(free.pop_front()["id"])
+		plan[place] = picked
+	return plan
+
+
+# Commits and returns the Reserve guard ids answering `place` this block (up
+# to reserveResponders, highest level first, never one already committed
+# elsewhere this block). `defending`: the player is fighting there, so it
+# outranks every other alarm. `block` is the block key (block_key()).
+static func claim_responders(place: String, block: String = "", defending: bool = false) -> Array:
+	if block != "" and block != block_key():
+		return []
+	var claims := _claims(true)
+	if claims.has(place):
+		return claims[place].duplicate()
+	var plan := responder_plan(place, place if defending else "")
+	var ids: Array = plan.get(place, [])
+	claims[place] = ids.duplicate()
+	return ids.duplicate()
+
+
+# Σ repel weight of the guards with these ids.
+static func responder_repel_weight(ids: Array) -> float:
+	var total := 0.0
+	for id in ids:
+		var g := guard(str(id))
+		if not g.is_empty():
+			total += repel_weight(g)
+	return total
 
 
 static func train_cost(g: Dictionary) -> int:

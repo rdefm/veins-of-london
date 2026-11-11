@@ -28,6 +28,7 @@ func _build_alarm_row(row: Dictionary) -> Control:
 	c["content"].add_child(UI.label("District: %s" % row["district"]))
 	c["content"].add_child(UI.label("Deadline: %s" % row["deadline"]))
 	c["content"].add_child(UI.muted_label(row["consequence"]))
+	c["content"].add_child(UI.label(row["responders"]))
 	var actions := UI.hbox()
 	actions.add_child(UI.button("Go and defend", func():
 		if not RaidAlarmsSystem.defend(row["id"]):

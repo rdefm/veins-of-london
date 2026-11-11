@@ -29,6 +29,7 @@ func _is_pure(node: Variant) -> bool:
 func run() -> void:
 	_posting_cases()
 	_xp_cases()
+	_responder_cases()
 	run_case("state_starts_empty_and_holds_only_primitives", func():
 		GameState.reset()
 		var m: Dictionary = GameState.state["muscle"]
@@ -556,6 +557,75 @@ func _posted_guard(post_id: String, level: int, traits: Array) -> Dictionary:
 
 func _level_notes() -> Array:
 	return GameState.state["notifications"].filter(func(n): return String(n["text"]).contains("is now level"))
+
+
+func _responder_cases() -> void:
+	run_case("claim_responders_takes_two_highest_level_available_reserve_guards", func():
+		_managed()
+		var low := _reserve_guard(1)
+		var top := _reserve_guard(4)
+		var mid := _reserve_guard(3)
+		var hurt := _reserve_guard(5)
+		Muscle.injure(hurt)
+		var ids := Muscle.claim_responders("home", Muscle.block_key())
+		assert_eq(ids, [top, mid])
+		assert_true(not ids.has(low) and not ids.has(hurt), "lower and injured stay home")
+	)
+
+	run_case("a_guard_answers_one_alarm_per_block", func():
+		_managed()
+		for i in 3:
+			_reserve_guard(2)
+		var first := Muscle.claim_responders("home", Muscle.block_key())
+		var second := Muscle.claim_responders("v1", Muscle.block_key())
+		assert_eq(first.size(), 2)
+		assert_eq(second.size(), 1, "only one guard left")
+		for id in second:
+			assert_true(not first.has(id), "never two alarms")
+		assert_eq(Muscle.claim_responders("home", Muscle.block_key()), first, "repeat claim is stable")
+		GameState.state["world"]["timeBlock"] += 1
+		assert_eq(Muscle.claim_responders("v1", Muscle.block_key()).size(), 2, "next block starts clean")
+	)
+
+	run_case("responder_priority_is_defended_fight_then_hq_then_veins", func():
+		_managed()
+		Fixtures.seed_vein("v2", 20)
+		for i in 4:
+			_reserve_guard(2)
+		GameState.state["home"]["pendingRaid"] = true
+		GameState.state["world"]["pendingDefendRaids"] = [
+			{ "attackerId": "firm", "veinId": "v1", "siteId": "site_v1", "notificationId": "n1" },
+			{ "attackerId": "firm", "veinId": "v2", "siteId": "site_v2", "notificationId": "n2" },
+		]
+		var fight := Muscle.claim_responders("v2", Muscle.block_key(), true)
+		assert_eq(fight.size(), 2, "defended fight first")
+		var plan := Muscle.responder_plan()
+		assert_eq(plan["home"].size(), 2, "HQ next")
+		assert_eq(plan["v1"].size(), 0, "vein gets none")
+	)
+
+	run_case("responders_enter_the_defend_fight_at_round_three_and_get_defend_xp", func():
+		_managed()
+		var a := _reserve_guard(3)
+		var b := _reserve_guard(2)
+		Combat.start_home_alarm_defend_combat()
+		var combat: Dictionary = GameState.state["combat"]
+		assert_eq(combat["allyQueue"].size(), 2)
+		for entry in combat["allyQueue"]:
+			assert_eq(entry["arriveRound"], 3)
+		assert_true(Muscle.claim_responders("home", Muscle.block_key()).has(a) and Muscle.claim_responders("home", Muscle.block_key()).has(b))
+	)
+
+	run_case("repel_xp_goes_to_posted_guards_and_responders", func():
+		_managed()
+		var posted := _posted_guard("home", 1, [])
+		var rid := _reserve_guard(2)
+		var before := float(Muscle.guard(rid)["xp"])
+		Muscle.award_repel_xp("home", [rid])
+		assert_true(float(Muscle.guard(rid)["xp"]) > before, "responder earned XP")
+		assert_true(float(posted["xp"]) > 0.0, "posted guard earned XP")
+		assert_true(Muscle.responder_repel_weight([rid]) > 0.0)
+	)
 
 
 func _xp_cases() -> void:

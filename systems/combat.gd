@@ -621,6 +621,7 @@ static func start_home_alarm_defend_combat(ally_ids: Array = []) -> void:
 			# PROSE-REVIEW: recruit joining an HQ defence.
 			log_lines.append("%s is in the flat with you." % Contacts.display_name(contact_id))
 	_add_guard_allies(allies, Muscle.POST_HOME, log_lines)
+	_add_responder_allies(allies, Muscle.POST_HOME, log_lines)
 	var guard_kit := { "items": GuardKit.hq_active_units().duplicate(true), "used": {} }
 	_start_combat(CONTEXT_HOME_ALARM_DEFEND, null, [_home_raider_enemy(enemy_level("homeAlarmDefend"))], log_lines,
 		"", allies, null, {}, guard_kit)
@@ -709,6 +710,7 @@ static func start_defend_vein(vein_id: String, value_tier: int, attacker_id: Str
 	var vein = Cultivating.find_vein(vein_id)
 	if vein != null and Cultivating.is_player_vein(vein):
 		_add_guard_allies(allies, vein_id, log_lines)
+		_add_responder_allies(allies, vein_id, log_lines)
 	var guard_kit: Dictionary = {} if vein == null else { "items": GuardKit.active_units(vein).duplicate(true), "used": {} }
 	_start_combat(CONTEXT_DEFEND_VEIN, vein_id, enemies, log_lines, "", allies, null, raider_kit, guard_kit)
 
@@ -771,6 +773,21 @@ static func build_guard_ally(g: Dictionary = {}) -> Dictionary:
 
 # End of a defend fight: every guard who fought earns defend XP, win or lose;
 # one knocked to 0 HP is injured. A repel never reaches here, so never injures.
+static func _add_responder_allies(allies: Array, place: String, log_lines: Array) -> void:
+	var ids := Muscle.claim_responders(place, Muscle.block_key(), true)
+	var arrive := int(GameData.RAID_SECURITY["reinforcement"]["arriveRound"])
+	for id in ids:
+		var g := Muscle.guard(str(id))
+		if g.is_empty():
+			continue
+		var ally := build_guard_ally(g)
+		ally["arriveRound"] = arrive
+		allies.append(ally)
+	if ids.size() > 0:
+		# PROSE-REVIEW: Reserve guards answering the alarm.
+		log_lines.append("Word's gone out to the Reserve. Help is on its way." if ids.size() == 1 else "Word's gone out to the Reserve. %d guards are on their way." % ids.size())
+
+
 static func _settle_guard_allies(allies: Array) -> void:
 	for ally in allies:
 		var id := str(ally.get("guardId", ""))
@@ -906,10 +923,12 @@ static func _start_round_combat(context: String, vein_id, enemies: Array, log_li
 		enemy_cap = mini(enemy_cap, int(live["enemyWaves"]))
 	var timed := enemies.filter(func(e: Dictionary) -> bool: return e.has("arriveRound"))
 	var opening := enemies.filter(func(e: Dictionary) -> bool: return not e.has("arriveRound"))
+	var timed_allies := allies.filter(func(a: Dictionary) -> bool: return a.has("arriveRound"))
+	var opening_allies := allies.filter(func(a: Dictionary) -> bool: return not a.has("arriveRound"))
 	combat.merge({
 		"context": context, "veinId": vein_id,
 		"enemies": opening.slice(0, enemy_cap), "enemyQueue": opening.slice(enemy_cap) + timed,
-		"allies": allies.slice(0, SQUAD_MAX - 1), "allyQueue": allies.slice(SQUAD_MAX - 1),
+		"allies": opening_allies.slice(0, SQUAD_MAX - 1), "allyQueue": opening_allies.slice(SQUAD_MAX - 1) + timed_allies,
 		"locationKey": location_key,
 		"onWin": on_win, "raiderKit": {}, "guardKit": {}, "slotsUsed": [],
 		# The player's real loadout slots as each pick found them, so its

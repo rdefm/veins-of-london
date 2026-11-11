@@ -8,6 +8,19 @@ extends RefCounted
 
 
 static func summary_rows() -> Array[Dictionary]:
+	var rows := _base_rows()
+	var plan := Muscle.responder_plan()
+	for row in rows:
+		var place: String = Muscle.POST_HOME if row["kind"] == "home" else row["veinId"]
+		row["responders"] = _responder_line(plan.get(place, []).size())
+	return rows
+
+
+static func _responder_line(n: int) -> String:
+	return "Reserve: %d responding" % n if n > 0 else "Reserve: none free"
+
+
+static func _base_rows() -> Array[Dictionary]:
 	var rows: Array[Dictionary] = []
 	if Home.has_pending_raid():
 		var notification_id: Variant = GameState.state["home"].get("pendingRaidNotificationId")

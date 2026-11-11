@@ -858,16 +858,17 @@ static func _guards_repel_defend_raid(outcome: Dictionary) -> bool:
 	if vein == null:
 		return false
 
+	var responders := Muscle.claim_responders(vein["id"], Muscle.block_key())
 	var guard_count: int = Cultivating.vein_guard_count(vein)
-	if guard_count <= 0:
+	if guard_count + responders.size() <= 0:
 		return false
 	var active := GuardKit.active_units(vein)
-	var chance := GuardKit.repel_chance_with(guard_repel_chance(Cultivating.vein_repel_weight(vein)), active)
+	var chance := GuardKit.repel_chance_with(guard_repel_chance(Cultivating.vein_repel_weight(vein) + Muscle.responder_repel_weight(responders)), active)
 	var used := GuardKit.spend_repel_units(vein.get("guardKit", {}), active)
 	if not Rng.chance(chance):
 		return false
 	GuardKit.refill_vein(vein, GuardKit.recipe_totals_of_list(used))
-	Muscle.award_repel_xp(vein["id"])
+	Muscle.award_repel_xp(vein["id"], responders)
 	FactionAI.note_fight_lost(outcome["attackerId"], Shares.PLAYER)
 
 	var district_name: String = GameData.DISTRICTS[vein["district"]]["name"]

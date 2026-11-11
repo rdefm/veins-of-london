@@ -124,16 +124,17 @@ static func guard_repel_chance(repel_weight: float) -> float:
 #
 # PROSE-REVIEW: drafted against CONTENT-GUIDE.md's tone.
 static func _guards_repel_pending_raid() -> bool:
+	var responders := Muscle.claim_responders(Muscle.POST_HOME, Muscle.block_key())
 	var guard_count: int = get_guard_count()
-	if guard_count <= 0:
+	if guard_count + responders.size() <= 0:
 		return false
 	var active := GuardKit.hq_active_units()
-	var chance := GuardKit.repel_chance_with(guard_repel_chance(get_guard_weight_repel()), active)
+	var chance := GuardKit.repel_chance_with(guard_repel_chance(get_guard_weight_repel() + Muscle.responder_repel_weight(responders)), active)
 	var used := GuardKit.spend_repel_units(GameState.state["home"].get("guardKit", {}), active)
 	if not Rng.chance(chance):
 		return false
 	GuardKit.refill_hq(GuardKit.recipe_totals_of_list(used))
-	Muscle.award_repel_xp(Muscle.POST_HOME)
+	Muscle.award_repel_xp(Muscle.POST_HOME, responders)
 	var text := "Your guards caught them at HQ and saw them off before you got back. Nothing lost."
 	if not used.is_empty():
 		text += " They went through %s." % GuardKit.used_items_text(used)
