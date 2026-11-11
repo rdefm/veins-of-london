@@ -285,3 +285,41 @@ func run() -> void:
 		assert_true(not row.disabled)
 		panel.free()
 	)
+
+
+	run_case("guard_row_offers_assign_hire_and_manage_with_the_office", func():
+		GameState.reset()
+		GameState.state["home"]["rooms"] = ["securityOffice"]
+		var vein := Fixtures.seed_vein("v1", 50)
+		var panel := VeinDetailPanel.build(vein)
+		assert_true(_label_texts(panel).has("Guards 0/%d" % Muscle.cap("v1")))
+		var hire := panel.find_children("GuardHireButton", "Button", true, false)
+		assert_eq(hire.size(), 1, "empty Reserve shows the Hire link")
+		assert_eq((hire[0] as Button).text, "No one in reserve — Hire ›")
+		(hire[0] as Button).pressed.emit()
+		assert_eq(GameState.state["modal"]["type"], "guard_hire")
+		panel.free()
+
+		var g := Muscle.create_guard(1)
+		Muscle.guards().append(g)
+		panel = VeinDetailPanel.build(vein)
+		var assign := panel.find_children("GuardAssignButton", "Button", true, false)
+		assert_eq(assign.size(), 1, "Reserve guard enables + Assign")
+		(assign[0] as Button).pressed.emit()
+		assert_eq(GameState.state["modal"]["type"], "guard_assign")
+		var manage := panel.find_children("GuardManageButton", "Button", true, false)
+		(manage[0] as Button).pressed.emit()
+		assert_eq(GameState.state["currentScreen"], "security")
+		panel.free()
+	)
+
+	run_case("guard_row_without_the_office_is_a_hint_with_no_controls", func():
+		GameState.reset()
+		var vein := Fixtures.seed_vein("v1", 50)
+		var panel := VeinDetailPanel.build(vein)
+		assert_true(_label_texts(panel).has("Guards need a Security Office."))
+		assert_eq(panel.find_children("GuardAssignButton", "Button", true, false).size(), 0)
+		assert_eq(panel.find_children("GuardHireButton", "Button", true, false).size(), 0)
+		assert_eq(panel.find_children("GuardManageButton", "Button", true, false).size(), 0)
+		panel.free()
+	)

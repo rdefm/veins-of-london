@@ -103,3 +103,25 @@ func run() -> void:
 
 		screen.free()
 	)
+
+	run_case("hq_door_guard_tile_is_a_readout_with_a_deep_link_to_security", func():
+		GameState.reset()
+		GameState.state["home"]["rooms"] = ["securityOffice"]
+		var screen := HqDoorScreen.new()
+		screen._ready()
+		var tile := screen.find_children("GuardTile", "Button", true, false)
+		assert_eq(tile.size(), 1)
+		assert_eq((tile[0] as Button).text, "Guards 0/%d · Manage ›" % Muscle.cap("home"))
+		(tile[0] as Button).pressed.emit()
+		assert_eq(GameState.state["currentScreen"], "security")
+		screen.free()
+	)
+
+	run_case("hq_door_without_the_office_shows_a_hint_and_no_link", func():
+		GameState.reset()
+		var screen := HqDoorScreen.new()
+		screen._ready()
+		assert_true(NodeQuery.label_texts(screen).has("Guards need a Security Office."))
+		assert_eq(screen.find_children("GuardTile", "Button", true, false).size(), 0)
+		screen.free()
+	)

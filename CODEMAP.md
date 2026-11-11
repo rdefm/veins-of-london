@@ -150,7 +150,7 @@ overlays; hides the top board on title/intro/combat and the nav dock per screen.
 | hq.gd | HQ tab: renders the home tier's room plate (bedsit fallback), routes zone taps to sub-screens |
 | hq_dial.gd | HQ Dial sub-view: embeds DialLoadoutMenu (no complication rows) above the device art with flanking Complication sockets |
 | dial_loadout_menu.gd | `DialLoadoutMenu.build(owner_id, with_complication_rows)`: shared Dial loadout card (readouts, seat/unseat/swap, wind, load/unload); null when owner has no Dial (owner = "" player or a contact id, e.g. James). Used by Profile and HQ Dial |
-| hq_door.gd | Security zone (lock/cameras/door/alarm/ward); HQ kit row opens the HQ stocking sheet; Guard kits row opens hq_guard_kit |
+| hq_door.gd | Security zone (lock/cameras/door/alarm/ward); guard tile = HQ headcount readout + Manage › to security (hint, no link without the Security Office); HQ kit row opens the HQ stocking sheet; Guard kits row opens hq_guard_kit |
 | security.gd | Security screen (from the Security Office tile): Posts tab (HQ / each vein / Reserve with headcount, cost, kit; + Assign, → Reserve) and Guards tab (rows, Hire, row opens guard detail) |
 | hq_guard_kit.gd | Guard Kit list: HQ kit row on top (`build_hq_row`, shared with hq_door), then one row per player vein with guards or a non-empty kit (name, n/cap, summary, idle); a row opens that kit's stocking sheet |
 | hq_floorplan.gd | Noticeboard: tiers with a plan show FloorplanView (tap slot → choose/replace use); others show the room-tile grid. Contact assignment, Let go for hires, seats used/total and seat upgrade for staffed rooms |
@@ -219,7 +219,7 @@ overlays; hides the top board on title/intro/combat and the nav dock per screen.
 | turn_order_strip.gd | Combat turn-order strip: one card per caller-built entry (an action). Tap selects; drag scrolls; selected/`focused` card expands. Damage-tier sign frames, optional action/guard/status lines, dimmed ⏸ frozen cards, +1 Powder tab, HP ghost drain, `advance_to()` carousel; `flip` entries flap `?` to the intent; fight-intro `deal_in()` + `pulse_player_card()` |
 | ui.gd | Shared Control builders, time-cost labels, lot price text ("£75/10"), ui_action_red accent + bordered-panel/action-button StyleBoxFlat helpers, segmented_control (red-rule selected) + switch_row (44px on/off) |
 | vein_bubble.gd | Compact player-vein tap bubble: pin-anchored card, Lv segments, condition needle with 50/90+ scale, outline development/raid cues, round Harvest (light/hard chooser)/Cultivate actions, cultivator picker + hold-target stepper (via Rooms) while anyone holds Cultivation; tapping the info area opens vein_detail_panel.gd instead of running an action |
-| vein_detail_panel.gd | Floating map_card_style.gd-skinned vein detail (mapNav.selectedVeinId): compact level/location, condition, drift/development/raid/security cues, three icon action tiles, security/guard kit row/Apply item…/alarm/Defend; reuses VeinBubble's level/condition builders |
+| vein_detail_panel.gd | Floating map_card_style.gd-skinned vein detail (mapNav.selectedVeinId): compact level/location, condition, drift/development/raid/security cues, three icon action tiles, security/guard row (count, + Assign or Hire link, Manage ›; hint without the office)/guard kit row/Apply item…/alarm/Defend; reuses VeinBubble's level/condition builders |
 
 ## scenes/modals/*.gd — modal content, one script per type
 

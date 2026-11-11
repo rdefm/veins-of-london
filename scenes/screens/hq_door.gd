@@ -49,11 +49,29 @@ func _build() -> void:
 	for security_id in GameData.HOME_SECURITY.keys():
 		grid.add_child(_build_security_slot(security_id))
 
+	content.add_child(_build_guard_tile())
 	content.add_child(HqGuardKitScreen.build_hq_row())
 
 	var kits := MapCardStyle.option_row("Guard kits ›", func(): Nav.go_to("hq_guard_kit"))
 	kits.name = "GuardKitsButton"
 	content.add_child(kits)
+# Guard readout: HQ headcount against the cap plus a deep link to Security. With
+# no Security Office, a hint and no link.
+func _build_guard_tile() -> Control:
+	var count := Muscle.guards_at(Muscle.POST_HOME).size()
+	var text := "Guards %d/%d" % [count, Muscle.cap(Muscle.POST_HOME)]
+	if not Muscle.can_manage():
+		var c := MapCardStyle.card(12)
+		c["panel"].name = "GuardTile"
+		c["panel"].size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		c["content"].add_child(UI.label(text))
+		c["content"].add_child(_tile_label("Guards need a Security Office.", true))
+		return c["panel"]
+	var tile := MapCardStyle.option_row("%s · Manage ›" % text, func(): Nav.go_to("security"))
+	tile.name = "GuardTile"
+	return tile
+
+
 func _tile_label(text: String, muted: bool = false) -> Label:
 	var l: Label = UI.muted_label(text) if muted else UI.label(text)
 	l.custom_minimum_size.x = minf(l.custom_minimum_size.x, TILE_LABEL_MAX_WIDTH)

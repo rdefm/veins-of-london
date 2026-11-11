@@ -48,6 +48,7 @@ static func build(vein: Dictionary) -> Control:
 	var security_button: Variant = _build_security_button(vein)
 	if security_button != null:
 		content.add_child(security_button)
+	content.add_child(_build_guard_row(vein))
 	content.add_child(_build_guard_kit_row(vein))
 	content.add_child(_build_apply_item_row(vein))
 	content.add_child(_divider())
@@ -307,6 +308,39 @@ static func _build_security_button(vein: Dictionary) -> Variant:
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	UI.style_action_button(button, MapCardStyle.dim() if button.disabled else MapCardStyle.action())
 	return button
+
+
+# Posted-guard readout: count against the vein cap, "+ Assign" (Reserve picker)
+# or the Hire link when Reserve is empty, and "Manage ›" into Security. With no
+# Security Office only the count and a hint show.
+static func _build_guard_row(vein: Dictionary) -> Control:
+	var vein_id: String = vein["id"]
+	var col := UI.vbox(4)
+	col.name = "GuardRow"
+	var count := Muscle.guards_at(vein_id).size()
+	col.add_child(_label("Guards %d/%d" % [count, Muscle.cap(vein_id)], 11, MapCardStyle.dim()))
+	if not Muscle.can_manage():
+		var hint := _label("Guards need a Security Office.", 10, MapCardStyle.dim())
+		hint.name = "GuardHint"
+		col.add_child(hint)
+		return col
+	var row := UI.hbox(6)
+	if Muscle.available_at(Muscle.POST_RESERVE).is_empty():
+		var hire := MapCardStyle.text_button("No one in reserve — Hire ›", func(): Modal.open("guard_hire"))
+		hire.name = "GuardHireButton"
+		row.add_child(hire)
+	else:
+		var assign := MapCardStyle.text_button("+ Assign", func(): Modal.open("guard_assign", { "place": vein_id }), count >= Muscle.cap(vein_id))
+		assign.name = "GuardAssignButton"
+		row.add_child(assign)
+	var manage := MapCardStyle.text_button("Manage ›", func():
+		MapNav.close_vein_detail()
+		Nav.go_to("security")
+	)
+	manage.name = "GuardManageButton"
+	row.add_child(manage)
+	col.add_child(row)
+	return col
 
 
 # "Guard kit n/cap" plus the kit summary; opens the stocking sheet. Disabled
