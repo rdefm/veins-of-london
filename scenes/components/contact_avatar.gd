@@ -16,6 +16,25 @@ static func texture(contact_id: String) -> Texture2D:
 	return load(file) as Texture2D
 
 
+# Copy of `tex` with the corners outside `radius` (in avatar px at `size`)
+# made transparent; baked into alpha so no renderer clip mode is needed.
+static func _rounded(tex: Texture2D, size: float, radius: int) -> Texture2D:
+	var img := tex.get_image()
+	if img.is_compressed():
+		img.decompress()
+	img.convert(Image.FORMAT_RGBA8)
+	var w := img.get_width()
+	var h := img.get_height()
+	var r := minf(float(radius) / size * minf(w, h), minf(w, h) / 2.0)
+	for y in range(h):
+		for x in range(w):
+			var cx := clampf(x + 0.5, r, w - r)
+			var cy := clampf(y + 0.5, r, h - r)
+			if Vector2(x + 0.5 - cx, y + 0.5 - cy).length() > r:
+				img.set_pixel(x, y, Color(0, 0, 0, 0))
+	return ImageTexture.create_from_image(img)
+
+
 # Rounded avatar: the contact's headshot (nearest-filtered, cover-cropped) or,
 # without an image, `initials` on `fill`. `radius` rounds the corners; use
 # size / 2 for a circle.
@@ -26,13 +45,14 @@ static func build(contact_id: String, size: float, radius: int, initials: String
 	style.bg_color = fill
 	style.set_corner_radius_all(radius)
 	panel.add_theme_stylebox_override("panel", style)
+	panel.set_meta(ContactCards.OWN_STYLE_META, true)
 	panel.custom_minimum_size = Vector2(size, size)
 	panel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	var tex := texture(contact_id)
 	if tex != null:
-		panel.clip_children = CanvasItem.CLIP_CHILDREN_AND_DRAW
+		style.bg_color = Color(0, 0, 0, 0)
 		var rect := TextureRect.new()
-		rect.texture = tex
+		rect.texture = _rounded(tex, size, radius)
 		rect.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 		rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED

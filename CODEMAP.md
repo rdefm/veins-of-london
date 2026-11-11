@@ -177,7 +177,7 @@ overlays; hides the top board on title/intro/combat and the nav dock per screen.
 | shaders/stun_bob.gdshader | Stunned head-bob: vertex shear of the sprite top, feet fixed |
 | shaders/black_hole_pinch.gdshader | Black Hole warp: re-samples the screen behind it, pulled toward a centre point |
 | shaders/vcr_pause.gdshader | Time Pearl freeze look on a sprite: shiver, prev-frame flicker, rolling tracking band, desaturation, scanlines, tape-stop smear, play-snap sweep+jolt; alpha-masked |
-| contact_avatar.gd | Rounded contact avatar builder: `assets/contacts/<id>.png` headshot (nearest filter, cover-cropped, circular clip) or initials fallback when absent; used by Contacts rows and LodedInnit feed/People/profile |
+| contact_avatar.gd | Rounded contact avatar builder: `assets/contacts/<id>.png` headshot (nearest filter, corners baked transparent into a copy of the texture) or initials fallback when absent; used by Contacts rows and LodedInnit feed/People/profile |
 | contact_cards.gd | Shared contact/faction card builders (incl. membership actions, faction Benefits tier ladder, handler card, Owen card, Targets/Sourcing, Nadia's ledger + "Go with Nadia", key-member card, recipe-seller Trade door, pending-message actions (lowball, peace offer, favour)), inline Contacts action-row layout, Phone-OS chrome repaint (text-only for card-chrome apps) |
 | contract_card.gd | Draggable BizBrief Sales card |
 | line_chart.gd | `_draw` line chart (palette-id or app accent colour, optional overlaid series on a shared scale, max label, first/last day, optional counted event markers); opt-in touch/drag history-point inspection for Ticker, compact chart for BizBrief Stats |

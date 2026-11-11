@@ -4,6 +4,17 @@ Status: ready-for-agent
 
 All decisions here came from, or were approved in, the 2026-11-06 interview.
 
+## Amendment (2026-11-11): builds on the questline planner
+
+This spec is now phase 2 of the merged quest tooling. Phase 1 is `.scratch/questline-planner/spec.md` and must land first. Where the two conflict, the planner spec wins:
+
+- **Questline = one act**, e.g. "Collective Act 2", referencing a ToDo page id. ToDo page presentation (label, subtitle, accent, done flag) is a separate page entity edited here, and several acts can share a page.
+- **Structure lives in the planner's files** under `.scratch/questlines/`: quest ids, titles, follows-links, parallel/choice edges, events, statuses, notes. Game quest files hold mechanics only. On save, a data-driven quest's unlock is written from its follows-links ANDed with any extra gating. Story 8 ("unlocks after quest X") is the follows-link.
+- **Auto-layout flowchart, no manual positions.** Story 10 and "flowchart positions as editor-only data" are dropped.
+- **Existing questlines aren't read-only.** Their planning is editable from phase 1, and only their hard-coded mechanics are read-only until converted.
+- **Placeholder quests** exist only in planning files and never reach game data or quest lint.
+- **Storage** goes through the planner's storage interface, so the mechanics editor works in both folder-picker and server mode. Phone authoring of mechanics is still out of scope, but the tab must not break at phone width.
+
 ## Problem Statement
 
 New questlines can't be created without Claude. Quests live partly in objectives data and partly in hard-coded scripts, so authoring one means editing code: its goals, how it unlocks, how the player starts it, and what happens at the end. Setting flags from player choices or quest results also relies on typing exact names, and a typo fails silently.
