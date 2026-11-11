@@ -116,7 +116,7 @@ static func _capture_guard_shortfall(context: Dictionary, guards: Variant) -> vo
 	var shortfall: Dictionary = GuardUpkeep.pending_shortfall()
 	context["exceptions"].append({
 		"kind": "guardShortfall", "due": guards["due"], "reserve": shortfall["reserve"],
-		"deadline": shortfall["deadline"], "places": shortfall["places"].keys(),
+		"deadline": shortfall["deadline"], "places": GuardUpkeep.shortfall_places(shortfall["guards"]),
 	})
 
 

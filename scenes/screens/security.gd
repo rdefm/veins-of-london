@@ -4,14 +4,17 @@ extends Control
 # Security screen, opened from the Security Office tile. Posts tab: HQ, each
 # vein and Reserve with headcount, weekly cost and kit status, + Assign and
 # → Reserve. Guards tab: one row per hired guard (short name, level, wage,
-# traits, post), a detail sheet on tap and the Hire board. Reads state and
-# calls Muscle only.
+# traits, post), a detail sheet on tap and the Hire board. Costs tab: see
+# SecurityCosts. Reads state and calls Muscle / PhoneNav only.
 
 const SCREEN_ID := "security"
 const TAB_POSTS := "posts"
 const TAB_GUARDS := "guards"
+const TAB_COSTS := "costs"
 
 var _tab: String = TAB_POSTS
+# Costs-tab place rows currently expanded: { place id: true }.
+var _costs_open := {}
 
 
 func _ready() -> void:
@@ -23,6 +26,7 @@ func _ready() -> void:
 func _refresh() -> void:
 	if is_queued_for_deletion():
 		return
+	_tab = PhoneNav.take_security_tab(_tab)
 	for child in get_children():
 		child.queue_free()
 	_build()
@@ -48,15 +52,18 @@ func _build() -> void:
 	if not Muscle.can_manage():
 		content.add_child(UI.muted_label("The Security Office is gone. Guards stay employed, but you can't manage them."))
 	content.add_child(_build_tabs())
-	if _tab == TAB_POSTS:
-		_build_posts(content)
-	else:
-		_build_guards(content)
+	match _tab:
+		TAB_POSTS:
+			_build_posts(content)
+		TAB_GUARDS:
+			_build_guards(content)
+		_:
+			SecurityCosts.build(content, _costs_open, _toggle_cost_row)
 
 
 func _build_tabs() -> HBoxContainer:
 	var row := UI.hbox(8)
-	for entry in [[TAB_POSTS, "Posts"], [TAB_GUARDS, "Guards"]]:
+	for entry in [[TAB_POSTS, "Posts"], [TAB_GUARDS, "Guards"], [TAB_COSTS, "Costs"]]:
 		var tab: String = entry[0]
 		var b := MapCardStyle.option_row(entry[1], func(): _set_tab(tab), _tab == tab)
 		b.name = "Tab_%s" % tab
@@ -66,6 +73,14 @@ func _build_tabs() -> HBoxContainer:
 
 func _set_tab(tab: String) -> void:
 	_tab = tab
+	_refresh()
+
+
+func _toggle_cost_row(place_id: String) -> void:
+	if _costs_open.has(place_id):
+		_costs_open.erase(place_id)
+	else:
+		_costs_open[place_id] = true
 	_refresh()
 
 

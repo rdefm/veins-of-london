@@ -306,6 +306,17 @@ static func walk_from(post_id: String) -> bool:
 	return true
 
 
+# Guard `id` walks off, available or not: they go to the former list. False
+# when no such guard.
+static func walk(id: String) -> bool:
+	var g := guard(id)
+	if g.is_empty():
+		return false
+	guards().erase(g)
+	add_former(g)
+	return true
+
+
 # Guard slots at a post: the HQ / vein cap, or -1 for uncapped Reserve.
 static func cap(post_id: String) -> int:
 	if post_id == POST_RESERVE:
@@ -555,6 +566,7 @@ static func train(id: String) -> Dictionary:
 	GameState.state["player"]["cash"] -= cost
 	Bank.record(-cost, "Guard training")
 	BusinessStats.record_expense(cost, BusinessStats.EXPENSE_GUARD)
+	GuardUpkeep.record_history(GuardUpkeep.TRAINING_PLACE_ID, cost)
 	g["trainingUntilDay"] = int(GameState.state["world"]["day"]) + int(GameData.MUSCLE["training"]["days"])
 	award_xp(id, XP_TRAINING)
 	Notify.push("%s is away training for a day." % short_name(g), Notify.CATEGORY_INFO)

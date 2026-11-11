@@ -60,7 +60,9 @@ func new_game_state() -> Dictionary:
 		# BizBrief's open sub-view (PhoneNav.open_short_pay()), null = tabs.
 			# moveBookTarget is { owner, move } for the Profile Move Book to
 			# open expanded (PhoneNav.open_move_book()), consumed on build.
-		"phoneNav": { "app": "home", "selectedAxis": null, "selectedContactId": null, "selectedFaction": null, "confirmingNewGame": false, "revealFromIndex": null, "bizbriefView": null, "moveBookTarget": null },
+			# securityTab is the Security screen tab a deep link asked for
+			# (PhoneNav.open_guard_costs()), consumed on build.
+		"phoneNav": { "app": "home", "selectedAxis": null, "selectedContactId": null, "selectedFaction": null, "confirmingNewGame": false, "revealFromIndex": null, "bizbriefView": null, "moveBookTarget": null, "securityTab": null },
 		# The one exception above: survives save/load (SaveManager restores
 		# scrollX/scrollY as ints), so camera position persists. everOpened
 		# gates MapCanvas's one-shot auto-focus, false until first map open.

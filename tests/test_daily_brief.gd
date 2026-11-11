@@ -37,7 +37,7 @@ func run() -> void:
 		var deadline: int = GuardUpkeep.pending_shortfall()["deadline"]
 		assert_eq([rows[0]["tier"], rows[0]["action"], rows[0]["sort"]], ["urgent", { "to": "short_pay" }, deadline - int(GameState.state["world"]["day"])])
 		assert_true(String(rows[0]["consequence"]).find(Calendar.format_day(deadline)) != -1, "names the walk-off day")
-		GuardUpkeep.confirm_shortfall({})
+		GuardUpkeep.confirm_shortfall([])
 		assert_eq(_kind("guardShortfall"), [])
 	)
 

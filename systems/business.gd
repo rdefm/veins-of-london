@@ -409,7 +409,7 @@ static func _pay_guard_bill(expenses: Array) -> Dictionary:
 		result["reserve"] = int(business["pot"]) + int(business["float"])
 		business["pot"] = 0
 		business["float"] = 0
-		GuardUpkeep.start_shortfall(GuardUpkeep.player_guards_by_place(), result["reserve"], result["due"])
+		GuardUpkeep.start_shortfall(GuardUpkeep.hired_guard_ids(),result["reserve"], result["due"])
 		return result
 	var muscle_wages := GuardUpkeep.muscle_wages_by_place()
 	for place_id in muscle_wages:

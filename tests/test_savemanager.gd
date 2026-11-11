@@ -811,14 +811,15 @@ func run() -> void:
 		assert_eq(SaveManager.backfill_defaults(legacy)["guardUpkeep"]["pendingShortfall"], null, "old saves have none pending")
 
 		GameState.state["world"]["day"] = 8
-		GuardUpkeep.start_shortfall({ "home": 1 }, 250, 500)
+		seat_guards("home", 1)
+		GuardUpkeep.start_shortfall(GuardUpkeep.hired_guard_ids(), 250, 500)
 		var original: Dictionary = GameState.deep_copy(GameState.state)
 		var parsed: Dictionary = JSON.parse_string(JSON.stringify(GameState.state))
 		assert_true(SaveManager._load_save_dict(parsed)["ok"])
 		var shortfall: Dictionary = GameState.state["guardUpkeep"]["pendingShortfall"]
 		for key in ["day", "deadline", "reserve"]:
 			assert_eq(typeof(shortfall[key]), TYPE_INT, key)
-		assert_eq(typeof(shortfall["places"]["home"]), TYPE_INT)
+		assert_eq(shortfall["guards"], GuardUpkeep.hired_guard_ids())
 		assert_eq(GameState.state["guardUpkeep"], original["guardUpkeep"])
 
 		GameState.state["player"]["inventory"]["rewind"] = { "1": 1 }

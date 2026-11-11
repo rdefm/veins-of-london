@@ -1,8 +1,9 @@
-# BizBrief's short-pay sub-view (spec §Short-pay flow, Menu): a keep stepper
-# (0..guards) for HQ and each guarded vein in the pending guard shortfall,
-# with the live total cost, reserve and cash needed on top. Keep counts are
-# view state held here, defaulting to every guard kept; Confirm only calls
-# GuardUpkeep.confirm_shortfall().
+# BizBrief's short-pay sub-view (spec §Short-pay flow, Menu): a keep checklist
+# of the pending shortfall's guards grouped by post (HQ, each vein, Reserve),
+# each row with the guard's wage, and a running total against what the player
+# can pay. The ticked guard ids are view state held here, defaulting to every
+# guard kept; Confirm only calls GuardUpkeep.confirm_shortfall(). Needs no
+# Security Office.
 #
 # PROSE-REVIEW: every string in this file.
 extends RefCounted
@@ -14,7 +15,7 @@ const PAPER := Color("#fbfaf6")
 const MUTED := Color("#a9b5bd")
 const SIGNAL := Color("#e9353c")
 
-var _keep := {}
+var _keep: Array = []
 # The shortfall day _keep was seeded for; a new shortfall reseeds it.
 var _seeded_day := -1
 
@@ -32,36 +33,48 @@ func build(content: VBoxContainer, refresh: Callable) -> void:
 	page.add_child(UI.button("‹ BizBrief", func(): PhoneNav.close_bizbrief_view()))
 	page.add_child(UI.heading("Short Pay", 23))
 	var shortfall: Dictionary = GuardUpkeep.pending_shortfall()
-	var places := GuardUpkeep.short_pay_places()
+	var guards := GuardUpkeep.short_pay_guards()
 	if int(shortfall["day"]) != _seeded_day:
 		_seeded_day = int(shortfall["day"])
-		_keep = places.duplicate()
-	page.add_child(UI.muted_label("Choose who stays. The rest walk when you confirm. Decide by %s or they choose for you." % Calendar.format_day(int(shortfall["deadline"]))))
+		_keep = guards.map(func(g): return g["id"])
+	page.add_child(UI.muted_label("Tick who stays. The rest walk when you confirm. Decide by %s or they choose for you." % Calendar.format_day(int(shortfall["deadline"]))))
 	var c := UI.card()
-	c["content"].add_child(UI.heading("Guards by place", 15))
-	for place_id in places:
-		c["content"].add_child(_build_place_row(place_id, int(places[place_id]), refresh))
+	c["content"].add_child(UI.heading("Guards by post", 15))
+	for place_id in _post_order(guards):
+		c["content"].add_child(UI.muted_label(GuardUpkeep.place_label(place_id)))
+		for g in guards:
+			if g["post"] == place_id:
+				c["content"].add_child(_build_guard_row(g, refresh))
 	page.add_child(c["panel"])
 	page.add_child(_build_totals(refresh))
 	_style(page)
 
 
-func _build_place_row(place_id: String, guards: int, refresh: Callable) -> Control:
-	var keeping := clampi(int(_keep.get(place_id, 0)), 0, guards)
-	var row := UI.hbox()
-	row.add_child(UI.expand_fill(UI.label("%s · %d guard%s" % [GuardUpkeep.place_label(place_id), guards, "" if guards == 1 else "s"])))
-	var less := UI.button("−", func(): _set_keep(place_id, keeping - 1, refresh))
-	less.disabled = keeping <= 0
-	row.add_child(less)
-	row.add_child(UI.label("Keep %d" % keeping))
-	var more := UI.button("+", func(): _set_keep(place_id, keeping + 1, refresh))
-	more.disabled = keeping >= guards
-	row.add_child(more)
+# The posts the guards sit at: HQ, player veins in list order, then Reserve.
+func _post_order(guards: Array) -> Array:
+	var posts := {}
+	for g in guards:
+		posts[g["post"]] = true
+	var order := []
+	for place_id in [Muscle.POST_HOME] + GameState.state["player"]["veins"].map(func(v): return v["id"]) + [Muscle.POST_RESERVE]:
+		if posts.has(place_id):
+			order.append(place_id)
+	return order
+
+
+func _build_guard_row(g: Dictionary, refresh: Callable) -> Control:
+	var gid: String = g["id"]
+	var keeping := _keep.has(gid)
+	var row := UI.button("%s %s · L%d · £%d/wk" % ["☑" if keeping else "☐", Muscle.short_name(g), int(g["level"]), Muscle.wage(g)], func(): _toggle(gid, refresh))
+	row.name = "KeepGuard_%s" % gid
 	return row
 
 
-func _set_keep(place_id: String, count: int, refresh: Callable) -> void:
-	_keep[place_id] = count
+func _toggle(id: String, refresh: Callable) -> void:
+	if _keep.has(id):
+		_keep.erase(id)
+	else:
+		_keep.append(id)
 	refresh.call()
 
 
@@ -71,10 +84,10 @@ func _build_totals(refresh: Callable) -> Control:
 	var cash_needed := int(quote["cashNeeded"])
 	var c := UI.card()
 	c["content"].add_child(UI.heading("This week's payment", 15))
-	c["content"].add_child(UI.label("This week £%d · Reserve £%d" % [int(quote["cost"]), int(quote["reserve"])]))
-	c["content"].add_child(UI.label("From your cash £%d (you have £%d)" % [cash_needed, cash]))
+	c["content"].add_child(UI.label("Keeping £%d of £%d you can pay" % [int(quote["cost"]), int(quote["reserve"]) + cash]))
+	c["content"].add_child(UI.label("Reserve £%d · From your cash £%d (you have £%d)" % [int(quote["reserve"]), cash_needed, cash]))
 	var short := cash < cash_needed
-	c["content"].add_child(UI.action_button("Confirm", func(): _confirm(refresh), short, "£%d short. Keep fewer guards." % (cash_needed - cash)))
+	c["content"].add_child(UI.action_button("Confirm", func(): _confirm(refresh), short, "£%d short. Untick someone." % (cash_needed - cash)))
 	return c["panel"]
 
 

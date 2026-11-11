@@ -572,6 +572,11 @@ func _backfill_new_guard_upkeep_keys(result: Dictionary, defaults: Dictionary) -
 	for key in defaults["guardUpkeep"].keys():
 		if not guard_upkeep.has(key):
 			guard_upkeep[key] = GameState.deep_copy(defaults["guardUpkeep"][key])
+	# A shortfall recorded as place counts now lists guard ids: everyone hired is at risk.
+	var shortfall: Variant = guard_upkeep.get("pendingShortfall")
+	if shortfall is Dictionary and not shortfall.has("guards"):
+		shortfall.erase("places")
+		shortfall["guards"] = result.get("muscle", {}).get("guards", []).map(func(g): return g["id"])
 
 
 # A factionWar key added after the save was made (e.g. truces) starts at
@@ -974,7 +979,6 @@ func _restore_int_types(state: Dictionary) -> void:
 	if shortfall != null:
 		for key in ["day", "deadline", "reserve"]:
 			_int_key(shortfall, key)
-		_int_dict_values(shortfall.get("places", {}))
 	var morning =morning_accounts.get("latest")
 	if morning != null:
 		for key in ["day", "openingBalance", "closingBalance", "income", "expenses"]:

@@ -67,7 +67,7 @@ func run() -> void:
 		assert_eq(GameState.state["player"]["cash"], 1999, "cash untouched")
 		assert_eq(GameState.state["bankLog"], before["bankLog"])
 		assert_eq(GameState.state["guardUpkeep"]["history"], [])
-		assert_eq(GuardUpkeep.player_guards_by_place(), { "v1": 2, "v2": 1, "home": 1 }, "guards untouched")
+		assert_eq(_counts(), { "v1": 2, "v2": 1, "home": 1 }, "guards untouched")
 		assert_eq(GuardUpkeep.pending_shortfall()["reserve"], 0, "the short-pay flow starts")
 	)
 
@@ -137,7 +137,7 @@ func run() -> void:
 		GameState.state["world"]["day"] = monday
 		GameState.state["player"]["cash"] = 0
 		TimeSystem.daily_tick()
-		assert_eq(GuardUpkeep.pending_shortfall(), { "day": monday, "deadline": monday + 1, "places": { "v1": 2, "v2": 1, "home": 1 }, "reserve": 0 })
+		assert_eq(GuardUpkeep.pending_shortfall(), { "day": monday, "deadline": monday + 1, "guards": GuardUpkeep.hired_guard_ids(), "reserve": 0 })
 		assert_eq(GameState.state["bankLog"].filter(func(e): return e["label"] == "Guard wages").size(), 0, "nothing taken yet")
 		var v1 := GuardUpkeep.place_label("v1")
 		var warning := "Guard wages short: £2000 due. Unpaid guards walk on %s — %s, %s, HQ." % [Calendar.format_day(monday + 1), v1, GuardUpkeep.place_label("v2")]
@@ -151,7 +151,7 @@ func run() -> void:
 		_seed_pot_monday(1500, 100)
 		var monday: int = GameState.state["world"]["day"]
 		TimeSystem.daily_tick()
-		assert_eq(GuardUpkeep.pending_shortfall(), { "day": monday, "deadline": monday + 1, "places": { "v1": 2, "v2": 1, "home": 1 }, "reserve": 1564 })
+		assert_eq(GuardUpkeep.pending_shortfall(), { "day": monday, "deadline": monday + 1, "guards": GuardUpkeep.hired_guard_ids(), "reserve": 1564 })
 		assert_eq(MorningAccounts.latest()["exceptions"].filter(func(e): return e["kind"] == "guardShortfall")[0]["reserve"], 1564)
 	)
 
@@ -167,7 +167,7 @@ func run() -> void:
 		assert_eq(GuardUpkeep.resolve_due_shortfall(), {}, "not due before the grace rollover")
 		assert_eq(Cultivating.vein_raid_resist(v1), resist, "raid resist unchanged")
 		assert_eq(Home.guard_repel_chance(Home.get_guard_count()), repel, "HQ repel unchanged")
-		assert_eq(GuardUpkeep.player_guards_by_place(), { "v1": 2, "v2": 1, "home": 1 })
+		assert_eq(_counts(), { "v1": 2, "v2": 1, "home": 1 })
 	)
 
 	run_case("ignored_pot_era_shortfall_keeps_what_the_reserve_funds_and_floats_the_rest", func():
@@ -229,8 +229,9 @@ func run() -> void:
 		GuardUpkeep.pay_monday_bill()
 		GameState.state["world"]["day"] = monday + 7
 		GameState.state["player"]["cash"] = 500
-		GuardUpkeep.start_shortfall({ "home": 1 }, 0, 500)
-		assert_eq(GuardUpkeep.pending_shortfall()["places"], { "home": 1 }, "the older shortfall resolved first")
+		var home_ids := _ids({ "home": 1 })
+		GuardUpkeep.start_shortfall(home_ids, 0, 500)
+		assert_eq(GuardUpkeep.pending_shortfall()["guards"], home_ids, "the older shortfall resolved first")
 		assert_eq(Muscle.available_at("v1").size(), 0, "and its guards walked")
 		assert_eq(Home.get_guard_count(), 1, "the new shortfall's guards are still on duty")
 	)
@@ -252,8 +253,8 @@ func run() -> void:
 		GameState.state["world"]["day"] = monday
 		GameState.state["player"]["cash"] = 1200
 		GuardUpkeep.pay_monday_bill()
-		assert_eq(GuardUpkeep.short_pay_quote({ "v1": 1, "v2": 0, "home": 1 }), { "cost": 1000, "reserve": 0, "cashNeeded": 1000 })
-		var result := GuardUpkeep.confirm_shortfall({ "v1": 1, "v2": 0, "home": 1 })
+		assert_eq(GuardUpkeep.short_pay_quote(_ids({ "v1": 1, "home": 1 })), { "cost": 1000, "reserve": 0, "cashNeeded": 1000 })
+		var result := GuardUpkeep.confirm_shortfall(_ids({ "v1": 1, "home": 1 }))
 		assert_eq(result, { "ok": true, "paid": 1000, "walked": { "v1": 1, "v2": 1 } })
 		assert_eq(Muscle.available_at("v1").size(), 1, "one walks, one stays")
 		assert_eq(Muscle.available_at("v2").size(), 0, "keeping 0 loses the guard")
@@ -271,7 +272,7 @@ func run() -> void:
 		TimeSystem.daily_tick()
 		GameState.state["player"]["cash"] = 500
 		var float_before: int = GameState.state["business"]["float"]
-		var result := GuardUpkeep.confirm_shortfall({ "v1": 2, "v2": 1, "home": 1 })
+		var result := GuardUpkeep.confirm_shortfall(_ids({ "v1": 2, "v2": 1, "home": 1 }))
 		assert_eq(result, { "ok": true, "paid": 2000, "walked": {} })
 		assert_eq(GameState.state["player"]["cash"], 500 - (2000 - 1564), "cash covers what the reserve can't")
 		assert_eq(GameState.state["business"]["float"], float_before)
@@ -279,7 +280,7 @@ func run() -> void:
 		TimeSystem.daily_tick()
 		GameState.state["player"]["cash"] = 0
 		float_before = GameState.state["business"]["float"]
-		GuardUpkeep.confirm_shortfall({ "v1": 1, "v2": 1, "home": 1 })
+		GuardUpkeep.confirm_shortfall(_ids({ "v1": 1, "v2": 1, "home": 1 }))
 		assert_eq(GameState.state["player"]["cash"], 0, "no cash needed")
 		assert_eq(GameState.state["business"]["float"], float_before + 64, "1564 − 1500 leftover to the float")
 		assert_eq(GuardUpkeep.pending_shortfall(), null)
@@ -291,7 +292,7 @@ func run() -> void:
 		GameState.state["player"]["cash"] = 900
 		GuardUpkeep.pay_monday_bill()
 		var before: Dictionary = GameState.state.duplicate(true)
-		assert_eq(GuardUpkeep.confirm_shortfall({ "v1": 2 }), { "ok": false, "reason": "Not enough cash." })
+		assert_eq(GuardUpkeep.confirm_shortfall(_ids({ "v1": 2 })), { "ok": false, "reason": "Not enough cash." })
 		assert_eq(GameState.state, before, "nothing changed")
 	)
 
@@ -310,7 +311,7 @@ func run() -> void:
 		assert_true(GuardUpkeep.is_pending_shortfall_notification(warning), "the warning links to the menu")
 		assert_true(TopBar.open_notifications_log())
 		assert_eq([GameState.state["phoneNav"]["app"], GameState.state["phoneNav"]["bizbriefView"]], ["bizbrief", "shortPay"], "the board tap deep-links")
-		GuardUpkeep.confirm_shortfall({})
+		GuardUpkeep.confirm_shortfall([])
 		assert_true(not GuardUpkeep.is_pending_shortfall_notification(warning), "not once it's resolved")
 	)
 
@@ -335,13 +336,13 @@ func run() -> void:
 		assert_eq(GuardUpkeep.history_window_days(), [1, 2, 3])
 	)
 
-	run_case("cost_places_are_hq_then_player_veins_then_lost_veins_with_history", func():
+	run_case("cost_places_are_hq_veins_reserve_training_then_lost_veins_with_history", func():
 		var monday := _seed_guards()
 		GameState.state["world"]["day"] = monday
 		GuardUpkeep.record_payment("gone", 500)
-		assert_eq(GuardUpkeep.cost_places(), ["home", "v1", "v2", "v3", "gone"])
+		assert_eq(GuardUpkeep.cost_places(), ["home", "v1", "v2", "v3", "reserve", "training", "gone"])
 		GameState.state["world"]["day"] = monday + int(GameData.GUARD_UPKEEP["guardCostHistoryDays"])
-		assert_eq(GuardUpkeep.cost_places(), ["home", "v1", "v2", "v3"], "a lost vein drops out with its history")
+		assert_eq(GuardUpkeep.cost_places(), ["home", "v1", "v2", "v3", "reserve", "training"], "a lost vein drops out with its history")
 	)
 
 	run_case("next_monday_bill_is_every_current_guard_at_the_weekly_wage", func():
@@ -349,13 +350,97 @@ func run() -> void:
 		assert_eq(GuardUpkeep.next_monday_bill(), 500 * 4)
 	)
 
-	run_case("open_guard_costs_lands_on_the_bizbrief_sub_view_before_the_pot", func():
+	run_case("open_guard_costs_lands_on_the_security_costs_tab_and_clears_the_request", func():
 		_seed_guards()
 		assert_true(not Business.is_pot_active())
 		PhoneNav.open_guard_costs()
-		assert_eq([GameState.state["currentScreen"], GameState.state["phoneNav"]["app"], GameState.state["phoneNav"]["bizbriefView"]], ["phone", "bizbrief", "guardCosts"])
-		PhoneNav.close_bizbrief_view()
-		assert_eq(GameState.state["phoneNav"]["bizbriefView"], null)
+		assert_eq(GameState.state["currentScreen"], "security")
+		assert_eq(PhoneNav.take_security_tab("posts"), "costs")
+		assert_eq(PhoneNav.take_security_tab("posts"), "posts", "the request is consumed")
+	)
+
+	run_case("training_spend_lands_in_the_cost_history_and_this_weeks_total", func():
+		var monday := _seed_guards()
+		GameState.state["world"]["day"] = monday + 2
+		GameState.state["player"]["cash"] = 10000
+		GameState.state["home"]["rooms"] = ["securityOffice"]
+		assert_true(Muscle.train(Muscle.guards_at("home")[0]["id"])["ok"])
+		GuardUpkeep.record_payment("v1", 1000)
+		assert_eq(GuardUpkeep.week_spend(), { "wages": 1000, "training": 200 })
+		assert_eq(GuardUpkeep.place_week_spend("training"), 200)
+		assert_eq(GuardUpkeep.cost_series("training")[-1], 200)
+		GameState.state["world"]["day"] = monday + 7
+		assert_eq(GuardUpkeep.week_spend(), { "wages": 0, "training": 0 }, "a new week starts at Monday")
+	)
+
+	run_case("auto_resolve_drops_reserve_first_then_cheap_veins_then_hq_lowest_level_first", func():
+		var monday := _seed_guards()
+		seat_guards("reserve", 1)
+		var reserve_guard: Dictionary = Muscle.guards_at("reserve")[0]
+		reserve_guard["injuredUntilDay"] = monday + 30
+		seat_guards("v1", 1, 3)
+		for g in Muscle.guards():
+			g["traits"] = []
+		var order := GuardUpkeep.drop_order(Muscle.guards())
+		assert_eq(order[0]["id"], reserve_guard["id"], "Reserve first, injured included")
+		assert_eq(order[-1]["post"], "home", "HQ last")
+		var v1_levels: Array = order.filter(func(g): return g["post"] == "v1").map(func(g): return g["level"])
+		assert_eq(v1_levels, [1, 1, 3], "lowest level first within a place")
+		GameState.state["world"]["day"] = monday
+		GameState.state["player"]["cash"] = 0
+		GuardUpkeep.pay_monday_bill()
+		GameState.state["player"]["cash"] = 1000
+		GameState.state["world"]["day"] = monday + 1
+		var result := GuardUpkeep.resolve_due_shortfall()
+		assert_eq(result["kept"], 1, "£1000 buys the £500 HQ guard and half of nothing else")
+		assert_eq(Muscle.guards().size(), 1)
+		assert_eq(Muscle.guards()[0]["post"], "home")
+		assert_eq(Muscle.former().size(), 5, "walked guards land in former")
+	)
+
+	run_case("short_pay_keeps_exactly_the_ticked_ids_and_walks_the_rest_to_former", func():
+		var monday := _seed_guards()
+		seat_guards("reserve", 1)
+		for g in Muscle.guards():
+			g["traits"] = []
+		GameState.state["world"]["day"] = monday
+		GameState.state["player"]["cash"] = 100
+		GuardUpkeep.pay_monday_bill()
+		var rows := GuardUpkeep.short_pay_guards()
+		assert_eq(rows.size(), 5, "everyone hired is on the checklist, Reserve included")
+		assert_eq(rows[0]["post"], "reserve")
+		var keep: Array = [Muscle.guards_at("v1")[1]["id"], Muscle.guards_at("reserve")[0]["id"]]
+		assert_eq(GuardUpkeep.short_pay_quote(keep)["cost"], 1000, "the running total follows the ticks")
+		GameState.state["player"]["cash"] = 1000
+		var result := GuardUpkeep.confirm_shortfall(keep)
+		assert_eq(result["ok"], true)
+		var left: Array = Muscle.guards().map(func(g): return g["id"])
+		left.sort()
+		keep.sort()
+		assert_eq(left, keep, "exactly the ticked guards stay")
+		assert_eq(Muscle.former().size(), 3)
+		assert_eq(GameState.state["player"]["cash"], 0)
+	)
+
+	run_case("short_pay_works_with_the_security_office_lost", func():
+		var monday := _seed_guards()
+		GameState.state["home"]["rooms"] = []
+		assert_true(not Muscle.can_manage(), "no Security Office")
+		GameState.state["world"]["day"] = monday
+		GameState.state["player"]["cash"] = 0
+		GuardUpkeep.pay_monday_bill()
+		GameState.state["player"]["cash"] = 5000
+		assert_eq(GuardUpkeep.confirm_shortfall(GuardUpkeep.hired_guard_ids())["ok"], true)
+		assert_eq(GuardUpkeep.pending_shortfall(), null)
+	)
+
+	run_case("an_old_place_count_shortfall_migrates_to_guard_ids", func():
+		_seed_guards()
+		GameState.state["guardUpkeep"]["pendingShortfall"] = { "day": 8, "deadline": 9, "places": { "v1": 2 }, "reserve": 0 }
+		var saved: Dictionary = GameState.deep_copy(GameState.state)
+		var migrated: Dictionary = SaveManager.backfill_defaults(saved)["guardUpkeep"]["pendingShortfall"]
+		assert_eq(migrated["guards"], GuardUpkeep.hired_guard_ids())
+		assert_true(not migrated.has("places"))
 	)
 
 
@@ -371,7 +456,24 @@ func _seed_guards() -> int:
 	v3["security"] = "warded"
 	GameState.state["home"]["tier"] = "compound"
 	seat_guards("home", 1)
+	for g in Muscle.guards():
+		g["traits"] = []
 	return Calendar.monday_on_or_after(8)
+
+
+# Guards posted per place: { place id: count } for v1, v2 and HQ.
+func _counts() -> Dictionary:
+	return { "v1": Muscle.guards_at("v1").size(), "v2": Muscle.guards_at("v2").size(), "home": Muscle.guards_at("home").size() }
+
+
+# The ids of the first n guards (by id) at each place in `counts`.
+func _ids(counts: Dictionary) -> Array:
+	var ids: Array = []
+	for place_id in counts:
+		var at_place := Muscle.guards_at(place_id).map(func(g): return g["id"])
+		at_place.sort()
+		ids.append_array(at_place.slice(0, int(counts[place_id])))
+	return ids
 
 
 # _seed_guards() on its first Monday with the pot activated that day (Owen's

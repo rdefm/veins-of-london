@@ -62,7 +62,7 @@ func run() -> void:
 		var cost_link := NodeQuery.find_button(row, "£500/week ›")
 		assert_true(cost_link != null, "security row shows the weekly guard cost")
 		cost_link.pressed.emit()
-		assert_eq(GameState.state["phoneNav"]["bizbriefView"], PhoneNav.BIZBRIEF_GUARD_COSTS_VIEW)
+		assert_eq([GameState.state["currentScreen"], PhoneNav.take_security_tab("posts")], ["security", "costs"])
 
 		row.free()
 		screen.free()

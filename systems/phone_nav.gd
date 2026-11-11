@@ -9,7 +9,8 @@ extends RefCounted
 const APPS: Array[String] = ["alarms", "bizbrief", "dialer", "messages", "todo", "factions", "ticker", "profile", "saveload", "settings", "notifications", "bank", "property", "lodedinnit"]
 
 const BIZBRIEF_SHORT_PAY_VIEW := "shortPay"
-const BIZBRIEF_GUARD_COSTS_VIEW := "guardCosts"
+# SecurityScreen's Costs tab id (SecurityScreen.TAB_COSTS).
+const SECURITY_COSTS_TAB := "costs"
 
 
 static func open_app(app_id: String) -> void:
@@ -89,13 +90,19 @@ static func open_short_pay() -> void:
 	EventBus.mark_changed()
 
 
-# BizBrief's Guard Costs sub-view (spec §Visibility), from the expenses
-# breakdown and the vein/HQ security rows; open with or without the pot.
+# The Security screen's Costs tab, from BizBrief's guard rows and the
+# vein/HQ security rows; open with or without the pot or the Security Office.
 static func open_guard_costs() -> void:
-	Nav.go_to("phone")
-	open_app("bizbrief")
-	GameState.state["phoneNav"]["bizbriefView"] = BIZBRIEF_GUARD_COSTS_VIEW
-	EventBus.mark_changed()
+	GameState.state["phoneNav"]["securityTab"] = SECURITY_COSTS_TAB
+	Nav.go_to("security")
+
+
+# The Security tab a deep link asked for (`fallback` if none), cleared as it
+# is read; no state_changed, since it is called while the screen is building.
+static func take_security_tab(fallback: String) -> String:
+	var tab: Variant = GameState.state["phoneNav"].get("securityTab")
+	GameState.state["phoneNav"]["securityTab"] = null
+	return fallback if tab == null else str(tab)
 
 
 # Profile's Move Book on `owner` ("" = the player) with `move_id` expanded.

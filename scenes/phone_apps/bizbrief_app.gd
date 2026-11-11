@@ -11,8 +11,8 @@
 # (10-day business performance charts, expenses split by kind). The
 # selected tab, Brief page, Manage page, Staff person and ore-chart source are view state held here, not in
 # state.phoneNav, so they reset with the screen. state.phoneNav.bizbriefView "shortPay" shows the
-# short-pay sub-view (ShortPayView) instead while a guard shortfall is pending;
-# "guardCosts" shows the Guard Costs sub-view (GuardCostsView), pot or not.
+# short-pay sub-view (ShortPayView) instead while a guard shortfall is pending.
+# Guard totals and Brief rows deep-link to the Security screen's Costs tab.
 class_name BizBriefApp
 extends PhoneApp
 
@@ -22,7 +22,6 @@ const ContractsSystem := preload("res://systems/contracts.gd")
 const ContractCard := preload("res://scenes/components/contract_card.gd")
 const LineChartScript := preload("res://scenes/components/line_chart.gd")
 const ShortPayViewScript := preload("res://scenes/phone_apps/short_pay_view.gd")
-const GuardCostsViewScript := preload("res://scenes/phone_apps/guard_costs_view.gd")
 
 # Keyed by Contracts.has_staffed_sales(): whether the block-end Sales pass runs.
 const SALES_STATUS_TEXT := {
@@ -169,7 +168,6 @@ var _recipe_anchors := {}
 # Procurement cultivator sections by contact id, for Staff's Assignments link.
 var _cultivator_anchors := {}
 var _short_pay := ShortPayViewScript.new()
-var _guard_costs := GuardCostsViewScript.new()
 var _root: Control = null
 var _scroll: ScrollContainer = null
 var _production_log_anchor: Control = null
@@ -179,9 +177,6 @@ var _serif: SystemFont = null
 func build(content: VBoxContainer) -> void:
 	if GameState.state["phoneNav"].get("bizbriefView") == PhoneNav.BIZBRIEF_SHORT_PAY_VIEW and GuardUpkeep.pending_shortfall() != null:
 		_short_pay.build(content, refresh)
-		return
-	if GameState.state["phoneNav"].get("bizbriefView") == PhoneNav.BIZBRIEF_GUARD_COSTS_VIEW:
-		_guard_costs.build(content, refresh)
 		return
 	if (_tab == STAFF_TAB and not _staff_tab_open()) or (_tab == STATS_TAB and not Business.is_pot_active()):
 		_tab = BRIEF_TAB
@@ -2300,6 +2295,7 @@ func _build_operations(account: Dictionary) -> Control:
 		c["content"].add_child(UI.muted_label("Lost %d vein%s" % [account["losses"]["veins"], "" if account["losses"]["veins"] == 1 else "s"]))
 	if account.get("guardWages") != null:
 		c["content"].add_child(UI.label(MorningAccountsSystem.guard_wages_label(account["guardWages"])))
+		c["content"].add_child(UI.button("Guard costs ›", func(): PhoneNav.open_guard_costs()))
 	for exception in account["exceptions"]:
 		match exception["kind"]:
 			"missedJob":

@@ -155,7 +155,7 @@ static func _guard_shortfall_rows(rows: Array[Dictionary]) -> void:
 	if shortfall == null:
 		return
 	var deadline: int = shortfall["deadline"]
-	var values := { "deadline": Calendar.format_day(deadline), "places": GuardUpkeep.places_text(shortfall["places"].keys()) }
+	var values := { "deadline": Calendar.format_day(deadline), "places": GuardUpkeep.places_text(GuardUpkeep.shortfall_places(shortfall["guards"])) }
 	rows.append(_row("guardShortfall", "guardShortfall", values, { "to": "short_pay" }, deadline - int(GameState.state["world"]["day"])))
 
 
