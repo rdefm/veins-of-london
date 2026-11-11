@@ -1,9 +1,8 @@
 class_name SecurityScreen
 extends Control
 
-# Security screen, opened from the Security Office tile. Posts tab: HQ, each
-# vein and Reserve with headcount, weekly cost and kit status, + Assign and
-# → Reserve. Guards tab: filter chips plus one GuardWidgets row per hired
+# Security screen, opened from the Security Office tile. Posts tab: see
+# SecurityPosts. Guards tab: filter chips plus one GuardWidgets row per hired
 # guard (level-sorted), a detail sheet on tap and the Hire board. Costs tab: see
 # SecurityCosts. Reads state and calls Muscle / PhoneNav only.
 
@@ -26,6 +25,8 @@ var _tab: String = TAB_POSTS
 var _filter: String = FILTER_ALL
 # Costs-tab place rows currently expanded: { place id: true }.
 var _costs_open := {}
+# Posts-tab folded vein cards the player has expanded: { place id: true }.
+var _posts_open := {}
 
 
 func _ready() -> void:
@@ -146,55 +147,16 @@ static func place_header(place_id: String) -> String:
 	return "%s · %d/%d · Security %s" % [label, count, cap, Muscle.score_text(place_id)]
 
 
-# Weekly wages of everyone posted at `place_id`, "£1500/week" or "".
-static func place_cost_text(place_id: String) -> String:
-	var total := int(GuardUpkeep.muscle_wages_by_place().get(place_id, 0))
-	return "£%d/week" % total if total > 0 else ""
-
-
-# "Kit 1/4 …" for HQ and veins; "" for Reserve (no kit).
-static func place_kit_text(place_id: String) -> String:
-	if place_id == Muscle.POST_RESERVE:
-		return ""
-	if place_id == Muscle.POST_HOME:
-		return GuardKit.status_text(GameState.state["home"].get("guardKit", {}), GuardKit.hq_capacity())
-	var vein: Variant = Cultivating.find_vein(place_id)
-	if vein == null:
-		return ""
-	return GuardKit.status_text(vein.get("guardKit", {}), GuardKit.capacity(vein))
+func _toggle_post_open(place_id: String) -> void:
+	if _posts_open.has(place_id):
+		_posts_open.erase(place_id)
+	else:
+		_posts_open[place_id] = true
+	_refresh()
 
 
 func _build_posts(content: VBoxContainer) -> void:
-	for place_id in place_ids():
-		var c := MapCardStyle.card(12)
-		c["panel"].size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		c["panel"].name = "Post_%s" % place_id
-		content.add_child(c["panel"])
-		c["content"].add_child(MapCardStyle.section_label(place_header(place_id)))
-		var details: Array[String] = []
-		for text in [place_cost_text(place_id), place_kit_text(place_id)]:
-			if text != "":
-				details.append(text)
-		if not details.is_empty():
-			c["content"].add_child(UI.muted_label(" · ".join(details)))
-		for g in Muscle.guards_at(place_id):
-			c["content"].add_child(_build_post_row(g))
-		if place_id != Muscle.POST_RESERVE:
-			var full: bool = Muscle.guards_at(place_id).size() >= Muscle.cap(place_id)
-			var assign := MapCardStyle.action_button("+ Assign", func(): Modal.open("guard_assign", { "place": place_id }), full or not Muscle.can_manage())
-			assign.name = "Assign_%s" % place_id
-			c["content"].add_child(assign)
-
-
-func _build_post_row(g: Dictionary) -> Control:
-	var gid: String = g["id"]
-	var row := UI.hbox(6)
-	row.add_child(UI.expand_fill(MapCardStyle.option_row(summary_text(g), func(): Modal.open("guard_detail", { "guardId": gid }))))
-	if g["post"] != Muscle.POST_RESERVE:
-		var to_reserve := MapCardStyle.text_button("→ Reserve", func(): Muscle.post(gid, Muscle.POST_RESERVE), not Muscle.can_manage())
-		to_reserve.name = "ToReserve_%s" % gid
-		row.add_child(to_reserve)
-	return row
+	SecurityPosts.build(content, _posts_open, _toggle_post_open)
 
 
 # ── Guards tab ────────────────────────────────────────────────────────
@@ -280,15 +242,15 @@ func _build_row(g: Dictionary) -> Control:
 	body.add_child(mid)
 	body.add_child(GuardWidgets.status_pill(g))
 	panel.add_child(body)
-	_ignore_mouse(body)
+	ignore_mouse(body)
 	return panel
 
 
-static func _ignore_mouse(node: Node) -> void:
+static func ignore_mouse(node: Node) -> void:
 	if node is Control:
 		(node as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
 	for child in node.get_children():
-		_ignore_mouse(child)
+		ignore_mouse(child)
 
 
 # "Dee O. · L2 · £660/wk · Cheap, Brawler".

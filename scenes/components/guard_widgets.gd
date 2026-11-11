@@ -80,11 +80,12 @@ static func trait_chip(trait_id: String) -> Control:
 	chip.add_theme_stylebox_override("panel", style)
 	chip.add_child(MapCardStyle.label(trait_text(trait_id), 11, MapCardStyle.ink()))
 	if kind == "negative":
-		chip.draw.connect(func(): _draw_dashed_outline(chip))
+		chip.draw.connect(func(): draw_dashed_outline(chip))
 	return chip
 
 
-static func _draw_dashed_outline(chip: Control) -> void:
+# Dashed 1px rectangle around `chip`, drawn from its draw signal.
+static func draw_dashed_outline(chip: Control) -> void:
 	var colour := MapCardStyle.dim()
 	var r := Rect2(Vector2.ZERO, chip.size).grow(-0.5)
 	var dash := 4.0

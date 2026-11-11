@@ -117,10 +117,10 @@
       "repelWeight": 60,
       "repelFull": 0.75,
       "bands": [
-        { "min": 0, "label": "Exposed" },
-        { "min": 25, "label": "Light" },
-        { "min": 50, "label": "Solid" },
-        { "min": 75, "label": "Fortified" }
+        { "min": 0, "label": "Exposed", "colour": "cardAction" },
+        { "min": 25, "label": "Light", "colour": "cardGold" },
+        { "min": 50, "label": "Solid", "colour": "cardBand" },
+        { "min": 75, "label": "Fortified", "colour": "cardBand" }
       ]
     },
     "strengthWords": [

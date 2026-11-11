@@ -316,11 +316,20 @@ static func security_score_parts(hardware: float, max_hardware: float, repel: fl
 
 
 static func score_band(score: int) -> String:
-	var label := ""
+	return String(_band_row(score).get("label", ""))
+
+
+# MapPalette token naming the band's colour (constants.json muscle.score.bands).
+static func score_band_colour_key(score: int) -> String:
+	return String(_band_row(score).get("colour", "cardInk"))
+
+
+static func _band_row(score: int) -> Dictionary:
+	var row: Dictionary = {}
 	for band in GameData.MUSCLE["score"]["bands"]:
 		if score >= int(band["min"]):
-			label = String(band["label"])
-	return label
+			row = band
+	return row
 
 
 # Security score of a player vein: ward/lock resist against the best tier.
