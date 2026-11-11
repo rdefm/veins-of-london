@@ -702,6 +702,36 @@ func _posting_cases() -> void:
 		screen.free()
 	)
 
+	run_case("the_guards_tab_filters_sorts_by_level_and_row_tap_opens_detail", func():
+		_managed()
+		var id := _reserve_guard()
+		var guards := Muscle.guards()
+		var before: String = JSON.stringify(GameState.state)
+		assert_eq(SecurityScreen.filtered_sorted(guards, "all").size(), guards.size())
+		assert_eq(SecurityScreen.filtered_sorted(guards, "reserve").size(), Muscle.roster_counts()["ready"])
+		assert_eq(SecurityScreen.filtered_sorted(guards, "out").size(), Muscle.roster_counts()["out"])
+		var sorted := SecurityScreen.filtered_sorted(guards, "all")
+		for i in range(1, sorted.size()):
+			assert_true(int(sorted[i - 1]["level"]) >= int(sorted[i]["level"]), "level desc")
+		assert_eq(GuardWidgets.avatar_colour(id), GuardWidgets.avatar_colour(id), "avatar stable")
+		var neg := ""
+		for t in GameData.MUSCLE_TRAITS:
+			if GameData.MUSCLE_TRAITS[t]["kind"] == "negative":
+				neg = t
+		assert_true(GuardWidgets.trait_text(neg).begins_with("−"), "negative prefix")
+		var screen := SecurityScreen.new()
+		screen._tab = SecurityScreen.TAB_GUARDS
+		screen._ready()
+		screen.find_child("Filter_reserve", true, false).pressed.emit()
+		assert_eq(screen._filter, "reserve")
+		assert_eq(JSON.stringify(GameState.state), before, "filter is screen-local")
+		var rows := screen.find_children("GuardRow_%s" % id, "Button", true, false)
+		assert_true(rows.size() >= 1, "row present after filtering")
+		(rows[rows.size() - 1] as Button).pressed.emit()
+		assert_eq(GameState.state["modal"]["type"], "guard_detail")
+		screen.free()
+	)
+
 	run_case("the_security_screen_post_actions_all_go_through_muscle_post", func():
 		_managed()
 		var id := _reserve_guard()
