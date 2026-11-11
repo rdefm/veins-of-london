@@ -185,7 +185,8 @@ static func tier_text(tier: Dictionary) -> String:
 # The security of a faction vein as one string: guard count and guard kit. Add
 # any future site security option here and stored site reads track it (R§3.9d).
 static func security_signature(vein: Dictionary) -> String:
-	return "%d|%s" % [Cultivating.vein_guard_count(vein), JSON.stringify(vein.get("guardKit", {}), "", true)]
+	var levels: Array = [] if vein.get("factionId", "") == "" else Muscle.faction_guards_at(vein)
+	return "%d|%s|%s" % [Cultivating.vein_guard_count(vein), str(levels), JSON.stringify(vein.get("guardKit", {}), "", true)]
 
 
 # The faction vein a live raid event targets (context site_id), or null.

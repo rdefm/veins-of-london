@@ -70,6 +70,30 @@ func run() -> void:
 		assert_eq([fp["cameras"], fp["alarm"]], [2, true], "cameras and alarm come from features")
 	)
 
+	run_case("profile_reads_a_strength_word_and_never_the_reserve", func():
+		GameState.reset()
+		var vein := _faction_vein("s1", "warded")
+		vein["guards"] = [2, 0, 0, 0, 0]
+		assert_eq(Raiding.security_profile(vein)["strength"], "green")
+		vein["guards"] = [0, 0, 0, 0, 2]
+		assert_eq(Raiding.security_profile(vein)["strength"], "seasoned")
+		var reserve: Array = Muscle.faction_reserve("firm")
+		reserve[4] = 9
+		assert_eq(Raiding.security_profile(vein)["guards"], 2, "Reserve size stays hidden")
+		assert_eq(Raiding.security_profile(vein)["strength"], "seasoned", "nor does it colour the word")
+		assert_true(not Observation.security_signature(vein).contains("9"), "nor the signature")
+	)
+
+	run_case("level_mix_change_at_same_count_changes_the_signature", func():
+		GameState.reset()
+		var vein := _faction_vein("s1", "warded")
+		vein["guards"] = [2, 0, 0, 0, 0]
+		var before := Observation.security_signature(vein)
+		vein["guards"] = [1, 1, 0, 0, 0]
+		assert_eq(Cultivating.vein_guard_count(vein), 2)
+		assert_true(Observation.security_signature(vein) != before, "swap / level-up reads as changed")
+	)
+
 	run_case("begin_raid_carries_the_profile_in_the_event_context", func():
 		GameState.reset()
 		var vein := _faction_vein("s1", "warded")

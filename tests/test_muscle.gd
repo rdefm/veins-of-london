@@ -43,6 +43,17 @@ func run() -> void:
 		assert_eq(round_trip["guards"][0]["name"], m["guards"][0]["name"])
 	)
 
+	run_case("strength_word_cut_offs_sit_at_1_25_and_1_75", func():
+		GameState.reset()
+		assert_eq(Muscle.strength_word([0, 0, 0, 0, 0]), "", "no guards, no word")
+		assert_eq(Muscle.strength_word([3, 0, 0, 0, 0]), "green", "avg 1.0")
+		assert_eq(Muscle.strength_word([0, 2, 0, 0, 0]), "hardened", "avg exactly 1.25 is not green")
+		assert_eq(Muscle.strength_word([1, 0, 1, 0, 0]), "hardened", "avg 1.25 mix")
+		assert_eq(Muscle.strength_word([0, 0, 1, 1, 0]), "hardened", "avg 1.625")
+		assert_eq(Muscle.strength_word([0, 0, 0, 2, 0]), "seasoned", "avg exactly 1.75")
+		assert_eq(Muscle.strength_word([0, 0, 0, 0, 3]), "seasoned", "avg 2.0")
+	)
+
 	run_case("level_table_matches_the_spec_and_comes_from_json", func():
 		GameState.reset()
 		var weights := [1.0, 1.25, 1.5, 1.75, 2.0]

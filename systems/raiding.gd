@@ -230,6 +230,7 @@ static func security_profile(vein: Dictionary) -> Dictionary:
 		"ward": warded,
 		"wardType": ward_type,
 		"guards": Cultivating.vein_guard_count(vein),
+		"strength": "" if not vein.has("factionId") else Muscle.strength_word(Muscle.faction_guards_at(vein)),
 		"cameras": int(features.get("cameras", 0)),
 		"alarm": bool(features.get("alarm", false)),
 	}

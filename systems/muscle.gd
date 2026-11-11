@@ -799,6 +799,20 @@ static func counts_weight(counts: Array) -> float:
 	return total
 
 
+# What an observer reads of a post's guards: the average weight per guard as a
+# word (muscle.strength.words); "" with no guards. The Reserve is never read.
+static func strength_word(counts: Array) -> String:
+	var total := counts_total(counts)
+	if total <= 0:
+		return ""
+	var average := counts_weight(counts) / float(total)
+	var words: Array = GameData.MUSCLE["strength"]["words"]
+	for row in words:
+		if average < float(row["below"]):
+			return String(row["word"])
+	return String(words[words.size() - 1]["word"])
+
+
 static func counts_wage(counts: Array) -> int:
 	var total := 0
 	for i in counts.size():

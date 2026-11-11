@@ -101,6 +101,13 @@
     "injuryDays": 3,
     "postCaps": { "home": 4, "vein": 4 },
     "hqRaidReductionPerGuard": 0.05,
+    "strength": {
+      "words": [
+        { "below": 1.25, "word": "green" },
+        { "below": 1.75, "word": "hardened" },
+        { "below": 99.0, "word": "seasoned" }
+      ]
+    },
     "reserveResponders": 2,
     "board": { "size": 4, "formerChance": 0.1, "formerCap": 20 },
     "secondTraitChance": 0.25,
@@ -618,6 +625,7 @@
       "ward": { "name": "a ward", "absent": "no ward" },
       "wardType": { "name": "the ward", "absent": "no ward" },
       "guards": { "name": "guards", "absent": "no guards" },
+      "strength": { "name": "guard strength", "absent": "no guards" },
       "cameras": { "name": "cameras", "absent": "no cameras" },
       "alarm": { "name": "an alarm line", "absent": "no alarm line" },
       "weakWindow": { "name": "a weak window", "absent": "no weak window" },
