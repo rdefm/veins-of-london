@@ -314,6 +314,7 @@ func run() -> void:
 
 	run_case("the_clock_runs_at_two_cards_once_alarm_is_raised_on_an_alarm_line_site", func():
 		_start({ "alarm": true })
+		Muscle.faction_reserve("firm")[0] = 2
 		_settle()
 		Events._apply_alert({ "atLeast": 2 })
 		assert_eq(GameState.state["event"]["reinforce"]["length"], 2)

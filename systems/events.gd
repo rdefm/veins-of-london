@@ -966,6 +966,8 @@ static func condition_met(condition: Dictionary, toggled: Array = [], facts: Dic
 	if condition.has("wardTriggered"):
 		return ward_triggered_here() == bool(condition["wardTriggered"])
 	if condition.has("reinforcements"):
+		if condition["reinforcements"] is String:
+			return reinforcements_none()  # "none": the clock fired and no one came
 		return reinforcements_arrived() == bool(condition["reinforcements"])
 	return false
 
@@ -1117,14 +1119,55 @@ static func _maybe_start_reinforcement_clock() -> void:
 # One tick per card resolved after the raising card; at length the guards arrive.
 static func _tick_reinforcement() -> void:
 	var clock: Variant = GameState.state["event"].get("reinforce")
-	if clock == null or clock["arrived"]:
+	if clock == null or clock["arrived"] or clock.get("none", false):
 		return
 	if clock["skip"]:
 		clock["skip"] = false
 		return
 	clock["ticks"] = int(clock["ticks"]) + 1
 	if int(clock["ticks"]) >= int(clock["length"]):
+		_fire_reinforcements(clock)
+
+
+# The faction owning the event's vein, whose Reserve answers the alarm; ""
+# for a site with no owner faction (the flat raidSecurity.reinforcement.guards).
+static func _reinforcement_faction() -> String:
+	var vein: Variant = Raiding.vein_at_site(str(_live_event_context().get("site_id", "")))
+	if vein == null:
+		return ""
+	var faction_id := str(vein.get("factionId", ""))
+	return faction_id if GameState.state["factions"].has(faction_id) else ""
+
+
+# The clock firing: the owner's Reserve answers (event.reinforce.levels), or
+# no one comes (event.reinforce.none) and the arrival never plays.
+static func _fire_reinforcements(clock: Dictionary) -> void:
+	if _reinforcement_faction() == "":
 		clock["arrived"] = true
+		return
+	var levels := Muscle.faction_draw_reinforcements(_reinforcement_faction())
+	clock["levels"] = levels
+	clock["arrived"] = not levels.is_empty()
+	clock["none"] = levels.is_empty()
+
+
+# A fight starting before the clock fires draws the owner's Reserve itself;
+# the levels that answered (none when the Reserve is empty or busy).
+static func _claim_pending_reinforcements() -> Array:
+	var clock: Dictionary = GameState.state["event"]["reinforce"]
+	_fire_reinforcements(clock)
+	return clock["levels"].duplicate()
+
+
+# Takes a Reserve responder who fell in a fight out of the event's pool.
+static func drop_reinforcement_level(level: int) -> void:
+	var event_state: Variant = GameState.state.get("event")
+	if event_state == null or not event_state.has("reinforce"):
+		return
+	var levels: Array = event_state["reinforce"].get("levels", [])
+	var at := levels.find(level)
+	if at >= 0:
+		levels.remove_at(at)
 
 
 # Reinforcements already in the pool (the clock fired or a fight took them).
@@ -1133,10 +1176,16 @@ static func reinforcements_arrived() -> bool:
 	return event_state != null and event_state.get("reinforce", {}).get("arrived", false)
 
 
+# The clock fired and the owner's Reserve sent no one.
+static func reinforcements_none() -> bool:
+	var event_state: Variant = GameState.state.get("event")
+	return event_state != null and event_state.get("reinforce", {}).get("none", false)
+
+
 # Clock running, not fired, Alarm still up: the next fight gets them at round 3.
 static func reinforcements_pending() -> bool:
 	var event_state: Variant = GameState.state.get("event")
-	if event_state == null or not event_state.has("reinforce") or reinforcements_arrived():
+	if event_state == null or not event_state.has("reinforce") or reinforcements_arrived() or reinforcements_none():
 		return false
 	return alert_level() >= (GameData.EVENT_CHECKS["alert"]["tiers"] as Array).size() - 1
 
@@ -2453,17 +2502,36 @@ static func _fight_groups(effect: Dictionary) -> Array:
 			entry.erase("guards")
 			var count := 0
 			if site != null and site["factionVein"] != null:
-				count = Cultivating.vein_guard_count(site["factionVein"]) - int(_live_event_context().get("guardsDown", 0))
+				count = Cultivating.vein_guard_count(site["factionVein"]) - _pending_guards_down()
 			entry["count"] = count
 		if int(entry["count"]) > 0:
 			groups.append(entry)
 	if groups.is_empty() or not bool(effect.get("alertWaves", false)):
 		return groups
+	var from_reserve := _reinforcement_faction() != ""
 	if reinforcements_arrived():
-		groups.append({ "template": cfg["template"], "count": int(cfg["guards"]), "level": groups[0]["level"] })
+		if from_reserve:
+			groups.append_array(_reserve_groups(GameState.state["event"]["reinforce"].get("levels", []), cfg, {}))
+		else:
+			groups.append({ "template": cfg["template"], "count": int(cfg["guards"]), "level": groups[0]["level"] })
 	elif reinforcements_pending():
-		GameState.state["event"]["reinforce"]["arrived"] = true
-		groups.append({ "template": cfg["template"], "count": int(cfg["guards"]), "level": groups[0]["level"], "arriveRound": int(cfg["arriveRound"]) })
+		if from_reserve:
+			groups.append_array(_reserve_groups(_claim_pending_reinforcements(), cfg, { "arriveRound": int(cfg["arriveRound"]) }))
+		else:
+			GameState.state["event"]["reinforce"]["arrived"] = true
+			groups.append({ "template": cfg["template"], "count": int(cfg["guards"]), "level": groups[0]["level"], "arriveRound": int(cfg["arriveRound"]) })
+	return groups
+
+
+# Fight groups for Reserve responders: one per level among `levels`.
+static func _reserve_groups(levels: Array, cfg: Dictionary, extra: Dictionary) -> Array:
+	var groups: Array = []
+	for level in range(1, Muscle.empty_counts().size() + 1):
+		var n := levels.count(level)
+		if n > 0:
+			var group := { "template": cfg["template"], "count": n, "level": level }
+			group.merge(extra)
+			groups.append(group)
 	return groups
 
 
@@ -2492,11 +2560,13 @@ static func _start_stockpile_raid_combat(effect: Dictionary) -> void:
 	if not GameState.state["factions"].has(faction_id):
 		return
 	var cfg: Dictionary = GameData.STOCKPILE_RAID
-	var guards_down: int = int(_live_event_context().get("guardsDown", 0))
-	var guards: int = FactionSim.stockpile_guards(faction_id) - guards_down
-	if guards_down > 0 and guards <= 0:
+	var guards_down := _pending_guards_down()
+	var levels := Muscle.posted_levels(Muscle.faction_guards_at(GameState.state["factions"][faction_id]["stockpile"]), guards_down)
+	if guards_down > 0 and levels.is_empty():
 		return
-	Combat.start_stockpile_raid(faction_id, int(cfg["valueTier"]), maxi(guards, 1), effect.get("template", cfg["guardTemplate"]), _event_ally_ids(effect), effect.get("situational", []))
+	if levels.is_empty():
+		levels = [0]
+	Combat.start_stockpile_raid(faction_id, int(cfg["valueTier"]), levels.size(), effect.get("template", cfg["guardTemplate"]), _event_ally_ids(effect), effect.get("situational", []), levels)
 
 
 # Branches into Combat.start_raid() with context "event_raid" (see combat.gd's
@@ -2512,19 +2582,34 @@ static func _start_raid_combat(effect: Dictionary) -> void:
 	var vein: Dictionary = site["factionVein"]
 	var fight := fight_setup(effect, _running_fight_presets())
 	var guards_spec: Variant = fight.get("guards", 1)
-	var guards: int = Cultivating.vein_guard_count(vein) if guards_spec is String and guards_spec == RAID_GUARDS_FROM_VEIN else int(guards_spec)
+	var from_vein: bool = guards_spec is String and guards_spec == RAID_GUARDS_FROM_VEIN
+	var faction_id := str(vein.get("factionId", ""))
+	var posted := {}
+	var guards: int
+	if from_vein:
+		posted = { "factionId": faction_id, "siteId": site["id"], "levels": Muscle.posted_levels(Muscle.faction_guards_at(vein), _pending_guards_down()), "standing": [], "queued": [] }
+		guards = posted["levels"].size()
+	else:
+		guards = int(guards_spec) - _pending_guards_down()
 	var cfg: Dictionary = GameData.RAID_SECURITY["reinforcement"]
-	guards -= int(_live_event_context().get("guardsDown", 0))
+	var reserve_answers := from_vein and _reinforcement_faction() != ""
 	if reinforcements_arrived():
-		guards += int(cfg["guards"])
+		if reserve_answers:
+			posted["standing"] = GameState.state["event"]["reinforce"].get("levels", []).duplicate()
+			guards += posted["standing"].size()
+		else:
+			guards += int(cfg["guards"])
 	if guards <= 0:
 		return
 	var wave := 0
 	if reinforcements_pending():
-		wave = int(cfg["guards"])
-		GameState.state["event"]["reinforce"]["arrived"] = true
+		if reserve_answers:
+			posted["queued"] = _claim_pending_reinforcements()
+		else:
+			wave = int(cfg["guards"])
+			GameState.state["event"]["reinforce"]["arrived"] = true
 	var situational: Array = fight.get("situational", []) + _ward_fight_start()
-	Combat.start_raid(vein["id"], Cultivating.combined_magnitude(vein), guards, fight.get("template", ""), Combat.CONTEXT_EVENT_RAID, _event_ally_ids(effect), situational, int(fight.get("waves", 0)), wave)
+	Combat.start_raid(vein["id"], Cultivating.combined_magnitude(vein), guards, fight.get("template", ""), Combat.CONTEXT_EVENT_RAID, _event_ally_ids(effect), situational, int(fight.get("waves", 0)), wave, posted)
 
 
 # A raid fight op's setup (R§3.7b Fight presets): its `preset` from `presets`
@@ -2562,9 +2647,23 @@ static func _adjust_guards(effect: Dictionary) -> void:
 
 # Adds `count` to the live event's guardsDown (R§3.7b Guard carry-over):
 # the reduce_raid_guards op, and Combat.exit_combat() for a won raid fight.
-static func add_raid_guards_down(count: int) -> void:
+# `taken_off` of them are off the faction's own counts (injured), so later
+# fights read the posted counts without subtracting them twice.
+static func add_raid_guards_down(count: int, taken_off: int = 0) -> void:
 	if count > 0:
 		_shift_guards_down(count)
+	var event_state: Variant = GameState.state.get("event")
+	if event_state != null and taken_off > 0:
+		var context: Dictionary = event_state.get("context", {})
+		context["guardsRemoved"] = int(context.get("guardsRemoved", 0)) + taken_off
+		event_state["context"] = context
+
+
+# Event-only guard changes still to apply to the posted counts: guardsDown
+# less the guards a fight already took out of them.
+static func _pending_guards_down() -> int:
+	var context := _live_event_context()
+	return int(context.get("guardsDown", 0)) - int(context.get("guardsRemoved", 0))
 
 
 static func _shift_guards_down(delta: int) -> void:

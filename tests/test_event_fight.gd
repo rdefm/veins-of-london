@@ -240,7 +240,7 @@ func run() -> void:
 	run_case("alert_waves_add_reinforcements_and_situational_mods_apply", func():
 		_begin({ "site_id": "fv1" })
 		_firm_vein(2)
-		GameState.state["event"]["reinforce"] = { "ticks": 0, "length": 3, "arrived": true }
+		GameState.state["event"]["reinforce"] = { "ticks": 0, "length": 3, "arrived": true, "levels": [1, 1] }
 		var mods := [{ "if": { "cash": { "atLeast": 0 } }, "oneAtATime": true }]
 		Events.apply_effects([_op({ "enemies": [{ "template": "veinGuard", "count": 1, "level": 2 }], "alertWaves": true, "situational": mods })])
 		CombatPrep.commit()

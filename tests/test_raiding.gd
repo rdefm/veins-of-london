@@ -2155,6 +2155,7 @@ func run() -> void:
 	run_case("alarm_on_an_alarm_line_site_fires_after_three_cards_and_adds_two_to_the_next_fight", func():
 		var vein := _carry_over_raid(1)
 		GameState.state["event"]["context"]["securityProfile"] = { "alarm": true }
+		Muscle.faction_reserve("firm")[0] = 2
 		Events._apply_alert({ "atLeast": 2 })
 		for _i in range(3):
 			Events._tick_reinforcement()
@@ -2171,6 +2172,7 @@ func run() -> void:
 		_carry_over_raid(1)
 		GameState.state["event"]["context"]["securityProfile"] = { "alarm": true }
 		Events._apply_alert({ "atLeast": 2 })
+		Muscle.faction_reserve("firm")[0] = 2
 		GameState.state["event"]["reinforce"]["length"] = 2
 		Events._tick_reinforcement()
 		Events._tick_reinforcement()

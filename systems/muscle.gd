@@ -839,6 +839,8 @@ static func faction_all_counts(faction_id: String) -> Array:
 	for counts in _faction_places(faction_id):
 		for i in counts.size():
 			all[i] += int(counts[i])
+	for entry in faction_state(faction_id)["injured"]:
+		all[int(entry["level"]) - 1] += 1
 	return all
 
 
@@ -893,6 +895,84 @@ static func counts_drop_lowest(counts: Array) -> int:
 			counts[i] = int(counts[i]) - 1
 			return i + 1
 	return 0
+
+
+# Takes one guard of `level` out of `counts`; false when there is none.
+static func counts_take(counts: Array, level: int) -> bool:
+	if level < 1 or level > counts.size() or int(counts[level - 1]) <= 0:
+		return false
+	counts[level - 1] = int(counts[level - 1]) - 1
+	return true
+
+
+# One entry per guard in `counts`, lowest level first.
+static func counts_to_levels(counts: Array) -> Array:
+	var levels := []
+	for i in counts.size():
+		for _n in int(counts[i]):
+			levels.append(i + 1)
+	return levels
+
+
+# `counts` as a fight roster: lowest `down` guards sit out; a negative `down`
+# adds that many guards at level 0 (the fight's own default level).
+static func posted_levels(counts: Array, down: int) -> Array:
+	var levels := counts_to_levels(counts)
+	if down > 0:
+		return levels.slice(mini(down, levels.size()))
+	for _n in -down:
+		levels.append(0)
+	return levels
+
+
+# A faction guard of `level` is out for injuryDays, then back in the Reserve.
+# `from` is the place it leaves (a vein, stockpile or Reserve count array);
+# [] when it has already left.
+static func faction_injure(faction_id: String, level: int, from: Array = []) -> void:
+	if not from.is_empty():
+		counts_take(from, level)
+	var back_day := int(GameState.state["world"]["day"]) + int(GameData.MUSCLE["injuryDays"])
+	faction_state(faction_id)["injured"].append({ "level": level, "backDay": back_day })
+
+
+# Rivalry loss: the lowest-level guard in `counts` is injured; false when empty.
+static func faction_injure_lowest(faction_id: String, counts: Array) -> bool:
+	var level := counts_drop_lowest(counts)
+	if level == 0:
+		return false
+	faction_injure(faction_id, level)
+	return true
+
+
+# Injured faction guards whose days are up return to their Reserve.
+static func faction_daily_tick() -> void:
+	var day := int(GameState.state["world"]["day"])
+	for faction_id in GameState.state["factions"].keys():
+		var state := faction_state(faction_id)
+		var reserve: Array = state["reserve"]
+		var still_out := []
+		for entry in state["injured"]:
+			if int(entry["backDay"]) <= day:
+				reserve[int(entry["level"]) - 1] = int(reserve[int(entry["level"]) - 1]) + 1
+			else:
+				still_out.append(entry)
+		state["injured"] = still_out
+
+
+# Levels of the Reserve guards (up to reserveResponders, highest first) that
+# answer an alarm now; [] when the Reserve is empty or already answered this
+# time block. Nothing leaves the Reserve until one of them falls.
+static func faction_draw_reinforcements(faction_id: String) -> Array:
+	var state := faction_state(faction_id)
+	var key := block_key()
+	if state["respondersBlock"] == key:
+		return []
+	var levels := counts_to_levels(state["reserve"])
+	levels.reverse()
+	levels = levels.slice(0, int(GameData.MUSCLE["reserveResponders"]))
+	if not levels.is_empty():
+		state["respondersBlock"] = key
+	return levels
 
 
 static func _no_passive_xp(g: Dictionary) -> bool:

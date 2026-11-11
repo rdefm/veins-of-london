@@ -84,6 +84,11 @@ static func claim_vein(site_id: String) -> void:
 
 	var player_vein: Dictionary = GameState.deep_copy(faction_vein)
 	player_vein.erase("factionId")
+	player_vein.erase("guards")
+	var reserve := Muscle.faction_reserve(faction_id)
+	var posted := Muscle.faction_guards_at(faction_vein)
+	for i in posted.size():
+		reserve[i] = int(reserve[i]) + int(posted[i])
 	player_vein.erase("kit")
 	player_vein.erase("features")
 	player_vein["guardKit"] = {}
@@ -496,6 +501,10 @@ static func resolve_faction_stockpile_raid(attacker_id: String, defender_id: Str
 	var guards := FactionSim.stockpile_guards(defender_id)
 	if success and guards > 0 and Rng.chance(guard_repel_chance(FactionSim.stockpile_guard_weight(defender_id))):
 		success = false
+	if success:
+		Muscle.faction_injure_lowest(defender_id, Muscle.faction_guards_at(GameState.state["factions"][defender_id]["stockpile"]))
+	else:
+		Muscle.faction_injure_lowest(attacker_id, Muscle.faction_reserve(attacker_id))
 	var value := 0.0
 	if success:
 		var taken := _take_stockpile_share(defender_id, faction_stockpile_loot_share(attacker_id, defender_id))

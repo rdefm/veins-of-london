@@ -242,16 +242,19 @@ static func _enemy_capabilities_from_template(template: Dictionary) -> Dictionar
 # entry's level (R§3.7b table 2); guard_count (at least 1, no upper cap)
 # entries roll independently from GameData.ENEMY_RAID_GUARDS unless
 # `template_key` forces one template.
-static func generate_raid_enemy(vein_id, value_tier: int, guards: int = 1, template_key: String = "") -> Array:
+static func generate_raid_enemy(vein_id, value_tier: int, guards: int = 1, template_key: String = "", levels: Array = []) -> Array:
 	var templates: Dictionary = GameData.ENEMY_RAID_GUARDS
-	var guard_count: int = maxi(guards, 1)
+	var guard_count: int = levels.size() if not levels.is_empty() else maxi(guards, 1)
 	var entries: Array = []
 	var used_variants: Array = []
-	for _i in range(guard_count):
+	for i in range(guard_count):
 		var key: String = template_key
 		if key == "" or not templates.has(key):
 			key = Rng.rand_from(templates.keys())
-		var entry := _spawn_guard_instance(templates[key], enemy_level_for_magnitude(value_tier))
+		var level := enemy_level_for_magnitude(value_tier)
+		if not levels.is_empty() and int(levels[i]) > 0:
+			level = int(levels[i])
+		var entry := _spawn_guard_instance(templates[key], level)
 		entry["template"] = key
 		if key == SCRAPPER_TEMPLATE_KEY:
 			entry["variant"] = _roll_scrapper_variant(used_variants)
@@ -644,17 +647,32 @@ static func _home_raider_enemy(level: int, hp_mult: float = 1.0) -> Dictionary:
 # > 0 caps the guards on the field at once (R§3.7b Fight presets).
 # `reinforcements` > 0 appends that many extra guards queued to arrive at
 # round raidSecurity.reinforcement.arriveRound (R§3.12 "Reinforcements").
-static func start_raid(vein_id: String, value_tier: int, guards: int = 1, template_key: String = "", context: String = CONTEXT_RAID, ally_ids: Array = [], situational: Array = [], waves: int = 0, reinforcements: int = 0) -> void:
-	var enemies := generate_raid_enemy(vein_id, value_tier, guards, template_key)
-	if reinforcements > 0:
+# `posted` ({ factionId, siteId, levels, standing, queued }) is a faction
+# vein's roster by level (`levels`, its posts), the Reserve responders already
+# on the field (`standing`) and those queued for the usual round (`queued`),
+# so the fight settles injuries back onto the faction (_settle_faction_guards()).
+static func start_raid(vein_id: String, value_tier: int, guards: int = 1, template_key: String = "", context: String = CONTEXT_RAID, ally_ids: Array = [], situational: Array = [], waves: int = 0, reinforcements: int = 0, posted: Dictionary = {}) -> void:
+	var post_levels: Array = posted.get("levels", [])
+	var standing: Array = posted.get("standing", [])
+	var queued: Array = posted.get("queued", [])
+	var enemies := generate_raid_enemy(vein_id, value_tier, guards, template_key, post_levels + standing)
+	for i in enemies.size() if not posted.is_empty() else 0:
+		if i < post_levels.size() and int(post_levels[i]) > 0:
+			_tag_faction_guard(enemies[i], str(posted["factionId"]), { "siteId": str(posted["siteId"]) })
+		elif i >= post_levels.size():
+			_tag_faction_guard(enemies[i], str(posted["factionId"]), { "reserve": true })
+	if reinforcements > 0 or not queued.is_empty():
 		var cfg: Dictionary = GameData.RAID_SECURITY["reinforcement"]
-		for extra in generate_raid_enemy(vein_id, value_tier, reinforcements, str(cfg["template"])):
+		for extra in generate_raid_enemy(vein_id, value_tier, reinforcements, str(cfg["template"]), queued):
 			extra["arriveRound"] = int(cfg["arriveRound"])
+			if not queued.is_empty():
+				_tag_faction_guard(extra, str(posted["factionId"]), { "reserve": true })
 			enemies.append(extra)
+	var reserve_count: int = standing.size() + queued.size()
 	var log_lines := ["%s steps out to meet you." % _guard_group_name(enemies)]
 	var allies := _gather_raid_allies(ally_ids, log_lines)
 	_add_hired_muscle(allies, log_lines)
-	_start_combat(context, vein_id, enemies, log_lines, "raidWon", allies, null, {}, {}, { "situational": situational_active(situational), "enemyWaves": waves, "raidGuards": enemies.size() })
+	_start_combat(context, vein_id, enemies, log_lines, "raidWon", allies, null, {}, {}, { "situational": situational_active(situational), "enemyWaves": waves, "raidGuards": enemies.size() - reserve_count })
 
 
 # A caught stockpile raid (events.gd "start_stockpile_raid_combat"): one
@@ -662,13 +680,51 @@ static func start_raid(vein_id: String, value_tier: int, guards: int = 1, templa
 # as combat.raiderKit, in the stockpile's district. Runs as an event_raid, so
 # a win resumes the event; combat.stockpileFactionId routes the settlement to
 # Raiding.resolve_stockpile_fight().
-static func start_stockpile_raid(faction_id: String, value_tier: int, guards: int, template_key: String = "", ally_ids: Array = [], situational: Array = []) -> void:
-	var enemies := generate_raid_enemy(null, value_tier, guards, template_key)
+static func start_stockpile_raid(faction_id: String, value_tier: int, guards: int, template_key: String = "", ally_ids: Array = [], situational: Array = [], levels: Array = []) -> void:
+	var enemies := generate_raid_enemy(null, value_tier, guards, template_key, levels)
+	for i in enemies.size():
+		if i < levels.size() and int(levels[i]) > 0:
+			_tag_faction_guard(enemies[i], faction_id, { "stockpile": true })
 	var log_lines := ["%s steps out to meet you." % _guard_group_name(enemies)]
 	var allies := _gather_raid_allies(ally_ids, log_lines)
 	_add_hired_muscle(allies, log_lines)
 	_start_combat(CONTEXT_EVENT_RAID, null, enemies, log_lines, "raidWon", allies, Raiding.stockpile_district(faction_id), FactionSim.raider_kit(faction_id, "defend", enemies.size()), {}, { "situational": situational_active(situational), "raidGuards": enemies.size() })
 	GameState.state["combat"]["stockpileFactionId"] = faction_id
+
+
+static func _tag_faction_guard(entry: Dictionary, faction_id: String, place: Dictionary) -> void:
+	entry["factionId"] = faction_id
+	entry["place"] = place
+
+
+# A raid fight's faction guards, once it ends: each one that fell is out for
+# injuryDays (leaving its vein's posts, the stockpile or the Reserve it came
+# from) and, for a Reserve responder, drops from the event's responder pool.
+# Returns how many posted (non-Reserve) guards fell.
+static func _settle_faction_guards(combat: Dictionary) -> int:
+	var fallen: Dictionary = {}
+	for c in combat.get("combatants", []):
+		if c["side"] == CombatRounds.SIDE_ENEMY and c["koed"] and c.has("rid"):
+			fallen[int(c["rid"])] = true
+	var posted_down := 0
+	for entry in combat.get("enemies", []) + combat.get("enemyQueue", []):
+		if not entry.has("factionId") or not fallen.has(int(entry.get("rid", -1))):
+			continue
+		var faction_id := str(entry["factionId"])
+		var level := int(entry["level"])
+		var place: Dictionary = entry["place"]
+		if place.has("reserve"):
+			Muscle.faction_injure(faction_id, level, Muscle.faction_reserve(faction_id))
+			Events.drop_reinforcement_level(level)
+			continue
+		var holder: Dictionary = GameState.state["factions"][faction_id]["stockpile"]
+		if place.has("siteId"):
+			var site: Variant = Sites.find_site(str(place["siteId"]))
+			holder = site["factionVein"] if site != null and site["factionVein"] != null else {}
+		if not holder.is_empty():
+			Muscle.faction_injure(faction_id, level, Muscle.faction_guards_at(holder))
+			posted_down += 1
+	return posted_down
 
 
 # Unlike _gather_defend_allies' auto-join-everyone, bringing an ally on a
@@ -1848,8 +1904,9 @@ static func exit_combat() -> Dictionary:
 			GuardKit.refill_vein(vein, GuardKit.recipe_totals(guard_used))
 	# R§3.7b Guard carry-over: guards beaten in a raid fight sit out the
 	# raid's later fights.
+	var posted_down := _settle_faction_guards(combat)
 	if context == CONTEXT_EVENT_RAID and outcome == "win":
-		Events.add_raid_guards_down(int(combat.get("raidGuards", 0)))
+		Events.add_raid_guards_down(int(combat.get("raidGuards", 0)), posted_down)
 
 	GameState.state["combat"] = idle_state()
 	SaveManager.autosave()  # R§6: autosave on combat exit

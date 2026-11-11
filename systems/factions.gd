@@ -279,7 +279,7 @@ static func _next_hire_place(faction_id: String, veins: Array) -> Array:
 	if Muscle.counts_total(stockpile) < FactionSim.stockpile_guard_target(faction_id):
 		return stockpile
 	var reserve := Muscle.faction_reserve(faction_id)
-	if Muscle.counts_total(reserve) < int(GameData.FACTIONS[faction_id]["reserveGuards"]):
+	if Muscle.counts_total(reserve) + Muscle.faction_state(faction_id)["injured"].size() < int(GameData.FACTIONS[faction_id]["reserveGuards"]):
 		return reserve
 	return []
 
@@ -478,6 +478,7 @@ static func apply_rivalry_resolution() -> void:
 		FactionSim.log_kit_burn(attempt["defenderId"], "defend", "rivalry")
 		attempt["oddsCut"] = Partners.warned_odds_cut(str(attempt.get("warnedBy", "")))
 		var outcome := roll_rivalry_odds(attempt)
+		_injure_rivalry_loser(outcome)
 		var district_id: String = Sites.find_site(attempt["veinSiteId"])["district"]
 		if not outcome["success"]:
 			FactionAI.note_fight_lost(attempt["attackerId"], attempt["defenderId"])
@@ -489,6 +490,18 @@ static func apply_rivalry_resolution() -> void:
 	for entry in queued:
 		if entry.get("move", "") == FactionAI.MOVE_STOCKPILE_RAID:
 			Raiding.resolve_faction_stockpile_raid(entry["attackerId"], entry["targetId"], str(entry.get("warnedBy", "")))
+
+
+# The losing side of a rolled attempt loses 1 guard to injury: the raided
+# vein's posts on a success, the attacker's Reserve on a failure.
+static func _injure_rivalry_loser(outcome: Dictionary) -> void:
+	if not outcome["success"]:
+		Muscle.faction_injure_lowest(outcome["attackerId"], Muscle.faction_reserve(outcome["attackerId"]))
+		return
+	var site: Variant = Sites.find_site(outcome["veinSiteId"])
+	var vein: Variant = site["factionVein"] if site != null else null
+	if vein != null and vein["factionId"] == outcome["defenderId"]:
+		Muscle.faction_injure_lowest(outcome["defenderId"], Muscle.faction_guards_at(vein))
 
 
 # Applies one already-rolled outcome; a failed attempt is a no-op. On success:
