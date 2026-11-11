@@ -39,11 +39,11 @@ func _begin(ctx: Dictionary) -> void:
 	GameState.state["event"]["context"] = ctx
 
 
-# A faction vein on site "fv1" guarded by `guards` (tier guard + extras), its kit and the faction's stock.
+# A faction vein on site "fv1" guarded by `guards` (level-1 counts), its kit and the faction's stock.
 func _firm_vein(guards: int) -> void:
 	var vein := {
 		"id": "fv_fv1", "factionId": "firm", "oreType": "physics", "growth": 50, "rampantDays": 0,
-		"security": Cultivating.GUARDED_TIER_ID, "extraGuards": guards - 1, "alarmUpgrades": [], "claimedOnDay": 1,
+		"security": "warded", "guards": FactionSim.stockpile_counts(guards), "alarmUpgrades": [], "claimedOnDay": 1,
 		"district": "shoreditch", "siteId": "fv1", "level": 3, "developmentStreak": 0,
 		"hospitability": { "tier": "fair", "bonuses": [] }, "kit": { "shield": 2 },
 	}

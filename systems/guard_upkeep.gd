@@ -451,95 +451,60 @@ static func _place_drop_rank(post: String, vein_rank: Dictionary) -> int:
 	return 1 + int(vein_rank.get(post, 0))
 
 
-# The vein part of the drop order, shared by player and faction veins:
-# extras on the least valuable vein first (Cultivating.value_order), then
-# tier guards least valuable first ("guarded" -> "warded"). Drops at most
-# `count` guards and at most at_risk[vein id] per vein, adds them to walked
-# { vein id: guards dropped }, and returns how many of `count` are left.
-static func drop_vein_guards(veins: Array, at_risk: Dictionary, count: int, walked: Dictionary) -> int:
-	var ordered := veins.duplicate()
-	ordered.sort_custom(Cultivating.value_order)
-	ordered.reverse()
-	for vein in ordered:
-		var extras := mini(int(at_risk[vein["id"]]), int(vein.get("extraGuards", 0)))
-		for i in mini(extras, count):
-			Cultivating.drop_vein_guard(vein)
-			walked[vein["id"]] = int(walked.get(vein["id"], 0)) + 1
-			count -= 1
-	for vein in ordered:
-		if count > 0 and int(at_risk[vein["id"]]) > int(walked.get(vein["id"], 0)):
-			Cultivating.drop_vein_guard(vein)
-			walked[vein["id"]] = int(walked.get(vein["id"], 0)) + 1
-			count -= 1
-	return count
-
-
 # ── faction guard hiring (spec §Faction guard upkeep, Hiring) ──
 
-static func faction_max_extra_guards() -> int:
-	return int(GameData.GUARD_UPKEEP["faction"]["maxExtraGuardsPerVein"])
-
-
-# Guards on every vein faction_id holds (tier guards plus extras) and on its
-# stockpile.
-static func faction_guard_count(faction_id: String) -> int:
-	var count := FactionSim.stockpile_guards(faction_id)
-	for site in GameState.state["world"]["sites"]:
-		var vein: Variant = site["factionVein"]
-		if vein != null and vein["factionId"] == faction_id:
-			count += Cultivating.vein_guard_count(vein)
-	return count
+# What hiring one guard of `level` costs a faction today: this week's remaining
+# share of that level's wage.
+static func faction_hire_advance(level: int) -> int:
+	return Business.prorated_wage(Muscle.level_wage(level), days_left_in_week(GameState.state["world"]["day"]))
 
 
 # A faction hires a guard only when resources cover today's advance plus
 # wageReserveWeeks of its weekly guard bill with that guard added.
-static func faction_can_hire(faction_id: String) -> bool:
+static func faction_can_hire(faction_id: String, level: int = 1) -> bool:
 	var reserve_weeks := int(GameData.GUARD_UPKEEP["faction"]["wageReserveWeeks"])
-	var needed := hire_advance() + reserve_weeks * weekly_cost(faction_guard_count(faction_id) + 1)
+	var weekly := Muscle.counts_wage(Muscle.faction_all_counts(faction_id)) + Muscle.level_wage(level)
+	var needed := faction_hire_advance(level) + reserve_weeks * weekly
 	return int(GameState.state["factions"][faction_id]["resources"]) >= needed
 
 
 # ── faction Monday bill (spec §Faction guard upkeep) ──
 
-# R§3.1 ⑤h2: on the rollover into a Monday, each faction pays weeklyWage per
-# guard on its veins and its stockpile from resources, as many guards as it
-# can cover. The rest walk now: vein guards in drop order
-# (drop_vein_guards()), then stockpile guards (walked key STOCKPILE_PLACE_ID);
-# resources never go negative. A vein claimed today isn't billed: its guards
-# start on the next Monday. Returns { faction id: { due, paid, walked } }
-# for billed factions.
+# R§3.1 ⑤h2: on the rollover into a Monday, each faction pays the level wage of
+# every guard on its veins, stockpile and Reserve from resources, as many as it
+# can cover. The rest walk now, lowest level first; within a level, vein posts
+# (least valuable vein first), then the stockpile (walked key STOCKPILE_PLACE_ID),
+# then the Reserve (walked key Muscle.POST_RESERVE). Resources never go negative.
+# A vein claimed today isn't billed: its guards start on the next Monday.
+# Returns { faction id: { due, paid, walked } } for billed factions.
 static func pay_faction_monday_bills() -> Dictionary:
 	var results := {}
 	var day: int = GameState.state["world"]["day"]
 	if not Calendar.is_monday(day):
 		return results
-	var veins_by_faction := {}
 	for faction_id in GameState.state["factions"]:
-		veins_by_faction[faction_id] = []
-	for site in GameState.state["world"]["sites"]:
-		var vein: Variant = site["factionVein"]
-		if vein == null or int(vein.get("claimedOnDay", -1)) == day:
-			continue
-		if Cultivating.vein_guard_count(vein) > 0 and veins_by_faction.has(vein["factionId"]):
-			veins_by_faction[vein["factionId"]].append(vein)
-	for faction_id in veins_by_faction:
 		var faction_state: Dictionary = GameState.state["factions"][faction_id]
-		var at_risk := {}
-		var stockpile_guards := FactionSim.stockpile_guards(faction_id)
-		var guards := stockpile_guards
-		for vein in veins_by_faction[faction_id]:
-			at_risk[vein["id"]] = Cultivating.vein_guard_count(vein)
-			guards += int(at_risk[vein["id"]])
-		if guards == 0:
+		var places := []
+		for vein in Muscle.faction_veins_low_to_high(faction_id):
+			if int(vein.get("claimedOnDay", -1)) != day:
+				places.append({ "id": vein["id"], "counts": Muscle.faction_guards_at(vein) })
+		places.append({ "id": STOCKPILE_PLACE_ID, "counts": Muscle.faction_guards_at(faction_state["stockpile"]) })
+		places.append({ "id": Muscle.POST_RESERVE, "counts": Muscle.faction_reserve(faction_id) })
+		var due := 0
+		for place in places:
+			due += Muscle.counts_wage(place["counts"])
+		if due == 0:
 			continue
-		var kept := clampi(floori(float(faction_state["resources"]) / float(weekly_wage())), 0, guards)
+		var owed := due
 		var walked := {}
-		var left := drop_vein_guards(veins_by_faction[faction_id], at_risk, guards - kept, walked)
-		if left > 0:
-			FactionSim.set_stockpile_guards(faction_id, stockpile_guards - left)
-			walked[STOCKPILE_PLACE_ID] = left
-		faction_state["resources"] -= weekly_cost(kept)
-		results[faction_id] = { "due": weekly_cost(guards), "paid": weekly_cost(kept), "walked": walked }
+		for level in range(1, GameData.MUSCLE["levels"].size() + 1):
+			for place in places:
+				while owed > int(faction_state["resources"]) and int(place["counts"][level - 1]) > 0:
+					place["counts"][level - 1] = int(place["counts"][level - 1]) - 1
+					owed -= Muscle.level_wage(level)
+					walked[place["id"]] = int(walked.get(place["id"], 0)) + 1
+		faction_state["resources"] -= owed
+		results[faction_id] = { "due": due, "paid": owed, "walked": walked }
 	return results
 
 

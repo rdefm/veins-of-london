@@ -257,8 +257,7 @@ static func score_band(score: int) -> String:
 static func vein_security_score(vein: Dictionary) -> int:
 	var max_hw := 0.0
 	for tier_id in GameData.VEIN_SECURITY:
-		if tier_id != Cultivating.GUARDED_TIER_ID:
-			max_hw = maxf(max_hw, float(GameData.VEIN_SECURITY[tier_id]["raidResist"]))
+		max_hw = maxf(max_hw, float(GameData.VEIN_SECURITY[tier_id]["raidResist"]))
 	var repel := Raiding.guard_repel_chance(post_repel_weight_sum(vein["id"]))
 	return security_score(float(Cultivating.vein_tier_resist(vein)), max_hw, repel)
 
@@ -772,6 +771,128 @@ static func on_room_lost() -> void:
 static func _hq_below_office_tier() -> bool:
 	var order: Array = GameData.HOME_TIER_ORDER
 	return order.find(GameState.state["home"]["tier"]) < order.find(GameData.HOME_ROOMS[SECURITY_OFFICE]["minTier"])
+
+
+# ── faction muscle: counts by level ───────────────────────────────────
+# A faction vein / stockpile holds `guards: [n1..n5]`; the faction's Reserve
+# and injured list sit under state.factions[id].muscle. No XP, no training.
+
+static func empty_counts() -> Array:
+	var counts := []
+	counts.resize(GameData.MUSCLE["levels"].size())
+	counts.fill(0)
+	return counts
+
+
+static func counts_total(counts: Array) -> int:
+	var total := 0
+	for n in counts:
+		total += int(n)
+	return total
+
+
+# Σ count × level weight (also the repel weight: factions carry no officer or traits).
+static func counts_weight(counts: Array) -> float:
+	var total := 0.0
+	for i in counts.size():
+		total += float(counts[i]) * level_weight(i + 1)
+	return total
+
+
+static func counts_wage(counts: Array) -> int:
+	var total := 0
+	for i in counts.size():
+		total += int(counts[i]) * level_wage(i + 1)
+	return total
+
+
+# A faction vein's or stockpile's level counts, created empty when absent.
+static func faction_guards_at(holder: Dictionary) -> Array:
+	if not holder.has("guards") or not (holder["guards"] is Array):
+		holder["guards"] = empty_counts()
+	return holder["guards"]
+
+
+static func faction_state(faction_id: String) -> Dictionary:
+	var faction: Dictionary = GameState.state["factions"][faction_id]
+	if not faction.has("muscle"):
+		faction["muscle"] = new_faction_state()
+	return faction["muscle"]
+
+
+static func new_faction_state() -> Dictionary:
+	return { "reserve": empty_counts(), "injured": [], "respondersBlock": "" }
+
+
+static func faction_reserve(faction_id: String) -> Array:
+	return faction_state(faction_id)["reserve"]
+
+
+# Every guard the faction pays: its veins' posts, stockpile and Reserve.
+static func faction_total(faction_id: String) -> int:
+	return counts_total(faction_all_counts(faction_id))
+
+
+# Level counts across every place the faction keeps guards.
+static func faction_all_counts(faction_id: String) -> Array:
+	var all := empty_counts()
+	for counts in _faction_places(faction_id):
+		for i in counts.size():
+			all[i] += int(counts[i])
+	return all
+
+
+# Drop-order places: vein posts (least valuable vein first), stockpile, Reserve.
+static func _faction_places(faction_id: String) -> Array:
+	var places := []
+	for vein in faction_veins_low_to_high(faction_id):
+		places.append(faction_guards_at(vein))
+	places.append(faction_guards_at(GameState.state["factions"][faction_id]["stockpile"]))
+	places.append(faction_reserve(faction_id))
+	return places
+
+
+static func faction_veins_low_to_high(faction_id: String) -> Array:
+	var veins := []
+	for site in GameState.state["world"]["sites"]:
+		var vein: Variant = site.get("factionVein")
+		if vein != null and vein["factionId"] == faction_id:
+			veins.append(vein)
+	veins.sort_custom(Cultivating.value_order)
+	veins.reverse()
+	return veins
+
+
+# A level drawn by the faction's `muscleOdds`; a level with 0 odds never comes up.
+static func faction_roll_level(faction_id: String) -> int:
+	var odds: Array = GameData.FACTIONS[faction_id]["muscleOdds"]
+	var total := 0
+	for o in odds:
+		total += int(o)
+	var roll := Rng.randi_range(1, maxi(1, total))
+	for i in odds.size():
+		roll -= int(odds[i])
+		if roll <= 0 and int(odds[i]) > 0:
+			return i + 1
+	return 1
+
+
+# Adds a guard to `counts` (a vein, stockpile or Reserve count array) at
+# `level`, or at a level rolled from `muscleOdds` when 0. Returns the level.
+static func faction_hire(faction_id: String, counts: Array, level: int = 0) -> int:
+	if level <= 0:
+		level = faction_roll_level(faction_id)
+	counts[level - 1] = int(counts[level - 1]) + 1
+	return level
+
+
+# Takes the lowest-level guard out of `counts`; its level, 0 if empty.
+static func counts_drop_lowest(counts: Array) -> int:
+	for i in counts.size():
+		if int(counts[i]) > 0:
+			counts[i] = int(counts[i]) - 1
+			return i + 1
+	return 0
 
 
 static func _no_passive_xp(g: Dictionary) -> bool:

@@ -330,9 +330,9 @@ static func prepare_stockpile_raid(faction_id: String, ally_ids: Array = []) -> 
 	return { "ok": true }
 
 
-# Stockpile guards × raidResistPerGuard, on the vein raidResist scale.
+# Stockpile guard weight (counts by level) × raidResistPerGuard, on the vein raidResist scale.
 static func stockpile_raid_resist(faction_id: String) -> int:
-	return FactionSim.stockpile_guards(faction_id) * int(_stockpile_cfg()["raidResistPerGuard"])
+	return roundi(FactionSim.stockpile_guard_weight(faction_id) * float(_stockpile_cfg()["raidResistPerGuard"]))
 
 
 # The share of each holdings line a successful raid takes: stashLootShare
@@ -494,7 +494,7 @@ static func resolve_faction_stockpile_raid(attacker_id: String, defender_id: Str
 	var odds: float = Factions.stockpile_rivalry_chance(attacker_id, defender_id) - Partners.warned_odds_cut(warned_by)
 	var success := Rng.chance(clampf(odds, 0.0, 1.0))
 	var guards := FactionSim.stockpile_guards(defender_id)
-	if success and guards > 0 and Rng.chance(guard_repel_chance(guards)):
+	if success and guards > 0 and Rng.chance(guard_repel_chance(FactionSim.stockpile_guard_weight(defender_id))):
 		success = false
 	var value := 0.0
 	if success:
@@ -540,8 +540,8 @@ const RAID_RELATION_WEIGHT := 0.20
 # than normalise against a ceiling.
 const RAID_DANGER_WEIGHT := 0.5
 
-# raidResist normalised against the 55.0 "guarded" anchor, not a hard
-# ceiling -- see R§1.6 for why extra guards can push the tilt past it.
+# raidResist normalised against the 55.0 anchor (warded + one level-1 guard),
+# not a hard ceiling -- more posted guards push the tilt past it.
 const RAID_RAID_RESIST_DIVISOR := 55.0
 const RAID_RAID_RESIST_WEIGHT := 0.20
 

@@ -57,14 +57,14 @@ static func target_price(site_id: String) -> int:
 
 # The honest answer: claim_bonus is true when the vein's security is below
 # SOFT_SECURITY_CEILING; security_freeze is true when there's still a rung
-# or a capped extra guard for Factions.apply_security_upgrades() to buy.
+# or a free vein post for Factions.apply_security_upgrades() to fill.
 static func is_vulnerable(site_id: String, effect: String) -> bool:
 	var site: Variant = Sites.find_site(site_id)
 	if site == null or site["factionVein"] == null:
 		return false
 	var security: String = site["factionVein"]["security"]
 	if effect == EFFECT_SECURITY_FREEZE:
-		return Cultivating.next_security_tier_id(security) != null 			or int(site["factionVein"].get("extraGuards", 0)) < GuardUpkeep.faction_max_extra_guards()
+		return Cultivating.next_security_tier_id(security) != null 			or Cultivating.vein_guard_count(site["factionVein"]) < int(GameData.MUSCLE["postCaps"]["vein"])
 	var order: Array = Cultivating.VEIN_SECURITY_ORDER
 	return order.find(security) < order.find(SOFT_SECURITY_CEILING)
 

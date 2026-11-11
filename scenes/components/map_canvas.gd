@@ -709,8 +709,6 @@ func _draw_security_padlock(pos: Vector2, security: String, enlarge: float, alph
 	var colour := MapPalette.colour("muted")
 	if security == "warded":
 		colour = MapPalette.colour("warded")
-	elif security == "guarded":
-		colour = MapPalette.colour("guarded")
 
 	var badge_pos := pos + CLOCK_8 * BADGE_OFFSET
 	Icons.draw_padlock(self, badge_pos, _faded(colour, alpha), STOP_ICON_GROWTH * enlarge)

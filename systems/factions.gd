@@ -66,7 +66,7 @@ static func consumption_qty(faction_id: String, recipe_key: String) -> int:
 # The daily NPC-claim roll (systems/sites.gd) seeds a canonical faction a real vein via create_faction_vein().
 
 # roll_security_tier()'s base distribution before any faction/value/resource tilt.
-const SECURITY_BASE_WEIGHTS: Dictionary = { "none": 40.0, "basic": 30.0, "warded": 20.0, "guarded": 10.0 }
+const SECURITY_BASE_WEIGHTS: Dictionary = { "none": 45.0, "basic": 35.0, "warded": 20.0 }
 
 
 # A faction's weight in a site's claim roll (R§1.8 claimWeights): base, plus
@@ -106,6 +106,7 @@ static func create_faction_vein(faction_id: String, site: Dictionary, growth: in
 	var hospitability := { "tier": site["tier"], "bonuses": site["bonuses"] }
 	var vein := Cultivating.make_vein(site["oreType"], growth, site["district"], site["id"], hospitability)
 	vein["factionId"] = faction_id
+	vein["guards"] = Muscle.empty_counts()
 	vein["security"] = roll_security_tier(faction_id, site["oreType"])
 	vein["features"] = roll_vein_features(faction_id, site["oreType"], site["id"])
 	sync_ward(vein)
@@ -135,15 +136,14 @@ static func sync_ward(vein: Dictionary) -> void:
 
 
 # Security-tier roll from three signed tilts on SECURITY_BASE_WEIGHTS -- faction
-# flavour bias, vein value (basePrice), faction resource balance -- toward warded/guarded.
+# flavour bias, vein value (basePrice), faction resource balance -- toward warded.
 static func roll_security_tier(faction_id: String, ore_type: String) -> String:
 	var weights: Dictionary = SECURITY_BASE_WEIGHTS.duplicate()
 	var opulence := _security_opulence(faction_id, ore_type, float(GameState.state["factions"][faction_id]["resources"]))
 
-	weights["guarded"] = maxf(0.0, weights["guarded"] + opulence * 4.0)
-	weights["warded"] = maxf(0.0, weights["warded"] + opulence * 2.0)
-	weights["basic"] = maxf(0.0, weights["basic"] - opulence * 2.0)
-	weights["none"] = maxf(0.0, weights["none"] - opulence * 4.0)
+	weights["warded"] = maxf(0.0, weights["warded"] + opulence * 4.0)
+	weights["basic"] = maxf(0.0, weights["basic"] - opulence * 1.0)
+	weights["none"] = maxf(0.0, weights["none"] - opulence * 3.0)
 
 	return _weighted_security_roll(weights)
 
@@ -229,11 +229,10 @@ static func apply_passive_income() -> void:
 
 # ── Daily security-upgrade spend ─────────────────────────────────────────
 # A faction with spare resources (£, after today's trading and Monday wages) quietly hardens one held vein
-# each tick (spec §Faction guard upkeep, Hiring). First the tier ladder up to "guarded" (lock and ward
-# rune at table price; "guarded" costs the guard hire advance), highest vein_value()
-# vein first. Only once no vein below "guarded" is eligible and affordable does it rehire a stockpile
-# guard up to its stockpileGuards target, then hire an extra vein guard, highest-value vein first, up to
-# maxExtraGuardsPerVein. Any guard hire also needs the wage reserve (GuardUpkeep.faction_can_hire).
+# each tick (spec §Faction guard upkeep, Hiring). Buy order: lock, then ward rune (table price,
+# highest vein_value() vein first); then fill vein posts to the post cap (highest-value vein first),
+# the stockpile to its stockpileGuards target, the Reserve to reserveGuards. Each hire rolls the
+# faction's muscleOdds and needs the wage reserve (GuardUpkeep.faction_can_hire).
 # Frozen veins are skipped; nothing eligible is a no-op.
 static func apply_security_upgrades() -> void:
 	for faction_id in GameState.state["factions"].keys():
@@ -242,31 +241,56 @@ static func apply_security_upgrades() -> void:
 			var vein: Variant = site["factionVein"]
 			if vein != null and vein["factionId"] == faction_id and not NetworkHandler.is_security_frozen(site["id"]):
 				veins.append(vein)
-		if not _apply_tier_upgrade(faction_id, veins) and not _hire_stockpile_guard(faction_id):
-			_hire_extra_guard(faction_id, veins)
+		if not _apply_tier_upgrade(faction_id, veins):
+			_hire_guard(faction_id, veins)
 
 
-# One stockpile guard back toward the faction's target, if the wage reserve allows; true if hired.
-static func _hire_stockpile_guard(faction_id: String) -> bool:
-	var guards := FactionSim.stockpile_guards(faction_id)
-	if guards >= FactionSim.stockpile_guard_target(faction_id) or not GuardUpkeep.faction_can_hire(faction_id):
+# One guard toward the first unfilled place in buy order; true if hired.
+static func _hire_guard(faction_id: String, veins: Array) -> bool:
+	var counts := _next_hire_place(faction_id, veins)
+	if counts.is_empty() or not GuardUpkeep.faction_can_hire(faction_id):
 		return false
-	GameState.state["factions"][faction_id]["resources"] -= GuardUpkeep.hire_advance()
-	FactionAI.note_spend(faction_id, float(GuardUpkeep.hire_advance()))
-	FactionSim.set_stockpile_guards(faction_id, guards + 1)
+	var level := Muscle.faction_roll_level(faction_id)
+	if not GuardUpkeep.faction_can_hire(faction_id, level):
+		return false
+	var advance := GuardUpkeep.faction_hire_advance(level)
+	GameState.state["factions"][faction_id]["resources"] -= advance
+	FactionAI.note_spend(faction_id, float(advance))
+	Muscle.faction_hire(faction_id, counts, level)
 	return true
 
 
-# The highest-value vein below "guarded" whose next tier the faction can pay for; true if one was upgraded.
+# The count array of the first place short of guards: vein posts (highest vein_value first, to the
+# post cap), stockpile (to stockpileGuards), Reserve (to reserveGuards); [] when all are full.
+static func _next_hire_place(faction_id: String, veins: Array) -> Array:
+	var cap := int(GameData.MUSCLE["postCaps"]["vein"])
+	var ordered := veins.duplicate()
+	ordered.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		var value_a := vein_value(a)
+		var value_b := vein_value(b)
+		if value_a != value_b:
+			return value_a > value_b
+		return str(a["siteId"]) < str(b["siteId"]))
+	for vein in ordered:
+		var counts := Muscle.faction_guards_at(vein)
+		if Muscle.counts_total(counts) < cap:
+			return counts
+	var stockpile := Muscle.faction_guards_at(GameState.state["factions"][faction_id]["stockpile"])
+	if Muscle.counts_total(stockpile) < FactionSim.stockpile_guard_target(faction_id):
+		return stockpile
+	var reserve := Muscle.faction_reserve(faction_id)
+	if Muscle.counts_total(reserve) < int(GameData.FACTIONS[faction_id]["reserveGuards"]):
+		return reserve
+	return []
+
+
+# The highest-value vein below "warded" whose next tier the faction can pay for; true if one was upgraded.
 static func _apply_tier_upgrade(faction_id: String, veins: Array) -> bool:
 	var faction_state: Dictionary = GameState.state["factions"][faction_id]
-	var can_hire := GuardUpkeep.faction_can_hire(faction_id)
 	var eligible: Array = veins.filter(func(vein: Dictionary) -> bool:
 		var next_id: Variant = Cultivating.next_security_tier_id(vein["security"])
 		if next_id == null:
 			return false
-		if next_id == Cultivating.GUARDED_TIER_ID:
-			return can_hire
 		return faction_state["resources"] >= Cultivating.security_tier_cost(next_id))
 	var vein: Variant = _most_valuable(eligible)
 	if vein == null:
@@ -277,20 +301,6 @@ static func _apply_tier_upgrade(faction_id: String, veins: Array) -> bool:
 	vein["security"] = next_id
 	sync_ward(vein)
 	return true
-
-
-# One extra guard on the highest-value "guarded" vein under the per-vein cap, if the wage reserve allows.
-static func _hire_extra_guard(faction_id: String, veins: Array) -> void:
-	if not GuardUpkeep.faction_can_hire(faction_id):
-		return
-	var cap := GuardUpkeep.faction_max_extra_guards()
-	var vein: Variant = _most_valuable(veins.filter(func(v: Dictionary) -> bool:
-		return v["security"] == Cultivating.GUARDED_TIER_ID and int(v.get("extraGuards", 0)) < cap))
-	if vein == null:
-		return
-	GameState.state["factions"][faction_id]["resources"] -= GuardUpkeep.hire_advance()
-	FactionAI.note_spend(faction_id, float(GuardUpkeep.hire_advance()))
-	vein["extraGuards"] = int(vein.get("extraGuards", 0)) + 1
 
 
 # A vein's worth in faction AI scoring: its ore's London quote (R§3.13) times combined_magnitude.
@@ -386,8 +396,8 @@ const RIVALRY_BASE_CHANCE := 0.5
 const RIVALRY_RESOURCE_DIVISOR := 50000.0
 const RIVALRY_RESOURCE_WEIGHT := 0.25
 
-# Normalises against "guarded" raidResist (55, R§1.6) so the base tilt stays within
-# [0, 1] before WEIGHT scales it. Not a hard ceiling -- stacked extraGuards can push
+# Normalises against a warded vein with one level-1 guard (35 + 20 = 55) so the base tilt
+# stays within [0, 1] before WEIGHT scales it. Not a hard ceiling -- more posted guards push
 # raidResist past 55, pushing the tilt further negative (clamped by clampf below).
 const RIVALRY_RAID_RESIST_DIVISOR := 55.0
 const RIVALRY_RAID_RESIST_WEIGHT := 0.25

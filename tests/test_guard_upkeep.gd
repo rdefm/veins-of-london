@@ -5,6 +5,43 @@ const Fixtures := preload("res://tests/support/fixtures.gd")
 
 func run() -> void:
 	calendar_start_weekday = 0  # fixtures count days from a Monday day 1
+	run_case("faction_monday_bill_is_the_sum_of_count_times_level_wage", func():
+		GameState.reset()
+		var vein := Fixtures.seed_faction_vein("fa", 50, "collective")
+		vein["claimedOnDay"] = 1
+		vein["guards"] = [1, 0, 2, 0, 0]
+		FactionSim.set_stockpile_guards("collective", 0)
+		GameState.state["factions"]["collective"]["stockpile"]["guards"] = [0, 1, 0, 0, 0]
+		Muscle.faction_reserve("collective")[4] = 1
+		GameState.state["world"]["day"] = Calendar.monday_on_or_after(8)
+		GameState.state["factions"]["collective"]["resources"] = 100000
+		var due := 1 * Muscle.level_wage(1) + 2 * Muscle.level_wage(3) + Muscle.level_wage(2) + Muscle.level_wage(5)
+		var result := GuardUpkeep.pay_faction_monday_bills()
+		assert_eq(result["collective"], { "due": due, "paid": due, "walked": {} })
+		assert_eq(GameState.state["factions"]["collective"]["resources"], 100000 - due)
+	)
+
+	run_case("faction_walk_off_goes_lowest_level_first_across_posts_then_stockpile_then_reserve", func():
+		GameState.reset()
+		var vein := Fixtures.seed_faction_vein("fa", 50, "collective")
+		vein["claimedOnDay"] = 1
+		vein["guards"] = [0, 1, 1, 0, 0]
+		GameState.state["factions"]["collective"]["stockpile"]["guards"] = [1, 0, 1, 0, 0]
+		GameState.state["factions"]["collective"]["muscle"]["reserve"] = [1, 0, 0, 0, 0]
+		GameState.state["world"]["day"] = Calendar.monday_on_or_after(8)
+		# Bill: L1 x2 (500) + L2 (600) + L3 x2 (750) = 3100. Afford 1500: drop the two L1s
+		# (stockpile first, then Reserve), then the L2 (vein post) - leaving 1500 owed.
+		GameState.state["factions"]["collective"]["resources"] = 1500
+		var result := GuardUpkeep.pay_faction_monday_bills()
+		assert_eq(result["collective"]["due"], 3100)
+		assert_eq(result["collective"]["paid"], 1500)
+		assert_eq(result["collective"]["walked"], { GuardUpkeep.STOCKPILE_PLACE_ID: 1, Muscle.POST_RESERVE: 1, "fa": 1 })
+		assert_eq(vein["guards"], [0, 0, 1, 0, 0], "the L2 went from the vein post")
+		assert_eq(GameState.state["factions"]["collective"]["stockpile"]["guards"], [0, 0, 1, 0, 0])
+		assert_eq(Muscle.faction_reserve("collective"), [0, 0, 0, 0, 0])
+		assert_eq(GameState.state["factions"]["collective"]["resources"], 0)
+	)
+
 	run_case("monday_rollover_bills_every_vein_and_hq_guard_from_cash", func():
 		var monday := _seed_guards()
 		GameState.state["world"]["day"] = monday

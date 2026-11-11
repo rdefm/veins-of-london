@@ -10,7 +10,7 @@ const Fixtures := preload("res://tests/support/fixtures.gd")
 static func _faction_vein_of_growth(growth: int, ore_type: String, security: String = "none", faction_id: String = "collective") -> Dictionary:
 	return {
 		"id": "fv_test", "factionId": faction_id, "oreType": ore_type, "growth": growth,
-		"security": security, "alarmUpgrades": [],
+		"security": "warded" if security == "guarded" else security, "guards": FactionSim.stockpile_counts(1 if security == "guarded" else 0), "alarmUpgrades": [],
 		"location": "Test St, nowhere", "claimedOnDay": 0, "district": "shoreditch",
 		"siteId": "s_test", "hospitability": { "tier": "fair", "bonuses": [] },
 		"rampantDays": 0,
@@ -23,7 +23,7 @@ static func _faction_vein_of_growth(growth: int, ore_type: String, security: Str
 static func _carry_over_raid(extra_guards: int) -> Dictionary:
 	GameState.reset()
 	var vein := _faction_vein_of_growth(10, "time", "guarded", "firm")
-	vein["extraGuards"] = extra_guards
+	vein["guards"] = FactionSim.stockpile_counts(1 + (extra_guards))
 	GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", vein)]
 	Events.start_event(Raiding.RAID_EVENT_ID, { "site_id": "s1" })
 	return vein
@@ -78,7 +78,7 @@ static func _option_index(label: String) -> int:
 static func _player_vein_of(growth: int, ore_type: String, security: String = "none", district: String = "shoreditch", site_id: String = "s_player") -> Dictionary:
 	return {
 		"id": "pv_test", "oreType": ore_type, "growth": growth,
-		"security": security, "alarmUpgrades": [],
+		"security": "warded" if security == "guarded" else security, "alarmUpgrades": [],
 		"location": "Test St, nowhere", "claimedOnDay": 0, "district": district,
 		"siteId": site_id, "hospitability": { "tier": "fair", "bonuses": [] },
 		"rampantDays": 0,
@@ -362,7 +362,7 @@ func run() -> void:
 			Events.advance()
 			_leave_raid()
 
-		site["factionVein"]["extraGuards"] = int(site["factionVein"].get("extraGuards", 0)) + 1
+		site["factionVein"]["guards"] = FactionSim.stockpile_counts(1 + (int(site["factionVein"].get("extraGuards", 0)) + 1))
 		assert_true(Observation.site_memory("s1").is_empty(), "a guard change clears the read")
 		assert_true(not Observation.site_memory("s2").is_empty(), "the other site keeps its read")
 
@@ -525,7 +525,7 @@ func run() -> void:
 		GameState.state["player"]["veins"] = [pv]
 		GameState.state["world"]["sites"] = []
 		Events.start_event(Raiding.RAID_EVENT_ID, { "site_id": "p1" })
-		assert_eq(String(Events.security_profile()["tier"]), "guarded")
+		assert_eq(String(Events.security_profile()["tier"]), "warded")
 		Events.start_event(Raiding.RAID_EVENT_ID, { "site_id": "nowhere" })
 		assert_true(Events.security_profile().is_empty(), "no vein reads as no security")
 	)
@@ -551,7 +551,7 @@ func run() -> void:
 	run_case("a_preset_fight_takes_the_ops_guard_count_and_appends_its_conditions", func():
 		GameState.reset()
 		var vein := _faction_vein_of_growth(10, "time", "guarded", "firm")
-		vein["extraGuards"] = 3
+		vein["guards"] = FactionSim.stockpile_counts(1 + (3))
 		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", vein)]
 		Events.start_event(Raiding.RAID_EVENT_ID, { "site_id": "s1" })
 		_seed_read("fate", 1)
@@ -1306,7 +1306,7 @@ func run() -> void:
 		assert_eq(site["factionVein"]["factionId"], "collective")
 		assert_eq(site["factionVein"]["oreType"], "life", "oreType carries over")
 		assert_eq(site["factionVein"]["growth"], 30, "growth carries over")
-		assert_eq(site["factionVein"]["security"], "guarded", "security carries over")
+		assert_eq(site["factionVein"]["security"], "warded", "security carries over")
 		assert_eq(GameState.state["world"]["pendingDefendRaids"], [], "the expired entry should be cleared")
 		assert_eq(GameState.state["notifications"].size(), 1, "a missed defend window should still notify exactly once")
 		var text: String = GameState.state["notifications"][0]["text"]
@@ -1414,6 +1414,27 @@ func run() -> void:
 				Rng.set_seed(seed)
 				Raiding._expire_pending_defend_raids()
 				assert_eq(GameState.state["player"]["veins"].size() == 1, expected_repel, "extras %d, seed %d: repel rolls at %d guards' chance" % [extras, seed, 1 + extras])
+	)
+
+	run_case("faction_vein_resist_and_repel_weigh_guards_by_level_and_match_all_l1_parity", func():
+		GameState.reset()
+		var l1 := _faction_vein_of_growth(10, "time", "warded", "firm")
+		l1["guards"] = [3, 0, 0, 0, 0]
+		assert_eq(Cultivating.vein_raid_resist(l1), 35 + 3 * 20, "three L1 guards: ward + 20 each, as the old guarded tier + 2 extras")
+		assert_eq(Raiding.guard_repel_chance(Cultivating.vein_repel_weight(l1)), Raiding.guard_repel_chance(3), "L1 repel weight is the head count")
+		var mixed := _faction_vein_of_growth(10, "time", "warded", "firm")
+		mixed["guards"] = [1, 0, 0, 0, 1]
+		assert_eq(Cultivating.vein_repel_weight(mixed), 3.0, "an L5 guard weighs 2.0")
+		assert_eq(Cultivating.vein_raid_resist(mixed), 35 + 60)
+	)
+
+	run_case("stockpile_resist_and_repel_use_count_by_level_weights", func():
+		GameState.reset()
+		var per_guard := int(GameData.STOCKPILE_RAID["raidResistPerGuard"])
+		GameState.state["factions"]["firm"]["stockpile"]["guards"] = [2, 0, 0, 0, 0]
+		assert_eq(Raiding.stockpile_raid_resist("firm"), 2 * per_guard, "all-L1 matches the old per-head count")
+		GameState.state["factions"]["firm"]["stockpile"]["guards"] = [0, 0, 0, 0, 2]
+		assert_eq(Raiding.stockpile_raid_resist("firm"), 4 * per_guard, "L5 guards weigh 2.0 each")
 	)
 
 	run_case("guards_repel_on_an_unguarded_vein_consumes_no_roll", func():
@@ -2126,7 +2147,7 @@ func run() -> void:
 		var save: Dictionary = GameState.deep_copy(GameState.state)
 		save["factions"]["firm"]["stockpile"].erase("guards")
 		SaveManager._migrate_faction_holdings(save)
-		assert_eq(save["factions"]["firm"]["stockpile"]["guards"], FactionSim.stockpile_guard_target("firm"))
+		assert_eq(save["factions"]["firm"]["stockpile"]["guards"], FactionSim.stockpile_counts(FactionSim.stockpile_guard_target("firm")))
 	)
 
 	# ── Reinforcement clock (raid-events ticket 23) ──────────────────────

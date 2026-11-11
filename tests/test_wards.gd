@@ -9,7 +9,7 @@ const Fixtures := preload("res://tests/support/fixtures.gd")
 static func _faction_vein(site_id: String, security: String, faction_id: String) -> Dictionary:
 	return {
 		"id": "fv_" + site_id, "factionId": faction_id, "oreType": "time", "growth": 30,
-		"security": security, "alarmUpgrades": [],
+		"security": "warded" if security == "guarded" else security, "guards": FactionSim.stockpile_counts(1 if security == "guarded" else 0), "alarmUpgrades": [],
 		"location": "Test St, nowhere", "claimedOnDay": 0, "district": "shoreditch",
 		"siteId": site_id, "hospitability": { "tier": "fair", "bonuses": [] },
 		"rampantDays": 0, "kit": {}, "features": { "cameras": 0, "alarm": false },

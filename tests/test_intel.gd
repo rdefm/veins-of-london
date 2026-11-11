@@ -146,7 +146,7 @@ func run() -> void:
 		Rng.set_seed(1607)
 		Fixtures.seed_vein("pv_soft", 50)
 		var strong := Fixtures.seed_vein("pv_strong", 50)
-		strong["security"] = "guarded"
+		Fixtures.fortify(strong)
 		_raid_ready("firm")
 		_set_meter("firm", Shares.PLAYER, 50)
 		_escalate_on(1)

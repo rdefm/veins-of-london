@@ -9,7 +9,7 @@ const Fixtures := preload("res://tests/support/fixtures.gd")
 static func _faction_vein(site_id: String, security: String, faction_id: String = "firm") -> Dictionary:
 	return {
 		"id": "fv_" + site_id, "factionId": faction_id, "oreType": "physics", "growth": 30,
-		"security": security, "alarmUpgrades": [],
+		"security": "warded" if security == "guarded" else security, "guards": FactionSim.stockpile_counts(1 if security == "guarded" else 0), "alarmUpgrades": [],
 		"location": "Test St, nowhere", "claimedOnDay": 0, "district": "shoreditch",
 		"siteId": site_id, "hospitability": { "tier": "fair", "bonuses": [] },
 		"rampantDays": 0, "kit": {}, "features": { "cameras": 0, "alarm": false },
@@ -56,13 +56,13 @@ func run() -> void:
 		GameState.reset()
 		var expect := {
 			"none": [false, false, 0], "basic": [true, false, 0],
-			"warded": [true, true, 0], "guarded": [true, true, 1],
+			"warded": [true, true, 0],
 		}
 		for tier in expect:
 			var p := Raiding.security_profile(_faction_vein("s1", tier))
 			assert_eq([p["tier"], p["locks"], p["ward"], p["guards"]], [tier] + expect[tier], tier)
-		var extra := _faction_vein("s1", "guarded")
-		extra["extraGuards"] = 2
+		var extra := _faction_vein("s1", "warded")
+		extra["guards"] = [1, 1, 1, 0, 0]
 		assert_eq(Raiding.security_profile(extra)["guards"], 3, "guard count = the vein's guard count")
 		var featured := _faction_vein("s1", "basic")
 		featured["features"] = { "cameras": 2, "alarm": true }

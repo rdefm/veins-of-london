@@ -200,7 +200,7 @@ func run() -> void:
 		assert_eq(GameData.GUARD_UPKEEP["weeklyWage"], 500)
 		assert_eq(GameData.GUARD_UPKEEP["graceDays"], 1)
 		assert_eq(GameData.GUARD_UPKEEP["guardCostHistoryDays"], 28)
-		assert_eq(GameData.GUARD_UPKEEP["faction"]["maxExtraGuardsPerVein"], 3)
+		assert_true(not GameData.GUARD_UPKEEP["faction"].has("maxExtraGuardsPerVein"), "replaced by the post cap")
 		assert_eq(GameData.GUARD_UPKEEP["faction"]["wageReserveWeeks"], 2)
 	)
 
@@ -827,7 +827,8 @@ func run() -> void:
 		assert_eq(GameData.VEIN_GROWTH["neutral"], 50, "vein_growth neutral")
 		assert_eq(GameData.VEIN_GROWTH["ceiling"], 100, "vein_growth ceiling")
 		assert_eq(GameData.VEIN_GROWTH["seedGrowth"], 20, "vein_growth seedGrowth")
-		assert_eq(GameData.VEIN_SECURITY["guarded"]["raidResist"], 55, "guarded raidResist")
+		assert_eq(GameData.VEIN_SECURITY["warded"]["raidResist"], 35, "warded raidResist")
+		assert_true(not GameData.VEIN_SECURITY.has("guarded"), "no hired-guard tier")
 		assert_eq(GameData.FACTIONS["conclave"]["joinRelation"], 60, "conclave joinRelation")
 		assert_eq(GameData.FACTION_TRADE["collective"]["sellSpreadMax"], 0.45, "collective sellSpreadMax (§8.1)")
 		assert_eq(GameData.FACTION_TRADE["collective"]["anchorRelation"], 0, "collective trade lane anchors at relation 0, not joinRelation")

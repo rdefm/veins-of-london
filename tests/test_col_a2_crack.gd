@@ -134,8 +134,8 @@ func run() -> void:
 	run_case("force_vein_loss_is_unconditional_whatever_the_veins_security", func():
 		GameState.reset()
 		var vein := Fixtures.seed_faction_vein("fv_hakim", 60)
-		vein["security"] = "guarded"
-		vein["extraGuards"] = 5
+		Fixtures.fortify(vein)
+		vein["guards"] = FactionSim.stockpile_counts(1 + (5))
 
 		assert_true(Collective.force_vein_loss("fv_hakim", "firm"))
 		assert_eq(vein["factionId"], "firm")
@@ -174,7 +174,7 @@ func run() -> void:
 		GameState.reset()
 		Fixtures.seed_vein("v_defended", 40)
 		var strong := Fixtures.seed_vein("v_strong", 40)
-		strong["security"] = "guarded"
+		Fixtures.fortify(strong)
 		GameState.state["collective"]["nadiaDefendVeinId"] = "v_defended"
 
 		assert_eq(Collective.second_loss_target_id(), "v_defended")
@@ -185,7 +185,7 @@ func run() -> void:
 		Fixtures.seed_vein("v_weak", 40)
 		var strong := Fixtures.seed_vein("v_strong", 40)
 		strong["security"] = "warded"
-		Fixtures.seed_faction_vein("fv_guarded", 40)["security"] = "guarded"
+		Fixtures.fortify(Fixtures.seed_faction_vein("fv_guarded", 40))
 
 		assert_eq(Collective.second_loss_target_id(), "v_strong", "mission never started")
 
@@ -196,8 +196,8 @@ func run() -> void:
 	run_case("second_loss_falls_back_to_the_collectives_own_veins_when_the_player_holds_none", func():
 		GameState.reset()
 		Fixtures.seed_faction_vein("fv_basic", 40)["security"] = "basic"
-		Fixtures.seed_faction_vein("fv_guarded", 40)["security"] = "guarded"
-		Fixtures.seed_faction_vein("fv_firm", 40, "firm")["security"] = "guarded"
+		Fixtures.fortify(Fixtures.seed_faction_vein("fv_guarded", 40))
+		Fixtures.fortify(Fixtures.seed_faction_vein("fv_firm", 40, "firm"))
 
 		assert_eq(Collective.second_loss_target_id(), "fv_guarded", "highest-security Collective vein, never the Firm's")
 	)

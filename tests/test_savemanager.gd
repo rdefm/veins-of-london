@@ -462,6 +462,27 @@ func run() -> void:
 			assert_eq(stockpile["revealedTo"], [], "%s backfilled unrevealed" % faction_id)
 	)
 
+	run_case("old_save_faction_guard_counts_migrate_to_level_one_arrays", func():
+		GameState.reset()
+		var site := Fixtures.site("site_old", "life", "fair")
+		var vein := Factions.create_faction_vein("firm", site, 50)
+		vein["id"] = "old_v"
+		site["factionVein"] = vein
+		GameState.state["world"]["sites"].append(site)
+		vein.erase("guards")
+		vein["security"] = "guarded"
+		vein["extraGuards"] = 2
+		GameState.state["factions"]["firm"]["stockpile"]["guards"] = 3
+		GameState.state["factions"]["firm"].erase("muscle")
+		assert_true(SaveManager.import_string(SaveManager.export_string())["ok"])
+		var loaded: Dictionary = Sites.find_site("site_old")["factionVein"]
+		assert_eq(loaded["guards"], [3, 0, 0, 0, 0], "tier guard + 2 extras become 3 level-1 guards")
+		assert_eq(loaded["security"], "warded", "the guarded tier is gone")
+		assert_true(not loaded.has("extraGuards"))
+		assert_eq(GameState.state["factions"]["firm"]["stockpile"]["guards"], [3, 0, 0, 0, 0])
+		assert_eq(Muscle.faction_reserve("firm"), [0, 0, 0, 0, 0], "an empty Reserve is backfilled")
+	)
+
 	run_case("old_save_arrears_day_clock_migrates_to_whole_weeks", func():
 		GameState.reset()
 		GameState.state["home"]["arrears"] = 300
@@ -508,7 +529,7 @@ func run() -> void:
 		GameState.state["world"]["sites"].append({
 			"id": "s1", "district": "hampstead", "tier": "rich", "oreType": "life",
 			"bonuses": ["yield"], "discoveredDay": 3, "claimed": false,
-			"factionVein": { "id": "fv1", "factionId": "collective", "oreType": "life", "growth": 20, "rampantDays": 0, "security": "none", "claimedOnDay": 5, "kit": { "healingSalve": 1 }, "features": { "cameras": 1, "alarm": true } },
+			"factionVein": { "id": "fv1", "factionId": "collective", "oreType": "life", "growth": 20, "rampantDays": 0, "security": "none", "guards": [0, 0, 0, 0, 0], "claimedOnDay": 5, "kit": { "healingSalve": 1 }, "features": { "cameras": 1, "alarm": true } },
 			"hasNaturalVein": false,
 		})
 		var original: Dictionary = GameState.deep_copy(GameState.state)

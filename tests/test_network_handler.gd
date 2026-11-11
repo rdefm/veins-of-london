@@ -108,7 +108,7 @@ func run() -> void:
 		GameState.reset()
 		for site in GameState.state["world"]["sites"]:
 			if site["factionVein"] != null and site["factionVein"]["factionId"] == "firm":
-				site["factionVein"]["security"] = "guarded"
+				Fixtures.fortify(site["factionVein"], 4)
 		GameState.state["factions"]["firm"]["resources"] = 100000
 		var site_id := _seed_firm_vein("fv_freeze", "none")
 		assert_true(NetworkHandler.reveal_vulnerable_vein(site_id, NetworkHandler.EFFECT_SECURITY_FREEZE), "an upgradable vein can be frozen")
@@ -124,10 +124,17 @@ func run() -> void:
 
 	run_case("maxed_security_cannot_be_frozen", func():
 		GameState.reset()
-		var site_id := _seed_firm_vein("fv_max", "guarded")
-		Sites.find_site(site_id)["factionVein"]["extraGuards"] = GuardUpkeep.faction_max_extra_guards()
+		var site_id := _seed_firm_vein("fv_max", "warded")
+		Sites.find_site(site_id)["factionVein"]["guards"] = FactionSim.stockpile_counts(int(GameData.MUSCLE["postCaps"]["vein"]))
 		assert_true(not (NetworkHandler.reveal_vulnerable_vein(site_id, NetworkHandler.EFFECT_SECURITY_FREEZE)), "nothing left to delay")
 		assert_true(not (_intel().has(site_id)), "no entry written")
+	)
+
+	run_case("a_warded_vein_below_the_post_cap_can_still_be_frozen", func():
+		GameState.reset()
+		var site_id := _seed_firm_vein("fv_open", "warded")
+		Sites.find_site(site_id)["factionVein"]["guards"] = FactionSim.stockpile_counts(3)
+		assert_true(NetworkHandler.reveal_vulnerable_vein(site_id, NetworkHandler.EFFECT_SECURITY_FREEZE), "a free post is still for sale")
 	)
 
 	run_case("network_reveal_vulnerable_vein_op_reads_site_id_from_effect", func():

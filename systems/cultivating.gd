@@ -6,10 +6,9 @@ extends RefCounted
 
 # data/vein_security.json's upgrade ladder (R§1.6), pinned explicitly rather
 # than relying on the table's JSON key order.
-const VEIN_SECURITY_ORDER: Array[String] = ["none", "basic", "warded", "guarded"]
+const VEIN_SECURITY_ORDER: Array[String] = ["none", "basic", "warded"]
 const BASIC_TIER_ID := "basic"
 const WARDED_TIER_ID := "warded"
-const GUARDED_TIER_ID := "guarded"
 
 # Fallback street list used by generate_location_name() for any district not
 # in DISTRICT_STREETS below (also used directly for whitechapel).
@@ -792,9 +791,7 @@ static func make_vein_id() -> String:
 
 # ── vein security (M1-LONDON §D4: site/vein sheet's "Upgrade security") ──
 
-# Null once at "guarded" -- the top of the faction tier ladder. Player veins
-# top out at "warded" (next_security_upgrade() below); factions hire capped
-# extras past it (Factions.apply_security_upgrades()).
+# Null once at "warded" -- the top of the tier ladder; guards come from posts.
 static func next_security_tier_id(current: String) -> Variant:
 	var idx: int = VEIN_SECURITY_ORDER.find(current)
 	if idx == -1 or idx >= VEIN_SECURITY_ORDER.size() - 1:
@@ -802,43 +799,39 @@ static func next_security_tier_id(current: String) -> Variant:
 	return VEIN_SECURITY_ORDER[idx + 1]
 
 
-# Today's price of moving a vein up to tier_id: the table cost for a lock or
-# ward rune, the guard hire advance for a faction's "guarded" tier (spec §Hiring).
+# The table cost of a lock or ward rune.
 static func security_tier_cost(tier_id: String) -> int:
-	if tier_id == GUARDED_TIER_ID:
-		return GuardUpkeep.hire_advance()
 	return int(GameData.VEIN_SECURITY[tier_id]["cost"])
 
 
-# Flat raid-resist per guard weight: a faction extra guard, or one unit of
-# posted-guard weight on a player vein (matches "guarded" over "warded", R§1.6).
+# Flat raid-resist per unit of posted-guard weight.
 const EXTRA_GUARD_RAID_RESIST := 20
 
 
 # Every raid-odds formula (Raiding.raid_factor_mods/raid_success_chance,
 # Factions.rivalry_success_chance) reads defensive strength through here rather
-# than indexing GameData.VEIN_SECURITY directly. A player vein adds
-# EXTRA_GUARD_RAID_RESIST per unit of available posted-guard weight; a faction
-# vein adds it per extraGuards (default 0).
+# than indexing GameData.VEIN_SECURITY directly. Adds EXTRA_GUARD_RAID_RESIST
+# per unit of posted-guard weight: a player vein's available guards, a faction
+# vein's counts by level.
 static func vein_raid_resist(vein: Dictionary) -> int:
 	var base := vein_tier_resist(vein)
 	if is_player_vein(vein):
 		return base + roundi(Muscle.post_weight_sum(vein["id"]) * EXTRA_GUARD_RAID_RESIST)
-	return base + vein.get("extraGuards", 0) * EXTRA_GUARD_RAID_RESIST
+	return base + roundi(Muscle.counts_weight(Muscle.faction_guards_at(vein)) * EXTRA_GUARD_RAID_RESIST)
 
 
-# Lock / ward / guarded tier resist alone (harassment-degraded), no guard weight.
+# Lock / ward tier resist alone (harassment-degraded), no guard weight.
 static func vein_tier_resist(vein: Dictionary) -> int:
 	var tier: String = VEIN_SECURITY_ORDER[maxi(0, VEIN_SECURITY_ORDER.find(vein["security"]) - Harassment.security_degrade_tiers(vein["id"]))]
 	return int(GameData.VEIN_SECURITY[tier]["raidResist"])
 
 
-# Repel weight at a vein: posted guards' repel weights on a player vein; one
-# unit per guard on a faction vein.
+# Repel weight at a vein: posted guards' repel weights on a player vein; the
+# count-by-level weights on a faction vein.
 static func vein_repel_weight(vein: Dictionary) -> float:
 	if is_player_vein(vein):
 		return Muscle.post_repel_weight_sum(vein["id"])
-	return float(vein_guard_count(vein))
+	return Muscle.counts_weight(Muscle.faction_guards_at(vein))
 
 
 # Faction veins carry a factionId; the player's never do.
@@ -847,37 +840,25 @@ static func is_player_vein(vein: Dictionary) -> bool:
 
 
 # Guards on a vein: a player vein's available posted guards; a faction vein's
-# "guarded" tier guard plus extraGuards (spec §Guard counting).
+# level counts summed.
 static func vein_guard_count(vein: Dictionary) -> int:
 	if is_player_vein(vein):
 		return Muscle.available_at(vein["id"]).size()
-	var tier_guard := 1 if vein.get("security", "") == GUARDED_TIER_ID else 0
-	return tier_guard + int(vein.get("extraGuards", 0))
+	return Muscle.counts_total(Muscle.faction_guards_at(vein))
 
 
-# Removes a vein's last guard: a player vein walks its lowest-level posted
-# guard; a faction vein loses the newest extra first, the tier guard last
-# ("guarded" -> "warded"). Lock, ward rune and alarm upgrades are never
-# touched. Returns false when the vein has no guard to drop.
+# Removes a vein's lowest-level guard (a player vein's posted guard walks, a
+# faction vein loses one from its counts). Lock, ward rune and alarm upgrades
+# are never touched. Returns false when the vein has no guard to drop.
 static func drop_vein_guard(vein: Dictionary) -> bool:
 	if is_player_vein(vein):
 		return Muscle.walk_from(vein["id"])
-	if int(vein.get("extraGuards", 0)) > 0:
-		vein["extraGuards"] = int(vein["extraGuards"]) - 1
-		return true
-	if vein["security"] == GUARDED_TIER_ID:
-		vein["security"] = WARDED_TIER_ID
-		return true
-	return false
+	return Muscle.counts_drop_lowest(Muscle.faction_guards_at(vein)) > 0
 
 
-# Display label: the tier label, plus a "+N" suffix once extra guards are stacked on top (e.g. "Hired Guard +2").
+# Display label: the vein's security tier label.
 static func security_label(vein: Dictionary) -> String:
-	var base: String = GameData.VEIN_SECURITY[vein["security"]]["label"]
-	var extra: int = vein.get("extraGuards", 0)
-	if extra > 0:
-		return "%s +%d" % [base, extra]
-	return base
+	return GameData.VEIN_SECURITY[vein["security"]]["label"]
 
 
 # What upgrade_vein_security() would buy next, shared by the UI button and the

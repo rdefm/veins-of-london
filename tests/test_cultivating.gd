@@ -1250,11 +1250,11 @@ func run() -> void:
 
 	# ── vein security (M1-LONDON.md D4 site/vein sheet) ─────────────
 
-	run_case("next_security_tier_id_walks_the_ladder_and_tops_out_at_guarded", func():
+	run_case("next_security_tier_id_walks_the_ladder_and_tops_out_at_warded", func():
 		assert_eq(Cultivating.next_security_tier_id("none"), "basic", "none -> basic")
 		assert_eq(Cultivating.next_security_tier_id("basic"), "warded", "basic -> warded")
-		assert_eq(Cultivating.next_security_tier_id("warded"), "guarded", "warded -> guarded")
-		assert_eq(Cultivating.next_security_tier_id("guarded"), null, "guarded is the top of the ladder")
+		assert_eq(Cultivating.next_security_tier_id("warded"), null, "warded is the top of the ladder")
+		assert_true(not GameData.VEIN_SECURITY.has("guarded"), "no hired-guard tier")
 	)
 
 	run_case("upgrade_vein_security_deducts_cash_and_advances_one_tier", func():
@@ -1311,7 +1311,6 @@ func run() -> void:
 	run_case("lock_and_ward_rune_keep_their_table_prices", func():
 		assert_eq(Cultivating.security_tier_cost("basic"), GameData.VEIN_SECURITY["basic"]["cost"])
 		assert_eq(Cultivating.security_tier_cost("warded"), GameData.VEIN_SECURITY["warded"]["cost"])
-		assert_true(not GameData.VEIN_SECURITY["guarded"].has("cost"), "the Hired Guard tier has no purchase price")
 	)
 
 	run_case("a_player_vein_adds_resist_per_posted_guard_weight_and_ignores_unavailable_guards", func():
@@ -1331,30 +1330,29 @@ func run() -> void:
 	run_case("vein_raid_resist_adds_a_flat_bonus_per_extra_guard_on_a_faction_vein", func():
 		var vein := _vein(50)
 		vein["factionId"] = "f"
-		vein["security"] = "guarded"
-		assert_eq(Cultivating.vein_raid_resist(vein), 55, "guarded alone, no extra guards: base raidResist only")
-		vein["extraGuards"] = 3
-		assert_eq(Cultivating.vein_raid_resist(vein), 55 + 3 * 20, "3 extra guards keep adding, unbounded")
-		vein["extraGuards"] = 50
-		assert_eq(Cultivating.vein_raid_resist(vein), 55 + 50 * 20, "still no ceiling at a very high guard count")
+		Fixtures.fortify(vein)
+		assert_eq(Cultivating.vein_raid_resist(vein), 55, "ward + one L1 guard: all-L1 parity with the old guarded tier")
+		vein["guards"] = FactionSim.stockpile_counts(4)
+		assert_eq(Cultivating.vein_raid_resist(vein), 35 + 4 * 20, "each L1 guard adds 20")
+		vein["guards"] = [1, 0, 2, 0, 0]
+		assert_eq(Cultivating.vein_raid_resist(vein), 35 + roundi((1.0 + 2 * 1.5) * 20), "counts weigh by level")
+		assert_eq(Cultivating.vein_repel_weight(vein), 4.0, "repel weight is Σ count × level weight")
 	)
 
-	run_case("vein_raid_resist_defaults_extraGuards_to_zero_for_older_vein_dicts", func():
+	run_case("vein_raid_resist_reads_a_faction_vein_without_guards_as_unguarded", func():
 		GameState.reset()
-		var vein := _vein(50)  # _vein() doesn't set extraGuards
-		assert_true(not vein.has("extraGuards"), "sanity: the fixture really omits the field")
-		assert_eq(Cultivating.vein_raid_resist(vein), 0, "missing extraGuards reads as 0, same as before this ticket")
-	)
-
-	run_case("vein_guard_count_is_the_tier_guard_plus_extras_on_a_faction_vein", func():
 		var vein := _vein(50)
 		vein["factionId"] = "f"
-		assert_eq(Cultivating.vein_guard_count(vein), 0, "no tier guard, no extras")
-		vein["security"] = "warded"
-		vein["extraGuards"] = 2
-		assert_eq(Cultivating.vein_guard_count(vein), 2, "extras count even without the tier guard")
-		vein["security"] = "guarded"
-		assert_eq(Cultivating.vein_guard_count(vein), 3, "tier guard + 2 extras")
+		assert_eq(Cultivating.vein_raid_resist(vein), 0, "no guards key: tier resist only")
+		assert_eq(Cultivating.vein_guard_count(vein), 0)
+	)
+
+	run_case("vein_guard_count_sums_level_counts_on_a_faction_vein", func():
+		var vein := _vein(50)
+		vein["factionId"] = "f"
+		assert_eq(Cultivating.vein_guard_count(vein), 0, "no guards")
+		vein["guards"] = [2, 1, 0, 0, 1]
+		assert_eq(Cultivating.vein_guard_count(vein), 4, "Σ level counts")
 	)
 
 	run_case("drop_vein_guard_walks_the_lowest_level_posted_guard_on_a_player_vein", func():
@@ -1369,20 +1367,16 @@ func run() -> void:
 		assert_true(not Cultivating.drop_vein_guard(vein), "nobody left")
 	)
 
-	run_case("drop_vein_guard_takes_extras_first_then_the_tier_guard", func():
+	run_case("drop_vein_guard_takes_the_lowest_level_from_a_faction_vein", func():
 		var vein := _vein(50)
 		vein["factionId"] = "f"
-		vein["security"] = "guarded"
-		vein["extraGuards"] = 2
+		vein["security"] = "warded"
+		vein["guards"] = [1, 0, 1, 0, 0]
 		vein["alarmUpgrades"] = ["alarm"]
 		assert_true(Cultivating.drop_vein_guard(vein))
-		assert_eq(vein["extraGuards"], 1, "newest extra goes first")
-		assert_eq(vein["security"], "guarded")
+		assert_eq(vein["guards"], [0, 0, 1, 0, 0], "the L1 goes first")
 		assert_true(Cultivating.drop_vein_guard(vein))
-		assert_eq(vein["extraGuards"], 0)
-		assert_eq(vein["security"], "guarded", "tier guard stays until the extras are gone")
-		assert_true(Cultivating.drop_vein_guard(vein))
-		assert_eq(vein["security"], "warded", "losing the tier guard drops guarded -> warded")
+		assert_eq(vein["guards"], [0, 0, 0, 0, 0])
 		assert_true(not Cultivating.drop_vein_guard(vein), "no guard left to drop")
 		assert_eq(vein["security"], "warded", "the ward rune is never lost")
 		assert_eq(vein["alarmUpgrades"], ["alarm"], "alarm upgrades untouched")
@@ -1422,12 +1416,10 @@ func run() -> void:
 		assert_eq(GameState.state, before, "nothing changed")
 	)
 
-	run_case("security_label_appends_extra_guard_count_only_once_stacking_has_started", func():
+	run_case("security_label_is_the_tier_label", func():
 		var vein := _vein(50)
-		vein["security"] = "guarded"
-		assert_eq(Cultivating.security_label(vein), "Hired Guard", "no +N suffix with zero extra guards")
-		vein["extraGuards"] = 4
-		assert_eq(Cultivating.security_label(vein), "Hired Guard +4", "suffix appears once guards are stacked")
+		Fixtures.fortify(vein, 4)
+		assert_eq(Cultivating.security_label(vein), "Ward Rune", "no guard suffix")
 	)
 
 	run_case("upgrade_vein_security_is_not_districted_no_block_or_travel_spent", func():

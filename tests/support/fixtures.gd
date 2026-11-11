@@ -159,3 +159,10 @@ static func board_reserve_goal(weekly_expenses: int = 100) -> void:
 	BoardMeetings.agenda(1)
 	var result := BoardMeetings.choose(BoardMeetings.card_id("financial", "fin_reserve"))
 	assert(result["ok"], "fin_reserve should be on the agenda")
+
+
+# A faction vein hardened to a ward rune with `count` level-1 guards posted.
+static func fortify(vein: Dictionary, count: int = 1) -> Dictionary:
+	vein["security"] = "warded"
+	vein["guards"] = FactionSim.stockpile_counts(count)
+	return vein

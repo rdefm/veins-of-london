@@ -124,7 +124,7 @@ func run() -> void:
 	run_case("pick_nadia_defend_vein_falls_back_to_the_lowest_raid_resist_vein", func():
 		GameState.reset()
 		var guarded := Fixtures.seed_vein("v_guarded", 20, "time")
-		guarded["security"] = "guarded"
+		Fixtures.fortify(guarded)
 		var soft := Fixtures.seed_vein("v_soft", 20, "life")
 		soft["security"] = "none"
 

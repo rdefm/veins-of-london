@@ -503,6 +503,8 @@ func _new_factions_state() -> Dictionary:
 			"holdings": FactionSim.starting_holdings(faction_id),
 			# Where the holdings sit: { district, place, revealedTo: [observerId] }.
 			"stockpile": FactionSim.pick_stockpile(faction_id),
+			# Muscle Reserve (level counts), injured guards and the block the Reserve last answered an alarm in.
+			"muscle": Muscle.new_faction_state(),
 			# Raid-kit burns logged since the last FactionSim.consume():
 			# [{ day, source: "rivalry"|"raid", kit: "attack"|"defend", items: { recipeKey: qty } }].
 			"kitBurns": [],

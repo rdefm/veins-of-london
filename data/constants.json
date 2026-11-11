@@ -86,7 +86,7 @@
     "weeklyWage": 500,
     "graceDays": 1,
     "guardCostHistoryDays": 28,
-    "faction": { "maxExtraGuardsPerVein": 3, "wageReserveWeeks": 2 }
+    "faction": { "wageReserveWeeks": 2 }
   },
   "muscle": {
     "levels": [

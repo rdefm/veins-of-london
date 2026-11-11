@@ -328,8 +328,13 @@ func _migrate_faction_holdings(save: Dictionary) -> void:
 		faction.erase("oreStock")
 		if not faction.has("stockpile"):
 			faction["stockpile"] = FactionSim.pick_stockpile(faction_id)
-		if not faction["stockpile"].has("guards"):
-			faction["stockpile"]["guards"] = FactionSim.stockpile_guard_target(faction_id)
+		var stock_guards: Variant = faction["stockpile"].get("guards")
+		if stock_guards == null:
+			faction["stockpile"]["guards"] = FactionSim.stockpile_counts(FactionSim.stockpile_guard_target(faction_id))
+		elif not (stock_guards is Array):
+			faction["stockpile"]["guards"] = FactionSim.stockpile_counts(int(stock_guards))
+		if not faction.has("muscle"):
+			faction["muscle"] = Muscle.new_faction_state()
 		if not faction.has("kitBurns"):
 			faction["kitBurns"] = []
 		if not faction.has("shortfall"):
@@ -338,6 +343,14 @@ func _migrate_faction_holdings(save: Dictionary) -> void:
 			faction["consumeAccrued"] = {}
 	for site in save.get("world", {}).get("sites", []):
 		var vein: Variant = site.get("factionVein")
+		if vein != null and not (vein.get("guards") is Array):
+			# Pre-muscle faction vein: the "guarded" tier guard and extraGuards become level-1 counts.
+			var old_guards := int(vein.get("extraGuards", 0))
+			if vein.get("security", "") == "guarded":
+				vein["security"] = "warded"
+				old_guards += 1
+			vein["guards"] = FactionSim.stockpile_counts(old_guards)
+			vein.erase("extraGuards")
 		if vein != null and not vein.has("kit"):
 			FactionSim.allocate_kits_in(save)
 			break
@@ -1092,8 +1105,10 @@ func _restore_int_types(state: Dictionary) -> void:
 			_int_key(site, "slotIndex")
 			if site.get("factionVein") != null:
 				var faction_vein: Dictionary = site["factionVein"]
-				for key in ["growth", "rampantDays", "claimedOnDay", "extraGuards", "level", "developmentStreak"]:
+				for key in ["growth", "rampantDays", "claimedOnDay", "level", "developmentStreak"]:
 					_int_key(faction_vein, key)
+				if faction_vein.get("guards") is Array:
+					_int_array_values(faction_vein["guards"])
 				_int_dict_values(faction_vein.get("kit", {}))
 				if faction_vein.get("features") is Dictionary:
 					_int_key(faction_vein["features"], "cameras")
@@ -1136,8 +1151,13 @@ func _restore_int_types(state: Dictionary) -> void:
 			_int_key(faction, "relation")
 			_int_key(faction, "resources")
 			_int_key(faction, "tradeProgress")
-			if faction.get("stockpile") is Dictionary:
-				_int_key(faction["stockpile"], "guards")
+			if faction.get("stockpile") is Dictionary and faction["stockpile"].get("guards") is Array:
+				_int_array_values(faction["stockpile"]["guards"])
+			if faction.get("muscle") is Dictionary:
+				_int_array_values(faction["muscle"].get("reserve", []))
+				for hurt in faction["muscle"].get("injured", []):
+					_int_key(hurt, "level")
+					_int_key(hurt, "returnsDay")
 			for ore_entry in faction.get("oreSold", {}).values():
 				_int_key(ore_entry, "units")
 				_int_key(ore_entry, "transactions")

@@ -285,7 +285,7 @@ func _install_image_choice_event() -> Dictionary:
 static func _faction_vein_of_level(level: int, ore_type: String, security: String = "none", faction_id: String = "collective") -> Dictionary:
 	return {
 		"id": "fv_test", "factionId": faction_id, "oreType": ore_type, "growth": 20 * level - 10,
-		"rampantDays": 0, "security": security,
+		"rampantDays": 0, "security": "warded" if security == "guarded" else security, "guards": FactionSim.stockpile_counts(1 if security == "guarded" else 0),
 		"location": "Test St, nowhere", "claimedOnDay": 0, "district": "shoreditch",
 		"siteId": "s1", "hospitability": { "tier": "fair", "bonuses": [] },
 	}
@@ -2940,7 +2940,7 @@ func run() -> void:
 		for case in [["guarded", 0, 1], ["guarded", 1, 2], ["guarded", 3, 4]]:
 			GameState.reset()
 			var vein := _faction_vein_of_level(2, "physics", case[0])
-			vein["extraGuards"] = case[1]
+			vein["guards"] = FactionSim.stockpile_counts(1 + (case[1]))
 			GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", vein)]
 			Events.apply_effects([{ "op": "start_raid_combat", "site_id": "s1", "guards": Events.RAID_GUARDS_FROM_VEIN }])
 			var combat: Dictionary = GameState.state["combat"]
@@ -2950,7 +2950,7 @@ func run() -> void:
 	run_case("start_raid_combat_integer_guards_still_spawns_that_many", func():
 		GameState.reset()
 		var vein := _faction_vein_of_level(2, "physics", "guarded")
-		vein["extraGuards"] = 3
+		vein["guards"] = FactionSim.stockpile_counts(1 + (3))
 		GameState.state["world"]["sites"] = [Fixtures.site_with_vein("s1", vein)]
 		Events.apply_effects([{ "op": "start_raid_combat", "site_id": "s1", "guards": 2 }])
 		assert_eq(GameState.state["combat"]["enemies"].size(), 2, "a literal count ignores the vein's guards")

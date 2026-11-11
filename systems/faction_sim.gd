@@ -1030,7 +1030,7 @@ static func home_districts(faction_id: String) -> Array:
 # Where a faction keeps its holdings (spec §Stockpile location): a home
 # district plus a factions.json `stockpilePlaces` name, both drawn from the
 # seeded Rng once per save. revealedTo lists observer ids who know the spot.
-# A fresh stockpile starts at its full guard target (stockpile_guard_target).
+# A fresh stockpile starts at its full guard target (stockpile_guard_target), all level 1.
 static func pick_stockpile(faction_id: String) -> Dictionary:
 	var homes := home_districts(faction_id)
 	var places: Array = GameData.FACTIONS[faction_id].get("stockpilePlaces", [])
@@ -1038,7 +1038,7 @@ static func pick_stockpile(faction_id: String) -> Dictionary:
 		"district": Rng.rand_from(homes) if not homes.is_empty() else "",
 		"place": Rng.rand_from(places) if not places.is_empty() else "",
 		"revealedTo": [],
-		"guards": stockpile_guard_target(faction_id),
+		"guards": stockpile_counts(stockpile_guard_target(faction_id)),
 	}
 
 
@@ -1047,9 +1047,27 @@ static func stockpile_guard_target(faction_id: String) -> int:
 	return int(GameData.FACTIONS[faction_id].get("stockpileGuards", 0))
 
 
+# Level counts for `count` level-1 guards.
+static func stockpile_counts(count: int) -> Array:
+	var counts := Muscle.empty_counts()
+	counts[0] = maxi(0, count)
+	return counts
+
+
+# Guards on the stockpile: Σ level counts.
 static func stockpile_guards(faction_id: String) -> int:
-	return int(GameState.state["factions"][faction_id]["stockpile"].get("guards", 0))
+	return Muscle.counts_total(Muscle.faction_guards_at(GameState.state["factions"][faction_id]["stockpile"]))
 
 
+# Σ count × level weight over the stockpile's guards.
+static func stockpile_guard_weight(faction_id: String) -> float:
+	return Muscle.counts_weight(Muscle.faction_guards_at(GameState.state["factions"][faction_id]["stockpile"]))
+
+
+# Sets the stockpile to `count` guards, trimming lowest level first or adding level 1.
 static func set_stockpile_guards(faction_id: String, count: int) -> void:
-	GameState.state["factions"][faction_id]["stockpile"]["guards"] = maxi(0, count)
+	var counts := Muscle.faction_guards_at(GameState.state["factions"][faction_id]["stockpile"])
+	count = maxi(0, count)
+	while Muscle.counts_total(counts) > count:
+		Muscle.counts_drop_lowest(counts)
+	counts[0] = int(counts[0]) + count - Muscle.counts_total(counts)

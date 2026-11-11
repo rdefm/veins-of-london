@@ -620,7 +620,7 @@ func run() -> void:
 	run_case("faction_monday_guard_bill_runs_after_industry_income_and_before_security_upgrades", func():
 		GameState.reset()
 		var guarded := Fixtures.seed_faction_vein("fa", 50)
-		guarded["security"] = "guarded"
+		Fixtures.fortify(guarded)
 		guarded["claimedOnDay"] = 1
 		var warded := Fixtures.seed_faction_vein("fb", 50)
 		warded["security"] = "warded"
@@ -640,7 +640,7 @@ func run() -> void:
 		collective["resources"] = 500 - int(GameData.FACTIONS["collective"]["industryIncome"])
 		TimeSystem.daily_tick()
 		trading["maxBuyMult"] = saved_buy_mult
-		assert_eq([guarded["security"], warded["security"]], ["guarded", "warded"])
+		assert_eq([Muscle.counts_total(guarded["guards"]), Muscle.counts_total(warded["guards"])], [1, 0])
 		assert_eq(collective["resources"], 0)
 	)
 

@@ -211,7 +211,7 @@ var GUARD_REPEL_CHANCE_CAP: float = 0.0
 
 # Guard wages and the faction guard-hire caps (R§1.6):
 # { weeklyWage, graceDays, guardCostHistoryDays,
-#   faction: { maxExtraGuardsPerVein, wageReserveWeeks } }.
+#   faction: { wageReserveWeeks } }.
 var GUARD_UPKEEP: Dictionary = {}
 
 # Guard kit config: { items (allowlist, spend order), slotsPerGuard,
@@ -1329,13 +1329,11 @@ func _validate_dial(t: Dictionary, errors: Array[String]) -> void:
 
 
 func _validate_vein_security(security: Dictionary, errors: Array[String]) -> void:
-	for key in ["none", "basic", "warded", "guarded"]:
+	for key in ["none", "basic", "warded"]:
 		if not security.has(key):
 			errors.append("vein_security: missing tier '%s'" % key)
 			continue
-		# "guarded" is a hired guard: no purchase price, only the wage (guardUpkeep).
-		var required := ["label", "raidResist"] if key == "guarded" else ["label", "raidResist", "cost"]
-		_require_keys(security[key], required, "vein_security.%s" % key, errors)
+		_require_keys(security[key], ["label", "raidResist", "cost"], "vein_security.%s" % key, errors)
 
 
 func _validate_vein_alarm(alarm: Dictionary, errors: Array[String]) -> void:
@@ -1411,7 +1409,9 @@ func _validate_factions(factions: Dictionary, errors: Array[String]) -> void:
 		if not factions.has(key):
 			errors.append("factions: missing faction '%s'" % key)
 			continue
-		_require_keys(factions[key], ["id", "name", "shortName", "tagline", "industries", "description", "colour", "joinRelation", "securityBias", "resourceLevel", "primaryOre", "secondaryOre", "claimWeights", "industryIncome", "trading"], "factions.%s" % key, errors)
+		_require_keys(factions[key], ["id", "name", "shortName", "tagline", "industries", "description", "colour", "joinRelation", "securityBias", "resourceLevel", "primaryOre", "secondaryOre", "claimWeights", "industryIncome", "trading", "muscleOdds", "reserveGuards"], "factions.%s" % key, errors)
+		if factions[key].has("muscleOdds") and (typeof(factions[key]["muscleOdds"]) != TYPE_ARRAY or factions[key]["muscleOdds"].is_empty()):
+			errors.append("factions.%s.muscleOdds: expected one odds entry per muscle level" % key)
 
 
 # Every faction has a trade lane (Economy.get_faction_*), so every faction needs a row here.
@@ -2376,7 +2376,7 @@ func _validate_guard_upkeep(guard_upkeep: Dictionary, errors: Array[String]) -> 
 		faction = {}
 	var checks := [
 		["weeklyWage", guard_upkeep, 1], ["graceDays", guard_upkeep, 0], ["guardCostHistoryDays", guard_upkeep, 1],
-		["maxExtraGuardsPerVein", faction, 0], ["wageReserveWeeks", faction, 0],
+		["wageReserveWeeks", faction, 0],
 	]
 	for check in checks:
 		var value: Variant = check[1].get(check[0])
