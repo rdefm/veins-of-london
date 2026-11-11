@@ -1,13 +1,15 @@
 class_name SecurityPosts
 extends RefCounted
 
-# Security screen's Posts tab: a card for HQ and each vein (most valuable
+# Security screen's Posts tab: the Reserve tray (tap a ready guard, then an
+# empty slot to post them), then a card for HQ and each vein (most valuable
 # first) with a band-coloured score, a hardware/guards split bar, one slot
-# tile per post cap and a n/cap · wage footer, then Reserve. Guardless veins
+# tile per post cap and a n/cap · wage footer. Guardless veins
 # below the top one fold to a one-line row. Which folded rows are open is view
 # state held by the screen; this only reads state and opens modals.
 #
-# PROSE-REVIEW: the empty-place lines, the bar legend and the labels in this file.
+# PROSE-REVIEW: the empty-place lines, the bar legend, the tray header, hint line,
+# target label and the labels in this file.
 
 const TILE_MIN_HEIGHT := 92.0
 const BAR_HEIGHT := 8.0
@@ -18,19 +20,66 @@ const EXPOSED_GLYPH := "⚠"
 # `open` is { place id: true } for folded veins the player expanded; `toggle`
 # is called with a place id when a folded row or an expanded card's fold
 # button is tapped.
-static func build(content: VBoxContainer, open: Dictionary, toggle: Callable) -> void:
-	content.add_child(_card(Muscle.POST_HOME, false, false, Callable()))
+#
+# `selected` is the Reserve guard id picked in the tray ("" for none) and
+# `select` is called with a guard id (or "" to clear) to change it; both are
+# screen-local view state. While a guard is selected every vein card is open so
+# each empty slot is a post target.
+static func build(content: VBoxContainer, open: Dictionary, toggle: Callable, selected: String = "", select: Callable = Callable()) -> void:
+	if not Muscle.is_available(selected) or Muscle.guard(selected)["post"] != Muscle.POST_RESERVE:
+		selected = ""
+	content.add_child(_reserve_tray(selected, select))
+	if selected != "":
+		content.add_child(UI.muted_label(hint_text(selected)))
+	content.add_child(_card(Muscle.POST_HOME, false, false, Callable(), selected, select))
 	var veins: Array = GameState.state["player"]["veins"].duplicate()
 	veins.sort_custom(Cultivating.value_order)
 	for i in veins.size():
 		var id: String = veins[i]["id"]
 		var top := i == 0
 		var foldable := not top and Muscle.guards_at(id).is_empty()
-		if foldable and not open.has(id):
+		if foldable and not open.has(id) and selected == "":
 			content.add_child(_folded_row(id, toggle))
 		else:
-			content.add_child(_card(id, top, foldable, toggle))
-	content.add_child(_reserve_card())
+			content.add_child(_card(id, top, foldable and selected == "", toggle, selected, select))
+
+
+# "Reserve · paid, on call".
+const TRAY_HEADER := "Reserve · paid, on call"
+const TRAY_EMPTY := "No one in reserve."
+
+
+# "3 ready · 1 out": available vs injured/training Reserve guards.
+static func tray_counts_text() -> String:
+	var ready := 0
+	var out := 0
+	for g in Muscle.reserve():
+		if Muscle.is_available(g["id"]):
+			ready += 1
+		else:
+			out += 1
+	return "%d ready · %d out" % [ready, out]
+
+
+# "Post Dee here" prompt shown while a chip is selected.
+static func hint_text(guard_id: String) -> String:
+	return "Tap a slot to post %s, or tap them again to cancel." % Muscle.short_name(Muscle.guard(guard_id))
+
+
+# Label on every empty slot while a guard is selected.
+static func target_text(guard_id: String) -> String:
+	return "+ Post %s here" % Muscle.short_name(Muscle.guard(guard_id))
+
+
+# "Training 2d" / "Injured 3d" under an unavailable chip; "" when ready.
+static func chip_status_text(g: Dictionary) -> String:
+	var s := Muscle.status(g)
+	match s["kind"]:
+		Muscle.STATUS_INJURED:
+			return "Injured %dd" % int(s["days"])
+		Muscle.STATUS_TRAINING:
+			return "Training %dd" % int(s["days"])
+	return ""
 
 
 # Slots filled against the post cap and weekly wages: "2/4 · £1500/wk".
@@ -71,7 +120,7 @@ static func band_colour(score: int) -> Color:
 	return MapPalette.colour(Muscle.score_band_colour_key(score))
 
 
-static func _card(place_id: String, top: bool, foldable: bool, toggle: Callable) -> Control:
+static func _card(place_id: String, top: bool, foldable: bool, toggle: Callable, selected: String = "", select: Callable = Callable()) -> Control:
 	var c := MapCardStyle.card(12)
 	c["panel"].size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	c["panel"].name = "Post_%s" % place_id
@@ -89,7 +138,7 @@ static func _card(place_id: String, top: bool, foldable: bool, toggle: Callable)
 	body.add_child(_score_line(score))
 	body.add_child(score_bar(parts, score))
 	body.add_child(MapCardStyle.label(legend_text(parts), 11, MapCardStyle.dim()))
-	body.add_child(_slots(place_id))
+	body.add_child(_slots(place_id, selected, select))
 
 	var guards := Muscle.guards_at(place_id)
 	if guards.is_empty():
@@ -148,12 +197,12 @@ static func score_bar(parts: Dictionary, score: int) -> HBoxContainer:
 
 
 # One tile per post slot: guards first, then dashed "+" tiles.
-static func _slots(place_id: String) -> HBoxContainer:
+static func _slots(place_id: String, selected: String, select: Callable) -> HBoxContainer:
 	var row := UI.hbox(6)
 	row.name = "Slots_%s" % place_id
 	var guards := Muscle.guards_at(place_id)
 	for i in Muscle.cap(place_id):
-		row.add_child(_guard_tile(guards[i]) if i < guards.size() else _empty_tile(place_id, i))
+		row.add_child(_guard_tile(guards[i]) if i < guards.size() else _empty_tile(place_id, i, selected, select))
 	return row
 
 
@@ -187,16 +236,24 @@ static func _guard_tile(g: Dictionary) -> Control:
 	return panel
 
 
-static func _empty_tile(place_id: String, slot: int) -> Control:
+static func _empty_tile(place_id: String, slot: int, selected: String, select: Callable) -> Control:
 	var tile := Button.new()
 	tile.name = "EmptySlot_%s_%d" % [place_id, slot]
-	tile.text = "+"
 	tile.flat = true
 	tile.focus_mode = Control.FOCUS_NONE
 	tile.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	tile.custom_minimum_size.y = TILE_MIN_HEIGHT
 	tile.disabled = not Muscle.can_manage()
-	tile.pressed.connect(func(): Modal.open("guard_assign", { "place": place_id }))
+	if selected == "":
+		tile.text = "+"
+		tile.pressed.connect(func(): Modal.open("guard_assign", { "place": place_id }))
+	else:
+		tile.text = target_text(selected)
+		tile.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		tile.add_theme_color_override("font_color", MapCardStyle.action())
+		tile.pressed.connect(func():
+			Muscle.post(selected, place_id)
+			select.call(""))
 	tile.draw.connect(func(): GuardWidgets.draw_dashed_outline(tile))
 	return tile
 
@@ -227,12 +284,67 @@ static func _folded_row(place_id: String, toggle: Callable) -> Control:
 	return panel
 
 
-static func _reserve_card() -> Control:
+static func _reserve_tray(selected: String, select: Callable) -> Control:
 	var c := MapCardStyle.card(12)
 	c["panel"].size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	c["panel"].name = "Post_%s" % Muscle.POST_RESERVE
-	c["content"].add_child(MapCardStyle.section_label(SecurityScreen.place_header(Muscle.POST_RESERVE)))
-	for g in Muscle.guards_at(Muscle.POST_RESERVE):
-		var gid: String = g["id"]
-		c["content"].add_child(MapCardStyle.option_row(SecurityScreen.summary_text(g), func(): Modal.open("guard_detail", { "guardId": gid })))
+	var head := UI.hbox(8)
+	var title := MapCardStyle.section_label(TRAY_HEADER)
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(title)
+	head.add_child(UI.muted_label(tray_counts_text()))
+	c["content"].add_child(head)
+	var guards := Muscle.reserve()
+	if guards.is_empty():
+		c["content"].add_child(UI.muted_label(TRAY_EMPTY))
+		return c["panel"]
+	var flow := HFlowContainer.new()
+	flow.name = "ReserveChips"
+	flow.add_theme_constant_override("h_separation", 6)
+	flow.add_theme_constant_override("v_separation", 6)
+	for g in guards:
+		flow.add_child(_chip(g, selected, select))
+	c["content"].add_child(flow)
 	return c["panel"]
+
+
+# Avatar, short name and level badge; injured/training guards are greyed with
+# "Training Nd" / "Injured Nd" and can't be selected. Tap selects, tap again clears.
+static func _chip(g: Dictionary, selected: String, select: Callable) -> Control:
+	var gid: String = g["id"]
+	var ready := Muscle.is_available(gid)
+	var picked := gid == selected
+	var panel := PanelContainer.new()
+	panel.name = "Chip_%s" % gid
+	panel.custom_minimum_size = Vector2(72, 80)
+	var style := MapCardStyle.skin(Color(0, 0, 0, 0), 8)
+	if picked:
+		style.border_color = MapCardStyle.action()
+		style.set_border_width_all(2)
+	panel.add_theme_stylebox_override("panel", style)
+	var tap := Button.new()
+	tap.name = "ChipTap_%s" % gid
+	tap.flat = true
+	tap.focus_mode = Control.FOCUS_NONE
+	tap.disabled = not ready or select.is_null()
+	tap.pressed.connect(func(): select.call("" if picked else gid))
+	panel.add_child(tap)
+	var col := UI.vbox(2)
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	var avatar := GuardWidgets.avatar(g)
+	avatar.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	col.add_child(avatar)
+	var nodes: Array = [MapCardStyle.label(Muscle.short_name(g), 11, MapCardStyle.ink())]
+	if ready:
+		nodes.append(GuardWidgets.level_badge(g))
+	else:
+		nodes.append(MapCardStyle.label(chip_status_text(g), 11, MapCardStyle.dim()))
+	for node in nodes:
+		(node as Label).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		(node as Label).clip_text = true
+		col.add_child(node)
+	panel.add_child(col)
+	SecurityScreen.ignore_mouse(col)
+	if not ready:
+		panel.modulate = Color(1, 1, 1, 0.5)
+	return panel

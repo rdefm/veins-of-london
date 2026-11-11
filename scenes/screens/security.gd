@@ -27,6 +27,8 @@ var _filter: String = FILTER_ALL
 var _costs_open := {}
 # Posts-tab folded vein cards the player has expanded: { place id: true }.
 var _posts_open := {}
+# Posts-tab Reserve chip picked for placing ("" for none); screen-local, never in state.
+var _selected_guard := ""
 
 
 func _ready() -> void:
@@ -40,6 +42,7 @@ func _refresh() -> void:
 		return
 	_tab = PhoneNav.take_security_tab(_tab)
 	for child in get_children():
+		remove_child(child)
 		child.queue_free()
 	_build()
 
@@ -156,7 +159,12 @@ func _toggle_post_open(place_id: String) -> void:
 
 
 func _build_posts(content: VBoxContainer) -> void:
-	SecurityPosts.build(content, _posts_open, _toggle_post_open)
+	SecurityPosts.build(content, _posts_open, _toggle_post_open, _selected_guard, _select_guard)
+
+
+func _select_guard(guard_id: String) -> void:
+	_selected_guard = guard_id
+	_refresh()
 
 
 # ── Guards tab ────────────────────────────────────────────────────────

@@ -779,6 +779,39 @@ func _posting_cases() -> void:
 		screen.free()
 	)
 
+	run_case("reserve_tray_select_then_tap_a_slot_posts_via_muscle_post", func():
+		_managed()
+		var id := _reserve_guard()
+		var before := JSON.stringify(GameState.state)
+		var screen := SecurityScreen.new()
+		screen._ready()
+		assert_true(screen.find_child("Chip_%s" % id, true, false) != null, "tray lists reserve guard")
+		assert_true(screen.find_child("EmptySlot_home_0", true, false).text == "+", "no selection: plain slot")
+		screen.find_child("ChipTap_%s" % id, true, false).pressed.emit()
+		assert_eq(screen._selected_guard, id)
+		assert_eq(JSON.stringify(GameState.state), before, "selection is screen-local")
+		var target := screen.find_child("EmptySlot_home_0", true, false) as Button
+		assert_eq(target.text, SecurityPosts.target_text(id))
+		screen.find_child("ChipTap_%s" % id, true, false).pressed.emit()
+		assert_eq(screen._selected_guard, "", "re-tap clears")
+		screen.find_child("ChipTap_%s" % id, true, false).pressed.emit()
+		screen.find_child("EmptySlot_home_0", true, false).pressed.emit()
+		assert_eq(Muscle.guard(id)["post"], "home")
+		assert_eq(screen._selected_guard, "", "posting clears")
+		screen.free()
+	)
+
+	run_case("reserve_tray_greys_out_injured_guards", func():
+		_managed()
+		var id := _reserve_guard()
+		Muscle.guard(id)["injuredUntilDay"] = int(GameState.state["world"]["day"]) + 3
+		var screen := SecurityScreen.new()
+		screen._ready()
+		assert_true((screen.find_child("ChipTap_%s" % id, true, false) as Button).disabled, "injured chip unselectable")
+		assert_true(SecurityPosts.chip_status_text(Muscle.guard(id)).begins_with("Injured"))
+		screen.free()
+	)
+
 	run_case("an_empty_reserve_offers_a_hire_link_in_the_assign_sheet", func():
 		_managed()
 		Modal.open("guard_assign", { "place": "home" })
