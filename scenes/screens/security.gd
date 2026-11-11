@@ -47,8 +47,8 @@ func _build() -> void:
 	var content := UI.vbox(8)
 	margin.add_child(content)
 
-	content.add_child(UI.back_button("hq_floorplan"))
-	content.add_child(UI.heading("Security"))
+	content.add_child(_build_header())
+	content.add_child(UI.muted_label(summary_strip_text()))
 	if not Muscle.can_manage():
 		content.add_child(UI.muted_label("The Security Office is gone. Guards stay employed, but you can't manage them."))
 	content.add_child(_build_tabs())
@@ -61,13 +61,43 @@ func _build() -> void:
 			SecurityCosts.build(content, _costs_open, _toggle_cost_row)
 
 
-func _build_tabs() -> HBoxContainer:
+func _build_header() -> HBoxContainer:
 	var row := UI.hbox(8)
+	var back := MapCardStyle.text_button("‹ HQ", func(): Nav.go_to("hq_floorplan"))
+	back.name = "Back"
+	row.add_child(back)
+	var title := UI.heading("Security")
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	row.add_child(title)
+	var hire := MapCardStyle.text_button("Hire ›", func(): Modal.open("guard_hire"), not Muscle.can_manage())
+	hire.name = "HireLink"
+	row.add_child(hire)
+	return row
+
+
+# "5 guards · 3 posted · 1 ready · 1 out · Mon bill £2100".
+static func summary_strip_text() -> String:
+	var counts := Muscle.roster_counts()
+	return "%d guards · %d posted · %d ready · %d out · Mon bill £%d" % [
+		counts["total"], counts["posted"], counts["ready"], counts["out"], GuardUpkeep.next_monday_bill()]
+
+
+# Three equal columns; the active tab carries an action-colour underline.
+func _build_tabs() -> HBoxContainer:
+	var row := UI.hbox(0)
 	for entry in [[TAB_POSTS, "Posts"], [TAB_GUARDS, "Guards"], [TAB_COSTS, "Costs"]]:
 		var tab: String = entry[0]
-		var b := MapCardStyle.option_row(entry[1], func(): _set_tab(tab), _tab == tab)
+		var col := UI.vbox(0)
+		col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var b := MapCardStyle.text_button(entry[1], func(): _set_tab(tab))
 		b.name = "Tab_%s" % tab
-		row.add_child(b)
+		col.add_child(b)
+		var rule := ColorRect.new()
+		rule.custom_minimum_size.y = 2
+		rule.color = MapCardStyle.action() if _tab == tab else MapCardStyle.line()
+		col.add_child(rule)
+		row.add_child(col)
 	return row
 
 

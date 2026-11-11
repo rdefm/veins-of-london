@@ -686,6 +686,22 @@ func _posting_cases() -> void:
 		assert_eq(Muscle.score_text("reserve"), "")
 	)
 
+	run_case("the_security_header_strip_counts_roster_and_hire_link_opens_the_board", func():
+		_managed()
+		_reserve_guard()
+		var counts := Muscle.roster_counts()
+		assert_eq(SecurityScreen.summary_strip_text(), "%d guards · %d posted · %d ready · %d out · Mon bill £%d" % [
+			counts["total"], counts["posted"], counts["ready"], counts["out"], GuardUpkeep.next_monday_bill()])
+		var screen := SecurityScreen.new()
+		screen._ready()
+		assert_true(NodeQuery.find_button(screen, "‹ HQ") != null, "back to HQ")
+		for tab in ["posts", "guards", "costs"]:
+			assert_true(screen.find_child("Tab_%s" % tab, true, false) != null, "tab %s" % tab)
+		NodeQuery.find_button(screen, "Hire ›").pressed.emit()
+		assert_eq(GameState.state["modal"]["type"], "guard_hire")
+		screen.free()
+	)
+
 	run_case("the_security_screen_post_actions_all_go_through_muscle_post", func():
 		_managed()
 		var id := _reserve_guard()
