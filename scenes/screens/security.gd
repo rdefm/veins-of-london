@@ -198,8 +198,8 @@ static func trait_names(g: Dictionary) -> String:
 # The guard's post, with "Injured" while they're out.
 static func post_text(g: Dictionary) -> String:
 	var text := GuardUpkeep.place_label(g["post"])
-	if int(g["injuredUntilDay"]) > int(GameState.state["world"]["day"]):
-		text += " · Injured"
+	if Muscle.injury_days_left(g) > 0:
+		text += " · Injured · %dd" % Muscle.injury_days_left(g)
 	if int(g["trainingUntilDay"]) > int(GameState.state["world"]["day"]):
 		text += " · Training"
 	return text

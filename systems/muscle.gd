@@ -574,12 +574,38 @@ static func train(id: String) -> Dictionary:
 	return { "ok": true, "cost": cost }
 
 
+# Days a KO'd guard is out: injuryDays, or the shortest any trait sets.
+static func injury_days(g: Dictionary) -> int:
+	var days := int(GameData.MUSCLE["injuryDays"])
+	for t in g["traits"]:
+		days = mini(days, int(GameData.MUSCLE_TRAITS[t]["params"].get("injuryDays", days)))
+	return days
+
+
+# Days of injury left (0 when fit).
+static func injury_days_left(g: Dictionary) -> int:
+	return maxi(0, int(g["injuredUntilDay"]) - int(GameState.state["world"]["day"]))
+
+
+# Knocks guard `id` out for their injury days: dropped to Reserve (unpostable,
+# untrainable, still on the wage bill).
+static func injure(id: String) -> void:
+	var g := guard(id)
+	if g.is_empty():
+		return
+	g["injuredUntilDay"] = int(GameState.state["world"]["day"]) + injury_days(g)
+	g["post"] = POST_RESERVE
+	EventBus.mark_changed()
+
+
 # Muscle daily tick (R§3.1 ⑥.5j4): passive XP for every available guard on a
 # post (Reserve, Lazy, injured and training guards earn none), and clears
-# finished training countdowns.
+# finished injury and training countdowns.
 static func daily_tick() -> void:
 	var day: int = GameState.state["world"]["day"]
 	for g in guards():
+		if int(g["injuredUntilDay"]) != 0 and int(g["injuredUntilDay"]) <= day:
+			g["injuredUntilDay"] = 0
 		if int(g["trainingUntilDay"]) != 0 and int(g["trainingUntilDay"]) <= day:
 			g["trainingUntilDay"] = 0
 		if g["post"] == POST_RESERVE or not is_available(g["id"]) or _no_passive_xp(g):

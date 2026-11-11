@@ -2599,7 +2599,7 @@ func run() -> void:
 		Combat.start_defend_vein("gv", 2)
 		var combat: Dictionary = GameState.state["combat"]
 		var guard: int = CombatRounds.PLAYER_INDEX + 1
-		assert_true(combat["combatants"][guard]["name"].begins_with(GameData.GUARD_KIT["guardAlly"]["name"]), "the guard joins")
+		assert_true(combat["combatants"][guard]["name"].begins_with(Muscle.short_name(Muscle.guards()[0])), "the guard joins")
 		var blasts: Array = combat["combatants"][guard]["plan"].filter(func(a): return a["move"] == "blast")
 		assert_eq(blasts.size(), 1, "it plans the Blast")
 		assert_true(blasts[0].get("kit", "") == CombatRounds.KIT_GUARD, "from the guard kit")

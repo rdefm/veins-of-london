@@ -620,7 +620,7 @@ static func start_home_alarm_defend_combat(ally_ids: Array = []) -> void:
 			allies.append(Contacts.build_combat_ally(contact_id))
 			# PROSE-REVIEW: recruit joining an HQ defence.
 			log_lines.append("%s is in the flat with you." % Contacts.display_name(contact_id))
-	_add_guard_allies(allies, Home.get_guard_count(), log_lines)
+	_add_guard_allies(allies, Muscle.POST_HOME, log_lines)
 	var guard_kit := { "items": GuardKit.hq_active_units().duplicate(true), "used": {} }
 	_start_combat(CONTEXT_HOME_ALARM_DEFEND, null, [_home_raider_enemy(enemy_level("homeAlarmDefend"))], log_lines,
 		"", allies, null, {}, guard_kit)
@@ -707,7 +707,8 @@ static func start_defend_vein(vein_id: String, value_tier: int, attacker_id: Str
 		GameState.state["flags"]["colA2DefendReminderShown"] = true
 	var allies := _gather_defend_allies(log_lines, ally_ids)
 	var vein = Cultivating.find_vein(vein_id)
-	_add_guard_allies(allies, 0 if vein == null else Cultivating.vein_guard_count(vein), log_lines)
+	if vein != null and Cultivating.is_player_vein(vein):
+		_add_guard_allies(allies, vein_id, log_lines)
 	var guard_kit: Dictionary = {} if vein == null else { "items": GuardKit.active_units(vein).duplicate(true), "used": {} }
 	_start_combat(CONTEXT_DEFEND_VEIN, vein_id, enemies, log_lines, "", allies, null, raider_kit, guard_kit)
 
@@ -728,29 +729,56 @@ static func _gather_defend_allies(log_lines: Array, ally_ids: Variant = null) ->
 # Guard-kit spec §Defend fight: one guard ally per guard joins `allies`, after
 # contacts. A KO only lasts the fight -- no contactId, so
 # nothing persistent is touched.
-static func _add_guard_allies(allies: Array, guard_count: int, log_lines: Array) -> void:
-	var joining: int = maxi(guard_count, 0)
-	for i in range(joining):
-		allies.append(build_guard_ally())
-	if joining > 0:
+static func _add_guard_allies(allies: Array, post_id: String, log_lines: Array) -> void:
+	var joining: Array = Muscle.available_at(post_id)
+	for g in joining:
+		allies.append(build_guard_ally(g))
+	if joining.size() > 0:
 		# PROSE-REVIEW: guards joining a defend fight.
-		log_lines.append("Your guard steps up beside you." if joining == 1 else "Your %d guards step up beside you." % joining)
+		log_lines.append("Your guard steps up beside you." if joining.size() == 1 else "Your %d guards step up beside you." % joining.size())
 
 
-# Same shape as Contacts.build_combat_ally(), stats from guardKit.guardAlly.
-static func build_guard_ally() -> Dictionary:
+# Same shape as Contacts.build_combat_ally(). With a Muscle guard record the
+# stats are the guardKit.guardAlly block x level weight x the guard's trait
+# multipliers, and the combatant carries the guard's short name and level; with
+# none (tests, debug) it is the plain L1 block.
+static func build_guard_ally(g: Dictionary = {}) -> Dictionary:
 	var stats: Dictionary = GameData.GUARD_KIT["guardAlly"]
-	return {
+	var weight := 1.0
+	var hp_mult := 1.0
+	var attack_mult := 1.0
+	if not g.is_empty():
+		weight = Muscle.weight(g)
+		hp_mult = Muscle.trait_mult(g, "hpMult")
+		attack_mult = Muscle.trait_mult(g, "attackMult")
+	var hp_max := int(round(float(stats["hpMax"]) * weight * hp_mult))
+	var ally := {
 		"guardAlly": true,
-		"name": stats["name"],
-		"hp": int(stats["hpMax"]),
-		"hpMax": int(stats["hpMax"]),
-		"attackMin": int(stats["attackMin"]),
-		"attackMax": int(stats["attackMax"]),
+		"name": stats["name"] if g.is_empty() else Muscle.short_name(g),
+		"hp": hp_max,
+		"hpMax": hp_max,
+		"attackMin": int(round(float(stats["attackMin"]) * weight * attack_mult)),
+		"attackMax": int(round(float(stats["attackMax"]) * weight * attack_mult)),
 		"speed": int(stats["speed"]),
 		"level": int(stats["level"]),
 		"koed": false,
 	}
+	if not g.is_empty():
+		ally["guardId"] = g["id"]
+		ally["guardLevel"] = int(g["level"])
+	return ally
+
+
+# End of a defend fight: every guard who fought earns defend XP, win or lose;
+# one knocked to 0 HP is injured. A repel never reaches here, so never injures.
+static func _settle_guard_allies(allies: Array) -> void:
+	for ally in allies:
+		var id := str(ally.get("guardId", ""))
+		if id == "":
+			continue
+		Muscle.award_xp(id, Muscle.XP_DEFEND)
+		if ally["koed"]:
+			Muscle.injure(id)
 
 
 # Debug-only (combat_setup_modal.gd, scripts/sim_combat_balance.gd): a live
@@ -1030,6 +1058,8 @@ static func _round_enemy_combatant(entry: Dictionary) -> Dictionary:
 # kit (R§3.7b Table 5).
 static func _round_ally_combatant(entry: Dictionary) -> Dictionary:
 	var ally := _round_combatant(CombatRounds.SIDE_ALLY, str(entry["name"]), entry, int(entry["attackMin"]), int(entry["attackMax"]))
+	if entry.has("guardLevel"):
+		ally["level"] = int(entry["guardLevel"])
 	ally["template"] = str(entry.get("sprite", entry.get("contactId", "")))
 	ally["loadout"] = _round_loadout(entry.get("slots", []), GameData.LOADOUT["allyExcluded"], [CombatRounds.FAILSAFE])
 	if entry.get("guardAlly", false):
@@ -1785,6 +1815,7 @@ static func exit_combat() -> Dictionary:
 	# Hand any allies' ending hp back to persistent contact state
 	# before the combat dict is torn down below.
 	Contacts.replenish_after_combat(combat["allies"])
+	_settle_guard_allies(combat["allies"])
 	# Guard-kit spec §Defend fight: units guards spent come off the vein's
 	# (or HQ's) kit on any outcome, before a claim hands the rest to the attacker.
 	var guard_used: Dictionary = combat.get("guardKit", {}).get("used", {})

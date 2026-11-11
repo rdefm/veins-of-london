@@ -559,6 +559,51 @@ func _level_notes() -> Array:
 
 
 func _xp_cases() -> void:
+	run_case("guard_ally_stats_scale_by_weight_and_traits", func():
+		var plain := Combat.build_guard_ally()
+		assert_eq(plain["hpMax"], 30, "plain L1 block")
+		var g := _guard(3, ["brawler", "solid"])
+		var ally := Combat.build_guard_ally(g)
+		assert_eq(ally["hpMax"], int(round(30 * 1.5 * 1.25)), "weight x Solid")
+		assert_eq(ally["attackMax"], int(round(10 * 1.5 * 1.25)), "weight x Brawler")
+		assert_eq(ally["name"], "Dee O.")
+		assert_eq(ally["guardLevel"], 3)
+		var glass := Combat.build_guard_ally(_guard(1, ["glassJaw"]))
+		assert_eq(glass["hpMax"], int(round(30 * 0.75)))
+	)
+
+	run_case("injure_drops_to_reserve_for_trait_adjusted_days_and_counts_down", func():
+		_managed()
+		var g := _posted_guard("home", 1, [])
+		var tough := _posted_guard("home", 1, ["hardToKeepDown"])
+		var day: int = GameState.state["world"]["day"]
+		Muscle.injure(g["id"])
+		Muscle.injure(tough["id"])
+		assert_eq(g["post"], "reserve")
+		assert_eq(Muscle.injury_days_left(g), 3)
+		assert_eq(Muscle.injury_days_left(tough), 1)
+		assert_true(not Muscle.post(g["id"], "home")["ok"], "unpostable")
+		assert_true(not Muscle.train(g["id"])["ok"], "untrainable")
+		GameState.state["world"]["day"] = day + 3
+		Muscle.daily_tick()
+		assert_eq(g["injuredUntilDay"], 0, "healed")
+		assert_true(Muscle.is_available(g["id"]))
+	)
+
+	run_case("settle_guard_allies_pays_xp_and_injures_only_the_koed", func():
+		_managed()
+		var a := _posted_guard("home", 1, [])
+		var b := _posted_guard("home", 1, [])
+		var ally_a := Combat.build_guard_ally(a)
+		var ally_b := Combat.build_guard_ally(b)
+		ally_b["koed"] = true
+		Combat._settle_guard_allies([ally_a, ally_b])
+		assert_eq(a["xp"], 3.0)
+		assert_eq(b["xp"], 3.0, "XP win or lose")
+		assert_eq(Muscle.injury_days_left(a), 0)
+		assert_eq(Muscle.injury_days_left(b), 3)
+	)
+
 	run_case("passive_xp_only_for_available_posted_guards", func():
 		_managed()
 		var posted := _posted_guard("v1", 1, [])

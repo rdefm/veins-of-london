@@ -724,8 +724,8 @@ func run() -> void:
 		for ally in allies:
 			assert_true(ally["guardAlly"], "marked as a guard ally")
 			assert_true(not ally.has("contactId"), "guard allies carry no contactId")
-			assert_eq(ally["name"], stats["name"])
-			assert_eq(ally["hpMax"], int(stats["hpMax"]))
+			assert_true(ally.has("guardId"), "carries its guard's id")
+			assert_eq(ally["hpMax"], int(round(float(stats["hpMax"]) * Muscle.weight(Muscle.guard(ally["guardId"])) * Muscle.trait_mult(Muscle.guard(ally["guardId"]), "hpMult"))))
 			assert_eq(ally["speed"], int(stats["speed"]))
 	)
 
@@ -801,7 +801,7 @@ func run() -> void:
 		assert_eq(GameState.state["combat"]["guardKit"]["items"], {})
 	)
 
-	run_case("exit_home_alarm_defend_takes_used_units_off_the_hq_kit_and_keeps_koed_guards", func():
+	run_case("exit_home_alarm_defend_takes_used_units_off_the_hq_kit_and_injures_koed_guards", func():
 		for outcome in ["win", "loss", "fled"]:
 			GameState.reset()
 			seat_guards("home", 1)
@@ -817,7 +817,8 @@ func run() -> void:
 			GameState.state["combat"]["outcome"] = outcome
 			Combat.exit_combat()
 			assert_eq(GameState.state["home"]["guardKit"], { "blast": { "2": 1 }, "shield": { "1": 1 } }, "%s: one Blast gone" % outcome)
-			assert_eq(Home.get_guard_count(), 1, "%s: KO'd guard still counted" % outcome)
+			assert_eq(Home.get_guard_count(), 0, "%s: KO'd guard injured, off the post" % outcome)
+			assert_eq(Muscle.guards().size(), 1, "%s: still on the books" % outcome)
 	)
 
 	run_case("tutorial_home_raid_has_no_guard_allies", func():
