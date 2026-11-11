@@ -830,8 +830,8 @@ static func queue_scripted_defend_raid(attacker_id: String, vein: Dictionary, ou
 # "guardRepel" (GameData.GUARD_REPEL_CHANCE_PER_GUARD/_CAP), shared with
 # Home's own guard_repel_chance() mirror so retuning never touches a .gd
 # file. Zero guards skips the roll entirely -- no chance consumed.
-static func guard_repel_chance(guard_count: int) -> float:
-	return clampf(guard_count * GameData.GUARD_REPEL_CHANCE_PER_GUARD, 0.0, GameData.GUARD_REPEL_CHANCE_CAP)
+static func guard_repel_chance(repel_weight: float) -> float:
+	return clampf(repel_weight * GameData.GUARD_REPEL_CHANCE_PER_GUARD, 0.0, GameData.GUARD_REPEL_CHANCE_CAP)
 
 
 # One repel roll for any vein, player or faction (spec §Faction guard upkeep
@@ -841,7 +841,7 @@ static func guards_repel(vein: Dictionary) -> bool:
 	var guard_count: int = Cultivating.vein_guard_count(vein)
 	if guard_count <= 0:
 		return false
-	return Rng.chance(guard_repel_chance(guard_count))
+	return Rng.chance(guard_repel_chance(Cultivating.vein_repel_weight(vein)))
 
 
 # Rolls the repel chance for one expiring outcome and, on success, pushes
@@ -862,7 +862,7 @@ static func _guards_repel_defend_raid(outcome: Dictionary) -> bool:
 	if guard_count <= 0:
 		return false
 	var active := GuardKit.active_units(vein)
-	var chance := GuardKit.repel_chance_with(guard_repel_chance(guard_count), active)
+	var chance := GuardKit.repel_chance_with(guard_repel_chance(Cultivating.vein_repel_weight(vein)), active)
 	var used := GuardKit.spend_repel_units(vein.get("guardKit", {}), active)
 	if not Rng.chance(chance):
 		return false

@@ -224,6 +224,74 @@ static func post_weight_sum(post_id: String) -> float:
 	return total
 
 
+# Σ repel weight (level weight plus repel-only trait mods) of the available
+# guards posted at `post_id`.
+static func post_repel_weight_sum(post_id: String) -> float:
+	var total := 0.0
+	for g in available_at(post_id):
+		total += repel_weight(g)
+	return total
+
+
+# ── Security score ────────────────────────────────────────────────────
+
+# 0-100 readout (spec §Security score): hardware share plus repel share.
+# `hardware` / `max_hardware` are the place's lock/ward resist or installed
+# HQ raidReduction; `repel` is the pre-kit repel chance.
+static func security_score(hardware: float, max_hardware: float, repel: float) -> int:
+	var cfg: Dictionary = GameData.MUSCLE["score"]
+	var hw_share := clampf(hardware / max_hardware, 0.0, 1.0) if max_hardware > 0.0 else 0.0
+	var repel_share := minf(1.0, repel / float(cfg["repelFull"]))
+	return roundi(float(cfg["hardwareWeight"]) * hw_share + float(cfg["repelWeight"]) * repel_share)
+
+
+static func score_band(score: int) -> String:
+	var label := ""
+	for band in GameData.MUSCLE["score"]["bands"]:
+		if score >= int(band["min"]):
+			label = String(band["label"])
+	return label
+
+
+# Security score of a player vein: ward/lock resist against the best tier.
+static func vein_security_score(vein: Dictionary) -> int:
+	var max_hw := 0.0
+	for tier_id in GameData.VEIN_SECURITY:
+		if tier_id != Cultivating.GUARDED_TIER_ID:
+			max_hw = maxf(max_hw, float(GameData.VEIN_SECURITY[tier_id]["raidResist"]))
+	var repel := Raiding.guard_repel_chance(post_repel_weight_sum(vein["id"]))
+	return security_score(float(Cultivating.vein_tier_resist(vein)), max_hw, repel)
+
+
+# Security score of HQ: installed hardware raidReduction (guards excluded).
+static func hq_security_score() -> int:
+	var have := 0.0
+	var max_hw := 0.0
+	for id in GameData.HOME_SECURITY:
+		if id == "guard":
+			continue
+		var r := float(GameData.HOME_SECURITY[id]["raidReduction"])
+		max_hw += r
+		if GameState.state["home"]["security"].has(id):
+			have += r
+	return security_score(have, max_hw, Home.guard_repel_chance(Home.get_guard_weight_repel()))
+
+
+# "52 · Solid" for a vein or HQ post; "" for Reserve.
+static func score_text(post_id: String) -> String:
+	var score := 0
+	if post_id == POST_RESERVE:
+		return ""
+	if post_id == POST_HOME:
+		score = hq_security_score()
+	else:
+		var vein: Variant = Cultivating.find_vein(post_id)
+		if vein == null:
+			return ""
+		score = vein_security_score(vein)
+	return "%d · %s" % [score, score_band(score)]
+
+
 # A guard walks off: the lowest-level available guard posted at `post_id`
 # goes to the former list. False when nobody's posted there.
 static func walk_from(post_id: String) -> bool:

@@ -439,6 +439,61 @@ func _posting_cases() -> void:
 		assert_eq(GuardUpkeep.next_monday_bill(), 3 * GuardUpkeep.weekly_wage(), "bill: weekly wage each")
 	)
 
+	run_case("level_raises_resist_and_repel_and_repel_traits_leave_resist_alone", func():
+		_managed()
+		var vein: Dictionary = Cultivating.find_vein("v1")
+		vein["security"] = "warded"
+		var g := Muscle.create_guard(3)
+		g["traits"] = ["watchful"]
+		Muscle.guards().append(g)
+		Muscle.post(g["id"], "v1")
+		assert_eq(Cultivating.vein_raid_resist(vein), 35 + 30, "resist: 20 x weight 1.5")
+		assert_almost_eq(Muscle.post_repel_weight_sum("v1"), 1.75, 0.0001)
+		assert_almost_eq(Raiding.guard_repel_chance(Cultivating.vein_repel_weight(vein)), 0.2625, 0.0001)
+		g["traits"] = ["flaky"]
+		assert_eq(Cultivating.vein_raid_resist(vein), 65, "flaky: resist unchanged")
+		assert_almost_eq(Muscle.post_repel_weight_sum("v1"), 1.25, 0.0001)
+	)
+
+	run_case("repel_caps_at_75_before_kit_and_90_with_kit", func():
+		_managed()
+		assert_almost_eq(Raiding.guard_repel_chance(9.0), 0.75, 0.0001)
+		var every_type: Dictionary = {}
+		for recipe_key in GameData.GUARD_KIT["items"]:
+			every_type[recipe_key] = { "1": 1 }
+		assert_almost_eq(GuardKit.repel_chance_with(Raiding.guard_repel_chance(9.0), every_type), 0.90, 0.0001)
+	)
+
+	run_case("hq_raid_reduction_scales_by_guard_weight", func():
+		_managed()
+		var base := Home.get_home_raid_chance()
+		var g := Muscle.create_guard(5)
+		g["traits"] = []
+		Muscle.guards().append(g)
+		Muscle.post(g["id"], "home")
+		assert_almost_eq(base - Home.get_home_raid_chance(), 0.05 * 2.0, 0.0001)
+	)
+
+	run_case("security_score_examples_and_bands", func():
+		_managed()
+		var vein: Dictionary = Cultivating.find_vein("v1")
+		vein["security"] = "warded"
+		assert_eq(Muscle.vein_security_score(vein), 40, "warded alone")
+		var g := Muscle.create_guard(1)
+		g["traits"] = []
+		Muscle.guards().append(g)
+		Muscle.post(g["id"], "v1")
+		assert_eq(Muscle.vein_security_score(vein), 52, "warded + 1 L1")
+		assert_eq(Muscle.score_band(24), "Exposed")
+		assert_eq(Muscle.score_band(25), "Light")
+		assert_eq(Muscle.score_band(49), "Light")
+		assert_eq(Muscle.score_band(50), "Solid")
+		assert_eq(Muscle.score_band(74), "Solid")
+		assert_eq(Muscle.score_band(75), "Fortified")
+		assert_eq(Muscle.score_text("v1"), "52 · Solid")
+		assert_eq(Muscle.score_text("reserve"), "")
+	)
+
 	run_case("the_security_screen_post_actions_all_go_through_muscle_post", func():
 		_managed()
 		var id := _reserve_guard()

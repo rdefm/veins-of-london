@@ -85,7 +85,9 @@ static func place_header(place_id: String) -> String:
 	var count := Muscle.guards_at(place_id).size()
 	var cap := Muscle.cap(place_id)
 	var label := GuardUpkeep.place_label(place_id)
-	return "%s · %d" % [label, count] if cap < 0 else "%s · %d/%d" % [label, count, cap]
+	if cap < 0:
+		return "%s · %d" % [label, count]
+	return "%s · %d/%d · Security %s" % [label, count, cap, Muscle.score_text(place_id)]
 
 
 # Weekly wages of everyone posted at `place_id`, "£1500/week" or "".

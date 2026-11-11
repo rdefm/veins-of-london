@@ -821,11 +821,24 @@ const EXTRA_GUARD_RAID_RESIST := 20
 # EXTRA_GUARD_RAID_RESIST per unit of available posted-guard weight; a faction
 # vein adds it per extraGuards (default 0).
 static func vein_raid_resist(vein: Dictionary) -> int:
-	var tier: String = VEIN_SECURITY_ORDER[maxi(0, VEIN_SECURITY_ORDER.find(vein["security"]) - Harassment.security_degrade_tiers(vein["id"]))]
-	var base: int = GameData.VEIN_SECURITY[tier]["raidResist"]
+	var base := vein_tier_resist(vein)
 	if is_player_vein(vein):
 		return base + roundi(Muscle.post_weight_sum(vein["id"]) * EXTRA_GUARD_RAID_RESIST)
 	return base + vein.get("extraGuards", 0) * EXTRA_GUARD_RAID_RESIST
+
+
+# Lock / ward / guarded tier resist alone (harassment-degraded), no guard weight.
+static func vein_tier_resist(vein: Dictionary) -> int:
+	var tier: String = VEIN_SECURITY_ORDER[maxi(0, VEIN_SECURITY_ORDER.find(vein["security"]) - Harassment.security_degrade_tiers(vein["id"]))]
+	return int(GameData.VEIN_SECURITY[tier]["raidResist"])
+
+
+# Repel weight at a vein: posted guards' repel weights on a player vein; one
+# unit per guard on a faction vein.
+static func vein_repel_weight(vein: Dictionary) -> float:
+	if is_player_vein(vein):
+		return Muscle.post_repel_weight_sum(vein["id"])
+	return float(vein_guard_count(vein))
 
 
 # Faction veins carry a factionId; the player's never do.

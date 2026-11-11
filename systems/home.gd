@@ -33,8 +33,8 @@ static func get_raid_chance_for_tier(tier_id: String) -> float:
 	var raid_reduction := 0.0
 	for security_id in home["security"]:
 		raid_reduction += GameData.HOME_SECURITY[security_id]["raidReduction"]
-	# Flat per-guard contribution, uncapped and non-escalating.
-	raid_reduction += float(GameData.MUSCLE["hqRaidReductionPerGuard"]) * get_guard_count()
+	# Per-guard contribution scaled by level weight, uncapped and non-escalating.
+	raid_reduction += float(GameData.MUSCLE["hqRaidReductionPerGuard"]) * Muscle.post_weight_sum(Muscle.POST_HOME)
 	var total_stored: int = _sum_ore(player["orichalchum"])
 	var chance: float = tier_data["raidBaseChance"] + fx.get("homeRaid", 0.0) - raid_reduction + total_stored * 0.001
 	return max(0.002, chance)
@@ -113,8 +113,8 @@ static func _queue_pending_raid() -> void:
 
 # Before a missed-defend window applies raid loss, HQ's guards get a chance
 # to repel it (rates shared with Raiding.guard_repel_chance()).
-static func guard_repel_chance(guard_count: int) -> float:
-	return clampf(guard_count * GameData.GUARD_REPEL_CHANCE_PER_GUARD, 0.0, GameData.GUARD_REPEL_CHANCE_CAP)
+static func guard_repel_chance(repel_weight: float) -> float:
+	return clampf(repel_weight * GameData.GUARD_REPEL_CHANCE_PER_GUARD, 0.0, GameData.GUARD_REPEL_CHANCE_CAP)
 
 
 # On success, pushes a "held without you" notification distinct from a
@@ -128,7 +128,7 @@ static func _guards_repel_pending_raid() -> bool:
 	if guard_count <= 0:
 		return false
 	var active := GuardKit.hq_active_units()
-	var chance := GuardKit.repel_chance_with(guard_repel_chance(guard_count), active)
+	var chance := GuardKit.repel_chance_with(guard_repel_chance(get_guard_weight_repel()), active)
 	var used := GuardKit.spend_repel_units(GameState.state["home"].get("guardKit", {}), active)
 	if not Rng.chance(chance):
 		return false
@@ -660,6 +660,11 @@ static func add_security(security_id: String) -> Dictionary:
 # Available guards posted at HQ.
 static func get_guard_count() -> int:
 	return Muscle.available_at(Muscle.POST_HOME).size()
+
+
+# Σ repel weight of the available guards posted at HQ.
+static func get_guard_weight_repel() -> float:
+	return Muscle.post_repel_weight_sum(Muscle.POST_HOME)
 
 
 # Fills the next empty selectable slot (home.rooms is in slot order, R§2).
