@@ -756,6 +756,32 @@ func _posting_cases() -> void:
 		screen.free()
 	)
 
+	run_case("guard_detail_sheet_shows_preview_reasons_and_top_level_has_no_next_line", func():
+		_managed()
+		var id := _reserve_guard()
+		var g := Muscle.guard(id)
+		g["traits"] = ["quickStudy"]
+		var box := VBoxContainer.new()
+		GuardDetailModal.build(box, { "guardId": id })
+		assert_eq(GuardDetailModal.train_hint(g), "+15 XP, away 1 day")
+		assert_true(box.find_child("TrainButton", true, false) != null)
+		assert_true((box.find_child("CloseButton", true, false) as Button).custom_minimum_size.x >= 44.0, "close >= 44")
+		assert_true(box.find_child("TraitRow_quickStudy", true, false) != null, "trait effect inline")
+		assert_true(GuardDetailModal.next_wage_text(g).contains("from the next Monday"))
+		assert_true(box.find_child("DismissButton", true, false) != null)
+		GameState.state["player"]["cash"] = 0
+		g["trainingUntilDay"] = int(GameState.state["world"]["day"]) + 2
+		var blocked := VBoxContainer.new()
+		GuardDetailModal.build(blocked, { "guardId": id })
+		assert_true((blocked.find_child("TrainButton", true, false) as Button).disabled)
+		assert_true((blocked.find_child("PostRow", true, false) as Button).disabled)
+		g["level"] = GameData.MUSCLE["levels"].size()
+		assert_eq(GuardDetailModal.next_wage_text(g), "")
+		assert_eq(GuardDetailModal.to_next_text(g), "")
+		box.free()
+		blocked.free()
+	)
+
 	run_case("posts_tab_cards_show_slots_split_bar_kit_link_and_fold_empty_veins", func():
 		_managed()
 		var screen := SecurityScreen.new()

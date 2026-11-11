@@ -145,6 +145,37 @@ static func xp_text(g: Dictionary) -> String:
 	return "%d/%d" % [int(g["xp"]), next]
 
 
+# Level-progress bar with `preview_xp` more XP hatched ahead of the fill
+# (clamped to the level's end). No caption.
+static func xp_preview_bar(g: Dictionary, preview_xp: float) -> Control:
+	var bar := Control.new()
+	bar.custom_minimum_size = Vector2(0, 10)
+	bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var next := Muscle.next_level_xp(g)
+	var floor_xp := float(Muscle.level_row(int(g["level"]))["xpToReach"])
+	var span := float(next) - floor_xp
+	var fill := Muscle.level_progress(g)
+	var ahead := fill
+	if next >= 0 and span > 0.0:
+		ahead = clampf((float(g["xp"]) + preview_xp - floor_xp) / span, 0.0, 1.0)
+	bar.draw.connect(func():
+		var w := bar.size.x
+		var h := bar.size.y
+		bar.draw_rect(Rect2(0, 0, w, h), MapCardStyle.sage())
+		if ahead > fill:
+			var r := Rect2(w * fill, 0, w * (ahead - fill), h)
+			bar.draw_rect(r, Color(MapCardStyle.gold(), 0.25))
+			var x := r.position.x - h
+			while x < r.end.x:
+				var a := Vector2(maxf(x, r.position.x), r.end.y - maxf(r.position.x - x, 0.0))
+				var b := Vector2(minf(x + h, r.end.x), r.position.y + maxf(x + h - r.end.x, 0.0))
+				bar.draw_line(a, b, MapCardStyle.gold(), 1.0)
+				x += 5.0
+		bar.draw_rect(Rect2(0, 0, w * fill, h), MapCardStyle.gold())
+	)
+	return bar
+
+
 # Progress bar within the current level plus the "xp/next" caption.
 static func xp_bar(g: Dictionary) -> HBoxContainer:
 	var row := UI.hbox(6)

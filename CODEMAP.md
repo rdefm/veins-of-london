@@ -236,7 +236,7 @@ overlays; hides the top board on title/intro/combat and the nav dock per screen.
 | james_job_short_modal.gd | James job "not enough stock" card |
 | james_job_complete_modal.gd | James job payout card |
 | sell_menu_modal.gd | Trade modal registry adapter and Cancel action that clears sellState |
-| guard_detail_modal.gd | guard_detail modal: full name, level, XP/next, wage, post, tap-to-explain traits, Post ▾, Train ›, Dismiss |
+| guard_detail_modal.gd | guard_detail modal: header (avatar, name, level, status, × close), XP + hatched training preview, wage/repel/fight tiles, inline trait effects, Post row, Train, red Dismiss |
 | guard_dismiss_modal.gd | guard_dismiss modal: confirm before Muscle.dismiss |
 | guard_post_modal.gd | guard_post modal: the Post picker (HQ, every vein, Reserve) for one guard |
 | guard_assign_modal.gd | guard_assign modal: Reserve guards to post at a place, or "No one in reserve — Hire ›" |
