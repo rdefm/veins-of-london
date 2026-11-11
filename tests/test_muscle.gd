@@ -782,6 +782,30 @@ func _posting_cases() -> void:
 		blocked.free()
 	)
 
+	run_case("hire_board_modal_shows_trait_rows_next_board_date_hired_slot_and_hire_pays_advance", func():
+		_managed()
+		Muscle.roll_board()
+		var g: Dictionary = Muscle.board()[0]
+		g["traits"] = ["cheap"]
+		g["returning"] = true
+		var box := VBoxContainer.new()
+		GuardHireModal.build(box, {})
+		assert_true(box.find_child("TraitRow_cheap", true, false) != null, "trait row")
+		var texts: Array = box.find_children("*", "Label", true, false).map(func(l): return (l as Label).text)
+		assert_true(texts.has("New board %s" % Calendar.format_day(Home.next_bill_day())), "next board date")
+		assert_true(texts.has("↺ Worked for you before"), "returning tag")
+		box.free()
+		GameState.state["player"]["cash"] = 5000
+		var cash_before: int = 5000
+		var res := Muscle.hire(0)
+		assert_true(res["ok"], "hire ok")
+		assert_true(int(GameState.state["player"]["cash"]) < cash_before, "advance paid")
+		var after := VBoxContainer.new()
+		GuardHireModal.build(after, {})
+		assert_true(after.find_child("HiredSlot_0", true, false) != null, "hired slot card")
+		after.free()
+	)
+
 	run_case("posts_tab_cards_show_slots_split_bar_kit_link_and_fold_empty_veins", func():
 		_managed()
 		var screen := SecurityScreen.new()

@@ -103,6 +103,28 @@ static func draw_dashed_outline(chip: Control) -> void:
 		y += dash * 2.0
 
 
+# "+", "−" or "±" by trait kind.
+static func trait_sign(trait_id: String) -> String:
+	match String(GameData.MUSCLE_TRAITS[trait_id].get("kind", "positive")):
+		"negative":
+			return "−"
+		"mixed":
+			return "±"
+	return "+"
+
+
+# One row: sign, bold-ish label, then the data effect line underneath.
+static func trait_row(trait_id: String) -> Control:
+	var row: Dictionary = GameData.MUSCLE_TRAITS[trait_id]
+	var box := UI.vbox(0)
+	box.name = "TraitRow_%s" % trait_id
+	box.add_child(MapCardStyle.label("%s %s" % [trait_sign(trait_id), row["label"]], 13, MapCardStyle.ink()))
+	var effect := MapCardStyle.label(String(row["effect"]), 12, MapCardStyle.dim())
+	effect.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(effect)
+	return box
+
+
 static func trait_chips(g: Dictionary) -> HFlowContainer:
 	var flow := HFlowContainer.new()
 	flow.add_theme_constant_override("h_separation", 4)

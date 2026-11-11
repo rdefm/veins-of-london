@@ -240,7 +240,7 @@ overlays; hides the top board on title/intro/combat and the nav dock per screen.
 | guard_dismiss_modal.gd | guard_dismiss modal: confirm before Muscle.dismiss |
 | guard_post_modal.gd | guard_post modal: the Post picker (HQ, every vein, Reserve) for one guard |
 | guard_assign_modal.gd | guard_assign modal: Reserve guards to post at a place, or "No one in reserve — Hire ›" |
-| guard_hire_modal.gd | guard_hire modal: the weekly board cards with Hire, empty slot once hired, "Worked for you before" tag |
+| guard_hire_modal.gd | guard_hire modal: "Hire board" header with next-Monday date; cards with name, level, wage (base struck when traits change it), signed trait rows, returning tag, Hire button; hired slot is a dashed "Hired — refills Monday" card |
 | guard_kit_modal.gd | guard_kit modal registry adapter (data.target is a GuardKit kit target) |
 | guard_kit_view.gd | Guard kit stocking sheet on the Trade pattern: Stock/Return tabs, grouped tiers with steppers, sticky slots/capacity totals, review; confirm calls GuardKit stock/unstock per line |
 | sell_menu_view.gd | Trade-only sheet: sell/buy and category tabs, Map ore glyphs, grouped item tiers, sticky totals and review; five modes: Archie, Collective contact, faction shop (no contact), Soho (rows, fee ladder and net from Soho; trades via Soho.trade), recipe seller (collapsible recipe rows + ore filter, buy-only rungs via RecipeKnowledge.buy); invokes existing trade systems |
