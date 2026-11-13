@@ -183,7 +183,29 @@ func run() -> void:
 		assert_true(not hits.is_empty() and hits.all(func(b): return b["crit"]), "every hit after the pearl crits")
 	)
 
-	run_case("home_raid_timeline_keeps_the_raider_first_before_and_after_picks", func():
+	run_case("home_raid_prompt_waits_for_the_configured_rounds_and_raider_starts_guarded", func():
+		GameState.reset()
+		Events.apply_effects([{ "op": "add_item", "item": "timePearl", "qty": 2, "equip": true }])
+		Events.start_event("prologue_home_raid_intro")
+		for i in range(GameData.EVENTS["prologue_home_raid_intro"]["cards"].size()):
+			Events.advance()
+		assert_true(CombatPrep.commit()["ok"], "the raid starts")
+		var combat: Dictionary = GameState.state["combat"]
+		combat["combatants"][CombatRounds.PLAYER_INDEX]["hp"] = 999
+		combat["combatants"][CombatRounds.PLAYER_INDEX]["hpMax"] = 999
+		var rounds := int(combat["pearlLock"]["rounds"])
+		assert_eq(rounds, 3, "three rounds before the prompt")
+		assert_eq(combat["combatants"][1]["guard"], CombatRounds.GUARDED, "the raider starts guarded")
+		for i in range(60):
+			if int(combat["round"]) > rounds:
+				break
+			assert_true(not CombatRounds.pearl_locked(combat), "no prompt in round %d" % int(combat["round"]))
+			assert_true(Combat.choose_move("strike", 1)["ok"], "a move plays before the prompt")
+		assert_true(int(combat["round"]) > rounds, "the rounds pass")
+		assert_true(CombatRounds.pearl_locked(combat), "the prompt shows after the rounds")
+	)
+
+	run_case("home_raid_timeline_is_normal_order_and_stable_across_picks", func():
 		GameState.reset()
 		Events.apply_effects([{ "op": "add_item", "item": "timePearl", "qty": 2, "equip": true }])
 		Events.start_event("prologue_home_raid_intro")
@@ -194,12 +216,13 @@ func run() -> void:
 		combat["combatants"][CombatRounds.PLAYER_INDEX]["hp"] = 999
 		combat["combatants"][CombatRounds.PLAYER_INDEX]["hpMax"] = 999
 		var unpicked: Array = CombatRounds.timeline(combat)
-		assert_eq(unpicked[0]["actor"], 1, "the raider leads before any pick")
-		var next_actors: Array = CombatRounds.next_round_timeline(combat).map(func(e): return e["actor"])
-		assert_eq(next_actors.slice(0, 2), [1, 0], "next round's raider card also leads")
+		assert_true(not bool(combat.get("enemyFirst", false)), "no raider-first opening")
+		var normal := unpicked.map(func(e): return [e["index"], e["actor"]])
+		var by_speed: bool = combat["combatants"][0]["speed"] >= combat["combatants"][1]["speed"]
+		assert_eq(unpicked.filter(func(e): return e["index"] == 0)[0]["actor"], 0 if by_speed else 1, "index 0 follows speed order")
 		assert_true(Combat.choose_move("strike", 1)["ok"])
 		var picked: Array = CombatRounds.timeline(combat)
-		assert_eq(picked.map(func(e): return [e["index"], e["actor"]]), unpicked.map(func(e): return [e["index"], e["actor"]]), "a pick doesn't reorder the strip")
+		assert_eq(picked.map(func(e): return [e["index"], e["actor"]]), normal, "a pick doesn't reorder the strip")
 	)
 
 	run_case("home_raid_raider_counters_every_pick", func():
@@ -220,7 +243,6 @@ func run() -> void:
 			var beats: Array = combat["log"].slice(from)
 			var raider_beats := beats.filter(func(b): return b["actor"] == raider)
 			assert_eq(raider_beats[0]["move"], pick[1], "%s is answered with %s" % [pick[0], pick[1]])
-			assert_true(beats.find(raider_beats[0]) < beats.find(beats.filter(func(b): return b["actor"] == CombatRounds.PLAYER_INDEX)[0]), "the answer lands ahead of the %s" % pick[0])
 		assert_eq(CombatRounds.enemy_intents(combat, raider).filter(func(i): return not i.get("unread", false)).size(), 0, "the raider's plan stays unread")
 
 		var cycle := ["strike", "feint", "guard", "stun", "guard", "strike"]

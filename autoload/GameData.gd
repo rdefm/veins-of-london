@@ -2913,10 +2913,9 @@ func _validate_effect_list(effects: Array, context: String, errors: Array[String
 			_validate_start_fight(effect, context, errors)
 		if effect["op"] == "start_home_raid_combat" and effect.has("pearlLock"):
 			if effect["pearlLock"] is Dictionary:
-				_require_keys(effect["pearlLock"], ["item", "enemyBelowHp", "prompt"], "%s.pearlLock" % context, errors)
-				for flag in ["raiderCounters", "pearlCrits"]:
-					if effect["pearlLock"].has(flag) and typeof(effect["pearlLock"][flag]) != TYPE_BOOL:
-						errors.append("%s.pearlLock: %s must be true or false" % [context, flag])
+				_require_keys(effect["pearlLock"], ["item", "rounds", "prompt"], "%s.pearlLock" % context, errors)
+				if effect["pearlLock"].has("rounds") and (not (effect["pearlLock"]["rounds"] is int or effect["pearlLock"]["rounds"] is float) or int(effect["pearlLock"]["rounds"]) < 1):
+					errors.append("%s.pearlLock: rounds must be a whole number of at least 1" % context)
 			else:
 				errors.append("%s: pearlLock must be an object" % context)
 		if effect["op"] == "start_demo_fight":

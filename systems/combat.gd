@@ -495,9 +495,10 @@ static func start_faction_ambush(faction_id: String, district_id: String = "") -
 # `mods` are the event's opening modifiers: enemyHpMult scales the raider's
 # starting hp (hpMax unchanged); enemyFirst has every enemy act ahead of the
 # player and allies at each action slot of round 1 (CombatRounds timeline
-# order); pearlLock ({ item, enemyBelowHp, prompt, raiderCounters?,
-# pearlCrits? }) keeps the raider up until the player plays that item, and
-# below enemyBelowHp leaves it the only playable command (R§3.7b Pearl lock).
+# order); pearlLock ({ item, rounds, prompt }) has the raider start guarded,
+# unreadable and countering every pick until the player plays that item, the
+# item the only playable command after `rounds` rounds, and every player hit
+# crit once played (R§3.7b Pearl lock).
 static func start_home_raid_combat(mods: Dictionary = {}) -> void:
 	var opening: Dictionary = { "enemyFirst": true } if bool(mods.get("enemyFirst", false)) else {}
 	if mods.get("pearlLock") is Dictionary:
@@ -505,6 +506,10 @@ static func start_home_raid_combat(mods: Dictionary = {}) -> void:
 	_start_combat(CONTEXT_HOME_RAID, null, [_home_raider_enemy(enemy_level("homeRaid"), float(mods.get("enemyHpMult", 1.0)))],
 		["They're in the flat. You've got your hands. This is happening."],
 		"homeRaidWon", [], null, {}, {}, opening)
+	if opening.has("pearlLock"):
+		for c in GameState.state["combat"]["combatants"]:
+			if c["side"] == CombatRounds.SIDE_ENEMY:
+				c["guard"] = CombatRounds.GUARDED
 
 
 # An event's scripted fight (R§3.7b Scripted fights), straight in with no
