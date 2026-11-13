@@ -705,8 +705,8 @@ static func finish_run() -> Dictionary:
 	var scored := score_procedure(recipe_key, run["performed"])
 	var clues := notebook_clues(recipe_key, run["performed"])
 	_learn(recipe_key, clues)
-	var lady_bonus := lady_score_bonus()
-	var score := clampi(int(scored["score"]) + lady_bonus, 0, 100)
+	var score := lady_boosted_score(int(scored["score"]))
+	var lady_bonus := score - clampi(int(scored["score"]), 0, 100)
 	var rank := rank_for_score(score)
 	var prior_best := int(s["bestRanks"].get(recipe_key, 0))
 	var bonus := _roll_bonus(rank, prior_best)
@@ -876,13 +876,14 @@ static func score_procedure(recipe_key: String, performed: Array) -> Dictionary:
 
 # ── Bench effects ────────────────────────────────────────────────────────
 
-# Score points the player's Be A Lady effect adds to a finished run: item
-# level × ladyScorePerLevel, 0 when inactive.
-static func lady_score_bonus() -> int:
+# Score a finished run's raw score becomes under Be A Lady: raw × (1 +
+# ladyScorePctPerLevel × item level), clamped 0..100. Unchanged when inactive.
+static func lady_boosted_score(raw: int) -> int:
 	var effect = ActiveEffects.find(ActiveEffects.LADY)
 	if effect == null:
-		return 0
-	return int(effect["level"]) * int(_data().get("ladyScorePerLevel", 0))
+		return clampi(raw, 0, 100)
+	var pct: float = float(_data().get("ladyScorePctPerLevel", 0.0)) * int(effect["level"])
+	return clampi(roundi(raw * (1.0 + pct)), 0, 100)
 
 
 # The active effects the bench's Use item control can start from the

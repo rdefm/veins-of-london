@@ -10,6 +10,12 @@ var _real_insight: Dictionary
 # systems/lab.gd's knowledge spine (.scratch/lab-port/spec.md § State,
 # § Knowledge API), driven through the public API and event ops.
 
+func _restore_rank_thresholds() -> void:
+	if not _real_thresholds.is_empty():
+		GameData.LAB["rankThresholds"] = _real_thresholds
+		_real_thresholds = []
+
+
 func _fresh() -> Dictionary:
 	GameState.reset()
 	return GameState.state["lab"]
@@ -419,7 +425,7 @@ func _register_run_cases() -> void:
 		assert_almost_eq(Lab.bench_bonus("healingBurst"), 0.0, 0.0001, "expired effect gives none")
 	)
 
-	run_case("be_a_lady_adds_score_per_item_level", func():
+	run_case("be_a_lady_multiplies_score_per_item_level", func():
 		_bench("timePearl", { "time": 10 })
 		Crafting.inventory_add(ActiveEffects.LADY, 2, 1)
 		assert_true(Lab.use_effect(ActiveEffects.LADY)["ok"], "Lady started from a real item")
@@ -428,8 +434,22 @@ func _register_run_cases() -> void:
 		Lab.perform_step("compression", 70.0)
 		Lab.perform_step("heat", 25.0)
 		var result := Lab.finish_run()
-		assert_eq([result["rawScore"], result["ladyBonus"], result["score"], result["rank"]], [40, 20, 60, 3], "level 2 Lady adds 20")
+		assert_eq([result["rawScore"], result["ladyBonus"], result["score"], result["rank"]], [40, 4, 44, 2], "level 2 Lady is x1.10")
 		assert_true(not Lab.use_effect("timePearl")["ok"], "only bench effects")
+	)
+
+	run_case("lady_boosted_score_levels_cap_and_inactive", func():
+		_bench("timePearl", { "time": 10 })
+		assert_eq(Lab.lady_boosted_score(40), 40, "inactive: unchanged")
+		var expected := { 1: 42, 2: 44, 3: 46, 4: 48, 5: 50 }
+		for level in expected:
+			ActiveEffects.effects().clear()
+			Crafting.inventory_add(ActiveEffects.LADY, level, 1)
+			Lab.use_effect(ActiveEffects.LADY)
+			assert_eq(Lab.lady_boosted_score(40), expected[level], "level %d on 40" % level)
+			assert_eq(Lab.lady_boosted_score(0), 0, "level %d keeps 0 at 0" % level)
+			assert_eq(Lab.lady_boosted_score(100), 100, "level %d capped at 100" % level)
+		assert_eq(Lab.lady_boosted_score(98), 100, "cap")
 	)
 
 	run_case("bench_effects_outlast_runs_until_the_clock_moves", func():
@@ -439,12 +459,16 @@ func _register_run_cases() -> void:
 		Lab.add_ore("timePearl", "time")
 		Lab.use_effect(ActiveEffects.LADY)
 		Lab.use_effect(ActiveEffects.PROPHETS_BREATH)
-		assert_eq(Lab.finish_run()["ladyBonus"], 10, "Lady used mid-run counts")
+		Lab.perform_step("compression", 70.0)
+		Lab.perform_step("heat", 25.0)
+		assert_eq(Lab.finish_run()["ladyBonus"], 2, "Lady used mid-run counts")
 		assert_true(ActiveEffects.lady_active() and ActiveEffects.prophets_breath_active(), "both still running after Finish")
 		Lab.add_ore("timePearl", "time")
 		Lab.abandon_run()
 		Lab.add_ore("timePearl", "time")
-		assert_eq(Lab.finish_run()["ladyBonus"], 10, "Lady still adds on a later run")
+		Lab.perform_step("compression", 70.0)
+		Lab.perform_step("heat", 25.0)
+		assert_eq(Lab.finish_run()["ladyBonus"], 2, "Lady still adds on a later run")
 		assert_eq(Lab.known_procedure("timePearl")[1]["knowledge"], "revealed", "Breath still reveals")
 		var lady: Dictionary = ActiveEffects.find(ActiveEffects.LADY)
 		for i in ActiveEffects.blocks_left(lady):
@@ -604,8 +628,14 @@ func _stock(key: String) -> Dictionary:
 	return GameState.state["player"]["inventory"].get(key, {})
 
 
-# A finished-able timePearl run that scores 40 raw (rank 3 with a level 2 Lady).
+# A finished-able timePearl run that scores 40 raw; drops the rank-3 threshold to 40
+# so it reaches rank 3 without Lady. Pair with _restore_rank_thresholds().
+var _real_thresholds: Array = []
+
+
 func _rank_three_time_pearl() -> void:
+	_real_thresholds = GameData.LAB["rankThresholds"].duplicate()
+	GameData.LAB["rankThresholds"] = [0, 20, 40, 75, 90]
 	Lab.add_ore("timePearl", "time")
 	Lab.perform_step("compression", 70.0)
 	Lab.perform_step("heat", 25.0)
@@ -687,6 +717,7 @@ func _register_batch_rewind_cases() -> void:
 		Lab.use_effect(ActiveEffects.LADY)
 		_rank_three_time_pearl()
 		Lab.finish_run()
+		_restore_rank_thresholds()
 		player["activeEffects"] = []
 		var calc_before := _calc("time")
 		var xp_before := int(player["craftingXP"])
@@ -772,6 +803,7 @@ func _register_batch_rewind_cases() -> void:
 		_rank_three_time_pearl()
 		Lab.use_effect(ActiveEffects.LADY)
 		Lab.finish_run()
+		_restore_rank_thresholds()
 		var xp_after := int(player["craftingXP"])
 		var known_after: Dictionary = lab["known"].duplicate(true)
 		assert_true(Lab.rewind()["ok"], "rewound")
