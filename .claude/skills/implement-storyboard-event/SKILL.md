@@ -99,3 +99,6 @@ Short, per the user's concision rule:
 - `PROSE-REVIEW:` the proposal file, if any prose was written or changed
 
 Don't commit unless the user asked (or this is running under /implement, which commits).
+
+
+**Server mode.** `node tools/storyboard_server.js` (or `tools/storyboard_server.cmd`) serves the tool and a file API over the repo; the page then loads and saves through the server instead of the folder picker (works on phones). Files on disk are the same either way, so this workflow does not change.

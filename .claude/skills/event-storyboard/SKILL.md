@@ -80,3 +80,6 @@ Pixel cleanup is **optional** until the user says otherwise: offer raw and clean
 - Don't edit event prose, cards, or mechanics while storyboarding. A visual problem caused by the text (e.g. a line that describes something no single frame can hold) goes on the board as a question.
 - Don't invent lore, faction iconography, or new canon for a character. Ask.
 - Don't add `image` keys to event JSON to "help" — discovery is the contract (ADR 0005).
+
+
+**Server mode.** `node tools/storyboard_server.js` (or `tools/storyboard_server.cmd`) serves the tool and a file API over the repo; the page then loads and saves through the server instead of the folder picker (works on phones). Files on disk are the same either way, so this workflow does not change.

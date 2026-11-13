@@ -33,6 +33,10 @@ h1, h2, h3 { font-family: var(--display); font-weight: 700; line-height: 1.15; m
 h1 { font-size: 28px } h2 { font-size: 20px } h3 { font-size: 17px }
 .eyebrow { font: 600 11px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted) }
 .mono { font-family: var(--mono); font-size: 12.5px }
+.save-state { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; color: var(--ok) }
+.save-state[hidden] { display: none }
+.save-state[data-state="saving"] { color: var(--hold) }
+.save-state[data-state="conflict"], .save-state[data-state="failed"] { color: var(--warn) }
 .muted { color: var(--muted) }
 button, select, textarea { font: inherit; color: inherit }
 button { cursor: pointer }
@@ -348,6 +352,7 @@ section { display: grid; gap: 12px; min-width: 0 }
       <button type="button" class="tb" id="prose-open" hidden title="View the board-meeting prose packs in data/board_prose/ and play a sample meeting">Prose packs</button>
       <button type="button" class="tb" id="new-board" hidden title="Start a new proposal in .scratch/writing-revamp/">New board</button>
       <span class="mono muted" id="folder-name"></span>
+      <span class="mono save-state" id="save-state" role="status" hidden><svg width="8" height="8" aria-hidden="true"><circle cx="4" cy="4" r="4" fill="currentColor"/></svg><span>Saved</span></span>
       <label class="eyebrow" for="board-select">Event</label>
       <select id="board-select" aria-label="Choose an event storyboard"></select>
     </div>
@@ -1483,6 +1488,52 @@ function checkOddsBlock(opt, changed, restructure) {
       async remove(path) { const { dir, name } = split(path); await (await dirAt(dir)).removeEntry(name); },
     };
   }
+  // Server backend: same interface over tools/storyboard_server.js's /api/*. Versions are the server's x-version
+  // header; a 409 on a version-checked write surfaces as StaleError, like the folder backend. Every call sends the token.
+  class TokenError extends Error { constructor() { super("The server refused the access token. Open the URL it printed in its terminal."); this.name = "TokenError"; } }
+  function serverBackend(token, onSave) {
+    const call = async (op, path, { method = "GET", body, version } = {}) => {
+      const q = new URLSearchParams({ path: splitPath(path).join("/") });
+      if (version) q.set("version", version);
+      const res = await fetch(`/api/${op}?${q}`, { method, body, headers: { "x-token": token }, cache: "no-store" });
+      if (res.status === 401) throw new TokenError();
+      return res;
+    };
+    const failed = async (res, what) => { let m = ""; try { m = (await res.json()).error; } catch {} return new Error(`${what}: ${m || res.status}`); };
+    async function read(path) {
+      const res = await call("read", path);
+      if (res.status === 404) return null;
+      if (!res.ok) throw await failed(res, "read " + splitPath(path).join("/"));
+      return { blob: await res.blob(), version: res.headers.get("x-version") };
+    }
+    const tracked = async (p) => { onSave("saving"); try { const r = await p; onSave("saved"); return r; } catch (e) { onSave(e && e.stale ? "conflict" : "failed"); throw e; } };
+    return {
+      name: location.host,
+      async readFile(path) { try { const r = await read(path); return r && r.blob; } catch (e) { if (e instanceof TokenError) throw e; return null; } },
+      async read(path) { const r = await read(path); if (!r) return null; return { text: await r.blob.text(), version: r.version }; },
+      async readText(path) { const r = await this.read(path); return r && r.text; },
+      async readJSON(path) { try { return JSON.parse((await this.read(path)).text); } catch { return null; } },
+      write(path, data, expect) {
+        return tracked((async () => {
+          let version;
+          if (expect === null) { if (await read(path)) throw new StaleError(path); }
+          else if (expect !== undefined) version = expect;
+          const res = await call("write", path, { method: "POST", body: data, version });
+          if (res.status === 409) throw new StaleError(path);
+          if (!res.ok) throw await failed(res, "write " + splitPath(path).join("/"));
+          return (await res.json()).version;
+        })());
+      },
+      async list(path) {
+        const res = await call("list", path);
+        if (!res.ok) throw await failed(res, "list " + splitPath(path).join("/"));
+        return (await res.json()).map((e) => ({ name: e.name, kind: e.dir ? "directory" : "file" }));
+      },
+      remove(path) {
+        return tracked((async () => { const res = await call("delete", path, { method: "POST" }); if (!res.ok) throw await failed(res, "delete " + splitPath(path).join("/")); })());
+      },
+    };
+  }
   let storage = null;
   const needStorage = () => { if (!storage) throw new Error("no repo folder open"); return storage; };
   const readText = async (path) => (storage ? storage.readText(path) : null);
@@ -1519,10 +1570,46 @@ function checkOddsBlock(opt, changed, restructure) {
     if (!(await backend.isRepoRoot())) { setNote(`"${h.name}" isn't the veins-of-london repo folder (no .scratch/ or assets/). Pick the repo root.`); return; }
     root = h; storage = backend; saveHandle(h);
     $("folder-name").textContent = h.name;
-    $("refresh").hidden = false;
-    $("new-board").hidden = false;
-    $("prose-open").hidden = false;
+    await openRepo();
+  }
+  async function openRepo() {
+    for (const id of ["refresh", "new-board", "prose-open"]) $(id).hidden = false;
     await loadAll();
+  }
+  // Server mode: served by storyboard_server.js. Token comes from ?t= once (kept in localStorage, stripped from the URL).
+  const TOKEN_KEY = "vein-sb-token";
+  let saveTimer = null;
+  function showSave(state) {
+    const s = $("save-state"); s.hidden = false;
+    const label = { saving: "Saving…", saved: "Saved", conflict: "Changed elsewhere", failed: "Save failed" }[state];
+    s.dataset.state = state; s.lastChild.textContent = label;
+    clearTimeout(saveTimer);
+    if (state === "saved") saveTimer = setTimeout(() => { s.hidden = true; }, 3000);
+  }
+  async function detectServer() {
+    if (!/^https?:$/.test(location.protocol)) return null;
+    try {
+      const res = await fetch("/api/list?path=", { cache: "no-store" });
+      if (res.status !== 401 || (await res.json()).error !== "token required") return null;
+    } catch { return null; }
+    let token = null;
+    try { token = new URLSearchParams(location.search).get("t"); } catch {}
+    if (token) {
+      try { localStorage.setItem(TOKEN_KEY, token); } catch {}
+      const u = new URL(location.href); u.searchParams.delete("t");
+      history.replaceState(null, "", u.pathname + u.search + u.hash);
+    } else { try { token = localStorage.getItem(TOKEN_KEY); } catch {} }
+    return { token };
+  }
+  async function useServer(token) {
+    $("open").hidden = true;
+    if (!token) { setNote("This server needs its access token. Open the URL it printed in its terminal."); return; }
+    const backend = serverBackend(token, showSave);
+    try { await backend.list(""); }
+    catch (e) { setNote(e instanceof TokenError ? e.message : "Couldn't reach the server: " + (e && e.message)); return; }
+    root = true; storage = backend;
+    $("folder-name").textContent = `veins-of-london · server mode · ${location.host}`;
+    await openRepo();
   }
   async function openFolder() {
     try { await useRoot(await window.showDirectoryPicker({ id: "vein-storyboards", mode: "readwrite" })); }
@@ -7019,8 +7106,13 @@ function checkOddsBlock(opt, changed, restructure) {
   // Claude edits board.json between rounds: pick that up when the window regains focus.
   window.addEventListener("focus", () => { if (root && !typing()) loadAll(); });
 
+  detectServer().then((srv) => {
+    if (srv) { useServer(srv.token); return; }
+    startFolderMode();
+  });
+  function startFolderMode() {
   if (!window.showDirectoryPicker) {
-    setNote("This tool needs the File System Access API. Open it in a recent desktop Chrome or Edge.");
+    setNote("This tool needs the File System Access API. Open it in a recent desktop Chrome or Edge, or run tools/storyboard_server.js.");
     $("open").disabled = true;
   } else {
     loadHandle().then((h) => {
@@ -7029,6 +7121,7 @@ function checkOddsBlock(opt, changed, restructure) {
       again.addEventListener("click", () => { again.remove(); reopen(h); });
       $("toolbar").prepend(again);
     });
+  }
   }
 })();
 </script>

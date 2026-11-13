@@ -66,3 +66,6 @@ python tools/plate_compositor/compose.py tools/plate_compositor/shots/<event_id>
 ## Report
 
 Keep it brief: the shots placed, the shots still waiting for images, any pose that needed more than one tuning pass and why, and the extract and compose sheet paths for the user to eyeball. Don't commit unless asked.
+
+
+**Server mode.** `node tools/storyboard_server.js` (or `tools/storyboard_server.cmd`) serves the tool and a file API over the repo; the page then loads and saves through the server instead of the folder picker (works on phones). Files on disk are the same either way, so this workflow does not change.
