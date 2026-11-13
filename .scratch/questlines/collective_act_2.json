@@ -1,0 +1,109 @@
+{
+  "id": "collective_act_2",
+  "name": "Collective Act 2",
+  "page": "collective",
+  "order": 2,
+  "premise": "What the Collective needs after Hakim's loss.",
+  "notes": "Seeded; Act 1/2 split guessed from the col_a1_/col_a2_ prefixes. Unplaced events: col_a2_checkpoint, closer, contested_vein, hakim_retake, hakim_vein_lost, handler_*, hostile_member, pattern, second_loss, shop, vulnerable_site.",
+  "categories": [
+    "Writing",
+    "Choices",
+    "Observations",
+    "Art"
+  ],
+  "quests": [
+    {
+      "id": "col_a2_hakim",
+      "title": "Find out what's wrong with Hakim",
+      "summary": "Des wants you at the shop. Nadia will want a word after.",
+      "notes": "",
+      "follows": [],
+      "events": [
+        {
+          "id": "col_a2_nadia_ledger",
+          "title": "col a2 nadia ledger"
+        },
+        {
+          "id": "col_a2_intro",
+          "title": "col a2 intro"
+        }
+      ],
+      "statuses": {
+        "Writing": "todo",
+        "Choices": "todo",
+        "Observations": "todo",
+        "Art": "todo"
+      },
+      "mechanics": "hardcoded",
+      "objective": "col_a2_hakim"
+    },
+    {
+      "id": "col_a2_nadia_reseed",
+      "title": "Seed a new vein for the Collective",
+      "summary": "One more foothold, properly claimed.",
+      "notes": "",
+      "follows": [
+        {
+          "id": "col_a2_hakim",
+          "kind": "parallel"
+        }
+      ],
+      "events": [],
+      "statuses": {
+        "Writing": "todo",
+        "Choices": "na",
+        "Observations": "na",
+        "Art": "todo"
+      },
+      "mechanics": "hardcoded",
+      "objective": "col_a2_nadia_reseed"
+    },
+    {
+      "id": "col_a2_nadia_supplies",
+      "title": "Stock the Collective's kit",
+      "summary": "Craft one Blast, one Shield, one Panic.",
+      "notes": "",
+      "follows": [
+        {
+          "id": "col_a2_hakim",
+          "kind": "parallel"
+        }
+      ],
+      "events": [],
+      "statuses": {
+        "Writing": "todo",
+        "Choices": "na",
+        "Observations": "na",
+        "Art": "todo"
+      },
+      "mechanics": "hardcoded",
+      "objective": "col_a2_nadia_supplies"
+    },
+    {
+      "id": "col_a2_nadia_defend",
+      "title": "Defend the vein Nadia's watching",
+      "summary": "Win the alarm-defend fight when it comes.",
+      "notes": "",
+      "follows": [
+        {
+          "id": "col_a2_nadia_supplies",
+          "kind": "parallel"
+        }
+      ],
+      "events": [
+        {
+          "id": "col_a2_nadia_defend_brief",
+          "title": "col a2 nadia defend brief"
+        }
+      ],
+      "statuses": {
+        "Writing": "todo",
+        "Choices": "todo",
+        "Observations": "todo",
+        "Art": "todo"
+      },
+      "mechanics": "hardcoded",
+      "objective": "col_a2_nadia_defend"
+    }
+  ]
+}

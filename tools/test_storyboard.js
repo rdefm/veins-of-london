@@ -3512,3 +3512,23 @@ test("events: Create draft makes a board with the planned id and title, which th
   assert.strictEqual(PM.planEventState(ev, new Set(), new Set([b.draft.id])), "draft");
   assert.throws(() => blankBoard(ev.id, [], ["hakim_after"], ev.title), /already a live event/);
 });
+
+test("committed planning files validate against the model and real objective and event ids", () => {
+  const root = path.join(__dirname, "..");
+  const dir = path.join(root, ".scratch", "questlines");
+  const files = fs.existsSync(dir) ? fs.readdirSync(dir).filter((f) => f.endsWith(".json")).sort() : [];
+  assert(files.length > 0, "no planning files under .scratch/questlines/");
+  const objectiveIds = Object.keys(JSON.parse(fs.readFileSync(path.join(root, "data", "objectives.json"), "utf-8")));
+  const live = new Set(fs.readdirSync(path.join(root, "data", "events")).filter((f) => f.endsWith(".json")).map((f) => f.slice(0, -5)));
+  const plans = [];
+  for (const f of files) {
+    const { plan, errors } = PM.parsePlan(fs.readFileSync(path.join(dir, f), "utf-8"));
+    assert.deepStrictEqual(errors, [], f);
+    assert.strictEqual(plan.id + ".json", f, `${f}: id must match the file name`);
+    plans.push(plan);
+  }
+  const bad = PM.validatePlans(plans, { objectiveIds });
+  assert.deepStrictEqual(bad.map((b) => [b.plan.id, b.errors]), []);
+  for (const p of plans) for (const q of p.quests) for (const ev of q.events)
+    if (q.mechanics === "hardcoded") assert(live.has(ev.id), `${p.id}/${q.id}: event ${ev.id} has no data/events file`);
+});

@@ -1,0 +1,209 @@
+{
+  "id": "business_act_1",
+  "name": "Business Act 1",
+  "page": "business_empire",
+  "order": 1,
+  "premise": "Archie's proposition to a running business.",
+  "notes": "Seeded; order guessed from objective order.",
+  "categories": [
+    "Writing",
+    "Choices",
+    "Observations",
+    "Art"
+  ],
+  "quests": [
+    {
+      "id": "biz_a1_proposition",
+      "title": "Archie's got a proposition. Meet him at James's.",
+      "summary": "",
+      "notes": "",
+      "follows": [],
+      "events": [
+        {
+          "id": "biz_a1_proposition",
+          "title": "biz a1 proposition"
+        }
+      ],
+      "statuses": {
+        "Writing": "todo",
+        "Choices": "todo",
+        "Observations": "todo",
+        "Art": "todo"
+      },
+      "mechanics": "hardcoded",
+      "objective": "biz_a1_proposition"
+    },
+    {
+      "id": "biz_a1_market_proof",
+      "title": "Prove the market to James: complete three BizBrief contracts in full",
+      "summary": "",
+      "notes": "",
+      "follows": [
+        {
+          "id": "biz_a1_proposition",
+          "kind": "parallel"
+        }
+      ],
+      "events": [],
+      "statuses": {
+        "Writing": "todo",
+        "Choices": "na",
+        "Observations": "na",
+        "Art": "todo"
+      },
+      "mechanics": "hardcoded",
+      "objective": "biz_a1_market_proof"
+    },
+    {
+      "id": "biz_a1_meet_owen",
+      "title": "James has someone for you to meet. Go to the unit.",
+      "summary": "",
+      "notes": "",
+      "follows": [
+        {
+          "id": "biz_a1_market_proof",
+          "kind": "parallel"
+        }
+      ],
+      "events": [
+        {
+          "id": "biz_a1_owen",
+          "title": "biz a1 owen"
+        }
+      ],
+      "statuses": {
+        "Writing": "todo",
+        "Choices": "todo",
+        "Observations": "todo",
+        "Art": "todo"
+      },
+      "mechanics": "hardcoded",
+      "objective": "biz_a1_meet_owen"
+    },
+    {
+      "id": "biz_a1_apprentice",
+      "title": "Give James a reason to join properly.",
+      "summary": "",
+      "notes": "",
+      "follows": [
+        {
+          "id": "biz_a1_meet_owen",
+          "kind": "parallel"
+        }
+      ],
+      "events": [
+        {
+          "id": "biz_owen_craft",
+          "title": "biz owen craft"
+        }
+      ],
+      "statuses": {
+        "Writing": "todo",
+        "Choices": "todo",
+        "Observations": "todo",
+        "Art": "todo"
+      },
+      "mechanics": "hardcoded",
+      "objective": "biz_a1_apprentice"
+    },
+    {
+      "id": "biz_a1_partnership",
+      "title": "James is ready to talk. Go to the unit.",
+      "summary": "",
+      "notes": "",
+      "follows": [
+        {
+          "id": "biz_a1_apprentice",
+          "kind": "parallel"
+        }
+      ],
+      "events": [
+        {
+          "id": "biz_a1_partnership",
+          "title": "biz a1 partnership"
+        }
+      ],
+      "statuses": {
+        "Writing": "todo",
+        "Choices": "todo",
+        "Observations": "todo",
+        "Art": "todo"
+      },
+      "mechanics": "hardcoded",
+      "objective": "biz_a1_partnership"
+    },
+    {
+      "id": "biz_a1_production",
+      "title": "James wants to show you Production. Go to the unit.",
+      "summary": "",
+      "notes": "",
+      "follows": [
+        {
+          "id": "biz_a1_partnership",
+          "kind": "parallel"
+        }
+      ],
+      "events": [
+        {
+          "id": "biz_a1_production",
+          "title": "biz a1 production"
+        }
+      ],
+      "statuses": {
+        "Writing": "todo",
+        "Choices": "todo",
+        "Observations": "todo",
+        "Art": "todo"
+      },
+      "mechanics": "hardcoded",
+      "objective": "biz_a1_production"
+    },
+    {
+      "id": "biz_a1_first_order",
+      "title": "Archie wants fifteen items sold without you.",
+      "summary": "BizBrief, Production: set a Sell-above.",
+      "notes": "",
+      "follows": [
+        {
+          "id": "biz_a1_production",
+          "kind": "parallel"
+        }
+      ],
+      "events": [],
+      "statuses": {
+        "Writing": "todo",
+        "Choices": "na",
+        "Observations": "na",
+        "Art": "todo"
+      },
+      "mechanics": "hardcoded",
+      "objective": "biz_a1_first_order"
+    },
+    {
+      "id": "biz_a1_closing",
+      "title": "Payday. Archie wants to go through the numbers.",
+      "summary": "",
+      "notes": "",
+      "follows": [
+        {
+          "id": "biz_a1_first_order",
+          "kind": "parallel"
+        }
+      ],
+      "events": [
+        {
+          "id": "biz_a1_closing",
+          "title": "biz a1 closing"
+        }
+      ],
+      "statuses": {
+        "Writing": "todo",
+        "Choices": "todo",
+        "Observations": "todo",
+        "Art": "todo"
+      },
+      "mechanics": "hardcoded",
+      "objective": "biz_a1_closing"
+    }
+  ]
+}

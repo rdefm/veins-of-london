@@ -1,0 +1,130 @@
+{
+  "id": "collective_act_1",
+  "name": "Collective Act 1",
+  "page": "collective",
+  "order": 1,
+  "premise": "Finding ground and earning the Collective's trust.",
+  "notes": "Seeded; order guessed (objectives chained in file order where flags don't link). Events not tied to an objective (col_a1_intro, hub, seeding, closer, archie_pry, firm_*, deferred_join) are unplaced.",
+  "categories": [
+    "Writing",
+    "Choices",
+    "Observations",
+    "Art"
+  ],
+  "quests": [
+    {
+      "id": "col_a1_des_sites",
+      "title": "Find ground for the Collective",
+      "summary": "One fate, one physics. Fair quality or better. Leave them unclaimed.",
+      "notes": "",
+      "follows": [],
+      "events": [
+        {
+          "id": "col_a1_prospecting",
+          "title": "col a1 prospecting"
+        },
+        {
+          "id": "col_a1_des_report",
+          "title": "col a1 des report"
+        },
+        {
+          "id": "col_a1_des_report_first_fate",
+          "title": "col a1 des report first fate"
+        },
+        {
+          "id": "col_a1_des_report_first_physics",
+          "title": "col a1 des report first physics"
+        }
+      ],
+      "statuses": {
+        "Writing": "todo",
+        "Choices": "todo",
+        "Observations": "todo",
+        "Art": "todo"
+      },
+      "mechanics": "hardcoded",
+      "objective": "col_a1_des_sites"
+    },
+    {
+      "id": "col_a1_hakim_rescue",
+      "title": "Bring Hakim's vein back",
+      "summary": "It's been neglected for years. Cultivate it back up past neutral.",
+      "notes": "",
+      "follows": [
+        {
+          "id": "col_a1_des_sites",
+          "kind": "parallel"
+        }
+      ],
+      "events": [
+        {
+          "id": "col_a1_hakim_meet",
+          "title": "col a1 hakim meet"
+        },
+        {
+          "id": "col_a1_hakim_done",
+          "title": "col a1 hakim done"
+        }
+      ],
+      "statuses": {
+        "Writing": "todo",
+        "Choices": "todo",
+        "Observations": "todo",
+        "Art": "todo"
+      },
+      "mechanics": "hardcoded",
+      "objective": "col_a1_hakim_rescue"
+    },
+    {
+      "id": "col_a1_nadia_supply",
+      "title": "Fill Nadia's standing order",
+      "summary": "Supply Nadia with twenty units of time calc.",
+      "notes": "",
+      "follows": [
+        {
+          "id": "col_a1_hakim_rescue",
+          "kind": "parallel"
+        }
+      ],
+      "events": [
+        {
+          "id": "col_a1_nadia_meet",
+          "title": "col a1 nadia meet"
+        },
+        {
+          "id": "col_a1_nadia_done",
+          "title": "col a1 nadia done"
+        }
+      ],
+      "statuses": {
+        "Writing": "todo",
+        "Choices": "todo",
+        "Observations": "todo",
+        "Art": "todo"
+      },
+      "mechanics": "hardcoded",
+      "objective": "col_a1_nadia_supply"
+    },
+    {
+      "id": "col_a1_nadia_vein",
+      "title": "Sell Nadia a time vein",
+      "summary": "Seed one, grow it up a bit, then sell it to the Collective.",
+      "notes": "",
+      "follows": [
+        {
+          "id": "col_a1_nadia_supply",
+          "kind": "parallel"
+        }
+      ],
+      "events": [],
+      "statuses": {
+        "Writing": "todo",
+        "Choices": "na",
+        "Observations": "na",
+        "Art": "todo"
+      },
+      "mechanics": "hardcoded",
+      "objective": "col_a1_nadia_vein"
+    }
+  ]
+}

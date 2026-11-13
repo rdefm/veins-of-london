@@ -1,0 +1,257 @@
+{
+  "id": "tutorial",
+  "name": "Tutorial",
+  "page": "tutorial",
+  "order": 1,
+  "premise": "Learning the trade: cold open to first rent.",
+  "notes": "Seeded from objectives.json; order guessed from activate/complete flags.",
+  "categories": [
+    "Writing",
+    "Choices",
+    "Observations",
+    "Art"
+  ],
+  "quests": [
+    {
+      "id": "pro_cold_open",
+      "title": "Get out of Mile End in one piece.",
+      "summary": "",
+      "notes": "",
+      "follows": [],
+      "events": [
+        {
+          "id": "cold_open_legacy",
+          "title": "cold open legacy"
+        },
+        {
+          "id": "prologue_cold_open",
+          "title": "prologue cold open"
+        }
+      ],
+      "statuses": {
+        "Writing": "todo",
+        "Choices": "todo",
+        "Observations": "todo",
+        "Art": "todo"
+      },
+      "mechanics": "hardcoded",
+      "objective": "pro_cold_open"
+    },
+    {
+      "id": "pro_pub",
+      "title": "Ask Archie what that stuff was.",
+      "summary": "",
+      "notes": "",
+      "follows": [
+        {
+          "id": "pro_cold_open",
+          "kind": "parallel"
+        }
+      ],
+      "events": [
+        {
+          "id": "prologue_pub",
+          "title": "prologue pub"
+        }
+      ],
+      "statuses": {
+        "Writing": "todo",
+        "Choices": "todo",
+        "Observations": "todo",
+        "Art": "todo"
+      },
+      "mechanics": "hardcoded",
+      "objective": "pro_pub"
+    },
+    {
+      "id": "pro_first_sale",
+      "title": "Back up Archie on the sale tonight. Check Contacts.",
+      "summary": "",
+      "notes": "",
+      "follows": [
+        {
+          "id": "pro_pub",
+          "kind": "parallel"
+        }
+      ],
+      "events": [
+        {
+          "id": "prologue_buyer",
+          "title": "prologue buyer"
+        }
+      ],
+      "statuses": {
+        "Writing": "todo",
+        "Choices": "todo",
+        "Observations": "todo",
+        "Art": "todo"
+      },
+      "mechanics": "hardcoded",
+      "objective": "pro_first_sale"
+    },
+    {
+      "id": "pro_first_craft",
+      "title": "Meet James. He'll teach you to craft.",
+      "summary": "",
+      "notes": "",
+      "follows": [
+        {
+          "id": "pro_first_sale",
+          "kind": "parallel"
+        }
+      ],
+      "events": [
+        {
+          "id": "prologue_james_meeting",
+          "title": "prologue james meeting"
+        }
+      ],
+      "statuses": {
+        "Writing": "todo",
+        "Choices": "todo",
+        "Observations": "todo",
+        "Art": "todo"
+      },
+      "mechanics": "hardcoded",
+      "objective": "pro_first_craft"
+    },
+    {
+      "id": "pro_gym",
+      "title": "Archie wants to show you a gym.",
+      "summary": "",
+      "notes": "",
+      "follows": [
+        {
+          "id": "pro_first_craft",
+          "kind": "parallel"
+        }
+      ],
+      "events": [
+        {
+          "id": "prologue_gym",
+          "title": "prologue gym"
+        }
+      ],
+      "statuses": {
+        "Writing": "todo",
+        "Choices": "todo",
+        "Observations": "todo",
+        "Art": "todo"
+      },
+      "mechanics": "hardcoded",
+      "objective": "pro_gym"
+    },
+    {
+      "id": "pro_pearls_sold",
+      "title": "Let Archie sell your pearls.",
+      "summary": "",
+      "notes": "",
+      "follows": [
+        {
+          "id": "pro_gym",
+          "kind": "parallel"
+        }
+      ],
+      "events": [
+        {
+          "id": "prologue_archie_sells_pearls",
+          "title": "prologue archie sells pearls"
+        }
+      ],
+      "statuses": {
+        "Writing": "todo",
+        "Choices": "todo",
+        "Observations": "todo",
+        "Art": "todo"
+      },
+      "mechanics": "hardcoded",
+      "objective": "pro_pearls_sold"
+    },
+    {
+      "id": "pro_flat_raid",
+      "title": "Something is wrong at the flat. Go home.",
+      "summary": "",
+      "notes": "",
+      "follows": [
+        {
+          "id": "pro_pearls_sold",
+          "kind": "parallel"
+        }
+      ],
+      "events": [
+        {
+          "id": "prologue_home_raid_debrief_loss",
+          "title": "prologue home raid debrief loss"
+        },
+        {
+          "id": "prologue_home_raid_debrief_win",
+          "title": "prologue home raid debrief win"
+        },
+        {
+          "id": "prologue_home_raid_intro",
+          "title": "prologue home raid intro"
+        }
+      ],
+      "statuses": {
+        "Writing": "todo",
+        "Choices": "todo",
+        "Observations": "todo",
+        "Art": "todo"
+      },
+      "mechanics": "hardcoded",
+      "objective": "pro_flat_raid"
+    },
+    {
+      "id": "pro_first_vein",
+      "title": "Work the vein Archie gave you.",
+      "summary": "",
+      "notes": "",
+      "follows": [
+        {
+          "id": "pro_flat_raid",
+          "kind": "parallel"
+        }
+      ],
+      "events": [
+        {
+          "id": "prologue_archie_cultivation",
+          "title": "prologue archie cultivation"
+        }
+      ],
+      "statuses": {
+        "Writing": "todo",
+        "Choices": "todo",
+        "Observations": "todo",
+        "Art": "todo"
+      },
+      "mechanics": "hardcoded",
+      "objective": "pro_first_vein"
+    },
+    {
+      "id": "pro_pay_rent",
+      "title": "Pay Monday's rent in full.",
+      "summary": "",
+      "notes": "",
+      "follows": [
+        {
+          "id": "pro_first_vein",
+          "kind": "parallel"
+        }
+      ],
+      "events": [
+        {
+          "id": "prologue_ending",
+          "title": "prologue ending"
+        }
+      ],
+      "statuses": {
+        "Writing": "todo",
+        "Choices": "todo",
+        "Observations": "todo",
+        "Art": "todo"
+      },
+      "mechanics": "hardcoded",
+      "objective": "pro_pay_rent"
+    }
+  ]
+}
