@@ -531,9 +531,9 @@ test("data/events is named once, read by import, and written only by Promote aft
   const uses = rest.match(/[^\n]*LIVE_EVENTS_DIR[^\n]*/g).filter((l) => !/const LIVE_EVENTS_DIR =/.test(l));
   for (const l of uses) {
     assert(!/writeFile|create:\s*true|LIVE_EVENTS_DIR\s*,\s*true/.test(l), "LIVE_EVENTS_DIR used for writing: " + l.trim());
-    assert(/fileNames\(LIVE_EVENTS_DIR,|readText\(await dirAt\(LIVE_EVENTS_DIR\)/.test(l), "unexpected LIVE_EVENTS_DIR use: " + l.trim());
+    assert(/fileNames\(LIVE_EVENTS_DIR,|readText\(\[\.\.\.LIVE_EVENTS_DIR,/.test(l), "unexpected LIVE_EVENTS_DIR use: " + l.trim());
   }
-  assert.strictEqual((promote.match(/writeFile\(dir,/g) || []).length, 1, "promoteBoard writes the live event once");
+  assert.strictEqual((promote.match(/writeFile\(\[\.\.\.LIVE_EVENTS_DIR,/g) || []).length, 1, "promoteBoard writes the live event once");
   assert(promote.indexOf("confirm(") !== -1 && promote.indexOf("confirm(") < promote.indexOf("writeFile("), "promote writes only after a confirm");
   assert(!/create:\s*true/.test(promote), "promote never creates directories");
 });
@@ -3037,4 +3037,32 @@ test("trigger fields survive a draft save and promote exactly; nothingFires only
   assert.strictEqual(nothingFires({ id: "brand_new_event", deck: {} }, lintRefs), false);
   assert.strictEqual(nothingFires(bare, null), false);
   assert.strictEqual(nothingFires({ id: "battersea_hum" }, lintRefs), lintRefs.inbound.battersea_hum ? false : true);
+});
+
+// ---- Storage version token ----
+const storeStart = html.indexOf("/* ---------- Storage (pure) ---------- */"), storeEnd = html.indexOf("/* ---------- End storage ---------- */");
+assert(storeStart !== -1 && storeEnd !== -1, "could not locate storage markers in storyboard.html");
+const { splitPath, storageVersion, storageAllows } =
+  new Function(html.slice(storeStart, storeEnd) + "\nreturn { splitPath, storageVersion, storageAllows };")();
+
+test("storage version is stable and content-sensitive", () => {
+  assert.strictEqual(storageVersion("abc"), storageVersion("abc"));
+  assert.notStrictEqual(storageVersion("abc"), storageVersion("abd"));
+  assert.notStrictEqual(storageVersion(""), storageVersion("a"));
+});
+
+test("version-checked write allows only a matching version", () => {
+  const v = storageVersion("one");
+  assert.strictEqual(storageAllows(undefined, v), true, "unchecked");
+  assert.strictEqual(storageAllows(v, v), true);
+  assert.strictEqual(storageAllows(v, storageVersion("two")), false, "stale");
+  assert.strictEqual(storageAllows(v, null), false, "file deleted");
+  assert.strictEqual(storageAllows(null, null), true, "must not exist, doesn't");
+  assert.strictEqual(storageAllows(null, v), false, "must not exist, does");
+});
+
+test("splitPath takes parts or slash strings", () => {
+  assert.deepStrictEqual(splitPath("a/b/c.json"), ["a", "b", "c.json"]);
+  assert.deepStrictEqual(splitPath(["a", "b"]), ["a", "b"]);
+  assert.deepStrictEqual(splitPath([]), []);
 });

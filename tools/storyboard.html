@@ -1419,29 +1419,82 @@ function checkOddsBlock(opt, changed, restructure) {
   const stemOf = (n) => n.replace(/\.[^.]+$/, "");
   const setNote = (t) => { $("db-note").textContent = t; };
 
-  // ---- folder access -------------------------------------------------------
-  async function dirAt(parts, create = false) {
-    let d = root;
-    for (const p of parts) d = await d.getDirectoryHandle(p, { create });
-    return d;
+  // ---- storage interface ---------------------------------------------------
+  // Every file read or write in every tab goes through `storage`, addressed by repo-relative path (array of parts or
+  // "a/b" string). Reads carry a version token (content hash); write(path, data, expect) refuses a stale expect.
+  // The folder picker (File System Access API) is the only backend; nothing outside folderBackend touches handles.
+  /* ---------- Storage (pure) ---------- */
+  // No DOM, no file access: tools/test_storyboard.js unit-tests the version token and its check.
+  const splitPath = (p) => (Array.isArray(p) ? p : String(p).split("/")).filter((x) => x !== "");
+  // 32-bit FNV-1a over the UTF-16 code units plus the length: cheap, stable, and enough to notice a changed file.
+  function storageVersion(text) {
+    let h = 0x811c9dc5;
+    for (let i = 0; i < text.length; i++) { h ^= text.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+    return text.length.toString(16) + "-" + h.toString(16);
   }
-  async function readText(dir, name) {
-    try { return await (await (await dir.getFileHandle(name)).getFile()).text(); }
-    catch { return null; }
+  // expect: undefined = unchecked, null = the file must not exist, else the version token from the read.
+  // current: the file's version now, or null if it doesn't exist.
+  const storageAllows = (expect, current) => expect === undefined || expect === current;
+  /* ---------- End storage ---------- */
+  class StaleError extends Error {
+    constructor(path) { super(`${splitPath(path).join("/")} changed elsewhere`); this.name = "StaleError"; this.stale = true; }
   }
-  async function readJSON(dir, name) {
-    try { return JSON.parse(await readText(dir, name)); }
-    catch { return null; }
+  function folderBackend(h) {
+    const dirAt = async (parts, create = false) => {
+      let d = h;
+      for (const p of parts) d = await d.getDirectoryHandle(p, { create });
+      return d;
+    };
+    const split = (path) => { const parts = splitPath(path); return { dir: parts.slice(0, -1), name: parts.at(-1) }; };
+    async function readFile(path) {
+      try { const { dir, name } = split(path); return await (await (await dirAt(dir)).getFileHandle(name)).getFile(); }
+      catch { return null; }
+    }
+    async function read(path) {
+      const f = await readFile(path); if (!f) return null;
+      const text = await f.text();
+      return { text, version: storageVersion(text) };
+    }
+    return {
+      name: h.name,
+      // Is this folder the repo root?
+      async isRepoRoot() {
+        try { await h.getDirectoryHandle(".scratch"); await h.getDirectoryHandle("assets"); return true; } catch { return false; }
+      },
+      readFile, read,
+      async readText(path) { const r = await read(path); return r && r.text; },
+      async readJSON(path) { try { return JSON.parse((await read(path)).text); } catch { return null; } },
+      async write(path, data, expect) {
+        if (expect !== undefined) {
+          const cur = await read(path);
+          if (!storageAllows(expect, cur && cur.version)) throw new StaleError(path);
+        }
+        const { dir, name } = split(path);
+        const w = await (await (await dirAt(dir, true)).getFileHandle(name, { create: true })).createWritable();
+        await w.write(data); await w.close();
+        return typeof data === "string" ? storageVersion(data) : null;
+      },
+      // [{name, kind: "file"|"directory"}]; throws if the folder doesn't exist.
+      async list(path) {
+        const out = [];
+        for await (const [name, e] of (await dirAt(splitPath(path))).entries()) out.push({ name, kind: e.kind });
+        return out;
+      },
+      async remove(path) { const { dir, name } = split(path); await (await dirAt(dir)).removeEntry(name); },
+    };
   }
+  let storage = null;
+  const needStorage = () => { if (!storage) throw new Error("no repo folder open"); return storage; };
+  const readText = async (path) => (storage ? storage.readText(path) : null);
+  const readJSON = async (path) => (storage ? storage.readJSON(path) : null);
+  const writeFile = (path, data, expect) => needStorage().write(path, data, expect);
+  const listDirEntries = (path) => needStorage().list(path);
+  const fileNamesIn = async (path) => (await listDirEntries(path)).filter((e) => e.kind === "file").map((e) => e.name);
   // Save/undo state on a shot board, non-enumerable so board.json never carries it: diskText = the file as last
   // read or written, saved = its serialised form, history = undo snapshots.
   function trackBoard(b, diskText) {
     const meta = { diskText, saved: serialiseBoard(b), history: makeHistory() };
     for (const [k, value] of Object.entries(meta)) Object.defineProperty(b, k, { value, writable: true, configurable: true, enumerable: false });
-  }
-  async function writeFile(dir, name, data) {
-    const w = await (await dir.getFileHandle(name, { create: true })).createWritable();
-    await w.write(data); await w.close();
   }
   // Remember the folder handle between visits (IndexedDB is the only place a handle can live).
   function idb(mode, fn) {
@@ -1462,9 +1515,9 @@ function checkOddsBlock(opt, changed, restructure) {
   const loadHandle = () => idb("readonly", (s) => s.get("root"));
 
   async function useRoot(h) {
-    try { await h.getDirectoryHandle(".scratch"); await h.getDirectoryHandle("assets"); }
-    catch { setNote(`"${h.name}" isn't the veins-of-london repo folder (no .scratch/ or assets/). Pick the repo root.`); return; }
-    root = h; saveHandle(h);
+    const backend = folderBackend(h);
+    if (!(await backend.isRepoRoot())) { setNote(`"${h.name}" isn't the veins-of-london repo folder (no .scratch/ or assets/). Pick the repo root.`); return; }
+    root = h; storage = backend; saveHandle(h);
     $("folder-name").textContent = h.name;
     $("refresh").hidden = false;
     $("new-board").hidden = false;
@@ -1485,8 +1538,8 @@ function checkOddsBlock(opt, changed, restructure) {
   async function loadPlates() {
     plateFiles = new Map();
     try {
-      for await (const [name, h] of (await dirAt(PLATES_DIR)).entries())
-        if (h.kind === "file" && IMG_RE.test(name)) plateFiles.set(name, h);
+      for (const name of await fileNamesIn(PLATES_DIR))
+        if (IMG_RE.test(name)) plateFiles.set(name, [...PLATES_DIR, name]);
     } catch {}
   }
   /* ---------- Draft model (pure) ---------- */
@@ -4225,8 +4278,8 @@ function checkOddsBlock(opt, changed, restructure) {
     b.conv = new Map();
     const id = b.draft.id;
     if (b.legacy) try {
-      for await (const [name, h] of (await dirAt(["assets", "events", id])).entries())
-        if (h.kind === "file" && IMG_RE.test(name)) b.conv.set(stemOf(name), `res://assets/events/${id}/${name}`);
+      for (const name of await fileNamesIn(["assets", "events", id]))
+        if (IMG_RE.test(name)) b.conv.set(stemOf(name), `res://assets/events/${id}/${name}`);
     } catch {}
   }
   // Rebuilds the flat card list from the draft (after load or any edit).
@@ -4243,11 +4296,11 @@ function checkOddsBlock(opt, changed, restructure) {
     && (b.kind === "proposal" ? !!b.draft && serialiseDraft(b.draft) : serialiseBoard(b)) !== b.saved;
   async function loadProposals() {
     const out = [];
-    let dir;
-    try { dir = await dirAt(PROPOSALS_DIR); } catch { return out; }
-    for await (const [name, h] of dir.entries()) {
-      if (h.kind !== "file" || !name.endsWith(".md")) continue;
-      const f = await h.getFile();
+    let names;
+    try { names = await fileNamesIn(PROPOSALS_DIR); } catch { return out; }
+    for (const name of names) {
+      if (!name.endsWith(".md")) continue;
+      const f = await storage.readFile([...PROPOSALS_DIR, name]);
       const md = await f.text();
       const b = parseProposal(name, md);
       if (!b) continue;
@@ -4265,8 +4318,8 @@ function checkOddsBlock(opt, changed, restructure) {
   async function resImg(path, alt) {
     const img = el("img", { alt });
     try {
-      const parts = path.replace(/^res:\/\//, "").split("/");
-      const f = await (await (await dirAt(parts.slice(0, -1))).getFileHandle(parts.at(-1))).getFile();
+      const f = await storage.readFile(path.replace(/^res:\/\//, ""));
+      if (!f) return null;
       const stamp = f.lastModified + ":" + f.size, c = resUrls.get(path);
       if (c && c.stamp === stamp) img.src = c.url;
       else { if (c) URL.revokeObjectURL(c.url); const url = URL.createObjectURL(f); resUrls.set(path, { stamp, url }); img.src = url; }
@@ -4280,14 +4333,13 @@ function checkOddsBlock(opt, changed, restructure) {
   // data/enemies.json + combat_rounds.json as a parseEnemyCatalogue result (null = no repo folder or unreadable).
   let enemyCatalogue = null;
   async function loadItemCatalogue() {
-    try { itemCatalogue = parseItemCatalogue(await readText(await dirAt(["data"]), "recipes.json")); } catch { itemCatalogue = null; }
+    try { itemCatalogue = parseItemCatalogue(await readText(["data", "recipes.json"])); } catch { itemCatalogue = null; }
     mechCatalogue = itemCatalogue;
     try {
-      const dir = await dirAt(["data"]);
-      enemyCatalogue = parseEnemyCatalogue(await readText(dir, "enemies.json"), await readText(dir, "combat_rounds.json"));
+      enemyCatalogue = parseEnemyCatalogue(await readText(["data", "enemies.json"]), await readText(["data", "combat_rounds.json"]));
     } catch { enemyCatalogue = null; }
     try {
-      const c = JSON.parse(await readText(await dirAt(["data"]), "constants.json"));
+      const c = JSON.parse(await readText(["data", "constants.json"]));
       const t = c && c.eventChecks && c.eventChecks.tags;
       mechTagVocab = Array.isArray(t) ? t.filter((x) => typeof x === "string") : [];
       const at = c && c.eventChecks && c.eventChecks.alert && c.eventChecks.alert.tiers;
@@ -4335,9 +4387,9 @@ function checkOddsBlock(opt, changed, restructure) {
     // A shot board with unsaved edits stays as it is in memory; one unchanged on disk keeps its undo history.
     const prevShots = new Map(boards.filter((b) => b.kind !== "proposal").map((b) => [b.eventId, b]));
     try {
-      for await (const [name, h] of (await dirAt(BOARDS_DIR)).entries()) {
-        if (h.kind !== "directory") continue;
-        const text = await readText(h, "board.json");
+      for (const { name, kind } of await listDirEntries(BOARDS_DIR)) {
+        if (kind !== "directory") continue;
+        const text = await readText([...BOARDS_DIR, name, "board.json"]);
         let b = null;
         try { b = JSON.parse(text); } catch {}
         if (!b || !b.eventId || !Array.isArray(b.cards)) continue;
@@ -4346,7 +4398,7 @@ function checkOddsBlock(opt, changed, restructure) {
         if (old && isDirty(old)) b = old;
         else if (old && old.diskText === text) b.history = old.history;
         found.push(b);
-        for (const f of (await readJSON(h, "feedback.json")) || []) if (f && f.target) feedback[`${f.eventId}__${f.target}`] = f;
+        for (const f of (await readJSON([...BOARDS_DIR, name, "feedback.json"])) || []) if (f && f.target) feedback[`${f.eventId}__${f.target}`] = f;
       }
     } catch { setNote("No .scratch/event-art/ folder yet. Ask Claude to storyboard an event."); }
     await loadPlates();
@@ -4368,14 +4420,14 @@ function checkOddsBlock(opt, changed, restructure) {
       : (boards.some((b) => b.eventId === remembered()) ? remembered() : boards[0]?.eventId || null);
     selectBoard(want, want === currentId);
   }
+  // The folder holding a shot board's board.json (a new event id's folder if none holds it yet), as a path.
   async function boardDir(b) {
-    const base = await dirAt(BOARDS_DIR);
-    for await (const [name, h] of base.entries()) {
-      if (h.kind !== "directory") continue;
-      const x = await readJSON(h, "board.json");
-      if (x && x.eventId === b.eventId) return h;
+    for (const { name, kind } of await listDirEntries(BOARDS_DIR)) {
+      if (kind !== "directory") continue;
+      const x = await readJSON([...BOARDS_DIR, name, "board.json"]);
+      if (x && x.eventId === b.eventId) return [...BOARDS_DIR, name];
     }
-    return base.getDirectoryHandle(b.eventId, { create: true });
+    return [...BOARDS_DIR, b.eventId];
   }
 
   // Files on disk for one save-as path: the stem plus _vN versions and Claude's _clean derivatives, any image extension.
@@ -4386,8 +4438,9 @@ function checkOddsBlock(opt, changed, restructure) {
       .sort((a, b) => ((+(a.m[2] || 1)) - (+(b.m[2] || 1))) || ((a.m[3] ? 1 : 0) - (b.m[3] ? 1 : 0))).map((x) => x.n);
   }
   async function thumb(name) {
-    const h = plateFiles.get(name); if (!h) return null;
-    const f = await h.getFile(); const stamp = f.lastModified + ":" + f.size;
+    const path = plateFiles.get(name); if (!path) return null;
+    const f = await storage.readFile(path); if (!f) return null;
+    const stamp = f.lastModified + ":" + f.size;
     const c = thumbs.get(name);
     if (c && c.stamp === stamp) return c.url;
     if (c) URL.revokeObjectURL(c.url);
@@ -5026,26 +5079,26 @@ function checkOddsBlock(opt, changed, restructure) {
   async function listDir(parts) {
     const out = [];
     try {
-      for await (const [n, h] of (await dirAt(parts)).entries())
-        if (h.kind === "file" && IMG_RE.test(n)) out.push({ label: n, parts: [...parts, n], handle: h });
+      for (const n of await fileNamesIn(parts))
+        if (IMG_RE.test(n)) out.push({ label: n, parts: [...parts, n] });
     } catch {}
     return out.sort((a, b) => a.label.localeCompare(b.label));
   }
-  async function walkImages(dir, parts, out) {
-    for await (const [n, h] of dir.entries()) {
-      if (h.kind === "file") { if (IMG_RE.test(n)) out.push({ label: [...parts, n].join("/"), parts: [...parts, n], handle: h }); }
-      else if (!REPO_SKIP.has(n) && !(n.startsWith(".") && n !== ".scratch")) await walkImages(h, [...parts, n], out);
+  async function walkImages(parts, out) {
+    for (const { name: n, kind } of await listDirEntries(parts)) {
+      if (kind === "file") { if (IMG_RE.test(n)) out.push({ label: [...parts, n].join("/"), parts: [...parts, n] }); }
+      else if (!REPO_SKIP.has(n) && !(n.startsWith(".") && n !== ".scratch")) await walkImages([...parts, n], out);
     }
     return out;
   }
   async function listSource(src, id) {
     if (src === "shots") return boards.filter((x) => x.kind !== "proposal" && x.eventId === id).flatMap((x) => (x.shots || []).map((s) => {
       const n = s.saveAs ? filesFor(s.saveAs).slice(-1)[0] : null;
-      return n ? { label: `${s.id} · ${n}`, parts: [...PLATES_DIR, n], handle: plateFiles.get(n) } : null;
+      return n ? { label: `${s.id} · ${n}`, parts: [...PLATES_DIR, n] } : null;
     })).filter(Boolean);
     if (src === "event") return listDir(eventImageDir(id));
     if (src === "plates") return listDir(PLATES_DIR);
-    if (!repoImages) repoImages = (await walkImages(root, [], [])).sort((a, b) => a.label.localeCompare(b.label));
+    if (!repoImages) repoImages = (await walkImages([], [])).sort((a, b) => a.label.localeCompare(b.label));
     return repoImages;
   }
   const IP_EMPTY = { shots: "No shot board with local shot files for this event.", event: "No images in assets/events/%s/ yet.",
@@ -5077,7 +5130,7 @@ function checkOddsBlock(opt, changed, restructure) {
       : hits.length > IP_MAX ? `Showing ${IP_MAX} of ${hits.length}; filter to narrow.` : `${hits.length} image${hits.length > 1 ? "s" : ""}`;
     $("ip-grid").replaceChildren(...hits.slice(0, IP_MAX).map((x) => {
       const img = el("img", { alt: "" });
-      x.handle.getFile().then((f) => { if (tok !== ipTok) return; const u = URL.createObjectURL(f); ipUrls.push(u); img.src = u; }).catch(() => {});
+      storage.readFile(x.parts).then((f) => { if (!f || tok !== ipTok) return; const u = URL.createObjectURL(f); ipUrls.push(u); img.src = u; }).catch(() => {});
       const path = x.parts.join("/");
       const bt = el("button", { type: "button", title: path, "aria-current": String(path === current) }, img, el("span", { text: x.label }));
       bt.addEventListener("click", () => assignImage(c.key, x, t));
@@ -5109,17 +5162,17 @@ function checkOddsBlock(opt, changed, restructure) {
     try {
       if (src.parts.slice(0, -1).join("/") !== dirParts.join("/")) {
         $("ip-note").textContent = "Copying…";
-        const png = await toPng(await src.handle.getFile());
-        const dir = await dirAt(dirParts, true);
+        const png = await toPng(await storage.readFile(src.parts));
         const taken = new Set(), same = new Set();
-        for await (const [n, h] of dir.entries()) {
-          if (h.kind !== "file") continue;
+        let existing = [];
+        try { existing = await fileNamesIn(dirParts); } catch {}
+        for (const n of existing) {
           taken.add(n);
-          if (n.startsWith(`${id}_${c.branch}_`) && await sameBytes(await h.getFile(), png)) same.add(n);
+          if (n.startsWith(`${id}_${c.branch}_`) && await sameBytes(await storage.readFile([...dirParts, n]), png)) same.add(n);
         }
         name = target ? freeResultImageName(id, c.branch, c.key, optName(c, target.opt), target.slot, taken, same)
           : freeImageName(id, c.branch, c.idx + 1, taken, same);
-        if (!same.has(name)) { await writeFile(dir, name, png); copied = true; }
+        if (!same.has(name)) { await writeFile([...dirParts, name], png); copied = true; }
       }
     } catch (e) { $("ip-note").textContent = "Couldn't copy the image: " + (e && e.message); return; }
     finally { ipBusy = false; }
@@ -5742,7 +5795,7 @@ function checkOddsBlock(opt, changed, restructure) {
     b.driftChecked = true;
     if (!b.draft || !b.draft._liveHash || !b.draft._liveSource) return;
     try {
-      b.drift = liveDrifted(b.draft, await readText(await dirAt(LIVE_EVENTS_DIR), b.draft._liveSource));
+      b.drift = liveDrifted(b.draft, await readText([...LIVE_EVENTS_DIR, b.draft._liveSource]));
       if (board() === b) $("drift").hidden = !b.drift;
     } catch { b.drift = false; }
   }
@@ -5751,7 +5804,7 @@ function checkOddsBlock(opt, changed, restructure) {
   let lintRefs;
   async function loadLintRefs() {
     if (lintRefs !== undefined) return lintRefs;
-    try { lintRefs = JSON.parse(await readText(await dirAt(["tools"]), "lint_refs.json")); } catch { lintRefs = null; }
+    try { lintRefs = JSON.parse(await readText(["tools", "lint_refs.json"])); } catch { lintRefs = null; }
     return lintRefs;
   }
   function renderLint(b) {
@@ -5930,14 +5983,14 @@ function checkOddsBlock(opt, changed, restructure) {
     $("save").disabled = true; $("dirty").textContent = "Saving…";
     let msg;
     try {
-      const dir = await boardDir(b);
-      if (await readText(dir, "board.json") !== b.diskText
+      const file = [...(await boardDir(b)), "board.json"];
+      if (await readText(file) !== b.diskText
         && !confirm(`${b.eventId}'s board.json changed on disk since it was loaded. Overwrite it with these edits?`)) {
         renderEditBar("Save cancelled."); return;
       }
       b.updatedAt = Date.now();
       const out = serialiseBoard(b);
-      await writeFile(dir, "board.json", out);
+      await writeFile(file, out);
       b.diskText = out; b.saved = out;
       msg = `Saved ${new Date().toLocaleTimeString()} to ${b.eventId}/board.json`;
     } catch (e) { msg = "Couldn't save: " + (e && e.message); }
@@ -5951,8 +6004,10 @@ function checkOddsBlock(opt, changed, restructure) {
     $("save").disabled = true; $("dirty").textContent = "Saving…";
     let msg;
     try {
-      const dir = await dirAt(PROPOSALS_DIR);
-      const md = await (await (await dir.getFileHandle(b.file)).getFile()).text();
+      const file = [...PROPOSALS_DIR, b.file];
+      const read = await storage.read(file);
+      if (!read) throw new Error(`${b.file} is gone`);
+      const md = read.text;
       const r = jsonBlockRange(md);
       if (!r) throw new Error("the file no longer has a ```json block");
       if (md.slice(r.start, r.end) !== b.diskBlock
@@ -5960,7 +6015,7 @@ function checkOddsBlock(opt, changed, restructure) {
         renderEditBar("Save cancelled."); return;
       }
       const out = spliceDraft(md, b.draft);
-      await writeFile(dir, b.file, out);
+      await writeFile(file, out, read.version);
       const r2 = jsonBlockRange(out);
       b.diskBlock = out.slice(r2.start, r2.end);
       b.saved = serialiseDraft(b.draft);
@@ -5975,22 +6030,22 @@ function checkOddsBlock(opt, changed, restructure) {
     const b = board(); if (!b || b.kind !== "proposal" || !b.draft) return;
     if (isDirty(b)) { renderEditBar("Save first: Promote writes the proposal as saved."); return; }
     try {
-      const md = await readText(await dirAt(PROPOSALS_DIR), b.file);
+      const md = await readText([...PROPOSALS_DIR, b.file]);
       const r = md == null ? null : jsonBlockRange(md);
       if (!r) throw new Error(`${b.file} has no \`\`\`json block`);
       if (md.slice(r.start, r.end) !== b.diskBlock) throw new Error(`${b.file} changed on disk since it was loaded; Reload first`);
       const parsed = parseProposal(b.file, md);
       if (parsed.error) throw new Error(parsed.error);
       const out = promoteForWrite(parsed.draft);
-      const dir = await dirAt(LIVE_EVENTS_DIR), target = [...LIVE_EVENTS_DIR, out.file].join("/");
-      const old = await readText(dir, out.file);
+      const target = [...LIVE_EVENTS_DIR, out.file].join("/");
+      const old = await readText([...LIVE_EVENTS_DIR, out.file]);
       if (old === out.text) { renderEditBar(`${target} already matches this proposal; nothing to write.`); return; }
       const drift = liveDrifted(parsed.draft, old);
       const lintFound = lintDraft(parsed.draft, await loadLintRefs()) || [];
       const lintWarn = lintFound.length ? `Content lint (${lintFound.length}; Promote still proceeds):\n${lintFound.map((v) => "• " + v).join("\n")}\n\n` : "";
       const texts = {};
-      for (const n of await fileNames(LIVE_EVENTS_DIR, /\.json$/)) if (n !== out.file) texts[n] = await readText(dir, n);
-      const readRepo = async (rel) => { const p = rel.split("/"); try { return await readText(await dirAt(p.slice(0, -1)), p[p.length - 1]); } catch { return null; } };
+      for (const n of await fileNames(LIVE_EVENTS_DIR, /\.json$/)) if (n !== out.file) texts[n] = await readText([...LIVE_EVENTS_DIR, n]);
+      const readRepo = async (rel) => { try { return await readText(rel); } catch { return null; } };
       const gate = await promoteGate(out.event, old, texts, await loadLintRefs(), readRepo);
       if (gate.blocks.length) {
         const head = `Can't promote: it would break ${gate.blocks.length} reference${gate.blocks.length === 1 ? "" : "s"}`;
@@ -6003,11 +6058,11 @@ function checkOddsBlock(opt, changed, restructure) {
       if (!confirm(`${warn}Promote ${b.file} to ${target}?\n\n${promoteSummary(old, out).join("\n")}\n\nTests still run via Claude.`)) {
         renderEditBar("Promote cancelled."); return;
       }
-      await writeFile(dir, out.file, out.text);
+      await writeFile([...LIVE_EVENTS_DIR, out.file], out.text);
       if (parsed.draft._liveHash && parsed.draft._liveSource === out.file) {
         b.draft._liveHash = liveHash(out.text);
-        const pdir = await dirAt(PROPOSALS_DIR), synced = spliceDraft(md, b.draft);
-        await writeFile(pdir, b.file, synced);
+        const synced = spliceDraft(md, b.draft);
+        await writeFile([...PROPOSALS_DIR, b.file], synced);
         const r2 = jsonBlockRange(synced);
         b.diskBlock = synced.slice(r2.start, r2.end);
         b.saved = serialiseDraft(b.draft);
@@ -6037,7 +6092,7 @@ function checkOddsBlock(opt, changed, restructure) {
   let nbMode = "import", nbLive = [];
   async function fileNames(parts, re) {
     const out = [];
-    try { for await (const [name, h] of (await dirAt(parts)).entries()) if (h.kind === "file" && re.test(name)) out.push(name); }
+    try { for (const name of await fileNamesIn(parts)) if (re.test(name)) out.push(name); }
     catch {}
     return out.sort();
   }
@@ -6067,14 +6122,13 @@ function checkOddsBlock(opt, changed, restructure) {
     if (!writableProposal(PROPOSALS_DIR)) { note("Refusing to write outside .scratch/writing-revamp/."); return; }
     $("nb-create").disabled = true;
     try {
-      const dir = await dirAt(PROPOSALS_DIR, true);
       const taken = await fileNames(PROPOSALS_DIR, /./), liveIds = nbLive.map((n) => n.replace(/\.json$/, ""));
       let made;
       if (nbMode === "import") {
-        const text = await readText(await dirAt(LIVE_EVENTS_DIR), src);
+        const text = await readText([...LIVE_EVENTS_DIR, src]);
         if (text == null) throw new Error(`couldn't read ${src}`);
         const files = [];
-        for (const name of taken) if (name.endsWith(".md")) { const md = await readText(dir, name); if (md != null) files.push({ name, md }); }
+        for (const name of taken) if (name.endsWith(".md")) { const md = await readText([...PROPOSALS_DIR, name]); if (md != null) files.push({ name, md }); }
         const r = openOrImport(src, text, files, taken);
         if (r.existing) {
           if (!leaveBoard()) return;
@@ -6088,13 +6142,13 @@ function checkOddsBlock(opt, changed, restructure) {
         made = r.made;
       } else if (nbMode === "blank") made = blankBoard(id, taken, liveIds);
       else {
-        const md = await readText(dir, src);
+        const md = await readText([...PROPOSALS_DIR, src]);
         if (md == null) throw new Error(`couldn't read ${src}`);
         made = duplicateBoard(src, md, id, $("nb-keep").checked, taken, liveIds);
       }
-      if (await readText(dir, made.file) != null) throw new Error(`${made.file} already exists`);
+      if (await readText([...PROPOSALS_DIR, made.file]) != null) throw new Error(`${made.file} already exists`);
       if (!leaveBoard()) return;
-      await writeFile(dir, made.file, made.md);
+      await writeFile([...PROPOSALS_DIR, made.file], made.md);
       $("newboard").close();
       await loadAll();
       selectBoard(PROPOSAL_PREFIX + made.file);
@@ -6183,7 +6237,7 @@ function checkOddsBlock(opt, changed, restructure) {
     feedback[`${b.eventId}__${target}`] = { eventId: b.eventId, round: b.round || 1, phase: b.phase || "storyboard",
       target, verdict, note, at: Date.now() };
     const docs = Object.values(feedback).filter((f) => f.eventId === b.eventId).sort((x, y) => x.target.localeCompare(y.target));
-    await writeFile(await boardDir(b), "feedback.json", JSON.stringify(docs, null, 2) + "\n");
+    await writeFile([...(await boardDir(b)), "feedback.json"], JSON.stringify(docs, null, 2) + "\n");
   }
 
   function verdictBlock(key, phaseLabel, options) {
@@ -6238,7 +6292,7 @@ function checkOddsBlock(opt, changed, restructure) {
     async function send(file, name) {
       choice.replaceChildren(); pick.classList.add("busy"); status.textContent = `Saving ${name}…`;
       try {
-        await writeFile(await dirAt(PLATES_DIR, true), name, file);
+        await writeFile([...PLATES_DIR, name], file);
         await loadPlates();
         status.textContent = `Saved ${name}.`;
         renderAll();
@@ -6257,7 +6311,7 @@ function checkOddsBlock(opt, changed, restructure) {
       const keep = el("button", { type: "button", text: `Keep both (${stem}_v${v}${ext})` });
       const cancel = el("button", { type: "button", text: "Cancel" });
       over.addEventListener("click", async () => {
-        if (existing !== stem + ext) { try { await (await dirAt(PLATES_DIR)).removeEntry(existing); } catch {} }
+        if (existing !== stem + ext) { try { await storage.remove([...PLATES_DIR, existing]); } catch {} }
         send(file, stem + ext);
       });
       keep.addEventListener("click", () => send(file, `${stem}_v${v}${ext}`));
@@ -6439,18 +6493,18 @@ function checkOddsBlock(opt, changed, restructure) {
     $("board").hidden = true; $("empty").hidden = true; view.hidden = false;
     $("h-title").textContent = "Prose packs";
     try {
-      const dir = await dirAt(PROSE_DIR), packs = {};
-      for await (const [name, h] of dir.entries()) {
-        if (h.kind !== "file" || !name.endsWith(".json")) continue;
-        const pack = await readJSON(dir, name);
-        if (pack && Array.isArray(pack.cards)) { packs[name.replace(/\.json$/, "")] = pack; proseState.eols[name.replace(/\.json$/, "")] = proseEol(await readText(dir, name)); }
+      const packs = {};
+      for (const name of await fileNamesIn(PROSE_DIR)) {
+        if (!name.endsWith(".json")) continue;
+        const pack = await readJSON([...PROSE_DIR, name]);
+        if (pack && Array.isArray(pack.cards)) { packs[name.replace(/\.json$/, "")] = pack; proseState.eols[name.replace(/\.json$/, "")] = proseEol(await readText([...PROSE_DIR, name])); }
       }
       proseState.packs = packs; proseState.dirty = new Set(); proseState.sel = null;
-      const bText = await readText(await dirAt(["data"]), "board.json"), bj = bText ? JSON.parse(bText) : null;
+      const bText = await readText(["data", "board.json"]), bj = bText ? JSON.parse(bText) : null;
       proseState.board = bj; proseState.boardText = bText || ""; proseState.boardDirty = false;
       proseState.voices = (bj && bj.voices) || {};
       proseState.rungs = {};
-      const fj = await readJSON(await dirAt(["data"]), "factions.json");
+      const fj = await readJSON(["data", "factions.json"]);
       proseState.factions = Object.fromEntries(Object.entries(fj || {}).map(([id, f]) => [id, (f && f.name) || id]));
       for (const lad of Object.values((bj && bj.ladders) || {})) for (const r of lad.rungs || []) {
         proseState.rungs[r.id] = r;
@@ -6590,9 +6644,8 @@ function checkOddsBlock(opt, changed, restructure) {
   async function saveProse() {
     const st = proseState;
     try {
-      const dir = await dirAt(PROSE_DIR);
-      for (const n of [...st.dirty]) { await writeFile(dir, n + ".json", proseSerialise(st.packs[n], st.eols[n] || "\n")); st.dirty.delete(n); }
-      if (st.boardDirty) { const text = boardSerialise(st.board, st.boardText); await writeFile(await dirAt(["data"]), "board.json", text); st.boardText = text; st.boardDirty = false; }
+      for (const n of [...st.dirty]) { await writeFile([...PROSE_DIR, n + ".json"], proseSerialise(st.packs[n], st.eols[n] || "\n")); st.dirty.delete(n); }
+      if (st.boardDirty) { const text = boardSerialise(st.board, st.boardText); await writeFile(["data", "board.json"], text); st.boardText = text; st.boardDirty = false; }
       st.err = ""; setNote("Saved prose packs.");
     } catch (e) { st.err = "Couldn't save: " + e.message; }
     renderProse();
@@ -6815,18 +6868,17 @@ function checkOddsBlock(opt, changed, restructure) {
   // Picker choice of an un-imported live event: import it (never over an existing file) and open the copy.
   async function openLiveEvent(file) {
     try {
-      const dir = await dirAt(PROPOSALS_DIR, true);
       const taken = await fileNames(PROPOSALS_DIR, /./);
-      const text = await readText(await dirAt(LIVE_EVENTS_DIR), file);
+      const text = await readText([...LIVE_EVENTS_DIR, file]);
       if (text == null) throw new Error(`couldn't read ${file}`);
       const files = [];
-      for (const name of taken) if (name.endsWith(".md")) { const md = await readText(dir, name); if (md != null) files.push({ name, md }); }
+      for (const name of taken) if (name.endsWith(".md")) { const md = await readText([...PROPOSALS_DIR, name]); if (md != null) files.push({ name, md }); }
       const r = openOrImport(file, text, files, taken);
       const name = r.existing || r.made.file;
       if (r.made) {
         if (!writableProposal(PROPOSALS_DIR)) throw new Error("refusing to write outside .scratch/writing-revamp/");
-        if (await readText(dir, name) != null) throw new Error(`${name} already exists`);
-        await writeFile(dir, name, r.made.md);
+        if (await readText([...PROPOSALS_DIR, name]) != null) throw new Error(`${name} already exists`);
+        await writeFile([...PROPOSALS_DIR, name], r.made.md);
       }
       await loadAll();
       selectBoard(PROPOSAL_PREFIX + name);
