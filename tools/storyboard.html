@@ -265,6 +265,52 @@ section { display: grid; gap: 12px; min-width: 0 }
 .qm-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font: 11px var(--mono); color: var(--muted) }
 dialog.q-dlg { width: min(480px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow: auto; padding: 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); color: var(--fg) }
 dialog.q-dlg::backdrop { background: rgba(0, 0, 0, .45) }
+/* Quest sheet: bottom sheet under 900px, 400px side panel beside the map from 900px up. */
+.qs-wrap { display: grid; gap: 18px; min-width: 0 }
+.qs-main { display: grid; gap: 18px; min-width: 0 }
+.qs-sheet { background: var(--surface); display: grid; gap: 20px; align-content: start; padding: 8px 16px 24px; min-width: 0 }
+.qs-grab { display: flex; justify-content: center; padding: 8px 0 10px; touch-action: none; cursor: grab }
+.qs-grabber { width: 40px; height: 5px; border-radius: 3px; background: var(--line) }
+.qs-head { display: flex; align-items: flex-start; gap: 8px }
+.qs-head-t { flex: 1; display: grid; gap: 6px; min-width: 0 }
+.qs-title { width: 100%; box-sizing: border-box; border: 1px solid transparent; border-radius: 8px; background: none; color: var(--fg); padding: 6px 8px; margin-left: -8px; font: 700 20px/1.2 var(--display, var(--body)); min-height: 44px }
+.qs-title:focus { border-color: var(--line); background: var(--bg) }
+.qs-id, .qs-idrow { display: inline-flex; align-items: center; gap: 6px; font: 12px var(--mono); color: var(--muted) }
+.qs-idin { min-height: 44px; width: 100%; box-sizing: border-box; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--fg); padding: 0 10px; font: 13px var(--mono) }
+.qs-idrow { display: grid; grid-template-columns: auto 1fr }
+.qs-icon { width: 44px; height: 44px; flex: none; display: inline-flex; align-items: center; justify-content: center; border: 0; background: none; color: var(--muted); border-radius: 8px }
+.qs-sec { display: grid; gap: 8px; min-width: 0 }
+.qs-eyebrow { margin: 0; font: 600 11px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted) }
+.qs-field { width: 100%; box-sizing: border-box; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--fg); padding: 10px 12px; font: 15px/1.4 var(--body); min-height: 44px; resize: vertical }
+.qs-sub { font-size: 12px; color: var(--muted) }
+.qs-none { font-size: 13px; color: var(--muted) }
+.qs-ev { display: flex; align-items: center; min-height: 48px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg) }
+.qs-ev-t { display: grid; gap: 1px; min-width: 0; overflow-wrap: anywhere }
+.qs-flow { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 10px; border-radius: 8px; background: var(--sunk); font-size: 14px }
+.qs-flow-t { flex: 1; min-width: 0; overflow-wrap: anywhere }
+.qs-flow-k { font: 11px var(--mono); color: var(--muted); text-align: right }
+.qs-mech { display: grid; gap: 4px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--sunk) }
+.qs-mech-t { font-weight: 700 }
+.qs-mech-d { font: 12px var(--mono); color: var(--muted); overflow-wrap: anywhere }
+.qs-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px }
+.qs-status { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-height: 56px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--fg); font: inherit; text-align: left; touch-action: manipulation; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none }
+.qs-cat { font-size: 12px; color: var(--muted) }
+.qs-val { display: inline-flex; align-items: center; gap: 6px; font: 600 12px var(--mono) }
+.qs-val .qm-dot { width: 10px; height: 10px }
+.qs-cap { margin: 0 0 8px; font: 600 11px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted) }
+.qs-opts { display: grid; gap: 6px; margin-bottom: 12px }
+.qs-opt { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--fg); font: 600 14px var(--mono); text-align: left }
+.qs-opt.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) }
+.qs-backdrop { display: none }
+@media (max-width: 899.98px) {
+  .qs-backdrop { display: block; position: fixed; inset: 0; background: rgba(20, 22, 27, .35); z-index: 29 }
+  .qs-sheet { position: fixed; left: 0; right: 0; bottom: 0; height: min(78dvh, 640px); overflow-y: auto; z-index: 30; border-radius: 16px 16px 0 0; box-shadow: 0 -8px 24px rgba(0, 0, 0, .18); box-sizing: border-box }
+}
+@media (min-width: 900px) {
+  .qs-wrap.open { grid-template-columns: minmax(0, 1fr) 400px; align-items: start }
+  .qs-sheet { position: sticky; top: 8px; max-height: calc(100dvh - 16px); overflow-y: auto; border: 1px solid var(--line); border-radius: 12px }
+  .qs-grab { display: none }
+}
 .panel { display: grid; gap: 28px; min-width: 0 }
 .panel[hidden] { display: none }
 /* Proposal editing: save/undo bar under the board summary, card editor above the cut list. */
@@ -577,6 +623,7 @@ dialog.q-dlg::backdrop { background: rgba(0, 0, 0, .45) }
 </div>
 
 <dialog class="q-dlg" id="q-new" aria-labelledby="q-new-title"></dialog>
+<dialog class="q-dlg" id="q-pick" aria-label="Pick a status"></dialog>
 
 <dialog class="imgpick" id="imgpick" aria-labelledby="ip-title">
   <div class="editor-head"><h2 id="ip-title">Card image</h2><span class="mono muted" id="ip-where"></span></div>
@@ -1818,6 +1865,48 @@ function checkOddsBlock(opt, changed, restructure) {
     if (!category || !plan.categories.includes(category)) return out;
     for (const q of plan.quests) out[q.id] = q.statuses[category] === "done" || q.statuses[category] === "na" ? "dim" : "hi";
     return out;
+  }
+  // Setting a quest's status: false (nothing changed) for a category the plan lacks or a value outside PLAN_STATUSES.
+  function planSetStatus(plan, quest, category, value) {
+    if (!plan.categories.includes(category) || !PLAN_STATUSES.includes(value)) return false;
+    quest.statuses[category] = value;
+    return true;
+  }
+  // An id is fixed once the quest has mechanics or an event that exists as a draft or live event (`known`: ids of those).
+  const planIdLocked = (quest, known) => quest.mechanics !== "placeholder" || quest.events.some((e) => known.has(e.id));
+  // Re-ids a quest and rewrites every follows-link to it, in any questline. -> {error: string|null, touched: [plan]}
+  // (the plans whose quests changed). Nothing changes on an error.
+  function planSetQuestId(plans, plan, questId, newId, known) {
+    const quest = plan.quests.find((q) => q.id === questId);
+    if (!quest) return { error: "No such quest.", touched: [] };
+    if (newId === questId) return { error: null, touched: [] };
+    if (planIdLocked(quest, known)) return { error: "The id is fixed: the quest has mechanics or a draft/live event.", touched: [] };
+    if (!PLAN_ID_RE.test(newId)) return { error: "Id must be lower_snake_case (letters, digits, underscores).", touched: [] };
+    for (const p of plans) if (Array.isArray(p.quests) && p.quests.some((q) => q.id === newId)) return { error: `Id ${newId} is already used by another quest.`, touched: [] };
+    quest.id = newId;
+    const touched = [plan];
+    for (const p of plans) {
+      let hit = false;
+      for (const q of p.quests) for (const f of q.follows) if (f.id === questId) { f.id = newId; hit = true; }
+      if (hit && !touched.includes(p)) touched.push(p);
+    }
+    return { error: null, touched };
+  }
+  // Quests that follow `questId`, across questlines: [{plan, quest, edge}].
+  function planFollowers(plans, questId) {
+    const out = [];
+    for (const p of plans) for (const q of p.quests) for (const f of q.follows) if (f.id === questId) out.push({ plan: p, quest: q, edge: f });
+    return out;
+  }
+  // Session undo: each entry is a group of {key, text} snapshots taken before one edit (several when an edit touches
+  // several files); pop() returns the latest group.
+  function makePlanHistory() {
+    const stack = [];
+    return {
+      push(group) { stack.push(group); },
+      pop() { return stack.length ? stack.pop() : null; },
+      get size() { return stack.length; },
+    };
   }
   /* ---------- End planning model ---------- */
   class StaleError extends Error {
@@ -6430,6 +6519,7 @@ function checkOddsBlock(opt, changed, restructure) {
     return mine[0] || null;
   }
   function undoEdit() {
+    if (onQuestsTab()) { undoPlan(); return; }
     const b = undoTarget(); if (!b) return;
     const t = b.history.undo(); if (t == null) return;
     const at = undoLog.lastIndexOf(b); if (at >= 0) undoLog.splice(at, 1);
@@ -7483,7 +7573,11 @@ function checkOddsBlock(opt, changed, restructure) {
   // One entry per file: {file, plan, errors, version, pending: {descs, timer}|null, conflict: {descs}|null, chain}.
   let plans = [];
   let todoPages = [];
+  let liveEvents = []; // ids of the files in data/events/
   let openLine = null; // id of the questline whose details are showing, or null for the list
+  let selQuest = null; // id of the quest whose sheet is open (within openLine), or null
+  const planHistory = makePlanHistory();
+  let typingField = null; // the text field whose edits are being folded into one undo step
   const lastLine = () => { try { return localStorage.getItem(QL_LAST_KEY); } catch { return null; } };
   const rememberLine = (id) => { try { localStorage.setItem(QL_LAST_KEY, id); } catch {} };
   const lineEntry = (id) => plans.find((e) => e.plan && e.plan.id === id && !e.errors.length);
@@ -7492,6 +7586,7 @@ function checkOddsBlock(opt, changed, restructure) {
     if (!storage) return;
     const todo = await readJSON(["data", "todo.json"]);
     todoPages = todo && todo.questlines ? Object.keys(todo.questlines) : [];
+    liveEvents = (await fileNames(LIVE_EVENTS_DIR, /\.json$/)).map((n) => n.slice(0, -5));
     let names = [];
     try { names = (await fileNamesIn(QL_DIR)).filter((n) => /\.json$/.test(n)).sort(); } catch {}
     const prev = new Map(plans.map((e) => [e.file, e]));
@@ -7516,6 +7611,7 @@ function checkOddsBlock(opt, changed, restructure) {
     for (const { plan, errors } of validatePlans(ok.map((e) => e.plan), objectiveIds ? { objectiveIds } : {}))
       ok.find((e) => e.plan === plan).errors = errors;
     if (openLine && !lineEntry(openLine)) { openLine = null; changed = true; }
+    if (selQuest && !(lineEntry(openLine) && lineEntry(openLine).plan.quests.some((q) => q.id === selQuest))) { selQuest = null; changed = true; }
     // Re-rendering would drop focus from a field being edited, so only do it when a file actually changed.
     if (changed || $("q-root").childElementCount === 0) renderQuests(); else renderQuestBanner();
   }
@@ -7717,11 +7813,16 @@ function checkOddsBlock(opt, changed, restructure) {
       renderQuests();
     });
     const add = el("button", { type: "button", class: "q-btn primary", text: "+ Quest", disabled: true, title: "Adding quests isn't wired up yet" });
-    root.append(back,
+    const undo = el("button", { type: "button", class: "q-btn", id: "q-undo", text: "Undo", title: "Undo the last planning edit (Ctrl+Z outside a text box)" });
+    undo.disabled = !planHistory.size;
+    undo.addEventListener("click", undoPlan);
+    if (selQuest && !plan.quests.some((q) => q.id === selQuest)) selQuest = null;
+    const selected = selQuest ? plan.quests.find((q) => q.id === selQuest) : null;
+    const main = el("div", { class: "qs-main" },
       el("div", { class: "qm-bar" },
         el("div", { class: "q-head" },
           el("div", {}, el("h1", { text: plan.name }), el("span", { class: "qm-meta", text: `${plan.page} · act ${plan.order} · ${plan.quests.length} quests` })),
-          add),
+          el("div", { class: "q-actions" }, undo, add)),
         el("div", { class: "qm-pills" }, ...planRollups(plan).map((r) => el("span", { class: "qm-pill", text: `${r.category} ${r.done}/${r.total}` }))),
         filterSelect(plan, entry)),
       questMap(plan, entry),
@@ -7737,6 +7838,188 @@ function checkOddsBlock(opt, changed, restructure) {
         err,
         el("div", { class: "q-actions" }, del),
         blocked ? el("p", { class: "muted", text: "Can't delete: it has data-driven quests." }) : null)));
+    const backdrop = selected ? el("div", { class: "qs-backdrop" }) : null;
+    if (backdrop) backdrop.addEventListener("click", closeSheet);
+    root.append(back, el("div", { class: "qs-wrap" + (selected ? " open" : "") }, main, backdrop, selected ? questSheet(entry, selected) : null));
+  }
+
+  // ---- Quest sheet -----------------------------------------------------------
+  // Re-renders the questline view, keeping the map's sideways scroll (and the sheet's scroll when `keepSheet`).
+  function rerender(keepSheet = true) {
+    const box = document.querySelector(".qm-box"), sh = document.querySelector(".qs-sheet");
+    const sx = box ? box.scrollLeft : 0, sy = sh && keepSheet ? sh.scrollTop : 0;
+    renderQuests();
+    const box2 = document.querySelector(".qm-box"), sh2 = document.querySelector(".qs-sheet");
+    if (box2) box2.scrollLeft = sx;
+    if (sh2) sh2.scrollTop = sy;
+  }
+  const selectQuest = (id) => { typingField = null; selQuest = id; rerender(false); };
+  const closeSheet = () => { typingField = null; selQuest = null; rerender(false); };
+  const syncUndo = () => { const b = $("q-undo"); if (b) b.disabled = !planHistory.size; };
+  // Snapshots `entries` before an edit. `field` folds a run of typing in one text field into a single undo step.
+  function snapPlans(entries, field) {
+    if (field && typingField === field) return;
+    typingField = field || null;
+    planHistory.push(entries.map((e) => ({ key: e.file, text: serialisePlan(e.plan) })));
+    syncUndo();
+  }
+  function undoPlan() {
+    const group = planHistory.pop(); if (!group) return;
+    typingField = null;
+    for (const { key, text } of group) {
+      const e = plans.find((x) => x.file === key), r = parsePlan(text);
+      if (!e || !r.plan) continue;
+      e.plan = r.plan;
+      queuePlanSave(e, `${r.plan.name} · undo`);
+    }
+    rerender();
+  }
+  const onQuestsTab = () => { const p = $("panel-quests"); return !!p && !p.hidden; };
+  const knownEventIds = () => new Set([...liveEvents, ...boards.map((b) => b.eventId)]);
+  const sheetPlans = () => plans.filter((e) => e.plan && !e.own.length).map((e) => e.plan);
+  const MECH_LABEL = { placeholder: "◌ Placeholder", hardcoded: "⚙︎ Hard-coded", data: "● Data-driven" };
+  const STATUS_LABEL = { na: "n/a", todo: "todo", doing: "doing", review: "review", done: "done" };
+  const sheetSection = (title, ...kids) => el("section", { class: "qs-sec" }, title ? el("h3", { class: "qs-eyebrow", text: title }) : null, ...kids);
+  const CLOSE_SVG = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+  const LOCK_SVG = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>';
+
+  function questSheet(entry, quest) {
+    const plan = entry.plan;
+    const every = sheetPlans();
+    const known = knownEventIds();
+    const entriesFor = (id) => plans.filter((e) => e.plan && !e.own.length && (e === entry || planFollowers([e.plan], id).length));
+    const edited = (desc) => queuePlanSave(entry, `${quest.title} · ${desc}`);
+    const track = (field) => field.addEventListener("blur", () => { if (typingField === field) typingField = null; });
+
+    const close = el("button", { type: "button", class: "qs-icon", "aria-label": "Close sheet" });
+    close.innerHTML = CLOSE_SVG;
+    close.addEventListener("click", closeSheet);
+
+    const title = el("input", { type: "text", class: "qs-title", autocomplete: "off", value: quest.title, "aria-label": "Quest title" });
+    track(title);
+    title.addEventListener("input", () => {
+      const v = title.value.trim();
+      if (!v) return;
+      snapPlans([entry], title);
+      quest.title = v;
+      const t = document.querySelector(`.qm-node[data-quest="${quest.id}"] .qm-title`);
+      if (t) t.lastChild.textContent = v;
+      edited("title edited");
+    });
+
+    const idErr = el("p", { class: "q-err", role: "alert" });
+    let idBox;
+    if (planIdLocked(quest, known)) {
+      idBox = el("span", { class: "qs-id" }, el("span", { class: "qs-lock" }), `${quest.id} · id fixed (${quest.mechanics !== "placeholder" ? "has mechanics" : "has draft or live events"})`);
+      idBox.firstChild.innerHTML = LOCK_SVG;
+    } else {
+      const id = el("input", { type: "text", class: "qs-idin", autocomplete: "off", autocapitalize: "off", spellcheck: "false", value: quest.id, "aria-label": "Quest id" });
+      id.addEventListener("change", () => {
+        const next = id.value.trim();
+        if (next === quest.id) { idErr.textContent = ""; return; }
+        const affected = entriesFor(quest.id);
+        snapPlans(affected);
+        const r = planSetQuestId(every, plan, quest.id, next, known);
+        if (r.error) { planHistory.pop(); syncUndo(); idErr.textContent = r.error; id.value = quest.id; return; }
+        for (const e of affected.filter((x) => r.touched.includes(x.plan))) queuePlanSave(e, `${quest.title} · id changed to ${next}`);
+        selQuest = next;
+        rerender();
+      });
+      idBox = el("label", { class: "qs-idrow" }, el("span", { text: "id" }), id);
+    }
+
+    const summary = el("textarea", { class: "qs-field", rows: "3", "aria-label": "Summary" }); summary.value = quest.summary;
+    track(summary);
+    summary.addEventListener("input", () => { snapPlans([entry], summary); quest.summary = summary.value; edited("summary edited"); });
+    const notes = el("textarea", { class: "qs-field", rows: "4", "aria-label": "Notes" }); notes.value = quest.notes;
+    track(notes);
+    notes.addEventListener("input", () => { snapPlans([entry], notes); quest.notes = notes.value; edited("notes edited"); });
+
+    const questById = new Map(every.flatMap((p) => p.quests.map((q) => [q.id, q])));
+    const flowRow = (q, id, kind, label) => el("div", { class: "qs-flow" },
+      el("span", { text: q ? MAP_BADGE[q.mechanics] || "" : "?", "aria-hidden": "true" }),
+      el("span", { class: "qs-flow-t", text: q ? q.title : id }),
+      el("span", { class: "qs-flow-k", text: kind === "choice" ? (label ? `choice · ${label}` : "choice") : "parallel" }));
+    const follows = quest.follows.map((f) => flowRow(questById.get(f.id), f.id, f.kind, f.label));
+    const followers = planFollowers(every, quest.id).map((x) => flowRow(x.quest, x.quest.id, x.edge.kind, x.edge.label));
+    const none = (t) => el("span", { class: "qs-none", text: t });
+
+    const mech = el("div", { class: "qs-mech" }, el("span", { class: "qs-mech-t", text: MECH_LABEL[quest.mechanics] || quest.mechanics }),
+      el("span", { class: "qs-mech-d", text: quest.mechanics === "hardcoded" ? `objective ${quest.objective} · read-only in the planner`
+        : quest.mechanics === "data" ? "lives in game data · read-only in the planner" : "no mechanics yet" }));
+
+    const tiles = plan.categories.map((cat) => {
+      const tile = el("button", { type: "button", class: "qs-status", "aria-label": `${cat}: ${STATUS_LABEL[quest.statuses[cat]]}. Tap to cycle, hold to pick` },
+        el("span", { class: "qs-cat", text: cat }),
+        el("span", { class: "qs-val" }, el("span", { class: "qm-dot " + quest.statuses[cat] }), STATUS_LABEL[quest.statuses[cat]]));
+      let timer = null, held = false;
+      const stop = () => { clearTimeout(timer); timer = null; };
+      tile.addEventListener("pointerdown", () => { held = false; stop(); timer = setTimeout(() => { held = true; timer = null; openStatusPicker(entry, quest, cat); }, LONG_PRESS_MS); });
+      for (const ev of ["pointerup", "pointerleave", "pointercancel"]) tile.addEventListener(ev, stop);
+      tile.addEventListener("contextmenu", (e) => e.preventDefault());
+      tile.addEventListener("click", () => {
+        if (held) { held = false; return; }
+        setStatus(entry, quest, cat, planCycleStatus(quest.statuses[cat]));
+      });
+      return tile;
+    });
+
+    const events = quest.events.length
+      ? quest.events.map((ev) => el("div", { class: "qs-ev" }, el("span", { class: "qs-ev-t" }, el("b", { text: ev.title || ev.id }), el("span", { class: "mono muted", text: ev.id }))))
+      : [none("No events yet.")];
+
+    const grab = el("div", { class: "qs-grab" }, el("span", { class: "qs-grabber", "aria-hidden": "true" }));
+    const head = el("div", { class: "qs-head" },
+      el("div", { class: "qs-head-t" }, title, idBox, idErr), close);
+    const sheet = el("div", { class: "qs-sheet", role: "dialog", "aria-label": `Quest: ${quest.title}` },
+      grab, head,
+      sheetSection("Summary", summary),
+      sheetSection("Events", ...events, none("Adding and ordering events comes later.")),
+      sheetSection("Flow", el("span", { class: "qs-sub", text: "Follows" }), ...(follows.length ? follows : [none("Nothing: starts a thread.")]),
+        el("span", { class: "qs-sub", text: "Followed by" }), ...(followers.length ? followers : [none("Nothing yet.")])),
+      sheetSection("Mechanics", mech),
+      sheetSection("Status · tap to cycle, hold to pick", el("div", { class: "qs-tiles" }, ...tiles)),
+      sheetSection("Notes", notes));
+    swipeToClose(sheet, grab);
+    return sheet;
+  }
+  const LONG_PRESS_MS = 500;
+  function setStatus(entry, quest, cat, value) {
+    snapPlans([entry]);
+    if (!planSetStatus(entry.plan, quest, cat, value)) { planHistory.pop(); syncUndo(); return; }
+    queuePlanSave(entry, `${quest.title} · ${cat} set to ${value}`);
+    rerender();
+  }
+  function openStatusPicker(entry, quest, cat) {
+    const dlg = $("q-pick");
+    const opts = PLAN_STATUSES.map((s) => {
+      const b = el("button", { type: "button", class: "qs-opt" + (quest.statuses[cat] === s ? " on" : "") },
+        el("span", { class: "qm-dot " + s }), STATUS_LABEL[s]);
+      b.addEventListener("click", () => { dlg.close(); if (s !== quest.statuses[cat]) setStatus(entry, quest, cat, s); });
+      return b;
+    });
+    const cancel = el("button", { type: "button", class: "q-btn", text: "Cancel" });
+    cancel.addEventListener("click", () => dlg.close());
+    dlg.replaceChildren(el("p", { class: "qs-cap", text: `${cat} · ${quest.title}` }), el("div", { class: "qs-opts" }, ...opts), el("div", { class: "q-actions" }, cancel));
+    dlg.showModal();
+  }
+  // Dragging the grab strip down past SWIPE_PX closes the sheet; the sheet follows the finger meanwhile.
+  const SWIPE_PX = 80;
+  function swipeToClose(sheet, zone) {
+    let y0 = null;
+    zone.addEventListener("pointerdown", (e) => { y0 = e.clientY; zone.setPointerCapture(e.pointerId); });
+    zone.addEventListener("pointermove", (e) => {
+      if (y0 === null) return;
+      sheet.style.transform = `translateY(${Math.max(0, e.clientY - y0)}px)`;
+    });
+    const end = (e) => {
+      if (y0 === null) return;
+      const dy = e.clientY - y0; y0 = null;
+      sheet.style.transform = "";
+      if (dy > SWIPE_PX && e.type === "pointerup") closeSheet();
+    };
+    zone.addEventListener("pointerup", end);
+    zone.addEventListener("pointercancel", end);
   }
 
   // Which status category the map highlights as "not done" ("" = none); kept while moving between questlines.
@@ -7776,11 +8059,13 @@ function checkOddsBlock(opt, changed, restructure) {
     for (const n of lay.nodes) {
       const q = quest.get(n.id);
       const more = q.events.length > 1 ? `  +${q.events.length - 1}` : "";
-      map.append(el("button", { type: "button", class: "qm-node" + (hi[n.id] ? " " + hi[n.id] : ""), style: `left:${n.x}px;top:${n.y}px`,
+      const node = el("button", { type: "button", class: "qm-node" + (hi[n.id] ? " " + hi[n.id] : "") + (q.id === selQuest ? " sel" : ""), style: `left:${n.x}px;top:${n.y}px`,
         "aria-label": `${q.title}, ${q.mechanics}${n.fork ? ", choice fork" : ""}`, "data-quest": q.id },
         el("span", { class: "qm-title" }, el("span", { class: "qm-badge", text: MAP_BADGE[q.mechanics] || "" }), q.title),
         el("span", { class: "qm-pips" }, ...plan.categories.map((c) => el("span", { class: "qm-pip" }, c[0], el("span", { class: "qm-dot " + q.statuses[c] })))),
-        el("span", { class: "qm-ev", text: q.events.length ? q.events[0].id + more : "no events" })));
+        el("span", { class: "qm-ev", text: q.events.length ? q.events[0].id + more : "no events" }));
+      node.addEventListener("click", () => selectQuest(q.id));
+      map.append(node);
     }
     return el("div", { class: "qm-box", "aria-label": "Questline map, scrolls sideways" }, map);
   }

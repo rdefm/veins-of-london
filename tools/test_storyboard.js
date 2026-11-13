@@ -3073,7 +3073,7 @@ assert(planStart !== -1 && planEnd !== -1, "could not locate planning model mark
 const PM = new Function(html.slice(planStart, planEnd) + [
   "return { planSlug, planUniqueId, newQuestline, newPlanQuest, serialisePlan, parsePlan, validatePlan, validatePlans,",
   "  checkQuestlineFields, planRollups, planCycleStatus, planCanDelete, planGroups, planLayout, planFilter, PLAN_NODE,",
-  "  PLAN_STATUSES, PLAN_CATEGORIES };"].join("\n"))();
+  "  PLAN_STATUSES, PLAN_CATEGORIES, planSetStatus, planIdLocked, planSetQuestId, planFollowers, makePlanHistory };"].join("\n"))();
 
 function samplePlan() {
   const p = PM.newQuestline({ name: "Collective Act 2", page: "collective", order: 2, premise: "Hakim is off.", notes: "n" });
@@ -3253,6 +3253,84 @@ test("filter: highlights quests whose category isn't done; done and n/a dim", ()
   assert.deepStrictEqual(PM.planFilter(p, "Art"), { a: "dim", b: "dim", c: "hi", d: "hi" });
   assert.deepStrictEqual(PM.planFilter(p, ""), {});
   assert.deepStrictEqual(PM.planFilter(p, "Nope"), {});
+});
+
+// Two questlines: a(placeholder) <- b(placeholder, planned event) ; other.c follows a.
+function sheetPlans() {
+  const p = PM.newQuestline({ name: "One", page: "tutorial", order: 1 });
+  const a = PM.newPlanQuest(p, "a", "A"), b = PM.newPlanQuest(p, "b", "B");
+  b.follows = [{ id: "a", kind: "parallel", label: "" }];
+  b.events = [{ id: "planned_ev", title: "" }];
+  p.quests.push(a, b);
+  const o = PM.newQuestline({ name: "Two", page: "tutorial", order: 2 });
+  const c = PM.newPlanQuest(o, "c", "C");
+  c.follows = [{ id: "a", kind: "choice", label: "go" }];
+  o.quests.push(c);
+  return [p, o];
+}
+
+test("quest id: editable while placeholder with no draft/live events, and followers are rewritten", () => {
+  const [p, o] = sheetPlans();
+  const r = PM.planSetQuestId([p, o], p, "a", "alpha", new Set());
+  assert.strictEqual(r.error, null);
+  assert.deepStrictEqual(r.touched, [p, o]);
+  assert.strictEqual(p.quests[0].id, "alpha");
+  assert.strictEqual(p.quests[1].follows[0].id, "alpha");
+  assert.strictEqual(o.quests[0].follows[0].id, "alpha");
+});
+
+test("quest id: fixed once the quest has mechanics or a draft/live event", () => {
+  const [p, o] = sheetPlans();
+  assert.strictEqual(PM.planIdLocked(p.quests[1], new Set()), false, "a merely planned event doesn't lock");
+  assert.strictEqual(PM.planIdLocked(p.quests[1], new Set(["planned_ev"])), true);
+  p.quests[0].mechanics = "hardcoded"; p.quests[0].objective = "x";
+  assert.strictEqual(PM.planIdLocked(p.quests[0], new Set()), true);
+  assert.match(PM.planSetQuestId([p, o], p, "a", "alpha", new Set()).error, /fixed/);
+  assert.match(PM.planSetQuestId([p, o], p, "b", "beta", new Set(["planned_ev"])).error, /fixed/);
+  assert.strictEqual(p.quests[0].id, "a");
+});
+
+test("quest id: rejected on a duplicate across questlines or a bad shape; nothing changes", () => {
+  const [p, o] = sheetPlans();
+  assert.match(PM.planSetQuestId([p, o], p, "a", "c", new Set()).error, /already used/);
+  assert.match(PM.planSetQuestId([p, o], p, "a", "Not Snake", new Set()).error, /snake/);
+  assert.strictEqual(PM.planSetQuestId([p, o], p, "a", "a", new Set()).error, null);
+  assert.strictEqual(p.quests[0].id, "a");
+  assert.strictEqual(o.quests[0].follows[0].id, "a");
+});
+
+test("status: set validates category and value; cycle wraps", () => {
+  const [p] = sheetPlans();
+  const q = p.quests[0];
+  assert.strictEqual(PM.planSetStatus(p, q, "Art", "review"), true);
+  assert.strictEqual(q.statuses.Art, "review");
+  assert.strictEqual(PM.planSetStatus(p, q, "Art", "bogus"), false);
+  assert.strictEqual(PM.planSetStatus(p, q, "Playtest", "done"), false);
+  assert.strictEqual(q.statuses.Art, "review");
+  let s = "na"; const seen = [];
+  for (let i = 0; i < 5; i++) { s = PM.planCycleStatus(s); seen.push(s); }
+  assert.deepStrictEqual(seen, ["todo", "doing", "review", "done", "na"]);
+});
+
+test("followers span questlines", () => {
+  const [p, o] = sheetPlans();
+  assert.deepStrictEqual(PM.planFollowers([p, o], "a").map((x) => x.quest.id), ["b", "c"]);
+  assert.deepStrictEqual(PM.planFollowers([p, o], "c"), []);
+});
+
+test("undo history restores the previous snapshot group, latest first", () => {
+  const [p] = sheetPlans();
+  const h = PM.makePlanHistory();
+  assert.strictEqual(h.pop(), null);
+  h.push([{ key: "one.json", text: PM.serialisePlan(p) }]);
+  p.quests[0].statuses.Art = "done";
+  h.push([{ key: "one.json", text: PM.serialisePlan(p) }]);
+  assert.strictEqual(h.size, 2);
+  const back = PM.parsePlan(h.pop()[0].text).plan;
+  assert.strictEqual(back.quests[0].statuses.Art, "done");
+  const first = PM.parsePlan(h.pop()[0].text).plan;
+  assert.strictEqual(first.quests[0].statuses.Art, "todo");
+  assert.strictEqual(h.size, 0);
 });
 
 test("committed planning files are valid against the real objectives", () => {
