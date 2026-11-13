@@ -3051,7 +3051,7 @@ func prepare_intro() -> void:
 		var slot: StageSlot = fighter["slot"]
 		var final_x := slot.position.x
 		slot.position.x = -slot.size.x - margin if fighter["side"] == "player" else size.x + margin
-		_intro_finals.append({ "slot": slot, "x": final_x })
+		_intro_finals.append({ "slot": slot, "x": final_x, "side": fighter["side"] })
 	_intro_fades = []
 	for side in ["player", "enemy"]:
 		for slot in _reserve_slots[side].values():
@@ -3080,7 +3080,8 @@ func start_intro(time_scale: float) -> void:
 	var land_end := up
 	for n in range(_intro_finals.size()):
 		var slot: StageSlot = _intro_finals[n]["slot"]
-		var delay := up + n * stagger
+		# The player's band enters together; enemies follow in stagger order.
+		var delay := up + (0.0 if _intro_finals[n]["side"] == "player" else (n + 1) * stagger)
 		_intro_tween.tween_property(slot, "position:x", _intro_finals[n]["x"], enter).set_delay(delay).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 		_intro_tween.tween_callback(_land_fighter.bind(slot, time_scale)).set_delay(delay + enter)
 		land_end = maxf(land_end, delay + enter)

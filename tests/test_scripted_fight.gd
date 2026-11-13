@@ -114,6 +114,7 @@ func run() -> void:
 		assert_true(kinds.has("timePearl"), "Archie throws the Pearl")
 		assert_true(kinds.has("frozen"), "and the freeze shows")
 		assert_eq(kinds[-1], "fled", "Leg it lands")
+		assert_eq(kinds.count("fled"), 2, "Archie legs it with the player")
 		assert_true(not kinds.slice(kinds.rfind("timePearl")).has("ko"), "no KO after the rewind")
 		var xp: int = GameState.state["player"]["bodyXP"]
 		var result := Combat.exit_combat()

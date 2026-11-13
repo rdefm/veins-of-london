@@ -1660,6 +1660,14 @@ static func _begin_script_post(cp: Dictionary) -> void:
 	cp["combatants"][PLAYER_INDEX]["fleeBoost"] = 1.0
 
 
+# The scripted escape: each standing ally runs off with the player.
+static func _allies_leg_it_with_player(cp: Dictionary, beats: Array, move_id: String) -> void:
+	for i in range(cp["combatants"].size()):
+		var c: Dictionary = cp["combatants"][i]
+		if c["side"] == SIDE_ALLY and not c["koed"]:
+			_beat(cp, beats, "fled", i, -1, move_id, { "boosted": true })
+
+
 static func _span_reason(move_id: String) -> String:
 	return "%s takes %d actions in a row." % [move(move_id)["name"], move_cost(move_id)]
 
@@ -2245,6 +2253,8 @@ static func _resolve_action(cp: Dictionary, actor_idx: int, action: Dictionary, 
 				_beat(cp, beats, "fled", actor_idx, -1, move_id, { "boosted": boosted })
 				if actor_idx == PLAYER_INDEX:
 					cp["outcome"] = "fled"
+					if cp.get("script") is Dictionary and cp["script"]["phase"] == SCRIPT_POST:
+						_allies_leg_it_with_player(cp, beats, move_id)
 			else:
 				_beat(cp, beats, "fleeFailed", actor_idx, -1, move_id, {})
 				flee_failed = true
