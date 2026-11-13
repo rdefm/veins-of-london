@@ -124,6 +124,20 @@ func run() -> void:
 		assert_eq(GameState.state["contacts"]["handler"]["unlocked"], true, "unlocked because the event pushes the handler a message")
 	)
 
+	run_case("skip_to_sunday_evening_lands_on_sunday_evening_and_is_idempotent", func():
+		GameState.reset()
+		var start_day: int = GameState.state["world"]["day"]
+		assert_true(DebugTools.skip_to_sunday_evening(), "clock moved")
+		var world: Dictionary = GameState.state["world"]
+		assert_eq(Calendar.weekday_index(int(world["day"])), Calendar.days_per_week() - 1, "Sunday")
+		assert_eq(int(world["timeBlock"]), TimeSystem.BLOCKS_PER_DAY - 1, "evening block open")
+		assert_true(int(world["day"]) >= start_day, "never backwards")
+		assert_eq(GameState.state["boardMeetings"]["enabled"], true, "meetings enabled")
+		var day_after: int = world["day"]
+		assert_eq(DebugTools.skip_to_sunday_evening(), false, "already there: no-op")
+		assert_eq(int(world["day"]), day_after, "day unchanged")
+	)
+
 	run_case("learn_all_recipes_grants_every_recipe_at_the_top_rung", func():
 		GameState.reset()
 		DebugTools.learn_all_recipes()

@@ -31,6 +31,25 @@ static func board_jump_to_meeting() -> void:
 	BoardMeetings.maybe_start_meeting()
 
 
+# Advances the clock block by block (every daily tick runs) to the Sunday
+# evening block, and enables board meetings so consuming that block rolls
+# into the Monday meeting. No-op if already on Sunday evening. Capped, so a
+# stuck clock (borrowed charges) can't spin forever. True if the clock moved.
+static func skip_to_sunday_evening() -> bool:
+	GameState.state["boardMeetings"]["enabled"] = true
+	var world: Dictionary = GameState.state["world"]
+	var sunday := Calendar.days_per_week() - 1
+	var evening := TimeSystem.BLOCKS_PER_DAY - 1
+	var moved := false
+	var cap := Calendar.days_per_week() * TimeSystem.BLOCKS_PER_DAY + TimeSystem.BLOCKS_PER_DAY
+	for i in cap:
+		if Calendar.weekday_index(int(world["day"])) == sunday and int(world["timeBlock"]) >= evening:
+			break
+		TimeSystem.advance_time_block()
+		moved = true
+	return moved
+
+
 static func board_choose(card_id: String) -> Dictionary:
 	return BoardMeetings.choose(card_id)
 
