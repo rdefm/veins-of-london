@@ -2,7 +2,12 @@
 
 Status: ready-for-agent
 
-All decisions here come from the 2026-11-11 interview. This spec is phase 1 of the merged quest tooling. The mechanics editor and game quest system stay in `.scratch/quest-editor/spec.md`, which now builds on this one.
+All decisions here come from the 2026-11-11 interview, plus two from 2026-11-13 ticketing:
+
+- **Write whitelist widened.** Adds `assets/reference-plates/`, `data/board_prose/` and `data/board.json`, the other paths storyboard writes, so every tab works in server mode (story 6).
+- **Story 21 deferred.** The extra-gating edge marker moves to the quest-editor spec.
+
+This spec is phase 1 of the merged quest tooling. The mechanics editor and game quest system stay in `.scratch/quest-editor/spec.md`, which now builds on this one.
 
 ## Problem Statement
 
