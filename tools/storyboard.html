@@ -301,6 +301,19 @@ dialog.q-dlg::backdrop { background: rgba(0, 0, 0, .45) }
 .qs-opts { display: grid; gap: 6px; margin-bottom: 12px }
 .qs-opt { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--fg); font: 600 14px var(--mono); text-align: left }
 .qs-opt.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) }
+.qs-acts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 4px }
+.qs-btn { min-height: 44px; padding: 0 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--fg); font: 600 14px var(--body) }
+.qs-btn.danger { border-color: var(--warn); color: var(--warn) }
+button.qs-flow { width: 100%; border: 0; color: var(--fg); font: inherit; font-size: 14px; text-align: left }
+.qf-opt { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); font-size: 14px; color: var(--fg) }
+.qf-opt.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) }
+.qf-opt.off { opacity: .5 }
+.qf-opt input { width: 18px; height: 18px; flex: none }
+.qf-opt .qf-side { margin-left: auto; font: 12px var(--mono); color: var(--muted) }
+.qf-opt .qf-side.warn { color: var(--warn) }
+.qf-h { margin: 0 0 8px; font-size: 17px; font-weight: 700 }
+.qf-body { margin: 0 0 12px; font-size: 14px; line-height: 1.45 }
+.qf-stack { display: grid; gap: 8px; margin-bottom: 12px }
 .qs-backdrop { display: none }
 @media (max-width: 899.98px) {
   .qs-backdrop { display: block; position: fixed; inset: 0; background: rgba(20, 22, 27, .35); z-index: 29 }
@@ -624,6 +637,7 @@ dialog.q-dlg::backdrop { background: rgba(0, 0, 0, .45) }
 
 <dialog class="q-dlg" id="q-new" aria-labelledby="q-new-title"></dialog>
 <dialog class="q-dlg" id="q-pick" aria-label="Pick a status"></dialog>
+<dialog class="q-dlg" id="q-flow" aria-label="Edit the questline flow"></dialog>
 
 <dialog class="imgpick" id="imgpick" aria-labelledby="ip-title">
   <div class="editor-head"><h2 id="ip-title">Card image</h2><span class="mono muted" id="ip-where"></span></div>
@@ -1897,6 +1911,121 @@ function checkOddsBlock(opt, changed, restructure) {
     const out = [];
     for (const p of plans) for (const q of p.quests) for (const f of q.follows) if (f.id === questId) out.push({ plan: p, quest: q, edge: f });
     return out;
+  }
+  // ---- Flow editing. Each function mutates the plans it is given and returns {error: string|null, touched: [plan], ...};
+  // nothing changes on an error. `plans` is every valid questline (follows-links cross questlines).
+  const planFindQuest = (plans, id) => { for (const p of plans) { const q = p.quests.find((x) => x.id === id); if (q) return { plan: p, quest: q }; } return null; };
+  const planNoOp = (error) => ({ error, touched: [] });
+  // Would giving `questId` exactly the predecessors `ids` make a follows loop? (Nothing is changed.)
+  function planWouldLoop(plans, questId, ids) {
+    const preds = new Map();
+    for (const p of plans) for (const q of p.quests) preds.set(q.id, q.id === questId ? ids : q.follows.map((f) => f.id));
+    const seen = new Set();
+    const stack = [...ids];
+    while (stack.length) {
+      const id = stack.pop();
+      if (id === questId) return true;
+      if (seen.has(id)) continue;
+      seen.add(id);
+      stack.push(...(preds.get(id) || []));
+    }
+    return false;
+  }
+  // Unique quest id from a title, against every questline.
+  function planNewQuestId(plans, title) {
+    return planUniqueId(planSlug(title) || "quest", plans.flatMap((p) => p.quests.map((q) => q.id)));
+  }
+  const planCleanTitle = (t) => String(t || "").trim();
+  function planAddQuest(plans, plan, title, follows) {
+    const t = planCleanTitle(title);
+    if (!t) return { ...planNoOp("A title is required."), quest: null };
+    const q = newPlanQuest(plan, planNewQuestId(plans, t), t);
+    q.follows = follows;
+    plan.quests.push(q);
+    return { error: null, touched: [plan], quest: q };
+  }
+  // A root quest: follows nothing.
+  const planAddRoot = (plans, plan, title) => planAddQuest(plans, plan, title, []);
+  // A follower of `fromId` (any questline), as a parallel or choice edge. "+ Next" is the parallel case.
+  function planAddFollower(plans, plan, fromId, title, kind = "parallel", label = "") {
+    if (!planFindQuest(plans, fromId)) return { ...planNoOp("No such quest."), quest: null };
+    if (!PLAN_EDGES.includes(kind)) return { ...planNoOp("Edge must be parallel or choice."), quest: null };
+    return planAddQuest(plans, plan, title, [{ id: fromId, kind, label: kind === "choice" ? String(label || "").trim() : "" }]);
+  }
+  // Replaces a quest's predecessors with `ids`, keeping the kind/label of links that stay. Refuses loops.
+  function planSetFollows(plans, questId, ids) {
+    const at = planFindQuest(plans, questId);
+    if (!at) return planNoOp("No such quest.");
+    const uniq = [...new Set(ids)];
+    if (uniq.includes(questId)) return planNoOp("A quest can't follow itself.");
+    if (uniq.some((id) => !planFindQuest(plans, id))) return planNoOp("Unknown quest in the follows list.");
+    if (planWouldLoop(plans, questId, uniq)) return planNoOp("That would make a follow loop.");
+    const old = new Map(at.quest.follows.map((f) => [f.id, f]));
+    at.quest.follows = uniq.map((id) => old.get(id) || { id, kind: "parallel", label: "" });
+    const touched = [at.plan];
+    return { error: null, touched };
+  }
+  // Splices a new quest after `afterId`: it follows `afterId`, and everything that followed `afterId` now follows it
+  // (keeping its edge kind/label).
+  function planInsertAfter(plans, plan, afterId, title) {
+    const at = planFindQuest(plans, afterId);
+    if (!at) return { ...planNoOp("No such quest."), quest: null };
+    const r = planAddQuest(plans, plan, title, [{ id: afterId, kind: "parallel", label: "" }]);
+    if (r.error) return r;
+    for (const x of planFollowers(plans, afterId)) {
+      if (x.quest === r.quest) continue;
+      x.edge.id = r.quest.id;
+      if (!r.touched.includes(x.plan)) r.touched.push(x.plan);
+    }
+    return r;
+  }
+  // Splices a new quest before `beforeId`: it takes over `beforeId`'s predecessors, and `beforeId` follows it.
+  function planInsertBefore(plans, plan, beforeId, title) {
+    const at = planFindQuest(plans, beforeId);
+    if (!at) return { ...planNoOp("No such quest."), quest: null };
+    const r = planAddQuest(plans, plan, title, at.quest.follows.map((f) => ({ ...f })));
+    if (r.error) return r;
+    at.quest.follows = [{ id: r.quest.id, kind: "parallel", label: "" }];
+    if (!r.touched.includes(at.plan)) r.touched.push(at.plan);
+    return r;
+  }
+  // Removes a quest; each follower follows its predecessors instead (a link it already has is kept as it was).
+  function planDeleteQuest(plans, questId) {
+    const at = planFindQuest(plans, questId);
+    if (!at) return planNoOp("No such quest.");
+    const touched = [at.plan];
+    for (const x of planFollowers(plans, questId)) {
+      const next = [];
+      for (const f of x.quest.follows) {
+        if (f.id !== questId) { next.push(f); continue; }
+        for (const pr of at.quest.follows) if (!x.quest.follows.some((g) => g.id === pr.id) && !next.some((g) => g.id === pr.id)) next.push({ id: pr.id, kind: f.kind, label: f.label });
+      }
+      x.quest.follows = next;
+      if (!touched.includes(x.plan)) touched.push(x.plan);
+    }
+    at.plan.quests.splice(at.plan.quests.indexOf(at.quest), 1);
+    return { error: null, touched };
+  }
+  // What the delete dialog should say: mechanics, linked drafts/live events (`known`), and who gets reattached to whom.
+  function planDeleteInfo(plans, questId, known) {
+    const at = planFindQuest(plans, questId);
+    if (!at) return null;
+    return {
+      mechanics: at.quest.mechanics, objective: at.quest.objective,
+      linked: at.quest.events.filter((e) => known.has(e.id)).length,
+      followers: planFollowers(plans, questId).map((x) => x.quest),
+      predecessors: at.quest.follows.map((f) => planFindQuest(plans, f.id)).filter(Boolean).map((x) => x.quest),
+    };
+  }
+  // Switches the edge `fromId` -> `questId` between parallel and choice, and sets its choice label.
+  function planSetEdge(plans, questId, fromId, kind, label) {
+    const at = planFindQuest(plans, questId);
+    const edge = at && at.quest.follows.find((f) => f.id === fromId);
+    if (!edge) return planNoOp("No such link.");
+    if (!PLAN_EDGES.includes(kind)) return planNoOp("Edge must be parallel or choice.");
+    edge.kind = kind;
+    edge.label = kind === "choice" ? String(label || "").trim() : "";
+    return { error: null, touched: [at.plan] };
   }
   // Session undo: each entry is a group of {key, text} snapshots taken before one edit (several when an edit touches
   // several files); pop() returns the latest group.
@@ -7812,7 +7941,9 @@ function checkOddsBlock(opt, changed, restructure) {
       try { if (lastLine() === plan.id) localStorage.removeItem(QL_LAST_KEY); } catch {}
       renderQuests();
     });
-    const add = el("button", { type: "button", class: "q-btn primary", text: "+ Quest", disabled: true, title: "Adding quests isn't wired up yet" });
+    const add = el("button", { type: "button", class: "q-btn primary", text: "+ Quest", title: "Add a quest that follows nothing" });
+    add.addEventListener("click", () => openTitleDialog({ cap: `+ Quest in ${plan.name}`, heading: "New root quest", confirm: "Add quest",
+      apply: (title) => runFlow(`${plan.name} · quest added`, () => planAddRoot(sheetPlans(), plan, title)) }));
     const undo = el("button", { type: "button", class: "q-btn", id: "q-undo", text: "Undo", title: "Undo the last planning edit (Ctrl+Z outside a text box)" });
     undo.disabled = !planHistory.size;
     undo.addEventListener("click", undoPlan);
@@ -7936,12 +8067,31 @@ function checkOddsBlock(opt, changed, restructure) {
     notes.addEventListener("input", () => { snapPlans([entry], notes); quest.notes = notes.value; edited("notes edited"); });
 
     const questById = new Map(every.flatMap((p) => p.quests.map((q) => [q.id, q])));
-    const flowRow = (q, id, kind, label) => el("div", { class: "qs-flow" },
-      el("span", { text: q ? MAP_BADGE[q.mechanics] || "" : "?", "aria-hidden": "true" }),
-      el("span", { class: "qs-flow-t", text: q ? q.title : id }),
-      el("span", { class: "qs-flow-k", text: kind === "choice" ? (label ? `choice · ${label}` : "choice") : "parallel" }));
-    const follows = quest.follows.map((f) => flowRow(questById.get(f.id), f.id, f.kind, f.label));
-    const followers = planFollowers(every, quest.id).map((x) => flowRow(x.quest, x.quest.id, x.edge.kind, x.edge.label));
+    // Each row is the edge between this quest and `q`; tapping it edits the edge (`from` -> `to`).
+    const flowRow = (q, id, kind, label, from, to) => {
+      const row = el("button", { type: "button", class: "qs-flow", title: "Edit this link" },
+        el("span", { text: q ? MAP_BADGE[q.mechanics] || "" : "?", "aria-hidden": "true" }),
+        el("span", { class: "qs-flow-t", text: q ? q.title : id }),
+        el("span", { class: "qs-flow-k", text: kind === "choice" ? (label ? `choice · ${label}` : "choice") : "parallel" }));
+      row.addEventListener("click", () => openEdgeDialog(from, to, kind, label));
+      return row;
+    };
+    const follows = quest.follows.map((f) => flowRow(questById.get(f.id), f.id, f.kind, f.label, f.id, quest.id));
+    const followers = planFollowers(every, quest.id).map((x) => flowRow(x.quest, x.quest.id, x.edge.kind, x.edge.label, quest.id, x.quest.id));
+    const flowBtn = (text, fn, cls = "") => { const b = el("button", { type: "button", class: "qs-btn " + cls, text }); b.addEventListener("click", fn); return b; };
+    const addVia = (cap, heading, confirm, make, desc, withKind) => () => openTitleDialog({ cap, heading, confirm, withKind,
+      apply: (title, kind, label) => runFlow(`${quest.title} · ${desc}`, () => make(title, kind, label)) });
+    const flowActs = el("div", { class: "qs-acts" },
+      flowBtn("+ Next", addVia(`+ Next after “${quest.title}”`, "New quest that follows this one", "Add quest",
+        (t) => planAddFollower(sheetPlans(), plan, quest.id, t), "next added")),
+      flowBtn("+ Branch", addVia(`+ Branch from “${quest.title}”`, "How does it branch?", "Add branch",
+        (t, k, l) => planAddFollower(sheetPlans(), plan, quest.id, t, k, l), "branch added", true)),
+      flowBtn("Follows…", () => openFollowsDialog(entry, quest)),
+      flowBtn("Insert after", addVia(`Insert after “${quest.title}”`, "New quest between this and its followers", "Insert",
+        (t) => planInsertAfter(sheetPlans(), plan, quest.id, t), "inserted after")),
+      flowBtn("Insert before", addVia(`Insert before “${quest.title}”`, "New quest between its predecessors and this", "Insert",
+        (t) => planInsertBefore(sheetPlans(), plan, quest.id, t), "inserted before")),
+      flowBtn("Delete", () => openDeleteDialog(quest), "danger"));
     const none = (t) => el("span", { class: "qs-none", text: t });
 
     const mech = el("div", { class: "qs-mech" }, el("span", { class: "qs-mech-t", text: MECH_LABEL[quest.mechanics] || quest.mechanics }),
@@ -7976,7 +8126,7 @@ function checkOddsBlock(opt, changed, restructure) {
       sheetSection("Summary", summary),
       sheetSection("Events", ...events, none("Adding and ordering events comes later.")),
       sheetSection("Flow", el("span", { class: "qs-sub", text: "Follows" }), ...(follows.length ? follows : [none("Nothing: starts a thread.")]),
-        el("span", { class: "qs-sub", text: "Followed by" }), ...(followers.length ? followers : [none("Nothing yet.")])),
+        el("span", { class: "qs-sub", text: "Followed by" }), ...(followers.length ? followers : [none("Nothing yet.")]), flowActs),
       sheetSection("Mechanics", mech),
       sheetSection("Status · tap to cycle, hold to pick", el("div", { class: "qs-tiles" }, ...tiles)),
       sheetSection("Notes", notes));
@@ -7984,6 +8134,108 @@ function checkOddsBlock(opt, changed, restructure) {
     return sheet;
   }
   const LONG_PRESS_MS = 500;
+  // ---- Flow editing dialogs. Every edit goes through runFlow: snapshot all questlines (undo), apply, save what changed.
+  function runFlow(label, op) {
+    const all = plans.filter((e) => e.plan && !e.own.length);
+    snapPlans(all);
+    const r = op();
+    if (r.error) { planHistory.pop(); syncUndo(); return r; }
+    for (const e of all.filter((x) => r.touched.includes(x.plan))) queuePlanSave(e, label);
+    return r;
+  }
+  const flowDlg = () => $("q-flow");
+  const flowButtons = (cancelText, okText, ok, cls = "primary") => {
+    const cancel = el("button", { type: "button", class: "q-btn", text: cancelText });
+    cancel.addEventListener("click", () => flowDlg().close());
+    const go = el("button", { type: "button", class: "q-btn " + cls, text: okText });
+    go.addEventListener("click", ok);
+    return el("div", { class: "q-actions" }, cancel, go);
+  };
+  const kindOptions = (kind) => {
+    const mk = (value, name, hint) => {
+      const r = el("input", { type: "radio", name: "qf-kind", value }); r.checked = kind === value;
+      return el("label", { class: "qf-opt" + (kind === value ? " on" : "") }, r, el("span", {}, el("b", { text: name }), ` — ${hint}`));
+    };
+    const box = el("div", { class: "qf-stack" }, mk("parallel", "Parallel", "both happen"), mk("choice", "Choice", "one or the other"));
+    box.addEventListener("change", () => { for (const l of box.children) l.classList.toggle("on", l.firstChild.checked); });
+    return { box, get: () => (box.querySelector("input:checked") || {}).value || "parallel" };
+  };
+  function openTitleDialog({ cap, heading, confirm, withKind, apply }) {
+    const err = el("p", { class: "q-err", role: "alert" });
+    const kind = withKind ? kindOptions("choice") : null;
+    const label = el("input", { type: "text", autocomplete: "off", "aria-label": "Choice label" });
+    const title = el("input", { type: "text", autocomplete: "off", "aria-label": "New quest title" });
+    const go = () => {
+      const r = apply(title.value, kind ? kind.get() : "parallel", label.value);
+      if (r.error) { err.textContent = r.error; return; }
+      flowDlg().close();
+      selQuest = r.quest.id; rerender(false);
+    };
+    title.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); go(); } });
+    flowDlg().replaceChildren(el("p", { class: "qs-cap", text: cap }), el("h2", { class: "qf-h", text: heading }),
+      el("div", { class: "q-form" }, kind ? kind.box : null, kind ? el("label", {}, "Choice label (optional)", label) : null, el("label", {}, "New quest title", title), err),
+      flowButtons("Cancel", confirm, go));
+    flowDlg().showModal();
+    title.focus();
+  }
+  function openEdgeDialog(fromId, toId, kind, label) {
+    const every = sheetPlans();
+    const name = (id) => { const f = planFindQuest(every, id); return f ? f.quest.title : id; };
+    const k = kindOptions(kind);
+    const lab = el("input", { type: "text", autocomplete: "off", value: label || "", "aria-label": "Choice label" });
+    const go = () => {
+      const r = runFlow(`${name(toId)} · link edited`, () => planSetEdge(every, toId, fromId, k.get(), lab.value));
+      if (r.error) return;
+      flowDlg().close(); rerender();
+    };
+    flowDlg().replaceChildren(el("p", { class: "qs-cap", text: `${name(fromId)} ▸ ${name(toId)}` }), el("h2", { class: "qf-h", text: "How are they linked?" }),
+      k.box, el("div", { class: "q-form" }, el("label", {}, "Choice label (optional)", lab)), flowButtons("Cancel", "Save", go));
+    flowDlg().showModal();
+  }
+  function openFollowsDialog(entry, quest) {
+    const every = sheetPlans();
+    const row = (q, side) => {
+      const on = quest.follows.some((f) => f.id === q.id);
+      const loops = !on && planWouldLoop(every, quest.id, [q.id]);
+      const box = el("input", { type: "checkbox", value: q.id }); box.checked = on; box.disabled = loops;
+      return el("label", { class: "qf-opt" + (on ? " on" : "") + (loops ? " off" : "") }, box, el("span", { text: q.title }),
+        loops ? el("span", { class: "qf-side warn", text: "would loop" }) : side ? el("span", { class: "qf-side", text: side }) : null);
+    };
+    const mine = entry.plan.quests.filter((q) => q.id !== quest.id).map((q) => row(q));
+    const others = every.filter((p) => p !== entry.plan).flatMap((p) => p.quests.map((q) => row(q, p.name)));
+    const list = el("div", { class: "qf-stack" }, ...mine, others.length ? el("p", { class: "qs-cap", text: "Other questlines" }) : null, ...others);
+    list.addEventListener("change", (e) => { const l = e.target.closest && e.target.closest(".qf-opt"); if (l) l.classList.toggle("on", e.target.checked); });
+    const err = el("p", { class: "q-err", role: "alert" });
+    const go = () => {
+      const ids = [...list.querySelectorAll("input:checked")].map((i) => i.value);
+      const r = runFlow(`${quest.title} · follows changed`, () => planSetFollows(every, quest.id, ids));
+      if (r.error) { err.textContent = r.error; return; }
+      flowDlg().close(); rerender();
+    };
+    flowDlg().replaceChildren(el("p", { class: "qs-cap", text: `Follows… · ${quest.title}` }), el("h2", { class: "qf-h", text: "This quest follows" }),
+      list, err, flowButtons("Cancel", "Save", go));
+    flowDlg().showModal();
+  }
+  function openDeleteDialog(quest) {
+    const every = sheetPlans();
+    const info = planDeleteInfo(every, quest.id, knownEventIds());
+    const names = (qs) => qs.map((q) => q.title).join(", ");
+    const notes = [];
+    if (info.mechanics === "hardcoded") notes.push(`hard-coded (objective ${info.objective})`);
+    else if (info.mechanics === "data") notes.push("data-driven");
+    if (info.linked) notes.push(`${info.linked} linked draft${info.linked === 1 ? "" : "s"} or live event${info.linked === 1 ? "" : "s"}`);
+    const doDelete = () => {
+      const r = runFlow(`${quest.title} · deleted`, () => planDeleteQuest(every, quest.id));
+      if (r.error) return;
+      selQuest = null; rerender(false);
+    };
+    if (!notes.length) { doDelete(); return; }
+    let text = `It's ${notes.join(" and has ")}. Only the plan is removed.`;
+    if (info.followers.length) text += ` Its follower${info.followers.length === 1 ? "" : "s"} ${names(info.followers)} will follow ${info.predecessors.length ? names(info.predecessors) + " instead" : "nothing"}.`;
+    flowDlg().replaceChildren(el("h2", { class: "qf-h", text: `Delete “${quest.title}”?` }), el("p", { class: "qf-body", text }),
+      flowButtons("Keep", "Delete", () => { flowDlg().close(); doDelete(); }, "danger"));
+    flowDlg().showModal();
+  }
   function setStatus(entry, quest, cat, value) {
     snapPlans([entry]);
     if (!planSetStatus(entry.plan, quest, cat, value)) { planHistory.pop(); syncUndo(); return; }

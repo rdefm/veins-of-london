@@ -3073,7 +3073,8 @@ assert(planStart !== -1 && planEnd !== -1, "could not locate planning model mark
 const PM = new Function(html.slice(planStart, planEnd) + [
   "return { planSlug, planUniqueId, newQuestline, newPlanQuest, serialisePlan, parsePlan, validatePlan, validatePlans,",
   "  checkQuestlineFields, planRollups, planCycleStatus, planCanDelete, planGroups, planLayout, planFilter, PLAN_NODE,",
-  "  PLAN_STATUSES, PLAN_CATEGORIES, planSetStatus, planIdLocked, planSetQuestId, planFollowers, makePlanHistory };"].join("\n"))();
+  "  PLAN_STATUSES, PLAN_CATEGORIES, planSetStatus, planIdLocked, planSetQuestId, planFollowers, makePlanHistory,",
+  "  planFindQuest, planWouldLoop, planNewQuestId, planAddRoot, planAddFollower, planSetFollows, planInsertAfter, planInsertBefore, planDeleteQuest, planDeleteInfo, planSetEdge };"].join("\n"))();
 
 function samplePlan() {
   const p = PM.newQuestline({ name: "Collective Act 2", page: "collective", order: 2, premise: "Hakim is off.", notes: "n" });
@@ -3343,4 +3344,112 @@ test("committed planning files are valid against the real objectives", () => {
     return r.plan;
   });
   assert.deepStrictEqual(PM.validatePlans(parsed, { objectiveIds }).map((r) => r.plan.id + ": " + r.errors.join("; ")), []);
+});
+
+// ---- Flow editing ----
+const FP = () => {
+  const [p, o] = sheetPlans(); // p: a <- b ; o: c follows a (choice "go")
+  return { p, o, all: [p, o] };
+};
+const followIds = (q) => q.follows.map((f) => f.id);
+
+test("flow: add root / next / branch", () => {
+  const { p, all } = FP();
+  const root = PM.planAddRoot(all, p, "Fresh Start");
+  assert.strictEqual(root.error, null);
+  assert.strictEqual(root.quest.id, "fresh_start");
+  assert.deepStrictEqual(root.quest.follows, []);
+  assert.deepStrictEqual(PM.validatePlans(all), []);
+  const next = PM.planAddFollower(all, p, "b", "After B");
+  assert.deepStrictEqual(next.quest.follows, [{ id: "b", kind: "parallel", label: "" }]);
+  const br = PM.planAddFollower(all, p, "b", "Sell out", "choice", " sell ");
+  assert.deepStrictEqual(br.quest.follows, [{ id: "b", kind: "choice", label: "sell" }]);
+  assert.strictEqual(PM.planAddFollower(all, p, "b", "  ").error, "A title is required.");
+  assert.strictEqual(PM.planAddFollower(all, p, "nope", "X").quest, null);
+  assert.strictEqual(PM.planAddRoot(all, p, "A").quest.id, "a_2", "ids stay unique across questlines");
+});
+
+test("flow: insert after / before", () => {
+  const { p, o, all } = FP();
+  const r = PM.planInsertAfter(all, p, "a", "Mid");
+  assert.deepStrictEqual(followIds(r.quest), ["a"]);
+  assert.deepStrictEqual(followIds(p.quests.find((q) => q.id === "b")), ["mid"]);
+  assert.deepStrictEqual(o.quests[0].follows, [{ id: "mid", kind: "choice", label: "go" }], "cross-questline follower keeps its edge");
+  assert.ok(r.touched.includes(o));
+  const r2 = PM.planInsertBefore(all, p, "b", "Pre");
+  assert.deepStrictEqual(followIds(r2.quest), ["mid"]);
+  assert.deepStrictEqual(followIds(p.quests.find((q) => q.id === "b")), ["pre"]);
+  assert.deepStrictEqual(PM.validatePlans(all), []);
+});
+
+test("flow: delete reattaches followers to the predecessors", () => {
+  const { p, o, all } = FP();
+  p.quests.push(PM.newPlanQuest(p, "x", "X"));
+  p.quests[2].follows = [{ id: "a", kind: "parallel", label: "" }];
+  const m = PM.planDeleteQuest(all, "a"); // a has no predecessors: followers become roots
+  assert.strictEqual(m.error, null);
+  assert.deepStrictEqual(followIds(p.quests.find((q) => q.id === "b")), []);
+  assert.deepStrictEqual(o.quests[0].follows, []);
+  assert.ok(m.touched.includes(o));
+  // single predecessor
+  const s = FP(); 
+  PM.planDeleteQuest(s.all, "b");
+  assert.deepStrictEqual(s.p.quests.map((q) => q.id), ["a"]);
+  // multiple predecessors; a follower that already follows one keeps it once
+  const t = FP();
+  const [a, b] = t.p.quests;
+  const d = PM.newPlanQuest(t.p, "d", "D"); d.follows = [{ id: "a", kind: "parallel", label: "" }];
+  const e = PM.newPlanQuest(t.p, "e", "E"); e.follows = [{ id: "b", kind: "choice", label: "x" }, { id: "a", kind: "parallel", label: "" }];
+  b.follows = [{ id: "a", kind: "parallel", label: "" }, { id: "d", kind: "parallel", label: "" }];
+  t.p.quests.push(d, e);
+  PM.planDeleteQuest(t.all, "b");
+  assert.deepStrictEqual(t.p.quests.find((q) => q.id === "e").follows.map((f) => f.id).sort(), ["a", "d"]);
+  assert.deepStrictEqual(PM.validatePlans(t.all), []);
+  assert.strictEqual(PM.planDeleteQuest(t.all, "zzz").error, "No such quest.");
+});
+
+test("flow: delete info reports mechanics, linked drafts and reattachment", () => {
+  const { p, all } = FP();
+  p.quests[0].mechanics = "hardcoded"; p.quests[0].objective = "obj";
+  p.quests[1].events = [{ id: "ev", title: "" }];
+  const a = PM.planDeleteInfo(all, "a", new Set());
+  assert.strictEqual(a.mechanics, "hardcoded");
+  assert.deepStrictEqual(a.followers.map((q) => q.id), ["b", "c"]);
+  assert.strictEqual(PM.planDeleteInfo(all, "b", new Set(["ev"])).linked, 1);
+  assert.strictEqual(PM.planDeleteInfo(all, "b", new Set()).linked, 0);
+  assert.deepStrictEqual(PM.planDeleteInfo(all, "b", new Set()).predecessors.map((q) => q.id), ["a"]);
+});
+
+test("flow: set follows keeps surviving edges, adds parallel ones", () => {
+  const { p, all } = FP();
+  const x = PM.newPlanQuest(p, "x", "X"); p.quests.push(x);
+  assert.strictEqual(PM.planSetFollows(all, "x", ["a", "b"]).error, null);
+  assert.deepStrictEqual(x.follows, [{ id: "a", kind: "parallel", label: "" }, { id: "b", kind: "parallel", label: "" }]);
+  p.quests[1].follows[0].kind = "choice";
+  PM.planSetFollows(all, "b", ["a"]);
+  assert.strictEqual(p.quests[1].follows[0].kind, "choice");
+  assert.strictEqual(PM.planSetFollows(all, "b", ["c"]).error, null, "follows across questlines is allowed... c follows a, not b");
+  assert.deepStrictEqual(PM.validatePlans(all), []);
+});
+
+test("flow: loops refused within and across questlines, nothing changes", () => {
+  const { p, o, all } = FP();
+  const before = JSON.stringify(all);
+  assert.match(PM.planSetFollows(all, "a", ["b"]).error, /loop/);
+  assert.match(PM.planSetFollows(all, "a", ["c"]).error, /loop/, "across questlines");
+  assert.match(PM.planSetFollows(all, "a", ["a"]).error, /itself/);
+  assert.strictEqual(JSON.stringify(all), before);
+  assert.strictEqual(PM.planWouldLoop(all, "a", ["c"]), true);
+  assert.strictEqual(PM.planWouldLoop(all, "c", ["b"]), false);
+  assert.strictEqual(PM.planWouldLoop(all, "b", ["a"]), false);
+});
+
+test("flow: set edge kind and label", () => {
+  const { p, o, all } = FP();
+  assert.strictEqual(PM.planSetEdge(all, "b", "a", "choice", " left ").error, null);
+  assert.deepStrictEqual(p.quests[1].follows[0], { id: "a", kind: "choice", label: "left" });
+  PM.planSetEdge(all, "c", "a", "parallel", "stale");
+  assert.deepStrictEqual(o.quests[0].follows[0], { id: "a", kind: "parallel", label: "" });
+  assert.strictEqual(PM.planSetEdge(all, "b", "zzz", "choice", "").error, "No such link.");
+  assert.strictEqual(PM.planSetEdge(all, "b", "a", "weird", "").error, "Edge must be parallel or choice.");
 });
