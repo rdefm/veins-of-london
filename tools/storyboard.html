@@ -284,8 +284,23 @@ dialog.q-dlg::backdrop { background: rgba(0, 0, 0, .45) }
 .qs-field { width: 100%; box-sizing: border-box; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--fg); padding: 10px 12px; font: 15px/1.4 var(--body); min-height: 44px; resize: vertical }
 .qs-sub { font-size: 12px; color: var(--muted) }
 .qs-none { font-size: 13px; color: var(--muted) }
-.qs-ev { display: flex; align-items: center; min-height: 48px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg) }
-.qs-ev-t { display: grid; gap: 1px; min-width: 0; overflow-wrap: anywhere }
+.qs-ev { display: flex; align-items: center; gap: 6px; min-height: 48px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); position: relative }
+.qs-ev.dragging { z-index: 2; box-shadow: 0 4px 14px rgba(0,0,0,.25); background: var(--surface) }
+.qs-ev-t { display: grid; gap: 1px; flex: 1; min-width: 0; overflow-wrap: anywhere; text-align: left; border: 0; background: none; padding: 0; color: var(--fg); font: inherit; font-size: 14px }
+.qs-ev-t:disabled { color: var(--fg); opacity: 1 }
+button.qs-ev-t:not(:disabled) { cursor: pointer }
+.qs-grip { width: 24px; height: 36px; cursor: grab; touch-action: none }
+.qs-rm { width: 36px; height: 36px }
+.qs-chip { font: 600 10.5px var(--mono); padding: 2px 7px; border-radius: 999px; border: 1px solid currentColor; white-space: nowrap }
+.qs-chip.live { color: var(--ok) }
+.qs-chip.draft { color: var(--accent) }
+.qs-chip.planned { color: var(--muted); border-style: dashed }
+.qs-chip.stale { color: var(--warn) }
+.qs-btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink) }
+.qs-mini { min-height: 36px; padding: 0 10px; font-size: 12px }
+.qs-evacts { display: flex; gap: 8px; flex-wrap: wrap }
+.qs-pick { max-height: 50vh; overflow-y: auto }
+.qs-pick .qs-opt { font: inherit; justify-content: space-between }
 .qs-flow { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 10px; border-radius: 8px; background: var(--sunk); font-size: 14px }
 .qs-flow-t { flex: 1; min-width: 0; overflow-wrap: anywhere }
 .qs-flow-k { font: 11px var(--mono); color: var(--muted); text-align: right }
@@ -1618,7 +1633,7 @@ function checkOddsBlock(opt, changed, restructure) {
       quests: plan.quests.map((q) => {
         const o = { id: q.id, title: q.title, summary: q.summary, notes: q.notes };
         o.follows = q.follows.map((f) => (f.label ? { id: f.id, kind: f.kind, label: f.label } : { id: f.id, kind: f.kind }));
-        o.events = q.events.map((e) => { const x = { id: e.id, title: e.title }; if (e.later) x.later = true; return x; });
+        o.events = q.events.map((e) => { const x = { id: e.id, title: e.title }; if (e.later) x.later = true; if (e.seen) x.seen = e.seen; return x; });
         o.statuses = {};
         for (const c of plan.categories) o.statuses[c] = q.statuses[c];
         o.mechanics = q.mechanics;
@@ -2036,6 +2051,46 @@ function checkOddsBlock(opt, changed, restructure) {
       pop() { return stack.length ? stack.pop() : null; },
       get size() { return stack.length; },
     };
+  }
+  // ---- Events. An entry's state is always computed from the ids that exist now (`live`, `draft`: Sets or arrays of ids).
+  // `seen` is the last live/draft state the planner resolved: an entry that is neither now but was seen before is stale.
+  function planEventState(ev, live, draft) {
+    const has = (c, id) => (c instanceof Set ? c.has(id) : (c || []).includes(id));
+    if (has(live, ev.id)) return "live";
+    if (has(draft, ev.id)) return "draft";
+    return ev.seen ? "stale" : "planned";
+  }
+  // Records each entry's resolved live/draft state in `seen`. true if any entry changed (the plan wants saving).
+  function planSyncSeen(plan, live, draft) {
+    let changed = false;
+    for (const q of plan.quests) for (const e of q.events) {
+      const s = planEventState(e, live, draft);
+      if ((s === "live" || s === "draft") && e.seen !== s) { e.seen = s; changed = true; }
+    }
+    return changed;
+  }
+  // Adds a planned event entry to `quest`. The id is checked against every event in `plans` (an event belongs to one quest).
+  // -> {error: string|null, event}
+  function planAddEvent(plans, quest, id, title) {
+    id = String(id || "").trim(); title = String(title || "").trim();
+    if (!PLAN_ID_RE.test(id)) return { error: "The id needs lower-case letters, digits and _, starting with a letter.", event: null };
+    for (const p of plans) for (const q of p.quests) if (q.events.some((e) => e.id === id)) return { error: `${id} is already listed${q === quest ? "" : " under " + q.title}.`, event: null };
+    const event = { id, title: title || id };
+    quest.events.push(event);
+    return { error: null, event };
+  }
+  // Moves the entry at `from` to position `to`. false when either index is out of range or they match.
+  function planMoveEvent(quest, from, to) {
+    const n = quest.events.length;
+    if (!Number.isInteger(from) || !Number.isInteger(to) || from < 0 || to < 0 || from >= n || to >= n || from === to) return false;
+    quest.events.splice(to, 0, quest.events.splice(from, 1)[0]);
+    return true;
+  }
+  function planRemoveEvent(quest, id) {
+    const i = quest.events.findIndex((e) => e.id === id);
+    if (i < 0) return false;
+    quest.events.splice(i, 1);
+    return true;
   }
   /* ---------- End planning model ---------- */
   class StaleError extends Error {
@@ -3862,10 +3917,11 @@ function checkOddsBlock(opt, changed, restructure) {
     return existing ? { existing } : { made: importBoard(file, text, taken) };
   }
   // A blank event: one `main` branch holding one blank narration card.
-  function blankBoard(id, taken, liveIds) {
+  // `title` (optional) goes in the heading after the id.
+  function blankBoard(id, taken, liveIds, title) {
     checkNewId(id, liveIds);
     const draft = { id, start: "main", branches: { main: { title: "Start", cards: [{ key: "c1", type: "narration", text: "" }] } } };
-    return { file: proposalFileName(id, taken), md: proposalMd(id, draft) };
+    return { file: proposalFileName(id, taken), md: proposalMd(title && title !== id ? `${id} — ${title}` : id, draft) };
   }
   // A copy of a proposal under a new id. keepComments keeps its comments and its prose (logline, open points);
   // otherwise both go and the copy starts clean.
@@ -8006,7 +8062,9 @@ function checkOddsBlock(opt, changed, restructure) {
     rerender();
   }
   const onQuestsTab = () => { const p = $("panel-quests"); return !!p && !p.hidden; };
-  const knownEventIds = () => new Set([...liveEvents, ...boards.map((b) => b.eventId)]);
+  // Ids of the storyboard drafts (proposal boards); a board's eventId is its file key, the draft's own id is the event id.
+  const draftEventIds = () => new Set(boards.filter((b) => b.kind === "proposal" && b.draft && b.draft.id).map((b) => b.draft.id));
+  const knownEventIds = () => new Set([...liveEvents, ...draftEventIds()]);
   const sheetPlans = () => plans.filter((e) => e.plan && !e.own.length).map((e) => e.plan);
   const MECH_LABEL = { placeholder: "◌ Placeholder", hardcoded: "⚙︎ Hard-coded", data: "● Data-driven" };
   const STATUS_LABEL = { na: "n/a", todo: "todo", doing: "doing", review: "review", done: "done" };
@@ -8101,8 +8159,7 @@ function checkOddsBlock(opt, changed, restructure) {
     const tiles = plan.categories.map((cat) => {
       const tile = el("button", { type: "button", class: "qs-status", "aria-label": `${cat}: ${STATUS_LABEL[quest.statuses[cat]]}. Tap to cycle, hold to pick` },
         el("span", { class: "qs-cat", text: cat }),
-        el("span", { class: "qs-val" }, el("span", { class: "qm-dot " + quest.statuses[cat] }), STATUS_LABEL[quest.statuses[cat]]));
-      let timer = null, held = false;
+        el("span", { class: "qs-val" }, el("span", { class: "qm-dot " + quest.statuses[cat] }), STATUS_LABEL[quest.statuses[cat]]));      let timer = null, held = false;
       const stop = () => { clearTimeout(timer); timer = null; };
       tile.addEventListener("pointerdown", () => { held = false; stop(); timer = setTimeout(() => { held = true; timer = null; openStatusPicker(entry, quest, cat); }, LONG_PRESS_MS); });
       for (const ev of ["pointerup", "pointerleave", "pointercancel"]) tile.addEventListener(ev, stop);
@@ -8114,9 +8171,45 @@ function checkOddsBlock(opt, changed, restructure) {
       return tile;
     });
 
-    const events = quest.events.length
-      ? quest.events.map((ev) => el("div", { class: "qs-ev" }, el("span", { class: "qs-ev-t" }, el("b", { text: ev.title || ev.id }), el("span", { class: "mono muted", text: ev.id }))))
-      : [none("No events yet.")];
+    const draftIds = draftEventIds();
+    if (planSyncSeen(plan, new Set(liveEvents), draftIds)) queuePlanSave(entry, `${plan.name} · event states resolved`);
+    const editEvents = (desc, fn) => {
+      snapPlans([entry]);
+      if (!fn()) { planHistory.pop(); syncUndo(); return false; }
+      queuePlanSave(entry, `${quest.title} · ${desc}`);
+      rerender();
+      return true;
+    };
+    const eventRows = quest.events.map((ev, i) => {
+      const state = planEventState(ev, new Set(liveEvents), draftIds);
+      const grip = el("button", { type: "button", class: "qs-icon qs-grip", "aria-label": `Reorder ${ev.title || ev.id}. Drag, or use the up and down arrow keys` });
+      grip.innerHTML = GRIP_SVG;
+      grip.addEventListener("keydown", (e) => {
+        const to = e.key === "ArrowUp" ? i - 1 : e.key === "ArrowDown" ? i + 1 : null;
+        if (to === null) return;
+        e.preventDefault();
+        if (editEvents(`${ev.id} moved`, () => planMoveEvent(quest, i, to))) {
+          const g = document.querySelectorAll(".qs-ev .qs-grip")[to]; if (g) g.focus();
+        }
+      });
+      const text = [el("b", { text: ev.title || ev.id }), el("span", { class: "mono muted", text: ev.id })];
+      const open = el("button", { type: "button", class: "qs-ev-t", disabled: state === "planned" || state === "stale",
+        title: state === "planned" ? "Not written yet: create a draft to open it" : state === "stale" ? "The live event or draft is gone" : "Open in the storyboard" }, ...text);
+      open.addEventListener("click", () => openEventEntry(ev.id, state));
+      const create = state === "planned" ? el("button", { type: "button", class: "qs-btn primary qs-mini", text: "Create draft" }) : null;
+      if (create) create.addEventListener("click", () => createDraftFor(ev, create));
+      const rm = el("button", { type: "button", class: "qs-icon qs-rm", "aria-label": `Remove ${ev.title || ev.id}` });
+      rm.innerHTML = CLOSE_SVG.replace('width="20" height="20"', 'width="16" height="16"');
+      rm.addEventListener("click", () => editEvents(`${ev.id} removed`, () => planRemoveEvent(quest, ev.id)));
+      const row = el("div", { class: "qs-ev", "data-ev": ev.id }, grip, open, el("span", { class: "qs-chip " + state, text: state }), create, rm);
+      grip.addEventListener("pointerdown", (e) => dragEvent(e, row, i, (to) => editEvents(`${ev.id} moved`, () => planMoveEvent(quest, i, to))));
+      return row;
+    });
+    const pickBtn = el("button", { type: "button", class: "qs-btn", text: "Pick event or draft…" });
+    pickBtn.addEventListener("click", () => openPickEventDialog(plan, quest, editEvents));
+    const plannedBtn = el("button", { type: "button", class: "qs-btn", text: "+ Planned" });
+    plannedBtn.addEventListener("click", () => openPlannedEventDialog(quest, editEvents));
+    const events = [...(eventRows.length ? eventRows : [none("No events yet.")]), el("div", { class: "qs-evacts" }, pickBtn, plannedBtn)];
 
     const grab = el("div", { class: "qs-grab" }, el("span", { class: "qs-grabber", "aria-hidden": "true" }));
     const head = el("div", { class: "qs-head" },
@@ -8124,7 +8217,7 @@ function checkOddsBlock(opt, changed, restructure) {
     const sheet = el("div", { class: "qs-sheet", role: "dialog", "aria-label": `Quest: ${quest.title}` },
       grab, head,
       sheetSection("Summary", summary),
-      sheetSection("Events", ...events, none("Adding and ordering events comes later.")),
+      sheetSection("Events", ...events),
       sheetSection("Flow", el("span", { class: "qs-sub", text: "Follows" }), ...(follows.length ? follows : [none("Nothing: starts a thread.")]),
         el("span", { class: "qs-sub", text: "Followed by" }), ...(followers.length ? followers : [none("Nothing yet.")]), flowActs),
       sheetSection("Mechanics", mech),
@@ -8134,6 +8227,94 @@ function checkOddsBlock(opt, changed, restructure) {
     return sheet;
   }
   const LONG_PRESS_MS = 500;
+  const GRIP_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>';
+  // ---- Event entries: open, create draft, drag to reorder, add dialogs.
+  // Draft first (it may be the working copy of a live event), else the live file; the storyboard tab opens on it.
+  async function openEventEntry(id, state) {
+    const b = boards.find((x) => x.kind === "proposal" && x.draft && x.draft.id === id);
+    if (b) { if (!leaveBoard()) return; selectBoard(b.eventId); showTab("storyboard"); return; }
+    if (state === "live" && leaveBoard()) await openLiveEvent(id + ".json");
+  }
+  // The new-board flow, blank mode: id and title from the entry; the entry then resolves as a draft.
+  async function createDraftFor(ev, btn) {
+    btn.disabled = true;
+    try {
+      if (!writableProposal(PROPOSALS_DIR)) throw new Error("refusing to write outside .scratch/writing-revamp/");
+      const taken = await fileNames(PROPOSALS_DIR, /./);
+      const made = blankBoard(ev.id, taken, liveEvents, ev.title);
+      if (await readText([...PROPOSALS_DIR, made.file]) != null) throw new Error(`${made.file} already exists`);
+      if (!leaveBoard()) { btn.disabled = false; return; }
+      await writeFile([...PROPOSALS_DIR, made.file], made.md);
+      await loadAll();
+      selectBoard(PROPOSAL_PREFIX + made.file);
+      showTab("storyboard");
+      renderEditBar(`Created ${made.file}`);
+    } catch (e) { btn.disabled = false; setNote("Couldn't create draft: " + (e && e.message)); }
+  }
+  // Pointer drag on an entry's grip: the row follows the finger; on release it lands where its centre is among the rows.
+  function dragEvent(e, row, from, commit) {
+    if (e.button > 0) return;
+    e.preventDefault();
+    const rows = [...row.parentNode.querySelectorAll(".qs-ev")];
+    const mids = rows.map((r) => { const b = r.getBoundingClientRect(); return b.top + b.height / 2; });
+    const y0 = e.clientY;
+    let to = from;
+    row.classList.add("dragging");
+    const move = (m) => {
+      const dy = m.clientY - y0;
+      row.style.transform = `translateY(${dy}px)`;
+      const c = mids[from] + dy;
+      to = mids.reduce((best, mid, i) => (Math.abs(mid - c) < Math.abs(mids[best] - c) ? i : best), from);
+    };
+    const end = (u) => {
+      window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", end); window.removeEventListener("pointercancel", end);
+      row.classList.remove("dragging"); row.style.transform = "";
+      if (u.type === "pointerup" && to !== from) commit(to);
+    };
+    window.addEventListener("pointermove", move); window.addEventListener("pointerup", end); window.addEventListener("pointercancel", end);
+  }
+  function openPickEventDialog(plan, quest, editEvents) {
+    const used = new Set(sheetPlans().flatMap((p) => p.quests.flatMap((q) => q.events.map((x) => x.id))));
+    const drafts = boards.filter((b) => b.kind === "proposal" && b.draft && b.draft.id && !used.has(b.draft.id));
+    const draftIds = new Set(drafts.map((b) => b.draft.id));
+    const lives = liveEvents.filter((id) => !used.has(id) && !draftIds.has(id));
+    const opt = (id, title, tag) => {
+      const b = el("button", { type: "button", class: "qs-opt" }, el("span", { class: "qs-ev-t" }, el("b", { text: title || id }), el("span", { class: "mono muted", text: id })), el("span", { class: "qs-chip " + tag, text: tag }));
+      b.addEventListener("click", () => {
+        if (editEvents(`${id} added`, () => !planAddEvent(sheetPlans(), quest, id, title).error)) flowDlg().close();
+      });
+      return b;
+    };
+    const group = (name, items) => items.length ? [el("p", { class: "qs-cap", text: name }), ...items] : [];
+    const draftTitle = (b) => b.title.replace(new RegExp("^" + b.draft.id + "\\s+—\\s+"), "");
+    const kids = [...group("Storyboard drafts", drafts.map((b) => opt(b.draft.id, draftTitle(b), "draft"))), ...group("Live events", lives.map((id) => opt(id, id, "live")))];
+    const cancel = el("button", { type: "button", class: "q-btn", text: "Cancel" });
+    cancel.addEventListener("click", () => flowDlg().close());
+    flowDlg().replaceChildren(el("p", { class: "qs-cap", text: `Events · ${quest.title}` }), el("h2", { class: "qf-h", text: "Pick an event or draft" }),
+      el("div", { class: "qs-opts qs-pick" }, ...(kids.length ? kids : [el("span", { class: "qs-none", text: "Nothing left to pick: every live event and draft is already listed." })])),
+      el("div", { class: "q-actions" }, cancel));
+    flowDlg().showModal();
+  }
+  function openPlannedEventDialog(quest, editEvents) {
+    const title = el("input", { type: "text", autocomplete: "off", "aria-label": "Event name" });
+    const id = el("input", { type: "text", autocomplete: "off", autocapitalize: "off", spellcheck: "false", class: "mono", "aria-label": "Event id" });
+    const err = el("p", { class: "q-err", role: "alert" });
+    let touched = false;
+    title.addEventListener("input", () => { if (!touched) id.value = planSlug(title.value); });
+    id.addEventListener("input", () => { touched = true; });
+    const go = () => {
+      const name = title.value.trim(), want = id.value.trim() || planSlug(name);
+      if (!name && !want) { err.textContent = "Give it a name or an id."; return; }
+      let bad = null;
+      editEvents(`${want} planned`, () => { const r = planAddEvent(sheetPlans(), quest, want, name); bad = r.error; return !r.error; });
+      if (bad) err.textContent = bad; else flowDlg().close();
+    };
+    for (const f of [title, id]) f.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); go(); } });
+    flowDlg().replaceChildren(el("p", { class: "qs-cap", text: `Events · ${quest.title}` }), el("h2", { class: "qf-h", text: "Plan an event" }),
+      el("div", { class: "q-form" }, el("label", {}, "Name", title), el("label", {}, "Id (made from the name)", id), err), flowButtons("Cancel", "Add planned event", go));
+    flowDlg().showModal();
+    title.focus();
+  }
   // ---- Flow editing dialogs. Every edit goes through runFlow: snapshot all questlines (undo), apply, save what changed.
   function runFlow(label, op) {
     const all = plans.filter((e) => e.plan && !e.own.length);

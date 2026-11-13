@@ -3074,7 +3074,8 @@ const PM = new Function(html.slice(planStart, planEnd) + [
   "return { planSlug, planUniqueId, newQuestline, newPlanQuest, serialisePlan, parsePlan, validatePlan, validatePlans,",
   "  checkQuestlineFields, planRollups, planCycleStatus, planCanDelete, planGroups, planLayout, planFilter, PLAN_NODE,",
   "  PLAN_STATUSES, PLAN_CATEGORIES, planSetStatus, planIdLocked, planSetQuestId, planFollowers, makePlanHistory,",
-  "  planFindQuest, planWouldLoop, planNewQuestId, planAddRoot, planAddFollower, planSetFollows, planInsertAfter, planInsertBefore, planDeleteQuest, planDeleteInfo, planSetEdge };"].join("\n"))();
+  "  planFindQuest, planWouldLoop, planNewQuestId, planAddRoot, planAddFollower, planSetFollows, planInsertAfter, planInsertBefore, planDeleteQuest, planDeleteInfo, planSetEdge,",
+  "  planEventState, planSyncSeen, planAddEvent, planMoveEvent, planRemoveEvent };"].join("\n"))();
 
 function samplePlan() {
   const p = PM.newQuestline({ name: "Collective Act 2", page: "collective", order: 2, premise: "Hakim is off.", notes: "n" });
@@ -3452,4 +3453,62 @@ test("flow: set edge kind and label", () => {
   assert.deepStrictEqual(o.quests[0].follows[0], { id: "a", kind: "parallel", label: "" });
   assert.strictEqual(PM.planSetEdge(all, "b", "zzz", "choice", "").error, "No such link.");
   assert.strictEqual(PM.planSetEdge(all, "b", "a", "weird", "").error, "Edge must be parallel or choice.");
+});
+
+test("events: state resolves from live and draft ids; a vanished one is stale", () => {
+  const live = new Set(["a_live"]), draft = new Set(["a_draft"]);
+  assert.strictEqual(PM.planEventState({ id: "a_live" }, live, draft), "live");
+  assert.strictEqual(PM.planEventState({ id: "a_draft" }, live, draft), "draft");
+  assert.strictEqual(PM.planEventState({ id: "a_live" }, live, new Set(["a_live"])), "live", "live wins over its working copy");
+  assert.strictEqual(PM.planEventState({ id: "nope" }, live, draft), "planned");
+  assert.strictEqual(PM.planEventState({ id: "gone", seen: "draft" }, live, draft), "stale");
+  assert.strictEqual(PM.planEventState({ id: "a_draft", seen: "live" }, [], ["a_draft"]), "draft", "the stored hint never overrides what exists");
+});
+
+test("events: syncing records seen state, round-trips, and makes a later loss stale", () => {
+  const [p] = sheetPlans();
+  const q = p.quests[0];
+  q.events = [{ id: "e1", title: "One" }, { id: "e2", title: "Two" }];
+  assert.strictEqual(PM.planSyncSeen(p, new Set(["e1"]), new Set()), true);
+  assert.strictEqual(PM.planSyncSeen(p, new Set(["e1"]), new Set()), false);
+  const back = PM.parsePlan(PM.serialisePlan(p)).plan;
+  assert.deepStrictEqual(back.quests[0].events, [{ id: "e1", title: "One", seen: "live" }, { id: "e2", title: "Two" }]);
+  assert.deepStrictEqual(back.quests[0].events.map((e) => PM.planEventState(e, new Set(), new Set())), ["stale", "planned"]);
+});
+
+test("events: add, reorder and remove entries", () => {
+  const [p, o] = sheetPlans();
+  const q = p.quests[0];
+  q.events = [];
+  assert.strictEqual(PM.planAddEvent([p, o], q, "meet", "Meet").error, null);
+  assert.strictEqual(PM.planAddEvent([p, o], q, "mid", "").error, null);
+  assert.strictEqual(PM.planAddEvent([p, o], q, "done_scene", "Done").error, null);
+  assert.deepStrictEqual(q.events, [{ id: "meet", title: "Meet" }, { id: "mid", title: "mid" }, { id: "done_scene", title: "Done" }]);
+  assert.match(PM.planAddEvent([p, o], q, "meet", "x").error, /already listed/);
+  assert.match(PM.planAddEvent([p, o], o.quests[0], "meet", "x").error, /already listed under/);
+  assert.match(PM.planAddEvent([p, o], q, "Bad Id", "x").error, /lower-case/);
+  assert.strictEqual(q.events.length, 3);
+  assert.strictEqual(PM.planMoveEvent(q, 2, 0), true);
+  assert.deepStrictEqual(q.events.map((e) => e.id), ["done_scene", "meet", "mid"]);
+  assert.strictEqual(PM.planMoveEvent(q, 0, 0), false);
+  assert.strictEqual(PM.planMoveEvent(q, 0, 3), false);
+  assert.strictEqual(PM.planRemoveEvent(q, "meet"), true);
+  assert.strictEqual(PM.planRemoveEvent(q, "meet"), false);
+  assert.deepStrictEqual(q.events.map((e) => e.id), ["done_scene", "mid"]);
+  assert.deepStrictEqual(PM.validatePlan(p), []);
+});
+
+test("events: Create draft makes a board with the planned id and title, which then resolves as a draft", () => {
+  const [p, o] = sheetPlans();
+  const q = p.quests[0];
+  q.events = [];
+  PM.planAddEvent([p, o], q, "hakim_after", "Hakim owes you one");
+  const ev = q.events[0];
+  assert.strictEqual(PM.planEventState(ev, new Set(), new Set()), "planned");
+  const { file, md } = blankBoard(ev.id, [], [], ev.title);
+  const b = parseProposal(file, md);
+  assert.strictEqual(b.draft.id, "hakim_after");
+  assert.strictEqual(b.title, "hakim_after — Hakim owes you one");
+  assert.strictEqual(PM.planEventState(ev, new Set(), new Set([b.draft.id])), "draft");
+  assert.throws(() => blankBoard(ev.id, [], ["hakim_after"], ev.title), /already a live event/);
 });
