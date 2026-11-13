@@ -208,8 +208,25 @@ func _on_vein_bubble_action_selected(option_id: String) -> void:
 	var result := StationBubble.apply_option(option_id, _bubble_stop)
 	# A successful cultivate plays the canvas's own ring tween instead of the pulse.
 	if option_id == StationBubble.CULTIVATE_ID and result["ok"]:
+		_focus_ring_animation(_bubble_stop["vein"]["id"])
 		return
 	_map_canvas.play_action_result(_bubble_stop["position"], result["ok"])
+# Dims and input-blocks the screen until the vein's ring tween finishes.
+func _focus_ring_animation(vein_id: String) -> void:
+	if not _map_canvas.is_ring_animating(vein_id):
+		return
+	var blocker := ColorRect.new()
+	blocker.color = Color(MapPalette.colour("scrim"), 0.35)
+	UI.anchor_full_rect(blocker)
+	blocker.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(blocker)
+	_map_canvas.ring_animation_finished.connect(func(finished_id: String):
+		if finished_id == vein_id:
+			blocker.queue_free(), CONNECT_ONE_SHOT)
+func _cultivate_from_panel(vein_id: String) -> void:
+	var result: Dictionary = Cultivating.cultivate(vein_id)
+	if result.get("ok", false):
+		_focus_ring_animation(vein_id)
 func _on_vein_bubble_info_selected() -> void:
 	MapNav.select_vein_detail(_bubble_stop["vein"]["id"])
 func _build_station_bubble_options(stop: Dictionary) -> Array:
@@ -646,7 +663,7 @@ func _build_vein_action_card(vein: Dictionary) -> Control:
 	var actions := UI.hflow()
 
 	var cultivate_label := "Vein at ceiling" if at_ceiling else UI.format_block_cost_label("Cultivate", 1, Travel.can_afford(district, 1))
-	var cultivate_button := UI.button(cultivate_label, func(): Cultivating.cultivate(vein_id))
+	var cultivate_button := UI.button(cultivate_label, func(): _cultivate_from_panel(vein_id))
 	cultivate_button.disabled = at_ceiling or not Travel.can_afford(district, 1) or not Harassment.vein_gate(vein_id, true)["ok"]
 	actions.add_child(MapCardStyle.style_button(cultivate_button))
 

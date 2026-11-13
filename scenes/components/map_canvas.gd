@@ -8,6 +8,7 @@ signal station_tapped(stop: Dictionary, anchor: Vector2)
 
 signal zoom_changed(zoom: float)
 
+signal ring_animation_finished(vein_id: String)
 signal _batch_finished
 
 # Every colour below resolves through MapPalette (data/map_palette.json) at
@@ -71,9 +72,6 @@ const RIPPLE_DURATION_FRACTION := 0.7
 
 const ACTION_RESULT_DURATION := 0.6
 
-const RING_FILL_DURATION := 0.6
-const RING_POP_HOLD := 0.3
-const RING_SETTLE_DURATION := 0.4
 
 var pacing_mode: String = MapEvents.DEFAULT_PACING_MODE
 var event_visual_duration: float = SIMULTANEOUS_DURATION
@@ -956,12 +954,12 @@ func _on_vein_cultivated(vein_id: String, growth_from: int, growth_to: int, leve
 	var tween := create_tween()
 	_ring_tweens[vein_id] = tween
 	if levelled_up:
-		tween.tween_method(_set_ring_override.bind(vein_id), from, 1.0, RING_FILL_DURATION)
+		tween.tween_method(_set_ring_override.bind(vein_id), from, 1.0, float(GameData.VEIN_GROWTH["ringLevelFillSeconds"]))
 		tween.tween_callback(_pop_ring.bind(vein_id))
-		tween.tween_interval(RING_POP_HOLD)
-		tween.tween_method(_set_ring_override.bind(vein_id), 1.0, to, RING_SETTLE_DURATION)
+		tween.tween_interval(float(GameData.VEIN_GROWTH["ringPopHoldSeconds"]))
+		tween.tween_method(_set_ring_override.bind(vein_id), 1.0, to, float(GameData.VEIN_GROWTH["ringSettleSeconds"]))
 	else:
-		tween.tween_method(_set_ring_override.bind(vein_id), from, to, RING_FILL_DURATION)
+		tween.tween_method(_set_ring_override.bind(vein_id), from, to, float(GameData.VEIN_GROWTH["ringFillSeconds"]))
 	tween.finished.connect(_clear_ring_override.bind(vein_id))
 	queue_redraw()
 
@@ -982,6 +980,11 @@ func _clear_ring_override(vein_id: String) -> void:
 	_ring_overrides.erase(vein_id)
 	_ring_tweens.erase(vein_id)
 	queue_redraw()
+	ring_animation_finished.emit(vein_id)
+
+
+func is_ring_animating(vein_id: String) -> bool:
+	return _ring_tweens.has(vein_id)
 
 
 func _activate_pin(pin: Dictionary) -> void:
