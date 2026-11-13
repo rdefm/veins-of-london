@@ -3066,3 +3066,135 @@ test("splitPath takes parts or slash strings", () => {
   assert.deepStrictEqual(splitPath(["a", "b"]), ["a", "b"]);
   assert.deepStrictEqual(splitPath([]), []);
 });
+
+// ---- Planning model ----
+const planStart = html.indexOf("/* ---------- Planning model (pure) ---------- */"), planEnd = html.indexOf("/* ---------- End planning model ---------- */");
+assert(planStart !== -1 && planEnd !== -1, "could not locate planning model markers in storyboard.html");
+const PM = new Function(html.slice(planStart, planEnd) + [
+  "return { planSlug, planUniqueId, newQuestline, newPlanQuest, serialisePlan, parsePlan, validatePlan, validatePlans,",
+  "  checkQuestlineFields, planRollups, planCycleStatus, planCanDelete, planGroups, PLAN_STATUSES, PLAN_CATEGORIES };"].join("\n"))();
+
+function samplePlan() {
+  const p = PM.newQuestline({ name: "Collective Act 2", page: "collective", order: 2, premise: "Hakim is off.", notes: "n" });
+  const a = PM.newPlanQuest(p, "act_2_opens", "Act 2 opens");
+  const b = PM.newPlanQuest(p, "meet_handler", "Meet the handler");
+  b.follows = [{ id: "act_2_opens", kind: "choice", label: "sell out" }];
+  b.events = [{ id: "handler_meet", title: "Meet" }, { id: "handler_mid", title: "", later: true }];
+  b.statuses.Art = "done"; b.statuses.Choices = "na";
+  b.mechanics = "hardcoded"; b.objective = "pro_pub";
+  p.quests.push(a, b);
+  return p;
+}
+
+test("planning file round-trips through serialise and parse", () => {
+  const text = PM.serialisePlan(samplePlan());
+  const { plan, errors } = PM.parsePlan(text);
+  assert.deepStrictEqual(errors, []);
+  assert.strictEqual(PM.serialisePlan(plan), text);
+  assert.strictEqual(plan.quests[1].follows[0].label, "sell out");
+  assert.strictEqual(plan.quests[1].events[1].later, true);
+});
+
+test("a hand-written file may leave out defaults", () => {
+  const { plan, errors } = PM.parsePlan(JSON.stringify({ id: "tut", name: "Tutorial", page: "tutorial", order: 1,
+    quests: [{ id: "q1", title: "One", follows: [{ id: "q0" }] }, { id: "q0", title: "Zero" }] }));
+  assert.deepStrictEqual(errors, []);
+  assert.deepStrictEqual(plan.categories, PM.PLAN_CATEGORIES);
+  assert.strictEqual(plan.quests[0].statuses.Art, "todo");
+  assert.strictEqual(plan.quests[0].follows[0].kind, "parallel");
+});
+
+test("malformed planning files report what is wrong", () => {
+  const bad = (mut) => { const p = samplePlan(); mut(p); return PM.validatePlan(p); };
+  const has = (errs, re) => assert(errs.some((e) => re.test(e)), `${re} in ${JSON.stringify(errs)}`);
+  has(PM.parsePlan("{nope").errors, /not valid JSON/);
+  has(PM.parsePlan("[]").errors, /one JSON object/);
+  has(bad((p) => { p.id = "Bad Id"; }), /id must be/);
+  has(bad((p) => { p.name = " "; }), /name is required/);
+  has(bad((p) => { p.order = 0; }), /order/);
+  has(bad((p) => { p.extra = 1; }), /unknown field "extra"/);
+  has(bad((p) => { p.categories = ["A", "A"]; }), /categories/);
+  has(bad((p) => { p.quests[1].id = "act_2_opens"; }), /duplicate quest id/);
+  has(bad((p) => { p.quests[1].statuses.Art = "finished"; }), /Art status/);
+  has(bad((p) => { p.quests[1].statuses.Playtest = "todo"; }), /unknown category/);
+  has(bad((p) => { p.quests[1].mechanics = "magic"; }), /mechanics must be/);
+  has(bad((p) => { p.quests[1].objective = ""; }), /needs its objective id/);
+  has(bad((p) => { p.quests[0].objective = "x"; }), /only a hardcoded quest/);
+  has(bad((p) => { p.quests[1].follows[0].kind = "either"; }), /kind must be/);
+  has(bad((p) => { p.quests[1].follows.push({ id: "meet_handler", kind: "parallel", label: "" }); }), /follows itself/);
+  has(bad((p) => { p.quests[1].events.push({ id: "handler_meet", title: "" }); }), /listed twice/);
+  has(bad((p) => { p.quests[0].follows = [{ id: "meet_handler", kind: "parallel", label: "" }]; }), /follow loop/);
+  has(PM.validatePlan(samplePlan(), { objectiveIds: ["other"] }), /unknown objective/);
+  assert.deepStrictEqual(PM.validatePlan(samplePlan(), { objectiveIds: ["pro_pub"] }), []);
+  const dangling = samplePlan(); dangling.quests[0].follows = [{ id: "elsewhere", kind: "parallel", label: "" }];
+  assert.deepStrictEqual(PM.validatePlan(dangling), [], "unchecked without context");
+  has(PM.validatePlan(dangling, { otherQuestIds: [] }), /unknown quest/);
+  assert.deepStrictEqual(PM.validatePlan(dangling, { otherQuestIds: ["elsewhere"] }), []);
+});
+
+test("validation across questlines: duplicate ids, cross follows and cross loops", () => {
+  const a = PM.newQuestline({ name: "A", page: "p", order: 1 }); a.quests.push(PM.newPlanQuest(a, "qa", "QA"));
+  const b = PM.newQuestline({ name: "B", page: "p", order: 2 }); b.quests.push(PM.newPlanQuest(b, "qb", "QB"));
+  b.quests[0].follows = [{ id: "qa", kind: "parallel", label: "" }];
+  assert.deepStrictEqual(PM.validatePlans([a, b]), [], "cross-questline follow resolves");
+  a.quests[0].follows = [{ id: "qb", kind: "parallel", label: "" }];
+  const loops = PM.validatePlans([a, b]);
+  assert(loops.length >= 1 && loops.every((r) => r.errors.some((e) => /follow loop/.test(e))), "cross loop refused");
+  a.quests[0].follows = [];
+  b.quests[0].id = "qa";
+  assert(PM.validatePlans([a, b]).some((r) => r.errors.some((e) => /more than one questline/.test(e))), "quest ids unique across questlines");
+  const twin = PM.newQuestline({ name: "A again", id: "a", page: "p", order: 3 });
+  assert.strictEqual(PM.validatePlans([PM.newQuestline({ name: "A", page: "p", order: 1 }), twin]).length, 2, "questline ids unique");
+});
+
+test("roll-ups count done over quests that need the category", () => {
+  const p = samplePlan();
+  assert.deepStrictEqual(PM.planRollups(p).map((r) => [r.category, r.done, r.total]),
+    [["Writing", 0, 2], ["Choices", 0, 1], ["Observations", 0, 2], ["Art", 1, 2]]);
+  assert.deepStrictEqual(PM.planRollups(PM.newQuestline({ name: "E", page: "p", order: 1 })).map((r) => r.total), [0, 0, 0, 0]);
+  assert.strictEqual(PM.planCycleStatus("done"), "na");
+  assert.strictEqual(PM.planCycleStatus("todo"), "doing");
+});
+
+test("questline fields: id from name, uniqueness, page and order checks", () => {
+  assert.strictEqual(PM.planSlug("Collective Act 2"), "collective_act_2");
+  assert.strictEqual(PM.planSlug("2nd Act!"), "q_2nd_act");
+  assert.strictEqual(PM.planSlug("???"), "");
+  assert.strictEqual(PM.planUniqueId("a", ["a", "a_2"]), "a_3");
+  const others = [PM.newQuestline({ name: "Taken", page: "p", order: 1 })];
+  const ok = { name: "Fresh", id: "fresh", page: "p", order: 1 };
+  assert.deepStrictEqual(PM.checkQuestlineFields(ok, others, null), []);
+  assert(PM.checkQuestlineFields({ ...ok, name: "" }, others, null).length);
+  assert(PM.checkQuestlineFields({ ...ok, id: "taken" }, others, null).some((e) => /already used/.test(e)));
+  assert(PM.checkQuestlineFields({ ...ok, page: "Bad Page" }, others, null).length);
+  assert(PM.checkQuestlineFields({ ...ok, order: 0 }, others, null).length);
+  assert(PM.checkQuestlineFields({ ...ok, order: 1.5 }, others, null).length);
+  assert.deepStrictEqual(PM.checkQuestlineFields({ ...ok, id: "taken" }, others, others[0]), [], "editing doesn't re-check the id");
+});
+
+test("a questline with data-driven quests can't be deleted", () => {
+  const p = samplePlan();
+  assert.strictEqual(PM.planCanDelete(p), true);
+  p.quests[0].mechanics = "data";
+  assert.strictEqual(PM.planCanDelete(p), false);
+});
+
+test("questlines group by ToDo page in game order, acts by order", () => {
+  const mk = (name, page, order) => PM.newQuestline({ name, page, order });
+  const g = PM.planGroups([mk("C2", "collective", 2), mk("Z", "zeta", 1), mk("T", "tutorial", 1), mk("C1", "collective", 1), mk("A", "alpha", 1)],
+    ["tutorial", "collective", "business_empire"]);
+  assert.deepStrictEqual(g.map((x) => x.page), ["tutorial", "collective", "alpha", "zeta"]);
+  assert.deepStrictEqual(g[1].plans.map((p) => p.name), ["C1", "C2"]);
+});
+
+test("committed planning files are valid against the real objectives", () => {
+  const dir = path.join(__dirname, "..", ".scratch", "questlines");
+  if (!fs.existsSync(dir)) return;
+  const objectiveIds = Object.keys(JSON.parse(fs.readFileSync(path.join(__dirname, "..", "data", "objectives.json"), "utf8")));
+  const parsed = fs.readdirSync(dir).filter((n) => n.endsWith(".json")).map((n) => {
+    const r = PM.parsePlan(fs.readFileSync(path.join(dir, n), "utf8"));
+    assert.deepStrictEqual(r.errors, [], n);
+    return r.plan;
+  });
+  assert.deepStrictEqual(PM.validatePlans(parsed, { objectiveIds }).map((r) => r.plan.id + ": " + r.errors.join("; ")), []);
+});

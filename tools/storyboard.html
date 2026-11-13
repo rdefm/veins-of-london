@@ -199,6 +199,43 @@ section { display: grid; gap: 12px; min-width: 0 }
 .tabs { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid var(--line) }
 .tabs button { border: 1px solid transparent; border-bottom: 0; background: none; border-radius: 6px 6px 0 0; padding: 8px 14px; margin-bottom: -1px; font: 600 13px/1 var(--mono); color: var(--muted) }
 .tabs button[aria-selected="true"] { background: var(--surface); border-color: var(--line); color: var(--fg) }
+@media (max-width: 760px) { .tabs button { min-height: 44px } }
+
+/* ---------- Quests tab: questline list ---------- */
+.q-root { display: grid; gap: 18px; min-width: 0 }
+.q-head { display: flex; align-items: center; justify-content: space-between; gap: 8px }
+.q-btn { min-height: 44px; padding: 0 16px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--fg); font-weight: 700 }
+.q-btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink) }
+.q-btn.danger { background: var(--warn); border-color: var(--warn); color: #fff }
+.q-btn:disabled { opacity: .5; cursor: not-allowed }
+.q-page { display: grid; gap: 8px; min-width: 0 }
+.q-page h2 { font: 600 11px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted) }
+.q-row { display: flex; flex-direction: column; gap: 8px; width: 100%; min-width: 0; padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--fg); text-align: left; min-height: 44px }
+.q-row.last { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) }
+.q-row.bad { border-color: var(--warn) }
+.q-row-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px }
+.q-row-name { font-weight: 700; font-size: 16px; line-height: 1.25; min-width: 0; overflow-wrap: anywhere }
+.q-row-count { font: 11px var(--mono); color: var(--muted); white-space: nowrap }
+.q-row-premise { font-size: 13px; line-height: 1.35; color: var(--muted); overflow-wrap: anywhere }
+.q-rolls { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px }
+.q-roll { display: grid; gap: 3px; min-width: 0 }
+.q-roll span { font: 600 10.5px var(--mono); color: var(--muted); white-space: nowrap }
+.q-bar { height: 5px; border-radius: 3px; background: var(--sunk); overflow: hidden }
+.q-bar i { display: block; height: 100%; background: var(--ok) }
+.q-form { display: grid; gap: 12px; min-width: 0 }
+.q-form label { display: grid; gap: 4px; font-size: 13px; color: var(--muted) }
+.q-form input, .q-form select, .q-form textarea { min-height: 44px; width: 100%; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--fg); padding: 8px 12px; font: 15px var(--body) }
+.q-form textarea { resize: vertical }
+.q-err { margin: 0; color: var(--warn); font-size: 13px }
+.q-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end }
+.q-back { justify-self: start; min-height: 44px; border: 0; background: none; color: var(--accent); font-weight: 700; padding: 0 8px 0 0 }
+.q-card { display: grid; gap: 10px; padding: 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface) }
+.q-card.warn { border-color: var(--warn); box-shadow: 0 0 0 1px var(--warn) }
+.q-card h2 { font-size: 17px }
+.q-card.warn h2 { color: var(--warn) }
+.q-change { padding: 10px 12px; border-radius: 8px; background: var(--sunk); font: 12px/1.5 var(--mono); overflow-wrap: anywhere }
+dialog.q-dlg { width: min(480px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow: auto; padding: 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); color: var(--fg) }
+dialog.q-dlg::backdrop { background: rgba(0, 0, 0, .45) }
 .panel { display: grid; gap: 28px; min-width: 0 }
 .panel[hidden] { display: none }
 /* Proposal editing: save/undo bar under the board summary, card editor above the cut list. */
@@ -391,6 +428,7 @@ section { display: grid; gap: 12px; min-width: 0 }
         <button type="button" role="tab" id="tab-storyboard" data-tab="storyboard" aria-controls="panel-storyboard">Storyboard</button>
         <button type="button" role="tab" id="tab-shots" data-tab="shots" aria-controls="panel-shots">Shots</button>
         <button type="button" role="tab" id="tab-comments" data-tab="comments" aria-controls="panel-comments">Comments</button>
+        <button type="button" role="tab" id="tab-quests" data-tab="quests" aria-controls="panel-quests">Quests</button>
       </div>
 
       <div class="panel" role="tabpanel" id="panel-storyboard" aria-labelledby="tab-storyboard">
@@ -500,9 +538,16 @@ section { display: grid; gap: 12px; min-width: 0 }
         <div class="cmt-bar" id="cmt-bar"></div>
         <div class="cmts" id="cmt-list"></div>
       </div>
+
+      <div class="panel" role="tabpanel" id="panel-quests" aria-labelledby="tab-quests" hidden>
+        <div id="q-banner"></div>
+        <div class="q-root" id="q-root"></div>
+      </div>
     </div>
   </div>
 </div>
+
+<dialog class="q-dlg" id="q-new" aria-labelledby="q-new-title"></dialog>
 
 <dialog class="imgpick" id="imgpick" aria-labelledby="ip-title">
   <div class="editor-head"><h2 id="ip-title">Card image</h2><span class="mono muted" id="ip-where"></span></div>
@@ -1402,7 +1447,7 @@ function checkOddsBlock(opt, changed, restructure) {
   const thumbs = new Map(); // name -> {stamp, url}
   const remembered = () => { try { return localStorage.getItem("vein-sb-board"); } catch { return null; } };
   const remember = (id) => { try { localStorage.setItem("vein-sb-board", id); } catch {} };
-  const TABS = ["storyboard", "shots", "comments"];
+  const TABS = ["storyboard", "shots", "comments", "quests"];
   const rememberedTab = () => { try { return localStorage.getItem("vein-sb-tab"); } catch { return null; } };
   function showTab(name) {
     if (!TABS.includes(name)) name = "storyboard";
@@ -1413,6 +1458,7 @@ function checkOddsBlock(opt, changed, restructure) {
     }
     try { localStorage.setItem("vein-sb-tab", name); } catch {}
     if (name === "storyboard" && graphFit) fitGraph();
+    if (name === "quests") renderQuests();
   }
 
   const board = () => boards.find((b) => b.eventId === currentId);
@@ -1441,6 +1487,233 @@ function checkOddsBlock(opt, changed, restructure) {
   // current: the file's version now, or null if it doesn't exist.
   const storageAllows = (expect, current) => expect === undefined || expect === current;
   /* ---------- End storage ---------- */
+  /* ---------- Planning model (pure) ---------- */
+  // No DOM, no file access: tools/test_storyboard.js extracts everything between this marker and its end marker.
+  // One planning file per questline (act) under .scratch/questlines/; the game never loads them.
+  // A plan: {id, name, page, order, premise, notes, categories: [..], quests: [quest]}. A quest: {id, title, summary, notes,
+  // follows: [{id, kind, label}], events: [{id, title, later}], statuses: {category: status}, mechanics, objective}.
+  const PLAN_STATUSES = ["na", "todo", "doing", "review", "done"];
+  const PLAN_CATEGORIES = ["Writing", "Choices", "Observations", "Art"];
+  const PLAN_MECHANICS = ["placeholder", "hardcoded", "data"];
+  const PLAN_EDGES = ["parallel", "choice"];
+  const PLAN_ID_RE = /^[a-z][a-z0-9_]*$/;
+  const PLAN_PLAN_KEYS = ["id", "name", "page", "order", "premise", "notes", "categories", "quests"];
+  const PLAN_QUEST_KEYS = ["id", "title", "summary", "notes", "follows", "events", "statuses", "mechanics", "objective"];
+  // "Collective Act 2" -> "collective_act_2"; "" if nothing usable is left.
+  function planSlug(name) {
+    const s = String(name || "").toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+    return /^[0-9]/.test(s) ? "q_" + s : s;
+  }
+  // base, or base_2, base_3... until it isn't in `taken`.
+  function planUniqueId(base, taken) {
+    const t = new Set(taken);
+    if (!t.has(base)) return base;
+    let n = 2;
+    while (t.has(base + "_" + n)) n++;
+    return base + "_" + n;
+  }
+  function newQuestline({ name, id, page, order, premise = "", notes = "" }) {
+    return { id: id || planSlug(name), name, page, order, premise, notes, categories: [...PLAN_CATEGORIES], quests: [] };
+  }
+  function newPlanQuest(plan, id, title) {
+    const statuses = {};
+    for (const c of plan.categories) statuses[c] = "todo";
+    return { id, title, summary: "", notes: "", follows: [], events: [], statuses, mechanics: "placeholder", objective: "" };
+  }
+  // Stable text form: fixed key order, empty optional fields left out, so a parse/serialise round trip is exact.
+  function serialisePlan(plan) {
+    const out = {
+      id: plan.id, name: plan.name, page: plan.page, order: plan.order, premise: plan.premise, notes: plan.notes,
+      categories: plan.categories,
+      quests: plan.quests.map((q) => {
+        const o = { id: q.id, title: q.title, summary: q.summary, notes: q.notes };
+        o.follows = q.follows.map((f) => (f.label ? { id: f.id, kind: f.kind, label: f.label } : { id: f.id, kind: f.kind }));
+        o.events = q.events.map((e) => { const x = { id: e.id, title: e.title }; if (e.later) x.later = true; return x; });
+        o.statuses = {};
+        for (const c of plan.categories) o.statuses[c] = q.statuses[c];
+        o.mechanics = q.mechanics;
+        if (q.objective) o.objective = q.objective;
+        return o;
+      }),
+    };
+    return JSON.stringify(out, null, 2) + "\n";
+  }
+  const planIsObj = (x) => !!x && typeof x === "object" && !Array.isArray(x);
+  // Fills the defaults a hand-written file may leave out (missing text, statuses -> todo) without hiding malformed values.
+  function normalisePlan(raw) {
+    if (!planIsObj(raw)) return raw;
+    const plan = { ...raw };
+    if (plan.premise === undefined) plan.premise = "";
+    if (plan.notes === undefined) plan.notes = "";
+    if (plan.categories === undefined) plan.categories = [...PLAN_CATEGORIES];
+    if (Array.isArray(plan.quests)) plan.quests = plan.quests.map((q) => {
+      if (!planIsObj(q)) return q;
+      const n = { ...q };
+      for (const [k, d] of [["summary", ""], ["notes", ""], ["objective", ""], ["mechanics", "placeholder"]]) if (n[k] === undefined) n[k] = d;
+      if (n.follows === undefined) n.follows = [];
+      if (n.events === undefined) n.events = [];
+      if (Array.isArray(n.follows)) n.follows = n.follows.map((f) => (planIsObj(f) ? { id: f.id, kind: f.kind === undefined ? "parallel" : f.kind, label: f.label === undefined ? "" : f.label, ...f } : f));
+      if (Array.isArray(n.events)) n.events = n.events.map((e) => (planIsObj(e) ? { title: "", ...e } : e));
+      if (n.statuses === undefined) n.statuses = {};
+      if (planIsObj(n.statuses) && Array.isArray(plan.categories)) {
+        n.statuses = { ...n.statuses };
+        for (const c of plan.categories) if (n.statuses[c] === undefined) n.statuses[c] = "todo";
+      }
+      return n;
+    });
+    return plan;
+  }
+  // text -> {plan, errors}. plan is null when the text isn't JSON or isn't an object.
+  function parsePlan(text) {
+    let raw;
+    try { raw = JSON.parse(text); } catch (e) { return { plan: null, errors: ["not valid JSON: " + e.message] }; }
+    if (!planIsObj(raw)) return { plan: null, errors: ["the file must hold one JSON object"] };
+    const plan = normalisePlan(raw);
+    return { plan, errors: validatePlan(plan) };
+  }
+  // A quest id on a follows loop across `plans`, or null. Follows to ids no plan holds are ignored.
+  function planFindLoop(plans) {
+    const follows = new Map();
+    for (const p of plans) if (p && Array.isArray(p.quests)) for (const q of p.quests)
+      if (planIsObj(q) && Array.isArray(q.follows)) follows.set(q.id, q.follows.map((f) => f && f.id).filter((id) => typeof id === "string"));
+    const state = new Map();
+    const visit = (id) => {
+      if (!follows.has(id)) return null;
+      if (state.get(id) === 2) return null;
+      if (state.get(id) === 1) return id;
+      state.set(id, 1);
+      for (const n of follows.get(id)) { const hit = visit(n); if (hit) return hit; }
+      state.set(id, 2);
+      return null;
+    };
+    for (const id of follows.keys()) { const hit = visit(id); if (hit) return hit; }
+    return null;
+  }
+  // Problems with one plan, as strings (empty = fine). ctx (all optional): otherQuestIds (quest ids in other
+  // questlines, so cross-questline follows resolve), objectiveIds (hard-coded quests must name one of these).
+  function validatePlan(plan, ctx = {}) {
+    const errs = [];
+    if (!planIsObj(plan)) return ["the file must hold one JSON object"];
+    for (const k of Object.keys(plan)) if (!PLAN_PLAN_KEYS.includes(k)) errs.push(`unknown field "${k}"`);
+    const str = (v) => typeof v === "string";
+    if (!str(plan.id) || !PLAN_ID_RE.test(plan.id)) errs.push("id must be lower_snake_case");
+    if (!str(plan.name) || !plan.name.trim()) errs.push("name is required");
+    if (!str(plan.page) || !PLAN_ID_RE.test(plan.page)) errs.push("page must be a lower_snake_case ToDo page id");
+    if (!Number.isInteger(plan.order) || plan.order < 1) errs.push("order must be a whole number from 1");
+    if (!str(plan.premise)) errs.push("premise must be text");
+    if (!str(plan.notes)) errs.push("notes must be text");
+    const cats = Array.isArray(plan.categories) && plan.categories.length && plan.categories.every((c) => str(c) && c.trim()) && new Set(plan.categories).size === plan.categories.length;
+    if (!cats) errs.push("categories must be a non-empty list of distinct names");
+    if (!Array.isArray(plan.quests)) { errs.push("quests must be a list"); return errs; }
+    const ids = new Set(plan.quests.map((q) => planIsObj(q) ? q.id : null));
+    const outside = ctx.otherQuestIds ? new Set(ctx.otherQuestIds) : null;
+    const objectives = ctx.objectiveIds ? new Set(ctx.objectiveIds) : null;
+    const seen = new Set();
+    plan.quests.forEach((q, i) => {
+      if (!planIsObj(q)) { errs.push(`quest ${i + 1} must be an object`); return; }
+      const at = `quest ${str(q.id) && q.id ? q.id : i + 1}`;
+      for (const k of Object.keys(q)) if (!PLAN_QUEST_KEYS.includes(k)) errs.push(`${at}: unknown field "${k}"`);
+      if (!str(q.id) || !PLAN_ID_RE.test(q.id)) errs.push(`${at}: id must be lower_snake_case`);
+      else if (seen.has(q.id)) errs.push(`${at}: duplicate quest id`);
+      else seen.add(q.id);
+      if (!str(q.title) || !q.title.trim()) errs.push(`${at}: title is required`);
+      for (const k of ["summary", "notes", "objective"]) if (!str(q[k])) errs.push(`${at}: ${k} must be text`);
+      if (!PLAN_MECHANICS.includes(q.mechanics)) errs.push(`${at}: mechanics must be one of ${PLAN_MECHANICS.join(", ")}`);
+      else if (q.mechanics === "hardcoded" && !q.objective) errs.push(`${at}: a hardcoded quest needs its objective id`);
+      else if (q.mechanics !== "hardcoded" && q.objective) errs.push(`${at}: only a hardcoded quest has an objective id`);
+      else if (q.mechanics === "hardcoded" && objectives && !objectives.has(q.objective)) errs.push(`${at}: unknown objective "${q.objective}"`);
+      if (!Array.isArray(q.follows)) errs.push(`${at}: follows must be a list`);
+      else {
+        const fs = new Set();
+        for (const f of q.follows) {
+          if (!planIsObj(f) || !str(f.id)) { errs.push(`${at}: each follow needs an id`); continue; }
+          if (f.id === q.id) errs.push(`${at}: follows itself`);
+          else if (fs.has(f.id)) errs.push(`${at}: follows ${f.id} twice`);
+          else if (!ids.has(f.id) && outside && !outside.has(f.id)) errs.push(`${at}: follows unknown quest "${f.id}"`);
+          fs.add(f.id);
+          if (!PLAN_EDGES.includes(f.kind)) errs.push(`${at}: follow ${f.id} kind must be parallel or choice`);
+          if (!str(f.label)) errs.push(`${at}: follow ${f.id} label must be text`);
+        }
+      }
+      if (!Array.isArray(q.events)) errs.push(`${at}: events must be a list`);
+      else {
+        const es = new Set();
+        for (const e of q.events) {
+          if (!planIsObj(e) || !str(e.id) || !e.id.trim()) { errs.push(`${at}: each event needs an id`); continue; }
+          if (es.has(e.id)) errs.push(`${at}: event ${e.id} listed twice`);
+          es.add(e.id);
+          if (!str(e.title)) errs.push(`${at}: event ${e.id} title must be text`);
+        }
+      }
+      if (!planIsObj(q.statuses)) errs.push(`${at}: statuses must be an object`);
+      else {
+        for (const k of Object.keys(q.statuses)) if (cats && !plan.categories.includes(k)) errs.push(`${at}: status for unknown category "${k}"`);
+        if (cats) for (const c of plan.categories) {
+          if (!PLAN_STATUSES.includes(q.statuses[c])) errs.push(`${at}: ${c} status must be one of ${PLAN_STATUSES.join(", ")}`);
+        }
+      }
+    });
+    const loop = planFindLoop([plan]);
+    if (loop) errs.push(`follow loop through ${loop}`);
+    return errs;
+  }
+  // Problems across every plan: each plan's own, plus duplicate questline ids, duplicate quest ids, unresolved
+  // cross-questline follows and loops that span questlines. [{plan, errors}] for the plans with problems.
+  function validatePlans(plans, ctx = {}) {
+    const out = [];
+    const all = plans.filter((p) => planIsObj(p) && Array.isArray(p.quests));
+    const owner = new Map();
+    for (const p of all) for (const q of p.quests) if (planIsObj(q) && typeof q.id === "string") owner.set(q.id, (owner.get(q.id) || 0) + 1);
+    const lines = new Map();
+    for (const p of all) lines.set(p.id, (lines.get(p.id) || 0) + 1);
+    const loop = planFindLoop(all);
+    for (const p of plans) {
+      const errors = validatePlan(p, { ...ctx, otherQuestIds: [...owner.keys()] });
+      if (planIsObj(p)) {
+        if (lines.get(p.id) > 1) errors.push(`questline id ${p.id} is used by more than one file`);
+        for (const q of Array.isArray(p.quests) ? p.quests : []) if (planIsObj(q) && owner.get(q.id) > 1) errors.push(`quest id ${q.id} is used in more than one questline`);
+        if (loop && !errors.some((e) => e.startsWith("follow loop")) && Array.isArray(p.quests) && p.quests.some((q) => planIsObj(q) && q.id === loop)) errors.push(`follow loop through ${loop}`);
+      }
+      if (errors.length) out.push({ plan: p, errors });
+    }
+    return out;
+  }
+  // Problems with the fields of a questline being created (or, with `self`, edited), against the other plans.
+  function checkQuestlineFields(f, others, self) {
+    const errs = [];
+    if (!String(f.name || "").trim()) errs.push("Name is required.");
+    if (!self) {
+      if (!f.id || !PLAN_ID_RE.test(f.id)) errs.push("The name has no usable letters for an id.");
+      else if (others.some((p) => p.id === f.id)) errs.push(`Id ${f.id} is already used.`);
+    }
+    if (!PLAN_ID_RE.test(String(f.page || ""))) errs.push("ToDo page must be lower_snake_case (letters, digits, underscores).");
+    if (!Number.isInteger(f.order) || f.order < 1) errs.push("Act order must be a whole number from 1.");
+    return errs;
+  }
+  // Per category: how many quests are done out of those that need it (n/a quests don't count).
+  function planRollups(plan) {
+    return plan.categories.map((category) => {
+      let done = 0, total = 0;
+      for (const q of plan.quests) {
+        const s = q.statuses[category];
+        if (s === "na") continue;
+        total++;
+        if (s === "done") done++;
+      }
+      return { category, done, total };
+    });
+  }
+  const planCycleStatus = (s) => PLAN_STATUSES[(PLAN_STATUSES.indexOf(s) + 1) % PLAN_STATUSES.length];
+  const planDataQuests = (plan) => plan.quests.filter((q) => q.mechanics === "data");
+  const planCanDelete = (plan) => planDataQuests(plan).length === 0;
+  // [{page, plans}]: pages in `pageOrder` first (the game's ToDo order), then the rest alphabetically; plans by act order.
+  function planGroups(plans, pageOrder) {
+    const pages = [...new Set(plans.map((p) => p.page))];
+    const rank = (pg) => { const i = pageOrder.indexOf(pg); return i < 0 ? pageOrder.length : i; };
+    pages.sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
+    return pages.map((page) => ({ page, plans: plans.filter((p) => p.page === page).sort((a, b) => a.order - b.order || a.name.localeCompare(b.name)) }));
+  }
+  /* ---------- End planning model ---------- */
   class StaleError extends Error {
     constructor(path) { super(`${splitPath(path).join("/")} changed elsewhere`); this.name = "StaleError"; this.stale = true; }
   }
@@ -1575,6 +1848,7 @@ function checkOddsBlock(opt, changed, restructure) {
   async function openRepo() {
     for (const id of ["refresh", "new-board", "prose-open"]) $(id).hidden = false;
     await loadAll();
+    await loadPlans();
   }
   // Server mode: served by storyboard_server.js. Token comes from ?t= once (kept in localStorage, stripped from the URL).
   const TOKEN_KEY = "vein-sb-token";
@@ -7096,6 +7370,262 @@ function checkOddsBlock(opt, changed, restructure) {
   };
   setGameView((() => { try { return localStorage.getItem("vein-sb-gameview") === "1"; } catch { return false; } })());
   $("gameview").addEventListener("click", () => setGameView($("gameview").getAttribute("aria-pressed") !== "true"));
+  // ---- Quests tab: questline list and planning-file autosave -----------------
+  const QL_DIR = [".scratch", "questlines"];
+  const QL_LAST_KEY = "vein-sb-questline";
+  const SAVE_DELAY_MS = 1000;
+  // One entry per file: {file, plan, errors, version, pending: {descs, timer}|null, conflict: {descs}|null, chain}.
+  let plans = [];
+  let todoPages = [];
+  let openLine = null; // id of the questline whose details are showing, or null for the list
+  const lastLine = () => { try { return localStorage.getItem(QL_LAST_KEY); } catch { return null; } };
+  const rememberLine = (id) => { try { localStorage.setItem(QL_LAST_KEY, id); } catch {} };
+  const lineEntry = (id) => plans.find((e) => e.plan && e.plan.id === id && !e.errors.length);
+
+  async function loadPlans() {
+    if (!storage) return;
+    const todo = await readJSON(["data", "todo.json"]);
+    todoPages = todo && todo.questlines ? Object.keys(todo.questlines) : [];
+    let names = [];
+    try { names = (await fileNamesIn(QL_DIR)).filter((n) => /\.json$/.test(n)).sort(); } catch {}
+    const prev = new Map(plans.map((e) => [e.file, e]));
+    const out = [];
+    let changed = names.length !== plans.length;
+    for (const file of names) {
+      const old = prev.get(file);
+      if (old && (old.pending || old.conflict)) { out.push(old); continue; } // unsaved or refused edits stay until reloaded
+      const r = await storage.read([...QL_DIR, file]);
+      if (!r) continue;
+      if (old && old.version === r.version) { out.push(old); continue; }
+      changed = true;
+      const { plan, errors } = parsePlan(r.text);
+      out.push({ file, plan, own: errors, errors, version: r.version, pending: null, conflict: null });
+    }
+    plans = out;
+    // Cross-file problems (duplicate ids, loops) go on the files they concern.
+    const ok = out.filter((e) => e.plan && !e.own.length);
+    for (const e of out) e.errors = e.own;
+    const objectives = await readJSON(["data", "objectives.json"]);
+    const objectiveIds = objectives && typeof objectives === "object" ? Object.keys(objectives) : null;
+    for (const { plan, errors } of validatePlans(ok.map((e) => e.plan), objectiveIds ? { objectiveIds } : {}))
+      ok.find((e) => e.plan === plan).errors = errors;
+    if (openLine && !lineEntry(openLine)) { openLine = null; changed = true; }
+    // Re-rendering would drop focus from a field being edited, so only do it when a file actually changed.
+    if (changed || $("q-root").childElementCount === 0) renderQuests(); else renderQuestBanner();
+  }
+
+  function queuePlanSave(entry, desc) {
+    const p = entry.pending || (entry.pending = { descs: [], timer: null });
+    if (p.descs.at(-1) !== desc) p.descs.push(desc);
+    clearTimeout(p.timer);
+    showSave("saving");
+    p.timer = setTimeout(() => flushPlan(entry), SAVE_DELAY_MS);
+  }
+  // Writes the plan if edits are waiting; one write at a time per file, each version-checked against the last.
+  function flushPlan(entry) {
+    entry.chain = (entry.chain || Promise.resolve()).then(async () => {
+      const p = entry.pending; if (!p) return;
+      clearTimeout(p.timer); entry.pending = null;
+      try {
+        entry.version = await storage.write([...QL_DIR, entry.file], serialisePlan(entry.plan), entry.version);
+        showSave("saved");
+      } catch (e) {
+        if (e && e.stale) { entry.conflict = { descs: p.descs }; showSave("conflict"); }
+        else { entry.pending = p; p.timer = null; showSave("failed"); setNote(`Couldn't save ${entry.file}: ${e && e.message}`); }
+        renderQuestBanner();
+      }
+    });
+    return entry.chain;
+  }
+  const flushAllPlans = () => Promise.all(plans.filter((e) => e.pending).map(flushPlan));
+
+  function renderQuestBanner() {
+    const box = $("q-banner"); box.replaceChildren();
+    for (const e of plans.filter((x) => x.conflict)) {
+      const reload = el("button", { type: "button", class: "q-btn primary", text: "Reload" });
+      reload.addEventListener("click", () => { e.conflict = null; loadPlans(); renderQuestBanner(); });
+      box.append(el("section", { class: "q-card warn", role: "alert", "aria-label": "Conflict banner" },
+        el("h2", { text: "Changed elsewhere: reload" }),
+        el("p", { text: `${e.plan ? e.plan.name : e.file} changed on disk since you opened it, from another device or Claude. Your last change wasn't saved:` }),
+        el("div", { class: "q-change", text: e.conflict.descs.join("\n"), style: "white-space: pre-wrap" }),
+        el("p", { class: "muted", text: "Reload, then redo it." }),
+        el("div", { class: "q-actions" }, reload)));
+    }
+  }
+
+  function rollBars(plan) {
+    const box = el("div", { class: "q-rolls" });
+    for (const r of planRollups(plan)) {
+      box.append(el("div", { class: "q-roll", title: `${r.category} ${r.done}/${r.total} done` },
+        el("span", { text: `${r.category[0]} ${r.done}/${r.total}` }),
+        el("div", { class: "q-bar" }, el("i", { style: `width:${r.total ? Math.round((100 * r.done) / r.total) : 0}%` }))));
+    }
+    return box;
+  }
+  function renderQuests() {
+    const root = $("q-root"); if (!root) return;
+    root.replaceChildren();
+    renderQuestBanner();
+    if (!storage) { root.append(el("p", { class: "muted", text: "Open the repo folder to plan questlines." })); return; }
+    if (openLine && lineEntry(openLine)) { renderQuestlineDetails(root, lineEntry(openLine)); return; }
+    const add = el("button", { type: "button", class: "q-btn primary", text: "+ Questline" });
+    add.addEventListener("click", openNewQuestline);
+    root.append(el("div", { class: "q-head" }, el("h1", { text: "Questlines" }), add));
+    const good = plans.filter((e) => e.plan && !e.errors.length);
+    if (!plans.length) root.append(el("p", { class: "muted", text: "No questlines yet. Add one to start planning." }));
+    for (const g of planGroups(good.map((e) => e.plan), todoPages)) {
+      const sec = el("section", { class: "q-page" }, el("h2", { text: g.page }));
+      for (const plan of g.plans) {
+        const row = el("button", { type: "button", class: "q-row" + (plan.id === lastLine() ? " last" : "") },
+          el("span", { class: "q-row-top" }, el("span", { class: "q-row-name", text: plan.name }),
+            el("span", { class: "q-row-count", text: `${plan.quests.length} quests` })),
+          plan.premise ? el("span", { class: "q-row-premise", text: plan.premise }) : null,
+          rollBars(plan));
+        row.addEventListener("click", () => { openLine = plan.id; rememberLine(plan.id); renderQuests(); });
+        sec.append(row);
+      }
+      root.append(sec);
+    }
+    const bad = plans.filter((e) => !e.plan || e.errors.length);
+    if (bad.length) {
+      const sec = el("section", { class: "q-page" }, el("h2", { text: "Files with problems" }));
+      for (const e of bad) sec.append(el("div", { class: "q-row bad" },
+        el("span", { class: "q-row-name mono", text: e.file }),
+        ...e.errors.slice(0, 4).map((m) => el("span", { class: "q-row-premise", text: m }))));
+      root.append(sec);
+    }
+  }
+
+  // The ToDo page chooser: a select of known pages plus "New page…" with a text box. get() returns the page id.
+  function pageField(current, others) {
+    const pages = [...new Set([...todoPages, ...others.map((p) => p.page)])];
+    const sel = el("select", { "aria-label": "ToDo page" });
+    for (const pg of pages) sel.append(el("option", { value: pg, text: pg }));
+    sel.append(el("option", { value: "", text: "New page…" }));
+    const fresh = el("input", { type: "text", autocomplete: "off", placeholder: "new_page_id", "aria-label": "New ToDo page id", hidden: true });
+    const sync = () => { fresh.hidden = sel.value !== ""; };
+    sel.value = pages.includes(current) ? current : (pages.length && current ? "" : (pages[0] ?? ""));
+    if (!pages.includes(current) && current) fresh.value = current;
+    sync();
+    sel.addEventListener("change", () => { sync(); if (!fresh.hidden) fresh.focus(); });
+    return { nodes: [sel, fresh], inputs: [sel, fresh], get: () => (sel.value !== "" ? sel.value : fresh.value.trim()) };
+  }
+
+  function openNewQuestline() {
+    const dlg = $("q-new");
+    const others = plans.filter((e) => e.plan).map((e) => e.plan);
+    const name = el("input", { type: "text", autocomplete: "off", "aria-label": "Questline name" });
+    const idNote = el("span", { class: "mono muted" });
+    const page = pageField("", others);
+    const onPage = () => others.filter((p) => p.page === page.get());
+    const order = el("input", { type: "number", min: "1", step: "1", inputmode: "numeric", "aria-label": "Act order on the page" });
+    const premise = el("input", { type: "text", autocomplete: "off", "aria-label": "One-line premise" });
+    const notes = el("textarea", { rows: "3", "aria-label": "Notes" });
+    const err = el("p", { class: "q-err", role: "alert" });
+    let orderTouched = false;
+    const idNow = () => planUniqueId(planSlug(name.value), others.map((p) => p.id));
+    const sync = () => {
+      idNote.textContent = "id: " + (idNow() || "—");
+      if (!orderTouched) order.value = String(onPage().reduce((m, p) => Math.max(m, p.order), 0) + 1);
+    };
+    name.addEventListener("input", sync);
+    order.addEventListener("input", () => { orderTouched = true; });
+    for (const n of page.inputs) { n.addEventListener("change", sync); n.addEventListener("input", sync); }
+    const cancel = el("button", { type: "button", class: "q-btn", text: "Cancel" });
+    const create = el("button", { type: "submit", class: "q-btn primary", text: "Create questline" });
+    cancel.addEventListener("click", () => dlg.close());
+    const form = el("form", { class: "q-form", method: "dialog" },
+      el("h2", { id: "q-new-title", text: "New questline" }),
+      el("label", {}, "Name", name, idNote),
+      el("label", {}, "ToDo page", ...page.nodes),
+      el("label", {}, "Act order on that page", order),
+      el("label", {}, "Premise (one line)", premise),
+      el("label", {}, "Notes", notes),
+      err,
+      el("div", { class: "q-actions" }, cancel, create));
+    form.addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      const fields = { name: name.value.trim(), id: idNow(), page: page.get(), order: Number(order.value) };
+      const errs = checkQuestlineFields(fields, others, null);
+      if (errs.length) { err.textContent = errs.join(" "); return; }
+      create.disabled = true;
+      try { await createQuestline({ ...fields, premise: premise.value.trim(), notes: notes.value.trim() }); dlg.close(); }
+      catch (e) { err.textContent = e && e.stale ? "A file for that questline already exists. Reload and try again." : "Couldn't save: " + (e && e.message); create.disabled = false; }
+    });
+    dlg.replaceChildren(form);
+    sync();
+    dlg.showModal();
+    name.focus();
+  }
+  async function createQuestline(fields) {
+    const plan = newQuestline(fields);
+    const file = plan.id + ".json";
+    showSave("saving");
+    let version;
+    try { version = await storage.write([...QL_DIR, file], serialisePlan(plan), null); }
+    catch (e) { showSave(e && e.stale ? "conflict" : "failed"); throw e; }
+    showSave("saved");
+    plans.push({ file, plan, own: [], errors: [], version, pending: null, conflict: null });
+    openLine = plan.id; rememberLine(plan.id);
+    renderQuests();
+  }
+
+  // Name, page, order, premise and notes of one questline, plus delete. Edits save through queuePlanSave.
+  function renderQuestlineDetails(root, entry) {
+    const plan = entry.plan;
+    const others = plans.filter((e) => e !== entry && e.plan).map((e) => e.plan);
+    const back = el("button", { type: "button", class: "q-back", text: "‹ Questlines" });
+    back.addEventListener("click", () => { openLine = null; renderQuests(); });
+    const err = el("p", { class: "q-err", role: "alert" });
+    const edit = (label, apply) => {
+      const fields = { name: plan.name, page: plan.page, order: plan.order };
+      apply(fields);
+      const errs = checkQuestlineFields(fields, others, plan);
+      err.textContent = errs.join(" ");
+      if (errs.length) return;
+      Object.assign(plan, fields);
+      queuePlanSave(entry, `${plan.name} · ${label} edited`);
+    };
+    const name = el("input", { type: "text", autocomplete: "off", value: plan.name, "aria-label": "Questline name" });
+    name.addEventListener("input", () => edit("name", (f) => { f.name = name.value.trim(); }));
+    const page = pageField(plan.page, others);
+    const order = el("input", { type: "number", min: "1", step: "1", inputmode: "numeric", value: String(plan.order), "aria-label": "Act order on the page" });
+    const premise = el("input", { type: "text", autocomplete: "off", value: plan.premise, "aria-label": "One-line premise" });
+    premise.addEventListener("input", () => { plan.premise = premise.value; queuePlanSave(entry, `${plan.name} · premise edited`); });
+    const notes = el("textarea", { rows: "4", "aria-label": "Notes" }); notes.value = plan.notes;
+    notes.addEventListener("input", () => { plan.notes = notes.value; queuePlanSave(entry, `${plan.name} · notes edited`); });
+    for (const n of page.inputs) { n.addEventListener("input", () => edit("page", (f) => { f.page = page.get(); })); n.addEventListener("change", () => edit("page", (f) => { f.page = page.get(); })); }
+    order.addEventListener("input", () => edit("act order", (f) => { f.order = order.value === "" ? NaN : Number(order.value); }));
+    const del = el("button", { type: "button", class: "q-btn danger", text: "Delete questline" });
+    const blocked = !planCanDelete(plan);
+    if (blocked) { del.disabled = true; del.title = "It has data-driven quests, which live in game data. Remove those first."; }
+    del.addEventListener("click", async () => {
+      if (!confirm(`Delete questline "${plan.name}" and its planning file? The game isn't affected.`)) return;
+      clearTimeout(entry.pending && entry.pending.timer); entry.pending = null;
+      showSave("saving");
+      try { await entry.chain; await storage.remove([...QL_DIR, entry.file]); }
+      catch (e) { showSave("failed"); err.textContent = "Couldn't delete: " + (e && e.message); return; }
+      showSave("saved");
+      plans = plans.filter((e) => e !== entry); openLine = null;
+      try { if (lastLine() === plan.id) localStorage.removeItem(QL_LAST_KEY); } catch {}
+      renderQuests();
+    });
+    root.append(back,
+      el("div", { class: "q-head" }, el("h1", { text: plan.name })),
+      el("p", { class: "mono muted", text: `id ${plan.id} · ${plan.quests.length} quests` }),
+      rollBars(plan),
+      el("div", { class: "q-form" },
+        el("label", {}, "Name", name),
+        el("label", {}, "ToDo page", ...page.nodes),
+        el("label", {}, "Act order on that page", order),
+        el("label", {}, "Premise (one line)", premise),
+        el("label", {}, "Notes", notes),
+        err,
+        el("div", { class: "q-actions" }, del),
+        blocked ? el("p", { class: "muted", text: "Can't delete: it has data-driven quests." }) : null));
+  }
+  document.addEventListener("visibilitychange", () => { if (document.hidden) flushAllPlans(); });
+
   $("open").addEventListener("click", openFolder);
   $("refresh").addEventListener("click", () => { if (!root) return; if (proseOn) loadProse(); else loadAll(); });
   $("prose-open").addEventListener("click", () => { proseOn = true; loadProse(); });
@@ -7104,7 +7634,7 @@ function checkOddsBlock(opt, changed, restructure) {
   $("nb-create").addEventListener("click", createBoard);
   $("nb-close").addEventListener("click", () => $("newboard").close());
   // Claude edits board.json between rounds: pick that up when the window regains focus.
-  window.addEventListener("focus", () => { if (root && !typing()) loadAll(); });
+  window.addEventListener("focus", () => { if (root && !typing()) { loadAll(); loadPlans(); } });
 
   detectServer().then((srv) => {
     if (srv) { useServer(srv.token); return; }
