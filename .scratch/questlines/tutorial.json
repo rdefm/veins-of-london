@@ -21,11 +21,13 @@
       "events": [
         {
           "id": "cold_open_legacy",
-          "title": "cold open legacy"
+          "title": "cold open legacy",
+          "seen": "live"
         },
         {
           "id": "prologue_cold_open",
-          "title": "prologue cold open"
+          "title": "prologue cold open",
+          "seen": "live"
         }
       ],
       "statuses": {
@@ -51,7 +53,8 @@
       "events": [
         {
           "id": "prologue_pub",
-          "title": "prologue pub"
+          "title": "prologue pub",
+          "seen": "live"
         }
       ],
       "statuses": {
@@ -77,7 +80,8 @@
       "events": [
         {
           "id": "prologue_buyer",
-          "title": "prologue buyer"
+          "title": "prologue buyer",
+          "seen": "live"
         }
       ],
       "statuses": {
@@ -103,7 +107,8 @@
       "events": [
         {
           "id": "prologue_james_meeting",
-          "title": "prologue james meeting"
+          "title": "prologue james meeting",
+          "seen": "live"
         }
       ],
       "statuses": {
@@ -129,7 +134,8 @@
       "events": [
         {
           "id": "prologue_gym",
-          "title": "prologue gym"
+          "title": "prologue gym",
+          "seen": "live"
         }
       ],
       "statuses": {
@@ -155,7 +161,8 @@
       "events": [
         {
           "id": "prologue_archie_sells_pearls",
-          "title": "prologue archie sells pearls"
+          "title": "prologue archie sells pearls",
+          "seen": "live"
         }
       ],
       "statuses": {
@@ -181,15 +188,18 @@
       "events": [
         {
           "id": "prologue_home_raid_debrief_loss",
-          "title": "prologue home raid debrief loss"
+          "title": "prologue home raid debrief loss",
+          "seen": "live"
         },
         {
           "id": "prologue_home_raid_debrief_win",
-          "title": "prologue home raid debrief win"
+          "title": "prologue home raid debrief win",
+          "seen": "live"
         },
         {
           "id": "prologue_home_raid_intro",
-          "title": "prologue home raid intro"
+          "title": "prologue home raid intro",
+          "seen": "live"
         }
       ],
       "statuses": {
@@ -215,7 +225,8 @@
       "events": [
         {
           "id": "prologue_archie_cultivation",
-          "title": "prologue archie cultivation"
+          "title": "prologue archie cultivation",
+          "seen": "live"
         }
       ],
       "statuses": {
@@ -241,7 +252,8 @@
       "events": [
         {
           "id": "prologue_ending",
-          "title": "prologue ending"
+          "title": "prologue ending",
+          "seen": "live"
         }
       ],
       "statuses": {
