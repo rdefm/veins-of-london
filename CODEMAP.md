@@ -416,5 +416,5 @@ M1.5-NETWORK-MAP.md, CONTENT-GUIDE.md, CONTEXT.md, docs/adr/. Not in that table:
 `BUGS.md`, `BUGHUNT-2026-07-17.md`, `android-setup.md`, `agents/*.md` (see CLAUDE.md's Agent
 skills section). `docs/adr/0001`–`0005`: Network Map deferral, site/NPC-claim rules, app-icon
 contract, NPC-vein abandonment removal, event-image contract.
-`storyboard.html` Quests tab: questline list grouped by ToDo page (quest count, per-category roll-ups), "+ Questline", and per-questline details (name, page, act order, premise, notes, delete unless it has data-driven quests). Pure "Planning model" section (parse/serialise/validate, roll-ups, grouping) tested by `test_storyboard.js`.
+`storyboard.html` Quests tab: questline list grouped by ToDo page (quest count, per-category roll-ups), "+ Questline", and a read-only auto-laid-out questline map (layers, choice forks, cross-questline stubs, "highlight not done" filter) with collapsible details (name, page, act order, premise, notes, delete unless it has data-driven quests). Pure "Planning model" section (parse/serialise/validate, roll-ups, grouping, layout, filter) tested by `test_storyboard.js`.
 `.scratch/questlines/<id>.json`: one planning file per questline, tool-only (the game never loads them). The Quests tab autosaves ~1s after an edit via version-checked write; a refused save shows a "Changed elsewhere: reload" banner.

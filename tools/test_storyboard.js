@@ -3072,7 +3072,8 @@ const planStart = html.indexOf("/* ---------- Planning model (pure) ---------- *
 assert(planStart !== -1 && planEnd !== -1, "could not locate planning model markers in storyboard.html");
 const PM = new Function(html.slice(planStart, planEnd) + [
   "return { planSlug, planUniqueId, newQuestline, newPlanQuest, serialisePlan, parsePlan, validatePlan, validatePlans,",
-  "  checkQuestlineFields, planRollups, planCycleStatus, planCanDelete, planGroups, PLAN_STATUSES, PLAN_CATEGORIES };"].join("\n"))();
+  "  checkQuestlineFields, planRollups, planCycleStatus, planCanDelete, planGroups, planLayout, planFilter, PLAN_NODE,",
+  "  PLAN_STATUSES, PLAN_CATEGORIES };"].join("\n"))();
 
 function samplePlan() {
   const p = PM.newQuestline({ name: "Collective Act 2", page: "collective", order: 2, premise: "Hakim is off.", notes: "n" });
@@ -3185,6 +3186,73 @@ test("questlines group by ToDo page in game order, acts by order", () => {
     ["tutorial", "collective", "business_empire"]);
   assert.deepStrictEqual(g.map((x) => x.page), ["tutorial", "collective", "alpha", "zeta"]);
   assert.deepStrictEqual(g[1].plans.map((p) => p.name), ["C1", "C2"]);
+});
+
+// Builds a plan from [id, [followId | [followId, "choice", label]...]] rows.
+function layoutPlan(rows, name = "Line", id = "line") {
+  const p = PM.newQuestline({ name, id, page: "p", order: 1 });
+  for (const [qid, fs] of rows) {
+    const q = PM.newPlanQuest(p, qid, qid.toUpperCase());
+    q.follows = fs.map((f) => (Array.isArray(f) ? { id: f[0], kind: f[1], label: f[2] || "" } : { id: f, kind: "parallel", label: "" }));
+    p.quests.push(q);
+  }
+  return p;
+}
+const nodeOf = (lay, id) => lay.nodes.find((n) => n.id === id);
+
+test("layout: a chain stacks top to bottom in one column", () => {
+  const lay = PM.planLayout(layoutPlan([["a", []], ["b", ["a"]], ["c", ["b"]]]));
+  assert.deepStrictEqual(lay.nodes.map((n) => n.layer), [0, 1, 2]);
+  assert.strictEqual(new Set(lay.nodes.map((n) => n.x)).size, 1);
+  assert(nodeOf(lay, "b").y > nodeOf(lay, "a").y && nodeOf(lay, "c").y > nodeOf(lay, "b").y);
+});
+
+test("layout: parallel branches sit side by side, a converge sits below both", () => {
+  const lay = PM.planLayout(layoutPlan([["a", []], ["b", ["a"]], ["c", ["a"]], ["d", ["b", "c"]]]));
+  const [b, c, d] = ["b", "c", "d"].map((id) => nodeOf(lay, id));
+  assert.strictEqual(b.layer, 1); assert.strictEqual(c.layer, 1); assert.strictEqual(d.layer, 2);
+  assert.strictEqual(b.y, c.y);
+  assert(c.x - b.x >= PM.PLAN_NODE.w, "branches don't overlap");
+  assert(lay.edges.every((e) => e.kind === "parallel"));
+});
+
+test("layout: the layer is the longest follows path", () => {
+  const lay = PM.planLayout(layoutPlan([["a", []], ["b", ["a"]], ["c", ["b"]], ["d", ["a", "c"]]]));
+  assert.strictEqual(nodeOf(lay, "d").layer, 3);
+});
+
+test("layout: choice forks are marked and keep their labels", () => {
+  const lay = PM.planLayout(layoutPlan([["h", []], ["v", [["h", "choice", "vouch"]]], ["s", [["h", "choice", "sell out"]]]]));
+  assert.strictEqual(nodeOf(lay, "h").fork, true);
+  assert.strictEqual(nodeOf(lay, "v").fork, false);
+  assert.deepStrictEqual(lay.edges.map((e) => [e.kind, e.label]), [["choice", "vouch"], ["choice", "sell out"]]);
+  assert.strictEqual(nodeOf(lay, "v").y, nodeOf(lay, "s").y);
+});
+
+test("layout: a follow into another questline becomes a stub, not an edge", () => {
+  const other = layoutPlan([["z", []]], "Collective Act 1", "col_1");
+  const mine = layoutPlan([["a", ["z"]], ["b", ["a"]]]);
+  const lay = PM.planLayout(mine, [other]);
+  assert.deepStrictEqual(nodeOf(lay, "a").stubs, [{ questId: "z", lineId: "col_1", lineName: "Collective Act 1" }]);
+  assert.strictEqual(nodeOf(lay, "a").layer, 0);
+  assert.deepStrictEqual(lay.edges.map((e) => [e.from, e.to]), [["a", "b"]]);
+  assert(nodeOf(lay, "a").y >= PM.PLAN_NODE.stubRoom, "room above for the stub");
+  assert.deepStrictEqual(nodeOf(PM.planLayout(mine, []), "a").stubs, [], "unknown quest: no stub");
+});
+
+test("layout: same input, same picture; empty plan is empty", () => {
+  const p = layoutPlan([["a", []], ["b", ["a"]], ["c", ["a"]]]);
+  assert.deepStrictEqual(PM.planLayout(p), PM.planLayout(JSON.parse(JSON.stringify(p))));
+  const e = PM.planLayout(layoutPlan([]));
+  assert.deepStrictEqual([e.nodes.length, e.width, e.height], [0, 0, 0]);
+});
+
+test("filter: highlights quests whose category isn't done; done and n/a dim", () => {
+  const p = layoutPlan([["a", []], ["b", []], ["c", []], ["d", []]]);
+  ["done", "na", "doing", "todo"].forEach((s, i) => { p.quests[i].statuses.Art = s; });
+  assert.deepStrictEqual(PM.planFilter(p, "Art"), { a: "dim", b: "dim", c: "hi", d: "hi" });
+  assert.deepStrictEqual(PM.planFilter(p, ""), {});
+  assert.deepStrictEqual(PM.planFilter(p, "Nope"), {});
 });
 
 test("committed planning files are valid against the real objectives", () => {
