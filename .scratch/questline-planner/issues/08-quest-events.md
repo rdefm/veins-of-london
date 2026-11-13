@@ -10,12 +10,15 @@
 
 The file format keeps the later-use "fires on start" flag, with no UI. State resolution works from provided lists of live ids and draft ids.
 
+**Mockup:** https://claude.ai/artifact/2iHxNhNundq3VL5EiGMmvv, saved copy in `.scratch/questline-planner/mockup/` (see its README). Artboards: `QuestSheet.dc.html` (Events section: drag handle, title over id, state chip, Create draft on planned, remove ✕, "Pick event or draft…" and "+ Planned"). Build to match the mockup's layout, labels, controls and styling. Its quest content is sample data.
+
 **Blocked by:** 06 — Quest sheet: fields, statuses, mechanics state, undo.
 
 **Relevant files:** `tools/storyboard.html` (planning-model section; `LIVE_EVENTS_DIR`, `PROPOSALS_DIR`, `blankBoard`, `openOrImport`, `liveEventOptions`, the new-board flow behind `#new-board`), `tools/test_storyboard.js`, `data/events/`, `.scratch/writing-revamp/`, `.scratch/questline-planner/spec.md` (§ Events).
 
 **Status:** ready-for-agent
 
+- [ ] Human check: Events section matches the mockup
 - [ ] Node tests: add, reorder and remove entries; state resolution for live, draft, planned and stale
 - [ ] Create draft makes a board with the planned id and title, and the entry then resolves as draft
 - [ ] Human check: pick a live event, add a planned one, Create draft and land in the new board, tap an entry to open it

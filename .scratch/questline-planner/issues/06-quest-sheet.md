@@ -9,12 +9,15 @@ Sheet order: title + id, summary, events (placeholder, filled in by 08), flow (r
 - **Statuses.** One per configured category. Tap to cycle, long-press to pick a value.
 - **Undo.** Every planning edit can be undone within the session.
 
+**Mockup:** https://claude.ai/artifact/2iHxNhNundq3VL5EiGMmvv, saved copy in `.scratch/questline-planner/mockup/` (see its README). Artboards: `QuestSheet.dc.html` (section order, title/id lock, mechanics box, 2×2 status tiles, notes), `PhoneSheet.dc.html` (bottom sheet), `Laptop.dc.html` (400px side panel), `States.dc.html` (status picker). Build to match the mockup's layout, labels, controls and styling. Its quest content is sample data.
+
 **Blocked by:** 05 — Read-only questline map.
 
 **Relevant files:** `tools/storyboard.html` (planning-model section: rename/re-id with the fixed-id rule, set/cycle status; `makeHistory` for undo snapshots; the Undo button and Ctrl+Z handling), `tools/test_storyboard.js`, `.scratch/questline-planner/spec.md` (§ The quest sheet, § Statuses).
 
 **Status:** ready-for-agent
 
+- [ ] Human check: Sheet, bottom sheet, side panel and status picker match the mockup
 - [ ] Node tests: re-id allowed only before mechanics or draft/live events, rejected on a duplicate id across questlines; status set and cycle
 - [ ] Undo restores the previous planning snapshot and autosaves
 - [ ] Human check (phone): sheet opens and closes by swipe and by ✕, long-press picker works, targets are thumb-sized. Laptop: side panel shows the map alongside

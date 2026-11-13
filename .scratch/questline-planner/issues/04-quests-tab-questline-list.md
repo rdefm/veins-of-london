@@ -14,12 +14,15 @@ This ticket also lays the foundation the later Quests tickets build on:
 
 The Quests tab must be usable at phone width with no page side-scroll, use thumb-sized targets, and follow the storyboard's palette tokens and light/dark handling.
 
+**Mockup:** https://claude.ai/artifact/2iHxNhNundq3VL5EiGMmvv, saved copy in `.scratch/questline-planner/mockup/` (see its README). Artboards: `Main.dc.html` (questline list), `PhoneMap.dc.html` (header save indicator), `States.dc.html` (save indicator states, conflict banner). Build to match the mockup's layout, labels, controls and styling. Its quest content is sample data.
+
 **Blocked by:** 01 — Storage interface, folder-picker backend.
 
 **Relevant files:** `tools/storyboard.html` (`TABS`/`showTab` and the `.tabs` markup; `makeHistory`; the draft-model markers as the pattern; the `focus` reload listener; palette tokens in `:root`), `tools/test_storyboard.js` (extraction pattern for a new "Planning model (pure)" marker pair), `data/todo.json` (`questlines` = ToDo page ids), new `.scratch/questlines/`, `CODEMAP.md` (planning-files row; storyboard row mentions the Quests tab), `.scratch/questline-planner/spec.md` (§ Planning data, § Planning model, § Quests tab UI).
 
 **Status:** ready-for-agent
 
+- [ ] Human check: List rows, save indicator and conflict banner match the mockup
 - [ ] Node tests: planning-file round trip, validation errors for malformed files, roll-ups
 - [ ] Create / edit / delete questline works; delete is blocked when the questline has data-driven quests
 - [ ] Autosave writes with the version check; a conflict shows the reload banner and the refused change

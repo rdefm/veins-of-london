@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Dialogs and save states</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500;700&amp;family=Atkinson+Hyperlegible:wght@400;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap">
+<style>
+body{margin:0}
+.light{--bg:#eceef1;--surface:#f8f9fa;--sunk:#dfe2e7;--fg:#1a1d23;--muted:#5b6270;--line:#c9ced6;--accent:#946512;--accent-ink:#fff8e8;--hold:#56627a;--ok:#2e7a45;--warn:#a2402e}
+.st-card{display:flex;flex-direction:column;gap:12px;padding:16px;border:1px solid var(--line);border-radius:14px;background:var(--surface);box-shadow:0 6px 18px rgba(0,0,0,.08)}
+.st-cap{margin:0;font:600 11px/1 'JetBrains Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.st-h{margin:0;font:700 17px/1.2 'Pixelify Sans',monospace}
+.st-opt{display:flex;align-items:center;gap:10px;min-height:44px;padding:0 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);font-size:14px}
+.st-opt.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.st-opt.off{opacity:.5}
+.st-in{min-height:44px;box-sizing:border-box;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--fg);padding:0 12px;font:15px 'Atkinson Hyperlegible',sans-serif;width:100%}
+.st-btn{min-height:44px;padding:0 16px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--fg);font:600 14px 'Atkinson Hyperlegible',sans-serif}
+.st-btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.st-btn.danger{background:var(--warn);border-color:var(--warn);color:#fff}
+.st-pill{display:inline-flex;align-items:center;gap:6px;font:600 12px 'JetBrains Mono',monospace;padding:6px 10px;border-radius:999px;background:var(--sunk)}
+.dot{width:10px;height:10px;border-radius:50%;border:1.5px solid var(--muted);box-sizing:border-box;display:inline-block}
+.dot.done{background:var(--ok);border-color:var(--ok)}
+.dot.review{border-color:var(--hold);background:radial-gradient(circle,var(--hold) 0 35%,transparent 40%)}
+.dot.doing{border-color:var(--accent);background:linear-gradient(90deg,var(--accent) 50%,transparent 50%)}
+.dot.na{border-style:dotted;opacity:.55}
+.mono{font:12px 'JetBrains Mono',monospace}
+</style>
+</helmet>
+<div class="light" style="width: 1100px; height: 844px; box-sizing: border-box; padding: 24px; background: var(--bg); color: var(--fg); font-family: 'Atkinson Hyperlegible', system-ui, sans-serif; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; align-items: start">
+
+  <div style="display: flex; flex-direction: column; gap: 20px">
+    <section class="st-card" aria-label="Add branch dialog">
+      <p class="st-cap">+ Branch from “Meet the handler”</p>
+      <h2 class="st-h">How does it branch?</h2>
+      <label class="st-opt"><input type="radio" name="kind"> <span><b>Parallel</b> — both happen</span></label>
+      <label class="st-opt on"><input type="radio" name="kind" checked> <span><b>Choice</b> — one or the other</span></label>
+      <label for="st-lbl" style="font-size: 13px; color: var(--muted)">Choice label (optional)</label>
+      <input id="st-lbl" class="st-in" value="sell out">
+      <label for="st-title" style="font-size: 13px; color: var(--muted)">New quest title</label>
+      <input id="st-title" class="st-in" value="Sell the handler out">
+      <div style="display: flex; justify-content: flex-end; gap: 8px"><button type="button" class="st-btn">Cancel</button><button type="button" class="st-btn primary">Add branch</button></div>
+    </section>
+    <section class="st-card" aria-label="Status picker">
+      <p class="st-cap">Hold Art · Meet the handler</p>
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <button type="button" class="st-opt" style="color: var(--fg); font: inherit"><span class="dot na"></span>n/a</button>
+        <button type="button" class="st-opt on" style="color: var(--fg); font: inherit"><span class="dot"></span>todo</button>
+        <button type="button" class="st-opt" style="color: var(--fg); font: inherit"><span class="dot doing"></span>doing</button>
+        <button type="button" class="st-opt" style="color: var(--fg); font: inherit"><span class="dot review"></span>review</button>
+        <button type="button" class="st-opt" style="color: var(--fg); font: inherit"><span class="dot done"></span>done</button>
+      </div>
+    </section>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 20px">
+    <section class="st-card" aria-label="Follows editor">
+      <p class="st-cap">Follows… · Close Act 2</p>
+      <h2 class="st-h">This quest follows</h2>
+      <label class="st-opt on"><input type="checkbox" checked> Find out what’s wrong with Hakim</label>
+      <label class="st-opt on"><input type="checkbox" checked> Stock the Collective’s kit</label>
+      <label class="st-opt on"><input type="checkbox" checked> Defend the vein Nadia’s watching</label>
+      <label class="st-opt"><input type="checkbox"> Seed a new vein for the Collective</label>
+      <label class="st-opt off"><input type="checkbox" disabled> <span style="flex: 1">Act 2 opens</span><span class="mono" style="color: var(--warn)">would loop</span></label>
+      <p class="st-cap" style="margin-top: 4px">Other questlines</p>
+      <label class="st-opt"><input type="checkbox"> <span style="flex: 1">Close Act 1</span><span class="mono" style="color: var(--muted)">Collective Act 1</span></label>
+      <div style="display: flex; justify-content: flex-end; gap: 8px"><button type="button" class="st-btn">Cancel</button><button type="button" class="st-btn primary">Save</button></div>
+    </section>
+    <section class="st-card" aria-label="Delete warning">
+      <h2 class="st-h">Delete “Seed a new vein”?</h2>
+      <p style="margin: 0; font-size: 14px; line-height: 1.45">It’s hard-coded (objective <span class="mono">col_a2_nadia_reseed</span>) and has 1 linked draft. Only the plan is removed. Its follower <b>Defend the vein</b> will follow <b>Act 2 opens</b> instead.</p>
+      <div style="display: flex; justify-content: flex-end; gap: 8px"><button type="button" class="st-btn">Keep</button><button type="button" class="st-btn danger">Delete</button></div>
+    </section>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 20px">
+    <section class="st-card" aria-label="Save indicator states">
+      <p class="st-cap">Save indicator</p>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px">
+        <span class="st-pill" style="color: var(--muted)"><svg width="8" height="8" aria-hidden="true"><circle cx="4" cy="4" r="3.25" fill="none" stroke="currentColor" stroke-width="1.5"></circle></svg>Saving…</span>
+        <span class="st-pill" style="color: var(--ok)"><svg width="8" height="8" aria-hidden="true"><circle cx="4" cy="4" r="4" fill="currentColor"></circle></svg>Saved</span>
+        <span class="st-pill" style="color: var(--warn)"><svg width="8" height="8" aria-hidden="true"><rect width="8" height="8" fill="currentColor"></rect></svg>Save failed</span>
+      </div>
+    </section>
+    <section class="st-card" role="alert" aria-label="Conflict banner" style="border-color: var(--warn); box-shadow: 0 0 0 1px var(--warn)">
+      <h2 class="st-h" style="color: var(--warn)">Changed elsewhere: reload</h2>
+      <p style="margin: 0; font-size: 14px; line-height: 1.45">This questline changed on disk since you opened it, from the laptop or Claude. Your last change wasn’t saved:</p>
+      <div class="mono" style="padding: 10px 12px; border-radius: 8px; background: var(--sunk); line-height: 1.5">Meet the handler · Art: todo → doing</div>
+      <p style="margin: 0; font-size: 13px; color: var(--muted)">Reload, then redo it.</p>
+      <div style="display: flex; justify-content: flex-end"><button type="button" class="st-btn primary">Reload</button></div>
+    </section>
+    <section class="st-card" aria-label="Server start output" style="background: #1a1d23; color: #e8eaee; border-color: #1a1d23">
+      <p class="st-cap" style="color: #9aa1ae">Laptop terminal · storyboard server</p>
+      <div class="mono" style="line-height: 1.6; white-space: pre-wrap">Vein storyboard server
+Laptop  http://localhost:4317/?t=8f3k…
+Phone   http://192.168.1.20:4317/?t=8f3k…</div>
+      <div style="width: 132px; height: 132px; border: 2px dashed #9aa1ae; border-radius: 8px; display: flex; align-items: center; justify-content: center; text-align: center; font: 600 11px 'JetBrains Mono', monospace; color: #9aa1ae">[QR of the phone URL]</div>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1100,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

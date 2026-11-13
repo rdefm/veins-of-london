@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Questline map on phone</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500;700&amp;family=Atkinson+Hyperlegible:wght@400;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#946512}a:hover{color:#6b4a0c}
+.light{--bg:#eceef1;--surface:#f8f9fa;--sunk:#dfe2e7;--fg:#1a1d23;--muted:#5b6270;--line:#c9ced6;--accent:#946512;--accent-ink:#fff8e8;--hold:#56627a;--ok:#2e7a45;--warn:#a2402e}
+.dark{--bg:#14161b;--surface:#1d2027;--sunk:#262a33;--fg:#e8eaee;--muted:#9aa1ae;--line:#343a45;--accent:#e0b04a;--accent-ink:#1a1408;--hold:#8d9ab3;--ok:#6cc489;--warn:#e07a63}
+.pm-roll{font:600 11px 'JetBrains Mono',monospace;color:var(--muted);padding:3px 8px;border-radius:999px;background:var(--sunk);white-space:nowrap}
+.pm-btn{min-height:44px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--fg);font:600 14px 'Atkinson Hyperlegible',sans-serif;display:inline-flex;align-items:center;gap:6px;text-decoration:none}
+.pm-btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.pm-select{min-height:44px;border:1px solid var(--accent);border-radius:10px;background:var(--surface);color:var(--fg);font:600 13px 'Atkinson Hyperlegible',sans-serif;padding:0 10px}
+</style>
+</helmet>
+<div class="light" style="width: 390px; height: 844px; box-sizing: border-box; background: var(--bg); color: var(--fg); font-family: 'Atkinson Hyperlegible', system-ui, sans-serif; display: flex; flex-direction: column; overflow: hidden">
+  <header style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 16px; background: var(--surface); border-bottom: 1px solid var(--line)">
+    <a href="Main.dc.html" class="pm-btn" style="border: 0; padding: 0 8px 0 0; background: none">‹ Questlines</a>
+    <span style="display: inline-flex; align-items: center; gap: 6px; font: 600 11px 'JetBrains Mono', monospace; color: var(--muted)"><svg width="8" height="8" aria-hidden="true"><circle cx="4" cy="4" r="3.25" fill="none" stroke="currentColor" stroke-width="1.5"></circle></svg>Saving…</span>
+  </header>
+  <section style="display: flex; flex-direction: column; gap: 10px; padding: 12px 16px; background: var(--surface); border-bottom: 1px solid var(--line)">
+    <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px">
+      <div style="display: flex; flex-direction: column; gap: 3px; min-width: 0">
+        <h1 style="margin: 0; font: 700 22px/1.1 'Pixelify Sans', monospace">Collective Act 2</h1>
+        <span style="font: 11px 'JetBrains Mono', monospace; color: var(--muted)">collective · act 2 · 9 quests</span>
+      </div>
+      <button type="button" class="pm-btn primary">+ Quest</button>
+    </div>
+    <div style="display: flex; flex-wrap: wrap; gap: 6px">
+      <span class="pm-roll">Writing 4/9</span>
+      <span class="pm-roll">Choices 3/9</span>
+      <span class="pm-roll">Obs 1/4</span>
+      <span class="pm-roll">Art 2/9</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 8px">
+      <label for="pm-filter" style="font-size: 13px; color: var(--muted)">Highlight not done:</label>
+      <select id="pm-filter" class="pm-select">
+        <option>None</option><option>Writing</option><option>Choices</option><option>Observations</option><option selected>Art</option>
+      </select>
+    </div>
+  </section>
+  <div style="flex: 1; overflow: auto; padding: 8px 0" aria-label="Questline map, scrolls sideways">
+    <dc-import name="QuestMap" theme="light" filter="art" hint-size="920px,592px"></dc-import>
+  </div>
+  <footer style="display: flex; flex-wrap: wrap; gap: 4px 12px; padding: 8px 16px; border-top: 1px solid var(--line); background: var(--surface); font: 11px 'JetBrains Mono', monospace; color: var(--muted)">
+    <span>◌ placeholder</span><span>⚙︎ hard-coded</span><span>● data</span><span>- - choice</span><span>map scrolls sideways ▸</span>
+  </footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

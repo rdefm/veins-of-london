@@ -4,12 +4,15 @@
 
 The storyboard skills get a short note that server mode exists. Their workflows don't change.
 
+**Mockup:** https://claude.ai/artifact/2iHxNhNundq3VL5EiGMmvv, saved copy in `.scratch/questline-planner/mockup/` (see its README). Artboards: `Main.dc.html` and `Laptop.dc.html` (header: tool name, server address / "server mode", save indicator). Build to match the mockup's layout, labels, controls and styling. Its quest content is sample data.
+
 **Blocked by:** 01 — Storage interface, folder-picker backend; 02 — Storyboard server.
 
 **Relevant files:** `tools/storyboard.html` (startup at the end of the script: the `showDirectoryPicker` check, `loadHandle`/`reopen`, the folder-name and refresh header, focus reload), `tools/storyboard_server.js` (API contract), `.claude/skills/event-storyboard/`, `.claude/skills/implement-storyboard-event/`, `.claude/skills/plate-compositor/`, `CODEMAP.md` (storyboard row).
 
 **Status:** ready-for-agent
 
+- [ ] Human check: Header in server mode matches the mockup
 - [ ] Backend picked at startup; folder picker unchanged when not served by the server
 - [ ] Token captured once, stored, sent on every call, stripped from the URL
 - [ ] Version-checked writes surface the server's conflict response through the interface

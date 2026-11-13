@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Questline planner on laptop</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500;700&amp;family=Atkinson+Hyperlegible:wght@400;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#e0b04a}a:hover{color:#f0c96e}
+.dark{--bg:#14161b;--surface:#1d2027;--sunk:#262a33;--fg:#e8eaee;--muted:#9aa1ae;--line:#343a45;--accent:#e0b04a;--accent-ink:#1a1408;--hold:#8d9ab3;--ok:#6cc489;--warn:#e07a63}
+.lp-tab{border:1px solid transparent;border-bottom:0;background:none;border-radius:6px 6px 0 0;padding:9px 14px;margin-bottom:-1px;font:600 13px/1 'JetBrains Mono',monospace;color:var(--muted)}
+.lp-tab.on{background:var(--surface);border-color:var(--line);color:var(--fg)}
+.lp-roll{font:600 11px 'JetBrains Mono',monospace;color:var(--muted);padding:4px 9px;border-radius:999px;background:var(--sunk);white-space:nowrap}
+.lp-btn{min-height:36px;padding:0 14px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--fg);font:600 13px 'Atkinson Hyperlegible',sans-serif;text-decoration:none;display:inline-flex;align-items:center}
+.lp-btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+</style>
+</helmet>
+<div class="dark" style="width: 1280px; height: 800px; box-sizing: border-box; background: var(--bg); color: var(--fg); font-family: 'Atkinson Hyperlegible', system-ui, sans-serif; display: flex; flex-direction: column; overflow: hidden">
+  <header style="display: flex; align-items: center; gap: 16px; padding: 12px 24px; background: var(--surface); border-bottom: 1px solid var(--line)">
+    <span style="font: 700 20px 'Pixelify Sans', monospace">Vein storyboards</span>
+    <span style="font: 12px 'JetBrains Mono', monospace; color: var(--muted)">veins-of-london · server mode</span>
+    <span style="flex: 1"></span>
+    <span style="display: inline-flex; align-items: center; gap: 6px; font: 600 12px 'JetBrains Mono', monospace; color: var(--ok)"><svg width="8" height="8" aria-hidden="true"><circle cx="4" cy="4" r="4" fill="currentColor"></circle></svg>Saved</span>
+    <button type="button" class="lp-btn">Undo</button>
+  </header>
+  <nav style="display: flex; gap: 4px; padding: 10px 24px 0; border-bottom: 1px solid var(--line)" aria-label="Storyboard tabs">
+    <button type="button" class="lp-tab">Storyboard</button>
+    <button type="button" class="lp-tab">Shots</button>
+    <button type="button" class="lp-tab">Comments</button>
+    <button type="button" class="lp-tab on" aria-selected="true">Quests</button>
+  </nav>
+  <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 24px; border-bottom: 1px solid var(--line)">
+    <a href="#" class="lp-btn" style="border: 0; background: none; padding: 0">‹ Questlines</a>
+    <h1 style="margin: 0; font: 700 22px 'Pixelify Sans', monospace">Collective Act 2</h1>
+    <span style="font: 12px 'JetBrains Mono', monospace; color: var(--muted)">collective · act 2 · 9 quests</span>
+    <span class="lp-roll">Writing 4/9</span><span class="lp-roll">Choices 3/9</span><span class="lp-roll">Obs 1/4</span><span class="lp-roll">Art 2/9</span>
+    <span style="flex: 1"></span>
+    <label for="lp-filter" style="font-size: 13px; color: var(--muted)">Highlight not done</label>
+    <select id="lp-filter" style="min-height: 36px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--fg); font: 600 13px 'Atkinson Hyperlegible', sans-serif; padding: 0 8px"><option selected>None</option><option>Writing</option><option>Choices</option><option>Observations</option><option>Art</option></select>
+    <button type="button" class="lp-btn primary">+ Quest</button>
+  </div>
+  <div style="flex: 1; display: flex; min-height: 0">
+    <div style="flex: 1; min-width: 0; overflow: auto; padding: 16px 0 16px 8px" aria-label="Questline map">
+      <dc-import name="QuestMap" theme="dark" selected="col_a2_hakim" hint-size="920px,592px"></dc-import>
+    </div>
+    <aside style="width: 400px; flex: none; overflow-y: auto; border-left: 1px solid var(--line); background: var(--surface)" aria-label="Quest details">
+      <dc-import name="QuestSheet" theme="dark" mode="panel" hint-size="100%,1180px"></dc-import>
+    </aside>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

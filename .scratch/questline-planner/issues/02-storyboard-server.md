@@ -9,12 +9,15 @@
 
 Whitelist decision (2026-11-13): the spec's four folders plus the three paths storyboard already writes (plates, prose packs, board.json), so every tab works in server mode (spec story 6).
 
+**Mockup:** https://claude.ai/artifact/2iHxNhNundq3VL5EiGMmvv, saved copy in `.scratch/questline-planner/mockup/` (see its README). Artboards: `States.dc.html` (server terminal card: title line, laptop URL, phone URL, QR below). Build to match the mockup's layout, labels, controls and styling. Its quest content is sample data.
+
 **Blocked by:** None — can start immediately.
 
 **Relevant files:** new `tools/storyboard_server.js`, new Windows launcher (e.g. `tools/storyboard_server.cmd`), new `tools/test_storyboard_server.js`, `CODEMAP.md` (rows for the server script and launcher), `.scratch/questline-planner/spec.md` (§ Storage interface and server mode, § Testing Decisions seam 2).
 
 **Status:** ready-for-agent
 
+- [ ] Human check: Startup output matches the mockup's terminal card
 - [ ] Node test starts the server on a random port and drives it over HTTP: serves the page, read/list/write work, a missing or wrong token is refused, a write outside the whitelist is refused, traversal is refused, a stale-version write is refused, a current-version write is accepted
 - [ ] No npm dependencies; runs with plain `node`
 - [ ] Startup prints laptop URL, LAN URL (both with the token) and a scannable QR

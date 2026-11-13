@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Quest sheet</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500;700&amp;family=Atkinson+Hyperlegible:wght@400;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap">
+<style>
+body{margin:0}
+.light{--bg:#eceef1;--surface:#f8f9fa;--sunk:#dfe2e7;--fg:#1a1d23;--muted:#5b6270;--line:#c9ced6;--accent:#946512;--accent-ink:#fff8e8;--hold:#56627a;--ok:#2e7a45;--warn:#a2402e}
+.dark{--bg:#14161b;--surface:#1d2027;--sunk:#262a33;--fg:#e8eaee;--muted:#9aa1ae;--line:#343a45;--accent:#e0b04a;--accent-ink:#1a1408;--hold:#8d9ab3;--ok:#6cc489;--warn:#e07a63}
+.qs-eyebrow{margin:0;font:600 11px/1 'JetBrains Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.qs-field{width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--fg);padding:10px 12px;font:15px/1.4 'Atkinson Hyperlegible',sans-serif;min-height:44px}
+.qs-ev{display:flex;align-items:center;gap:8px;min-height:48px;padding:6px 8px 6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
+.qs-chip{font:600 10.5px 'JetBrains Mono',monospace;padding:2px 7px;border-radius:999px;border:1px solid currentColor;white-space:nowrap}
+.qs-chip.live{color:var(--ok)}
+.qs-chip.draft{color:var(--accent)}
+.qs-chip.planned{color:var(--muted);border-style:dashed}
+.qs-chip.stale{color:var(--warn)}
+.qs-btn{min-height:44px;padding:0 14px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--fg);font:600 13px 'Atkinson Hyperlegible',sans-serif}
+.qs-btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.qs-btn.danger{color:var(--warn);border-color:var(--warn)}
+.qs-icon{width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;border:0;background:none;color:var(--muted);border-radius:8px}
+.qs-flow{display:flex;align-items:center;gap:8px;min-height:44px;padding:0 10px;border-radius:8px;background:var(--sunk);font-size:14px}
+.qs-status{display:flex;flex-direction:column;align-items:flex-start;gap:4px;min-height:56px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--fg);font:inherit;text-align:left}
+.qs-val{display:inline-flex;align-items:center;gap:6px;font:600 12px 'JetBrains Mono',monospace}
+.dot{width:10px;height:10px;border-radius:50%;border:1.5px solid var(--muted);box-sizing:border-box;display:inline-block}
+.dot.done{background:var(--ok);border-color:var(--ok)}
+.dot.review{border-color:var(--hold);background:radial-gradient(circle,var(--hold) 0 35%,transparent 40%)}
+.dot.doing{border-color:var(--accent);background:linear-gradient(90deg,var(--accent) 50%,transparent 50%)}
+.dot.na{border-style:dotted;opacity:.55}
+</style>
+</helmet>
+<div class="{{theme}}" style="width: 100%; box-sizing: border-box; background: var(--surface); color: var(--fg); font-family: 'Atkinson Hyperlegible', system-ui, sans-serif; padding: 8px 16px 24px; display: flex; flex-direction: column; gap: 20px">
+  <sc-if value="{{isSheet}}" hint-placeholder-val="{{ true }}">
+    <div style="display: flex; justify-content: center; padding-top: 2px" aria-hidden="true"><span style="width: 40px; height: 5px; border-radius: 3px; background: var(--line)"></span></div>
+  </sc-if>
+  <div style="display: flex; align-items: flex-start; gap: 8px">
+    <div style="flex: 1; display: flex; flex-direction: column; gap: 6px; min-width: 0">
+      <h2 style="margin: 0; font: 700 20px/1.2 'Pixelify Sans', monospace">Find out what’s wrong with Hakim</h2>
+      <span style="display: inline-flex; align-items: center; gap: 6px; font: 12px 'JetBrains Mono', monospace; color: var(--muted)">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
+        col_a2_hakim · id fixed (has live events)
+      </span>
+    </div>
+    <button type="button" class="qs-icon" aria-label="Close sheet"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+  </div>
+
+  <section style="display: flex; flex-direction: column; gap: 8px">
+    <label for="qs-summary" class="qs-eyebrow">Summary</label>
+    <textarea id="qs-summary" class="qs-field" rows="3">Hakim’s vein goes quiet and he won’t say why. The player finds it’s been tapped, then helps him take it back.</textarea>
+  </section>
+
+  <section style="display: flex; flex-direction: column; gap: 8px">
+    <h3 class="qs-eyebrow">Events</h3>
+    <sc-for list="{{events}}" as="ev" hint-placeholder-count="4">
+      <div class="qs-ev">
+        <span class="qs-icon" style="width: 24px; height: 24px; cursor: grab" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"></circle><circle cx="15" cy="6" r="1.6"></circle><circle cx="9" cy="12" r="1.6"></circle><circle cx="15" cy="12" r="1.6"></circle><circle cx="9" cy="18" r="1.6"></circle><circle cx="15" cy="18" r="1.6"></circle></svg></span>
+        <a href="#" style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; color: var(--fg); text-decoration: none">
+          <span style="font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{ev.title}}</span>
+          <span style="font: 11px 'JetBrains Mono', monospace; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{ev.id}}</span>
+        </a>
+        <span class="{{ev.chip}}">{{ev.state}}</span>
+        <sc-if value="{{ev.planned}}" hint-placeholder-val="{{ false }}">
+          <button type="button" class="qs-btn primary" style="min-height: 36px; padding: 0 10px; font-size: 12px">Create draft</button>
+        </sc-if>
+        <button type="button" class="qs-icon" style="width: 36px; height: 36px" aria-label="Remove event"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+      </div>
+    </sc-for>
+    <div style="display: flex; gap: 8px; flex-wrap: wrap">
+      <button type="button" class="qs-btn">Pick event or draft…</button>
+      <button type="button" class="qs-btn">+ Planned</button>
+    </div>
+  </section>
+
+  <section style="display: flex; flex-direction: column; gap: 8px">
+    <h3 class="qs-eyebrow">Flow</h3>
+    <span style="font-size: 12px; color: var(--muted)">Follows</span>
+    <div class="qs-flow"><span aria-hidden="true">◌</span><span style="flex: 1">Act 2 opens</span><span style="font: 11px 'JetBrains Mono', monospace; color: var(--muted)">parallel</span></div>
+    <span style="font-size: 12px; color: var(--muted)">Followed by</span>
+    <div class="qs-flow"><span aria-hidden="true">◌</span><span style="flex: 1">Close Act 2</span><span style="font: 11px 'JetBrains Mono', monospace; color: var(--muted)">parallel</span></div>
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 4px">
+      <button type="button" class="qs-btn">+ Next</button>
+      <button type="button" class="qs-btn">+ Branch</button>
+      <button type="button" class="qs-btn">Follows…</button>
+      <button type="button" class="qs-btn">Insert after</button>
+      <button type="button" class="qs-btn">Insert before</button>
+      <button type="button" class="qs-btn danger">Delete</button>
+    </div>
+  </section>
+
+  <section style="display: flex; flex-direction: column; gap: 8px">
+    <h3 class="qs-eyebrow">Mechanics</h3>
+    <div style="display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--sunk)">
+      <span style="font-weight: 700">⚙︎ Hard-coded</span>
+      <span style="font: 12px 'JetBrains Mono', monospace; color: var(--muted)">objective col_a2_hakim · read-only in the planner</span>
+    </div>
+  </section>
+
+  <section style="display: flex; flex-direction: column; gap: 8px">
+    <h3 class="qs-eyebrow">Status <span style="text-transform: none; letter-spacing: 0; font-weight: 400">· tap to cycle, hold to pick</span></h3>
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+      <sc-for list="{{statuses}}" as="s" hint-placeholder-count="4">
+        <button type="button" class="qs-status">
+          <span style="font-size: 12px; color: var(--muted)">{{s.cat}}</span>
+          <span class="qs-val"><span class="{{s.dot}}"></span>{{s.val}}</span>
+        </button>
+      </sc-for>
+    </div>
+  </section>
+
+  <section style="display: flex; flex-direction: column; gap: 8px">
+    <label for="qs-notes" class="qs-eyebrow">Notes</label>
+    <textarea id="qs-notes" class="qs-field" rows="4">Does Nadia know before the player does? Retake fight needs a lighter variant if the player skipped the Firm skirmish.</textarea>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"mode":{"editor":"enum","options":["sheet","panel"],"default":"sheet"},"$preview":{"width":390,"height":1180}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const ev = (title, id, state) => ({ title, id, state, chip: 'qs-chip ' + state, planned: state === 'planned' });
+    const st = (cat, val) => ({ cat, val, dot: 'dot ' + val });
+    return {
+      theme: this.props.theme ?? 'light',
+      isSheet: (this.props.mode ?? 'sheet') === 'sheet',
+      events: [
+        ev('Hakim’s vein goes quiet', 'col_a2_hakim_vein_lost', 'live'),
+        ev('Take it back', 'col_a2_hakim_retake', 'live'),
+        ev('Hakim owes you one', 'col_a2_hakim_after', 'planned'),
+        ev('Hakim’s first word', 'col_a2_hakim_ask', 'stale'),
+      ],
+      statuses: [st('Writing', 'done'), st('Choices', 'review'), st('Observations', 'doing'), st('Art', 'todo')],
+    };
+  }
+}
+</script>
+</body>
+</html>
