@@ -669,6 +669,7 @@ button.qs-flow { width: 100%; border: 0; color: var(--fg); font: inherit; font-s
         <h2>Plates</h2>
         <p class="muted" style="margin:0">Blank backgrounds, one per camera setup. Generate these first; shots add the cast onto them.</p>
         <div class="shots" id="plates"></div>
+        <button type="button" class="tb" id="add-plate" title="Add an empty plate to this board (then Save)">+ New plate</button>
       </section>
 
       <section id="s-section">
@@ -7174,6 +7175,19 @@ function checkOddsBlock(opt, changed, restructure) {
       renderEditBar(`Created ${sb.eventId}/board.json`);
     } catch (e) { renderEditBar("Couldn't create the storyboard: " + (e && e.message)); }
   }
+  function newPlate() {
+    const id = shotStructure(addPlate);
+    if (!id) return;
+    const a = document.getElementById("plate-" + id);
+    if (a) { a.scrollIntoView({ block: "start" }); const t = a.querySelector("input[type=text]"); if (t) { t.focus(); t.select(); } }
+  }
+  function removePlate(id, name) {
+    const sb = shotBoard(); if (!sb) return;
+    const used = plateUsedBy(sb, id);
+    const msg = used ? `Shots ${used} will lose their plate.` : "No shots use it.";
+    if (!confirm(`Delete plate ${id} "${name || ""}"? ${msg} Its image stays on disk. Undo restores it until you save.`)) return;
+    shotStructure((b) => deletePlate(b, id));
+  }
   function removeShot(id, title) {
     if (!confirm(`Delete shot ${id} "${title}"? Its draft images stay on disk. Undo restores it until you save.`)) return;
     shotStructure((b) => deleteShot(b, id));
@@ -7718,7 +7732,7 @@ function checkOddsBlock(opt, changed, restructure) {
 
   function renderPlates(b) {
     const ps = b.plates || [];
-    $("p-section").hidden = ps.length === 0;
+    $("p-section").hidden = false;
     $("plates").replaceChildren(...ps.map((p) => {
       const h3 = el("h3", { text: p.name || p.id });
       const warn = el("p", { class: "fstate", hidden: "" });
@@ -7739,8 +7753,10 @@ function checkOddsBlock(opt, changed, restructure) {
       };
       const form = el("div", { class: "shotform" },
         ...PLATE_FIELDS.flatMap((f) => plateField(b, p, f, onEdit)));
+      const del = el("button", { class: "tb", type: "button", text: "Delete plate" });
+      del.addEventListener("click", () => removePlate(p.id, p.name));
       return el("article", { class: "shot", id: "plate-" + p.id },
-        el("div", { class: "shot-head" }, h3, el("span", { class: "id", text: p.id })),
+        el("div", { class: "shot-head" }, h3, el("span", { class: "id", text: p.id }), del),
         form,
         briefList([["Used by", plateUsedBy(b, p.id)]]),
         el("div", {}, el("span", { class: "eyebrow", text: "Save as " }), saveRow), warn,
@@ -8397,6 +8413,7 @@ function checkOddsBlock(opt, changed, restructure) {
   $("save").addEventListener("click", saveBoard);
   $("undo").addEventListener("click", undoEdit);
   $("add-shot").addEventListener("click", newShot);
+  $("add-plate").addEventListener("click", newPlate);
   $("make-sb").addEventListener("click", makeStoryboard);
   $("promote").addEventListener("click", promoteBoard);
   document.addEventListener("keydown", (e) => {
