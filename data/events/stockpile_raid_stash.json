@@ -88,7 +88,12 @@
         {
           "label": "Take the hatch",
           "requires": { "observed": { "id": "raid", "ore": "physics", "atLeast": 1 } },
-          "check": { "base": 0.6, "mods": [{ "observed": { "id": "raid", "ore": "physics", "atLeast": 2 }, "add": 0.15, "label": "A sharp read" }] },
+          "check": {
+            "base": 0.6,
+            "mods": [
+              { "observed": { "id": "raid", "ore": "physics", "atLeast": 2 }, "add": 0.15, "label": "A sharp read" }
+            ]
+          },
           "success": {
             "result_text": "The hatch gives with a little flake of rust. You're in without a sound.",
             "effects": [{ "op": "notify", "text": "No alarms. You're in clean." }],
@@ -106,7 +111,12 @@
         {
           "label": "Wait out the sleepy guard",
           "requires": { "observed": { "id": "raid", "ore": "life", "atLeast": 1 } },
-          "check": { "base": 0.6, "mods": [{ "observed": { "id": "raid", "ore": "life", "atLeast": 2 }, "add": 0.15, "label": "A sharp read" }] },
+          "check": {
+            "base": 0.6,
+            "mods": [
+              { "observed": { "id": "raid", "ore": "life", "atLeast": 2 }, "add": 0.15, "label": "A sharp read" }
+            ]
+          },
           "success": {
             "result_text": "His chin hits his chest. You step past before he finishes the thought.",
             "effects": [
@@ -127,7 +137,12 @@
         {
           "label": "Rattle the guard",
           "requires": { "observed": { "id": "raid", "ore": "emotion", "atLeast": 1 } },
-          "check": { "base": 0.6, "mods": [{ "observed": { "id": "raid", "ore": "emotion", "atLeast": 2 }, "add": 0.15, "label": "A sharp read" }] },
+          "check": {
+            "base": 0.6,
+            "mods": [
+              { "observed": { "id": "raid", "ore": "emotion", "atLeast": 2 }, "add": 0.15, "label": "A sharp read" }
+            ]
+          },
           "success": {
             "result_text": "You mention the lock sounds wrong. He goes to check it again.",
             "effects": [
@@ -160,7 +175,12 @@
         {
           "label": "Slip in with the delivery",
           "requires": { "observed": { "id": "raid", "ore": "time", "atLeast": 1 } },
-          "check": { "base": 0.6, "mods": [{ "observed": { "id": "raid", "ore": "time", "atLeast": 2 }, "add": 0.15, "label": "A sharp read" }] },
+          "check": {
+            "base": 0.6,
+            "mods": [
+              { "observed": { "id": "raid", "ore": "time", "atLeast": 2 }, "add": 0.15, "label": "A sharp read" }
+            ]
+          },
           "success": {
             "result_text": "Ninety seconds, as advertised. You use eighty.",
             "effects": [{ "op": "notify", "text": "No alarms. You're in clean." }],
@@ -178,7 +198,12 @@
         {
           "label": "Move as he turns",
           "requires": { "observed": { "id": "raid", "ore": "fate", "atLeast": 1 } },
-          "check": { "base": 0.6, "mods": [{ "observed": { "id": "raid", "ore": "fate", "atLeast": 2 }, "add": 0.15, "label": "A sharp read" }] },
+          "check": {
+            "base": 0.6,
+            "mods": [
+              { "observed": { "id": "raid", "ore": "fate", "atLeast": 2 }, "add": 0.15, "label": "A sharp read" }
+            ]
+          },
           "success": {
             "result_text": "He turns to check his phone. You go.",
             "effects": [{ "op": "notify", "text": "No alarms. You're in clean." }],

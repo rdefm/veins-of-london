@@ -2402,7 +2402,7 @@ function checkOddsBlock(opt, changed, restructure) {
       branches[nameAt(s)] = br;
     });
     const draft = ensureKeys({ ...rest, start: "main", branches });
-    draft._keyOrder = { top: Object.keys(ev), cards: Object.fromEntries(copy.map((c, i) => [c.key, Object.keys(cards[i])])) };
+    draft._keyOrder = { top: Object.keys(ev), cards: Object.fromEntries(copy.map((c, i) => [c.key, Object.keys(cards[i])])), seq: copy.map((c) => c.key), elseKeys: copy.filter((c, i) => Array.isArray(cards[i].goto) && cards[i].goto.length && cards[i].goto.at(-1).if == null).map((c) => c.key) };
     if (keyLinks) draft._keyLinks = true;
     return draft;
   }
@@ -3987,6 +3987,14 @@ function checkOddsBlock(opt, changed, restructure) {
     collect(start);
     walk(start);
     for (const [k, p] of reach) if (!walked.has(k)) walk(p);
+    // A link that points backwards in the authored order stays a back-link whichever way the walk reached its target.
+    const authored = new Map(((draft._keyOrder || {}).seq || []).map((k, i) => [k, i]));
+    if (authored.size) {
+      for (const [k, p] of reach) for (const s of successors(draft, p, returns)) {
+        const t = keyAt(s);
+        if (authored.has(k) && authored.has(t) && authored.get(t) <= authored.get(k)) back.add(`${k}>${t}`);
+      }
+    }
     const succ = new Map(), indeg = new Map([...reach.keys()].map((k) => [k, 0]));
     for (const [k, p] of reach) {
       const next = [...new Set(successors(draft, p, returns).map(keyAt))].filter((t) => !back.has(`${k}>${t}`));
@@ -4008,15 +4016,26 @@ function checkOddsBlock(opt, changed, restructure) {
       const e = c.cond && ([...c.cond].reverse().find((x) => x.if == null && x.branch) || c.cond.find((x) => x.branch));
       return e ? keyAt(resolveTarget(draft, e)) : null;
     };
-    const rank = new Map(flatCards(draft).map((f, i) => [f.card.key, i]));
+    // An imported event keeps its authored card order (_keyOrder.seq); cards added in the tool slot in after the
+    // nearest earlier card the sequence knows. Without a sequence, play order decides.
+    const seq = (draft._keyOrder || {}).seq, flat0 = flatCards(draft).map((f) => f.card.key);
+    const rank = new Map(flat0.map((k, i) => [k, i]));
+    if (Array.isArray(seq)) {
+      const known = new Map(seq.map((k, i) => [k, i]));
+      let last = -1, extra = 0;
+      flat0.forEach((k) => {
+        if (known.has(k)) { last = known.get(k); extra = 0; rank.set(k, last); }
+        else rank.set(k, last + (++extra) / (flat0.length + 1));
+      });
+    }
     const order = [], ready = new Set([...indeg].filter(([, n]) => !n).map(([k]) => k));
-    let prefer = keyAt(start);
+    let prefer = Array.isArray(seq) ? null : keyAt(start);
     while (ready.size) {
       const k = ready.has(prefer) ? prefer : [...ready].sort((a, b) => rank.get(a) - rank.get(b))[0];
       ready.delete(k);
       order.push(k);
       for (const t of succ.get(k)) { indeg.set(t, indeg.get(t) - 1); if (!indeg.get(t)) ready.add(t); }
-      prefer = preferred(reach.get(k));
+      prefer = Array.isArray(seq) ? null : preferred(reach.get(k));
     }
     // A hub (target of a back-edge) needs an option with an outcome that ends the event or reaches a card from
     // which the hub can't be reached again; otherwise every option loops or is spent and play is stuck.
@@ -4065,13 +4084,13 @@ function checkOddsBlock(opt, changed, restructure) {
       if (!cardExits(src).onward) return inKeyOrder(card, cardOrder[k]);
       const c = continuation(p), last = i === order.length - 1;
       if (c.to) { const n = flat({ branch: c.to.branch, card: keyAt(c.to) }); if (n !== i + 1) card.goto = link(n); }
-      else if (c.end) { if (!last) card.end = true; }
+      else if (c.end) { if (!last || (cardOrder[k] || []).includes("end")) card.end = true; }
       else {
         // The engine's conditional goto falls through to the next card on no match and has no "end" entry.
         if (c.cond.some((e) => !e.branch) || c.cond.at(-1).if != null)
           throw new Error(`${p.branch} · then: a conditional then that can end the event (an entry without a branch, or no else) has no flat form; route every entry, else included, to a branch`);
         const list = c.cond.map((e, j) => ({ ...(e.if != null ? { if: e.if } : {}), card: flat(e, returns.has(`${p.branch}#${j}`)) }));
-        if (list.at(-1).card === i + 1) list.pop(); // an else onto the next card is what no-match does anyway
+        if (list.at(-1).card === i + 1 && !((draft._keyOrder || {}).elseKeys || []).includes(k)) list.pop(); // an else onto the next card is what no-match does anyway (kept when the source spelled it out)
         list.forEach((e) => { e.card = link(e.card); });
         if (list.length === 1 && list[0].if == null) card.goto = list[0].card;
         else if (list.length) card.goto = list;

@@ -1824,7 +1824,7 @@
 					"minutes"
 				],
 				"kind": "data",
-				"sha": "7e03ad4ceff8c672cb96bcdde226b651ac77cbf17baa0cab5ce5927b684e2968"
+				"sha": "b969c5a5eb042d236142ed165cf68ee773e20bed9512b7d7e28a8f4c7c47c964"
 			},
 			{
 				"file": "tests/test_board_meetings.gd",
