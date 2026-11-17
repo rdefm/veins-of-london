@@ -3517,6 +3517,13 @@ test("hidden elements stay hidden even when their class sets display (empty-stat
   assert(/^\[hidden\] \{ display: none !important \}$/m.test(html), "missing global [hidden] rule");
 });
 
+test("restoring the saved tab happens after the Quests state is declared (saved 'quests' tab killed every button)", () => {
+  const init = html.indexOf("showTab(rememberedTab())");
+  assert(init > html.indexOf("let plans = []"), "initial showTab runs before `plans` is initialised");
+  assert(init > html.indexOf("let openLine = null"), "initial showTab runs before `openLine` is initialised");
+  assert.strictEqual(html.split("showTab(rememberedTab())").length, 2, "expected exactly one initial showTab");
+});
+
 test("openRepo surfaces a load failure as a note instead of leaving a silent empty editor", () => {
   const src = html.slice(html.indexOf("async function openRepo()"));
   const body = src.slice(0, src.indexOf("\n  }\n"));

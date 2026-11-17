@@ -7765,7 +7765,6 @@ function checkOddsBlock(opt, changed, restructure) {
   });
   window.addEventListener("beforeunload", (e) => { if (boards.some(isDirty)) { e.preventDefault(); e.returnValue = ""; } });
   for (const t of TABS) $("tab-" + t).addEventListener("click", () => showTab(t));
-  showTab(rememberedTab());
   $("prev").addEventListener("click", () => {
     const b = board(); if (!b || cardIdx === 0) return;
     if (b.kind === "proposal") { if (trail.length) trailImg.pop(); goTo(trail.length ? trail.pop() : cardIdx - 1); return; }
@@ -8546,6 +8545,8 @@ function checkOddsBlock(opt, changed, restructure) {
   // Claude edits board.json between rounds: pick that up when the window regains focus.
   window.addEventListener("focus", () => { if (root && !typing()) { loadAll(); loadPlans(); } });
 
+  // After every `let` above: restoring the Quests tab renders from `plans`, and a throw here would leave the buttons dead.
+  showTab(rememberedTab());
   detectServer().then((srv) => {
     if (srv) { useServer(srv.token); return; }
     startFolderMode();

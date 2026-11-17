@@ -35,3 +35,8 @@ Defect found with evidence: `#empty` ("No storyboards yet" card) has `display:gr
 Hardening: `openRepo` now catches `loadAll`/`loadPlans` failures into the note. Regression tests added to `tools/test_storyboard.js` (the two textual checks; no DOM harness exists).
 
 Human check: open `tools/storyboard.html` in Chrome (file://) and via `tools/storyboard_server.cmd` URL; pick the repo folder; no "No storyboards yet" card, boards in the dropdown. If still empty, press F12 and send the console + note text.
+
+## ROOT CAUSE (confirmed)
+
+Reproduced in real Chrome 157 by copying the user's `file://` IndexedDB (and localStorage state `vein-sb-tab=quests`) into a throwaway profile. At page load `showTab(rememberedTab())` (before `let plans` was declared) ran `renderQuests` -> `renderQuestBanner` -> `ReferenceError: Cannot access 'plans' before initialization`. The IIFE aborted before `$("open").addEventListener("click", openFolder)`, so every button was dead and no note appeared. Trigger: last-used tab was Quests (saved in localStorage). Fresh/guest profiles never hit it, hence the earlier non-repro.
+Fix: restore the saved tab after all declarations (just before `detectServer()`). Regression test in `tools/test_storyboard.js`. Verified: same profile, no exception, click fires.
