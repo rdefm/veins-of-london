@@ -24,6 +24,7 @@ Saved to `.scratch/event-art/<id>/board.json`; `tools/storyboard.html` reads it 
       "why": "Location established; Nadia waiting sets who called this."
     }
   ],
+  // Plates can also be hand-made in the tool's Plates section (+ New plate, edit, delete). Same fields. The tool never writes plates/<name>.json: the plate-compositor skill creates that config (compositor README §D).
   "plates": [                              // one per camera setup, in generation order (parents before variants)
     {
       "id": "P1",

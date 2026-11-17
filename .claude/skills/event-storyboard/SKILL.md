@@ -34,6 +34,7 @@ Apply the three lenses in `reference/lenses.md` (producer, director, game-UI). R
 Images are made with the plate compositor (`tools/plate_compositor/README.md`): one blank **plate** per camera setup, generated once with no people in it, then characters and props added per shot. So plan plates before shots:
 - A **plate** = one location seen from one fixed camera. Every shot that keeps that camera reuses it; a new camera position or lens is a new plate. Prefer staging a location's shots on as few plates as the story allows (size changes come from how near the camera an actor stands, not a new camera).
 - A lasting change to the set (a car parks, a door is boarded) is a **variant plate**: an edit of its parent plate, with its own name.
+- The user can also add, edit and delete plates by hand in the tool's Plates section. Their compositor config (`plates/<name>.json`, README §D) is not written by the tool: the plate-compositor skill sets it up at composite time.
 - The plate is described in full **once**, in its own prompt. Shots name the plate and describe only who/what is added and how.
 - Every prompt is copy-paste ready for ChatGPT and names every attachment by exact file name (`Archie_biz_sprite_master.png`, `mile_end_yard_blank_plate.png`). Prefer the character's `*_biz_sprite_master.png` (the sprite the compositor uses) as their reference. Props with existing game art use that art (crafted items: the recipe icon in `data/recipes.json`, e.g. `assets/combat/icons/timePearl.png`). Grep for existing art before describing a prop from scratch.
 
