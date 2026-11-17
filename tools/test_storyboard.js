@@ -3067,6 +3067,52 @@ test("splitPath takes parts or slash strings", () => {
   assert.deepStrictEqual(splitPath([]), []);
 });
 
+// ---- Judgements ----
+const judgeStart = html.indexOf("/* ---------- Judgements (pure) ---------- */"), judgeEnd = html.indexOf("/* ---------- End judgements ---------- */");
+assert(judgeStart !== -1 && judgeEnd !== -1, "could not locate judgements markers in storyboard.html");
+const JM = new Function(html.slice(judgeStart, judgeEnd) +
+  "\nreturn { JUDGEMENT_SUFFIX, judgementFileFor, judgementFor, judgementState, orderDrafts, judgementScores, judgementProblems };")();
+
+test("judgements match drafts by stem, incl. _vN and _clean files", () => {
+  const by = { "s1_v2.judgement.json": { verdict: "pass" }, "s1.judgement.json": { verdict: "fail" } };
+  assert.strictEqual(JM.judgementFileFor("s1_v2.png"), "s1_v2.judgement.json");
+  assert.strictEqual(JM.judgementFor("s1.webp", by).verdict, "fail");
+  assert.strictEqual(JM.judgementFor("s1_v2.png", by).verdict, "pass");
+  assert.strictEqual(JM.judgementFor("s1_clean.png", by), null);
+  assert.strictEqual(JM.judgementFor("s1_v2_clean.png", by), null);
+});
+
+test("judgement badge state: none, unjudged, stale, pass, fail", () => {
+  assert.strictEqual(JM.judgementState(null, "x"), "none");
+  assert.strictEqual(JM.judgementState({ verdict: "unjudged", draftSha: "a" }, "a"), "unjudged");
+  assert.strictEqual(JM.judgementState({ verdict: "pass", draftSha: "a" }, "a"), "pass");
+  assert.strictEqual(JM.judgementState({ verdict: "fail", draftSha: "a" }, "a"), "fail");
+  assert.strictEqual(JM.judgementState({ verdict: "pass", draftSha: "a" }, "b"), "stale");
+  assert.strictEqual(JM.judgementState({ verdict: "pass", draftSha: "a" }, null), "pass", "unknown sha is not stale");
+  assert.strictEqual(JM.judgementState({ verdict: "weird" }, "a"), "unjudged");
+});
+
+test("drafts order by rank; unjudged and not judged last", () => {
+  const by = {
+    "a.judgement.json": { verdict: "fail", rank: 2 },
+    "a_v2.judgement.json": { verdict: "pass", rank: 1 },
+    "a_v3.judgement.json": { verdict: "unjudged", rank: 3 },
+    "a_v5.judgement.json": { verdict: "pass", rank: null },
+  };
+  assert.deepStrictEqual(JM.orderDrafts(["a.png", "a_v2.png", "a_v3.png", "a_v4.png", "a_v5.png"], by),
+    ["a_v2.png", "a.png", "a_v5.png", "a_v3.png", "a_v4.png"]);
+  assert.deepStrictEqual(JM.orderDrafts(["x.png", "x_v2.png"], {}), ["x.png", "x_v2.png"], "nothing judged keeps file order");
+});
+
+test("judgement scores and failed/unsure checks", () => {
+  const j = { scores: { brief: 3.5, style: 2, cast: { Archie: 3, Des: { identity: "unchecked" } } },
+    checks: [{ id: "a", result: "pass", why: "ok" }, { id: "b", result: "unsure", why: "dark" }, { id: "c", result: "fail", why: "extra person" }] };
+  assert.deepStrictEqual(JM.judgementScores(j), [["brief", 3.5], ["style", 2], ["Archie", 3], ["Des", "n/a"]]);
+  assert.deepStrictEqual(JM.judgementProblems(j).map((c) => [c.id, c.result]), [["c", "fail"], ["b", "unsure"]]);
+  assert.deepStrictEqual(JM.judgementScores(null), []);
+  assert.deepStrictEqual(JM.judgementProblems({ verdict: "unjudged" }), []);
+});
+
 // ---- Planning model ----
 const planStart = html.indexOf("/* ---------- Planning model (pure) ---------- */"), planEnd = html.indexOf("/* ---------- End planning model ---------- */");
 assert(planStart !== -1 && planEnd !== -1, "could not locate planning model markers in storyboard.html");

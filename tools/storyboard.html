@@ -153,6 +153,18 @@ header.top .title { display: grid; gap: 6px; min-width: 0 }
 .files .fname { font: 12.5px/1.3 var(--mono); overflow-wrap: anywhere }
 .files .fstate { font-size: 12.5px; color: var(--muted) }
 .files .fstate.ok { color: var(--ok) }
+.judge { display: grid; gap: 4px; margin-top: 4px }
+.jhead { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; font: 12px/1.3 var(--mono) }
+.jbadge { border: 1px solid var(--line); border-radius: 4px; padding: 1px 6px; font-weight: 700; color: var(--muted) }
+.jbadge.pass { color: var(--ok); border-color: var(--ok) }
+.jbadge.fail { color: var(--warn); border-color: var(--warn) }
+.jbadge.stale { color: var(--accent); border-color: var(--accent) }
+.jscore { color: var(--muted) }
+.jprobs summary { cursor: pointer; font-size: 12.5px }
+.jprobs ul { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 3px; font-size: 12.5px }
+.jres { font: 700 11px/1 var(--mono); text-transform: uppercase }
+.jres.fail { color: var(--warn) }
+.jres.unsure { color: var(--muted) }
 .uprow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center }
 .uprow button { border: 1px solid var(--line); background: var(--bg); border-radius: 6px; padding: 6px 12px; font-size: 13.5px }
 .uprow .primary { background: var(--fg); color: var(--bg); border-color: var(--fg); font-weight: 700 }
@@ -1537,6 +1549,8 @@ function checkOddsBlock(opt, changed, restructure) {
   const BOARDS_DIR = [".scratch", "event-art"];
 
   let root = null, boards = [], feedback = {}, plateFiles = new Map(), currentId = null, cardIdx = 0;
+  // Art-judge results per shot board (read only): eventId → {byFile: judgement file name → JSON, shas: draft name → sha256 or null}.
+  let judgements = {}, shaCache = new Map();
   // Proposal play-through: cards visited before this one (for Prev), and the picked option/outcome on a choice card.
   let trail = [], trailImg = [], pick = null, outcomeKey = null;
   // Option indexes asked so far per hub card key on the played path; they gate the hub's → under its advance rule.
@@ -1593,6 +1607,51 @@ function checkOddsBlock(opt, changed, restructure) {
   // current: the file's version now, or null if it doesn't exist.
   const storageAllows = (expect, current) => expect === undefined || expect === current;
   /* ---------- End storage ---------- */
+  /* ---------- Judgements (pure) ---------- */
+  // No DOM, no file access: tools/test_storyboard.js unit-tests it. Judgement files are written by tools/art_judge
+  // (.scratch/event-art/<event>/judgements/<draft stem>.judgement.json); the tool only reads them.
+  const JUDGEMENT_SUFFIX = ".judgement.json";
+  const judgementFileFor = (draftName) => draftName.replace(/\.[^.]+$/, "") + JUDGEMENT_SUFFIX;
+  // Judgement for one draft file (stem, stem_vN and stem_clean each have their own). `byFile`: judgement file name → parsed JSON.
+  const judgementFor = (draftName, byFile) => {
+    const j = byFile && byFile[judgementFileFor(draftName)];
+    return j && typeof j === "object" ? j : null;
+  };
+  // Badge state: none = no judgement file, stale = the draft changed since (curSha unknown never counts as stale).
+  function judgementState(j, curSha) {
+    if (!j) return "none";
+    if (j.verdict === "unjudged") return "unjudged";
+    if (curSha && j.draftSha && j.draftSha !== curSha) return "stale";
+    return j.verdict === "pass" || j.verdict === "fail" ? j.verdict : "unjudged";
+  }
+  const JUDGEMENT_LABEL = { pass: "pass", fail: "fail", unjudged: "unjudged", stale: "stale", none: "not judged" };
+  // Draft file names in display order: ranked first (rank 1 = best), then the rest in file order; unjudged and not judged last.
+  function orderDrafts(names, byFile) {
+    const key = (n, i) => {
+      const j = judgementFor(n, byFile);
+      const ok = j && (j.verdict === "pass" || j.verdict === "fail");
+      const rank = ok && Number.isFinite(j.rank) ? j.rank : Infinity;
+      return [ok ? 0 : 1, rank, i];
+    };
+    return names.map((n, i) => ({ n, k: key(n, i) }))
+      .sort((a, b) => (a.k[0] - b.k[0]) || (a.k[1] - b.k[1]) || (a.k[2] - b.k[2])).map((x) => x.n);
+  }
+  // Brief, style and per-cast scores as [label, value] pairs; a cast member with unchecked identity shows "n/a".
+  function judgementScores(j) {
+    const sc = (j && j.scores) || {};
+    const out = [];
+    if (typeof sc.brief === "number") out.push(["brief", sc.brief]);
+    if (typeof sc.style === "number") out.push(["style", sc.style]);
+    for (const name of Object.keys(sc.cast || {})) out.push([name, typeof sc.cast[name] === "number" ? sc.cast[name] : "n/a"]);
+    return out;
+  }
+  // Failed and unsure checks with their reasons, failures first.
+  function judgementProblems(j) {
+    const checks = ((j && j.checks) || []).filter((c) => c && (c.result === "fail" || c.result === "unsure"));
+    return [...checks.filter((c) => c.result === "fail"), ...checks.filter((c) => c.result === "unsure")]
+      .map((c) => ({ id: c.id, result: c.result, why: c.why || "" }));
+  }
+  /* ---------- End judgements ---------- */
   /* ---------- Planning model (pure) ---------- */
   // No DOM, no file access: tools/test_storyboard.js extracts everything between this marker and its end marker.
   // One planning file per questline (act) under .scratch/questlines/; the game never loads them.
@@ -5175,6 +5234,7 @@ function checkOddsBlock(opt, changed, restructure) {
     await loadItemCatalogue();
     liveFiles = root ? await fileNames(LIVE_EVENTS_DIR, /\.json$/) : [];
     feedback = {};
+    judgements = {};
     repoImages = null;
     // A shot board with unsaved edits stays as it is in memory; one unchanged on disk keeps its undo history.
     const prevShots = new Map(boards.filter((b) => b.kind !== "proposal").map((b) => [b.eventId, b]));
@@ -5194,6 +5254,7 @@ function checkOddsBlock(opt, changed, restructure) {
       }
     } catch { setNote("No .scratch/event-art/ folder yet. Ask Claude to storyboard an event."); }
     await loadPlates();
+    await loadJudgements(found);
     // A proposal with unsaved edits keeps its in-memory draft across reloads (Save checks the disk copy first);
     // one whose JSON block is unchanged on disk keeps its undo history.
     const prev = new Map(boards.filter((b) => b.kind === "proposal" && b.draft).map((b) => [b.eventId, b]));
@@ -5211,6 +5272,39 @@ function checkOddsBlock(opt, changed, restructure) {
     const want = currentId && boards.some((b) => b.eventId === currentId) ? currentId
       : (boards.some((b) => b.eventId === remembered()) ? remembered() : boards[0]?.eventId || null);
     selectBoard(want, want === currentId);
+  }
+  async function sha256Of(file) {
+    try {
+      const buf = await file.arrayBuffer();
+      return [...new Uint8Array(await crypto.subtle.digest("SHA-256", buf))].map((x) => x.toString(16).padStart(2, "0")).join("");
+    } catch { return null; }
+  }
+  // Reads each board's judgement files and the current sha of every judged draft (cached by size + mtime).
+  async function loadJudgements(shotBoards) {
+    for (const b of shotBoards) {
+      const entry = { byFile: {}, shas: {} };
+      judgements[b.eventId] = entry;
+      const dir = [...await boardDir(b), "judgements"];
+      let names = [];
+      try { names = (await fileNamesIn(dir)).filter((n) => n.endsWith(JUDGEMENT_SUFFIX)); } catch {}
+      for (const n of names) {
+        let j = null;
+        try { j = await readJSON([...dir, n]); } catch {}
+        if (j && typeof j === "object") entry.byFile[n] = j;
+      }
+      for (const n of plateFiles.keys()) {
+        if (!entry.byFile[judgementFileFor(n)]) continue;
+        try {
+          const f = await storage.readFile(plateFiles.get(n));
+          if (!f) continue;
+          const stamp = f.lastModified + ":" + f.size, c = shaCache.get(n);
+          if (c && c.stamp === stamp) { entry.shas[n] = c.sha; continue; }
+          const sha = await sha256Of(f);
+          shaCache.set(n, { stamp, sha });
+          entry.shas[n] = sha;
+        } catch {}
+      }
+    }
   }
   // The folder holding a shot board's board.json (a new event id's folder if none holds it yet), as a path.
   async function boardDir(b) {
@@ -7072,12 +7166,30 @@ function checkOddsBlock(opt, changed, restructure) {
       el("pre", { text }));
   }
 
+  // Verdict badge + scores + a collapsible list of failed/unsure checks for one draft file.
+  function judgementBlock(j, curSha) {
+    const state = judgementState(j, curSha);
+    const rank = j && state !== "unjudged" && Number.isFinite(j.rank) ? ` #${j.rank}` : "";
+    const head = el("div", { class: "jhead" }, el("span", { class: "jbadge " + state, text: JUDGEMENT_LABEL[state] + rank }),
+      ...judgementScores(j).map(([k, v]) => el("span", { class: "jscore", text: `${k} ${v}` })));
+    if (!j) return el("div", { class: "judge" }, head);
+    const probs = judgementProblems(j);
+    const parts = [head];
+    if (state === "stale") parts.push(el("span", { class: "fstate", text: "Draft changed since it was judged." }));
+    if (state === "unjudged" && j.error) parts.push(el("span", { class: "fstate", text: j.error }));
+    if (probs.length) parts.push(el("details", { class: "jprobs" }, el("summary", { text: `${probs.length} failed/unsure check${probs.length > 1 ? "s" : ""}` }),
+      el("ul", {}, ...probs.map((c) => el("li", {}, el("span", { class: "jres " + c.result, text: c.result }), ` ${c.id}: ${c.why}`)))));
+    return el("div", { class: "judge" }, ...parts);
+  }
+
   // Upload = write the image into assets/reference-plates/ under the save-as name.
   function filesBlock(target, saveAs) {
     if (!saveAs) return null;
-    const names = filesFor(saveAs);
+    const sb = shotBoard(), jd = (sb && judgements[sb.eventId]) || { byFile: {}, shas: {} };
+    const names = orderDrafts(filesFor(saveAs), jd.byFile);
     const list = el("ul", {}, ...names.map((n) => el("li", {}, imgFor(n, n),
-      el("span", {}, el("span", { class: "fname", text: n }), el("br"), el("span", { class: "fstate ok", text: "In assets/reference-plates/" })))));
+      el("span", {}, el("span", { class: "fname", text: n }), el("br"), el("span", { class: "fstate ok", text: "In assets/reference-plates/" }),
+        judgementBlock(judgementFor(n, jd.byFile), jd.shas[n])))));
     const status = el("span", { class: "status" });
     const choice = el("div", { class: "uprow" });
     const input = el("input", { type: "file", accept: "image/png,image/jpeg,image/webp", class: "vh" });
