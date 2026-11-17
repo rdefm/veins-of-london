@@ -2268,8 +2268,9 @@ function checkOddsBlock(opt, changed, restructure) {
     await openRepo();
   }
   async function openFolder() {
+    setNote("Opening the folder picker… If no window appears, check the taskbar: it can open behind this one.");
     try { await useRoot(await window.showDirectoryPicker({ id: "vein-storyboards", mode: "readwrite" })); }
-    catch (e) { if (!e || e.name !== "AbortError") setNote("Couldn't open the folder: " + (e && e.message)); }
+    catch (e) { setNote(e && e.name === "AbortError" ? "No folder chosen (picker closed). Click Open repo folder to try again." : "Couldn't open the folder: " + (e && e.message)); }
   }
   async function reopen(h) {
     try {
