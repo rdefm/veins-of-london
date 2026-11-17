@@ -1,0 +1,72 @@
+{
+ "eventId": "intro-proposal2",
+ "title": "Intro — proposal 2",
+ "phase": "storyboard",
+ "round": 2,
+ "approved": {
+  "round": 2,
+  "at": "2026-10-09",
+  "phase": "storyboard"
+ },
+ "updatedAt": 1791530207932,
+ "cards": [
+  {
+   "branch": "main",
+   "key": "c1",
+   "type": "narration",
+   "speaker": null,
+   "text": "Rent is due Friday. You have £40, and this morning's interviewer has promised to keep your details on file. Archie, an old mate, said he might have work. So: half ten on a Tuesday, behind a chicken shop on Mile End Road.",
+   "cut": "NEW",
+   "shot": "S1",
+   "why": "Card 1 can't start blank. Place, hour, and Archie (named here) leaning on the wall with the bag."
+  },
+  {
+   "branch": "main",
+   "key": "c2",
+   "type": "speaker",
+   "speaker": "Archie",
+   "text": "He's whistling, a Tesco bag hooked on one finger. \"Two blokes, cash, in and out before the chicken shop shuts. You just stand there looking like you'd be a pain to fight. If I say leg it, you leg it. Don't wait for me.\"",
+   "cut": "HOLD",
+   "shot": "S1",
+   "why": "His patter, same moment. S1 already shows the whistling and the bag on one finger."
+  },
+  {
+   "branch": "main",
+   "key": "c3",
+   "type": "speaker",
+   "speaker": "You",
+   "text": "\"I don't look like I'd be a pain to fight.\"",
+   "cut": "HOLD",
+   "shot": "S1",
+   "why": "Your line. Faceless 'you' is the camera."
+  },
+  {
+   "branch": "main",
+   "key": "c4",
+   "type": "speaker",
+   "speaker": "Archie",
+   "text": "\"Pretend then. Imagine you're Vinnie Jones in his prime.\"",
+   "cut": "HOLD",
+   "shot": "S1",
+   "why": "Same exchange."
+  }
+ ],
+ "shots": [
+  {
+   "id": "S1",
+   "title": "Archie on the wall",
+   "cards": "main: c1–c4",
+   "plate": "P1",
+   "method": "pose",
+   "job": "Where, when and who: a dead-end yard at half ten, Archie relaxed, holding the bag that is the whole deal.",
+   "attach": [
+    "assets/reference-plates/mile_end_yard_blank_plate.png",
+    "assets/character-references/Archie/Archie_biz_sprite_master.png"
+   ],
+   "prompt": "Attach: mile_end_yard_blank_plate.png, Archie_biz_sprite_master.png.\nUsing the yard in mile_end_yard_blank_plate.png, add the man from Archie_biz_sprite_master.png (same face, hair, beard and clothes) leaning back against the brick wall on the right, mid-yard, a few metres from the camera. One leg bent with that foot flat against the wall, the other leg straight. Lips pursed, whistling, eyes toward the yard mouth. A thin white plastic carrier bag (no logo) hooked on one finger, the corner of a flattened brown cardboard box showing through it. Same pixel-art style and scale as the room. Change nothing else in the room. Keep the exact image size.",
+   "saveAs": "assets/reference-plates/mile_end_yard_S1_archie_wall_lean.png",
+   "unseen": "The car and the buyers. The yard mouth is empty.",
+   "file": "assets/events/intro/intro_card1.png"
+  }
+ ]
+}

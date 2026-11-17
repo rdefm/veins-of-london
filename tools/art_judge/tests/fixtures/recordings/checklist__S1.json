@@ -1,0 +1,56 @@
+{
+  "items": [
+    {
+      "category": "cast",
+      "text": "Exactly one person (Archie) is visible in the yard, and no one else is in frame."
+    },
+    {
+      "category": "cast",
+      "text": "Archie's face, hair, beard and clothes match the sprite master, with no changed hair colour, beard length or outfit."
+    },
+    {
+      "category": "pose",
+      "text": "Archie leans back against the brick wall on the right side of the yard, not centred and not on the left."
+    },
+    {
+      "category": "pose",
+      "text": "One of Archie's legs is bent with that foot flat against the wall, and the other leg is straight on the ground."
+    },
+    {
+      "category": "pose",
+      "text": "Archie looks relaxed: shoulders loose, no tense or defensive stance."
+    },
+    {
+      "category": "pose",
+      "text": "Archie's lips are pursed as if whistling, and he is not smiling or speaking."
+    },
+    {
+      "category": "pose",
+      "text": "Archie's eyes are directed toward the yard mouth, not at the camera and not at the bag."
+    },
+    {
+      "category": "props",
+      "text": "A thin white plastic carrier bag with no visible logo hangs from one of Archie's fingers."
+    },
+    {
+      "category": "props",
+      "text": "The corner of a flattened brown cardboard box shows through the bag."
+    },
+    {
+      "category": "framing",
+      "text": "Archie is mid-yard, a few metres from the camera, and is full-length or nearly so, at the same scale as the room."
+    },
+    {
+      "category": "framing",
+      "text": "The yard is the same as the blank plate: bricks, bins and other fixtures are unchanged, and the image size and camera angle match."
+    },
+    {
+      "category": "unseen",
+      "text": "No car is visible anywhere, including at the yard mouth or its edges."
+    },
+    {
+      "category": "unseen",
+      "text": "No buyers or other figures are visible, and the yard mouth is empty."
+    }
+  ]
+}

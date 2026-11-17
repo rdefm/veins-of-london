@@ -1,0 +1,123 @@
+{
+  "shotId": "S1",
+  "briefHash": "b7e5bf32b8dda827",
+  "builtAt": "2026-11-17T08:55:20Z",
+  "items": [
+    {
+      "id": "cast-Archie",
+      "category": "cast",
+      "text": "Archie is on screen.",
+      "hard": false,
+      "presence": true
+    },
+    {
+      "id": "cast-only",
+      "category": "cast",
+      "text": "No one is on screen except: Archie.",
+      "hard": false,
+      "presence": true
+    },
+    {
+      "id": "m1",
+      "category": "cast",
+      "text": "Exactly one person (Archie) is visible in the yard, and no one else is in frame.",
+      "hard": false
+    },
+    {
+      "id": "m2",
+      "category": "cast",
+      "text": "Archie's face, hair, beard and clothes match the sprite master, with no changed hair colour, beard length or outfit.",
+      "hard": false
+    },
+    {
+      "id": "m3",
+      "category": "pose",
+      "text": "Archie leans back against the brick wall on the right side of the yard, not centred and not on the left.",
+      "hard": false
+    },
+    {
+      "id": "m4",
+      "category": "pose",
+      "text": "One of Archie's legs is bent with that foot flat against the wall, and the other leg is straight on the ground.",
+      "hard": false
+    },
+    {
+      "id": "m5",
+      "category": "pose",
+      "text": "Archie looks relaxed: shoulders loose, no tense or defensive stance.",
+      "hard": false
+    },
+    {
+      "id": "m6",
+      "category": "pose",
+      "text": "Archie's lips are pursed as if whistling, and he is not smiling or speaking.",
+      "hard": false
+    },
+    {
+      "id": "m7",
+      "category": "pose",
+      "text": "Archie's eyes are directed toward the yard mouth, not at the camera and not at the bag.",
+      "hard": false
+    },
+    {
+      "id": "m8",
+      "category": "props",
+      "text": "A thin white plastic carrier bag with no visible logo hangs from one of Archie's fingers.",
+      "hard": false
+    },
+    {
+      "id": "m9",
+      "category": "props",
+      "text": "The corner of a flattened brown cardboard box shows through the bag.",
+      "hard": false
+    },
+    {
+      "id": "m10",
+      "category": "framing",
+      "text": "Archie is mid-yard, a few metres from the camera, and is full-length or nearly so, at the same scale as the room.",
+      "hard": false
+    },
+    {
+      "id": "m11",
+      "category": "framing",
+      "text": "The yard is the same as the blank plate: bricks, bins and other fixtures are unchanged, and the image size and camera angle match.",
+      "hard": false
+    },
+    {
+      "id": "m12",
+      "category": "unseen",
+      "text": "No car is visible anywhere, including at the yard mouth or its edges.",
+      "hard": false
+    },
+    {
+      "id": "m13",
+      "category": "unseen",
+      "text": "No buyers or other figures are visible, and the yard mouth is empty.",
+      "hard": false
+    },
+    {
+      "id": "h-text",
+      "category": "hard",
+      "text": "No legible text or logos anywhere in the image.",
+      "hard": true
+    },
+    {
+      "id": "h-face",
+      "category": "hard",
+      "text": "No player face is shown (the player is never seen).",
+      "hard": true
+    },
+    {
+      "id": "h-bottom",
+      "category": "hard",
+      "text": "Nothing story-critical sits in the bottom ~10% of the image.",
+      "hard": true
+    },
+    {
+      "id": "h-crop",
+      "category": "hard",
+      "text": "The focal point survives the small-phone crop.",
+      "hard": true
+    }
+  ]
+}

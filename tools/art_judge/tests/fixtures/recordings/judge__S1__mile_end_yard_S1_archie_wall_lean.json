@@ -1,0 +1,106 @@
+{
+  "checks": [
+    {
+      "id": "cast-Archie",
+      "result": "pass",
+      "why": "Archie is visible leaning on the right wall."
+    },
+    {
+      "id": "cast-only",
+      "result": "pass",
+      "why": "Only Archie appears as a figure."
+    },
+    {
+      "id": "m1",
+      "result": "pass",
+      "why": "One person in frame, no one else."
+    },
+    {
+      "id": "m2",
+      "result": "pass",
+      "why": "Brown tousled hair, beard, olive overshirt, white tee, navy jeans and white trainers match the sprite master."
+    },
+    {
+      "id": "m3",
+      "result": "pass",
+      "why": "He leans on the right brick wall, right of centre."
+    },
+    {
+      "id": "m4",
+      "result": "pass",
+      "why": "One leg is bent with the foot flat against the wall, and the other leg is straight on the ground."
+    },
+    {
+      "id": "m5",
+      "result": "pass",
+      "why": "He is loose and relaxed with one hand in his pocket."
+    },
+    {
+      "id": "m6",
+      "result": "pass",
+      "why": "A music note beside his mouth and pursed lips read as whistling. The pursing is small at this scale."
+    },
+    {
+      "id": "m7",
+      "result": "pass",
+      "why": "He is in profile, looking left toward the yard mouth, not at the camera or the bag."
+    },
+    {
+      "id": "m8",
+      "result": "pass",
+      "why": "A thin white plastic bag hangs from his hand, with no logo."
+    },
+    {
+      "id": "m9",
+      "result": "unsure",
+      "why": "The bag is pale and there is no clear brown cardboard corner showing through it."
+    },
+    {
+      "id": "m10",
+      "result": "pass",
+      "why": "He is full-length, mid-yard, at a scale consistent with the room."
+    },
+    {
+      "id": "m11",
+      "result": "fail",
+      "why": "The cardboard box at the right wall base is removed, and the small wall segment and kerb detail near the right mid-wall changed. The rest matches the plate."
+    },
+    {
+      "id": "m12",
+      "result": "pass",
+      "why": "The only vehicle is a white van parked in the plate's background street, which is present in the blank plate. No car is added."
+    },
+    {
+      "id": "m13",
+      "result": "pass",
+      "why": "No buyers or other figures, and the yard mouth is empty."
+    },
+    {
+      "id": "h-text",
+      "result": "pass",
+      "why": "No legible text or logos."
+    },
+    {
+      "id": "h-face",
+      "result": "pass",
+      "why": "The only face shown is Archie's, not the player's."
+    },
+    {
+      "id": "h-bottom",
+      "result": "pass",
+      "why": "Nothing story-critical sits in the bottom 10%."
+    },
+    {
+      "id": "h-crop",
+      "result": "pass",
+      "why": "Archie sits around y 470-1100, inside the small-phone crop (y 267-1269)."
+    }
+  ],
+  "scores": {
+    "brief": 3,
+    "style": 3.5,
+    "cast": {
+      "Archie": 3.5
+    }
+  }
+}
