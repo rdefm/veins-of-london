@@ -1,0 +1,134 @@
+{
+  "schema": 1,
+  "eventId": "prologue_james_meeting",
+  "shotId": "S9",
+  "draft": "assets/reference-plates/james_meeting_15.png",
+  "draftSha": "a0f05aa285f9d0c0de1bfc207b15ee7c31b7b9a6c24871e11d7cf3c9cdf6e85d",
+  "briefHash": "9749ce9724079447",
+  "styleHash": "1ba004d9d81aed00",
+  "rulesHash": "4f53cda18c2baa0c",
+  "model": "claude-cli-default",
+  "judgedAt": "2026-11-17T17:37:03Z",
+  "checks": [
+    {
+      "id": "cast-James",
+      "result": "pass",
+      "why": "James is clearly on screen."
+    },
+    {
+      "id": "cast-only",
+      "result": "pass",
+      "why": "Only James appears."
+    },
+    {
+      "id": "m1",
+      "result": "pass",
+      "why": "No second person visible."
+    },
+    {
+      "id": "m2",
+      "result": "pass",
+      "why": "Messy grey hair, glasses, light-blue shirt, navy waistcoat, grey trousers and brown shoes all match the sprite master. The rendering is slightly smoother and more painterly."
+    },
+    {
+      "id": "m3",
+      "result": "pass",
+      "why": "Standing upright in the middle of the floor, in front of the bookcase."
+    },
+    {
+      "id": "m4",
+      "result": "pass",
+      "why": "Both hands hold the jar at chest height."
+    },
+    {
+      "id": "m5",
+      "result": "pass",
+      "why": "His eyes are cast down at the jar."
+    },
+    {
+      "id": "m6",
+      "result": "pass",
+      "why": "Calm, slightly frowning, scrutinising expression."
+    },
+    {
+      "id": "m7",
+      "result": "pass",
+      "why": "A clear glass jar held in his hands."
+    },
+    {
+      "id": "m8",
+      "result": "pass",
+      "why": "A subtle purple-tinted shimmer inside the jar, not blazing. The colour is purple rather than the gold reserved for calc."
+    },
+    {
+      "id": "m9",
+      "result": "pass",
+      "why": "The jar is held up, not on the bench."
+    },
+    {
+      "id": "m10",
+      "result": "fail",
+      "why": "The room was partly redrawn. The drawer cabinet has fewer columns, the shelf jars, bench clutter and some books differ, and the stool and bench-front details have shifted."
+    },
+    {
+      "id": "m11",
+      "result": "pass",
+      "why": "Scale is plausible against the furniture and he is fully in frame."
+    },
+    {
+      "id": "m12",
+      "result": "pass",
+      "why": "Archie is not visible."
+    },
+    {
+      "id": "m13",
+      "result": "pass",
+      "why": "No label or readable word on the jar."
+    },
+    {
+      "id": "h-text",
+      "result": "pass",
+      "why": "No legible text or logos."
+    },
+    {
+      "id": "h-face",
+      "result": "pass",
+      "why": "The player's face is not shown."
+    },
+    {
+      "id": "h-bottom",
+      "result": "pass",
+      "why": "The bottom 10% is only rug and floor."
+    },
+    {
+      "id": "h-crop",
+      "result": "pass",
+      "why": "James and the jar sit at about y 620-1340, inside even the small phone crop."
+    }
+  ],
+  "scores": {
+    "brief": 3,
+    "style": 2.5,
+    "cast": {
+      "James": 3.5
+    }
+  },
+  "metrics": {
+    "size": [
+      941,
+      1672
+    ],
+    "gridScale": 1,
+    "gridRegularity": 0.003,
+    "colours": 332292,
+    "paletteDistance": 16.77
+  },
+  "verdict": "fail",
+  "rank": 2,
+  "correctionPrompt": "Same image, change only: restore the drawer cabinet's original column count, the shelf jars, the bench clutter, the books, the stool and the bench-front details exactly as in the blank workshop plate, and redraw James and the jar with the same pixel scale, palette and outline style as the room. Keep everything else identical.",
+  "checklistEditedAt": null,
+  "verdictReasons": [
+    "score style 2.5 < 3.0"
+  ],
+  "threshold": 3.0
+}

@@ -1,0 +1,136 @@
+{
+  "shotId": "S2",
+  "briefHash": "fa9456654a4e4baa",
+  "builtAt": "2026-11-17T17:30:59Z",
+  "items": [
+    {
+      "id": "cast-Archie",
+      "category": "cast",
+      "text": "Archie is on screen.",
+      "hard": false,
+      "presence": true
+    },
+    {
+      "id": "cast-Dog walker",
+      "category": "cast",
+      "text": "Dog walker is on screen.",
+      "hard": false,
+      "presence": true
+    },
+    {
+      "id": "cast-only",
+      "category": "cast",
+      "text": "No one is on screen except: Archie, Dog walker.",
+      "hard": false,
+      "presence": true
+    },
+    {
+      "id": "m1",
+      "category": "cast",
+      "text": "Archie is the only person in the foreground, matching the man in Archie_biz_sprite_master.png (same outfit, hair and build).",
+      "hard": false
+    },
+    {
+      "id": "m2",
+      "category": "cast",
+      "text": "The woman with the dog is no longer at her spot from james_meeting_1.png. She is walking away at the far right of the frame, or just leaving it.",
+      "hard": false
+    },
+    {
+      "id": "m3",
+      "category": "cast",
+      "text": "No third person is standing with Archie. Only passers-by already in james_exterior.png appear.",
+      "hard": false
+    },
+    {
+      "id": "m4",
+      "category": "pose",
+      "text": "Archie stands in the same spot on the street as in james_meeting_1.png, with no obvious shift in position or scale.",
+      "hard": false
+    },
+    {
+      "id": "m5",
+      "category": "pose",
+      "text": "Archie's body and face turn toward the camera, not toward the unit door or away from the viewer.",
+      "hard": false
+    },
+    {
+      "id": "m6",
+      "category": "pose",
+      "text": "Archie's mouth is slightly open or his expression is serious, as if he is mid-sentence.",
+      "hard": false
+    },
+    {
+      "id": "m7",
+      "category": "pose",
+      "text": "Archie's posture is steady and calm. He is not lunging, pointing at the camera, or reaching for the door.",
+      "hard": false
+    },
+    {
+      "id": "m8",
+      "category": "pose",
+      "text": "Archie's hands are not touching the shopfront, the door or any goods.",
+      "hard": false
+    },
+    {
+      "id": "m9",
+      "category": "props",
+      "text": "Archie carries the same items as in Archie_biz_sprite_master.png and james_meeting_1.png. If he holds a carrier bag, it is held down at his side and not waved or brandished.",
+      "hard": false
+    },
+    {
+      "id": "m10",
+      "category": "props",
+      "text": "The street, shopfront, signage, parked objects and background match james_exterior.png. Only the characters differ.",
+      "hard": false
+    },
+    {
+      "id": "m11",
+      "category": "framing",
+      "text": "The image is the same size and aspect ratio as james_exterior.png, with the street framed the same way.",
+      "hard": false
+    },
+    {
+      "id": "m12",
+      "category": "framing",
+      "text": "Archie is drawn at the same pixel scale as the street, not oversized or tiny, and he is readable as the clear focal point.",
+      "hard": false
+    },
+    {
+      "id": "m13",
+      "category": "unseen",
+      "text": "James is not visible anywhere in the frame, including in a doorway or window.",
+      "hard": false
+    },
+    {
+      "id": "m14",
+      "category": "unseen",
+      "text": "The inside of the unit is not visible. The door is closed or the opening shows no interior detail.",
+      "hard": false
+    },
+    {
+      "id": "h-text",
+      "category": "hard",
+      "text": "No legible text or logos anywhere in the image.",
+      "hard": true
+    },
+    {
+      "id": "h-face",
+      "category": "hard",
+      "text": "No player face is shown (the player is never seen).",
+      "hard": true
+    },
+    {
+      "id": "h-bottom",
+      "category": "hard",
+      "text": "Nothing story-critical sits in the bottom ~10% of the image.",
+      "hard": true
+    },
+    {
+      "id": "h-crop",
+      "category": "hard",
+      "text": "The focal point survives the small-phone crop.",
+      "hard": true
+    }
+  ]
+}

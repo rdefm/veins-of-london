@@ -1,0 +1,147 @@
+{
+  "schema": 1,
+  "eventId": "prologue_james_meeting",
+  "shotId": "S2",
+  "draft": "assets/reference-plates/james_meeting_2.png",
+  "draftSha": "2a37ac7df9c6beec4f56f914eb6eb160686484d7e58f5e2aaaec1397a865b818",
+  "briefHash": "fa9456654a4e4baa",
+  "styleHash": "1ba004d9d81aed00",
+  "rulesHash": "4f53cda18c2baa0c",
+  "model": "claude-cli-default",
+  "judgedAt": "2026-11-17T17:30:45Z",
+  "checks": [
+    {
+      "id": "cast-Archie",
+      "result": "pass",
+      "why": "Archie stands in the doorway, facing the camera."
+    },
+    {
+      "id": "cast-Dog walker",
+      "result": "pass",
+      "why": "An older woman with a Jack Russell on a lead is on screen."
+    },
+    {
+      "id": "cast-only",
+      "result": "pass",
+      "why": "Only Archie and the dog walker (with her dog) appear."
+    },
+    {
+      "id": "m1",
+      "result": "pass",
+      "why": "Green overshirt, grey tee, dark jeans, white trainers, curly brown hair and beard match the sprite master. He is the only foreground figure."
+    },
+    {
+      "id": "m2",
+      "result": "fail",
+      "why": "She is still mid-frame, roughly x 500-930, walking right in front of the door. She is not yet at the far right or leaving the frame."
+    },
+    {
+      "id": "m3",
+      "result": "pass",
+      "why": "No third person is standing with Archie."
+    },
+    {
+      "id": "m4",
+      "result": "unsure",
+      "why": "The james_meeting_1.png comparison image was not provided. He stands centred on the door step, which is plausible."
+    },
+    {
+      "id": "m5",
+      "result": "pass",
+      "why": "His body and face are turned squarely to the camera."
+    },
+    {
+      "id": "m6",
+      "result": "fail",
+      "why": "His mouth is closed with a mild, friendly smile. He does not look mid-sentence or serious."
+    },
+    {
+      "id": "m7",
+      "result": "pass",
+      "why": "His posture is relaxed and steady, with no lunging or pointing."
+    },
+    {
+      "id": "m8",
+      "result": "pass",
+      "why": "Both hands are in his pockets, touching nothing."
+    },
+    {
+      "id": "m9",
+      "result": "pass",
+      "why": "He carries no items, as in the sprite master. No carrier bag is brandished."
+    },
+    {
+      "id": "m10",
+      "result": "fail",
+      "why": "The street is re-framed: it looks zoomed out and shifted left. The door is narrower, the lamp has moved from x~520 to x~480, and the right-hand window and chair are shifted and cropped differently. The street is not unchanged."
+    },
+    {
+      "id": "m11",
+      "result": "fail",
+      "why": "The image size matches at 1024x1536, but the street framing and scale differ from james_exterior.png."
+    },
+    {
+      "id": "m12",
+      "result": "pass",
+      "why": "Archie's scale fits the street and he reads clearly as the focal point."
+    },
+    {
+      "id": "m13",
+      "result": "pass",
+      "why": "James is not visible."
+    },
+    {
+      "id": "m14",
+      "result": "pass",
+      "why": "The door is closed and no interior is visible."
+    },
+    {
+      "id": "h-text",
+      "result": "pass",
+      "why": "No legible text or logos are visible."
+    },
+    {
+      "id": "h-face",
+      "result": "pass",
+      "why": "The only face shown is Archie's, an NPC. The player is not shown."
+    },
+    {
+      "id": "h-bottom",
+      "result": "pass",
+      "why": "The bottom 10% is empty pavement."
+    },
+    {
+      "id": "h-crop",
+      "result": "pass",
+      "why": "Archie sits at about y 430-970, inside the small-phone crop of y 267-1269."
+    }
+  ],
+  "scores": {
+    "brief": 2.5,
+    "style": 3,
+    "cast": {
+      "Archie": 3.5,
+      "Dog walker": {
+        "identity": "unchecked"
+      }
+    }
+  },
+  "metrics": {
+    "size": [
+      1024,
+      1536
+    ],
+    "gridScale": 1,
+    "gridRegularity": 0.009,
+    "colours": 353633,
+    "paletteDistance": 16.09
+  },
+  "verdict": "fail",
+  "rank": 1,
+  "correctionPrompt": "Same image, change only: Move the woman with the dog further right so she is walking off or leaving the right edge of the frame; give Archie an open mouth and a serious expression as if mid-sentence; restore the street to the exact framing and scale of james_exterior.png (same door width, lamp at x~520, right window and chair in their original positions and crop). Keep everything else identical.",
+  "checklistEditedAt": null,
+  "verdictReasons": [
+    "score brief 2.5 < 3.0"
+  ],
+  "threshold": 3.0
+}

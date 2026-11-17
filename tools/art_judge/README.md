@@ -67,11 +67,11 @@ Cast = names from `assets/character-references/<Name>/` paths in the shot's `att
   "correctionPrompt": null, "error": "(unjudged only)" }
 ```
 
-Pass rule: no failed `hard` check, no failed cast-presence check, size equals the board's canvas (`board.canvas`, default 1024×1536), every score ≥ threshold. `unsure` never fails a draft. A cast member with no reference image gets `{"identity": "unchecked"}` and doesn't fail it. A malformed or failed reply is retried once, then written as `unjudged` with `error`.
+Pass rule: no failed `hard` check, no failed cast-presence check, every score ≥ threshold. Image size never fails a draft (VN images are aspect-covered, ART-BIBLE §3); it is recorded in `metrics.size`. `unsure` never fails a draft. A cast member with no reference image gets `{"identity": "unchecked"}` and doesn't fail it. A malformed or failed reply is retried once, then written as `unjudged` with `error`.
 
 A failing draft gets one more, separate model call (no images; failed checks and score reasons in) that returns only the changes; the tool wraps them as `Same image, change only: <changes>. Keep everything else identical.` and stores that as `correctionPrompt` (null for pass/unjudged; `correctionError` if the call failed). The Shots tab shows it with a Copy button for the same ChatGPT conversation.
 
-Metrics (from `tools/pixel_grid.py`, also given to the model as context) are informational: they never change the verdict; size is the only hard technical check. `gridScale` = estimated source px per art pixel (1 = no grid found); `gridRegularity` 0-1; `colours` = distinct colours after grid-lock at that scale; `paletteDistance` = mean RGB distance to `data/palette.json` (null if absent).
+Metrics (from `tools/pixel_grid.py`, also given to the model as context) are informational: they never change the verdict. `gridScale` = estimated source px per art pixel (1 = no grid found); `gridRegularity` 0-1; `colours` = distinct colours after grid-lock at that scale; `paletteDistance` = mean RGB distance to `data/palette.json` (null if absent).
 
 ## Style set
 

@@ -1,0 +1,154 @@
+{
+  "schema": 1,
+  "eventId": "prologue_james_meeting",
+  "shotId": "S1",
+  "draft": "assets/reference-plates/james_meeting_1_v3.jpg",
+  "draftSha": "b0731e34966b4d07689f1e644b1ba7a479320eaa05aa317763c1154211df2409",
+  "briefHash": "893c391a96487ff7",
+  "styleHash": "1ba004d9d81aed00",
+  "rulesHash": "4f53cda18c2baa0c",
+  "model": "claude-cli-default",
+  "judgedAt": "2026-11-17T17:30:12Z",
+  "checks": [
+    {
+      "id": "cast-Archie",
+      "result": "fail",
+      "why": "Archie is not in the image."
+    },
+    {
+      "id": "cast-Dog walker",
+      "result": "fail",
+      "why": "No elderly woman in a plum coat. A young man walks a brown dog and a young woman carries a shopping bag."
+    },
+    {
+      "id": "cast-only",
+      "result": "fail",
+      "why": "Other people are on screen: a young man, a young woman, a shopkeeper and distant pedestrians."
+    },
+    {
+      "id": "m1",
+      "result": "fail",
+      "why": "No man stands at the door. The only men are a shopkeeper and a dog walker, and neither matches the sprite master."
+    },
+    {
+      "id": "m2",
+      "result": "fail",
+      "why": "No elderly woman in a plum coat. The woman is young and wears a purple dress."
+    },
+    {
+      "id": "m3",
+      "result": "fail",
+      "why": "The dog is brown and walks with a young man, not an elderly woman."
+    },
+    {
+      "id": "m4",
+      "result": "fail",
+      "why": "Several other figures are visible."
+    },
+    {
+      "id": "m5",
+      "result": "fail",
+      "why": "Nobody stands in front of the green door."
+    },
+    {
+      "id": "m6",
+      "result": "fail",
+      "why": "There is no Archie, so no hands in pockets."
+    },
+    {
+      "id": "m7",
+      "result": "fail",
+      "why": "There is no Archie to look down the street."
+    },
+    {
+      "id": "m8",
+      "result": "fail",
+      "why": "There is no Archie to look tense."
+    },
+    {
+      "id": "m9",
+      "result": "fail",
+      "why": "The figures do move left to right, but they are the wrong people, not an elderly woman and her dog."
+    },
+    {
+      "id": "m10",
+      "result": "fail",
+      "why": "The scene is daytime with a blue sky and a dry pavement. The door is green, but it is not night and nothing looks wet."
+    },
+    {
+      "id": "m11",
+      "result": "fail",
+      "why": "The foreground figures are the wrong ones."
+    },
+    {
+      "id": "m12",
+      "result": "fail",
+      "why": "This is a different scene. It has a different street, a fruit shop, a roller shutter, a bicycle and extra pedestrians, none of which are in james_exterior.png."
+    },
+    {
+      "id": "m13",
+      "result": "pass",
+      "why": "James is not identifiable anywhere."
+    },
+    {
+      "id": "m14",
+      "result": "pass",
+      "why": "The door is closed and the interior is not visible."
+    },
+    {
+      "id": "h-text",
+      "result": "fail",
+      "why": "Legible text appears: \"#34\", \"12\" and \"FRUIT & VEG\"."
+    },
+    {
+      "id": "h-face",
+      "result": "pass",
+      "why": "No player face is shown."
+    },
+    {
+      "id": "h-bottom",
+      "result": "pass",
+      "why": "Nothing story-critical sits in the bottom 10%."
+    },
+    {
+      "id": "h-crop",
+      "result": "fail",
+      "why": "There is no focal point to survive the crop, because Archie is absent."
+    }
+  ],
+  "scores": {
+    "brief": 0,
+    "style": 2,
+    "cast": {
+      "Archie": 0,
+      "Dog walker": {
+        "identity": "unchecked"
+      }
+    }
+  },
+  "metrics": {
+    "size": [
+      768,
+      1376
+    ],
+    "gridScale": 1,
+    "gridRegularity": 0.027,
+    "colours": 154276,
+    "paletteDistance": 15.06
+  },
+  "verdict": "fail",
+  "rank": 3,
+  "correctionPrompt": "Same image, change only: replace the scene with the james_exterior.png street at night with wet reflective pavement, no fruit shop, shutter, bicycle or extra pedestrians; add Archie from the sprite master at the green door, hands in pockets, head turned down the street, tense; add an elderly woman in a plum coat walking a small white-and-brown dog left to right in the foreground; remove all other people and all text, signs and numbers. Keep everything else identical.",
+  "checklistEditedAt": null,
+  "verdictReasons": [
+    "cast presence failed: cast-Archie",
+    "cast presence failed: cast-Dog walker",
+    "cast presence failed: cast-only",
+    "hard check failed: h-text",
+    "hard check failed: h-crop",
+    "score brief 0.0 < 3.0",
+    "score style 2.0 < 3.0",
+    "score cast:Archie 0.0 < 3.0"
+  ],
+  "threshold": 3.0
+}

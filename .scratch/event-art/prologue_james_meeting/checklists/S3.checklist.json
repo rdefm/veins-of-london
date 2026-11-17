@@ -1,0 +1,136 @@
+{
+  "shotId": "S3",
+  "briefHash": "adf4bdca5e887ddd",
+  "builtAt": "2026-11-17T17:31:50Z",
+  "items": [
+    {
+      "id": "cast-Archie",
+      "category": "cast",
+      "text": "Archie is on screen.",
+      "hard": false,
+      "presence": true
+    },
+    {
+      "id": "cast-James",
+      "category": "cast",
+      "text": "James is on screen.",
+      "hard": false,
+      "presence": true
+    },
+    {
+      "id": "cast-only",
+      "category": "cast",
+      "text": "No one is on screen except: Archie, James.",
+      "hard": false,
+      "presence": true
+    },
+    {
+      "id": "m1",
+      "category": "cast",
+      "text": "Exactly two people are visible: James in the doorway and Archie in front of the door.",
+      "hard": false
+    },
+    {
+      "id": "m2",
+      "category": "cast",
+      "text": "James looks sixties: grey or white hair and lined face, not a young or middle-aged man.",
+      "hard": false
+    },
+    {
+      "id": "m3",
+      "category": "cast",
+      "text": "James wears glasses, a waistcoat and shirt sleeves, with no jacket.",
+      "hard": false
+    },
+    {
+      "id": "m4",
+      "category": "cast",
+      "text": "Archie is seen from behind, with no face visible, and stands between the camera and the door.",
+      "hard": false
+    },
+    {
+      "id": "m5",
+      "category": "pose",
+      "text": "James stands in the doorway, facing out toward the camera.",
+      "hard": false
+    },
+    {
+      "id": "m6",
+      "category": "pose",
+      "text": "James's gaze meets the camera or viewer, not Archie's back or the ground.",
+      "hard": false
+    },
+    {
+      "id": "m7",
+      "category": "pose",
+      "text": "James's expression is flat, unimpressed and mildly put-upon, with no smile, shock or anger.",
+      "hard": false
+    },
+    {
+      "id": "m8",
+      "category": "pose",
+      "text": "Archie's back is to the camera, and he faces the door and James.",
+      "hard": false
+    },
+    {
+      "id": "m9",
+      "category": "props",
+      "text": "The green door is open inward, swung into the interior and not outward into the street.",
+      "hard": false
+    },
+    {
+      "id": "m10",
+      "category": "props",
+      "text": "James's glasses are visible and one arm looks slightly bent or askew.",
+      "hard": false
+    },
+    {
+      "id": "m11",
+      "category": "props",
+      "text": "James's waistcoat has a small stain or mark.",
+      "hard": false
+    },
+    {
+      "id": "m12",
+      "category": "framing",
+      "text": "The street, door frame and building match james_exterior.png, with nothing else in the street added or changed.",
+      "hard": false
+    },
+    {
+      "id": "m13",
+      "category": "framing",
+      "text": "James is fully inside the doorway and clearly readable. Archie does not hide him completely.",
+      "hard": false
+    },
+    {
+      "id": "m14",
+      "category": "unseen",
+      "text": "The interior beyond the doorway is dim and shows no jars, shelves of jars or glass containers.",
+      "hard": false
+    },
+    {
+      "id": "h-text",
+      "category": "hard",
+      "text": "No legible text or logos anywhere in the image.",
+      "hard": true
+    },
+    {
+      "id": "h-face",
+      "category": "hard",
+      "text": "No player face is shown (the player is never seen).",
+      "hard": true
+    },
+    {
+      "id": "h-bottom",
+      "category": "hard",
+      "text": "Nothing story-critical sits in the bottom ~10% of the image.",
+      "hard": true
+    },
+    {
+      "id": "h-crop",
+      "category": "hard",
+      "text": "The focal point survives the small-phone crop.",
+      "hard": true
+    }
+  ]
+}

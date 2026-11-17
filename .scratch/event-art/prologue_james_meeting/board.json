@@ -1,0 +1,467 @@
+{
+  "eventId": "prologue_james_meeting",
+  "title": "James's workshop (prologue)",
+  "logline": "Archie brings you to James for pearls; the calc notices you, Archie leaves, and James makes you his stand-in pearl maker.",
+  "phase": "drafts",
+  "round": 1,
+  "approved": null,
+  "updatedAt": 1794936227530,
+  "present": {
+    "P1": [
+      "james_exterior.png"
+    ]
+  },
+  "questions": [
+    "Board rebuilt from the event's existing art for the art-judge agreement run. Each shot's takes are the matching assets/reference-plates/james_meeting_* draft plus older versions from assets/events/ copied in as _vN.",
+    "Text says 'storage unit'; the placed exterior is a green door between shopfronts. The older card1/card2 art shows a roller-shutter unit (#34). Briefs follow the placed art."
+  ],
+  "cards": [
+    {
+      "branch": "main",
+      "key": "c1",
+      "type": "narration",
+      "speaker": null,
+      "text": "The storage unit 2 doors down from the halal supermarket. Archie is already there, which has never happened before. He used his last pearl in Whitechapel, and since then he checks the street every time a car slows.",
+      "cut": "NEW",
+      "shot": "S1",
+      "why": "Card 1 can't start blank: James's door on a wet Bermondsey night, Archie already waiting."
+    },
+    {
+      "branch": "main",
+      "key": "c2",
+      "type": "speaker",
+      "speaker": "Archie",
+      "text": "\"James makes pearls. I need pearls. Next time someone gets a knife out, I'd like more than a carrier bag to wave at them. So be polite, touch nothing, and let me do the talking.\"",
+      "cut": "NEW",
+      "shot": "S2",
+      "why": "Archie's line; the street keeps moving past him."
+    },
+    {
+      "branch": "main",
+      "key": "c3",
+      "type": "narration",
+      "speaker": null,
+      "text": "The door opens. James is in his sixties: glasses with one bent arm, a waistcoat with the slightest stain on it. He looks at Archie, then at you, like a parcel left on the wrong doorstep.",
+      "cut": "NEW",
+      "shot": "S3",
+      "why": "The door opens: first sight of James."
+    },
+    {
+      "branch": "main",
+      "key": "c4",
+      "type": "speaker",
+      "speaker": "James",
+      "text": "\"You're early. That's new. Come in. Touch nothing.\"",
+      "cut": "HOLD",
+      "shot": "S3",
+      "why": "James's line in the same doorway."
+    },
+    {
+      "branch": "main",
+      "key": "c5",
+      "type": "narration",
+      "speaker": null,
+      "text": "Shelves of jars run to the ceiling, each labelled in biro. It smells of copper and bleach. Archie stays by the door and rubs his eyes.",
+      "cut": "NEW",
+      "shot": "S4",
+      "why": "Inside: the workshop, Archie by the door rubbing his eyes."
+    },
+    {
+      "branch": "main",
+      "key": "c6",
+      "type": "narration",
+      "speaker": null,
+      "text": "You pass a jar marked TIME. The calc inside shifts. It moves to the side of the glass nearest your hand, as if it noticed you.",
+      "cut": "HOLD",
+      "shot": "S4",
+      "why": "The jar moment is in the text; the room already shows the jars."
+    },
+    {
+      "branch": "main",
+      "key": "c7",
+      "type": "narration",
+      "speaker": null,
+      "text": "You glance up. James is watching you. His expression doesn't change, exactly. But something in it does.",
+      "cut": "NEW",
+      "shot": "S5",
+      "why": "James's look at you is the beat."
+    },
+    {
+      "branch": "main",
+      "key": "c8",
+      "type": "speaker",
+      "speaker": "Archie",
+      "text": "\"James is the best craftsman I know. Everything I carry is his.\"",
+      "cut": "NEW",
+      "shot": "S6",
+      "why": "Archie and James talk business."
+    },
+    {
+      "branch": "main",
+      "key": "c9",
+      "type": "speaker",
+      "speaker": "James",
+      "text": "\"I'm the only craftsman you know. There's a difference.\" He turns to Archie. \"Forty units of life calc, collected from Stratford within the hour. Do it and your next batch of pearls is at cost.\"",
+      "cut": "HOLD",
+      "shot": "S6",
+      "why": "Same two-shot."
+    },
+    {
+      "branch": "main",
+      "key": "c10",
+      "type": "speaker",
+      "speaker": "Archie",
+      "text": "\"Who's the seller? Anyone I need to worry about?\"",
+      "cut": "HOLD",
+      "shot": "S6",
+      "why": "Same two-shot."
+    },
+    {
+      "branch": "main",
+      "key": "c11",
+      "type": "speaker",
+      "speaker": "James",
+      "text": "\"Nobody who's ever shortchanged me. The address will be on your phone by the time you reach the station.\" He doesn't look at you. \"I need your friend's assistance with something in the meantime.\"",
+      "cut": "HOLD",
+      "shot": "S6",
+      "why": "Same two-shot."
+    },
+    {
+      "branch": "main",
+      "key": "c12",
+      "type": "speaker",
+      "speaker": "Archie",
+      "text": "He looks at you, not James. \"Your call. Stay here, or come to Stratford and carry a bag.\"",
+      "cut": "NEW",
+      "shot": "S7",
+      "why": "Archie turns to you: your call."
+    },
+    {
+      "branch": "main",
+      "key": "c13",
+      "type": "speaker",
+      "speaker": "You",
+      "text": "You think about the pearl that stopped the knife, and about rent. \"I'll stay.\"",
+      "cut": "NEW",
+      "shot": "S8",
+      "why": "You stay; Archie has gone. James alone."
+    },
+    {
+      "branch": "main",
+      "key": "c14",
+      "type": "speaker",
+      "speaker": "Archie",
+      "text": "\"Lovely. Ring me if he's more horrible than usual.\" He's gone before James can answer.",
+      "cut": "HOLD",
+      "shot": "S8",
+      "why": "Archie's exit line is said leaving; the room is already his absence."
+    },
+    {
+      "branch": "main",
+      "key": "c15",
+      "type": "choice",
+      "speaker": "James",
+      "text": "He takes down the jar marked TIME and sets it on the bench. \"My assistant is indisposed and I have an order for time pearls. You'll do. Gloves.\" Inside the jar, the calc drifts to the side nearest you again. James is looking at the jar, not at you.",
+      "cut": "NEW",
+      "shot": "S9",
+      "why": "James takes down the TIME jar.",
+      "choices": [
+        "\"It's doing it again.\"",
+        "Say nothing"
+      ]
+    },
+    {
+      "branch": "main",
+      "key": "c16",
+      "type": "speaker",
+      "speaker": "James",
+      "text": "\"That hourglass Archie broke in Mile End. That was one of mine.\" He says it to the jar. \"It did what it was made for. Now you.\"",
+      "cut": "HOLD",
+      "shot": "S9",
+      "why": "Spoken to the jar."
+    },
+    {
+      "branch": "main",
+      "key": "c17",
+      "type": "speaker",
+      "speaker": "James",
+      "text": "\"I assume you've never made one.\" You haven't. \"Then I'll explain it once. A pearl that seals is worth a hundred and twenty pounds to someone frightened. A pearl that doesn't is my calc on the floor. Do try not to fuck it up.\"",
+      "cut": "HOLD",
+      "shot": "S9",
+      "why": "Same."
+    },
+    {
+      "branch": "main",
+      "key": "c18",
+      "type": "speaker",
+      "speaker": "James",
+      "text": "He measures out the calc. \"Plato wrote about orichalchum in the Critias. Second only to gold, in Atlantis.\" He glances at you. \"You have no idea what the Critias is, do you.\"",
+      "cut": "NEW",
+      "shot": "S10",
+      "why": "James measures out the calc at the bench."
+    },
+    {
+      "branch": "main",
+      "key": "c19",
+      "type": "speaker",
+      "speaker": "James",
+      "text": "You don't answer. \"Two and a half thousand years ago, people knew exactly what this was worth. Today Archie is collecting it outside a Poundland in Stratford. Make of that what you will about humanity.\"",
+      "cut": "HOLD",
+      "shot": "S10",
+      "why": "Same."
+    },
+    {
+      "branch": "main",
+      "key": "c20",
+      "type": "choice",
+      "speaker": null,
+      "text": "James sets a glass sphere in front of you and a measure of his own calc beside it. \"My calc, so you can stop counting it. Press, then heat. Don't leave until it seals.\"",
+      "cut": "HOLD",
+      "shot": "S10",
+      "why": "The crafting choice plays over the bench.",
+      "choices": [
+        "Take the press"
+      ]
+    },
+    {
+      "branch": "main",
+      "key": "c21",
+      "type": "resolution",
+      "speaker": null,
+      "text": "James wipes the bench down, caps the jar and puts it back on its shelf. Then he places a battered crafting kit on the table.",
+      "cut": "NEW",
+      "shot": "S11",
+      "why": "Two hours later: bench wiped, the kit on the table."
+    },
+    {
+      "branch": "main",
+      "key": "c22",
+      "type": "choice",
+      "speaker": "James",
+      "text": "\"The kit is payment, along with a sample of the pearls you made today.\" A pause. \"Keep practising and you may yet make more than a living out of this.\"",
+      "cut": "HOLD",
+      "shot": "S11",
+      "why": "Payment and the exit.",
+      "choices": [
+        "Leave",
+        "Leave"
+      ]
+    }
+  ],
+  "plates": [
+    {
+      "id": "P1",
+      "name": "james_exterior",
+      "variantOf": null,
+      "camera": "Across the wet pavement, eye level, square on to James's green door between two shopfronts",
+      "shots": "S1, S2, S3",
+      "attach": [],
+      "prompt": "A blank background plate for a pixel-art game scene: James's green front door in Bermondsey, South London, set back in a short brick passage between two small shopfronts with awnings, potted plants and a pendant lamp over the door. Night after rain: the paved pavement in the foreground is wet and reflects the shop lights. Camera: standing eye height, square on to the door, the door centred in the upper half. No people. No text unless vital to the scene. Portrait 2:3 (1024x1536).",
+      "notes": "Existing plate image: assets/reference-plates/james_exterior.png (not named *_blank_plate)."
+    },
+    {
+      "id": "P2",
+      "name": "james_workshop",
+      "variantOf": null,
+      "camera": "From just inside the door, eye level, down the narrow workshop: shelves of jars and books ahead, bench on the right",
+      "shots": "S4-S11",
+      "attach": [],
+      "prompt": "A blank background plate for a pixel-art game scene: James's cramped workshop inside a Bermondsey storage unit. Bookshelves and shelves of labelled glass jars to the ceiling at the back, a long wooden workbench with brass instruments, green-shaded lamps and stacked books on the right, a stool, a chair and pot plants on the left, a red patterned runner rug down the middle. Warm lamplight. Camera: standing eye height just inside the door, looking down the room. No people. No text unless vital to the scene. Portrait.",
+      "notes": "Existing plate image: assets/reference-plates/james_workshop_blank_plate.png."
+    }
+  ],
+  "shots": [
+    {
+      "id": "S1",
+      "title": "Archie waiting at James's door",
+      "cards": "main: c1",
+      "plate": "P1",
+      "method": "pose",
+      "job": "Where and who: James's door at night, and Archie, for once, there first and on edge.",
+      "attach": [
+        "assets/reference-plates/james_exterior.png",
+        "assets/character-references/Archie/Archie_biz_sprite_master.png"
+      ],
+      "prompt": "Attach: james_exterior.png, Archie_biz_sprite_master.png.\nUsing the street in james_exterior.png, add the man from Archie_biz_sprite_master.png (same face, hair, beard and clothes) standing in front of the green door, hands in pockets, glancing down the street. An elderly woman in a plum coat walks a small white-and-brown dog left to right across the wet pavement in the foreground. Same pixel-art style and scale as the street. Change nothing else in the street. Keep the exact image size.",
+      "saveAs": "assets/reference-plates/james_meeting_1.png",
+      "unseen": "James. The inside of the unit.",
+      "file": "assets/events/prologue_james_meeting/prologue_james_meeting_main_2.png",
+      "cast": [
+        "Dog walker"
+      ]
+    },
+    {
+      "id": "S2",
+      "title": "Archie gives the ground rules",
+      "cards": "main: c2",
+      "plate": "P1",
+      "method": "pose",
+      "job": "Archie, still outside, sets the terms: be polite, touch nothing.",
+      "attach": [
+        "assets/reference-plates/james_exterior.png",
+        "assets/character-references/Archie/Archie_biz_sprite_master.png",
+        "assets/reference-plates/james_meeting_1.png"
+      ],
+      "prompt": "Attach: james_exterior.png, Archie_biz_sprite_master.png, james_meeting_1.png.\nUsing the street in james_exterior.png, add the man from Archie_biz_sprite_master.png in the same spot as in james_meeting_1.png, now facing the camera as he speaks. The woman with the dog has walked on to the right of the frame. Same pixel-art style and scale as the street. Change nothing else in the street. Keep the exact image size.",
+      "saveAs": "assets/reference-plates/james_meeting_2.png",
+      "unseen": "James. The inside of the unit.",
+      "file": "assets/events/prologue_james_meeting/prologue_james_meeting_main_3.png",
+      "cast": [
+        "Dog walker"
+      ]
+    },
+    {
+      "id": "S3",
+      "title": "The door opens",
+      "cards": "main: c3-c4",
+      "plate": "P1",
+      "method": "pose",
+      "job": "First sight of James: sixties, glasses, waistcoat, looking at you like a misdelivered parcel.",
+      "attach": [
+        "assets/reference-plates/james_exterior.png",
+        "assets/character-references/Archie/Archie_biz_sprite_master.png",
+        "assets/character-references/James/James_biz_sprite_master.png"
+      ],
+      "prompt": "Attach: james_exterior.png, Archie_biz_sprite_master.png, James_biz_sprite_master.png.\nUsing the street in james_exterior.png, open the green door inward. In the doorway stands the man from James_biz_sprite_master.png (glasses, waistcoat, shirt sleeves), looking out at the camera, unimpressed. The man from Archie_biz_sprite_master.png stands in front of the door with his back to the camera. Same pixel-art style and scale as the street. Change nothing else in the street. Keep the exact image size.",
+      "saveAs": "assets/reference-plates/james_meeting_3.png",
+      "unseen": "The workshop beyond the doorway stays dim; no jars visible yet.",
+      "file": "assets/events/prologue_james_meeting/prologue_james_meeting_main_4.png"
+    },
+    {
+      "id": "S4",
+      "title": "Into the workshop",
+      "cards": "main: c5-c6",
+      "plate": "P2",
+      "method": "pose",
+      "job": "The room of jars, and Archie hanging back by the door, rubbing his eyes.",
+      "attach": [
+        "assets/reference-plates/james_workshop_blank_plate.png",
+        "assets/character-references/Archie/Archie_biz_sprite_master.png",
+        "assets/character-references/James/James_biz_sprite_master.png"
+      ],
+      "prompt": "Attach: james_workshop_blank_plate.png, Archie_biz_sprite_master.png, James_biz_sprite_master.png.\nUsing the room in james_workshop_blank_plate.png, add the man from Archie_biz_sprite_master.png on the left near the door, one hand rubbing his eyes. Add the man from James_biz_sprite_master.png leaning against the bench on the right, arms loose, looking toward the camera. Same pixel-art style and scale as the room. Change nothing else in the room. Keep the exact image size.",
+      "saveAs": "assets/reference-plates/james_meeting_5.png",
+      "unseen": "No calc moving in any jar yet.",
+      "file": "assets/events/prologue_james_meeting/prologue_james_meeting_main_5.png"
+    },
+    {
+      "id": "S5",
+      "title": "James is watching you",
+      "cards": "main: c7",
+      "plate": "P2",
+      "method": "pose",
+      "job": "You look up and James is studying you; something in his face has shifted.",
+      "attach": [
+        "assets/reference-plates/james_workshop_blank_plate.png",
+        "assets/character-references/Archie/Archie_biz_sprite_master.png",
+        "assets/character-references/James/James_biz_sprite_master.png",
+        "assets/reference-plates/james_meeting_5.png"
+      ],
+      "prompt": "Attach: james_workshop_blank_plate.png, Archie_biz_sprite_master.png, James_biz_sprite_master.png, james_meeting_5.png.\nUsing the room in james_workshop_blank_plate.png, add the two men in the same places as in james_meeting_5.png. Archie still rubs his face. James looks straight at the camera, steady and appraising. Same pixel-art style and scale as the room. Change nothing else in the room. Keep the exact image size.",
+      "saveAs": "assets/reference-plates/james_meeting_6.png",
+      "unseen": "-",
+      "file": "assets/events/prologue_james_meeting/prologue_james_meeting_main_7.png"
+    },
+    {
+      "id": "S6",
+      "title": "Business",
+      "cards": "main: c8-c11",
+      "plate": "P2",
+      "method": "pose",
+      "job": "Archie vouches for James; James sets the Stratford job.",
+      "attach": [
+        "assets/reference-plates/james_workshop_blank_plate.png",
+        "assets/character-references/Archie/Archie_biz_sprite_master.png",
+        "assets/character-references/James/James_biz_sprite_master.png",
+        "assets/reference-plates/james_meeting_5.png"
+      ],
+      "prompt": "Attach: james_workshop_blank_plate.png, Archie_biz_sprite_master.png, James_biz_sprite_master.png, james_meeting_5.png.\nUsing the room in james_workshop_blank_plate.png, add the two men in the same places as in james_meeting_5.png. Archie stands upright, hands in pockets, talking. James leans on the bench, listening, faintly dry. Same pixel-art style and scale as the room. Change nothing else in the room. Keep the exact image size.",
+      "saveAs": "assets/reference-plates/james_meeting_8.png",
+      "unseen": "-",
+      "file": "assets/events/prologue_james_meeting/prologue_james_meeting_main_8.png"
+    },
+    {
+      "id": "S7",
+      "title": "Your call",
+      "cards": "main: c12",
+      "plate": "P2",
+      "method": "pose",
+      "job": "Archie turns to you, not James: stay or come to Stratford.",
+      "attach": [
+        "assets/reference-plates/james_workshop_blank_plate.png",
+        "assets/character-references/Archie/Archie_biz_sprite_master.png",
+        "assets/character-references/James/James_biz_sprite_master.png",
+        "assets/reference-plates/james_meeting_8.png"
+      ],
+      "prompt": "Attach: james_workshop_blank_plate.png, Archie_biz_sprite_master.png, James_biz_sprite_master.png, james_meeting_8.png.\nUsing the room in james_workshop_blank_plate.png, add the two men in the same places as in james_meeting_8.png. Archie looks at the camera, eyebrows up, waiting for an answer. James stays leaning on the bench. Same pixel-art style and scale as the room. Change nothing else in the room. Keep the exact image size.",
+      "saveAs": "assets/reference-plates/james_meeting_12.png",
+      "unseen": "-",
+      "file": "assets/events/prologue_james_meeting/prologue_james_meeting_main_12.png"
+    },
+    {
+      "id": "S8",
+      "title": "Alone with James",
+      "cards": "main: c13-c14",
+      "plate": "P2",
+      "method": "pose",
+      "job": "You stay; Archie is gone. Just you and James.",
+      "attach": [
+        "assets/reference-plates/james_workshop_blank_plate.png",
+        "assets/character-references/James/James_biz_sprite_master.png"
+      ],
+      "prompt": "Attach: james_workshop_blank_plate.png, James_biz_sprite_master.png.\nUsing the room in james_workshop_blank_plate.png, add the man from James_biz_sprite_master.png leaning against the bench, ankles crossed, looking at the camera. Nobody else. Same pixel-art style and scale as the room. Change nothing else in the room. Keep the exact image size.",
+      "saveAs": "assets/reference-plates/james_meeting_13.png",
+      "unseen": "Archie.",
+      "file": "assets/events/prologue_james_meeting/prologue_james_meeting_card13.png"
+    },
+    {
+      "id": "S9",
+      "title": "The TIME jar",
+      "cards": "main: c15-c17",
+      "plate": "P2",
+      "method": "pose",
+      "job": "James takes down the jar marked TIME; it is the jar, not you, he watches.",
+      "attach": [
+        "assets/reference-plates/james_workshop_blank_plate.png",
+        "assets/character-references/James/James_biz_sprite_master.png"
+      ],
+      "prompt": "Attach: james_workshop_blank_plate.png, James_biz_sprite_master.png.\nUsing the room in james_workshop_blank_plate.png, add the man from James_biz_sprite_master.png standing in the middle of the room, holding a glass jar up in both hands and looking at it. A faint shimmer of calc inside the jar. Same pixel-art style and scale as the room. Change nothing else in the room. Keep the exact image size.",
+      "saveAs": "assets/reference-plates/james_meeting_15.png",
+      "unseen": "Archie. Any legible label on the jar.",
+      "file": "assets/events/prologue_james_meeting/prologue_james_meeting_main_16.png"
+    },
+    {
+      "id": "S10",
+      "title": "Measuring the calc",
+      "cards": "main: c18-c20",
+      "plate": "P2",
+      "method": "pose",
+      "job": "James measures out the calc at the bench while lecturing about the Critias.",
+      "attach": [
+        "assets/reference-plates/james_workshop_blank_plate.png",
+        "assets/character-references/James/James_biz_sprite_master.png",
+        "assets/reference-plates/james_meeting_15.png"
+      ],
+      "prompt": "Attach: james_workshop_blank_plate.png, James_biz_sprite_master.png, james_meeting_15.png.\nUsing the room in james_workshop_blank_plate.png, add the man from James_biz_sprite_master.png at the bench, pouring calc from the jar into a small brass measure, eyes on his work. Same pixel-art style and scale as the room. Change nothing else in the room. Keep the exact image size.",
+      "saveAs": "assets/reference-plates/james_meeting_17.png",
+      "unseen": "Archie. The finished pearl.",
+      "file": "assets/events/prologue_james_meeting/prologue_james_meeting_main_17.png"
+    },
+    {
+      "id": "S11",
+      "title": "The kit",
+      "cards": "main: c21-c22",
+      "plate": "P2",
+      "method": "pose",
+      "job": "Two hours later: the bench wiped, the jar back on its shelf, a battered crafting kit on the table.",
+      "attach": [
+        "assets/reference-plates/james_workshop_blank_plate.png",
+        "assets/character-references/James/James_biz_sprite_master.png"
+      ],
+      "prompt": "Attach: james_workshop_blank_plate.png, James_biz_sprite_master.png.\nUsing the room in james_workshop_blank_plate.png, add the man from James_biz_sprite_master.png leaning against the bench, ankles crossed, relaxed. A battered leather crafting kit sits closed on the bench beside him. Same pixel-art style and scale as the room. Change nothing else in the room. Keep the exact image size.",
+      "saveAs": "assets/reference-plates/james_meeting_21.png",
+      "unseen": "Archie. The jar off its shelf.",
+      "file": "assets/events/prologue_james_meeting/prologue_james_meeting_b21_1.png"
+    }
+  ]
+}

@@ -1,0 +1,143 @@
+{
+  "schema": 1,
+  "eventId": "prologue_james_meeting",
+  "shotId": "S3",
+  "draft": "assets/reference-plates/james_meeting_3.png",
+  "draftSha": "38751e4134490854ea681deb9d3eb5b2759861332e4c6c357a89f73160dce090",
+  "briefHash": "adf4bdca5e887ddd",
+  "styleHash": "1ba004d9d81aed00",
+  "rulesHash": "4f53cda18c2baa0c",
+  "model": "claude-cli-default",
+  "judgedAt": "2026-11-17T17:31:37Z",
+  "checks": [
+    {
+      "id": "cast-Archie",
+      "result": "pass",
+      "why": "Archie is on screen from behind in his green jacket, with brown hair and white trainers."
+    },
+    {
+      "id": "cast-James",
+      "result": "pass",
+      "why": "James is visible in the doorway."
+    },
+    {
+      "id": "cast-only",
+      "result": "pass",
+      "why": "Only Archie and James appear."
+    },
+    {
+      "id": "m1",
+      "result": "pass",
+      "why": "Exactly two people: James in the doorway and Archie in front."
+    },
+    {
+      "id": "m2",
+      "result": "pass",
+      "why": "James has wild white hair and a lined face, so he reads as a man in his sixties or older."
+    },
+    {
+      "id": "m3",
+      "result": "pass",
+      "why": "He wears glasses, a navy waistcoat and light blue shirt sleeves, with no jacket."
+    },
+    {
+      "id": "m4",
+      "result": "pass",
+      "why": "Archie's back faces the camera and no face is visible. He is left of the door, partly overlapping the frame, rather than squarely in front of it."
+    },
+    {
+      "id": "m5",
+      "result": "pass",
+      "why": "James stands in the doorway facing out."
+    },
+    {
+      "id": "m6",
+      "result": "pass",
+      "why": "His gaze is directed out toward the camera and Archie's side, not at the ground."
+    },
+    {
+      "id": "m7",
+      "result": "pass",
+      "why": "His expression is flat and mildly put-upon, with no smile or anger."
+    },
+    {
+      "id": "m8",
+      "result": "pass",
+      "why": "Archie's back is to the camera and his head is turned slightly toward the door."
+    },
+    {
+      "id": "m9",
+      "result": "pass",
+      "why": "The green door is swung inward into the interior, with James's hand on its edge."
+    },
+    {
+      "id": "m10",
+      "result": "unsure",
+      "why": "Round dark glasses are visible, but a bent arm is not resolvable at this size."
+    },
+    {
+      "id": "m11",
+      "result": "fail",
+      "why": "No stain or mark is visible on the waistcoat."
+    },
+    {
+      "id": "m12",
+      "result": "pass",
+      "why": "The street, door frame, lamp, buzzer, planter and chair match the plate, with nothing added to the street."
+    },
+    {
+      "id": "m13",
+      "result": "pass",
+      "why": "James is fully in the doorway and clearly readable. Archie does not block him."
+    },
+    {
+      "id": "m14",
+      "result": "unsure",
+      "why": "No jars or shelves are visible, but the interior is warmly lit by a lamp with framed pictures, so it is not clearly dim."
+    },
+    {
+      "id": "h-text",
+      "result": "pass",
+      "why": "No legible text or logos."
+    },
+    {
+      "id": "h-face",
+      "result": "pass",
+      "why": "The player's face is not shown. Archie is seen from behind."
+    },
+    {
+      "id": "h-bottom",
+      "result": "pass",
+      "why": "The bottom of the image is empty wet pavement."
+    },
+    {
+      "id": "h-crop",
+      "result": "pass",
+      "why": "James and Archie sit at about y 480-1100, inside every phone crop."
+    }
+  ],
+  "scores": {
+    "brief": 3,
+    "style": 3,
+    "cast": {
+      "Archie": 3,
+      "James": 3.5
+    }
+  },
+  "metrics": {
+    "size": [
+      1024,
+      1536
+    ],
+    "gridScale": 1,
+    "gridRegularity": 0.006,
+    "colours": 327377,
+    "paletteDistance": 15.84
+  },
+  "verdict": "pass",
+  "rank": 1,
+  "correctionPrompt": null,
+  "checklistEditedAt": null,
+  "verdictReasons": [],
+  "threshold": 3.0
+}

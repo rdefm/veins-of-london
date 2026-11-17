@@ -1,0 +1,136 @@
+{
+  "shotId": "S1",
+  "briefHash": "893c391a96487ff7",
+  "builtAt": "2026-11-17T17:29:11Z",
+  "items": [
+    {
+      "id": "cast-Archie",
+      "category": "cast",
+      "text": "Archie is on screen.",
+      "hard": false,
+      "presence": true
+    },
+    {
+      "id": "cast-Dog walker",
+      "category": "cast",
+      "text": "Dog walker is on screen.",
+      "hard": false,
+      "presence": true
+    },
+    {
+      "id": "cast-only",
+      "category": "cast",
+      "text": "No one is on screen except: Archie, Dog walker.",
+      "hard": false,
+      "presence": true
+    },
+    {
+      "id": "m1",
+      "category": "cast",
+      "text": "Exactly one adult man (Archie) stands at the door, matching the sprite master's face, hair, beard and clothes.",
+      "hard": false
+    },
+    {
+      "id": "m2",
+      "category": "cast",
+      "text": "An elderly woman in a plum-coloured coat is visible in the foreground.",
+      "hard": false
+    },
+    {
+      "id": "m3",
+      "category": "cast",
+      "text": "A small white-and-brown dog is with the elderly woman, walking beside her or on a lead.",
+      "hard": false
+    },
+    {
+      "id": "m4",
+      "category": "cast",
+      "text": "No one other than Archie, the elderly woman and the dog is visible. There is no second man or figure at the door.",
+      "hard": false
+    },
+    {
+      "id": "m5",
+      "category": "pose",
+      "text": "Archie stands directly in front of the green door, not beside it or in the road.",
+      "hard": false
+    },
+    {
+      "id": "m6",
+      "category": "pose",
+      "text": "Both of Archie's hands are in his pockets.",
+      "hard": false
+    },
+    {
+      "id": "m7",
+      "category": "pose",
+      "text": "Archie's head is turned to look along or down the street, away from the door.",
+      "hard": false
+    },
+    {
+      "id": "m8",
+      "category": "pose",
+      "text": "Archie looks tense or wary, not relaxed, smiling or facing the viewer.",
+      "hard": false
+    },
+    {
+      "id": "m9",
+      "category": "pose",
+      "text": "The elderly woman and dog are moving left to right across the image.",
+      "hard": false
+    },
+    {
+      "id": "m10",
+      "category": "props",
+      "text": "The door is green and the scene is at night. The pavement is wet, with visible reflections or sheen.",
+      "hard": false
+    },
+    {
+      "id": "m11",
+      "category": "framing",
+      "text": "The elderly woman and dog are on the pavement in the foreground, in front of Archie and closer to the viewer.",
+      "hard": false
+    },
+    {
+      "id": "m12",
+      "category": "framing",
+      "text": "The street, buildings and door otherwise match james_exterior.png in layout, scale and lighting, with no new elements besides Archie, the woman and the dog.",
+      "hard": false
+    },
+    {
+      "id": "m13",
+      "category": "unseen",
+      "text": "James is not visible anywhere, including in a doorway or window.",
+      "hard": false
+    },
+    {
+      "id": "m14",
+      "category": "unseen",
+      "text": "The inside of the unit is not visible. The door is closed, with no open gap or interior light spilling out to show the room.",
+      "hard": false
+    },
+    {
+      "id": "h-text",
+      "category": "hard",
+      "text": "No legible text or logos anywhere in the image.",
+      "hard": true
+    },
+    {
+      "id": "h-face",
+      "category": "hard",
+      "text": "No player face is shown (the player is never seen).",
+      "hard": true
+    },
+    {
+      "id": "h-bottom",
+      "category": "hard",
+      "text": "Nothing story-critical sits in the bottom ~10% of the image.",
+      "hard": true
+    },
+    {
+      "id": "h-crop",
+      "category": "hard",
+      "text": "The focal point survives the small-phone crop.",
+      "hard": true
+    }
+  ]
+}

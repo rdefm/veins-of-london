@@ -1,0 +1,130 @@
+{
+  "shotId": "S6",
+  "briefHash": "4db83cb636de6707",
+  "builtAt": "2026-11-17T17:35:04Z",
+  "items": [
+    {
+      "id": "cast-Archie",
+      "category": "cast",
+      "text": "Archie is on screen.",
+      "hard": false,
+      "presence": true
+    },
+    {
+      "id": "cast-James",
+      "category": "cast",
+      "text": "James is on screen.",
+      "hard": false,
+      "presence": true
+    },
+    {
+      "id": "cast-only",
+      "category": "cast",
+      "text": "No one is on screen except: Archie, James.",
+      "hard": false,
+      "presence": true
+    },
+    {
+      "id": "m1",
+      "category": "cast",
+      "text": "Exactly two men are in the room: Archie and James, and no third figure (including the player) is visible.",
+      "hard": false
+    },
+    {
+      "id": "m2",
+      "category": "cast",
+      "text": "Archie and James are visually distinct and match their sprite masters (clothing, hair, build).",
+      "hard": false
+    },
+    {
+      "id": "m3",
+      "category": "cast",
+      "text": "Archie and James stand in the same positions in the room as in james_meeting_5.png.",
+      "hard": false
+    },
+    {
+      "id": "m4",
+      "category": "pose",
+      "text": "Archie stands upright, not leaning or slouching.",
+      "hard": false
+    },
+    {
+      "id": "m5",
+      "category": "pose",
+      "text": "Both of Archie's hands are in his pockets.",
+      "hard": false
+    },
+    {
+      "id": "m6",
+      "category": "pose",
+      "text": "Archie's mouth and posture read as talking, with his head turned toward James.",
+      "hard": false
+    },
+    {
+      "id": "m7",
+      "category": "pose",
+      "text": "James is leaning against the workbench, with his weight on it or his hip or hands resting on it.",
+      "hard": false
+    },
+    {
+      "id": "m8",
+      "category": "pose",
+      "text": "James faces Archie and looks at him, as if listening.",
+      "hard": false
+    },
+    {
+      "id": "m9",
+      "category": "pose",
+      "text": "James's expression is neutral to faintly dry (a slight smirk or flat look), not smiling broadly, angry or surprised.",
+      "hard": false
+    },
+    {
+      "id": "m10",
+      "category": "props",
+      "text": "Nothing is in either man's hands, such as a phone, a pearl or calc, apart from Archie's hands being in his pockets.",
+      "hard": false
+    },
+    {
+      "id": "m11",
+      "category": "framing",
+      "text": "The workshop room matches james_workshop_blank_plate.png, with the same furniture, layout and background, and no added or removed objects.",
+      "hard": false
+    },
+    {
+      "id": "m12",
+      "category": "framing",
+      "text": "Both men are fully in frame, not cropped or hidden behind the bench, at the same scale as the room.",
+      "hard": false
+    },
+    {
+      "id": "m13",
+      "category": "framing",
+      "text": "The image keeps the exact size and aspect ratio of the blank plate.",
+      "hard": false
+    },
+    {
+      "id": "h-text",
+      "category": "hard",
+      "text": "No legible text or logos anywhere in the image.",
+      "hard": true
+    },
+    {
+      "id": "h-face",
+      "category": "hard",
+      "text": "No player face is shown (the player is never seen).",
+      "hard": true
+    },
+    {
+      "id": "h-bottom",
+      "category": "hard",
+      "text": "Nothing story-critical sits in the bottom ~10% of the image.",
+      "hard": true
+    },
+    {
+      "id": "h-crop",
+      "category": "hard",
+      "text": "The focal point survives the small-phone crop.",
+      "hard": true
+    }
+  ]
+}

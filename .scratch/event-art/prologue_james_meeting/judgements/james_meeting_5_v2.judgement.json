@@ -1,0 +1,142 @@
+{
+  "schema": 1,
+  "eventId": "prologue_james_meeting",
+  "shotId": "S4",
+  "draft": "assets/reference-plates/james_meeting_5_v2.png",
+  "draftSha": "520512f459b4e276e3bf364a027c9777204351724dcbb4b9032fc91f00362131",
+  "briefHash": "3620e48fe176a26b",
+  "styleHash": "1ba004d9d81aed00",
+  "rulesHash": "4f53cda18c2baa0c",
+  "model": "claude-cli-default",
+  "judgedAt": "2026-11-17T17:33:37Z",
+  "checks": [
+    {
+      "id": "cast-Archie",
+      "result": "fail",
+      "why": "Archie is not in the image."
+    },
+    {
+      "id": "cast-James",
+      "result": "pass",
+      "why": "James is on screen in vest, blue shirt, grey trousers and glasses."
+    },
+    {
+      "id": "cast-only",
+      "result": "pass",
+      "why": "Only James appears, so no one outside the allowed cast is present."
+    },
+    {
+      "id": "m1",
+      "result": "fail",
+      "why": "Only one person is present. Archie is missing."
+    },
+    {
+      "id": "m2",
+      "result": "fail",
+      "why": "James matches his sprite master, but Archie is absent so both cannot match."
+    },
+    {
+      "id": "m3",
+      "result": "fail",
+      "why": "No Archie on the left near the door."
+    },
+    {
+      "id": "m4",
+      "result": "fail",
+      "why": "No one is rubbing their eyes."
+    },
+    {
+      "id": "m5",
+      "result": "fail",
+      "why": "Archie is not shown hanging back by the door."
+    },
+    {
+      "id": "m6",
+      "result": "fail",
+      "why": "James leans at the bench corner near the centre rather than clearly on the right. One hand is in his pocket and his legs are crossed, so his arms are not loose."
+    },
+    {
+      "id": "m7",
+      "result": "fail",
+      "why": "James looks off to the left with a frown, not toward the camera."
+    },
+    {
+      "id": "m8",
+      "result": "fail",
+      "why": "No door is visible on the left; there is a chair and umbrella."
+    },
+    {
+      "id": "m9",
+      "result": "pass",
+      "why": "Shelves and jars on the right, plus the bookcase, match the blank plate."
+    },
+    {
+      "id": "m10",
+      "result": "pass",
+      "why": "The workbench is visible on the right and James leans against its edge."
+    },
+    {
+      "id": "m11",
+      "result": "fail",
+      "why": "The drawer cabinet is narrower, the books differ and the rug is altered, so the room does not exactly match the plate."
+    },
+    {
+      "id": "m12",
+      "result": "pass",
+      "why": "James is at a sensible scale for the room and is not cropped."
+    },
+    {
+      "id": "m13",
+      "result": "pass",
+      "why": "No glowing or moving calc is visible in any jar."
+    },
+    {
+      "id": "h-text",
+      "result": "pass",
+      "why": "The notes and papers carry no legible text or logos."
+    },
+    {
+      "id": "h-face",
+      "result": "pass",
+      "why": "No player face is shown."
+    },
+    {
+      "id": "h-bottom",
+      "result": "pass",
+      "why": "The bottom 10% shows only rug and floor."
+    },
+    {
+      "id": "h-crop",
+      "result": "pass",
+      "why": "James sits within y 590-1250, inside the small-phone crop."
+    }
+  ],
+  "scores": {
+    "brief": 1,
+    "style": 3,
+    "cast": {
+      "Archie": 0,
+      "James": 3
+    }
+  },
+  "metrics": {
+    "size": [
+      937,
+      1678
+    ],
+    "gridScale": 1,
+    "gridRegularity": 0.003,
+    "colours": 256,
+    "paletteDistance": 13.32
+  },
+  "verdict": "fail",
+  "rank": 2,
+  "correctionPrompt": "Same image, change only: add Archie from his sprite master on the far left beside a visible door, hanging back, one hand raised rubbing his eyes; move James clearly to the right leaning on the bench with both arms loose at his sides (no hand in pocket, legs uncrossed) and his face turned toward the camera; restore the drawer cabinet width, books and rug to match the blank plate. Keep everything else identical.",
+  "checklistEditedAt": null,
+  "verdictReasons": [
+    "cast presence failed: cast-Archie",
+    "score brief 1.0 < 3.0",
+    "score cast:Archie 0.0 < 3.0"
+  ],
+  "threshold": 3.0
+}

@@ -1,0 +1,132 @@
+{
+  "schema": 1,
+  "eventId": "prologue_james_meeting",
+  "shotId": "S9",
+  "draft": "assets/reference-plates/james_meeting_15_v2.png",
+  "draftSha": "2da316dd843754724cc07b5e3d7db0880e3b59dfbed0f47175af3eed39df217d",
+  "briefHash": "9749ce9724079447",
+  "styleHash": "1ba004d9d81aed00",
+  "rulesHash": "4f53cda18c2baa0c",
+  "model": "claude-cli-default",
+  "judgedAt": "2026-11-17T17:37:46Z",
+  "checks": [
+    {
+      "id": "cast-James",
+      "result": "pass",
+      "why": "James is clearly on screen, centre-left of the room."
+    },
+    {
+      "id": "cast-only",
+      "result": "pass",
+      "why": "Only James appears."
+    },
+    {
+      "id": "m1",
+      "result": "pass",
+      "why": "One character, no second person."
+    },
+    {
+      "id": "m2",
+      "result": "pass",
+      "why": "Grey wild hair, glasses, navy vest, light blue shirt, grey trousers and brown shoes all match the sprite master."
+    },
+    {
+      "id": "m3",
+      "result": "pass",
+      "why": "Standing upright near the room's centre, on the rug aisle."
+    },
+    {
+      "id": "m4",
+      "result": "pass",
+      "why": "Both hands hold the jar at chest height."
+    },
+    {
+      "id": "m5",
+      "result": "pass",
+      "why": "His eyes and head point down at the jar."
+    },
+    {
+      "id": "m6",
+      "result": "pass",
+      "why": "Calm, furrowed, scrutinising expression with no smile."
+    },
+    {
+      "id": "m7",
+      "result": "pass",
+      "why": "Clear glass jar held in his hands."
+    },
+    {
+      "id": "m8",
+      "result": "pass",
+      "why": "Purple shimmer inside the jar. It is fairly saturated but small and contained. Purple rather than gold is a possible canon concern, but the brief only asks for a faint shimmer."
+    },
+    {
+      "id": "m9",
+      "result": "pass",
+      "why": "The jar is held up, not on the bench."
+    },
+    {
+      "id": "m10",
+      "result": "pass",
+      "why": "Room layout, furniture and shelves match the plate. Minor shifts in the clock and the desk edge are not significant."
+    },
+    {
+      "id": "m11",
+      "result": "pass",
+      "why": "Scale is plausible against the shelves and stool, and he is fully in frame."
+    },
+    {
+      "id": "m12",
+      "result": "pass",
+      "why": "No Archie."
+    },
+    {
+      "id": "m13",
+      "result": "pass",
+      "why": "The jar has no readable label."
+    },
+    {
+      "id": "h-text",
+      "result": "pass",
+      "why": "No legible text or logos."
+    },
+    {
+      "id": "h-face",
+      "result": "pass",
+      "why": "The only face is James, and the player is not shown."
+    },
+    {
+      "id": "h-bottom",
+      "result": "pass",
+      "why": "The bottom 10% shows only rug and floor, with nothing story-critical."
+    },
+    {
+      "id": "h-crop",
+      "result": "pass",
+      "why": "James and the jar sit at about y 640-780, inside every phone crop."
+    }
+  ],
+  "scores": {
+    "brief": 3.5,
+    "style": 3,
+    "cast": {
+      "James": 3.5
+    }
+  },
+  "metrics": {
+    "size": [
+      941,
+      1672
+    ],
+    "gridScale": 1,
+    "gridRegularity": 0.002,
+    "colours": 323176,
+    "paletteDistance": 16.35
+  },
+  "verdict": "pass",
+  "rank": 1,
+  "correctionPrompt": null,
+  "checklistEditedAt": null,
+  "verdictReasons": [],
+  "threshold": 3.0
+}

@@ -1,0 +1,149 @@
+{
+  "schema": 1,
+  "eventId": "prologue_james_meeting",
+  "shotId": "S3",
+  "draft": "assets/reference-plates/james_meeting_3_v2.png",
+  "draftSha": "c39360162b692aa77e738878b9eaee41478ce0fb928f4d395697dac464098f66",
+  "briefHash": "adf4bdca5e887ddd",
+  "styleHash": "1ba004d9d81aed00",
+  "rulesHash": "4f53cda18c2baa0c",
+  "model": "claude-cli-default",
+  "judgedAt": "2026-11-17T17:32:18Z",
+  "checks": [
+    {
+      "id": "cast-Archie",
+      "result": "fail",
+      "why": "No Archie in the image. The man with a backpack on the left is a passer-by, not Archie."
+    },
+    {
+      "id": "cast-James",
+      "result": "pass",
+      "why": "Grey-haired, bespectacled man in a navy waistcoat and light blue shirt stands in the doorway."
+    },
+    {
+      "id": "cast-only",
+      "result": "fail",
+      "why": "Many other people are on screen: a backpacker, a woman with a shopping bag, a grocer, and street pedestrians."
+    },
+    {
+      "id": "m1",
+      "result": "fail",
+      "why": "James is in the doorway but Archie is not in front of the door. Several unrelated people are visible."
+    },
+    {
+      "id": "m2",
+      "result": "pass",
+      "why": "Wild white-grey hair and a lined, frowning face read as sixties."
+    },
+    {
+      "id": "m3",
+      "result": "pass",
+      "why": "He wears glasses, a navy waistcoat and light blue shirt sleeves, with no jacket."
+    },
+    {
+      "id": "m4",
+      "result": "fail",
+      "why": "No Archie seen from behind. The nearest figure is a walking backpacker off to the left."
+    },
+    {
+      "id": "m5",
+      "result": "pass",
+      "why": "James stands in the doorway facing out toward the viewer."
+    },
+    {
+      "id": "m6",
+      "result": "pass",
+      "why": "His gaze is directed at the camera."
+    },
+    {
+      "id": "m7",
+      "result": "pass",
+      "why": "Flat, grumpy, mildly put-upon expression with hands in pockets, with no smile or shock."
+    },
+    {
+      "id": "m8",
+      "result": "fail",
+      "why": "No Archie is present, so there is no back-to-camera figure facing the door."
+    },
+    {
+      "id": "m9",
+      "result": "pass",
+      "why": "The green door is swung open into the interior, with its handle and panel visible on the inside."
+    },
+    {
+      "id": "m10",
+      "result": "unsure",
+      "why": "Glasses are visible but too small to tell whether one arm is bent."
+    },
+    {
+      "id": "m11",
+      "result": "fail",
+      "why": "No stain or mark is visible on the waistcoat."
+    },
+    {
+      "id": "m12",
+      "result": "fail",
+      "why": "The street is entirely different from james_exterior.png. It shows a corner with a greengrocer, a shutter and cobbles, not the flower shop and café frontage."
+    },
+    {
+      "id": "m13",
+      "result": "pass",
+      "why": "James is fully inside the doorway and clearly readable, with nothing blocking him."
+    },
+    {
+      "id": "m14",
+      "result": "pass",
+      "why": "The doorway interior is dim brown with a small ceiling light and shows no jars."
+    },
+    {
+      "id": "h-text",
+      "result": "fail",
+      "why": "Legible text appears: '#34', '12' and 'FRUIT & VEG'."
+    },
+    {
+      "id": "h-face",
+      "result": "pass",
+      "why": "The player is not shown."
+    },
+    {
+      "id": "h-bottom",
+      "result": "pass",
+      "why": "The bottom 10% is only cobblestones, with nothing story-critical."
+    },
+    {
+      "id": "h-crop",
+      "result": "pass",
+      "why": "James sits around y 950, well inside the small-phone crop of y 381-1298."
+    }
+  ],
+  "scores": {
+    "brief": 1,
+    "style": 3,
+    "cast": {
+      "Archie": 0,
+      "James": 3
+    }
+  },
+  "metrics": {
+    "size": [
+      937,
+      1679
+    ],
+    "gridScale": 1,
+    "gridRegularity": 0.004,
+    "colours": 256,
+    "paletteDistance": 15.38
+  },
+  "verdict": "fail",
+  "rank": 2,
+  "correctionPrompt": "Same image, change only: add Archie as a man seen from behind (no face) standing in front of the open green door between camera and James, remove the backpacker, shopper, grocer and all other pedestrians, restore the exact james_exterior.png street, door frame and building (flower shop and café frontage, no greengrocer), remove all legible text (#34, 12, FRUIT & VEG), and add a small visible stain on James's waistcoat. Keep everything else identical.",
+  "checklistEditedAt": null,
+  "verdictReasons": [
+    "cast presence failed: cast-Archie",
+    "cast presence failed: cast-only",
+    "hard check failed: h-text",
+    "score brief 1.0 < 3.0",
+    "score cast:Archie 0.0 < 3.0"
+  ],
+  "threshold": 3.0
+}

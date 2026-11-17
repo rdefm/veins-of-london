@@ -1,0 +1,130 @@
+{
+  "shotId": "S4",
+  "briefHash": "3620e48fe176a26b",
+  "builtAt": "2026-11-17T17:33:03Z",
+  "items": [
+    {
+      "id": "cast-Archie",
+      "category": "cast",
+      "text": "Archie is on screen.",
+      "hard": false,
+      "presence": true
+    },
+    {
+      "id": "cast-James",
+      "category": "cast",
+      "text": "James is on screen.",
+      "hard": false,
+      "presence": true
+    },
+    {
+      "id": "cast-only",
+      "category": "cast",
+      "text": "No one is on screen except: Archie, James.",
+      "hard": false,
+      "presence": true
+    },
+    {
+      "id": "m1",
+      "category": "cast",
+      "text": "Exactly two people are present: Archie and James; no third figure appears.",
+      "hard": false
+    },
+    {
+      "id": "m2",
+      "category": "cast",
+      "text": "Archie matches his sprite master (same hair, clothing, build) and James matches his sprite master.",
+      "hard": false
+    },
+    {
+      "id": "m3",
+      "category": "pose",
+      "text": "Archie stands on the left side of the image near the door.",
+      "hard": false
+    },
+    {
+      "id": "m4",
+      "category": "pose",
+      "text": "One of Archie's hands is raised to his eyes, rubbing them.",
+      "hard": false
+    },
+    {
+      "id": "m5",
+      "category": "pose",
+      "text": "Archie is hanging back, positioned apart from James and away from the jars, not walking into the room.",
+      "hard": false
+    },
+    {
+      "id": "m6",
+      "category": "pose",
+      "text": "James is on the right side, leaning against the bench with arms loose and relaxed (not crossed, not raised).",
+      "hard": false
+    },
+    {
+      "id": "m7",
+      "category": "pose",
+      "text": "James's gaze is directed toward the camera.",
+      "hard": false
+    },
+    {
+      "id": "m8",
+      "category": "props",
+      "text": "A door is visible on the left near Archie.",
+      "hard": false
+    },
+    {
+      "id": "m9",
+      "category": "props",
+      "text": "Shelves of jars fill the room and run up toward the ceiling, as in the blank plate.",
+      "hard": false
+    },
+    {
+      "id": "m10",
+      "category": "props",
+      "text": "A workbench is visible on the right where James leans.",
+      "hard": false
+    },
+    {
+      "id": "m11",
+      "category": "framing",
+      "text": "Room layout, furniture, and jars match james_workshop_blank_plate.png with nothing else added or changed.",
+      "hard": false
+    },
+    {
+      "id": "m12",
+      "category": "framing",
+      "text": "Both characters are at a scale consistent with the room, and neither is cropped by the image edge.",
+      "hard": false
+    },
+    {
+      "id": "m13",
+      "category": "unseen",
+      "text": "No calc (glowing/moving orichalchum) is visible shifting or glowing in any jar, including any jar labelled TIME.",
+      "hard": false
+    },
+    {
+      "id": "h-text",
+      "category": "hard",
+      "text": "No legible text or logos anywhere in the image.",
+      "hard": true
+    },
+    {
+      "id": "h-face",
+      "category": "hard",
+      "text": "No player face is shown (the player is never seen).",
+      "hard": true
+    },
+    {
+      "id": "h-bottom",
+      "category": "hard",
+      "text": "Nothing story-critical sits in the bottom ~10% of the image.",
+      "hard": true
+    },
+    {
+      "id": "h-crop",
+      "category": "hard",
+      "text": "The focal point survives the small-phone crop.",
+      "hard": true
+    }
+  ]
+}

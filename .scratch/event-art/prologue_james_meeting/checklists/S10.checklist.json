@@ -1,0 +1,129 @@
+{
+  "shotId": "S10",
+  "briefHash": "7991587ada1c60f7",
+  "builtAt": "2026-11-17T17:38:23Z",
+  "items": [
+    {
+      "id": "cast-James",
+      "category": "cast",
+      "text": "James is on screen.",
+      "hard": false,
+      "presence": true
+    },
+    {
+      "id": "cast-only",
+      "category": "cast",
+      "text": "No one is on screen except: James.",
+      "hard": false,
+      "presence": true
+    },
+    {
+      "id": "m1",
+      "category": "cast",
+      "text": "Exactly one person is in the scene: James, the man from the sprite master, with no second figure or partial figure at the edges.",
+      "hard": false
+    },
+    {
+      "id": "m2",
+      "category": "cast",
+      "text": "James looks like his master sprite (same hair, build and clothing colours), not a generic or redesigned man.",
+      "hard": false
+    },
+    {
+      "id": "m3",
+      "category": "pose",
+      "text": "James stands or sits at the bench, with his body positioned at the bench rather than elsewhere in the room.",
+      "hard": false
+    },
+    {
+      "id": "m4",
+      "category": "pose",
+      "text": "James's head is angled down toward his work, with his eyes on the measure and not on the viewer.",
+      "hard": false
+    },
+    {
+      "id": "m5",
+      "category": "pose",
+      "text": "One of James's hands tips the jar over the small measure, as if pouring.",
+      "hard": false
+    },
+    {
+      "id": "m6",
+      "category": "pose",
+      "text": "James's other hand holds or steadies the measure, or rests on the bench, in a relaxed working pose.",
+      "hard": false
+    },
+    {
+      "id": "m7",
+      "category": "props",
+      "text": "A jar of calc is visible in James's hand, with the calc inside it or pouring out.",
+      "hard": false
+    },
+    {
+      "id": "m8",
+      "category": "props",
+      "text": "A small brass measure is visible beneath the jar, receiving the calc.",
+      "hard": false
+    },
+    {
+      "id": "m9",
+      "category": "props",
+      "text": "The calc is shown as a pale or orichalchum-coloured powder or grain, and it can be told apart from the bench and the brass.",
+      "hard": false
+    },
+    {
+      "id": "m10",
+      "category": "framing",
+      "text": "The room matches the blank workshop plate: same layout, furniture, lighting and image size, with only James and the pouring props added.",
+      "hard": false
+    },
+    {
+      "id": "m11",
+      "category": "framing",
+      "text": "James and the bench are fully inside the frame, with the pouring hands and the measure not cropped by any edge.",
+      "hard": false
+    },
+    {
+      "id": "m12",
+      "category": "framing",
+      "text": "James is at the same pixel scale as the room, with proportions that fit the bench height and the doorway and furniture.",
+      "hard": false
+    },
+    {
+      "id": "m13",
+      "category": "unseen",
+      "text": "Archie is not visible anywhere in the image.",
+      "hard": false
+    },
+    {
+      "id": "m14",
+      "category": "unseen",
+      "text": "No finished pearl is visible, including no glass sphere or pearl-like object on the bench or in anyone's hand.",
+      "hard": false
+    },
+    {
+      "id": "h-text",
+      "category": "hard",
+      "text": "No legible text or logos anywhere in the image.",
+      "hard": true
+    },
+    {
+      "id": "h-face",
+      "category": "hard",
+      "text": "No player face is shown (the player is never seen).",
+      "hard": true
+    },
+    {
+      "id": "h-bottom",
+      "category": "hard",
+      "text": "Nothing story-critical sits in the bottom ~10% of the image.",
+      "hard": true
+    },
+    {
+      "id": "h-crop",
+      "category": "hard",
+      "text": "The focal point survives the small-phone crop.",
+      "hard": true
+    }
+  ]
+}

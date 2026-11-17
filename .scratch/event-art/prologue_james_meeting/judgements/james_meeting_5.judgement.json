@@ -1,0 +1,140 @@
+{
+  "schema": 1,
+  "eventId": "prologue_james_meeting",
+  "shotId": "S4",
+  "draft": "assets/reference-plates/james_meeting_5.png",
+  "draftSha": "65d5a367ce592309dae36cdca85293885cae11584fe187dc55d87949cc58a1f6",
+  "briefHash": "3620e48fe176a26b",
+  "styleHash": "1ba004d9d81aed00",
+  "rulesHash": "4f53cda18c2baa0c",
+  "model": "claude-cli-default",
+  "judgedAt": "2026-11-17T17:32:54Z",
+  "checks": [
+    {
+      "id": "cast-Archie",
+      "result": "pass",
+      "why": "Archie is on the left."
+    },
+    {
+      "id": "cast-James",
+      "result": "pass",
+      "why": "James is on the right, leaning near the bench."
+    },
+    {
+      "id": "cast-only",
+      "result": "pass",
+      "why": "Only Archie and James appear."
+    },
+    {
+      "id": "m1",
+      "result": "pass",
+      "why": "Exactly two people; no third figure."
+    },
+    {
+      "id": "m2",
+      "result": "pass",
+      "why": "Both match their sprite masters in hair, beard, glasses, vest and shirt. Archie's jeans read black rather than navy, a minor drift."
+    },
+    {
+      "id": "m3",
+      "result": "pass",
+      "why": "Archie stands in the left third of the frame."
+    },
+    {
+      "id": "m4",
+      "result": "pass",
+      "why": "His right hand is raised to his eyes, which are shut, in a rubbing pose."
+    },
+    {
+      "id": "m5",
+      "result": "pass",
+      "why": "He is separated from James and not near the jars, though he is a little far into the room to read as at a door."
+    },
+    {
+      "id": "m6",
+      "result": "pass",
+      "why": "James leans on the bench with one hand in a pocket and the other resting on the bench top. His arms are loose, not crossed or raised."
+    },
+    {
+      "id": "m7",
+      "result": "fail",
+      "why": "James looks toward the left at Archie, not at the camera."
+    },
+    {
+      "id": "m8",
+      "result": "fail",
+      "why": "No door is visible on the left. There is only a coat on the wall and plants."
+    },
+    {
+      "id": "m9",
+      "result": "pass",
+      "why": "Jar shelves are visible on the right, with books and shelves filling the room."
+    },
+    {
+      "id": "m10",
+      "result": "pass",
+      "why": "A workbench with lab gear is visible on the right where James leans."
+    },
+    {
+      "id": "m11",
+      "result": "fail",
+      "why": "The room was altered: the card-cabinet is narrower, the chair and stacked books are changed or hidden, the bookshelf is narrower, and plants and props differ from the plate."
+    },
+    {
+      "id": "m12",
+      "result": "pass",
+      "why": "Scale suits the room and neither figure is cropped by the frame edge."
+    },
+    {
+      "id": "m13",
+      "result": "pass",
+      "why": "No glowing or moving calc is visible in any jar."
+    },
+    {
+      "id": "h-text",
+      "result": "pass",
+      "why": "No legible text or logos; book spines and the framed prints are illegible."
+    },
+    {
+      "id": "h-face",
+      "result": "pass",
+      "why": "No player face is shown."
+    },
+    {
+      "id": "h-bottom",
+      "result": "pass",
+      "why": "The bottom 10% is only rug and floor."
+    },
+    {
+      "id": "h-crop",
+      "result": "pass",
+      "why": "Both figures sit at roughly y 580-1320, inside the small-phone crop."
+    }
+  ],
+  "scores": {
+    "brief": 2.5,
+    "style": 3,
+    "cast": {
+      "Archie": 3.5,
+      "James": 3.5
+    }
+  },
+  "metrics": {
+    "size": [
+      940,
+      1673
+    ],
+    "gridScale": 1,
+    "gridRegularity": 0.001,
+    "colours": 308214,
+    "paletteDistance": 14.72
+  },
+  "verdict": "fail",
+  "rank": 1,
+  "correctionPrompt": "Same image, change only: turn James's head and eyes to face the camera instead of Archie; add a visible door on the left edge beside Archie; restore the card-cabinet, bookshelf, chair, stacked books, plants and props to the plate's exact size, position and appearance. Keep everything else identical.",
+  "checklistEditedAt": null,
+  "verdictReasons": [
+    "score brief 2.5 < 3.0"
+  ],
+  "threshold": 3.0
+}

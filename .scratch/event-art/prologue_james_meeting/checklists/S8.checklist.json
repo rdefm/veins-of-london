@@ -1,0 +1,117 @@
+{
+  "shotId": "S8",
+  "briefHash": "d550229bfb7c4fd1",
+  "builtAt": "2026-11-17T17:36:36Z",
+  "items": [
+    {
+      "id": "cast-James",
+      "category": "cast",
+      "text": "James is on screen.",
+      "hard": false,
+      "presence": true
+    },
+    {
+      "id": "cast-only",
+      "category": "cast",
+      "text": "No one is on screen except: James.",
+      "hard": false,
+      "presence": true
+    },
+    {
+      "id": "m1",
+      "category": "cast",
+      "text": "Exactly one character is visible in the room: James, matching the man in the sprite master (same outfit and hair).",
+      "hard": false
+    },
+    {
+      "id": "m2",
+      "category": "cast",
+      "text": "No second figure of any kind appears, including partial, background or silhouetted people.",
+      "hard": false
+    },
+    {
+      "id": "m3",
+      "category": "unseen",
+      "text": "Archie is not visible anywhere: no second figure, no coat or hat of his, no hand or shadow at the edge of the frame.",
+      "hard": false
+    },
+    {
+      "id": "m4",
+      "category": "pose",
+      "text": "James is leaning back against the workbench, with his weight on it.",
+      "hard": false
+    },
+    {
+      "id": "m5",
+      "category": "pose",
+      "text": "James's ankles are crossed.",
+      "hard": false
+    },
+    {
+      "id": "m6",
+      "category": "pose",
+      "text": "James's body is at rest, with no weapon drawn or raised and no hands engaged in a task.",
+      "hard": false
+    },
+    {
+      "id": "m7",
+      "category": "pose",
+      "text": "James's gaze is directed out of the image at the camera, not at the bench or off to the side.",
+      "hard": false
+    },
+    {
+      "id": "m8",
+      "category": "props",
+      "text": "The workbench he leans on is the same bench from the blank workshop plate, in the same position and design.",
+      "hard": false
+    },
+    {
+      "id": "m9",
+      "category": "props",
+      "text": "No new props have been added to the room, such as a pearl, a knife or extra furniture.",
+      "hard": false
+    },
+    {
+      "id": "m10",
+      "category": "props",
+      "text": "The room's layout, furniture and lighting match the blank plate, and nothing in the room has been moved or removed.",
+      "hard": false
+    },
+    {
+      "id": "m11",
+      "category": "framing",
+      "text": "The whole room is visible at the same camera angle as the blank plate, not cropped or zoomed.",
+      "hard": false
+    },
+    {
+      "id": "m12",
+      "category": "framing",
+      "text": "James is drawn at a scale consistent with the room, and his feet rest on the floor near the bench rather than floating or oversized.",
+      "hard": false
+    },
+    {
+      "id": "h-text",
+      "category": "hard",
+      "text": "No legible text or logos anywhere in the image.",
+      "hard": true
+    },
+    {
+      "id": "h-face",
+      "category": "hard",
+      "text": "No player face is shown (the player is never seen).",
+      "hard": true
+    },
+    {
+      "id": "h-bottom",
+      "category": "hard",
+      "text": "Nothing story-critical sits in the bottom ~10% of the image.",
+      "hard": true
+    },
+    {
+      "id": "h-crop",
+      "category": "hard",
+      "text": "The focal point survives the small-phone crop.",
+      "hard": true
+    }
+  ]
+}

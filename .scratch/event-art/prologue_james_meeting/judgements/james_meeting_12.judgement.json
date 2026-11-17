@@ -1,0 +1,140 @@
+{
+  "schema": 1,
+  "eventId": "prologue_james_meeting",
+  "shotId": "S7",
+  "draft": "assets/reference-plates/james_meeting_12.png",
+  "draftSha": "14cb0f91174c2e496c70219af880bbe6ab7c86936cfa30e4d4a4d3ee9f148066",
+  "briefHash": "76408b3ffb930303",
+  "styleHash": "1ba004d9d81aed00",
+  "rulesHash": "4f53cda18c2baa0c",
+  "model": "claude-cli-default",
+  "judgedAt": "2026-11-17T17:35:39Z",
+  "checks": [
+    {
+      "id": "cast-Archie",
+      "result": "pass",
+      "why": "Archie is at left, standing, in a green overshirt."
+    },
+    {
+      "id": "cast-James",
+      "result": "pass",
+      "why": "James is at centre, leaning on the bench."
+    },
+    {
+      "id": "cast-only",
+      "result": "pass",
+      "why": "Only Archie and James appear."
+    },
+    {
+      "id": "m1",
+      "result": "pass",
+      "why": "Exactly two men are in the room."
+    },
+    {
+      "id": "m2",
+      "result": "unsure",
+      "why": "james_meeting_8.png was not provided, so placement can't be compared."
+    },
+    {
+      "id": "m3",
+      "result": "pass",
+      "why": "Archie's face and eyes are turned toward the camera."
+    },
+    {
+      "id": "m4",
+      "result": "fail",
+      "why": "His eyebrows look neutral to barely lifted, not visibly raised."
+    },
+    {
+      "id": "m5",
+      "result": "pass",
+      "why": "Open mild smile, looking at viewer; reads as expectant, though a little bland."
+    },
+    {
+      "id": "m6",
+      "result": "pass",
+      "why": "James leans a hip and forearm on the bench top, legs crossed."
+    },
+    {
+      "id": "m7",
+      "result": "pass",
+      "why": "James looks sideways toward Archie, not at the camera."
+    },
+    {
+      "id": "m8",
+      "result": "fail",
+      "why": "The chair with the stacked books is gone, leaving only the umbrella. The small plant on the left and the end drawers of the cabinet are also lost."
+    },
+    {
+      "id": "m9",
+      "result": "pass",
+      "why": "No new props are in hands or in the room."
+    },
+    {
+      "id": "m10",
+      "result": "pass",
+      "why": "Both men are fully in frame, feet included."
+    },
+    {
+      "id": "m11",
+      "result": "pass",
+      "why": "The camera angle and composition match the blank plate."
+    },
+    {
+      "id": "m12",
+      "result": "pass",
+      "why": "The figures are in scale with the room and the furniture."
+    },
+    {
+      "id": "m13",
+      "result": "pass",
+      "why": "The image appears to be the same 941x1672 as the plate; judged visually only."
+    },
+    {
+      "id": "h-text",
+      "result": "pass",
+      "why": "There is no legible text; the book spines are only texture."
+    },
+    {
+      "id": "h-face",
+      "result": "pass",
+      "why": "The player is not shown."
+    },
+    {
+      "id": "h-bottom",
+      "result": "pass",
+      "why": "The bottom area holds only rug and floor."
+    },
+    {
+      "id": "h-crop",
+      "result": "pass",
+      "why": "Both men's faces and torsos sit inside the small-phone crop."
+    }
+  ],
+  "scores": {
+    "brief": 2.5,
+    "style": 3,
+    "cast": {
+      "Archie": 3.5,
+      "James": 3.5
+    }
+  },
+  "metrics": {
+    "size": [
+      941,
+      1672
+    ],
+    "gridScale": 1,
+    "gridRegularity": 0.002,
+    "colours": 334330,
+    "paletteDistance": 15.75
+  },
+  "verdict": "fail",
+  "rank": 1,
+  "correctionPrompt": "Same image, change only: raise Archie's eyebrows high and clearly arched, restore the chair with stacked books beside the umbrella, restore the small plant on the left, restore the cabinet's end drawers. Keep everything else identical.",
+  "checklistEditedAt": null,
+  "verdictReasons": [
+    "score brief 2.5 < 3.0"
+  ],
+  "threshold": 3.0
+}

@@ -1,0 +1,141 @@
+{
+  "schema": 1,
+  "eventId": "prologue_james_meeting",
+  "shotId": "S6",
+  "draft": "assets/reference-plates/james_meeting_8.png",
+  "draftSha": "7f7658b8de3359059daf87b4b8d3f66b9008080279d31a1f7375ce93c8c68853",
+  "briefHash": "4db83cb636de6707",
+  "styleHash": "1ba004d9d81aed00",
+  "rulesHash": "4f53cda18c2baa0c",
+  "model": "claude-cli-default",
+  "judgedAt": "2026-11-17T17:34:52Z",
+  "checks": [
+    {
+      "id": "cast-Archie",
+      "result": "pass",
+      "why": "Archie is on screen at left."
+    },
+    {
+      "id": "cast-James",
+      "result": "pass",
+      "why": "James is on screen, leaning on the bench."
+    },
+    {
+      "id": "cast-only",
+      "result": "pass",
+      "why": "Only Archie and James are visible."
+    },
+    {
+      "id": "m1",
+      "result": "pass",
+      "why": "Exactly two men and no third figure or player."
+    },
+    {
+      "id": "m2",
+      "result": "pass",
+      "why": "Archie has the green overshirt, white tee, dark jeans, white trainers, beard and brown hair. James has grey hair, glasses, navy waistcoat, blue shirt, grey trousers and brown shoes. Both match their masters."
+    },
+    {
+      "id": "m3",
+      "result": "unsure",
+      "why": "james_meeting_5.png was not provided, so the positions can't be compared."
+    },
+    {
+      "id": "m4",
+      "result": "pass",
+      "why": "Archie stands upright and straight."
+    },
+    {
+      "id": "m5",
+      "result": "pass",
+      "why": "Both of Archie's hands are in his jeans pockets."
+    },
+    {
+      "id": "m6",
+      "result": "pass",
+      "why": "Archie's head is turned toward James with a slight open-mouth smile, which reads as talking."
+    },
+    {
+      "id": "m7",
+      "result": "pass",
+      "why": "James leans his hip and one arm on the bench edge, with the other hand in his pocket."
+    },
+    {
+      "id": "m8",
+      "result": "pass",
+      "why": "James looks across at Archie, as if listening."
+    },
+    {
+      "id": "m9",
+      "result": "pass",
+      "why": "James's expression is flat and neutral, slightly dry."
+    },
+    {
+      "id": "m10",
+      "result": "pass",
+      "why": "Neither man holds any prop."
+    },
+    {
+      "id": "m11",
+      "result": "fail",
+      "why": "The chair with books and the small plant on the left are gone. The drawer cabinet and the stacked books at the shelf base differ from the plate. Umbrella and boxes remain."
+    },
+    {
+      "id": "m12",
+      "result": "pass",
+      "why": "Both men are fully in frame at a scale consistent with the room. Archie's feet are close to the lower edge of the small crop but still visible."
+    },
+    {
+      "id": "m13",
+      "result": "unsure",
+      "why": "The draft is 941x1671, but the plate appears to be a slightly different size, about 937x1678. This can't be confirmed."
+    },
+    {
+      "id": "h-text",
+      "result": "pass",
+      "why": "No legible text or logos."
+    },
+    {
+      "id": "h-face",
+      "result": "pass",
+      "why": "No player is shown."
+    },
+    {
+      "id": "h-bottom",
+      "result": "pass",
+      "why": "The bottom is only rug and floor, with nothing story-critical."
+    },
+    {
+      "id": "h-crop",
+      "result": "pass",
+      "why": "Both faces and torsos sit well within the small-phone crop (y 375-1296)."
+    }
+  ],
+  "scores": {
+    "brief": 2.5,
+    "style": 2.5,
+    "cast": {
+      "Archie": 3.5,
+      "James": 3.5
+    }
+  },
+  "metrics": {
+    "size": [
+      941,
+      1671
+    ],
+    "gridScale": 1,
+    "gridRegularity": 0.004,
+    "colours": 320323,
+    "paletteDistance": 15.36
+  },
+  "verdict": "fail",
+  "rank": 1,
+  "correctionPrompt": "Same image, change only: restore the chair with books and the small plant on the left, and redraw the drawer cabinet and the stacked books at the shelf base to match james_workshop_blank_plate.png exactly, with the men in the same pixel-art style and scale as the room. Keep everything else identical.",
+  "checklistEditedAt": null,
+  "verdictReasons": [
+    "score brief 2.5 < 3.0",
+    "score style 2.5 < 3.0"
+  ],
+  "threshold": 3.0
+}

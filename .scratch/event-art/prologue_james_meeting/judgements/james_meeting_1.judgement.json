@@ -1,0 +1,145 @@
+{
+  "schema": 1,
+  "eventId": "prologue_james_meeting",
+  "shotId": "S1",
+  "draft": "assets/reference-plates/james_meeting_1.png",
+  "draftSha": "c43b256b79de0c89370b64bd994cd1972553506734f1c64f6abfe86cec17aad6",
+  "briefHash": "893c391a96487ff7",
+  "styleHash": "1ba004d9d81aed00",
+  "rulesHash": "4f53cda18c2baa0c",
+  "model": "claude-cli-default",
+  "judgedAt": "2026-11-17T17:28:58Z",
+  "checks": [
+    {
+      "id": "cast-Archie",
+      "result": "pass",
+      "why": "Archie is at the door, with brown hair, beard, olive overshirt, grey tee, dark jeans and white sneakers."
+    },
+    {
+      "id": "cast-Dog walker",
+      "result": "pass",
+      "why": "An elderly woman with a small dog is on screen."
+    },
+    {
+      "id": "cast-only",
+      "result": "pass",
+      "why": "Only Archie, the woman and the dog appear."
+    },
+    {
+      "id": "m1",
+      "result": "pass",
+      "why": "One man stands at the door. His face, hair, beard and clothes match the sprite master."
+    },
+    {
+      "id": "m2",
+      "result": "pass",
+      "why": "The elderly woman wears a plum coat and stands in the foreground."
+    },
+    {
+      "id": "m3",
+      "result": "pass",
+      "why": "A small white-and-brown terrier is on a red lead held by the woman."
+    },
+    {
+      "id": "m4",
+      "result": "pass",
+      "why": "No other figure is visible, and there is no second man at the door."
+    },
+    {
+      "id": "m5",
+      "result": "pass",
+      "why": "Archie stands directly in front of the green door."
+    },
+    {
+      "id": "m6",
+      "result": "pass",
+      "why": "Both hands are in his pockets."
+    },
+    {
+      "id": "m7",
+      "result": "pass",
+      "why": "His head is turned to the right, looking along the street and away from the door."
+    },
+    {
+      "id": "m8",
+      "result": "pass",
+      "why": "His glance is sideways and slightly furrowed, so he reads as wary. He is not smiling or facing the viewer. The tension is mild."
+    },
+    {
+      "id": "m9",
+      "result": "pass",
+      "why": "The woman and dog both face and walk to the right."
+    },
+    {
+      "id": "m10",
+      "result": "pass",
+      "why": "The door is green, the scene is lit as night, and the wet pavement shows clear reflections."
+    },
+    {
+      "id": "m11",
+      "result": "pass",
+      "why": "The woman and dog are on the pavement in front of and below Archie, so they are closer to the viewer."
+    },
+    {
+      "id": "m12",
+      "result": "pass",
+      "why": "The door, lamp, shopfronts, planter, chair and pavement match the plate in layout, scale and lighting. The only additions are Archie, the woman and the dog."
+    },
+    {
+      "id": "m13",
+      "result": "pass",
+      "why": "James is not visible in a doorway or a window."
+    },
+    {
+      "id": "m14",
+      "result": "pass",
+      "why": "The door is closed, with no gap and no interior spill."
+    },
+    {
+      "id": "h-text",
+      "result": "pass",
+      "why": "No legible text or logos appear."
+    },
+    {
+      "id": "h-face",
+      "result": "pass",
+      "why": "Archie is a story character, not the player, so no player face is shown."
+    },
+    {
+      "id": "h-bottom",
+      "result": "pass",
+      "why": "The bottom 10% is only wet pavement. Nothing story-critical is there."
+    },
+    {
+      "id": "h-crop",
+      "result": "pass",
+      "why": "Archie and the woman sit at about y 460-1220, inside every crop's range."
+    }
+  ],
+  "scores": {
+    "brief": 3.5,
+    "style": 3.5,
+    "cast": {
+      "Archie": 3.5,
+      "Dog walker": {
+        "identity": "unchecked"
+      }
+    }
+  },
+  "metrics": {
+    "size": [
+      1024,
+      1536
+    ],
+    "gridScale": 1,
+    "gridRegularity": 0.018,
+    "colours": 345163,
+    "paletteDistance": 15.81
+  },
+  "verdict": "pass",
+  "rank": 1,
+  "correctionPrompt": null,
+  "checklistEditedAt": null,
+  "verdictReasons": [],
+  "threshold": 3.0
+}

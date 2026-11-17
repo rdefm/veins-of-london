@@ -1,0 +1,123 @@
+{
+  "shotId": "S9",
+  "briefHash": "9749ce9724079447",
+  "builtAt": "2026-11-17T17:37:12Z",
+  "items": [
+    {
+      "id": "cast-James",
+      "category": "cast",
+      "text": "James is on screen.",
+      "hard": false,
+      "presence": true
+    },
+    {
+      "id": "cast-only",
+      "category": "cast",
+      "text": "No one is on screen except: James.",
+      "hard": false,
+      "presence": true
+    },
+    {
+      "id": "m1",
+      "category": "cast",
+      "text": "Only one character (James) is present in the room; no second person visible.",
+      "hard": false
+    },
+    {
+      "id": "m2",
+      "category": "cast",
+      "text": "James matches the sprite master's look (same hair, clothing, build) and is not a different or redrawn character.",
+      "hard": false
+    },
+    {
+      "id": "m3",
+      "category": "pose",
+      "text": "James stands upright near the middle of the room, not seated, walking or at the edge.",
+      "hard": false
+    },
+    {
+      "id": "m4",
+      "category": "pose",
+      "text": "James holds the jar up with both hands at roughly chest or shoulder height.",
+      "hard": false
+    },
+    {
+      "id": "m5",
+      "category": "pose",
+      "text": "James's gaze is directed at the jar, not at the viewer.",
+      "hard": false
+    },
+    {
+      "id": "m6",
+      "category": "pose",
+      "text": "James's expression is calm and attentive/scrutinising, not smiling or surprised at the viewer.",
+      "hard": false
+    },
+    {
+      "id": "m7",
+      "category": "props",
+      "text": "The jar is a glass jar clearly held in his hands, not resting on a surface.",
+      "hard": false
+    },
+    {
+      "id": "m8",
+      "category": "props",
+      "text": "A faint shimmer or glow of calc is visible inside the jar, subtle not blazing.",
+      "hard": false
+    },
+    {
+      "id": "m9",
+      "category": "props",
+      "text": "The jar is not sitting on the bench (it is still held up).",
+      "hard": false
+    },
+    {
+      "id": "m10",
+      "category": "framing",
+      "text": "The room matches the blank workshop plate: same layout, furniture and shelves, with nothing added or removed besides James and the jar.",
+      "hard": false
+    },
+    {
+      "id": "m11",
+      "category": "framing",
+      "text": "James is scaled consistently with the room (head and door/furniture proportions plausible) and fully in frame.",
+      "hard": false
+    },
+    {
+      "id": "m12",
+      "category": "unseen",
+      "text": "Archie is not visible anywhere in the image.",
+      "hard": false
+    },
+    {
+      "id": "m13",
+      "category": "unseen",
+      "text": "The jar has no legible label or readable word like TIME on it.",
+      "hard": false
+    },
+    {
+      "id": "h-text",
+      "category": "hard",
+      "text": "No legible text or logos anywhere in the image.",
+      "hard": true
+    },
+    {
+      "id": "h-face",
+      "category": "hard",
+      "text": "No player face is shown (the player is never seen).",
+      "hard": true
+    },
+    {
+      "id": "h-bottom",
+      "category": "hard",
+      "text": "Nothing story-critical sits in the bottom ~10% of the image.",
+      "hard": true
+    },
+    {
+      "id": "h-crop",
+      "category": "hard",
+      "text": "The focal point survives the small-phone crop.",
+      "hard": true
+    }
+  ]
+}

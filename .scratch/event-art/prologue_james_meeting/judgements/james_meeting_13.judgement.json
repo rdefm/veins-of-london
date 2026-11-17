@@ -1,0 +1,127 @@
+{
+  "schema": 1,
+  "eventId": "prologue_james_meeting",
+  "shotId": "S8",
+  "draft": "assets/reference-plates/james_meeting_13.png",
+  "draftSha": "2ad5f65177250b1319b9e8aa76925482cae7ab980089ad89694ef44319469f88",
+  "briefHash": "d550229bfb7c4fd1",
+  "styleHash": "1ba004d9d81aed00",
+  "rulesHash": "4f53cda18c2baa0c",
+  "model": "claude-cli-default",
+  "judgedAt": "2026-11-17T17:36:23Z",
+  "checks": [
+    {
+      "id": "cast-James",
+      "result": "pass",
+      "why": "James is on screen, centre-left."
+    },
+    {
+      "id": "cast-only",
+      "result": "pass",
+      "why": "James is the only person visible."
+    },
+    {
+      "id": "m1",
+      "result": "pass",
+      "why": "One figure: grey hair, glasses, navy vest, light blue shirt, grey trousers, brown shoes, matching the sprite master."
+    },
+    {
+      "id": "m2",
+      "result": "pass",
+      "why": "No second figure. The coat on the left wall hook is in the plate too."
+    },
+    {
+      "id": "m3",
+      "result": "pass",
+      "why": "No sign of Archie: no figure, hat, hand or shadow."
+    },
+    {
+      "id": "m4",
+      "result": "pass",
+      "why": "He leans into the bench end with his elbow and hand on it, weight on it."
+    },
+    {
+      "id": "m5",
+      "result": "pass",
+      "why": "His legs cross at the ankles, with one foot over the other."
+    },
+    {
+      "id": "m6",
+      "result": "pass",
+      "why": "One hand is in his pocket and the other rests on the bench. No weapon, no task."
+    },
+    {
+      "id": "m7",
+      "result": "pass",
+      "why": "His face and eyes look straight out at the camera."
+    },
+    {
+      "id": "m8",
+      "result": "pass",
+      "why": "The bench, drawers and stool match the plate in position and design."
+    },
+    {
+      "id": "m9",
+      "result": "pass",
+      "why": "No new props, no pearl, knife or furniture."
+    },
+    {
+      "id": "m10",
+      "result": "fail",
+      "why": "The room drifted from the plate. The card-drawer cabinet is narrower (3 columns, not 5). The bookshelf contents differ and the framed portrait is gone. The rug pattern is different. The jar shelf contents changed."
+    },
+    {
+      "id": "m11",
+      "result": "pass",
+      "why": "The full room is visible at the plate's camera angle and framing."
+    },
+    {
+      "id": "m12",
+      "result": "pass",
+      "why": "The scale is plausible, with his feet on the floorboards next to the bench and rug."
+    },
+    {
+      "id": "h-text",
+      "result": "pass",
+      "why": "No legible text or logos."
+    },
+    {
+      "id": "h-face",
+      "result": "pass",
+      "why": "The player is not shown."
+    },
+    {
+      "id": "h-bottom",
+      "result": "pass",
+      "why": "The bottom 10% is only rug and floor, with nothing story-critical."
+    },
+    {
+      "id": "h-crop",
+      "result": "pass",
+      "why": "James spans y~590-1240, inside the small-phone crop (y 380-1297)."
+    }
+  ],
+  "scores": {
+    "brief": 3,
+    "style": 3,
+    "cast": {
+      "James": 3.5
+    }
+  },
+  "metrics": {
+    "size": [
+      937,
+      1678
+    ],
+    "gridScale": 1,
+    "gridRegularity": 0.002,
+    "colours": 256,
+    "paletteDistance": 12.61
+  },
+  "verdict": "pass",
+  "rank": 1,
+  "correctionPrompt": null,
+  "checklistEditedAt": null,
+  "verdictReasons": [],
+  "threshold": 3.0
+}

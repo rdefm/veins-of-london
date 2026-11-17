@@ -1,0 +1,130 @@
+{
+  "shotId": "S7",
+  "briefHash": "76408b3ffb930303",
+  "builtAt": "2026-11-17T17:35:50Z",
+  "items": [
+    {
+      "id": "cast-Archie",
+      "category": "cast",
+      "text": "Archie is on screen.",
+      "hard": false,
+      "presence": true
+    },
+    {
+      "id": "cast-James",
+      "category": "cast",
+      "text": "James is on screen.",
+      "hard": false,
+      "presence": true
+    },
+    {
+      "id": "cast-only",
+      "category": "cast",
+      "text": "No one is on screen except: Archie, James.",
+      "hard": false,
+      "presence": true
+    },
+    {
+      "id": "m1",
+      "category": "cast",
+      "text": "Exactly two men are in the room: Archie and James, no one else.",
+      "hard": false
+    },
+    {
+      "id": "m2",
+      "category": "cast",
+      "text": "Archie and James are placed in the same spots as in james_meeting_8.png.",
+      "hard": false
+    },
+    {
+      "id": "m3",
+      "category": "pose",
+      "text": "Archie's face is turned toward the camera, not toward James.",
+      "hard": false
+    },
+    {
+      "id": "m4",
+      "category": "pose",
+      "text": "Archie's eyebrows are visibly raised.",
+      "hard": false
+    },
+    {
+      "id": "m5",
+      "category": "pose",
+      "text": "Archie's expression looks like he is waiting for an answer, with an open, expectant face.",
+      "hard": false
+    },
+    {
+      "id": "m6",
+      "category": "pose",
+      "text": "James is leaning on the workshop bench.",
+      "hard": false
+    },
+    {
+      "id": "m7",
+      "category": "pose",
+      "text": "James is not facing the camera. He is looking at Archie or off to the side.",
+      "hard": false
+    },
+    {
+      "id": "m8",
+      "category": "props",
+      "text": "The workshop room matches james_workshop_blank_plate.png, with the bench, shelves and tools unchanged.",
+      "hard": false
+    },
+    {
+      "id": "m9",
+      "category": "props",
+      "text": "No new props appear, such as a bag, suitcase, phone or papers, in either man's hands or in the room.",
+      "hard": false
+    },
+    {
+      "id": "m10",
+      "category": "framing",
+      "text": "Both men are fully visible and not cropped by the image edges.",
+      "hard": false
+    },
+    {
+      "id": "m11",
+      "category": "framing",
+      "text": "Camera angle and composition match james_workshop_blank_plate.png and james_meeting_8.png.",
+      "hard": false
+    },
+    {
+      "id": "m12",
+      "category": "framing",
+      "text": "Archie and James are drawn at the same pixel scale as the room, neither oversized nor tiny.",
+      "hard": false
+    },
+    {
+      "id": "m13",
+      "category": "framing",
+      "text": "Image dimensions match the blank plate exactly.",
+      "hard": false
+    },
+    {
+      "id": "h-text",
+      "category": "hard",
+      "text": "No legible text or logos anywhere in the image.",
+      "hard": true
+    },
+    {
+      "id": "h-face",
+      "category": "hard",
+      "text": "No player face is shown (the player is never seen).",
+      "hard": true
+    },
+    {
+      "id": "h-bottom",
+      "category": "hard",
+      "text": "Nothing story-critical sits in the bottom ~10% of the image.",
+      "hard": true
+    },
+    {
+      "id": "h-crop",
+      "category": "hard",
+      "text": "The focal point survives the small-phone crop.",
+      "hard": true
+    }
+  ]
+}

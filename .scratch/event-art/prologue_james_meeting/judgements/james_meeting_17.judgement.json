@@ -1,0 +1,140 @@
+{
+  "schema": 1,
+  "eventId": "prologue_james_meeting",
+  "shotId": "S10",
+  "draft": "assets/reference-plates/james_meeting_17.png",
+  "draftSha": "08b13aa6b5dc1800a3ca5fb1dd912f7ab224adb115adafdf68b7df8ae5bf636a",
+  "briefHash": "7991587ada1c60f7",
+  "styleHash": "1ba004d9d81aed00",
+  "rulesHash": "4f53cda18c2baa0c",
+  "model": "claude-cli-default",
+  "judgedAt": "2026-11-17T17:38:09Z",
+  "checks": [
+    {
+      "id": "cast-James",
+      "result": "pass",
+      "why": "James is on screen at the bench."
+    },
+    {
+      "id": "cast-only",
+      "result": "pass",
+      "why": "No one else is visible."
+    },
+    {
+      "id": "m1",
+      "result": "pass",
+      "why": "Exactly one figure, with no partial figures at the edges."
+    },
+    {
+      "id": "m2",
+      "result": "pass",
+      "why": "Messy grey hair, round dark glasses, navy vest, light blue shirt, grey trousers and brown shoes all match the sprite master."
+    },
+    {
+      "id": "m3",
+      "result": "pass",
+      "why": "He stands at the bench end with his hands reaching over it."
+    },
+    {
+      "id": "m4",
+      "result": "pass",
+      "why": "Head is bowed and his eyes are on his hands and the work."
+    },
+    {
+      "id": "m5",
+      "result": "fail",
+      "why": "One hand holds a spoon over the scale. The other holds the jar low and does not tip it over a measure."
+    },
+    {
+      "id": "m6",
+      "result": "pass",
+      "why": "The off hand holds the jar steady in a relaxed working pose."
+    },
+    {
+      "id": "m7",
+      "result": "pass",
+      "why": "A glass jar is in his hand with grey-violet material inside it."
+    },
+    {
+      "id": "m8",
+      "result": "fail",
+      "why": "No small brass measure is under the jar. The brass pans of a balance scale appear instead."
+    },
+    {
+      "id": "m9",
+      "result": "unsure",
+      "why": "The jar contents and the spoon load are a grey-lilac granular material that is distinct from the brass. It is dull and does not read clearly as calc powder."
+    },
+    {
+      "id": "m10",
+      "result": "fail",
+      "why": "The bench is altered: the mortar, mug and test tubes are gone and a scale, a different microscope arrangement and a notebook are added. The room otherwise matches."
+    },
+    {
+      "id": "m11",
+      "result": "pass",
+      "why": "James, the bench and his hands are fully inside the frame."
+    },
+    {
+      "id": "m12",
+      "result": "pass",
+      "why": "His scale fits the room, with his head level with the cabinet tops and his feet on the floor."
+    },
+    {
+      "id": "m13",
+      "result": "pass",
+      "why": "Archie is not visible."
+    },
+    {
+      "id": "m14",
+      "result": "pass",
+      "why": "No glass sphere or finished pearl is visible. The only glass is the storage jar and room flasks."
+    },
+    {
+      "id": "h-text",
+      "result": "pass",
+      "why": "No legible text or logos; the books and papers are illegible."
+    },
+    {
+      "id": "h-face",
+      "result": "pass",
+      "why": "The only face shown is James's. The player is not shown."
+    },
+    {
+      "id": "h-bottom",
+      "result": "pass",
+      "why": "The bottom 10% shows only floor, rug and bench base, nothing story-critical."
+    },
+    {
+      "id": "h-crop",
+      "result": "pass",
+      "why": "The focal point at about y 700-950 sits inside all three phone crops."
+    }
+  ],
+  "scores": {
+    "brief": 2,
+    "style": 2.5,
+    "cast": {
+      "James": 3.5
+    }
+  },
+  "metrics": {
+    "size": [
+      941,
+      1672
+    ],
+    "gridScale": 1,
+    "gridRegularity": 0.002,
+    "colours": 332634,
+    "paletteDistance": 16.23
+  },
+  "verdict": "fail",
+  "rank": 1,
+  "correctionPrompt": "Same image, change only: have one hand tip the jar over a small brass measure with calc visibly pouring into it; remove the balance scale and spoon; restore the mortar, mug and test tubes on the bench as in the blank plate; restore the original microscope arrangement; remove the notebook; match the room's pixel-art style and scale. Keep everything else identical.",
+  "checklistEditedAt": null,
+  "verdictReasons": [
+    "score brief 2.0 < 3.0",
+    "score style 2.5 < 3.0"
+  ],
+  "threshold": 3.0
+}

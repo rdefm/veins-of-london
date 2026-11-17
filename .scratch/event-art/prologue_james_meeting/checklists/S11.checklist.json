@@ -1,0 +1,129 @@
+{
+  "shotId": "S11",
+  "briefHash": "d8fa42dccadf5588",
+  "builtAt": "2026-11-17T17:39:08Z",
+  "items": [
+    {
+      "id": "cast-James",
+      "category": "cast",
+      "text": "James is on screen.",
+      "hard": false,
+      "presence": true
+    },
+    {
+      "id": "cast-only",
+      "category": "cast",
+      "text": "No one is on screen except: James.",
+      "hard": false,
+      "presence": true
+    },
+    {
+      "id": "m1",
+      "category": "cast",
+      "text": "Exactly one person (James) is visible in the room",
+      "hard": false
+    },
+    {
+      "id": "m2",
+      "category": "cast",
+      "text": "The man matches the James sprite master (same hair, clothing and colours as the reference)",
+      "hard": false
+    },
+    {
+      "id": "m3",
+      "category": "pose",
+      "text": "James leans back against the bench rather than standing upright or sitting",
+      "hard": false
+    },
+    {
+      "id": "m4",
+      "category": "pose",
+      "text": "His ankles are crossed",
+      "hard": false
+    },
+    {
+      "id": "m5",
+      "category": "pose",
+      "text": "His posture looks relaxed, with no tense or action pose",
+      "hard": false
+    },
+    {
+      "id": "m6",
+      "category": "props",
+      "text": "A battered leather crafting kit is visible on the bench",
+      "hard": false
+    },
+    {
+      "id": "m7",
+      "category": "props",
+      "text": "The crafting kit is closed, not open",
+      "hard": false
+    },
+    {
+      "id": "m8",
+      "category": "props",
+      "text": "The kit sits on the bench beside James, not in his hands or on the floor",
+      "hard": false
+    },
+    {
+      "id": "m9",
+      "category": "props",
+      "text": "The bench surface looks clear and wiped, with no clutter or spilled materials",
+      "hard": false
+    },
+    {
+      "id": "m10",
+      "category": "props",
+      "text": "The jar is back on its shelf",
+      "hard": false
+    },
+    {
+      "id": "m11",
+      "category": "framing",
+      "text": "The room layout, furniture and props match the blank workshop plate apart from James and the kit",
+      "hard": false
+    },
+    {
+      "id": "m12",
+      "category": "framing",
+      "text": "James is at a similar pixel scale to the room, with plausible height against the bench",
+      "hard": false
+    },
+    {
+      "id": "m13",
+      "category": "unseen",
+      "text": "Archie is not present anywhere in the image",
+      "hard": false
+    },
+    {
+      "id": "m14",
+      "category": "unseen",
+      "text": "The jar is not off its shelf, whether on the bench, in James's hand or elsewhere",
+      "hard": false
+    },
+    {
+      "id": "h-text",
+      "category": "hard",
+      "text": "No legible text or logos anywhere in the image.",
+      "hard": true
+    },
+    {
+      "id": "h-face",
+      "category": "hard",
+      "text": "No player face is shown (the player is never seen).",
+      "hard": true
+    },
+    {
+      "id": "h-bottom",
+      "category": "hard",
+      "text": "Nothing story-critical sits in the bottom ~10% of the image.",
+      "hard": true
+    },
+    {
+      "id": "h-crop",
+      "category": "hard",
+      "text": "The focal point survives the small-phone crop.",
+      "hard": true
+    }
+  ]
+}

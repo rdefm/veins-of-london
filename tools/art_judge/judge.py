@@ -23,7 +23,6 @@ import pixel_grid  # noqa: E402
 
 SCHEMA_VERSION = 1
 DEFAULT_THRESHOLD = 3.0
-DEFAULT_CANVAS = (1024, 1536)  # board-schema.md: portrait 2:3
 CATEGORIES = ("cast", "pose", "props", "framing", "unseen", "hard")
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
@@ -150,15 +149,6 @@ def _brief_payload(board, shot):
         "allowPlayerFace": bool(shot.get("allowPlayerFace")),
     }
     return payload
-
-
-def canvas_of(board):
-    c = board.get("canvas")
-    if isinstance(c, (list, tuple)) and len(c) == 2:
-        return (int(c[0]), int(c[1]))
-    if isinstance(c, dict) and "w" in c and "h" in c:
-        return (int(c["w"]), int(c["h"]))
-    return DEFAULT_CANVAS
 
 
 def cast_of(shot):
@@ -475,8 +465,9 @@ def validate_reply(reply, checklist, cast_checked):
 
 # ---------- pass rule ----------
 
-def decide(checklist, checks, scores, size, canvas, threshold):
-    """Pure pass rule. Returns (verdict, reasons). `unsure` never fails; the model's own view is ignored."""
+def decide(checklist, checks, scores, threshold):
+    """Pure pass rule. Returns (verdict, reasons). `unsure` never fails; the model's own view is ignored.
+    Image size is informational only (metrics.size): VN images are aspect-covered (ART-BIBLE §3)."""
     result = {c["id"]: c["result"] for c in checks}
     reasons = []
     for it in checklist["items"]:
@@ -485,8 +476,6 @@ def decide(checklist, checks, scores, size, canvas, threshold):
                 reasons.append("hard check failed: %s" % it["id"])
             elif it.get("presence"):
                 reasons.append("cast presence failed: %s" % it["id"])
-    if tuple(size) != tuple(canvas):
-        reasons.append("size %dx%d != canvas %dx%d" % (size[0], size[1], canvas[0], canvas[1]))
     flat = [("brief", scores["brief"]), ("style", scores["style"])]
     flat += [("cast:%s" % n, v) for n, v in scores["cast"].items() if isinstance(v, (int, float))]
     for name, v in flat:
@@ -600,7 +589,7 @@ def judge_draft(ws, backend, event_id, shot_id, draft, threshold=DEFAULT_THRESHO
         return out
     for n in unchecked:
         scores["cast"][n] = {"identity": "unchecked"}
-    verdict, reasons = decide(checklist, checks, scores, size, canvas_of(board), threshold)
+    verdict, reasons = decide(checklist, checks, scores, threshold)
     out.update({"checks": checks, "scores": scores, "verdict": verdict, "verdictReasons": reasons,
                 "threshold": threshold})
     if verdict == "fail":

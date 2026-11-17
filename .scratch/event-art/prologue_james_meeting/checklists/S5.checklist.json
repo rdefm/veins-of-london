@@ -1,0 +1,124 @@
+{
+  "shotId": "S5",
+  "briefHash": "ab5b7f2977588f2b",
+  "builtAt": "2026-11-17T17:34:23Z",
+  "items": [
+    {
+      "id": "cast-Archie",
+      "category": "cast",
+      "text": "Archie is on screen.",
+      "hard": false,
+      "presence": true
+    },
+    {
+      "id": "cast-James",
+      "category": "cast",
+      "text": "James is on screen.",
+      "hard": false,
+      "presence": true
+    },
+    {
+      "id": "cast-only",
+      "category": "cast",
+      "text": "No one is on screen except: Archie, James.",
+      "hard": false,
+      "presence": true
+    },
+    {
+      "id": "m1",
+      "category": "cast",
+      "text": "Exactly two men are visible: Archie and James, with no third figure.",
+      "hard": false
+    },
+    {
+      "id": "m2",
+      "category": "cast",
+      "text": "James is placed where he is in james_meeting_5.png, with the same position and scale.",
+      "hard": false
+    },
+    {
+      "id": "m3",
+      "category": "cast",
+      "text": "Archie is placed where he is in james_meeting_5.png, with the same position and scale.",
+      "hard": false
+    },
+    {
+      "id": "m4",
+      "category": "cast",
+      "text": "Archie and James look like their sprite masters, with matching outfits, hair and colouring.",
+      "hard": false
+    },
+    {
+      "id": "m5",
+      "category": "pose",
+      "text": "James looks straight out at the camera, not at Archie or off to the side.",
+      "hard": false
+    },
+    {
+      "id": "m6",
+      "category": "pose",
+      "text": "James's expression is steady and appraising, calm and studying rather than smiling, angry or surprised.",
+      "hard": false
+    },
+    {
+      "id": "m7",
+      "category": "pose",
+      "text": "James's face has a subtle shift from blank neutral, such as slightly narrowed eyes or a changed brow.",
+      "hard": false
+    },
+    {
+      "id": "m8",
+      "category": "pose",
+      "text": "Archie is still rubbing his face with a hand raised to it.",
+      "hard": false
+    },
+    {
+      "id": "m9",
+      "category": "pose",
+      "text": "Archie is not looking at the camera and is not facing James.",
+      "hard": false
+    },
+    {
+      "id": "m10",
+      "category": "props",
+      "text": "The workshop furniture, tools and clutter match james_workshop_blank_plate.png, with nothing added, moved or removed except the two men.",
+      "hard": false
+    },
+    {
+      "id": "m11",
+      "category": "framing",
+      "text": "The camera angle and crop match the blank plate and james_meeting_5.png, with both men fully in frame and James's face clearly visible.",
+      "hard": false
+    },
+    {
+      "id": "m12",
+      "category": "framing",
+      "text": "The image has the same dimensions and aspect ratio as the blank plate, with no borders or cropping changes.",
+      "hard": false
+    },
+    {
+      "id": "h-text",
+      "category": "hard",
+      "text": "No legible text or logos anywhere in the image.",
+      "hard": true
+    },
+    {
+      "id": "h-face",
+      "category": "hard",
+      "text": "No player face is shown (the player is never seen).",
+      "hard": true
+    },
+    {
+      "id": "h-bottom",
+      "category": "hard",
+      "text": "Nothing story-critical sits in the bottom ~10% of the image.",
+      "hard": true
+    },
+    {
+      "id": "h-crop",
+      "category": "hard",
+      "text": "The focal point survives the small-phone crop.",
+      "hard": true
+    }
+  ]
+}

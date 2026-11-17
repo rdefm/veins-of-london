@@ -1,0 +1,139 @@
+{
+  "schema": 1,
+  "eventId": "prologue_james_meeting",
+  "shotId": "S11",
+  "draft": "assets/reference-plates/james_meeting_21.png",
+  "draftSha": "52a1acaabff007e00b0e31405f13b53fa485b80b1063342da1618696f6f7c7c1",
+  "briefHash": "d8fa42dccadf5588",
+  "styleHash": "1ba004d9d81aed00",
+  "rulesHash": "4f53cda18c2baa0c",
+  "model": "claude-cli-default",
+  "judgedAt": "2026-11-17T17:39:00Z",
+  "checks": [
+    {
+      "id": "cast-James",
+      "result": "pass",
+      "why": "James is clearly on screen at centre."
+    },
+    {
+      "id": "cast-only",
+      "result": "pass",
+      "why": "No one else is visible."
+    },
+    {
+      "id": "m1",
+      "result": "pass",
+      "why": "Exactly one person is in the room."
+    },
+    {
+      "id": "m2",
+      "result": "pass",
+      "why": "Same swept grey hair, black glasses, navy vest, light blue rolled sleeves, grey trousers and brown shoes as the sprite master."
+    },
+    {
+      "id": "m3",
+      "result": "pass",
+      "why": "He leans back against the bench, with one hand on its edge."
+    },
+    {
+      "id": "m4",
+      "result": "pass",
+      "why": "His ankles are crossed, with the brown shoes overlapping."
+    },
+    {
+      "id": "m5",
+      "result": "pass",
+      "why": "One hand is in his pocket and his expression is calm, so the pose is relaxed."
+    },
+    {
+      "id": "m6",
+      "result": "pass",
+      "why": "A brown leather zip case with a tooled mark sits on the bench."
+    },
+    {
+      "id": "m7",
+      "result": "pass",
+      "why": "The case is zipped shut."
+    },
+    {
+      "id": "m8",
+      "result": "pass",
+      "why": "The kit sits on the bench surface beside his hand."
+    },
+    {
+      "id": "m9",
+      "result": "pass",
+      "why": "The open notebook is gone and the front of the bench is clear. Only the plate's own instruments and books remain."
+    },
+    {
+      "id": "m10",
+      "result": "pass",
+      "why": "The jars are all on the shelves."
+    },
+    {
+      "id": "m11",
+      "result": "fail",
+      "why": "The room was regenerated. The chair on the left is now a stool with books, the cabinet has fewer columns, the book stacks on the shelf are gone, and the drawers and bench details differ from the plate."
+    },
+    {
+      "id": "m12",
+      "result": "pass",
+      "why": "His height and scale suit the room and the bench. His leaning posture is plausible."
+    },
+    {
+      "id": "m13",
+      "result": "pass",
+      "why": "No Archie is visible."
+    },
+    {
+      "id": "m14",
+      "result": "pass",
+      "why": "No jar is on the bench or in his hand."
+    },
+    {
+      "id": "h-text",
+      "result": "pass",
+      "why": "No legible text or logos. The book spines are only illegible marks."
+    },
+    {
+      "id": "h-face",
+      "result": "pass",
+      "why": "The only face is James's. The player is not shown."
+    },
+    {
+      "id": "h-bottom",
+      "result": "pass",
+      "why": "The bottom 10% shows only rug and floor."
+    },
+    {
+      "id": "h-crop",
+      "result": "pass",
+      "why": "James and the kit sit at about y 580-1290, which stays inside the small-phone crop."
+    }
+  ],
+  "scores": {
+    "brief": 3,
+    "style": 2.5,
+    "cast": {
+      "James": 3.5
+    }
+  },
+  "metrics": {
+    "size": [
+      941,
+      1672
+    ],
+    "gridScale": 1,
+    "gridRegularity": 0.003,
+    "colours": 344010,
+    "paletteDistance": 16.12
+  },
+  "verdict": "fail",
+  "rank": 1,
+  "correctionPrompt": "Same image, change only: restore the left chair (not a stool with books), the cabinet's full column count, the book stacks on the shelf, and the drawers and bench details exactly as in the blank plate; redraw James and the kit in the room's pixel style, with the same line weight, palette and shading. Keep everything else identical.",
+  "checklistEditedAt": null,
+  "verdictReasons": [
+    "score style 2.5 < 3.0"
+  ],
+  "threshold": 3.0
+}

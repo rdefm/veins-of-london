@@ -1,0 +1,148 @@
+{
+  "schema": 1,
+  "eventId": "prologue_james_meeting",
+  "shotId": "S1",
+  "draft": "assets/reference-plates/james_meeting_1_v2.png",
+  "draftSha": "1a879ecefb31e75ebce13b6cb664fb03f519cf4debbba49f5e59a72e43b020b6",
+  "briefHash": "893c391a96487ff7",
+  "styleHash": "1ba004d9d81aed00",
+  "rulesHash": "4f53cda18c2baa0c",
+  "model": "claude-cli-default",
+  "judgedAt": "2026-11-17T17:29:41Z",
+  "checks": [
+    {
+      "id": "cast-Archie",
+      "result": "pass",
+      "why": "Archie stands in the doorway alcove."
+    },
+    {
+      "id": "cast-Dog walker",
+      "result": "pass",
+      "why": "Elderly woman with dog walks in the foreground."
+    },
+    {
+      "id": "cast-only",
+      "result": "pass",
+      "why": "Only Archie, the woman and the dog appear."
+    },
+    {
+      "id": "m1",
+      "result": "pass",
+      "why": "One man with curly brown hair, beard, olive jacket, grey tee, dark trousers and white sneakers matches the sprite master."
+    },
+    {
+      "id": "m2",
+      "result": "fail",
+      "why": "Her coat is beige/tan with a red scarf, not plum."
+    },
+    {
+      "id": "m3",
+      "result": "pass",
+      "why": "A small white-and-brown terrier on a red lead is beside her."
+    },
+    {
+      "id": "m4",
+      "result": "pass",
+      "why": "No other figures are visible."
+    },
+    {
+      "id": "m5",
+      "result": "pass",
+      "why": "He stands directly in front of the green door."
+    },
+    {
+      "id": "m6",
+      "result": "pass",
+      "why": "Both hands are in his pockets."
+    },
+    {
+      "id": "m7",
+      "result": "pass",
+      "why": "His head is turned right, looking along the street."
+    },
+    {
+      "id": "m8",
+      "result": "unsure",
+      "why": "The figure is small and looks neutral, with no clear tension or smile."
+    },
+    {
+      "id": "m9",
+      "result": "pass",
+      "why": "The woman and dog walk left to right."
+    },
+    {
+      "id": "m10",
+      "result": "pass",
+      "why": "Green door, night lighting and wet reflective pavement are present."
+    },
+    {
+      "id": "m11",
+      "result": "pass",
+      "why": "The woman and dog are on the pavement in front of Archie and closer to the viewer, though only slightly."
+    },
+    {
+      "id": "m12",
+      "result": "fail",
+      "why": "The framing is zoomed out compared with the plate. The buildings are smaller and the upper floors and signboards are added, so scale and layout differ."
+    },
+    {
+      "id": "m13",
+      "result": "pass",
+      "why": "James is not visible."
+    },
+    {
+      "id": "m14",
+      "result": "pass",
+      "why": "The door is closed and no interior is visible."
+    },
+    {
+      "id": "h-text",
+      "result": "pass",
+      "why": "No legible text or logos."
+    },
+    {
+      "id": "h-face",
+      "result": "pass",
+      "why": "The only face shown is Archie's, who is not the player."
+    },
+    {
+      "id": "h-bottom",
+      "result": "pass",
+      "why": "The bottom 10% is empty pavement."
+    },
+    {
+      "id": "h-crop",
+      "result": "fail",
+      "why": "Archie and the woman are small, at y about 650-1040. They stay inside the small phone crop but are tiny as a focal point."
+    }
+  ],
+  "scores": {
+    "brief": 2.5,
+    "style": 3,
+    "cast": {
+      "Archie": 3.5,
+      "Dog walker": {
+        "identity": "unchecked"
+      }
+    }
+  },
+  "metrics": {
+    "size": [
+      1024,
+      1536
+    ],
+    "gridScale": 1,
+    "gridRegularity": 0.008,
+    "colours": 330147,
+    "paletteDistance": 14.6
+  },
+  "verdict": "fail",
+  "rank": 2,
+  "correctionPrompt": "Same image, change only: recolour the woman's coat from beige/tan to plum and drop the red scarf; reframe to the exact james_exterior.png crop, scale and layout, removing the added upper floors and signboards; enlarge Archie and the woman so they read as the focal point. Keep everything else identical.",
+  "checklistEditedAt": null,
+  "verdictReasons": [
+    "hard check failed: h-crop",
+    "score brief 2.5 < 3.0"
+  ],
+  "threshold": 3.0
+}

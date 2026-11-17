@@ -1,0 +1,133 @@
+{
+  "schema": 1,
+  "eventId": "prologue_james_meeting",
+  "shotId": "S5",
+  "draft": "assets/reference-plates/james_meeting_6.png",
+  "draftSha": "02c02049e49091c6de24b8bc609fc5852ec36eba283c611128c7c4f7f17a38d6",
+  "briefHash": "ab5b7f2977588f2b",
+  "styleHash": "1ba004d9d81aed00",
+  "rulesHash": "4f53cda18c2baa0c",
+  "model": "claude-cli-default",
+  "judgedAt": "2026-11-17T17:34:12Z",
+  "checks": [
+    {
+      "id": "cast-Archie",
+      "result": "pass",
+      "why": "Archie is on the left, rubbing his face."
+    },
+    {
+      "id": "cast-James",
+      "result": "pass",
+      "why": "James stands at centre right, leaning on the desk."
+    },
+    {
+      "id": "cast-only",
+      "result": "pass",
+      "why": "Only Archie and James are on screen."
+    },
+    {
+      "id": "m1",
+      "result": "pass",
+      "why": "Exactly two men are visible, with no third figure."
+    },
+    {
+      "id": "m2",
+      "result": "unsure",
+      "why": "james_meeting_5.png was not provided, so James's placement can't be compared."
+    },
+    {
+      "id": "m3",
+      "result": "unsure",
+      "why": "james_meeting_5.png was not provided, so Archie's placement can't be compared."
+    },
+    {
+      "id": "m4",
+      "result": "pass",
+      "why": "Outfits and hair match the sprite masters. Archie's jeans read black, not navy."
+    },
+    {
+      "id": "m5",
+      "result": "pass",
+      "why": "James looks straight out at the viewer."
+    },
+    {
+      "id": "m6",
+      "result": "pass",
+      "why": "His expression is calm and studying, neither smiling, angry nor surprised."
+    },
+    {
+      "id": "m7",
+      "result": "pass",
+      "why": "A slight brow furrow and narrowed gaze give a subtle shift from blank neutral."
+    },
+    {
+      "id": "m8",
+      "result": "pass",
+      "why": "Archie's right hand is raised to his face, with his eyes closed."
+    },
+    {
+      "id": "m9",
+      "result": "pass",
+      "why": "Archie's head is bowed with his eyes closed. He faces neither the camera nor James."
+    },
+    {
+      "id": "m10",
+      "result": "pass",
+      "why": "The room matches the blank plate, and the missing chair and book stacks are only hidden behind the men."
+    },
+    {
+      "id": "m11",
+      "result": "pass",
+      "why": "Camera angle and crop match the plate, and both men are fully in frame with James's face clear."
+    },
+    {
+      "id": "m12",
+      "result": "pass",
+      "why": "The image is portrait with the plate's proportions and has no borders."
+    },
+    {
+      "id": "h-text",
+      "result": "pass",
+      "why": "No legible text or logos are visible."
+    },
+    {
+      "id": "h-face",
+      "result": "pass",
+      "why": "No player face is shown."
+    },
+    {
+      "id": "h-bottom",
+      "result": "pass",
+      "why": "Only rug and floor sit in the bottom 10%."
+    },
+    {
+      "id": "h-crop",
+      "result": "pass",
+      "why": "Both faces sit around y 600-700, inside the small-phone crop of y 375-1296."
+    }
+  ],
+  "scores": {
+    "brief": 3.4,
+    "style": 3,
+    "cast": {
+      "Archie": 3.2,
+      "James": 3.5
+    }
+  },
+  "metrics": {
+    "size": [
+      941,
+      1672
+    ],
+    "gridScale": 1,
+    "gridRegularity": 0.002,
+    "colours": 319555,
+    "paletteDistance": 15.16
+  },
+  "verdict": "pass",
+  "rank": 1,
+  "correctionPrompt": null,
+  "checklistEditedAt": null,
+  "verdictReasons": [],
+  "threshold": 3.0
+}

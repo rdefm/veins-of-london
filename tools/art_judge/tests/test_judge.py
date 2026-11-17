@@ -99,10 +99,10 @@ class PassRule(Base):
         out, _ = self.run_judge([CHECKLIST_REPLY, good_reply(IDS, ov)])
         self.assertEqual(out["verdict"], "pass")
 
-    def test_size_mismatch_fails(self):
+    def test_size_is_informational(self):
         png(self.draft, (8, 13))
         out, _ = self.run_judge([CHECKLIST_REPLY, good_reply(IDS)])
-        self.assertEqual(out["verdict"], "fail")
+        self.assertEqual(out["verdict"], "pass")
         self.assertEqual(out["metrics"]["size"], [8, 13])
 
     def test_threshold_equal_passes_below_fails(self):
@@ -305,7 +305,7 @@ class Recorded(Base):
         self.board = board
         self.write_board()
         draft = os.path.join(self.tmp, "assets/reference-plates/mile_end_yard_S1_archie_wall_lean.png")
-        png(draft, tuple(judge.canvas_of(board)))
+        png(draft, (1024, 1536))
         png(os.path.join(self.tmp, "assets/character-references/Archie/Archie_biz_sprite_master.png"))
         out = judge.judge_draft(self.ws, FakeBackend(replies_dir=rec), "ev", "S1", draft)
         self.assertIn(out["verdict"], ("pass", "fail"))
