@@ -159,6 +159,55 @@ class Correction(Base):
         self.assertTrue(out["correctionPrompt"].startswith("Same image, change only: remove the sign."))
 
 
+class EditedChecklist(Base):
+    def edit(self):
+        path = judge.checklist_path(self.ws, "ev", "S1")
+        cl = judge.read_json(path)
+        cl["items"][2]["text"] = "Hand-edited item."
+        cl.update({"edited": True, "editedAt": "2026-01-01T00:00:00Z",
+                   "briefKey": judge.brief_key(self.board, self.board["shots"][0])})
+        self.ws.write_json(path, cl)
+
+    def test_edited_reused_while_brief_unchanged(self):
+        self.run_judge([CHECKLIST_REPLY, good_reply(IDS)])
+        self.edit()
+        out, be = self.run_judge([good_reply(IDS)])
+        self.assertEqual(len(be.calls), 1)
+        self.assertEqual(out["checklistEditedAt"], "2026-01-01T00:00:00Z")
+
+    def test_edited_plus_brief_change_refuses_without_flag(self):
+        self.run_judge([CHECKLIST_REPLY, good_reply(IDS)])
+        self.edit()
+        self.board["shots"][0]["job"] = "Archie leaves."
+        self.write_board()
+        be = FakeBackend(queue=[CHECKLIST_REPLY, good_reply(IDS)])
+        with self.assertRaises(judge.ChecklistEditedError):
+            judge.judge_draft(self.ws, be, "ev", "S1", self.draft)
+        self.assertEqual(be.calls, [])
+        self.assertTrue(judge.read_json(judge.checklist_path(self.ws, "ev", "S1"))["edited"])
+        judge.judge_draft(self.ws, be, "ev", "S1", self.draft, rebuild_checklist=True)
+        cl = judge.read_json(judge.checklist_path(self.ws, "ev", "S1"))
+        self.assertFalse(cl.get("edited"))
+
+    def test_unedited_plus_brief_change_rebuilds(self):
+        self.run_judge([CHECKLIST_REPLY, good_reply(IDS)])
+        self.board["shots"][0]["job"] = "Archie leaves."
+        self.write_board()
+        out, be = self.run_judge([CHECKLIST_REPLY, good_reply(IDS)])
+        self.assertEqual(len(be.calls), 2)
+
+    def test_edit_makes_judgement_stale(self):
+        self.run_judge([CHECKLIST_REPLY, good_reply(IDS)])
+        board = judge.load_board(self.ws, "ev")
+        shot = judge.find_shot(board, "S1")
+        sh = judge.style_hash(self.ws)
+        self.assertIsNone(judge.stale_reason(self.ws, board, shot, self.draft, sh))
+        self.edit()
+        self.assertEqual(judge.stale_reason(self.ws, board, shot, self.draft, sh), "checklist edited")
+        self.run_judge([good_reply(IDS)])
+        self.assertIsNone(judge.stale_reason(self.ws, board, shot, self.draft, sh))
+
+
 class Checklist(Base):
     def test_reuse_then_rebuild_on_brief_change(self):
         out, be = self.run_judge([CHECKLIST_REPLY, good_reply(IDS)])

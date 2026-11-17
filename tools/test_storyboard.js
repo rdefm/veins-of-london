@@ -3071,7 +3071,7 @@ test("splitPath takes parts or slash strings", () => {
 const judgeStart = html.indexOf("/* ---------- Judgements (pure) ---------- */"), judgeEnd = html.indexOf("/* ---------- End judgements ---------- */");
 assert(judgeStart !== -1 && judgeEnd !== -1, "could not locate judgements markers in storyboard.html");
 const JM = new Function(html.slice(judgeStart, judgeEnd) +
-  "\nreturn { JUDGEMENT_SUFFIX, judgementFileFor, judgementFor, judgementState, orderDrafts, judgementScores, judgementProblems, judgementCorrection };")();
+  "\nreturn { JUDGEMENT_SUFFIX, judgementFileFor, judgementFor, judgementState, orderDrafts, judgementScores, judgementProblems, judgementCorrection, shotCardsOf, briefKey, checklistWarning, editedChecklist, checklistStale, newCheckItem };")();
 
 test("judgements match drafts by stem, incl. _vN and _clean files", () => {
   const by = { "s1_v2.judgement.json": { verdict: "pass" }, "s1.judgement.json": { verdict: "fail" } };
@@ -3112,6 +3112,26 @@ test("correction prompt exposed only for a current failing draft", () => {
   assert.strictEqual(JM.judgementCorrection(fail, "b"), null, "stale");
   assert.strictEqual(JM.judgementCorrection({ ...fail, correctionPrompt: " " }, "a"), null);
   assert.strictEqual(JM.judgementCorrection(null, "a"), null);
+});
+
+test("checklist edit: edited flag, stale judgements, brief-changed warning", () => {
+  const board = { cards: [{ branch: "main", key: "c1", speaker: null, text: "Half ten." }, { branch: "main", key: "c2", speaker: "Des", text: "Late." }] };
+  const shot = { id: "S1", cards: "main: c1–c2", job: "Wait.", prompt: "Draw.", attach: ["a.png"], unseen: "Car." };
+  const key = JM.briefKey(board, shot);
+  assert.strictEqual(key, '{"allowPlayerFace":false,"attach":["a.png"],"cards":[["c1",null,"Half ten."],["c2","Des","Late."]],"job":"Wait.","prompt":"Draw.","unseen":"Car."}');
+  const cl = { shotId: "S1", briefHash: "h", items: [{ id: "m1", text: "x", hard: false, category: "pose" }] };
+  assert.strictEqual(JM.checklistStale(cl, { checklistEditedAt: null }), false, "unedited never stale");
+  const ed = JM.editedChecklist(cl, [{ ...cl.items[0], text: "y" }], key, "T1");
+  assert.strictEqual(ed.edited, true);
+  assert.strictEqual(ed.items[0].text, "y");
+  assert.strictEqual(JM.checklistStale(ed, { checklistEditedAt: null }), true, "judged before the edit");
+  assert.strictEqual(JM.checklistStale(ed, { checklistEditedAt: "T1" }), false);
+  assert.strictEqual(JM.judgementState({ verdict: "pass", draftSha: "a" }, "a", true), "stale");
+  assert.strictEqual(JM.judgementCorrection({ verdict: "fail", draftSha: "a", correctionPrompt: "p" }, "a", true), null);
+  assert.strictEqual(JM.checklistWarning(ed, key), false);
+  assert.strictEqual(JM.checklistWarning(ed, JM.briefKey(board, { ...shot, job: "Leave." })), true);
+  assert.strictEqual(JM.checklistWarning(cl, "other"), false, "unedited checklist rebuilds, no warning");
+  assert.strictEqual(JM.newCheckItem([{ id: "u1" }, { id: "m1" }]).id, "u2");
 });
 
 test("judgement scores and failed/unsure checks", () => {

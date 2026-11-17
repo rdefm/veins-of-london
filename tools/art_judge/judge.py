@@ -129,14 +129,23 @@ def shot_cards(board, shot):
     return [c for c in cards if c.get("shot") == shot.get("id")]
 
 
+def brief_key(board, shot):
+    """Canonical compact JSON of the brief; tools/storyboard.html builds the identical string."""
+    return json.dumps(_brief_payload(board, shot), sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+
+
 def brief_hash(board, shot):
+    return sha_text(json.dumps(_brief_payload(board, shot), sort_keys=True, ensure_ascii=False))
+
+
+def _brief_payload(board, shot):
     payload = {
         "job": shot.get("job"), "prompt": shot.get("prompt"), "attach": shot.get("attach"),
         "unseen": shot.get("unseen"),
         "cards": [[c.get("key"), c.get("speaker"), c.get("text")] for c in shot_cards(board, shot)],
         "allowPlayerFace": bool(shot.get("allowPlayerFace")),
     }
-    return sha_text(json.dumps(payload, sort_keys=True, ensure_ascii=False))
+    return payload
 
 
 def canvas_of(board):
@@ -234,12 +243,31 @@ def checklist_path(ws, event_id, shot_id):
     return os.path.join(ws.event_dir(event_id), "checklists", "%s.checklist.json" % shot_id)
 
 
-def get_checklist(ws, backend, event_id, board, shot):
-    """Return (checklist, built: bool). Reuses the saved one while briefHash matches."""
+class ChecklistEditedError(JudgeError):
+    pass
+
+
+def checklist_edit_stale(saved, board, shot):
+    """True when a hand-edited checklist predates the current brief."""
+    if saved.get("briefKey") is not None:
+        return saved["briefKey"] != brief_key(board, shot)
+    return saved.get("briefHash") != brief_hash(board, shot)
+
+
+def get_checklist(ws, backend, event_id, board, shot, rebuild=False):
+    """Return (checklist, built: bool). Reuses the saved one while briefHash matches; an edited one
+    is never rebuilt unless `rebuild` (it is reused while the brief is unchanged since the edit)."""
     bh = brief_hash(board, shot)
     path = checklist_path(ws, event_id, shot["id"])
     saved = read_json(path)
-    if isinstance(saved, dict) and saved.get("briefHash") == bh and isinstance(saved.get("items"), list):
+    ok = isinstance(saved, dict) and isinstance(saved.get("items"), list)
+    if ok and saved.get("edited") and not rebuild:
+        if checklist_edit_stale(saved, board, shot):
+            raise ChecklistEditedError(
+                "checklist for shot %s was edited by hand and the brief changed since; "
+                "re-run with --rebuild-checklist to discard the edits" % shot["id"])
+        return saved, False
+    if ok and not saved.get("edited") and saved.get("briefHash") == bh:
         return saved, False
     cast = cast_of(shot)
     instruction = (
@@ -479,7 +507,7 @@ def judgement_path(ws, event_id, draft):
     return os.path.join(ws.event_dir(event_id), "judgements", "%s.judgement.json" % stem)
 
 
-def judge_draft(ws, backend, event_id, shot_id, draft, threshold=DEFAULT_THRESHOLD):
+def judge_draft(ws, backend, event_id, shot_id, draft, threshold=DEFAULT_THRESHOLD, rebuild_checklist=False):
     from PIL import Image
     if not os.path.isfile(draft):
         raise JudgeError("draft not found: %s" % draft)
@@ -496,11 +524,14 @@ def judge_draft(ws, backend, event_id, shot_id, draft, threshold=DEFAULT_THRESHO
     }
     path = judgement_path(ws, event_id, draft)
     try:
-        checklist, _ = get_checklist(ws, backend, event_id, board, shot)
+        checklist, _ = get_checklist(ws, backend, event_id, board, shot, rebuild_checklist)
+    except ChecklistEditedError:
+        raise
     except JudgeError as e:
         out["error"] = str(e)
         ws.write_json(path, out)
         return out
+    out["checklistEditedAt"] = checklist.get("editedAt") if checklist.get("edited") else None
     cast = cast_of(shot)
     cast_checked = [n for n in cast if cast_refs(ws, n)]
     unchecked = [n for n in cast if n not in cast_checked]
@@ -571,6 +602,9 @@ def stale_reason(ws, board, shot, draft, style_h):
         return "brief changed"
     if j.get("styleHash") != style_h:
         return "style changed"
+    cl = read_json(checklist_path(ws, board["eventId"], shot["id"]))
+    if isinstance(cl, dict) and cl.get("edited") and j.get("checklistEditedAt") != cl.get("editedAt"):
+        return "checklist edited"
     return None
 
 
@@ -599,7 +633,7 @@ def rank_shot(ws, event_id, drafts):
     return [(j["draft"], j["rank"]) for _, _, j in items]
 
 
-def plan_batch(ws, event_id, shot_ids=None):
+def plan_batch(ws, event_id, shot_ids=None, rebuild=False):
     """Returns (board, jobs, calls): jobs are (shot, draft, reason); calls estimates model calls."""
     board = load_board(ws, event_id)
     shots = [find_shot(board, s) for s in shot_ids] if shot_ids else list(board.get("shots") or [])
@@ -613,19 +647,19 @@ def plan_batch(ws, event_id, shot_ids=None):
                 todo.append((shot, d, r))
         if todo:
             saved = read_json(checklist_path(ws, event_id, shot["id"]))
-            if not (isinstance(saved, dict) and saved.get("briefHash") == brief_hash(board, shot)):
+            if rebuild or not (isinstance(saved, dict) and (saved.get("edited") or saved.get("briefHash") == brief_hash(board, shot))):
                 calls += 1
         jobs += todo
         calls += len(todo)
     return board, jobs, calls
 
 
-def judge_batch(ws, backend, event_id, shot_ids=None, threshold=DEFAULT_THRESHOLD, confirm=None):
+def judge_batch(ws, backend, event_id, shot_ids=None, threshold=DEFAULT_THRESHOLD, confirm=None, rebuild_checklist=False):
     """Judge new/stale drafts, then rank every shot's takes. `confirm(calls)` may veto a multi-call run."""
-    board, jobs, calls = plan_batch(ws, event_id, shot_ids)
+    board, jobs, calls = plan_batch(ws, event_id, shot_ids, rebuild_checklist)
     if calls > 1 and confirm is not None and not confirm(calls):
         raise JudgeError("cancelled")
-    results = [judge_draft(ws, backend, event_id, shot["id"], d, threshold) for shot, d, _ in jobs]
+    results = [judge_draft(ws, backend, event_id, shot["id"], d, threshold, rebuild_checklist) for shot, d, _ in jobs]
     shots = [find_shot(board, s) for s in shot_ids] if shot_ids else list(board.get("shots") or [])
     ranks = {}
     for shot in shots:
@@ -668,7 +702,7 @@ def batch_cli(ws, a):
     try:
         backend = make_backend(ws, a.backend, a.fake_replies, a.record, a.model)
         results, ranks, calls = judge_batch(ws, backend, a.board, [a.shot] if a.shot else None,
-                                            resolve_threshold(ws, a.threshold), confirm)
+                                            resolve_threshold(ws, a.threshold), confirm, a.rebuild_checklist)
     except JudgeError as e:
         print("error: %s" % e, file=sys.stderr)
         return 2
@@ -686,6 +720,7 @@ def main(argv=None):
     j.add_argument("--draft", help="one draft; omit to judge every new/stale draft of --shot (or the whole board)")
     j.add_argument("--board", required=True, help="event id (folder under .scratch/event-art)")
     j.add_argument("--shot")
+    j.add_argument("--rebuild-checklist", action="store_true", help="rebuild a hand-edited checklist after a brief change (discards the edits)")
     j.add_argument("--yes", action="store_true", help="skip the call-count confirmation")
     j.add_argument("--threshold", type=float)
     j.add_argument("--backend", choices=["claude", "fake"])
@@ -702,7 +737,8 @@ def main(argv=None):
         return 2
     try:
         backend = make_backend(ws, a.backend, a.fake_replies, a.record, a.model)
-        out = judge_draft(ws, backend, a.board, a.shot, os.path.abspath(a.draft), resolve_threshold(ws, a.threshold))
+        out = judge_draft(ws, backend, a.board, a.shot, os.path.abspath(a.draft), resolve_threshold(ws, a.threshold),
+                          a.rebuild_checklist)
     except JudgeError as e:
         print("error: %s" % e, file=sys.stderr)
         return 2

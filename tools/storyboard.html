@@ -160,6 +160,11 @@ header.top .title { display: grid; gap: 6px; min-width: 0 }
 .jbadge.fail { color: var(--warn); border-color: var(--warn) }
 .jbadge.stale { color: var(--accent); border-color: var(--accent) }
 .jscore { color: var(--muted) }
+.checklist summary { cursor: pointer; font-size: 13px }
+.clist { list-style: none; margin: 6px 0; padding: 0; display: grid; gap: 4px }
+.clrow { display: grid; grid-template-columns: 1fr auto auto auto; gap: 6px; align-items: center }
+.clrow input[type=text] { min-width: 0 }
+.clhard { font-size: 12.5px; white-space: nowrap }
 .jprobs summary { cursor: pointer; font-size: 12.5px }
 .jprobs ul { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 3px; font-size: 12.5px }
 .jres { font: 700 11px/1 var(--mono); text-transform: uppercase }
@@ -1618,10 +1623,10 @@ function checkOddsBlock(opt, changed, restructure) {
     return j && typeof j === "object" ? j : null;
   };
   // Badge state: none = no judgement file, stale = the draft changed since (curSha unknown never counts as stale).
-  function judgementState(j, curSha) {
+  function judgementState(j, curSha, checklistIsStale) {
     if (!j) return "none";
     if (j.verdict === "unjudged") return "unjudged";
-    if (curSha && j.draftSha && j.draftSha !== curSha) return "stale";
+    if (checklistIsStale || (curSha && j.draftSha && j.draftSha !== curSha)) return "stale";
     return j.verdict === "pass" || j.verdict === "fail" ? j.verdict : "unjudged";
   }
   const JUDGEMENT_LABEL = { pass: "pass", fail: "fail", unjudged: "unjudged", stale: "stale", none: "not judged" };
@@ -1652,9 +1657,46 @@ function checkOddsBlock(opt, changed, restructure) {
       .map((c) => ({ id: c.id, result: c.result, why: c.why || "" }));
   }
   // Stored correction prompt of a current failing draft (exact text); null for pass, unjudged, stale or none.
-  function judgementCorrection(j, curSha) {
-    if (judgementState(j, curSha) !== "fail") return null;
+  function judgementCorrection(j, curSha, clStale) {
+    if (judgementState(j, curSha, clStale) !== "fail") return null;
     return typeof j.correctionPrompt === "string" && j.correctionPrompt.trim() ? j.correctionPrompt : null;
+  }
+  // Checklists (art_judge writes .scratch/event-art/<event>/checklists/<shot>.checklist.json; the tool edits it).
+  const CHECK_CATEGORIES = ["cast", "pose", "props", "framing", "unseen", "hard"];
+  // The shot's cards, as tools/art_judge/judge.py shot_cards: "main: c1–c4" range, else cards tagged with the shot id.
+  function shotCardsOf(board, shot) {
+    const cards = (board && board.cards) || [];
+    const m = /^\s*([^:]+):\s*c(\d+)(?:[^\d]+(\d+))?/.exec(shot.cards || "");
+    if (m) {
+      const branch = m[1].trim(), lo = +m[2], hi = m[3] ? +m[3] : lo;
+      const got = cards.filter((c) => c.branch === branch && /^c\d+$/.test(c.key || "") && +c.key.slice(1) >= lo && +c.key.slice(1) <= hi);
+      if (got.length) return got;
+    }
+    return cards.filter((c) => c.shot === shot.id);
+  }
+  // Canonical brief string; byte-identical to judge.py brief_key (sorted keys, compact JSON).
+  function briefKey(board, shot) {
+    const n = (v) => (v === undefined ? null : v);
+    return JSON.stringify({ allowPlayerFace: !!shot.allowPlayerFace, attach: n(shot.attach),
+      cards: shotCardsOf(board, shot).map((c) => [n(c.key), n(c.speaker), n(c.text)]),
+      job: n(shot.job), prompt: n(shot.prompt), unseen: n(shot.unseen) });
+  }
+  // An edited checklist whose brief changed since the edit (CLI refuses to rebuild it without --rebuild-checklist).
+  function checklistWarning(cl, key) {
+    return !!(cl && cl.edited && cl.briefKey != null && cl.briefKey !== key);
+  }
+  // Saving an edit: items replaced, marked edited, brief baseline reset to the current brief.
+  function editedChecklist(cl, items, key, nowIso) {
+    return { ...cl, items: items.map((i) => ({ ...i })), edited: true, editedAt: nowIso, briefKey: key };
+  }
+  // An edited checklist makes judgements made before the edit stale.
+  function checklistStale(cl, j) {
+    return !!(cl && cl.edited && j && (j.checklistEditedAt || null) !== (cl.editedAt || null));
+  }
+  function newCheckItem(items) {
+    let n = 1; const ids = new Set(items.map((i) => i.id));
+    while (ids.has("u" + n)) n++;
+    return { id: "u" + n, category: "pose", text: "", hard: false };
   }
   /* ---------- End judgements ---------- */
   /* ---------- Planning model (pure) ---------- */
@@ -5287,9 +5329,16 @@ function checkOddsBlock(opt, changed, restructure) {
   // Reads each board's judgement files and the current sha of every judged draft (cached by size + mtime).
   async function loadJudgements(shotBoards) {
     for (const b of shotBoards) {
-      const entry = { byFile: {}, shas: {} };
+      const entry = { byFile: {}, shas: {}, checklists: {} };
       judgements[b.eventId] = entry;
-      const dir = [...await boardDir(b), "judgements"];
+      const bdir = await boardDir(b), cdir = [...bdir, "checklists"];
+      try {
+        for (const n of (await fileNamesIn(cdir)).filter((x) => x.endsWith(".checklist.json"))) {
+          const c = await readJSON([...cdir, n]);
+          if (c && typeof c === "object" && Array.isArray(c.items)) entry.checklists[n.slice(0, -".checklist.json".length)] = c;
+        }
+      } catch {}
+      const dir = [...bdir, "judgements"];
       let names = [];
       try { names = (await fileNamesIn(dir)).filter((n) => n.endsWith(JUDGEMENT_SUFFIX)); } catch {}
       for (const n of names) {
@@ -7171,20 +7220,71 @@ function checkOddsBlock(opt, changed, restructure) {
       el("pre", { text }));
   }
 
+  // Per-shot checklist editor: item text, category, hard flag, add/delete; Save writes the file, Undo steps back.
+  const checklistDrafts = new Map(), checklistUndo = new Map();
+  function checklistBlock(b, s) {
+    const jd = judgements[b.eventId], saved = jd && jd.checklists && jd.checklists[s.id];
+    if (!saved) return el("p", { class: "muted", text: "No checklist yet; it is built the first time a draft of this shot is judged." });
+    const k = b.eventId + "__" + s.id;
+    const items = checklistDrafts.get(k) || saved.items.map((i) => ({ ...i }));
+    const stack = checklistUndo.get(k) || [];
+    const dirty = JSON.stringify(items) !== JSON.stringify(saved.items);
+    const status = el("span", { class: "status" });
+    const rerender = () => renderShots(b);
+    const change = (fn) => {
+      stack.push(items.map((i) => ({ ...i }))); checklistUndo.set(k, stack);
+      fn(); checklistDrafts.set(k, items);
+    };
+    const rows = items.map((it, idx) => {
+      const text = el("input", { type: "text", autocomplete: "off" }); text.value = it.text;
+      text.addEventListener("change", () => { change(() => { it.text = text.value; }); rerender(); });
+      const cat = el("select", {}, ...CHECK_CATEGORIES.map((c) => el("option", { value: c, text: c })));
+      cat.value = it.category;
+      cat.addEventListener("change", () => { change(() => { it.category = cat.value; }); rerender(); });
+      const hard = el("input", { type: "checkbox" }); hard.checked = !!it.hard;
+      hard.addEventListener("change", () => { change(() => { it.hard = hard.checked; }); rerender(); });
+      const del = el("button", { type: "button", class: "copy", text: "Delete" });
+      del.addEventListener("click", () => { change(() => { items.splice(idx, 1); }); rerender(); });
+      return el("li", { class: "clrow" }, text, cat, el("label", { class: "clhard" }, hard, " hard"), del);
+    });
+    const add = el("button", { type: "button", class: "copy", text: "Add item" });
+    add.addEventListener("click", () => { change(() => { items.push(newCheckItem(items)); }); rerender(); });
+    const save = el("button", { type: "button", class: "copy", text: "Save checklist" }); save.disabled = !dirty;
+    save.addEventListener("click", async () => {
+      save.disabled = true; status.textContent = "Saving…";
+      const next = editedChecklist(saved, items, briefKey(b, s), new Date().toISOString());
+      try {
+        await writeFile([...(await boardDir(b)), "checklists", s.id + ".checklist.json"], JSON.stringify(next, null, 2) + "\n");
+        jd.checklists[s.id] = next; checklistDrafts.delete(k); checklistUndo.delete(k); rerender();
+      } catch (e) { status.textContent = "Couldn't save: " + (e && e.message); save.disabled = false; }
+    });
+    const undo = el("button", { type: "button", class: "copy", text: "Undo" }); undo.disabled = !stack.length;
+    undo.addEventListener("click", () => {
+      const prev = stack.pop();
+      if (JSON.stringify(prev) === JSON.stringify(saved.items) && !stack.length) { checklistDrafts.delete(k); checklistUndo.delete(k); } else checklistDrafts.set(k, prev);
+      rerender();
+    });
+    const warn = checklistWarning(saved, briefKey(b, s))
+      ? el("p", { class: "fstate", text: "Brief changed since you edited the checklist. The judge will refuse to rebuild it unless run with --rebuild-checklist." }) : null;
+    return el("details", { class: "checklist" },
+      el("summary", { text: `Checklist (${items.length} items${saved.edited ? ", edited" : ""}${dirty ? ", unsaved" : ""})` }),
+      warn, el("ul", { class: "clist" }, ...rows), el("div", { class: "saverow" }, add, save, undo, status));
+  }
+
   // Verdict badge + scores + a collapsible list of failed/unsure checks for one draft file.
-  function judgementBlock(j, curSha) {
-    const state = judgementState(j, curSha);
+  function judgementBlock(j, curSha, clStale) {
+    const state = judgementState(j, curSha, clStale);
     const rank = j && state !== "unjudged" && Number.isFinite(j.rank) ? ` #${j.rank}` : "";
     const head = el("div", { class: "jhead" }, el("span", { class: "jbadge " + state, text: JUDGEMENT_LABEL[state] + rank }),
       ...judgementScores(j).map(([k, v]) => el("span", { class: "jscore", text: `${k} ${v}` })));
     if (!j) return el("div", { class: "judge" }, head);
     const probs = judgementProblems(j);
     const parts = [head];
-    if (state === "stale") parts.push(el("span", { class: "fstate", text: "Draft changed since it was judged." }));
+    if (state === "stale") parts.push(el("span", { class: "fstate", text: clStale ? "Checklist edited since it was judged." : "Draft changed since it was judged." }));
     if (state === "unjudged" && j.error) parts.push(el("span", { class: "fstate", text: j.error }));
     if (probs.length) parts.push(el("details", { class: "jprobs" }, el("summary", { text: `${probs.length} failed/unsure check${probs.length > 1 ? "s" : ""}` }),
       el("ul", {}, ...probs.map((c) => el("li", {}, el("span", { class: "jres " + c.result, text: c.result }), ` ${c.id}: ${c.why}`)))));
-    const fix = judgementCorrection(j, curSha);
+    const fix = judgementCorrection(j, curSha, clStale);
     if (fix) {
       const btn = el("button", { class: "copy", type: "button", text: "Copy" });
       btn.addEventListener("click", async () => {
@@ -7203,7 +7303,7 @@ function checkOddsBlock(opt, changed, restructure) {
     const names = orderDrafts(filesFor(saveAs), jd.byFile);
     const list = el("ul", {}, ...names.map((n) => el("li", {}, imgFor(n, n),
       el("span", {}, el("span", { class: "fname", text: n }), el("br"), el("span", { class: "fstate ok", text: "In assets/reference-plates/" }),
-        judgementBlock(judgementFor(n, jd.byFile), jd.shas[n])))));
+        judgementBlock(judgementFor(n, jd.byFile), jd.shas[n], checklistStale((jd.checklists || {})[target], judgementFor(n, jd.byFile)))))));
     const status = el("span", { class: "status" });
     const choice = el("div", { class: "uprow" });
     const input = el("input", { type: "file", accept: "image/png,image/jpeg,image/webp", class: "vh" });
@@ -7339,7 +7439,7 @@ function checkOddsBlock(opt, changed, restructure) {
                           : [["approve", "Approve shot"], ["revise", "Revise"], ["cut", "Cut it"]];
       return el("article", { class: "shot", id: "shot-" + s.id },
         el("div", { class: "shot-head" }, h3, el("span", { class: "id", text: s.id })),
-        form, files,
+        form, checklistBlock(b, s), files,
         draftFigs.length ? el("div", { class: "drafts" }, ...draftFigs) : null,
         verdictBlock(`${b.eventId}__${s.id}`, drafts ? "Your verdict on the draft" : "Your verdict on the shot", opts));
     }));
