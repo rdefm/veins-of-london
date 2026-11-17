@@ -30,19 +30,28 @@ static func post_block(block: int = -1) -> void:
 	var hiring: Dictionary = GameState.state["hiring"]
 	var voice: Array = _voice(author)
 	var used: Array = hiring["feedUsed"].get(author, [])
-	var unused: Array = []
+	var eligible: Array = []
 	for i in voice.size():
-		if not used.has(i):
-			unused.append(i)
+		if _post_allowed(voice[i], author):
+			eligible.append(i)
+	var unused: Array = eligible.filter(func(i): return not used.has(i))
+	if unused.is_empty():
+		used = []
+		unused = eligible
 	var index: int = Rng.rand_from(unused)
 	used.append(index)
-	hiring["feedUsed"][author] = [] if used.size() >= voice.size() else used
+	hiring["feedUsed"][author] = [] if eligible.all(func(i): return used.has(i)) else used
 	_append({
 		"postId": "%s:%d" % [author, index], "authorKind": KIND_INDIVIDUAL, "author": author,
 		"day": int(world["day"]), "block": block,
 		"likes": Rng.randi_range(int(GameData.LODEDINNIT_FEED["likes"]["min"]), int(GameData.LODEDINNIT_FEED["likes"]["max"])),
 		"comments": _roll_comments(author),
 	})
+
+
+# A post's optional `when` ("open") limits it to authors in that market state.
+static func _post_allowed(post: Dictionary, author: String) -> bool:
+	return not post.has("when") or Hiring.status(author)["state"] == post["when"]
 
 
 # Hire-status post (hiring-spec §6.3): one templated post about candidate_id
@@ -74,23 +83,29 @@ static func _voice(author: String) -> Array:
 	return GameData.LODEDINNIT_VOICES.get(Hiring.candidate(author).get("voice", author), [])
 
 
-# Weight by market status (authorWeights); authors without a voice never post.
-static func _pick_author() -> String:
+# Weight by market status (authorWeights) times the author's authorMult (default 1);
+# authors without a voice never post.
+static func _author_weight(candidate_id: String) -> float:
 	var weights: Dictionary = GameData.LODEDINNIT_FEED["authorWeights"]
+	var mult: Dictionary = GameData.LODEDINNIT_FEED.get("authorMult", {})
+	return float(weights.get(Hiring.status(candidate_id)["state"], 1.0)) * float(mult.get(candidate_id, 1.0))
+
+
+static func _pick_author() -> String:
 	var authors: Array = []
 	var total := 0.0
 	for candidate_id in Hiring.candidate_ids():
 		if _voice(candidate_id).is_empty():
 			continue
 		authors.append(candidate_id)
-		total += float(weights.get(Hiring.status(candidate_id)["state"], 1.0))
+		total += _author_weight(candidate_id)
 	if authors.is_empty():
 		return ""
 	var roll := Rng.randf() * total
 	var picked: String = authors[0]
 	for candidate_id in authors:
 		picked = candidate_id
-		roll -= float(weights.get(Hiring.status(candidate_id)["state"], 1.0))
+		roll -= _author_weight(candidate_id)
 		if roll < 0.0:
 			break
 	return picked
@@ -136,8 +151,8 @@ static func mark_seen() -> void:
 # Display model for one entry; a later entry kind may carry its own "text".
 static func card(entry: Dictionary) -> Dictionary:
 	var author: String = entry["author"]
-	var comments: Array = []
-	for ref in entry["comments"]:
+	var comments: Array = _thread(entry)
+	for ref in entry["comments"] if comments.is_empty() else []:
 		var parts: PackedStringArray = String(ref).split(":")
 		comments.append({ "author": Contacts.display_name(parts[0]), "text": _comment_text(parts[1]) })
 	return {
@@ -154,6 +169,21 @@ static func body_text(entry: Dictionary) -> String:
 	var parts: PackedStringArray = String(entry["postId"]).split(":")
 	var post: Dictionary = _voice(parts[0])[int(parts[1])]
 	return post.get("variants", {}).get(Hiring.candidate(parts[0]).get("trait", ""), post["text"])
+
+
+# A voice post may carry `replies`, a fixed thread shown instead of canned comments: a string is the
+# author answering their own post, {by, text} is another candidate commenting.
+static func _thread(entry: Dictionary) -> Array:
+	var thread: Array = []
+	if entry.has("text"):
+		return thread
+	var parts: PackedStringArray = String(entry["postId"]).split(":")
+	for reply in _voice(parts[0])[int(parts[1])].get("replies", []):
+		if reply is Dictionary:
+			thread.append({ "author": Contacts.display_name(reply["by"]), "text": reply["text"] })
+		else:
+			thread.append({ "author": Contacts.display_name(entry["author"]), "text": reply })
+	return thread
 
 
 static func _comment_text(comment_id: String) -> String:

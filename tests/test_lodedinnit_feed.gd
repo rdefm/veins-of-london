@@ -33,13 +33,14 @@ func run() -> void:
 			list.append(entry["postId"])
 			by_author[entry["author"]] = list
 		for author in by_author:
-			var first_pool: Array = by_author[author].slice(0, 6)
+			var pool_size: int = GameData.LODEDINNIT_VOICES[Hiring.candidate(author).get("voice", author)].size()
+			var first_pool: Array = by_author[author].slice(0, pool_size)
 			var unique := {}
 			for id in first_pool:
 				unique[id] = true
 			assert_eq(unique.size(), first_pool.size(), "%s first pool has no repeats" % author)
 		for author in GameState.state["hiring"]["feedUsed"]:
-			assert_true(GameState.state["hiring"]["feedUsed"][author].size() < 6, "pool resets when spent")
+			assert_true(GameState.state["hiring"]["feedUsed"][author].size() < GameData.LODEDINNIT_VOICES[Hiring.candidate(author).get("voice", author)].size(), "pool resets when spent")
 	)
 
 	run_case("feed_caps_at_fifty", func():
@@ -88,6 +89,56 @@ func run() -> void:
 		assert_eq(view["comments"], [{ "author": "Dot Mayhew", "text": "Good to hear the paperwork held." }])
 		assert_true(view["body"].contains("Lisbon"), "distracted variant used")
 		assert_true(view["meta"].contains("Open to work"))
+	)
+
+	run_case("self_replies_render_as_the_authors_own_comments", func():
+		_setup()
+		var voice: Array = GameData.LODEDINNIT_VOICES["bernie"]
+		var index := -1
+		for i in voice.size():
+			if voice[i]["text"].begins_with("Mug"):
+				index = i
+		assert_true(index >= 0, "bernie has a threaded post")
+		var entry := {
+			"postId": "bernie:%d" % index, "seq": 1, "authorKind": "individual", "author": "bernie",
+			"day": 9, "block": 1, "likes": 3, "comments": [],
+		}
+		var view := LodedInnitFeed.card(entry)
+		assert_eq(view["comments"].size(), voice[index]["replies"].size())
+		assert_eq(view["comments"][0]["author"], Contacts.display_name("bernie"))
+		var plumber := -1
+		for i in voice.size():
+			if voice[i]["text"].begins_with("Need a good plumber"):
+				plumber = i
+		var thread: Array = LodedInnitFeed.card({
+			"postId": "bernie:%d" % plumber, "seq": 2, "authorKind": "individual", "author": "bernie",
+			"day": 9, "block": 1, "likes": 3, "comments": ["dot:c01"],
+		})["comments"]
+		assert_eq(thread.size(), voice[plumber]["replies"].size())
+		assert_eq(thread[0]["author"], Contacts.display_name("ray"))
+		assert_eq(thread[1]["author"], Contacts.display_name("bernie"))
+	)
+
+	run_case("when_open_posts_only_fire_while_author_is_open", func():
+		_setup()
+		var voice: Array = GameData.LODEDINNIT_VOICES["tomasz"]
+		var gated: Array = []
+		for i in voice.size():
+			if voice[i].get("when", "") == "open":
+				gated.append("tomasz:%d" % i)
+		assert_eq(gated.size(), 2)
+		GameState.state["hiring"]["status"]["tomasz"]["state"] = "employed"
+		for i in 200:
+			LodedInnitFeed.post_block()
+		for entry in GameState.state["hiring"]["feed"]:
+			assert_true(not gated.has(entry["postId"]), "employed Tomasz never posts a job-seeking line")
+		GameState.state["hiring"]["status"]["tomasz"]["state"] = "open"
+		var seen := false
+		for i in 400:
+			LodedInnitFeed.post_block()
+			if gated.has(GameState.state["hiring"]["feed"][-1]["postId"]):
+				seen = true
+		assert_true(seen, "open Tomasz can post them")
 	)
 
 	run_case("each_status_change_emits_one_templated_post", func():
