@@ -83,3 +83,14 @@ Metrics (from `tools/pixel_grid.py`, also given to the model as context) are inf
 ```
 
 Missing images are skipped; a missing file means no style references are sent.
+
+## Art rules
+
+`.scratch/event-art/_judge/rules.json` (list of rules, hand-edited for now):
+
+```
+{ "id", "scope": {"kind": "global"|"character"|"plate", "name"}, "text",
+  "status": "proposed"|"accepted"|"rejected"|"retired", "source": {eventId, draft, note}, "createdAt", "decidedAt" }
+```
+
+Only `accepted` rules in scope are judged: all global, character rules for the shot's cast, plate rules for its `plate`. Each becomes a hard checklist item `rule-<id>`; a broken rule fails the draft and the failed check names the id. `rulesHash` over the applied rules makes only affected judgements stale.

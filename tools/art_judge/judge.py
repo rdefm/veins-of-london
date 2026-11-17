@@ -207,6 +207,45 @@ def style_hash(ws):
     return sha_text(json.dumps([[rel(ws, p), sha_file(p)] for p in images] + [card], ensure_ascii=False))
 
 
+# ---------- art rules ----------
+
+def load_rules(ws):
+    """Rules from `_judge/rules.json` (a list, or {"rules": [...]}); malformed entries are skipped."""
+    data = read_json(os.path.join(ws.judge_dir(), "rules.json"), []) or []
+    if isinstance(data, dict):
+        data = data.get("rules") or []
+    return [r for r in data if isinstance(r, dict) and r.get("id") and r.get("text")]
+
+
+def rules_in_scope(ws, shot):
+    """Accepted rules that apply to a shot: all global, character rules for its cast, plate rules for its plate."""
+    cast, plate = cast_of(shot), shot.get("plate")
+    out = []
+    for r in load_rules(ws):
+        if r.get("status") != "accepted":
+            continue
+        sc = r.get("scope") if isinstance(r.get("scope"), dict) else {}
+        kind, name = sc.get("kind"), sc.get("name")
+        if kind == "global" or (kind == "character" and name in cast) or (kind == "plate" and plate and name == plate):
+            out.append(r)
+    return out
+
+
+def rules_hash(rules):
+    return sha_text(json.dumps([[r["id"], r.get("scope"), r["text"]] for r in sorted(rules, key=lambda r: str(r["id"]))],
+                               ensure_ascii=False, sort_keys=True))
+
+
+def rule_item_id(rule):
+    return "rule-%s" % rule["id"]
+
+
+def rule_items(rules):
+    """Extra hard checklist items, one per rule; a failed one cites the rule id."""
+    return [{"id": rule_item_id(r), "category": "rule", "text": "Art rule %s: %s" % (r["id"], r["text"]),
+             "hard": True} for r in rules]
+
+
 # ---------- checklist ----------
 
 CHECKLIST_SCHEMA = {
@@ -517,13 +556,14 @@ def judge_draft(ws, backend, event_id, shot_id, draft, threshold=DEFAULT_THRESHO
         raise JudgeError("draft not found: %s" % draft)
     board = load_board(ws, event_id)
     shot = find_shot(board, shot_id)
+    rules = rules_in_scope(ws, shot)
     with Image.open(draft) as im:
         size = list(im.size)
         metrics = dict(size=size, **measure(ws, im.convert("RGB")))
     out = {
         "schema": SCHEMA_VERSION, "eventId": event_id, "shotId": shot_id, "draft": rel(ws, draft),
         "draftSha": sha_file(draft), "briefHash": brief_hash(board, shot), "styleHash": style_hash(ws),
-        "rulesHash": sha_text("[]"), "model": backend.model_used, "judgedAt": now_iso(), "checks": [], "scores": {},
+        "rulesHash": rules_hash(rules), "model": backend.model_used, "judgedAt": now_iso(), "checks": [], "scores": {},
         "metrics": metrics, "verdict": "unjudged", "rank": None, "correctionPrompt": None,
     }
     path = judgement_path(ws, event_id, draft)
@@ -536,6 +576,7 @@ def judge_draft(ws, backend, event_id, shot_id, draft, threshold=DEFAULT_THRESHO
         ws.write_json(path, out)
         return out
     out["checklistEditedAt"] = checklist.get("editedAt") if checklist.get("edited") else None
+    checklist = dict(checklist, items=list(checklist["items"]) + rule_items(rules))
     cast = cast_of(shot)
     cast_checked = [n for n in cast if cast_refs(ws, n)]
     unchecked = [n for n in cast if n not in cast_checked]
@@ -606,6 +647,8 @@ def stale_reason(ws, board, shot, draft, style_h):
         return "brief changed"
     if j.get("styleHash") != style_h:
         return "style changed"
+    if j.get("rulesHash") != rules_hash(rules_in_scope(ws, shot)):
+        return "rules changed"
     cl = read_json(checklist_path(ws, board["eventId"], shot["id"]))
     if isinstance(cl, dict) and cl.get("edited") and j.get("checklistEditedAt") != cl.get("editedAt"):
         return "checklist edited"
