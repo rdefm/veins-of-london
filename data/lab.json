@@ -1065,6 +1065,13 @@
     }
   },
   "rungs": ["hint1", "hint2", "master"],
+  "prophetsBreath": [
+    { "current": "vague", "clues": "insight", "clueCount": 1 },
+    { "current": "vague", "clues": "insight", "clueCount": 1 },
+    { "current": "exact", "clues": "vague", "clueCount": 1 },
+    { "current": "exact", "clues": "vague", "clueCount": 2 },
+    { "current": "exact", "clues": "exact", "clueCount": 2 }
+  ],
   "specificities": ["insight", "vague", "exact"],
   "insightNote": "Something belongs here. You don't know how much yet.",
   "rankThresholds": [0, 40, 60, 75, 90],

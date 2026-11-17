@@ -25,6 +25,10 @@ func _steps(recipe_key: String) -> Dictionary:
 	return GameState.state["lab"]["known"][recipe_key]["steps"]
 
 
+func _steps_or_empty(recipe_key: String) -> Dictionary:
+	return GameState.state["lab"]["known"].get(recipe_key, {}).get("steps", {})
+
+
 func _knowledge_of(procedure: Array) -> Array:
 	return procedure.map(func(step): return [step["apparatus"], step["knowledge"], step["target"]])
 
@@ -106,15 +110,51 @@ func run() -> void:
 		assert_almost_eq(Lab.band_half_width("timePearl"), 6.0 * 1.4, 0.0001, "skill widens the band")
 	)
 
-	run_case("prophets_breath_reveals_unknown_steps", func():
+	run_case("prophets_breath_scales_clues_by_level", func():
+		# healingSalve: ideal 4 steps, base matches 0; hint rungs 1 / 3 / 2.
+		var expected := {
+			1: { 1: "insight" },
+			2: { 1: "insight" },
+			3: { 1: "vague" },
+			4: { 1: "vague" },
+			5: { 1: "exact" },
+		}
+		for level in expected:
+			_fresh()
+			Lab.grant_recipe("healingSalve")
+			GameState.state["player"]["activeEffects"] = [{ "item": "prophetsBreath", "level": level, "expiresAtBlock": ActiveEffects.absolute_block() + 5 }]
+			var sight := Lab.breath_sight("healingSalve")
+			var shown := {}
+			for i in sight:
+				if i != 0:
+					shown[i] = sight[i]
+			var want: String = "revealed" if expected[level][1] == "exact" else expected[level][1]
+			assert_eq(shown, { 1: want }, "L%d clues only the next rung's step" % level)
+			assert_eq(sight[0], "vague" if level < 3 else "revealed", "L%d base step accuracy" % level)
+			assert_true(not sight.has(3) and not sight.has(2), "L%d nothing past next tier" % level)
+			assert_eq(_steps_or_empty("healingSalve"), {}, "knowledge untouched")
+	)
+
+	run_case("prophets_breath_lvl1_does_not_reveal_the_whole_procedure", func():
 		_fresh()
 		Lab.grant_recipe("timePearl")
-		Crafting.inventory_add(ActiveEffects.PROPHETS_BREATH, 1, 1)
-		assert_true(ActiveEffects.use(ActiveEffects.PROPHETS_BREATH)["ok"], "Breath started")
+		GameState.state["player"]["activeEffects"] = [{ "item": "prophetsBreath", "level": 1, "expiresAtBlock": ActiveEffects.absolute_block() + 5 }]
 		var procedure := Lab.known_procedure("timePearl")
-		assert_eq(procedure.size(), 4, "every ideal step shown")
-		assert_eq(procedure[1]["knowledge"], "revealed", "hidden grind revealed")
-		assert_eq(_steps("timePearl"), {}, "knowledge untouched")
+		assert_true(procedure.size() < 4, "hidden steps stay hidden")
+		assert_true(not procedure.any(func(s): return s["knowledge"] == "revealed" and s["apparatus"] == "compression"), "no true bands for hinted steps at L1")
+	)
+
+	run_case("prophets_breath_next_rung_follows_what_is_known_and_stops_at_the_cap", func():
+		_fresh()
+		Lab.grant_recipe("healingSalve")
+		Lab.grant_steps("healingSalve", [1], "vague")
+		GameState.state["player"]["activeEffects"] = [{ "item": "prophetsBreath", "level": 5, "expiresAtBlock": ActiveEffects.absolute_block() + 5 }]
+		var sight := Lab.breath_sight("healingSalve")
+		assert_eq(sight, { 0: "revealed", 1: "revealed", 3: "revealed" }, "reached rung shown, next rung clued")
+		Lab.grant_steps("healingSalve", [3, 2], "vague")
+		sight = Lab.breath_sight("healingSalve")
+		assert_eq(sight, { 0: "revealed", 1: "revealed", 3: "revealed", 2: "revealed" }, "all rungs known: nothing extra")
+		assert_eq(Lab.known_procedure("healingSalve").size(), 4, "no step beyond the ideal")
 	)
 
 	run_case("rung_steps_reads_rung_tags", func():
@@ -490,7 +530,7 @@ func _register_run_cases() -> void:
 
 	run_case("prophets_breath_from_the_bench_reveals_true_bands", func():
 		_bench("timePearl", {})
-		Crafting.inventory_add(ActiveEffects.PROPHETS_BREATH, 1, 1)
+		Crafting.inventory_add(ActiveEffects.PROPHETS_BREATH, 5, 1)
 		assert_true(Lab.use_effect(ActiveEffects.PROPHETS_BREATH)["ok"], "Breath started")
 		var compress: Dictionary = Lab.known_procedure("timePearl")[0]
 		assert_eq([compress["knowledge"], compress["target"]], ["revealed", 82.0], "true target shown")

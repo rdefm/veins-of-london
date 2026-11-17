@@ -158,38 +158,98 @@ static func step_specificity(recipe_key: String, ideal_index: int) -> String:
 # "exact"; a hinted one also its hintId and note. An inserted insight step
 # has no target (its place and apparatus only); an insight on a base step
 # leaves it as the base step. While the player's Prophet's Breath effect
-# runs, every ideal step not known exact shows its true target as knowledge
-# "revealed" (unknown steps inserted, vague ones sharpened, no note);
-# knowledge is untouched. Targets are floats so a saved run round-trips
-# unchanged.
+# runs, the steps of the recipe tier being reached show at the level's
+# accuracy and up to its clue count of next-tier steps show as clues
+# (prophetsBreath table in data/lab.json; R§3.5 Lab); knowledge is untouched.
+# Targets are floats so a saved run round-trips unchanged.
 static func known_procedure(recipe_key: String) -> Array:
 	if ActiveEffects.prophets_breath_active():
-		return _book(recipe_key, true)["steps"]
-	return _book(recipe_key, false, LessonSession.talk_through_steps(recipe_key))["steps"]
+		return _book(recipe_key, breath_sight(recipe_key))["steps"]
+	return _book(recipe_key, {}, LessonSession.talk_through_steps(recipe_key))["steps"]
 
 
 # The 1-based place an ideal step takes in the known procedure (Prophet's
 # Breath aside), or 0 when the book doesn't show it.
 static func step_position(recipe_key: String, ideal_index: int) -> int:
-	return _book(recipe_key, false)["ideals"].find(ideal_index) + 1
+	return _book(recipe_key, {})["ideals"].find(ideal_index) + 1
+
+
+# The running Prophet's Breath's row of data/lab.json prophetsBreath:
+# { current, clues, clueCount }, clamped to the table's levels.
+static func breath_row() -> Dictionary:
+	var effect = ActiveEffects.find(ActiveEffects.PROPHETS_BREATH)
+	var table: Array = _data().get("prophetsBreath", [])
+	if effect == null or table.is_empty():
+		return {}
+	return table[clampi(int(effect["level"]) - 1, 0, table.size() - 1)]
+
+
+# What a running Prophet's Breath shows of a recipe: ideal index -> level
+# ("insight", "vague" or "revealed") for the steps being reached (the
+# unhinted base steps and the hint steps of the rungs fully known) and for the first
+# clueCount hidden steps of the next rung (never further). Steps the player
+# already knows exact are left out.
+static func breath_sight(recipe_key: String) -> Dictionary:
+	var row := breath_row()
+	var sight := {}
+	if row.is_empty():
+		return sight
+	var procedure := procedure_def(recipe_key)
+	var ideal: Array = procedure["ideal"]
+	for m in match_ideal(ideal, procedure["base"]):
+		if m >= 0 and _hint_for_step(recipe_key, m).is_empty():
+			sight[m] = _sight_level(str(row["current"]))
+	for rung in _data().get("rungs", []):
+		var steps := rung_steps(recipe_key, rung)
+		steps.sort()
+		var known_all := steps.all(func(i): return not step_specificity(recipe_key, int(i)).is_empty())
+		if known_all:
+			for i in steps:
+				sight[i] = _sight_level(str(row["current"]))
+			continue
+		var count := int(row["clueCount"])
+		for i in steps:
+			if count <= 0:
+				break
+			if not sight.has(i):
+				sight[i] = _sight_level(str(row["clues"]))
+				count -= 1
+		break
+	for i in sight.keys().duplicate():
+		if step_specificity(recipe_key, int(i)) == "exact":
+			sight.erase(i)
+	return sight
+
+
+static func _sight_level(specificity: String) -> String:
+	return "revealed" if specificity == "exact" else specificity
 
 
 # { steps (the known procedure), ideals (each step's ideal index, -1 for a
-# base step matching none) }. talk_through: ideal indices a lesson's
-# talk-through shows at their true target, knowledge "talkThrough".
-static func _book(recipe_key: String, reveal: bool, talk_through: Array = []) -> Dictionary:
+# base step matching none) }. sight: ideal index -> "insight", "vague" or
+# "revealed" a running Prophet's Breath shows (never lowering what is
+# known). talk_through: ideal indices a lesson's talk-through shows at their
+# true target, knowledge "talkThrough".
+static func _book(recipe_key: String, sight: Dictionary, talk_through: Array = []) -> Dictionary:
 	var procedure := procedure_def(recipe_key)
 	var ideal: Array = procedure["ideal"]
 	var base: Array = procedure["base"]
+	var order: Array = _data().get("specificities", [])
 	var granted := {}
 	for hint in procedure.get("hints", []):
 		var level := step_specificity(recipe_key, int(hint["step"]))
 		if not level.is_empty():
 			granted[int(hint["step"])] = { "hint": hint, "level": level }
-	if reveal:
-		for i in ideal.size():
-			if granted.get(i, {}).get("level") != "exact":
-				granted[i] = { "level": "revealed" }
+	for i in sight.keys():
+		var shown: String = sight[i]
+		var held: String = granted.get(i, {}).get("level", "")
+		if held == "exact" or (shown != "revealed" and order.find(held) >= order.find(shown)):
+			continue
+		var hint := _hint_for_step(recipe_key, int(i))
+		if shown == "revealed" or hint.is_empty():
+			granted[i] = { "level": "revealed" }
+		else:
+			granted[i] = { "hint": hint, "level": shown }
 	for i in talk_through:
 		if granted.get(int(i), {}).get("level") != "exact":
 			granted[int(i)] = { "level": "talkThrough" }
