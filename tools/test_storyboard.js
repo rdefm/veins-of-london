@@ -3513,6 +3513,16 @@ test("events: Create draft makes a board with the planned id and title, which th
   assert.throws(() => blankBoard(ev.id, [], ["hakim_after"], ev.title), /already a live event/);
 });
 
+test("hidden elements stay hidden even when their class sets display (empty-state card showed over loaded boards)", () => {
+  assert(/^\[hidden\] \{ display: none !important \}$/m.test(html), "missing global [hidden] rule");
+});
+
+test("openRepo surfaces a load failure as a note instead of leaving a silent empty editor", () => {
+  const src = html.slice(html.indexOf("async function openRepo()"));
+  const body = src.slice(0, src.indexOf("\n  }\n"));
+  assert(/try \{ await loadAll\(\);[\s\S]*catch \(e\) \{ setNote\(/.test(body));
+});
+
 test("committed planning files validate against the model and real objective and event ids", () => {
   const root = path.join(__dirname, "..");
   const dir = path.join(root, ".scratch", "questlines");

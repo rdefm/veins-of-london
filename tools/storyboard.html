@@ -34,6 +34,7 @@ h1 { font-size: 28px } h2 { font-size: 20px } h3 { font-size: 17px }
 .eyebrow { font: 600 11px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted) }
 .mono { font-family: var(--mono); font-size: 12.5px }
 .save-state { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; color: var(--ok) }
+[hidden] { display: none !important }
 .save-state[hidden] { display: none }
 .save-state[data-state="saving"] { color: var(--hold) }
 .save-state[data-state="conflict"], .save-state[data-state="failed"] { color: var(--warn) }
@@ -2226,8 +2227,8 @@ function checkOddsBlock(opt, changed, restructure) {
   }
   async function openRepo() {
     for (const id of ["refresh", "new-board", "prose-open"]) $(id).hidden = false;
-    await loadAll();
-    await loadPlans();
+    try { await loadAll(); await loadPlans(); }
+    catch (e) { setNote("Opened the folder but loading failed: " + (e && e.message || e)); }
   }
   // Server mode: served by storyboard_server.js. Token comes from ?t= once (kept in localStorage, stripped from the URL).
   const TOKEN_KEY = "vein-sb-token";

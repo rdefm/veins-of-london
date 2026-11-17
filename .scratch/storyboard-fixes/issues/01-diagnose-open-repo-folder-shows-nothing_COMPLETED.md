@@ -22,3 +22,16 @@ Deliver: the root cause stated with evidence, the fix, a regression test where t
 - [ ] Failure to open always surfaces a visible note explaining why (no silent empty editor)
 - [ ] Regression test added where testable; `node tools/test_storyboard.js` passes for the touched area
 - [ ] Human on-device check listed
+
+## Findings (diagnosis)
+
+Repro: real Edge 157 (guest profile), real native `showDirectoryPicker` dialog driven via UI Automation, page driven over CDP.
+- `file://`, fresh pick: loads (folder label set, boards + proposals + quests render, no console errors or rejections).
+- `http://localhost:4317` (server running, no token -> picker fallback), fresh pick: loads.
+- "Reopen <folder>" after reload (stored IDB handle): loads.
+- NOT reproduced: total empty editor. Not tried: desktop Chrome, user's own profile/stale IDB handle.
+
+Defect found with evidence: `#empty` ("No storyboards yet" card) has `display:grid`, which beat the `hidden` attribute, so with boards loaded the empty-state card still sat above the board (computed display `grid` while `hidden===true`; screenshot). Looks like "nothing loaded". Fix: global `[hidden]{display:none!important}`.
+Hardening: `openRepo` now catches `loadAll`/`loadPlans` failures into the note. Regression tests added to `tools/test_storyboard.js` (the two textual checks; no DOM harness exists).
+
+Human check: open `tools/storyboard.html` in Chrome (file://) and via `tools/storyboard_server.cmd` URL; pick the repo folder; no "No storyboards yet" card, boards in the dropdown. If still empty, press F12 and send the console + note text.
