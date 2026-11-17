@@ -7664,17 +7664,87 @@ function checkOddsBlock(opt, changed, restructure) {
     return dl;
   }
 
+  const plateSaveAs = (p) => (p.name ? `assets/reference-plates/${p.name}_blank_plate.png` : null);
+  // One plate-field edit from editor text; false (reason in the edit bar) if refused. One undo step when newStep.
+  function editPlate(id, key, text, newStep) {
+    const b = shotBoard(); if (!b) return false;
+    const before = serialiseBoard(b);
+    try { setPlateField(b, id, key, text); }
+    catch (e) { renderEditBar(e.message); return false; }
+    if (newStep) { b.history.snapshot(before); undoLog.push(b); }
+    renderFrame(); renderEditBar();
+    return true;
+  }
+  function plateFieldText(p, key) {
+    const v = p[key];
+    return Array.isArray(v) ? v.join("\n") : (v == null ? "" : String(v));
+  }
+  // One editable plate field: label cell (Prompt carries Copy) + control. `warn` receives rename warnings.
+  function plateField(b, p, f, onEdit) {
+    const fid = `plate-${p.id}-${f.key}`, val = plateFieldText(p, f.key);
+    const label = el("div", { class: "fl" }, el("label", { for: fid, text: f.label }));
+    let ctl;
+    if (f.kind === "plate") {
+      ctl = el("select", { id: fid }, optionEl("", "—"),
+        ...(b.plates || []).filter((o) => o.id !== p.id).map((o) => optionEl(o.id, o.name ? `${o.id} · ${o.name}` : o.id)));
+      if (val && ![...ctl.options].some((o) => o.value === val)) ctl.append(optionEl(val, `⚠ ${val}`));
+      ctl.value = val;
+      ctl.addEventListener("change", () => {
+        if (editPlate(p.id, f.key, ctl.value, true)) onEdit(f.key, true); else ctl.value = plateFieldText(p, f.key);
+      });
+    } else {
+      const lines = val.split("\n").reduce((n, l) => n + Math.max(1, Math.ceil(l.length / 72)), 0);
+      ctl = f.kind === "line" ? el("input", { type: "text", id: fid, autocomplete: "off" })
+        : el("textarea", { id: fid, rows: String(Math.min(14, Math.max(2, lines))) });
+      ctl.value = val;
+      if (f.key === "prompt" || f.key === "attach") ctl.classList.add("code");
+      ctl.addEventListener("focus", () => { editSession = false; });
+      ctl.addEventListener("input", () => {
+        if (editPlate(p.id, f.key, ctl.value, !editSession)) { editSession = true; onEdit(f.key, false); }
+      });
+      ctl.addEventListener("change", () => onEdit(f.key, true));
+    }
+    if (f.key === "prompt") {
+      const btn = el("button", { class: "copy", type: "button", text: "Copy prompt" });
+      btn.addEventListener("click", async () => {
+        try { await navigator.clipboard.writeText(ctl.value); btn.textContent = "Copied"; }
+        catch { btn.textContent = "Select the text to copy"; }
+        setTimeout(() => { btn.textContent = "Copy prompt"; }, 1600);
+      });
+      label.append(btn);
+    }
+    return [label, ctl];
+  }
+
   function renderPlates(b) {
     const ps = b.plates || [];
     $("p-section").hidden = ps.length === 0;
     $("plates").replaceChildren(...ps.map((p) => {
-      const save = p.name ? `assets/reference-plates/${p.name}_blank_plate.png` : null;
+      const h3 = el("h3", { text: p.name || p.id });
+      const warn = el("p", { class: "fstate", hidden: "" });
+      let files = filesBlock(p.id, plateSaveAs(p)) || el("div", { hidden: "" });
+      const saveRow = el("span", { class: "fstate", text: plateSaveAs(p) || "" });
+      // Name edits: header follows live; the upload box follows once the field is committed. If the old name had an
+      // image, say it keeps its old file name.
+      const oldName = p.name;
+      const onEdit = (key, committed) => {
+        if (key !== "name") return;
+        h3.textContent = p.name || p.id;
+        saveRow.textContent = plateSaveAs(p) || "";
+        if (oldName && oldName !== p.name && filesFor(plateSaveAs({ name: oldName })).length) {
+          warn.textContent = `⚠ ${oldName} already has an image; it keeps the file name ${oldName}_blank_plate.png (the tool doesn't rename files).`;
+          warn.hidden = false;
+        } else warn.hidden = true;
+        if (committed) { const nf = filesBlock(p.id, plateSaveAs(p)) || el("div", { hidden: "" }); files.replaceWith(nf); files = nf; }
+      };
+      const form = el("div", { class: "shotform" },
+        ...PLATE_FIELDS.flatMap((f) => plateField(b, p, f, onEdit)));
       return el("article", { class: "shot", id: "plate-" + p.id },
-        el("div", { class: "shot-head" }, el("h3", { text: p.name || p.id }), el("span", { class: "id", text: p.id })),
-        briefList([["Camera", p.camera], ["Variant of", p.variantOf], ["Used by", p.shots],
-          ["Attach", (p.attach || []).join("\n")], ["Compositor", p.notes], ["Save as", save]]),
-        promptBlock(p.prompt),
-        filesBlock(p.id, save),
+        el("div", { class: "shot-head" }, h3, el("span", { class: "id", text: p.id })),
+        form,
+        briefList([["Used by", plateUsedBy(b, p.id)]]),
+        el("div", {}, el("span", { class: "eyebrow", text: "Save as " }), saveRow), warn,
+        files,
         verdictBlock(`${b.eventId}__${p.id}`, "Your verdict on the plate", [["approve", "Approve plate"], ["revise", "Revise"], ["cut", "Cut it"]]));
     }));
   }
