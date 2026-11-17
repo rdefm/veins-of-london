@@ -3067,6 +3067,53 @@ test("splitPath takes parts or slash strings", () => {
   assert.deepStrictEqual(splitPath([]), []);
 });
 
+// ---- Rules ----
+const rulesStart = html.indexOf("/* ---------- Rules (pure) ---------- */"), rulesEnd = html.indexOf("/* ---------- End rules ---------- */");
+assert(rulesStart !== -1 && rulesEnd !== -1, "could not locate rules markers in storyboard.html");
+const RM = new Function(html.slice(rulesStart, rulesEnd) + "\nreturn { rulesOf, mergeRules, groupRules, applyRuleAction, ruleSource, ruleScopeLabel };")();
+const mkRule = (id, status, kind, name, extra) => ({ id, status, scope: { kind, name }, text: "T" + id, source: { eventId: "ev", draft: "assets/reference-plates/ev_S1_v2.png", note: "n" }, createdAt: "t", decidedAt: null, ...extra });
+
+test("rules group by status then scope; empty statuses are omitted", () => {
+  const g = RM.groupRules([mkRule("r1", "accepted", "plate", "yard"), mkRule("r2", "proposed", "character", "Des"),
+    mkRule("r3", "proposed", "global", ""), mkRule("r4", "proposed", "character", "Archie"), mkRule("r5", "proposed", "character", "Des")]);
+  assert.deepStrictEqual(g.map((x) => x.status), ["proposed", "accepted"]);
+  assert.deepStrictEqual(g[0].scopes.map((s) => [s.label, s.rules.map((r) => r.id)]),
+    [["global", ["r3"]], ["character: Archie", ["r4"]], ["character: Des", ["r2", "r5"]]]);
+});
+
+test("accept/reject only from proposed, retire only from accepted, with decidedAt", () => {
+  const rules = [mkRule("r1", "proposed", "global", ""), mkRule("r2", "accepted", "global", ""), mkRule("r3", "rejected", "global", "")];
+  assert.strictEqual(RM.applyRuleAction(rules, "r1", "accept", "NOW")[0].status, "accepted");
+  assert.strictEqual(RM.applyRuleAction(rules, "r1", "accept", "NOW")[0].decidedAt, "NOW");
+  assert.strictEqual(RM.applyRuleAction(rules, "r1", "reject", "NOW")[0].status, "rejected");
+  assert.strictEqual(RM.applyRuleAction(rules, "r2", "retire", "NOW")[1].status, "retired");
+  assert.strictEqual(RM.applyRuleAction(rules, "r2", "accept", "NOW"), null, "already accepted");
+  assert.strictEqual(RM.applyRuleAction(rules, "r1", "retire", "NOW"), null, "proposed can't retire");
+  assert.strictEqual(RM.applyRuleAction(rules, "r3", "accept", "NOW"), null, "rejected stays rejected");
+  assert.strictEqual(RM.applyRuleAction(rules, "zz", "accept", "NOW"), null);
+  assert.strictEqual(rules[0].status, "proposed", "input not mutated");
+});
+
+test("editing a rule keeps status and source; scope is validated", () => {
+  const rules = [mkRule("r1", "proposed", "global", "")];
+  const out = RM.applyRuleAction(rules, "r1", "edit", "NOW", { text: "  New text ", scope: { kind: "plate", name: "pub" } })[0];
+  assert.deepStrictEqual([out.text, out.scope, out.status, out.source, out.decidedAt], ["New text", { kind: "plate", name: "pub" }, "proposed", rules[0].source, null]);
+  assert.strictEqual(RM.applyRuleAction(rules, "r1", "edit", "NOW", { scope: { kind: "global", name: "x" } })[0].scope.name, "", "global drops the name");
+  assert.strictEqual(RM.applyRuleAction(rules, "r1", "edit", "NOW", { scope: { kind: "character", name: " " } }), null);
+  assert.strictEqual(RM.applyRuleAction(rules, "r1", "edit", "NOW", { text: "  " }), null);
+});
+
+test("ruleSource gives the board and draft file name; mergeRules keeps unparsed entries and wrapper keys", () => {
+  assert.deepStrictEqual(RM.ruleSource(mkRule("r1", "proposed", "global", "")), { eventId: "ev", draftName: "ev_S1_v2.png" });
+  assert.strictEqual(RM.ruleSource({ id: "r", source: {} }), null);
+  const orig = { v: 1, rules: [mkRule("r1", "proposed", "global", ""), { id: "odd" }] };
+  const changed = RM.applyRuleAction(RM.rulesOf(orig), "r1", "accept", "NOW");
+  const merged = RM.mergeRules(orig, changed);
+  assert.strictEqual(merged.v, 1);
+  assert.deepStrictEqual(merged.rules.map((r) => r.status || r.id), ["accepted", "odd"]);
+  assert(Array.isArray(RM.mergeRules([mkRule("r1", "proposed", "global", "")], changed)));
+});
+
 // ---- Judgements ----
 const judgeStart = html.indexOf("/* ---------- Judgements (pure) ---------- */"), judgeEnd = html.indexOf("/* ---------- End judgements ---------- */");
 assert(judgeStart !== -1 && judgeEnd !== -1, "could not locate judgements markers in storyboard.html");

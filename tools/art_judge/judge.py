@@ -785,6 +785,19 @@ def agreement_cli(ws, a):
     return 0
 
 
+def propose_cli(ws, a):
+    import rules_propose as rp
+    try:
+        added, done = rp.propose_rules(ws, make_backend(ws, a.backend, a.fake_replies, a.record, a.model))
+    except JudgeError as e:
+        print("error: %s" % e, file=sys.stderr)
+        return 2
+    print("read %d new note(s), proposed %d rule(s)" % (done, len(added)))
+    for r in added:
+        print("  %s [%s %s] %s" % (r["id"], r["scope"]["kind"], r["scope"]["name"] or "-", r["text"]))
+    return 0
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(prog="judge")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -801,6 +814,12 @@ def main(argv=None):
     j.add_argument("--model")
     j.add_argument("--repo", default=REPO_ROOT, help=argparse.SUPPRESS)
     ag = sub.add_parser("agreement", help="judge vs your approve/revise verdicts, with the gate line")
+    pr = sub.add_parser("propose-rules", help="propose scoped art rules from new per-draft notes (accept them in the Rules panel)")
+    pr.add_argument("--backend", choices=["claude", "fake"])
+    pr.add_argument("--fake-replies")
+    pr.add_argument("--record")
+    pr.add_argument("--model")
+    pr.add_argument("--repo", default=REPO_ROOT, help=argparse.SUPPRESS)
     bm = sub.add_parser("benchmark", help="freeze your verdicted drafts / re-judge them into a separate output")
     bm.add_argument("action", choices=["freeze", "run"])
     for p in (ag, bm):
@@ -816,6 +835,8 @@ def main(argv=None):
     bm.add_argument("--model")
     a = ap.parse_args(argv)
     ws = Workspace(a.repo)
+    if a.cmd == "propose-rules":
+        return propose_cli(ws, a)
     if a.cmd in ("agreement", "benchmark"):
         return agreement_cli(ws, a)
     if not a.draft:

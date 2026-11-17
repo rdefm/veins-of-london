@@ -94,3 +94,11 @@ Missing images are skipped; a missing file means no style references are sent.
 ```
 
 Only `accepted` rules in scope are judged: all global, character rules for the shot's cast, plate rules for its `plate`. Each becomes a hard checklist item `rule-<id>`; a broken rule fails the draft and the failed check names the id. `rulesHash` over the applied rules makes only affected judgements stale.
+
+### Proposing rules from notes
+
+```
+python tools/art_judge/judge.py propose-rules [--backend fake --fake-replies DIR]
+```
+
+Reads per-draft notes in each board's `feedback.json` newer than the watermark in `_judge/rules_watermark.json`; one model call per note returns 0-n scoped rules. Duplicates of any existing rule (same scope, same words or ≥80% word overlap, any status) are dropped; the rest are added as `proposed` with `source` = `{eventId, draft, note}`. A re-run with no new notes makes no calls; a failed call leaves the watermark before that note. Accept, reject, edit and retire in the storyboard tool's Rules tab; only accepting there makes a rule count.

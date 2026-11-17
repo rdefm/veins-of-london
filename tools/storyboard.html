@@ -162,6 +162,11 @@ header.top .title { display: grid; gap: 6px; min-width: 0 }
 .jscore { color: var(--muted) }
 .checklist summary { cursor: pointer; font-size: 13px }
 .clist { list-style: none; margin: 6px 0; padding: 0; display: grid; gap: 4px }
+.rules { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px }
+.rule { display: grid; gap: 4px; padding: 8px; border: 1px solid #8884; border-radius: 6px }
+.rule textarea { width: 100% }
+.rulebar { display: flex; gap: 6px; flex-wrap: wrap; align-items: center }
+.flash { outline: 2px solid currentColor }
 .clrow { display: grid; grid-template-columns: 1fr auto auto auto; gap: 6px; align-items: center }
 .clrow input[type=text] { min-width: 0 }
 .clhard { font-size: 12.5px; white-space: nowrap }
@@ -549,6 +554,7 @@ button.qs-flow { width: 100%; border: 0; color: var(--fg); font: inherit; font-s
         <button type="button" role="tab" id="tab-storyboard" data-tab="storyboard" aria-controls="panel-storyboard">Storyboard</button>
         <button type="button" role="tab" id="tab-shots" data-tab="shots" aria-controls="panel-shots">Shots</button>
         <button type="button" role="tab" id="tab-comments" data-tab="comments" aria-controls="panel-comments">Comments</button>
+        <button type="button" role="tab" id="tab-rules" data-tab="rules" aria-controls="panel-rules">Rules</button>
         <button type="button" role="tab" id="tab-quests" data-tab="quests" aria-controls="panel-quests">Quests</button>
       </div>
 
@@ -658,6 +664,11 @@ button.qs-flow { width: 100%; border: 0; color: var(--fg); font: inherit; font-s
       <div class="panel" role="tabpanel" id="panel-comments" aria-labelledby="tab-comments" hidden>
         <div class="cmt-bar" id="cmt-bar"></div>
         <div class="cmts" id="cmt-list"></div>
+      </div>
+
+      <div class="panel" role="tabpanel" id="panel-rules" aria-labelledby="tab-rules" hidden>
+        <p class="muted" style="margin:0">Art rules for the judge (<code>.scratch/event-art/_judge/rules.json</code>). Proposed rules come from <code>judge.py propose-rules</code>; only accepting one here makes it count.</p>
+        <div id="rules-root"></div>
       </div>
 
       <div class="panel" role="tabpanel" id="panel-quests" aria-labelledby="tab-quests" hidden>
@@ -1572,7 +1583,7 @@ function checkOddsBlock(opt, changed, restructure) {
   const thumbs = new Map(); // name -> {stamp, url}
   const remembered = () => { try { return localStorage.getItem("vein-sb-board"); } catch { return null; } };
   const remember = (id) => { try { localStorage.setItem("vein-sb-board", id); } catch {} };
-  const TABS = ["storyboard", "shots", "comments", "quests"];
+  const TABS = ["storyboard", "shots", "comments", "rules", "quests"];
   const rememberedTab = () => { try { return localStorage.getItem("vein-sb-tab"); } catch { return null; } };
   function showTab(name) {
     if (!TABS.includes(name)) name = "storyboard";
@@ -1584,6 +1595,7 @@ function checkOddsBlock(opt, changed, restructure) {
     try { localStorage.setItem("vein-sb-tab", name); } catch {}
     if (name === "storyboard" && graphFit) fitGraph();
     if (name === "quests") renderQuests();
+    if (name === "rules") loadRules();
   }
 
   const board = () => boards.find((b) => b.eventId === currentId);
@@ -1705,6 +1717,68 @@ function checkOddsBlock(opt, changed, restructure) {
     return { id: "u" + n, category: "pose", text: "", hard: false };
   }
   /* ---------- End judgements ---------- */
+  /* ---------- Rules (pure) ---------- */
+  // No DOM, no file access: tools/test_storyboard.js unit-tests it. rules.json is written by tools/art_judge (proposed
+  // rules) and by this tool (status changes, edits); only a user action here makes a rule accepted.
+  const RULE_STATUSES = ["proposed", "accepted", "rejected", "retired"];
+  const RULE_KINDS = ["global", "character", "plate"];
+  const ruleScopeLabel = (sc) => (!sc || sc.kind === "global" ? "global" : `${sc.kind}: ${sc.name || "?"}`);
+  // The array in a rules file (a list, or {rules: [...]}), malformed entries dropped.
+  const rulesOf = (data) => (Array.isArray(data) ? data : data && Array.isArray(data.rules) ? data.rules : [])
+    .filter((r) => r && typeof r === "object" && r.id && r.text);
+  // Changed rules merged into the file's own array by id, so entries this tool can't parse survive; a wrapped file keeps its other keys.
+  function mergeRules(orig, rules) {
+    const list = Array.isArray(orig) ? orig : orig && Array.isArray(orig.rules) ? orig.rules : [];
+    const merged = list.map((x) => (x && rules.find((y) => y.id === x.id)) || x);
+    return Array.isArray(orig) || !orig ? merged : { ...orig, rules: merged };
+  }
+  // [{status, scopes: [{label, rules}]}] for non-empty statuses, in RULE_STATUSES order; scopes global, character, plate then by name.
+  function groupRules(rules) {
+    const kindRank = (r) => RULE_KINDS.indexOf((r.scope && r.scope.kind) || "global");
+    return RULE_STATUSES.map((status) => {
+      const inStatus = rules.filter((r) => r.status === status)
+        .sort((a, b) => (kindRank(a) - kindRank(b)) || String((a.scope || {}).name || "").localeCompare(String((b.scope || {}).name || "")) || String(a.id).localeCompare(String(b.id), undefined, { numeric: true }));
+      const scopes = [];
+      for (const r of inStatus) {
+        const label = ruleScopeLabel(r.scope);
+        let g = scopes.find((x) => x.label === label);
+        if (!g) scopes.push(g = { label, rules: [] });
+        g.rules.push(r);
+      }
+      return { status, scopes };
+    }).filter((g) => g.scopes.length);
+  }
+  const RULE_FROM = { accept: ["proposed"], reject: ["proposed"], retire: ["accepted"] };
+  const RULE_TO = { accept: "accepted", reject: "rejected", retire: "retired" };
+  // New rules array with one rule changed, or null when the action isn't allowed. accept/reject: proposed only; retire: accepted
+  // only; edit: text and/or scope on any rule (status, source and the rest are kept). Inputs are not mutated.
+  function applyRuleAction(rules, id, action, nowIso, edits) {
+    const i = rules.findIndex((r) => r.id === id);
+    if (i < 0) return null;
+    const r = rules[i];
+    let next;
+    if (action === "edit") {
+      const text = edits && typeof edits.text === "string" ? edits.text.trim() : r.text;
+      let scope = r.scope;
+      if (edits && edits.scope) {
+        const kind = edits.scope.kind, name = kind === "global" ? "" : String(edits.scope.name || "").trim();
+        if (!RULE_KINDS.includes(kind) || (kind !== "global" && !name)) return null;
+        scope = { kind, name };
+      }
+      if (!text) return null;
+      next = { ...r, text, scope };
+    } else if (RULE_TO[action] && RULE_FROM[action].includes(r.status)) {
+      next = { ...r, status: RULE_TO[action], decidedAt: nowIso };
+    } else return null;
+    return rules.map((x, j) => (j === i ? next : x));
+  }
+  // Source draft of a rule: {eventId, draftName} or null (the draft target is a repo path; the file name is its last part).
+  function ruleSource(r) {
+    const s = r && r.source;
+    if (!s || !s.eventId || typeof s.draft !== "string" || !s.draft) return null;
+    return { eventId: s.eventId, draftName: s.draft.split("/").pop() };
+  }
+  /* ---------- End rules ---------- */
   /* ---------- Planning model (pure) ---------- */
   // No DOM, no file access: tools/test_storyboard.js extracts everything between this marker and its end marker.
   // One planning file per questline (act) under .scratch/questlines/; the game never loads them.
@@ -7307,7 +7381,7 @@ function checkOddsBlock(opt, changed, restructure) {
     if (!saveAs) return null;
     const sb = shotBoard(), jd = (sb && judgements[sb.eventId]) || { byFile: {}, shas: {} };
     const names = orderDrafts(filesFor(saveAs), jd.byFile);
-    const list = el("ul", {}, ...names.map((n) => el("li", {}, imgFor(n, n),
+    const list = el("ul", {}, ...names.map((n) => el("li", { "data-draft": n }, imgFor(n, n),
       el("span", {}, el("span", { class: "fname", text: n }), el("br"), el("span", { class: "fstate ok", text: "In assets/reference-plates/" }),
         judgementBlock(judgementFor(n, jd.byFile), jd.shas[n], checklistStale((jd.checklists || {})[target], judgementFor(n, jd.byFile))),
         sb ? verdictBlock(feedbackKeyFor(sb.eventId, draftTarget(n)), "Your verdict on this draft", DRAFT_VERDICTS) : null))));
@@ -8132,6 +8206,73 @@ function checkOddsBlock(opt, changed, restructure) {
     }
     return box;
   }
+  // ---- Rules tab ----
+  const RULES_PATH = [".scratch", "event-art", "_judge", "rules.json"];
+  let rulesState = null; // {orig: file as read, rules, version, error, editing: id|null}
+  async function loadRules(error) {
+    const root = $("rules-root");
+    if (!storage) { rulesState = null; root.replaceChildren(el("p", { class: "muted", text: "Open the repo folder first." })); return; }
+    try {
+      const r = await storage.read(RULES_PATH);
+      const orig = r ? JSON.parse(r.text) : [];
+      rulesState = { orig, rules: rulesOf(orig), version: r ? r.version : null, error: error || "", editing: null };
+    } catch (e) { rulesState = { orig: [], rules: [], version: null, error: "Couldn't read rules.json: " + (e && e.message), editing: null }; }
+    renderRules();
+  }
+  async function changeRule(id, action, edits) {
+    const st = rulesState;
+    const rules = applyRuleAction(st.rules, id, action, new Date().toISOString(), edits);
+    if (!rules) { st.error = "That change isn't allowed."; return renderRules(); }
+    const raw = mergeRules(st.orig, rules);
+    try {
+      st.version = await writeFile(RULES_PATH, JSON.stringify(raw, null, 2) + "\n", st.version);
+    } catch (e) {
+      if (e && e.name === "StaleError") return loadRules("rules.json changed on disk; reloaded. Try again.");
+      st.error = "Couldn't save: " + (e && e.message); return renderRules();
+    }
+    st.orig = raw; st.rules = rulesOf(raw); st.error = ""; st.editing = null;
+    renderRules();
+  }
+  function jumpToDraft(src) {
+    const b = boards.find((x) => x.eventId === src.eventId || (x.shotBoard && x.shotBoard.eventId === src.eventId));
+    if (!b) { rulesState.error = `No board for ${src.eventId}.`; return renderRules(); }
+    if (imgMode !== "shots") { imgMode = "shots"; try { localStorage.setItem("vein-sb-imgmode", imgMode); } catch {} }
+    selectBoard(b.eventId, false); showTab("shots");
+    const node = [...document.querySelectorAll("#shots [data-draft]")].find((n) => n.getAttribute("data-draft") === src.draftName);
+    if (node) { node.scrollIntoView({ block: "center" }); node.classList.add("flash"); setTimeout(() => node.classList.remove("flash"), 2000); }
+    else setNote(`Draft ${src.draftName} isn't shown on that board.`);
+  }
+  function ruleRow(r) {
+    const st = rulesState, src = ruleSource(r);
+    const btn = (text, fn) => { const b = el("button", { type: "button", class: "copy", text }); b.addEventListener("click", fn); return b; };
+    if (st.editing === r.id) {
+      const text = el("textarea", { rows: "2" }); text.value = r.text;
+      const kind = el("select", {}, ...RULE_KINDS.map((k) => el("option", { value: k, text: k })));
+      kind.value = (r.scope && r.scope.kind) || "global";
+      const name = el("input", { type: "text", placeholder: "character or plate name", autocomplete: "off" }); name.value = (r.scope && r.scope.name) || "";
+      return el("li", { class: "rule" }, text, el("div", { class: "rulebar" }, kind, name,
+        btn("Save", () => changeRule(r.id, "edit", { text: text.value, scope: { kind: kind.value, name: name.value } })),
+        btn("Cancel", () => { st.editing = null; renderRules(); })));
+    }
+    const acts = [];
+    if (r.status === "proposed") acts.push(btn("Accept", () => changeRule(r.id, "accept")), btn("Reject", () => changeRule(r.id, "reject")));
+    if (r.status === "accepted") acts.push(btn("Retire", () => changeRule(r.id, "retire")));
+    acts.push(btn("Edit", () => { st.editing = r.id; renderRules(); }));
+    if (src) acts.push(btn("Source draft", () => jumpToDraft(src)));
+    return el("li", { class: "rule" }, el("span", { class: "rtext", text: r.text }),
+      r.source && r.source.note ? el("span", { class: "fstate", text: "Note: " + r.source.note }) : null,
+      el("div", { class: "rulebar" }, el("span", { class: "id", text: r.id }), ...acts));
+  }
+  function renderRules() {
+    const st = rulesState; if (!st) return;
+    const groups = groupRules(st.rules);
+    $("rules-root").replaceChildren(
+      st.error ? el("p", { class: "fstate", text: st.error }) : null,
+      ...(groups.length ? groups.map((g) => el("section", {}, el("h2", { text: `${g.status} (${g.scopes.reduce((n, x) => n + x.rules.length, 0)})` }),
+        ...g.scopes.map((sc) => el("div", {}, el("h3", { text: sc.label }), el("ul", { class: "rules" }, ...sc.rules.map(ruleRow))))))
+        : [el("p", { class: "muted", text: "No rules yet. Run judge.py propose-rules after leaving notes on drafts." })]));
+  }
+
   function renderQuests() {
     const root = $("q-root"); if (!root) return;
     root.replaceChildren();
