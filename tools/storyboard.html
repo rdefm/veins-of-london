@@ -1651,6 +1651,11 @@ function checkOddsBlock(opt, changed, restructure) {
     return [...checks.filter((c) => c.result === "fail"), ...checks.filter((c) => c.result === "unsure")]
       .map((c) => ({ id: c.id, result: c.result, why: c.why || "" }));
   }
+  // Stored correction prompt of a current failing draft (exact text); null for pass, unjudged, stale or none.
+  function judgementCorrection(j, curSha) {
+    if (judgementState(j, curSha) !== "fail") return null;
+    return typeof j.correctionPrompt === "string" && j.correctionPrompt.trim() ? j.correctionPrompt : null;
+  }
   /* ---------- End judgements ---------- */
   /* ---------- Planning model (pure) ---------- */
   // No DOM, no file access: tools/test_storyboard.js extracts everything between this marker and its end marker.
@@ -7179,6 +7184,15 @@ function checkOddsBlock(opt, changed, restructure) {
     if (state === "unjudged" && j.error) parts.push(el("span", { class: "fstate", text: j.error }));
     if (probs.length) parts.push(el("details", { class: "jprobs" }, el("summary", { text: `${probs.length} failed/unsure check${probs.length > 1 ? "s" : ""}` }),
       el("ul", {}, ...probs.map((c) => el("li", {}, el("span", { class: "jres " + c.result, text: c.result }), ` ${c.id}: ${c.why}`)))));
+    const fix = judgementCorrection(j, curSha);
+    if (fix) {
+      const btn = el("button", { class: "copy", type: "button", text: "Copy" });
+      btn.addEventListener("click", async () => {
+        try { await navigator.clipboard.writeText(fix); btn.textContent = "Copied"; }
+        catch { btn.textContent = "Copy failed"; }
+      });
+      parts.push(el("div", { class: "prompt-head" }, el("span", { class: "eyebrow", text: "Correction prompt" }), btn), el("pre", { text: fix }));
+    }
     return el("div", { class: "judge" }, ...parts);
   }
 

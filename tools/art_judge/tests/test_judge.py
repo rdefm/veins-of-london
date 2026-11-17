@@ -122,6 +122,43 @@ class PassRule(Base):
         self.assertEqual(out["verdict"], "fail")
 
 
+class Correction(Base):
+    FIX = {"changes": "move the carrier bag to his left hand and remove the sign text."}
+
+    def test_fail_makes_one_separate_call_stored_with_tail(self):
+        out, be = self.run_judge([CHECKLIST_REPLY, good_reply(IDS, {"h-text": "fail"}), self.FIX])
+        self.assertEqual(len(be.calls), 3)
+        self.assertTrue(be.calls[2]["key"].startswith("correct__S1__"))
+        self.assertIn("h-text", be.calls[2]["instruction"])
+        self.assertEqual(out["correctionPrompt"], "Same image, change only: move the carrier bag to his left hand "
+                         "and remove the sign text. Keep everything else identical.")
+        saved = judge.read_json(judge.judgement_path(self.ws, "ev", self.draft))
+        self.assertEqual(saved["correctionPrompt"], out["correctionPrompt"])
+
+    def test_pass_makes_no_correction_call(self):
+        out, be = self.run_judge([CHECKLIST_REPLY, good_reply(IDS)])
+        self.assertEqual(len(be.calls), 2)
+        self.assertIsNone(out["correctionPrompt"])
+
+    def test_unjudged_makes_no_correction_call(self):
+        out, be = self.run_judge([CHECKLIST_REPLY, {"bad": 1}, {"bad": 1}, self.FIX])
+        self.assertEqual(out["verdict"], "unjudged")
+        self.assertEqual(len(be.calls), 3)
+        self.assertIsNone(out["correctionPrompt"])
+
+    def test_correction_failure_keeps_verdict(self):
+        out, _ = self.run_judge([CHECKLIST_REPLY, good_reply(IDS, {"h-text": "fail"}), BackendError("boom")])
+        self.assertEqual(out["verdict"], "fail")
+        self.assertIsNone(out["correctionPrompt"])
+        self.assertIn("boom", out["correctionError"])
+
+    def test_rejudge_regenerates(self):
+        self.run_judge([CHECKLIST_REPLY, good_reply(IDS, {"h-text": "fail"}), self.FIX])
+        out, be = self.run_judge([good_reply(IDS, {"h-text": "fail"}), {"changes": "remove the sign"}])
+        self.assertEqual(len(be.calls), 2)
+        self.assertTrue(out["correctionPrompt"].startswith("Same image, change only: remove the sign."))
+
+
 class Checklist(Base):
     def test_reuse_then_rebuild_on_brief_change(self):
         out, be = self.run_judge([CHECKLIST_REPLY, good_reply(IDS)])

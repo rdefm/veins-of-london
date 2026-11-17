@@ -3071,7 +3071,7 @@ test("splitPath takes parts or slash strings", () => {
 const judgeStart = html.indexOf("/* ---------- Judgements (pure) ---------- */"), judgeEnd = html.indexOf("/* ---------- End judgements ---------- */");
 assert(judgeStart !== -1 && judgeEnd !== -1, "could not locate judgements markers in storyboard.html");
 const JM = new Function(html.slice(judgeStart, judgeEnd) +
-  "\nreturn { JUDGEMENT_SUFFIX, judgementFileFor, judgementFor, judgementState, orderDrafts, judgementScores, judgementProblems };")();
+  "\nreturn { JUDGEMENT_SUFFIX, judgementFileFor, judgementFor, judgementState, orderDrafts, judgementScores, judgementProblems, judgementCorrection };")();
 
 test("judgements match drafts by stem, incl. _vN and _clean files", () => {
   const by = { "s1_v2.judgement.json": { verdict: "pass" }, "s1.judgement.json": { verdict: "fail" } };
@@ -3102,6 +3102,16 @@ test("drafts order by rank; unjudged and not judged last", () => {
   assert.deepStrictEqual(JM.orderDrafts(["a.png", "a_v2.png", "a_v3.png", "a_v4.png", "a_v5.png"], by),
     ["a_v2.png", "a.png", "a_v5.png", "a_v3.png", "a_v4.png"]);
   assert.deepStrictEqual(JM.orderDrafts(["x.png", "x_v2.png"], {}), ["x.png", "x_v2.png"], "nothing judged keeps file order");
+});
+
+test("correction prompt exposed only for a current failing draft", () => {
+  const fail = { verdict: "fail", draftSha: "a", correctionPrompt: "Same image, change only: x. Keep everything else identical." };
+  assert.strictEqual(JM.judgementCorrection(fail, "a"), fail.correctionPrompt);
+  assert.strictEqual(JM.judgementCorrection({ ...fail, verdict: "pass" }, "a"), null);
+  assert.strictEqual(JM.judgementCorrection({ verdict: "unjudged", correctionPrompt: "x" }, "a"), null);
+  assert.strictEqual(JM.judgementCorrection(fail, "b"), null, "stale");
+  assert.strictEqual(JM.judgementCorrection({ ...fail, correctionPrompt: " " }, "a"), null);
+  assert.strictEqual(JM.judgementCorrection(null, "a"), null);
 });
 
 test("judgement scores and failed/unsure checks", () => {

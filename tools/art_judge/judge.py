@@ -424,6 +424,54 @@ def decide(checklist, checks, scores, size, canvas, threshold):
     return ("fail" if reasons else "pass"), reasons
 
 
+# ---------- correction prompt ----------
+
+DELTA_HEAD = "Same image, change only: "
+DELTA_TAIL = "Keep everything else identical."  # prompt-pack.md §Delta prompt (draft revision)
+CORRECTION_SCHEMA = {"type": "object", "required": ["changes"], "additionalProperties": False,
+                     "properties": {"changes": {"type": "string"}}}
+
+
+def failed_items(checklist, checks, reasons):
+    """Lines describing what failed: failed checklist items with the model's reason, plus score/size reasons."""
+    text = {i["id"]: i["text"] for i in checklist["items"]}
+    lines = ["%s: %s (reason: %s)" % (c["id"], text.get(c["id"], ""), c.get("why") or "none")
+             for c in checks if c["result"] == "fail"]
+    lines += [r for r in reasons if r.startswith("score ")]
+    return lines
+
+
+def build_correction_request(board, shot, failed):
+    return "\n".join([
+        "A pixel-art draft for an image-generation conversation failed review. Write the revision request "
+        "to send in the SAME conversation as the draft.", "",
+        "Shot brief:", brief_text(board, shot), "",
+        "Failed checks (address only these):"] + ["  - %s" % f for f in failed] + [
+        "", "Reply with `changes`: one short sentence fragment listing only the specific edits needed to fix "
+        "the failed checks, imperative, e.g. \"move the carrier bag to his left hand and remove the sign text\". "
+        "Do not restate the scene, do not mention anything that passed, no leading \"Same image\", no trailing "
+        "\"keep everything else identical\" (added automatically)."])
+
+
+def correction_prompt(changes):
+    c = " ".join(str(changes).split()).rstrip(" .")
+    return "%s%s. %s" % (DELTA_HEAD, c, DELTA_TAIL)
+
+
+def make_correction(backend, board, shot, shot_id, draft, checklist, checks, reasons):
+    """One separate model call. Returns (prompt or None, error or None)."""
+    key = "correct__%s__%s" % (shot_id, os.path.splitext(os.path.basename(draft))[0])
+    try:
+        reply = backend.call(key, build_correction_request(board, shot, failed_items(checklist, checks, reasons)),
+                             [], CORRECTION_SCHEMA)
+    except BackendError as e:
+        return None, str(e)
+    changes = reply.get("changes") if isinstance(reply, dict) else None
+    if not isinstance(changes, str) or not changes.strip():
+        return None, "correction reply has no changes"
+    return correction_prompt(changes), None
+
+
 # ---------- judge one draft ----------
 
 def judgement_path(ws, event_id, draft):
@@ -479,6 +527,10 @@ def judge_draft(ws, backend, event_id, shot_id, draft, threshold=DEFAULT_THRESHO
     verdict, reasons = decide(checklist, checks, scores, size, canvas_of(board), threshold)
     out.update({"checks": checks, "scores": scores, "verdict": verdict, "verdictReasons": reasons,
                 "threshold": threshold})
+    if verdict == "fail":
+        out["correctionPrompt"], err = make_correction(backend, board, shot, shot_id, draft, checklist, checks, reasons)
+        if err:
+            out["correctionError"] = err
     ws.write_json(path, out)
     return out
 
