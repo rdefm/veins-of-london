@@ -39,12 +39,14 @@ Cast = names from `assets/character-references/<Name>/` paths in the shot's `att
   "model", "judgedAt",
   "checks": [{"id", "result": "pass|fail|unsure", "why"}],
   "scores": {"brief": 0-4, "style": 0-4, "cast": {"Archie": 3.5, "Des": {"identity": "unchecked"}}},
-  "metrics": {"size": [w, h]},
+  "metrics": {"size": [w, h], "gridScale", "gridRegularity", "colours", "paletteDistance"},
   "verdict": "pass|fail|unjudged", "verdictReasons": [...], "threshold", "rank": null,
   "correctionPrompt": null, "error": "(unjudged only)" }
 ```
 
 Pass rule: no failed `hard` check, no failed cast-presence check, size equals the board's canvas (`board.canvas`, default 1024×1536), every score ≥ threshold. `unsure` never fails a draft. A cast member with no reference image gets `{"identity": "unchecked"}` and doesn't fail it. A malformed or failed reply is retried once, then written as `unjudged` with `error`.
+
+Metrics (from `tools/pixel_grid.py`, also given to the model as context) are informational: they never change the verdict; size is the only hard technical check. `gridScale` = estimated source px per art pixel (1 = no grid found); `gridRegularity` 0-1; `colours` = distinct colours after grid-lock at that scale; `paletteDistance` = mean RGB distance to `data/palette.json` (null if absent).
 
 ## Style set
 

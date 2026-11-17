@@ -11,6 +11,7 @@ in depth order -> nearest-neighbour upscale. See README.md for the rationale and
 import argparse
 import json
 import math
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -18,6 +19,8 @@ from PIL import Image, ImageDraw
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
+sys.path.insert(0, str(ROOT / "tools"))
+import pixel_grid  # noqa: E402
 
 
 class Plate:
@@ -26,12 +29,11 @@ class Plate:
         self.scale = cfg.get("scale", 4)
         full = Image.open(ROOT / cfg["image"]).convert("RGB")
         self.W, self.H = full.width // self.scale, full.height // self.scale
-        native = full.resize((self.W, self.H), Image.BOX)
+        native = pixel_grid.grid_lock(full, self.scale)
         n = cfg["plate_colours"]
         # octree keeps small saturated props (crates, signs) that median-cut averages away
-        method = {"mediancut": Image.Quantize.MEDIANCUT, "octree": Image.Quantize.FASTOCTREE}[cfg.get("quantize", "mediancut")]
-        q = native.quantize(colors=n, method=method, dither=Image.Dither.NONE)
-        pal = [np.array(q.getpalette()[: n * 3]).reshape(-1, 3)]
+        method = pixel_grid.QUANTIZE_METHODS[cfg.get("quantize", "mediancut")]
+        pal = [pixel_grid.derive_palette(native, n, method)]
         for path in sorted(set(actor_sprites)):
             pal.append(self._cast_colours(path, cfg["cast_colours"]))
         self.pal = np.vstack(pal).astype(float)
@@ -43,8 +45,7 @@ class Plate:
         a = np.asarray(Image.open(ROOT / path).convert("RGBA"))
         px = a[a[..., 3] >= 128][:, :3][::8]   # opaque pixels only
         im = Image.fromarray(px.reshape(1, -1, 3).astype(np.uint8))
-        q = im.quantize(colors=n, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE)
-        return np.array(q.getpalette()[: n * 3]).reshape(-1, 3)
+        return pixel_grid.derive_palette(im, n)
 
     def _occluder_mask(self, occ: dict) -> np.ndarray:
         m = Image.new("L", (self.W, self.H), 0)
@@ -61,9 +62,7 @@ class Plate:
         return np.asarray(m) > 0
 
     def snap(self, rgb: np.ndarray) -> np.ndarray:
-        flat = rgb.reshape(-1, 3).astype(float)
-        d = ((flat[:, None, :] - self.pal[None]) ** 2).sum(2)
-        return self.pal[d.argmin(1)].reshape(rgb.shape)
+        return pixel_grid.snap_nearest(rgb, self.pal)
 
     def load_sprite(self, path: str, feet_y: int, flip: bool) -> np.ndarray:
         im = Image.open(ROOT / path).convert("RGBA")

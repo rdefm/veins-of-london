@@ -18,6 +18,9 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from backend import BackendError, ClaudeBackend, FakeBackend, RecordingBackend  # noqa: E402
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+import pixel_grid  # noqa: E402
+
 SCHEMA_VERSION = 1
 DEFAULT_THRESHOLD = 3.0
 DEFAULT_CANVAS = (1024, 1536)  # board-schema.md: portrait 2:3
@@ -309,7 +312,24 @@ def judge_schema(cast_checked):
     }
 
 
-def build_judge_request(ws, board, shot, checklist, draft_path, style_images, style_card, size, cast_checked, unchecked):
+def measure(ws, img):
+    """Pixel metrics for a draft; palette distance omitted if no palette file."""
+    pal_path = os.path.join(ws.repo, "data", "palette.json")
+    if not os.path.isfile(pal_path):
+        pal_path = os.path.join(REPO_ROOT, "data", "palette.json")
+    pal = pixel_grid.palette_rgb(pal_path) if os.path.isfile(pal_path) else None
+    return pixel_grid.pixel_metrics(img, pal)
+
+
+def metrics_text(m):
+    pd = m.get("paletteDistance")
+    return ("Measured pixel metrics (informational, for context only): grid scale %s (1 = no pixel grid found); grid "
+            "regularity %s (0-1, 1 = sits on a true pixel grid); %s colours after grid-lock; mean distance to the "
+            "reference palette %s (RGB units, 0 = exact)."
+            % (m["gridScale"], m["gridRegularity"], m["colours"], "n/a" if pd is None else pd))
+
+
+def build_judge_request(ws, board, shot, checklist, draft_path, style_images, style_card, size, cast_checked, unchecked, metrics=None):
     images = [("DRAFT (the image being judged)", draft_path)]
     plate = plate_path(ws, board, shot)
     if plate:
@@ -340,6 +360,7 @@ def build_judge_request(ws, board, shot, checklist, draft_path, style_images, st
         lines.append("  Do NOT score %s (no reference image exists); omit them from cast." % ", ".join(unchecked))
     lines += ["", "Style card: %s" % (style_card or "(none supplied; use the style references)"), "",
               "Image size is %dx%d. Phone crops of this image: %s." % (size[0], size[1], crop_description(size)),
+              ] + ([metrics_text(metrics)] if metrics else []) + [
               "Judge only what you can see. Never invent canon."]
     return "\n".join(lines), images
 
@@ -413,11 +434,12 @@ def judge_draft(ws, backend, event_id, shot_id, draft, threshold=DEFAULT_THRESHO
     shot = find_shot(board, shot_id)
     with Image.open(draft) as im:
         size = list(im.size)
+        metrics = dict(size=size, **measure(ws, im.convert("RGB")))
     out = {
         "schema": SCHEMA_VERSION, "eventId": event_id, "shotId": shot_id, "draft": rel(ws, draft),
         "draftSha": sha_file(draft), "briefHash": brief_hash(board, shot), "rulesHash": sha_text("[]"),
         "model": backend.model_used, "judgedAt": now_iso(), "checks": [], "scores": {},
-        "metrics": {"size": size}, "verdict": "unjudged", "rank": None, "correctionPrompt": None,
+        "metrics": metrics, "verdict": "unjudged", "rank": None, "correctionPrompt": None,
     }
     path = judgement_path(ws, event_id, draft)
     try:
@@ -431,7 +453,7 @@ def judge_draft(ws, backend, event_id, shot_id, draft, threshold=DEFAULT_THRESHO
     unchecked = [n for n in cast if n not in cast_checked]
     style_images, style_card = load_style(ws)
     instruction, images = build_judge_request(ws, board, shot, checklist, draft, style_images, style_card,
-                                              size, cast_checked, unchecked)
+                                              size, cast_checked, unchecked, metrics)
     schema = judge_schema(cast_checked)
     key = "judge__%s__%s" % (shot_id, os.path.splitext(os.path.basename(draft))[0])
     error = None

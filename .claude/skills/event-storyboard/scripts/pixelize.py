@@ -15,10 +15,13 @@ default = --scale so it matches the source size) and <stem>_qa.png.
 Nothing is written under assets/ — placing a file is a separate, explicit step.
 """
 import argparse
-import json
 import os
+import sys
 
 from PIL import Image, ImageDraw
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "..", "tools"))
+import pixel_grid  # noqa: E402
 
 # VN image frame = viewport height minus ~300px of chrome (top bar + 236px
 # text panel + margins); width = viewport width. ADR 0005 / ART-BIBLE §3.
@@ -41,30 +44,6 @@ def cover_crop_box(src_w, src_h, frame_w, frame_h):
     return (0, y, src_w, y + h)
 
 
-def load_palette(path):
-    with open(path, encoding="utf-8") as f:
-        data = json.load(f)
-    hexes = []
-
-    def walk(node):
-        if isinstance(node, str) and node.startswith("#") and len(node) in (7, 9):
-            hexes.append(node[1:7])
-        elif isinstance(node, dict):
-            for v in node.values():
-                walk(v)
-        elif isinstance(node, list):
-            for v in node:
-                walk(v)
-
-    walk(data.get("colors", data))
-    flat = []
-    for h in hexes:
-        flat += [int(h[i:i + 2], 16) for i in (0, 2, 4)]
-    pal = Image.new("P", (1, 1))
-    pal.putpalette(flat + flat[:3] * (256 - len(hexes)))
-    return pal, len(hexes)
-
-
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("src")
@@ -80,15 +59,14 @@ def main():
     stem = os.path.splitext(os.path.basename(a.src))[0]
     os.makedirs(a.out_dir, exist_ok=True)
 
-    native_size = (src.width // a.scale, src.height // a.scale)
-    native = src.resize(native_size, Image.BOX)
+    native = pixel_grid.grid_lock(src, a.scale)
+    native_size = native.size
     if a.palette:
-        pal, n = load_palette(a.palette)
-        native = native.quantize(palette=pal, dither=Image.Dither.NONE).convert("RGB")
+        pal, n = pixel_grid.load_palette(a.palette)
+        native = pixel_grid.snap_to_palette_image(native, pal)
         note = f"palette {os.path.basename(a.palette)} ({n})"
     elif not a.no_quantize:
-        native = native.quantize(colors=a.colors, method=Image.Quantize.FASTOCTREE,
-                                 dither=Image.Dither.NONE).convert("RGB")
+        native = pixel_grid.quantize_colours(native, a.colors)
         note = f"{a.colors} colours"
     else:
         note = "unquantised"
