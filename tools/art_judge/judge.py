@@ -53,11 +53,15 @@ class Workspace:
     def judge_dir(self):
         return os.path.join(self.art, "_judge")
 
-    def write_json(self, path, obj):
-        """The only write path: refuses anything outside the art workspace."""
+    def check_inside(self, path):
         full = os.path.abspath(path)
         if os.path.commonpath([full, self.art]) != self.art:
             raise JudgeError("refusing to write outside the art workspace: %s" % full)
+        return full
+
+    def write_json(self, path, obj):
+        """The only write path: refuses anything outside the art workspace."""
+        full = self.check_inside(path)
         os.makedirs(os.path.dirname(full), exist_ok=True)
         with open(full, "w", encoding="utf-8") as f:
             json.dump(obj, f, indent=2, ensure_ascii=False)
@@ -691,14 +695,19 @@ def make_backend(ws, name, fake_dir, record_dir, model):
     raise JudgeError("unknown backend %r (claude|fake)" % name)
 
 
-def batch_cli(ws, a):
+def make_confirm(yes):
     def confirm(calls):
-        if a.yes:
+        if yes:
             return True
         try:
             return input("%d model calls. Continue? [y/N] " % calls).strip().lower() in ("y", "yes")
         except EOFError:
             return False
+    return confirm
+
+
+def batch_cli(ws, a):
+    confirm = make_confirm(a.yes)
     try:
         backend = make_backend(ws, a.backend, a.fake_replies, a.record, a.model)
         results, ranks, calls = judge_batch(ws, backend, a.board, [a.shot] if a.shot else None,
@@ -710,6 +719,26 @@ def batch_cli(ws, a):
     for sid, lst in ranks.items():
         for draft, r in lst:
             print("  %s #%d %s" % (sid, r, draft))
+    return 0
+
+
+def agreement_cli(ws, a):
+    import agreement as ag
+    gate = ag.load_gate(ws, minAgreement=a.min_agreement, minDrafts=a.min_drafts, minEvents=a.min_events)
+    try:
+        if a.cmd == "agreement":
+            print(ag.format_report(ag.agreement_report(ag.live_entries(ws), gate)))
+        elif a.action == "freeze":
+            print("froze %d draft(s) into %s" % (len(ag.freeze(ws)), rel(ws, ag.bench_dir(ws))))
+        else:
+            backend = make_backend(ws, a.backend, a.fake_replies, a.record, a.model)
+            run, prev = ag.run_benchmark(ws, backend, resolve_threshold(ws, a.threshold), gate, make_confirm(a.yes))
+            print(ag.format_report(run, "Benchmark run %s" % run["run"]))
+            print("Previous run: %s" % ("none" if not prev else "%s (%s, %d drafts)" % (
+                ag.pct(prev.get("agreement")), prev.get("run"), prev.get("drafts", 0))))
+    except JudgeError as e:
+        print("error: %s" % e, file=sys.stderr)
+        return 2
     return 0
 
 
@@ -728,8 +757,24 @@ def main(argv=None):
     j.add_argument("--record", help="dir to save the real backend's replies as fake recordings")
     j.add_argument("--model")
     j.add_argument("--repo", default=REPO_ROOT, help=argparse.SUPPRESS)
+    ag = sub.add_parser("agreement", help="judge vs your approve/revise verdicts, with the gate line")
+    bm = sub.add_parser("benchmark", help="freeze your verdicted drafts / re-judge them into a separate output")
+    bm.add_argument("action", choices=["freeze", "run"])
+    for p in (ag, bm):
+        p.add_argument("--min-agreement", type=float, help="gate: agreement fraction (default 0.8)")
+        p.add_argument("--min-drafts", type=int, help="gate: judged drafts (default 20)")
+        p.add_argument("--min-events", type=int, help="gate: distinct events (default 3)")
+        p.add_argument("--repo", default=REPO_ROOT, help=argparse.SUPPRESS)
+    bm.add_argument("--yes", action="store_true")
+    bm.add_argument("--threshold", type=float)
+    bm.add_argument("--backend", choices=["claude", "fake"])
+    bm.add_argument("--fake-replies")
+    bm.add_argument("--record")
+    bm.add_argument("--model")
     a = ap.parse_args(argv)
     ws = Workspace(a.repo)
+    if a.cmd in ("agreement", "benchmark"):
+        return agreement_cli(ws, a)
     if not a.draft:
         return batch_cli(ws, a)
     if not a.shot:

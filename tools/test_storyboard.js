@@ -3071,7 +3071,7 @@ test("splitPath takes parts or slash strings", () => {
 const judgeStart = html.indexOf("/* ---------- Judgements (pure) ---------- */"), judgeEnd = html.indexOf("/* ---------- End judgements ---------- */");
 assert(judgeStart !== -1 && judgeEnd !== -1, "could not locate judgements markers in storyboard.html");
 const JM = new Function(html.slice(judgeStart, judgeEnd) +
-  "\nreturn { JUDGEMENT_SUFFIX, judgementFileFor, judgementFor, judgementState, orderDrafts, judgementScores, judgementProblems, judgementCorrection, shotCardsOf, briefKey, checklistWarning, editedChecklist, checklistStale, newCheckItem };")();
+  "\nreturn { draftTarget, feedbackKeyFor, feedbackTargetOf, DRAFT_VERDICTS, JUDGEMENT_SUFFIX, judgementFileFor, judgementFor, judgementState, orderDrafts, judgementScores, judgementProblems, judgementCorrection, shotCardsOf, briefKey, checklistWarning, editedChecklist, checklistStale, newCheckItem };")();
 
 test("judgements match drafts by stem, incl. _vN and _clean files", () => {
   const by = { "s1_v2.judgement.json": { verdict: "pass" }, "s1.judgement.json": { verdict: "fail" } };
@@ -3080,6 +3080,17 @@ test("judgements match drafts by stem, incl. _vN and _clean files", () => {
   assert.strictEqual(JM.judgementFor("s1_v2.png", by).verdict, "pass");
   assert.strictEqual(JM.judgementFor("s1_clean.png", by), null);
   assert.strictEqual(JM.judgementFor("s1_v2_clean.png", by), null);
+});
+
+test("per-draft feedback keys use the draft's repo path as target and round-trip", () => {
+  const t = JM.draftTarget("ev_S1_v2.png");
+  assert.strictEqual(t, "assets/reference-plates/ev_S1_v2.png");
+  const key = JM.feedbackKeyFor("ev", t);
+  assert.strictEqual(JM.feedbackTargetOf(key), t);
+  assert.strictEqual(JM.feedbackTargetOf(JM.feedbackKeyFor("ev", "assets/reference-plates/a__b.png")), "assets/reference-plates/a__b.png", "target containing __ survives");
+  assert.strictEqual(JM.feedbackTargetOf("ev__S1"), "S1", "shot/board targets unchanged");
+  assert.deepStrictEqual(JM.DRAFT_VERDICTS.map((v) => v[0]), ["approve", "revise"]);
+  assert.notStrictEqual(key, JM.feedbackKeyFor("ev", JM.draftTarget("ev_S1.png")), "each draft its own key");
 });
 
 test("judgement badge state: none, unjudged, stale, pass, fail", () => {

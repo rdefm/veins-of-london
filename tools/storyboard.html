@@ -1629,6 +1629,12 @@ function checkOddsBlock(opt, changed, restructure) {
     if (checklistIsStale || (curSha && j.draftSha && j.draftSha !== curSha)) return "stale";
     return j.verdict === "pass" || j.verdict === "fail" ? j.verdict : "unjudged";
   }
+  // Per-draft user verdicts live in the board's feedback.json with target = the draft's repo path; the in-memory key
+  // is `<eventId>__<target>`. A target may itself contain "__", so split on the first one only.
+  const draftTarget = (draftName) => "assets/reference-plates/" + draftName;
+  const feedbackKeyFor = (eventId, target) => `${eventId}__${target}`;
+  const feedbackTargetOf = (key) => key.slice(key.indexOf("__") + 2);
+  const DRAFT_VERDICTS = [["approve", "Approve"], ["revise", "Revise"]];
   const JUDGEMENT_LABEL = { pass: "pass", fail: "fail", unjudged: "unjudged", stale: "stale", none: "not judged" };
   // Draft file names in display order: ranked first (rank 1 = best), then the rest in file order; unjudged and not judged last.
   function orderDrafts(names, byFile) {
@@ -5297,7 +5303,7 @@ function checkOddsBlock(opt, changed, restructure) {
         if (old && isDirty(old)) b = old;
         else if (old && old.diskText === text) b.history = old.history;
         found.push(b);
-        for (const f of (await readJSON([...BOARDS_DIR, name, "feedback.json"])) || []) if (f && f.target) feedback[`${f.eventId}__${f.target}`] = f;
+        for (const f of (await readJSON([...BOARDS_DIR, name, "feedback.json"])) || []) if (f && f.target) feedback[feedbackKeyFor(f.eventId, f.target)] = f;
       }
     } catch { setNote("No .scratch/event-art/ folder yet. Ask Claude to storyboard an event."); }
     await loadPlates();
@@ -7175,7 +7181,7 @@ function checkOddsBlock(opt, changed, restructure) {
   }
 
   async function saveFeedback(b, target, verdict, note) {
-    feedback[`${b.eventId}__${target}`] = { eventId: b.eventId, round: b.round || 1, phase: b.phase || "storyboard",
+    feedback[feedbackKeyFor(b.eventId, target)] = { eventId: b.eventId, round: b.round || 1, phase: b.phase || "storyboard",
       target, verdict, note, at: Date.now() };
     const docs = Object.values(feedback).filter((f) => f.eventId === b.eventId).sort((x, y) => x.target.localeCompare(y.target));
     await writeFile([...(await boardDir(b)), "feedback.json"], JSON.stringify(docs, null, 2) + "\n");
@@ -7199,7 +7205,7 @@ function checkOddsBlock(opt, changed, restructure) {
     save.addEventListener("click", async () => {
       const b = shotBoard();
       save.disabled = true; status.textContent = "Saving…";
-      try { await saveFeedback(b, key.split("__")[1], chosen, ta.value.trim()); status.textContent = "Saved to feedback.json. Tell Claude you've reviewed."; }
+      try { await saveFeedback(b, feedbackTargetOf(key), chosen, ta.value.trim()); status.textContent = "Saved to feedback.json. Tell Claude you've reviewed."; }
       catch (e) { status.textContent = "Couldn't save: " + (e && e.message); }
       finally { save.disabled = false; }
     });
@@ -7303,7 +7309,8 @@ function checkOddsBlock(opt, changed, restructure) {
     const names = orderDrafts(filesFor(saveAs), jd.byFile);
     const list = el("ul", {}, ...names.map((n) => el("li", {}, imgFor(n, n),
       el("span", {}, el("span", { class: "fname", text: n }), el("br"), el("span", { class: "fstate ok", text: "In assets/reference-plates/" }),
-        judgementBlock(judgementFor(n, jd.byFile), jd.shas[n], checklistStale((jd.checklists || {})[target], judgementFor(n, jd.byFile)))))));
+        judgementBlock(judgementFor(n, jd.byFile), jd.shas[n], checklistStale((jd.checklists || {})[target], judgementFor(n, jd.byFile))),
+        sb ? verdictBlock(feedbackKeyFor(sb.eventId, draftTarget(n)), "Your verdict on this draft", DRAFT_VERDICTS) : null))));
     const status = el("span", { class: "status" });
     const choice = el("div", { class: "uprow" });
     const input = el("input", { type: "file", accept: "image/png,image/jpeg,image/webp", class: "vh" });

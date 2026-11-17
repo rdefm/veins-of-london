@@ -27,6 +27,20 @@ Finds drafts in `assets/reference-plates/` by the shot's `saveAs` stem (`stem`, 
 | `--threshold N`, `ART_JUDGE_THRESHOLD`, `_judge/config.json` `{"threshold": N}` | Score gate, default 3.0. |
 | `--model` | Passed to `claude --model`. |
 
+## Agreement and benchmark
+
+The Shots tab gives each draft an `approve`/`revise` verdict and note, saved to the board's `feedback.json` with target = the draft's repo path.
+
+```
+python tools/art_judge/judge.py agreement [--min-agreement 0.8 --min-drafts 20 --min-events 3]
+python tools/art_judge/judge.py benchmark freeze
+python tools/art_judge/judge.py benchmark run [--yes] [--backend fake ...]
+```
+
+`agreement`: `approve` = pass, `revise` = fail; `unjudged` judgements and other user verdicts are excluded. Prints overall and per-category agreement (a draft's category = its lowest score: brief, style or cast), disagreements (draft, judge, user, note, lowest score, failed checks) and a gate line (default >= 80% over >= 20 drafts from >= 3 events; override by flag or `_judge/config.json` `{"gate": {"minAgreement", "minDrafts", "minEvents"}}`).
+
+`benchmark freeze` snapshots user-verdicted judged drafts (image, board, checklist) into `_judge/benchmark/`. `benchmark run` re-judges them into `_judge/benchmark/runs/<time>/` only (live judgements, checklists and feedback are never written) and prints agreement beside the previous run.
+
 ## Tests
 
 ```
