@@ -30,7 +30,7 @@ const {
   cardImageName, freeImageName, freeResultImageName, setCardImage, eventImageDir, SHOT_FIELDS, serialiseBoard, setShotField, shotFieldText, addShot, deleteShot, PLATE_FIELDS, plateUsedBy, addPlate, deletePlate, setPlateField, setShotCards, setCardShot, newShotBoard,
   LIVE_EVENTS_DIR, proposalFileName, importBoard, blankBoard, duplicateBoard, boardCardLabel, promoteDraft, serialiseEvent,
   promoteForWrite, promoteSummary, shotBoardFor, boardCut, shotOnPath, workingCopyFor, liveHash, liveDrifted,
-  liveEventOptions, openOrImport, lintEvent, lintDraft, nothingFires, inboundRefs, inboundWarnings, promoteGate,
+  liveEventOptions, openOrImport, liveBoard, importMd, lintEvent, lintDraft, nothingFires, inboundRefs, inboundWarnings, promoteGate,
   OBS_ORES, obsIds, effectiveObservation, setCardObserve, addObservation, renameObservation, observationUses, deleteObservation, addObservationBlock, deleteObservationBlock, setObservationMiss, addObservationTier, deleteObservationTier, setObservationTier,
   parseItemCatalogue, itemChoices, optionTags, autoOfferItems, setExcludeItem, setOptionTag, conditionCells, optionMechanicsRows, setMechItemControl,
   itemEffectKind, setItemEffectKind, setEffectTag, setNextCheck, nonAlertEffects, alertMode, setAlertMode, setAlertCover, addAlertOp, removeAlertOp, alertWarnings, coverItems, setCoverText, setAlertEffects, setOtherEffects, setRaidEffects, newRaidOp, setRaidDepth, setGuardCount, nonManagedEffects, isRaidOp, securityCond, securityRead, setSecurityGate, siteWarnings, isFightOp, parseEnemyCatalogue, newFightOp, addFightGroup, removeFightGroup, setFightGroupSource, setFightGroupCount, setFightGroupLevel, setFightKitMode, setFightItem, setFightDest, setFightEffects, fightWarnings, draftHasSite, fightDests, siteScan,
@@ -48,7 +48,7 @@ const {
     " cardImageName, freeImageName, freeResultImageName, setCardImage, eventImageDir, SHOT_FIELDS, serialiseBoard, setShotField, shotFieldText, addShot, deleteShot, PLATE_FIELDS, plateUsedBy, addPlate, deletePlate, setPlateField, setShotCards, setCardShot, newShotBoard," +
     " LIVE_EVENTS_DIR, proposalFileName, importBoard, blankBoard, duplicateBoard, boardCardLabel, promoteDraft, serialiseEvent," +
     " promoteForWrite, promoteSummary, shotBoardFor, boardCut, shotOnPath, workingCopyFor, liveHash, liveDrifted," +
-    " liveEventOptions, openOrImport, lintEvent, lintDraft, nothingFires, inboundRefs, inboundWarnings, promoteGate, OBS_ORES, obsIds, effectiveObservation, setCardObserve, addObservation, renameObservation, observationUses, deleteObservation, addObservationBlock, deleteObservationBlock, setObservationMiss, addObservationTier, deleteObservationTier, setObservationTier," +
+    " liveEventOptions, openOrImport, liveBoard, importMd, lintEvent, lintDraft, nothingFires, inboundRefs, inboundWarnings, promoteGate, OBS_ORES, obsIds, effectiveObservation, setCardObserve, addObservation, renameObservation, observationUses, deleteObservation, addObservationBlock, deleteObservationBlock, setObservationMiss, addObservationTier, deleteObservationTier, setObservationTier," +
     " pickEntries, setPickOn, setPickObservation, setPickReason, addPickOre, deletePickOre, addPickTier, deletePickTier, setPickAtLeast, allLinks, obsLevels, pickQualifying, observedHolds };"
 )();
 
@@ -798,13 +798,33 @@ test("live drift: import fingerprints the live text; match, drift, post-promote 
   assert.strictEqual(dup.draft._liveHash, undefined);
 });
 
-test("liveEventOptions: un-imported import on pick, working copies show editing live, non-json skipped", () => {
-  const made = importBoard("intro.json", JSON.stringify({ id: "intro", cards: [{ type: "narration", text: "Hi." }] }), []);
-  const copy = parseProposal(made.file, made.md);
-  copy.eventId = "proposal:" + made.file;
-  const opts = liveEventOptions(["intro.json", "buyer.json", "README.md"], [copy, parseProposal("x.md", "# no block")].filter(Boolean));
-  assert.deepStrictEqual(opts.map((o) => [o.value, o.copy]), [[copy.eventId, true], ["live:buyer.json", false]]);
-  assert.ok(opts[0].label.includes("editing live"));
+test("liveEventOptions: every live file its own entry, each draft listed separately, non-json skipped", () => {
+  const text = JSON.stringify({ id: "intro", cards: [{ type: "narration", text: "Hi." }] });
+  const first = importBoard("intro.json", text, []);
+  const second = importBoard("intro.json", text, [first.file]);
+  const drafts = [first, second].map((m) => parseProposal(m.file, m.md));
+  const opts = liveEventOptions(["intro.json", "buyer.json", "README.md"], [...drafts, parseProposal("x.md", "# no block")].filter(Boolean));
+  assert.deepStrictEqual(opts.map((o) => [o.value, o.draft]), [["live:intro.json", false], ["live:buyer.json", false],
+    [drafts[0].eventId, true], [drafts[1].eventId, true]]);
+  assert.strictEqual(opts[0].label, "intro.json — live");
+  assert.strictEqual(opts[2].label, `${first.file} — draft of intro.json`);
+  assert.notStrictEqual(first.file, second.file);
+});
+
+test("liveBoard: in-memory, clean, editable; Save as draft text carries source + fingerprint, second one is a new name", () => {
+  const text = JSON.stringify({ id: "intro", cards: [{ type: "narration", text: "Hi." }] });
+  const lb = liveBoard("intro.json", text);
+  assert.strictEqual(lb.eventId, "live:intro.json");
+  assert.strictEqual(lb.saved, serialiseDraft(lb.draft));
+  lb.draft.branches.main.cards[0].text = "Changed.";
+  assert.notStrictEqual(lb.saved, serialiseDraft(lb.draft));
+  const a = importMd(lb.draft, "intro.json", []);
+  const b = importMd(lb.draft, "intro.json", [a.file]);
+  assert.notStrictEqual(a.file, b.file);
+  const back = parseProposal(a.file, a.md).draft;
+  assert.strictEqual(back._liveSource, "intro.json");
+  assert.strictEqual(back._liveHash, liveHash(text));
+  assert.strictEqual(back.branches.main.cards[0].text, "Changed.");
 });
 
 test("openOrImport: imports on first open, reuses the working copy after", () => {

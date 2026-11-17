@@ -4217,14 +4217,25 @@ function checkOddsBlock(opt, changed, restructure) {
     return !!draft && !!draft._liveHash && liveText != null && liveHash(liveText) !== draft._liveHash;
   }
   // A live flat event (data/events/<file> text) as named branches.
-  function importBoard(file, text, taken) {
+  function importDraft(file, text) {
     let ev;
     try { ev = JSON.parse(text); } catch (e) { throw new Error(`${file} doesn't parse: ${e.message}`); }
     if (!ev || !Array.isArray(ev.cards)) throw new Error(`${file} has no cards array`);
     const draft = legacyToDraft("id" in ev ? ev : { id: file.replace(/\.json$/, ""), ...ev });
     draft._liveSource = file;
     draft._liveHash = liveHash(text);
-    return { file: proposalFileName(draft.id, taken), md: proposalMd(`${draft.id} — imported from data/events/${file}`, draft) };
+    return draft;
+  }
+  const importMd = (draft, file, taken) => ({ file: proposalFileName(draft.id, taken), md: proposalMd(`${draft.id} — imported from data/events/${file}`, draft) });
+  function importBoard(file, text, taken) {
+    return importMd(importDraft(file, text), file, taken);
+  }
+  // An in-memory board for live event `file` (nothing written): an editable proposal-shaped board, clean as imported.
+  // Its draft carries the live source and fingerprint, so "Save as draft" writes importMd(draft, ...) as is.
+  function liveBoard(file, text) {
+    const draft = importDraft(file, text);
+    return { kind: "proposal", liveOnly: true, eventId: LIVE_PREFIX + file, file, title: file, logline: "", questions: [], cards: [],
+      draft, legacy: false, conv: new Map(), saved: serialiseDraft(draft), driftChecked: true };
   }
   // The proposal file already editing live event `file` (its draft's `_liveSource`), or null. files: [{name, md}].
   function workingCopyFor(file, files) {
@@ -4235,13 +4246,13 @@ function checkOddsBlock(opt, changed, restructure) {
     return null;
   }
   const LIVE_PREFIX = "live:";
-  // Picker entries for the "Live events" group: every live file, as its working copy's board id when one exists
-  // (labelled editing live) or as LIVE_PREFIX + file to import on selection. Non-.json names are skipped.
+  // Picker entries: every live file as its own "— live" entry (LIVE_PREFIX + file), and every draft working copy
+  // (proposal whose draft has a `_liveSource`) as its own "— draft of <file>" entry (draft: true). Non-.json names skipped.
   function liveEventOptions(liveFiles, proposals) {
-    return liveFiles.filter((f) => f.endsWith(".json")).map((f) => {
-      const copy = proposals.find((b) => b.draft && b.draft._liveSource === f);
-      return copy ? { value: copy.eventId, label: `${f} — editing live`, copy: true } : { value: LIVE_PREFIX + f, label: f, copy: false };
-    });
+    const live = liveFiles.filter((f) => f.endsWith(".json")).map((f) => ({ value: LIVE_PREFIX + f, label: `${f} — live`, draft: false }));
+    const drafts = proposals.filter((b) => b.draft && b.draft._liveSource && !b.liveOnly)
+      .map((b) => ({ value: b.eventId, label: `${b.file} — draft of ${b.draft._liveSource}`, draft: true }));
+    return live.concat(drafts);
   }
   // Opening live event `file`: its existing working copy ({ existing: proposal file }) or a fresh import ({ made }).
   // files: [{name, md}] of the proposals folder; taken: its file names.
@@ -5527,7 +5538,7 @@ function checkOddsBlock(opt, changed, restructure) {
     await loadJudgements(found);
     // A proposal with unsaved edits keeps its in-memory draft across reloads (Save checks the disk copy first);
     // one whose JSON block is unchanged on disk keeps its undo history.
-    const prev = new Map(boards.filter((b) => b.kind === "proposal" && b.draft).map((b) => [b.eventId, b]));
+    const prev = new Map(boards.filter((b) => b.kind === "proposal" && b.draft && !b.liveOnly).map((b) => [b.eventId, b]));
     const proposals = (await loadProposals()).map((b) => {
       const old = prev.get(b.eventId);
       if (!old) return b;
@@ -5536,7 +5547,8 @@ function checkOddsBlock(opt, changed, restructure) {
       return b;
     });
     for (const p of proposals) if (p.draft) { p.shotBoard = shotBoardFor(p.file, p.draft.id, found); proposalCards(p); }
-    boards = found.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).concat(proposals);
+    const liveOpen = boards.filter((b) => b.liveOnly);
+    boards = found.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).concat(proposals, liveOpen);
     undoLog = undoLog.filter((x) => boards.includes(x));
     setNote(boards.length ? "" : "No storyboards in .scratch/event-art/ or proposals in .scratch/writing-revamp/ yet.");
     const want = currentId && boards.some((b) => b.eventId === currentId) ? currentId
@@ -5645,14 +5657,16 @@ function checkOddsBlock(opt, changed, restructure) {
   function renderPicker() {
     const sel = $("board-select");
     const opt = (b) => el("option", { value: b.eventId, text: b.kind !== "proposal" ? b.eventId : b.file });
-    const live = liveEventOptions(liveFiles, boards.filter((b) => b.kind === "proposal"));
-    const copies = new Set(live.filter((o) => o.copy).map((o) => o.value));
+    const opts = liveEventOptions(liveFiles, boards.filter((b) => b.kind === "proposal"));
+    const copies = new Set(opts.filter((o) => o.draft).map((o) => o.value));
+    const live = opts.filter((o) => !o.draft), drafts = opts.filter((o) => o.draft);
     const groups = [["Storyboards", boards.filter((b) => b.kind !== "proposal").map(opt)],
-      ["Proposals", boards.filter((b) => b.kind === "proposal" && !copies.has(b.eventId)).map(opt)],
-      ["Live events", live.map((o) => el("option", { value: o.value, text: o.label }))]]
+      ["Proposals", boards.filter((b) => b.kind === "proposal" && !b.liveOnly && !copies.has(b.eventId)).map(opt)],
+      ["Live events", live.map((o) => el("option", { value: o.value, text: o.label }))],
+      ["Drafts of live events", drafts.map((o) => el("option", { value: o.value, text: o.label }))]]
       .filter(([, list]) => list.length).map(([label, list]) => el("optgroup", { label }, ...list));
     sel.replaceChildren(...groups);
-    sel.disabled = boards.length === 0 && live.length === 0;
+    sel.disabled = boards.length === 0 && opts.length === 0;
     if (currentId) sel.value = currentId;
   }
 
@@ -7058,12 +7072,13 @@ function checkOddsBlock(opt, changed, restructure) {
     $("editbar").hidden = !on;
     if (!on) return;
     const sb = proposal ? b.shotBoard : null;
-    $("save").title = proposal ? "Save the draft into the proposal's JSON block" + (sb ? " and shot edits to its board.json" : "") + " (Ctrl+S)"
+    $("save").textContent = b.liveOnly ? "Save as draft" : "Save";
+    $("save").title = b.liveOnly ? "Write these edits to a new draft file; the live event file is never written (Ctrl+S)" : proposal ? "Save the draft into the proposal's JSON block" + (sb ? " and shot edits to its board.json" : "") + " (Ctrl+S)"
       : "Save shot edits to board.json (Ctrl+S)";
     const dirty = isDirty(b) || (!!sb && isDirty(sb));
     $("save").disabled = !dirty;
     $("undo").disabled = !undoTarget();
-    $("promote").hidden = !proposal;
+    $("promote").hidden = !proposal || !!b.liveOnly;
     $("promote").disabled = isDirty(b);
     if (proposal && b.driftChecked !== true) checkDrift(b);
     $("drift").hidden = !(proposal && b.drift);
@@ -7224,6 +7239,7 @@ function checkOddsBlock(opt, changed, restructure) {
   async function saveBoard() {
     const b = board(); if (!b) return;
     if (b.kind !== "proposal") { saveShotBoard(b); return; }
+    if (b.liveOnly) { await saveLiveAsDraft(b); return; }
     if (isDirty(b)) await saveProposal();
     if (b.shotBoard && isDirty(b.shotBoard)) await saveShotBoard(b.shotBoard);
   }
@@ -7244,6 +7260,22 @@ function checkOddsBlock(opt, changed, restructure) {
       msg = `Saved ${new Date().toLocaleTimeString()} to ${b.eventId}/board.json`;
     } catch (e) { msg = "Couldn't save: " + (e && e.message); }
     renderEditBar(msg);
+  }
+  // "Save as draft" on a live board: writes a new, uniquely named proposal (never the live file) and opens it.
+  async function saveLiveAsDraft(b) {
+    if (!isDirty(b)) return;
+    if (!writableProposal(PROPOSALS_DIR)) { renderEditBar("Refusing to save outside .scratch/writing-revamp/."); return; }
+    $("save").disabled = true;
+    try {
+      const made = importMd(b.draft, b.draft._liveSource, await fileNames(PROPOSALS_DIR, /./));
+      if (await readText([...PROPOSALS_DIR, made.file]) != null) throw new Error(`${made.file} already exists`);
+      await writeFile([...PROPOSALS_DIR, made.file], made.md);
+      boards = boards.filter((x) => x !== b);
+      undoLog = undoLog.filter((x) => x !== b);
+      await loadAll();
+      selectBoard(PROPOSAL_PREFIX + made.file);
+      renderEditBar(`Saved as draft ${made.file}`);
+    } catch (e) { renderEditBar("Couldn't save as draft: " + (e && e.message)); }
   }
   async function saveProposal() {
     const b = board(); if (!isDirty(b)) return;
@@ -7359,7 +7391,7 @@ function checkOddsBlock(opt, changed, restructure) {
     $("nb-id-wrap").hidden = nbMode === "import";
     $("nb-keep-wrap").hidden = !dup;
     $("nb-source-label").textContent = dup ? "Proposal to copy" : "Live event (data/events/)";
-    const names = dup ? boards.filter((b) => b.kind === "proposal" && !b.error).map((b) => b.file) : nbLive;
+    const names = dup ? boards.filter((b) => b.kind === "proposal" && !b.liveOnly && !b.error).map((b) => b.file) : nbLive;
     $("nb-source").replaceChildren(...names.map((n) => el("option", { value: n, text: n })));
   }
   // Builds the new proposal from what is on disk now, writes it under .scratch/writing-revamp/ (never over an
@@ -8296,25 +8328,18 @@ function checkOddsBlock(opt, changed, restructure) {
     renderPicker(); renderBoard();
   }
 
-  // Picker choice of an un-imported live event: import it (never over an existing file) and open the copy.
+  // Picker choice of a live event: read it into an in-memory editable board (nothing is written).
   async function openLiveEvent(file) {
     try {
-      const taken = await fileNames(PROPOSALS_DIR, /./);
       const text = await readText([...LIVE_EVENTS_DIR, file]);
       if (text == null) throw new Error(`couldn't read ${file}`);
-      const files = [];
-      for (const name of taken) if (name.endsWith(".md")) { const md = await readText([...PROPOSALS_DIR, name]); if (md != null) files.push({ name, md }); }
-      const r = openOrImport(file, text, files, taken);
-      const name = r.existing || r.made.file;
-      if (r.made) {
-        if (!writableProposal(PROPOSALS_DIR)) throw new Error("refusing to write outside .scratch/writing-revamp/");
-        if (await readText([...PROPOSALS_DIR, name]) != null) throw new Error(`${name} already exists`);
-        await writeFile([...PROPOSALS_DIR, name], r.made.md);
-      }
-      await loadAll();
-      selectBoard(PROPOSAL_PREFIX + name);
+      const lb = liveBoard(file, text);
+      lb.shotBoard = null;
+      proposalCards(lb);
+      boards = boards.filter((x) => !(x.liveOnly && x.eventId === lb.eventId)).concat(lb);
+      selectBoard(lb.eventId);
       showTab("storyboard");
-      renderEditBar(r.made ? `Imported ${file} as ${name}` : `Opened ${name}`);
+      renderEditBar(`Opened ${file} (live). Edits stay in memory until Save as draft.`);
     } catch (e) {
       renderPicker();
       renderEditBar("Couldn't open live event: " + (e && e.message));
@@ -8821,7 +8846,7 @@ function checkOddsBlock(opt, changed, restructure) {
   }
   const onQuestsTab = () => { const p = $("panel-quests"); return !!p && !p.hidden; };
   // Ids of the storyboard drafts (proposal boards); a board's eventId is its file key, the draft's own id is the event id.
-  const draftEventIds = () => new Set(boards.filter((b) => b.kind === "proposal" && b.draft && b.draft.id).map((b) => b.draft.id));
+  const draftEventIds = () => new Set(boards.filter((b) => b.kind === "proposal" && !b.liveOnly && b.draft && b.draft.id).map((b) => b.draft.id));
   const knownEventIds = () => new Set([...liveEvents, ...draftEventIds()]);
   const sheetPlans = () => plans.filter((e) => e.plan && !e.own.length).map((e) => e.plan);
   const MECH_LABEL = { placeholder: "◌ Placeholder", hardcoded: "⚙︎ Hard-coded", data: "● Data-driven" };
@@ -8989,7 +9014,7 @@ function checkOddsBlock(opt, changed, restructure) {
   // ---- Event entries: open, create draft, drag to reorder, add dialogs.
   // Draft first (it may be the working copy of a live event), else the live file; the storyboard tab opens on it.
   async function openEventEntry(id, state) {
-    const b = boards.find((x) => x.kind === "proposal" && x.draft && x.draft.id === id);
+    const b = boards.find((x) => x.kind === "proposal" && !x.liveOnly && x.draft && x.draft.id === id);
     if (b) { if (!leaveBoard()) return; selectBoard(b.eventId); showTab("storyboard"); return; }
     if (state === "live" && leaveBoard()) await openLiveEvent(id + ".json");
   }
@@ -9033,7 +9058,7 @@ function checkOddsBlock(opt, changed, restructure) {
   }
   function openPickEventDialog(plan, quest, editEvents) {
     const used = new Set(sheetPlans().flatMap((p) => p.quests.flatMap((q) => q.events.map((x) => x.id))));
-    const drafts = boards.filter((b) => b.kind === "proposal" && b.draft && b.draft.id && !used.has(b.draft.id));
+    const drafts = boards.filter((b) => b.kind === "proposal" && !b.liveOnly && b.draft && b.draft.id && !used.has(b.draft.id));
     const draftIds = new Set(drafts.map((b) => b.draft.id));
     const lives = liveEvents.filter((id) => !used.has(id) && !draftIds.has(id));
     const opt = (id, title, tag) => {
