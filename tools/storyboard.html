@@ -2255,11 +2255,13 @@ function checkOddsBlock(opt, changed, restructure) {
     return { token };
   }
   async function useServer(token) {
-    $("open").hidden = true;
-    if (!token) { setNote("This server needs its access token. Open the URL it printed in its terminal."); return; }
+    // No (or stale) token: fall back to the folder picker so the page is never a dead end.
+    const fallback = (msg) => { setNote(msg + " Or open the repo folder."); startFolderMode(); };
+    if (!token) { fallback("This server needs its access token (open the URL printed in its terminal)."); return; }
     const backend = serverBackend(token, showSave);
     try { await backend.list(""); }
-    catch (e) { setNote(e instanceof TokenError ? e.message : "Couldn't reach the server: " + (e && e.message)); return; }
+    catch (e) { fallback(e instanceof TokenError ? e.message : "Couldn't reach the server: " + (e && e.message)); return; }
+    $("open").hidden = true;
     root = true; storage = backend;
     $("folder-name").textContent = `veins-of-london · server mode · ${location.host}`;
     await openRepo();
@@ -4301,7 +4303,7 @@ function checkOddsBlock(opt, changed, restructure) {
     out.push(...lintObservations(id, def, ctx));
     cards.forEach((card, i) => {
       if (lintHas(card, "observe") && card.observe != null && !lintHas(def.observations || {}, card.observe)) out.push(`${id}: card ${i} observe '${gdStr(card.observe)}' is not defined`);
-      if (typeof card.label === "string") out.push(...lintLabel(id, i, card.label, atBlock));
+      if (typeof card.label === "string") out.push(...lintLabel(id, i, card.label, atBlock, !!def.fillFromContext));
       out.push(...lintCardRoute(id, i, card, cards, ctx));
       const choices = Array.isArray(card.choices) ? card.choices : [];
       if (choices.length > refs.maxOptions) out.push(`${id}: card ${i} has ${choices.length} options (max ${refs.maxOptions})`);
@@ -4343,9 +4345,9 @@ function checkOddsBlock(opt, changed, restructure) {
     if (!refs || !refs.inbound || typeof refs.inbound !== "object") return false;
     return !(refs.inbound[event.id] || []).length;
   }
-  function lintLabel(id, i, label, atBlock) {
+  function lintLabel(id, i, label, atBlock, contextFilled = false) {
     const out = [], where = `${id}: card ${i} label '${label}'`;
-    for (const m of label.matchAll(/\{([^}]*)\}/g)) if (!LINT_LABEL_TOKENS.includes(m[1])) out.push(`${where} has unknown token {${m[1]}}`);
+    for (const m of label.matchAll(/\{([^}]*)\}/g)) if (!contextFilled && !LINT_LABEL_TOKENS.includes(m[1])) out.push(`${where} has unknown token {${m[1]}}`);
     const words = label.replace(/\{([^}]*)\}/g, "").toLowerCase();
     if (LINT_DAY_PATTERNS.some((p) => new RegExp(p).test(words))) out.push(`${where} hard-codes a day; use {weekday}/{date}`);
     for (const word of Object.keys(LINT_BLOCK_WORDS)) {
@@ -4428,6 +4430,7 @@ function checkOddsBlock(opt, changed, restructure) {
   }
   function lintCondition(where, c, ctx) {
     const refs = ctx.refs;
+    if (lintHas(c, "all")) return (c.all || []).flatMap((part) => lintCondition(where, part, ctx));
     if (lintHas(c, "item")) return refs.items.includes(c.item) ? [] : [`${where}: unknown item ${gdStr(c.item)}`];
     if (lintHas(c, "flag")) return ctx.flags.has(c.flag) ? [] : [`${where}: unknown flag ${gdStr(c.flag)}`];
     if (lintHas(c, "relation")) return refs.contacts.includes(c.relation) ? [] : [`${where}: unknown contact ${gdStr(c.relation)}`];
@@ -4440,6 +4443,25 @@ function checkOddsBlock(opt, changed, restructure) {
     if (lintHas(c, "context_flag")) return typeof c.context_flag === "string" && c.context_flag !== "" ? [] : [`${where}: context_flag needs a non-empty key`];
     if (lintHas(c, "choice")) return lintChoiceRef(where, c.choice, ctx);
     if (lintHas(c, "observed")) return lintObservedRef(where, c.observed, ctx);
+    const tiers = refs.alertTiers;
+    if (lintHas(c, "alert")) {
+      const a = c.alert;
+      if (!lintIsObj(a) || !(lintHas(a, "atLeast") || lintHas(a, "atMost"))) return [`${where}: alert needs atLeast or atMost`];
+      for (const key of ["atLeast", "atMost"]) {
+        if (!lintHas(a, key)) continue;
+        const n = Math.trunc(Number(a[key]));
+        if (n < 0 || n >= tiers) return [`${where}: alert ${key} ${gdStr(a[key])} outside 0..${tiers - 1}`];
+      }
+      return [];
+    }
+    if (lintHas(c, "security")) {
+      const s = c.security;
+      return lintIsObj(s) && refs.securityFeatures.includes(s.feature === undefined ? "" : s.feature) ? [] : [`${where}: unknown security feature ${gdJson(s)}`];
+    }
+    if (lintHas(c, "activeEffect")) return refs.activeEffects.includes(String(c.activeEffect)) ? [] : [`${where}: unknown activeEffect ${gdStr(c.activeEffect)}`];
+    if (lintHas(c, "wardTriggered")) return typeof c.wardTriggered === "boolean" ? [] : [`${where}: wardTriggered must be a bool`];
+    if (lintHas(c, "reinforcements")) return typeof c.reinforcements === "boolean" || c.reinforcements === "none" ? [] : [`${where}: reinforcements must be a bool or "none"`];
+    if (lintHas(c, "alertByTier")) return Array.isArray(c.alertByTier) && c.alertByTier.length === tiers ? [] : [`${where}: alertByTier needs ${tiers} entries`];
     return [`${where}: unknown condition ${gdJson(c)}`];
   }
   function lintEventInfoFor(eventId, ctx) {
@@ -4792,6 +4814,7 @@ function checkOddsBlock(opt, changed, restructure) {
     last_pitcher: { kind: "text", choices: "voices" },
     at_war: { kind: "bool" }, enemy_weariness: { kind: "number" }, my_weariness: { kind: "number" }, enemy: { kind: "text", choices: "factionsOrNobody" },
     rival: { kind: "text", choices: "factionsOrIndependents" }, contested: { kind: "text" }, ore: { kind: "text" }, calc: { kind: "text" }, label: { kind: "text" }, pitcher: { kind: "text" },
+    faction: { kind: "text" }, sales_week: { kind: "number" }, sales_target: { kind: "number" },
   };
   // Plain-language meaning of each fact and of the builder's own controls, shown by the "?" buttons (R§3.15 "Meeting facts").
   const PROSE_HELP = {
@@ -4813,6 +4836,9 @@ function checkOddsBlock(opt, changed, restructure) {
     ore: ["Ore name", "The goal's ore as written in prose, e.g. Time. \"the ore\" when the goal has none."],
     calc: ["Calc", "The goal's ore as slang, e.g. \"time calc\"."],
     label: ["Goal label", "The goal template's id."],
+    faction: ["Goal faction", "Display name of the faction the goal is aimed at; \"them\" when the goal names none."],
+    sales_week: ["Sales this week", "Whole pounds of sales in the current board week, from the objectives sales baseline."],
+    sales_target: ["Sales target", "Whole pounds the sales goal asks for."],
     pitcher: ["Pitcher", "The pitching voice's display name, e.g. Archie."],
     at_war: ["At war", "True when you are at war with at least one faction."],
     enemy: ["Enemy", "Name of the faction you are at war with that has the highest weariness. \"nobody\" when you are at peace."],
@@ -4965,9 +4991,13 @@ function checkOddsBlock(opt, changed, restructure) {
     recipe_below_master: { params: { rank: "number" }, help: "Some recipe's best rank is below rank." },
     recipe_rank_at_least: { params: { rank: "number" }, help: "At least one recipe is at rank or better." },
     yield_baseline_above: { params: { amount: "number" }, help: "The yield baseline is above amount." },
+    sales_baseline_above: { params: { amount: "number" }, help: "The sales baseline is above amount." },
     player_veins_at_least: { params: { minCount: "number" }, help: "The player owns at least minCount veins." },
     ore_types_owned_between: { params: { minTypes: "number", maxTypes: "number" }, help: "Online ore types are at least minTypes and below maxTypes." },
     spine_done: { params: { beat: "text" }, help: "The story beat is done." },
+    rung_done: { params: { ladder: "text", rung: "text" }, help: "That ladder's rung has been cleared." },
+    overlap_exists: { params: {}, help: "The player has an overlap with a rival (includePartners / clash flags are edited in board.json)." },
+    all_of: { params: {}, help: "Every nested condition holds. The nested conditions are edited in board.json." },
   };
   function boardFindRung(board, rungId) {
     for (const lad of Object.values((board && board.ladders) || {})) for (const r of lad.rungs || []) if (r.id === rungId) return r;

@@ -90,6 +90,9 @@ static func export_refs() -> Dictionary:
 		"districts": districts, "barometer": barometer,
 		"rungs": RecipeKnowledge.rungs(), "procedures": procedures,
 		"ores": GameData.OBSERVATION["oreOrder"], "maxOptions": MAX_OPTIONS,
+		"alertTiers": (GameData.EVENT_CHECKS["alert"]["tiers"] as Array).size(),
+		"securityFeatures": (GameData.RAID_SECURITY["featureNames"] as Dictionary).keys(),
+		"activeEffects": ActiveEffects.usable_items(),
 		"events": events, "violations": violations, "inbound": _inbound(event_keys),
 	}
 

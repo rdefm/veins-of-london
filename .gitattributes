@@ -1,0 +1,3 @@
+# Tools and tests compare bytes: keep data/prose files LF on every platform.
+*.json text eol=lf
+*.md text eol=lf

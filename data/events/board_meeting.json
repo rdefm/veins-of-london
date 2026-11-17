@@ -2,13 +2,7 @@
   "id": "board_meeting",
   "fillFromContext": true,
   "cards": [
-    {
-      "key": "minutes",
-      "type": "narration",
-      "label": "{venue}",
-      "speaker": null,
-      "text": "Monday. Archie has the minutes on his phone. {minutes}"
-    },
+    { "key": "minutes", "type": "narration", "label": "{venue}", "speaker": null, "text": "Monday. Archie has the minutes on his phone. {minutes}" },
     { "key": "explainer", "type": "splice" },
     { "key": "rivalMove", "type": "splice" },
     { "key": "debrief", "type": "splice" },
@@ -18,42 +12,19 @@
     { "key": "slot2", "type": "splice" },
     { "key": "clash", "type": "splice" },
     {
-      "key": "vote",
-      "type": "choice",
-      "label": null,
-      "speaker": null,
-      "text": "{voteText}",
-      "choicesFromContext": "agenda",
+      "key": "vote", "type": "choice", "label": null, "speaker": null, "text": "{voteText}", "choicesFromContext": "agenda",
       "choices": [
         {
           "id": "skip",
           "label": "Leave it to Archie",
           "exit": true,
-          "effects": [
-            {
-              "op": "board_skip"
-            }
-          ],
+          "effects": [{ "op": "board_skip" }],
           "result_text": "\"You weren't there, so you're doing mine.\"",
           "goto": "aob"
         }
       ]
     },
-    {
-      "key": "aob",
-      "type": "narration",
-      "label": null,
-      "speaker": null,
-      "text": "{aob}"
-    }
+    { "key": "aob", "type": "narration", "label": null, "speaker": null, "text": "{aob}" }
   ],
-  "on_complete": [
-    {
-      "op": "set_screen",
-      "screen": "phone"
-    },
-    {
-      "op": "open_morning_accounts"
-    }
-  ]
+  "on_complete": [{ "op": "set_screen", "screen": "phone" }, { "op": "open_morning_accounts" }]
 }

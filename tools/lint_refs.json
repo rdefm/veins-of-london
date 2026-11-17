@@ -1,4 +1,12 @@
 {
+	"activeEffects": [
+		"beALady",
+		"prophetsBreath",
+		"navvysDraught",
+		"happyAccident",
+		"secondImpression"
+	],
+	"alertTiers": 3,
 	"barometer": {
 		"economic": [
 			"boom",
@@ -1816,7 +1824,7 @@
 					"minutes"
 				],
 				"kind": "data",
-				"sha": "3b0d062e422eeddc27c7ce40b5d52416020b2ab786973e33785b14a42ec893a5"
+				"sha": "7e03ad4ceff8c672cb96bcdde226b651ac77cbf17baa0cab5ce5927b684e2968"
 			},
 			{
 				"file": "tests/test_board_meetings.gd",
@@ -4713,6 +4721,22 @@
 		"hint1",
 		"hint2",
 		"master"
+	],
+	"securityFeatures": [
+		"tier",
+		"locks",
+		"ward",
+		"wardType",
+		"guards",
+		"strength",
+		"cameras",
+		"alarm",
+		"weakWindow",
+		"softPanel",
+		"fireEscape",
+		"neighbourArch",
+		"cellarFlap",
+		"cameraZone"
 	],
 	"violations": {}
 }
