@@ -189,6 +189,11 @@ def load_style(ws):
     return [p for p in images if os.path.isfile(p)], s.get("card") or ""
 
 
+def style_hash(ws):
+    images, card = load_style(ws)
+    return sha_text(json.dumps([[rel(ws, p), sha_file(p)] for p in images] + [card], ensure_ascii=False))
+
+
 # ---------- checklist ----------
 
 CHECKLIST_SCHEMA = {
@@ -437,8 +442,8 @@ def judge_draft(ws, backend, event_id, shot_id, draft, threshold=DEFAULT_THRESHO
         metrics = dict(size=size, **measure(ws, im.convert("RGB")))
     out = {
         "schema": SCHEMA_VERSION, "eventId": event_id, "shotId": shot_id, "draft": rel(ws, draft),
-        "draftSha": sha_file(draft), "briefHash": brief_hash(board, shot), "rulesHash": sha_text("[]"),
-        "model": backend.model_used, "judgedAt": now_iso(), "checks": [], "scores": {},
+        "draftSha": sha_file(draft), "briefHash": brief_hash(board, shot), "styleHash": style_hash(ws),
+        "rulesHash": sha_text("[]"), "model": backend.model_used, "judgedAt": now_iso(), "checks": [], "scores": {},
         "metrics": metrics, "verdict": "unjudged", "rank": None, "correctionPrompt": None,
     }
     path = judgement_path(ws, event_id, draft)
@@ -478,6 +483,106 @@ def judge_draft(ws, backend, event_id, shot_id, draft, threshold=DEFAULT_THRESHO
     return out
 
 
+# ---------- batch: discovery, staleness, rank ----------
+
+IMG_RE = re.compile(r"\.(png|jpe?g|webp)$", re.I)
+
+
+def find_drafts(ws, shot):
+    """Draft files on disk for a shot's saveAs stem: stem, stem_vN, and _clean derivatives (storyboard filesFor)."""
+    save_as = shot.get("saveAs")
+    if not save_as:
+        return []
+    stem = os.path.splitext(save_as.replace("\\", "/").split("/")[-1])[0]
+    pat = re.compile("^" + re.escape(stem) + r"(_v(\d+))?(_clean)?$")
+    d = os.path.join(ws.repo, "assets", "reference-plates")
+    found = []
+    for n in os.listdir(d) if os.path.isdir(d) else []:
+        if not IMG_RE.search(n):
+            continue
+        m = pat.match(os.path.splitext(n)[0])
+        if m:
+            found.append((int(m.group(2) or 1), 1 if m.group(3) else 0, n))
+    return [os.path.join(d, n) for _, _, n in sorted(found)]
+
+
+def stale_reason(ws, board, shot, draft, style_h):
+    """Why a draft needs (re)judging, or None when its judgement is current."""
+    j = read_json(judgement_path(ws, board["eventId"], draft))
+    if not isinstance(j, dict):
+        return "new"
+    if j.get("verdict") == "unjudged":
+        return "unjudged"
+    if j.get("draftSha") != sha_file(draft):
+        return "draft changed"
+    if j.get("briefHash") != brief_hash(board, shot):
+        return "brief changed"
+    if j.get("styleHash") != style_h:
+        return "style changed"
+    return None
+
+
+def rank_key(j, name):
+    if j.get("verdict") not in ("pass", "fail"):
+        return (1, 0, 0.0, 0.0, name)
+    sc = j.get("scores") or {}
+    vals = [sc.get("brief", 0), sc.get("style", 0)]
+    vals += [v for v in (sc.get("cast") or {}).values() if isinstance(v, (int, float))]
+    return (0, 0 if j["verdict"] == "pass" else 1, -min(vals), -sum(vals) / len(vals), name)
+
+
+def rank_shot(ws, event_id, drafts):
+    """Rank a shot's takes (pass before fail, then best weakest score, then mean, then file name; unjudged last)."""
+    items = []
+    for d in drafts:
+        p = judgement_path(ws, event_id, d)
+        j = read_json(p)
+        if isinstance(j, dict):
+            items.append((rank_key(j, os.path.basename(d)), p, j))
+    items.sort(key=lambda x: x[0])
+    for n, (_, p, j) in enumerate(items, 1):
+        if j.get("rank") != n:
+            j["rank"] = n
+            ws.write_json(p, j)
+    return [(j["draft"], j["rank"]) for _, _, j in items]
+
+
+def plan_batch(ws, event_id, shot_ids=None):
+    """Returns (board, jobs, calls): jobs are (shot, draft, reason); calls estimates model calls."""
+    board = load_board(ws, event_id)
+    shots = [find_shot(board, s) for s in shot_ids] if shot_ids else list(board.get("shots") or [])
+    sh = style_hash(ws)
+    jobs, calls = [], 0
+    for shot in shots:
+        todo = []
+        for d in find_drafts(ws, shot):
+            r = stale_reason(ws, board, shot, d, sh)
+            if r:
+                todo.append((shot, d, r))
+        if todo:
+            saved = read_json(checklist_path(ws, event_id, shot["id"]))
+            if not (isinstance(saved, dict) and saved.get("briefHash") == brief_hash(board, shot)):
+                calls += 1
+        jobs += todo
+        calls += len(todo)
+    return board, jobs, calls
+
+
+def judge_batch(ws, backend, event_id, shot_ids=None, threshold=DEFAULT_THRESHOLD, confirm=None):
+    """Judge new/stale drafts, then rank every shot's takes. `confirm(calls)` may veto a multi-call run."""
+    board, jobs, calls = plan_batch(ws, event_id, shot_ids)
+    if calls > 1 and confirm is not None and not confirm(calls):
+        raise JudgeError("cancelled")
+    results = [judge_draft(ws, backend, event_id, shot["id"], d, threshold) for shot, d, _ in jobs]
+    shots = [find_shot(board, s) for s in shot_ids] if shot_ids else list(board.get("shots") or [])
+    ranks = {}
+    for shot in shots:
+        drafts = find_drafts(ws, shot)
+        if drafts:
+            ranks[shot["id"]] = rank_shot(ws, event_id, drafts)
+    return results, ranks, calls
+
+
 # ---------- cli ----------
 
 def resolve_threshold(ws, flag):
@@ -500,13 +605,36 @@ def make_backend(ws, name, fake_dir, record_dir, model):
     raise JudgeError("unknown backend %r (claude|fake)" % name)
 
 
+def batch_cli(ws, a):
+    def confirm(calls):
+        if a.yes:
+            return True
+        try:
+            return input("%d model calls. Continue? [y/N] " % calls).strip().lower() in ("y", "yes")
+        except EOFError:
+            return False
+    try:
+        backend = make_backend(ws, a.backend, a.fake_replies, a.record, a.model)
+        results, ranks, calls = judge_batch(ws, backend, a.board, [a.shot] if a.shot else None,
+                                            resolve_threshold(ws, a.threshold), confirm)
+    except JudgeError as e:
+        print("error: %s" % e, file=sys.stderr)
+        return 2
+    print("judged %d draft(s), ~%d model call(s)" % (len(results), calls))
+    for sid, lst in ranks.items():
+        for draft, r in lst:
+            print("  %s #%d %s" % (sid, r, draft))
+    return 0
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(prog="judge")
     sub = ap.add_subparsers(dest="cmd", required=True)
     j = sub.add_parser("judge", help="judge one draft image")
-    j.add_argument("--draft", required=True)
+    j.add_argument("--draft", help="one draft; omit to judge every new/stale draft of --shot (or the whole board)")
     j.add_argument("--board", required=True, help="event id (folder under .scratch/event-art)")
-    j.add_argument("--shot", required=True)
+    j.add_argument("--shot")
+    j.add_argument("--yes", action="store_true", help="skip the call-count confirmation")
     j.add_argument("--threshold", type=float)
     j.add_argument("--backend", choices=["claude", "fake"])
     j.add_argument("--fake-replies", help="dir of recorded replies for the fake backend")
@@ -515,6 +643,11 @@ def main(argv=None):
     j.add_argument("--repo", default=REPO_ROOT, help=argparse.SUPPRESS)
     a = ap.parse_args(argv)
     ws = Workspace(a.repo)
+    if not a.draft:
+        return batch_cli(ws, a)
+    if not a.shot:
+        print("error: --draft needs --shot", file=sys.stderr)
+        return 2
     try:
         backend = make_backend(ws, a.backend, a.fake_replies, a.record, a.model)
         out = judge_draft(ws, backend, a.board, a.shot, os.path.abspath(a.draft), resolve_threshold(ws, a.threshold))

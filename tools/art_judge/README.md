@@ -10,6 +10,15 @@ python tools/art_judge/judge.py judge --draft assets/reference-plates/<draft>.pn
 
 Writes `.scratch/event-art/<eventId>/judgements/<draft stem>.judgement.json` and the shot's checklist `.scratch/event-art/<eventId>/checklists/<S#>.checklist.json`. Nothing outside `.scratch/event-art/` is ever written.
 
+### Batch
+
+```
+python tools/art_judge/judge.py judge --board <eventId> --shot <S#> [--yes]   # every take of one shot
+python tools/art_judge/judge.py judge --board <eventId> [--yes]               # every shot with drafts
+```
+
+Finds drafts in `assets/reference-plates/` by the shot's `saveAs` stem (`stem`, `stem_vN`, `_clean`). Judges those that are new, unjudged (retry) or stale: `draftSha`, `briefHash` or `styleHash` changed. Current ones cost no calls. With more than one model call it prints the count and asks to continue (`--yes` skips). Then ranks each shot's takes into `rank` (1 = best): pass before fail, higher weakest score, higher mean, file name; `unjudged` last.
+
 | Flag / env | Meaning |
 |---|---|
 | `--backend claude\|fake`, `ART_JUDGE_BACKEND` | Default `claude` (Claude CLI headless, `-p --output-format json`, Read tool only, uses your plan). `fake` replays recordings. |
