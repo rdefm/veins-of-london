@@ -5,84 +5,85 @@
   "draft": "assets/reference-plates/mile_end_yard_S1_archie_wall_lean.png",
   "draftSha": "bc5261e745feb1320d986e33afca8601252e9ad5cc997915362b1e36c61ba768",
   "briefHash": "b7e5bf32b8dda827",
+  "styleHash": "1ba004d9d81aed00",
   "rulesHash": "4f53cda18c2baa0c",
   "model": "claude-cli-default",
-  "judgedAt": "2026-11-17T08:55:08Z",
+  "judgedAt": "2026-11-17T10:41:30Z",
   "checks": [
     {
       "id": "cast-Archie",
       "result": "pass",
-      "why": "Archie is visible leaning on the right wall."
+      "why": "Archie is on screen leaning on the right wall."
     },
     {
       "id": "cast-only",
       "result": "pass",
-      "why": "Only Archie appears as a figure."
+      "why": "No one else is visible."
     },
     {
       "id": "m1",
       "result": "pass",
-      "why": "One person in frame, no one else."
+      "why": "Exactly one person in frame."
     },
     {
       "id": "m2",
       "result": "pass",
-      "why": "Brown tousled hair, beard, olive overshirt, white tee, navy jeans and white trainers match the sprite master."
+      "why": "Brown tousled hair, beard, olive overshirt, white tee, navy jeans and white trainers all match the sprite master."
     },
     {
       "id": "m3",
       "result": "pass",
-      "why": "He leans on the right brick wall, right of centre."
+      "why": "He leans against the right-hand brick wall, right side of frame."
     },
     {
       "id": "m4",
       "result": "pass",
-      "why": "One leg is bent with the foot flat against the wall, and the other leg is straight on the ground."
+      "why": "The near leg is bent with the foot flat against the wall. The other leg is straight."
     },
     {
       "id": "m5",
       "result": "pass",
-      "why": "He is loose and relaxed with one hand in his pocket."
+      "why": "One hand is in his pocket and his posture is loose and relaxed."
     },
     {
       "id": "m6",
-      "result": "pass",
-      "why": "A music note beside his mouth and pursed lips read as whistling. The pursing is small at this scale."
+      "result": "unsure",
+      "why": "A music note signals whistling, but the lips are too small in profile to confirm pursing."
     },
     {
       "id": "m7",
       "result": "pass",
-      "why": "He is in profile, looking left toward the yard mouth, not at the camera or the bag."
+      "why": "His profile gaze is directed left and forward, toward the yard mouth."
     },
     {
       "id": "m8",
-      "result": "pass",
-      "why": "A thin white plastic bag hangs from his hand, with no logo."
+      "result": "fail",
+      "why": "The white bag is gripped in his hand and hangs down. It is not clearly hooked on a finger. It has no logo."
     },
     {
       "id": "m9",
-      "result": "unsure",
-      "why": "The bag is pale and there is no clear brown cardboard corner showing through it."
+      "result": "fail",
+      "why": "No brown cardboard corner shows through the bag, which reads plain white."
     },
     {
       "id": "m10",
       "result": "pass",
-      "why": "He is full-length, mid-yard, at a scale consistent with the room."
+      "why": "He is full-length, about 630px tall, at the room's scale and a few metres from the camera."
     },
     {
       "id": "m11",
       "result": "fail",
-      "why": "The cardboard box at the right wall base is removed, and the small wall segment and kerb detail near the right mid-wall changed. The rest matches the plate."
+      "why": "The cardboard box and some wall detail on the right of the plate are gone or altered. The size and camera angle match."
     },
     {
       "id": "m12",
-      "result": "pass",
-      "why": "The only vehicle is a white van parked in the plate's background street, which is present in the blank plate. No car is added."
+      "result": "fail",
+      "why": "A white van is still parked at the yard mouth. It is in the plate, but the brief says no car should be visible."
     },
     {
       "id": "m13",
       "result": "pass",
-      "why": "No buyers or other figures, and the yard mouth is empty."
+      "why": "No buyers or figures are visible, and the yard mouth is empty of people."
     },
     {
       "id": "h-text",
@@ -92,22 +93,22 @@
     {
       "id": "h-face",
       "result": "pass",
-      "why": "The only face shown is Archie's, not the player's."
+      "why": "The only face is Archie's. No player face is shown."
     },
     {
       "id": "h-bottom",
       "result": "pass",
-      "why": "Nothing story-critical sits in the bottom 10%."
+      "why": "The bottom 10% is only wet pavement."
     },
     {
       "id": "h-crop",
       "result": "pass",
-      "why": "Archie sits around y 470-1100, inside the small-phone crop (y 267-1269)."
+      "why": "Archie sits at y 470-1100, inside the small-phone crop of y 267-1269."
     }
   ],
   "scores": {
-    "brief": 3,
-    "style": 3.5,
+    "brief": 2.5,
+    "style": 3,
     "cast": {
       "Archie": 3.5
     }
@@ -116,11 +117,18 @@
     "size": [
       1024,
       1536
-    ]
+    ],
+    "gridScale": 1,
+    "gridRegularity": 0.005,
+    "colours": 268341,
+    "paletteDistance": 15.93
   },
-  "verdict": "pass",
-  "rank": null,
-  "correctionPrompt": null,
-  "verdictReasons": [],
+  "verdict": "fail",
+  "rank": 1,
+  "correctionPrompt": "Same image, change only: hook the white carrier bag over one finger so it dangles loosely, make a flattened brown cardboard box corner clearly visible through the thin bag, restore the cardboard box and wall detail on the right to match the blank plate, remove the white van at the yard mouth so it is empty. Keep everything else identical.",
+  "checklistEditedAt": null,
+  "verdictReasons": [
+    "score brief 2.5 < 3.0"
+  ],
   "threshold": 3.0
 }

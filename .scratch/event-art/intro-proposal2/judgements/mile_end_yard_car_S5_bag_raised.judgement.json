@@ -1,0 +1,142 @@
+{
+  "schema": 1,
+  "eventId": "intro-proposal2",
+  "shotId": "S5",
+  "draft": "assets/reference-plates/mile_end_yard_car_S5_bag_raised.png",
+  "draftSha": "313093fa363f8b88e80c5a51c5690794eb9e29c9fa14a265f6ec1657d13e647b",
+  "briefHash": "f9999f702d971414",
+  "styleHash": "1ba004d9d81aed00",
+  "rulesHash": "4f53cda18c2baa0c",
+  "model": "claude-cli-default",
+  "judgedAt": "2026-11-17T10:44:33Z",
+  "checks": [
+    {
+      "id": "cast-Archie",
+      "result": "pass",
+      "why": "Archie is on screen at right foreground, seen from behind."
+    },
+    {
+      "id": "cast-only",
+      "result": "fail",
+      "why": "Three other men are present (knife man, blond man, bearded man in black coat)."
+    },
+    {
+      "id": "m1",
+      "result": "fail",
+      "why": "Four men are in the yard: Archie plus three others, where the brief calls for three in total."
+    },
+    {
+      "id": "m2",
+      "result": "unsure",
+      "why": "The S4 image isn't provided. Archie's huge foreground scale and the group in mid-yard look like a possible shift."
+    },
+    {
+      "id": "m3",
+      "result": "pass",
+      "why": "Archie holds a carrier bag high in his raised right arm."
+    },
+    {
+      "id": "m4",
+      "result": "pass",
+      "why": "His other hand rests at his back jeans pocket."
+    },
+    {
+      "id": "m5",
+      "result": "fail",
+      "why": "The knife man is mid-stride, walking forward with one foot lifted. The knife is held out low."
+    },
+    {
+      "id": "m6",
+      "result": "pass",
+      "why": "The white carrier bag is clearly visible above and ahead of Archie's head."
+    },
+    {
+      "id": "m7",
+      "result": "pass",
+      "why": "The knife is visible in the knife man's hand."
+    },
+    {
+      "id": "m8",
+      "result": "fail",
+      "why": "The yard changed from the plate. The van is gone, the bins are replaced by men, the car is moved or obscured, and the car doors are no longer open."
+    },
+    {
+      "id": "m9",
+      "result": "fail",
+      "why": "Heads are level, not tilted up, and nobody is clearly looking at the bag. Archie's head is turned away."
+    },
+    {
+      "id": "m10",
+      "result": "unsure",
+      "why": "Gazes are ambiguous. Some men look toward the camera or Archie's direction rather than at the bag."
+    },
+    {
+      "id": "m11",
+      "result": "pass",
+      "why": "All men and the bag are fully in frame, and the bag is not cropped."
+    },
+    {
+      "id": "m12",
+      "result": "unsure",
+      "why": "The plate's angle and size match. Scale of the figures differs, and S4 can't be compared."
+    },
+    {
+      "id": "m13",
+      "result": "pass",
+      "why": "No pearl is visible."
+    },
+    {
+      "id": "m14",
+      "result": "pass",
+      "why": "The hand rests at the pocket with nothing visible in it."
+    },
+    {
+      "id": "h-text",
+      "result": "pass",
+      "why": "No legible text or logos."
+    },
+    {
+      "id": "h-face",
+      "result": "pass",
+      "why": "The player's face is not shown. Archie is seen from behind."
+    },
+    {
+      "id": "h-bottom",
+      "result": "pass",
+      "why": "Only the puddle and Archie's feet sit near the bottom, with nothing story-critical."
+    },
+    {
+      "id": "h-crop",
+      "result": "pass",
+      "why": "The bag and the men all sit within the small-phone crop band."
+    }
+  ],
+  "scores": {
+    "brief": 1.5,
+    "style": 2.5,
+    "cast": {
+      "Archie": 2.5
+    }
+  },
+  "metrics": {
+    "size": [
+      1024,
+      1536
+    ],
+    "gridScale": 1,
+    "gridRegularity": 0.005,
+    "colours": 364919,
+    "paletteDistance": 18.52
+  },
+  "verdict": "fail",
+  "rank": 1,
+  "correctionPrompt": "Same image, change only: remove the blond man and the bearded man in the black coat so only Archie and the knife man remain; restore the van, bins and open car doors exactly as in the blank plate; plant the knife man's feet still, knife held out; tilt both men's heads up with eyes on the raised carrier bag, Archie's head facing the bag, not turned away. Keep everything else identical.",
+  "checklistEditedAt": null,
+  "verdictReasons": [
+    "cast presence failed: cast-only",
+    "score brief 1.5 < 3.0",
+    "score style 2.5 < 3.0",
+    "score cast:Archie 2.5 < 3.0"
+  ],
+  "threshold": 3.0
+}

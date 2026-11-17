@@ -1,0 +1,123 @@
+{
+  "shotId": "S4",
+  "briefHash": "0a2fbe2cb9e8016d",
+  "builtAt": "2026-11-17T10:43:52Z",
+  "items": [
+    {
+      "id": "cast-Archie",
+      "category": "cast",
+      "text": "Archie is on screen.",
+      "hard": false,
+      "presence": true
+    },
+    {
+      "id": "cast-only",
+      "category": "cast",
+      "text": "No one is on screen except: Archie.",
+      "hard": false,
+      "presence": true
+    },
+    {
+      "id": "m1",
+      "category": "cast",
+      "text": "Exactly four men are present: Archie, the knife man in a black puffer, the man in a green hoodie, and the older man in a long coat. There are no other people.",
+      "hard": false
+    },
+    {
+      "id": "m2",
+      "category": "cast",
+      "text": "The three buyers (puffer, green hoodie, long coat) look the same as in the S3 image: same clothes, builds and hair.",
+      "hard": false
+    },
+    {
+      "id": "m3",
+      "category": "cast",
+      "text": "Archie matches the Archie biz sprite master in outfit and build.",
+      "hard": false
+    },
+    {
+      "id": "m4",
+      "category": "pose",
+      "text": "Archie is the closest figure to the camera, centre-right, with his back three-quarters turned to the camera.",
+      "hard": false
+    },
+    {
+      "id": "m5",
+      "category": "pose",
+      "text": "Archie's weight is on his front foot, as if he has just stepped into the gap.",
+      "hard": false
+    },
+    {
+      "id": "m6",
+      "category": "pose",
+      "text": "The knife man is a few steps beyond Archie, centre-left, coming toward the camera.",
+      "hard": false
+    },
+    {
+      "id": "m7",
+      "category": "pose",
+      "text": "The man in the green hoodie is one step behind the knife man.",
+      "hard": false
+    },
+    {
+      "id": "m8",
+      "category": "pose",
+      "text": "The older man in the long coat stands back by the car, hands in pockets, still.",
+      "hard": false
+    },
+    {
+      "id": "m9",
+      "category": "props",
+      "text": "The knife man holds a yellow Stanley knife out in front of him, with the blade extended a short way.",
+      "hard": false
+    },
+    {
+      "id": "m10",
+      "category": "props",
+      "text": "Archie holds a carrier bag in one hand.",
+      "hard": false
+    },
+    {
+      "id": "m11",
+      "category": "framing",
+      "text": "Archie is large in the foreground and sits between the camera and the knife man, so he visibly blocks the knife's path to the viewer.",
+      "hard": false
+    },
+    {
+      "id": "m12",
+      "category": "framing",
+      "text": "The yard and car match the blank plate, with nothing else in the room added or changed.",
+      "hard": false
+    },
+    {
+      "id": "m13",
+      "category": "unseen",
+      "text": "Archie holds nothing in his hands except the carrier bag: no weapon, tool or other object in either hand.",
+      "hard": false
+    },
+    {
+      "id": "h-text",
+      "category": "hard",
+      "text": "No legible text or logos anywhere in the image.",
+      "hard": true
+    },
+    {
+      "id": "h-face",
+      "category": "hard",
+      "text": "No player face is shown (the player is never seen).",
+      "hard": true
+    },
+    {
+      "id": "h-bottom",
+      "category": "hard",
+      "text": "Nothing story-critical sits in the bottom ~10% of the image.",
+      "hard": true
+    },
+    {
+      "id": "h-crop",
+      "category": "hard",
+      "text": "The focal point survives the small-phone crop.",
+      "hard": true
+    }
+  ]
+}

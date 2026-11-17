@@ -55,14 +55,16 @@ Draft approval in Phase 4 saves the same way (`approved.phase: "drafts"`, messag
 
 ## Phase 4 — Prompts, then drafts
 
-Build `prompts.md` per `reference/prompt-pack.md`: the approved plate and shot prompts from the board, in generation order (plates first, parents before variants). Every generated image (plates and shot drafts) lives in `assets/reference-plates/`, where the compositor reads it: plates as `<plate>_blank_plate.png`, shots as their `saveAs`.
+Build `prompts.md` per `reference/prompt-pack.md`: the approved plate and shot prompts from the board, in generation order (plates first, parents before variants). Each shot prompt (and delta prompt) carries the accepted art rules in scope: global, the shot's cast, its plate (`.scratch/event-art/_judge/rules.json`, `status: "accepted"`), per the pack. Every generated image (plates and shot drafts) lives in `assets/reference-plates/`, where the compositor reads it: plates as `<plate>_blank_plate.png`, shots as their `saveAs`.
 
 **Uploads.** The user saves each image with the tool's Upload button (or drag-drop/paste) on its plate or shot card in the Shots tab, which writes it straight into `assets/reference-plates/`. When they say images are in, list that folder for the board's save-as names. An approved plate gets its `tools/plate_compositor/plates/<plate>.json` (README §D) before any shot on it is composed; posed shots go through `extract.py` then `compose.py` (README §C, §A). The `plate-compositor` skill runs all of this, through to placement, for a board.
 
-Per new draft:
-1. `python .claude/skills/event-storyboard/scripts/pixelize.py <draft> .scratch/event-art/<id>/qa [--scale 4]` and **look at** the `_qa.png` sheet (source | cleaned with crop outlines | small / baseline / tall phone crops).
-2. QA against the brief: story accuracy at the frozen instant, character identity vs. reference, set continuity vs. sibling shots and neighbouring events, focal point survives the small-phone crop, nothing story-critical in the bottom ~10%, no legible text/logos, no player face (unless decided otherwise), pixel-grid quality. One line each, pass/fail.
-3. The raw image already shows in the tool. A cleaned version goes beside it as `<saveAs stem>[_vN]_clean.png`, and the tool lists it with the raw. Set board `phase: "drafts"`, bump `round`, rewrite `board.json`.
+Draft QA is the art judge (`tools/art_judge/README.md`):
+1. `python tools/art_judge/judge.py judge --board <id> --yes` judges every new/stale draft (current ones cost no calls) and ranks takes per shot. Never hand-run a QA checklist: the judge's categories (brief/pose/props/framing/unseen, cast identity, style, hard checks, pixel metrics, accepted rules) are the checklist.
+2. Read `.scratch/event-art/<id>/judgements/*.judgement.json` and report **one line per draft**: `<draft stem>: <verdict> · lowest <category> <score> · <top failed check or "-">`. `unjudged` → say so with its `error`. Then point the user at the Shots tab for details and the correction prompts (copy-ready delta prompts for failing drafts). Don't paste checklists.
+3. Pixelize is an optional cleanup: `python .claude/skills/event-storyboard/scripts/pixelize.py <draft> .scratch/event-art/<id>/qa [--scale 4]`, then look at the `_qa.png` sheet. A cleaned version goes beside the raw as `<saveAs stem>[_vN]_clean.png`; the tool lists it with the raw. Set board `phase: "drafts"`, bump `round`, rewrite `board.json`.
+
+**When the user says "reviewed"** (they've left verdicts/notes on drafts in the Shots tab): run `python tools/art_judge/judge.py propose-rules` and tell the user how many rules are now waiting in the Rules tab (count `status: "proposed"` in `.scratch/event-art/_judge/rules.json`). Don't accept rules for them.
 
 `revise` on a draft → write a *delta* prompt (what to change, "keep everything else identical") for the same ChatGPT conversation rather than a fresh prompt. Never re-prompt a character from scratch once a shot of them is approved — attach the approved draft instead (ART-BIBLE §4).
 

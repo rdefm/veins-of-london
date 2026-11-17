@@ -1,0 +1,129 @@
+{
+  "shotId": "S8",
+  "briefHash": "47dfd1625c4afb85",
+  "builtAt": "2026-11-17T10:47:09Z",
+  "items": [
+    {
+      "id": "cast-Archie",
+      "category": "cast",
+      "text": "Archie is on screen.",
+      "hard": false,
+      "presence": true
+    },
+    {
+      "id": "cast-only",
+      "category": "cast",
+      "text": "No one is on screen except: Archie.",
+      "hard": false,
+      "presence": true
+    },
+    {
+      "id": "m1",
+      "category": "cast",
+      "text": "Archie is seated on the bench seat opposite the camera, matching his position in the S7 image.",
+      "hard": false
+    },
+    {
+      "id": "m2",
+      "category": "cast",
+      "text": "Archie looks the same as in the sprite master: same face, hair, and clothes.",
+      "hard": false
+    },
+    {
+      "id": "m3",
+      "category": "cast",
+      "text": "The man at the bar is gone, with no one standing or sitting at the bar where he was.",
+      "hard": false
+    },
+    {
+      "id": "m4",
+      "category": "cast",
+      "text": "A barman stands behind the counter wiping it, small and soft.",
+      "hard": false
+    },
+    {
+      "id": "m5",
+      "category": "cast",
+      "text": "The far couple are standing or mid-motion putting their coats on, small and soft.",
+      "hard": false
+    },
+    {
+      "id": "m6",
+      "category": "pose",
+      "text": "Archie leans forward on his forearms, with his arms resting on the table and his torso angled toward the camera.",
+      "hard": false
+    },
+    {
+      "id": "m7",
+      "category": "pose",
+      "text": "Archie looks straight into the camera, not down, aside, or at the food.",
+      "hard": false
+    },
+    {
+      "id": "m8",
+      "category": "pose",
+      "text": "Archie's eyes are still slightly red, but not streaming.",
+      "hard": false
+    },
+    {
+      "id": "m9",
+      "category": "pose",
+      "text": "Archie's eyebrows are slightly raised, and his expression is calm and expectant, waiting for an answer, not performing, smiling broadly, or angry.",
+      "hard": false
+    },
+    {
+      "id": "m10",
+      "category": "props",
+      "text": "Archie's pint is pushed to one side and mostly drunk.",
+      "hard": false
+    },
+    {
+      "id": "m11",
+      "category": "props",
+      "text": "The carrier bag sits beside Archie.",
+      "hard": false
+    },
+    {
+      "id": "m12",
+      "category": "props",
+      "text": "On the near side there is a half-drunk pint and a chips basket that is half eaten.",
+      "hard": false
+    },
+    {
+      "id": "m13",
+      "category": "framing",
+      "text": "The pub room is otherwise unchanged from the blank plate, with the same furniture, layout and image size.",
+      "hard": false
+    },
+    {
+      "id": "m14",
+      "category": "unseen",
+      "text": "No money, cash or calc is visible on the table or in anyone's hands.",
+      "hard": false
+    },
+    {
+      "id": "h-text",
+      "category": "hard",
+      "text": "No legible text or logos anywhere in the image.",
+      "hard": true
+    },
+    {
+      "id": "h-face",
+      "category": "hard",
+      "text": "No player face is shown (the player is never seen).",
+      "hard": true
+    },
+    {
+      "id": "h-bottom",
+      "category": "hard",
+      "text": "Nothing story-critical sits in the bottom ~10% of the image.",
+      "hard": true
+    },
+    {
+      "id": "h-crop",
+      "category": "hard",
+      "text": "The focal point survives the small-phone crop.",
+      "hard": true
+    }
+  ]
+}

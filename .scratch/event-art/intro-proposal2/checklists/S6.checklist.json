@@ -1,0 +1,123 @@
+{
+  "shotId": "S6",
+  "briefHash": "9269c3dc6dfcb890",
+  "builtAt": "2026-11-17T10:45:33Z",
+  "items": [
+    {
+      "id": "cast-Archie",
+      "category": "cast",
+      "text": "Archie is on screen.",
+      "hard": false,
+      "presence": true
+    },
+    {
+      "id": "cast-only",
+      "category": "cast",
+      "text": "No one is on screen except: Archie.",
+      "hard": false,
+      "presence": true
+    },
+    {
+      "id": "m1",
+      "category": "cast",
+      "text": "Exactly four men are visible: knife man, hoodie man, older man, and Archie. No extra bystanders.",
+      "hard": false
+    },
+    {
+      "id": "m2",
+      "category": "cast",
+      "text": "Archie is the only figure not caught in slowed time. He is the one leaving and is clearly separate from the three slowed men.",
+      "hard": false
+    },
+    {
+      "id": "m3",
+      "category": "pose",
+      "text": "The knife man is mid-lunge toward the camera with the knife arm extended.",
+      "hard": false
+    },
+    {
+      "id": "m4",
+      "category": "pose",
+      "text": "The hoodie man is caught mid-step, with one foot lifted or off the ground.",
+      "hard": false
+    },
+    {
+      "id": "m5",
+      "category": "pose",
+      "text": "The older man is standing still by the car, not lunging or stepping.",
+      "hard": false
+    },
+    {
+      "id": "m6",
+      "category": "pose",
+      "text": "Archie stands at the mouth of the dark side passage, screen-right midground, half-turned back toward the camera with his head tilted in a 'coming?' gesture.",
+      "hard": false
+    },
+    {
+      "id": "m7",
+      "category": "props",
+      "text": "The broken timePearl lies on the wet tarmac between the men. It shows pearly fragments and a bent gold band.",
+      "hard": false
+    },
+    {
+      "id": "m8",
+      "category": "props",
+      "text": "The carrier bag handle is wrapped round Archie's fist, and the bag hangs from his hand.",
+      "hard": false
+    },
+    {
+      "id": "m9",
+      "category": "props",
+      "text": "Raindrops inside the dome hang as short streaks, and the light smears sideways, like heat haze in cold air.",
+      "hard": false
+    },
+    {
+      "id": "m10",
+      "category": "props",
+      "text": "A rough dome of thickened air surrounds the three men, with a faint cold blue tint inside it only.",
+      "hard": false
+    },
+    {
+      "id": "m11",
+      "category": "framing",
+      "text": "The yard, car and side passage match the blank plate. Nothing else in the room has changed, and the image size is unchanged.",
+      "hard": false
+    },
+    {
+      "id": "m12",
+      "category": "framing",
+      "text": "The knife, the pearl, all three slowed men and Archie are all fully in frame and not cropped.",
+      "hard": false
+    },
+    {
+      "id": "m13",
+      "category": "unseen",
+      "text": "There are no runes, sparkles, beams, glow or magic circles anywhere. The dome shows only as haze, streaks and a faint tint.",
+      "hard": false
+    },
+    {
+      "id": "h-text",
+      "category": "hard",
+      "text": "No legible text or logos anywhere in the image.",
+      "hard": true
+    },
+    {
+      "id": "h-face",
+      "category": "hard",
+      "text": "No player face is shown (the player is never seen).",
+      "hard": true
+    },
+    {
+      "id": "h-bottom",
+      "category": "hard",
+      "text": "Nothing story-critical sits in the bottom ~10% of the image.",
+      "hard": true
+    },
+    {
+      "id": "h-crop",
+      "category": "hard",
+      "text": "The focal point survives the small-phone crop.",
+      "hard": true
+    }
+  ]
+}

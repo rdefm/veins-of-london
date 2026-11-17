@@ -1,0 +1,145 @@
+# col_a2_vulnerable_site — imported from data/events/col_a2_vulnerable_site.json
+
+```json
+{
+  "id": "col_a2_vulnerable_site",
+  "pin": {
+    "district": "whitechapel",
+    "showWhenFlagsTrue": [
+      "colA2Stage"
+    ],
+    "showWhenFlagsFalse": [
+      "colA2VulnerableSiteDone"
+    ]
+  },
+  "on_complete": [
+    {
+      "op": "set_flag",
+      "flag": "colA2VulnerableSiteDone",
+      "value": true
+    },
+    {
+      "op": "set_screen",
+      "screen": "map"
+    }
+  ],
+  "start": "main",
+  "branches": {
+    "main": {
+      "title": "Start",
+      "cards": [
+        {
+          "key": "c1",
+          "type": "narration",
+          "label": "Whitechapel",
+          "speaker": null,
+          "text": "A railway arch nobody's bothered to lock properly in three years. It's held ore the whole time and nothing's ever gone wrong with it - yet."
+        },
+        {
+          "key": "c2",
+          "type": "speaker",
+          "label": null,
+          "speaker": "Nadia",
+          "text": "\"That one's ours and it's soft as anything. It was fine while nobody's looking twice at us. We're past that now.\""
+        },
+        {
+          "key": "c3",
+          "type": "choice",
+          "label": null,
+          "speaker": null,
+          "text": "Two ways to leave it.",
+          "choices": [
+            {
+              "label": "Fund a lookout (£150)",
+              "effects": [
+                {
+                  "op": "add",
+                  "path": "player.cash",
+                  "value": -150
+                },
+                {
+                  "op": "add",
+                  "path": "factions.collective.resources",
+                  "value": 150
+                },
+                {
+                  "op": "log_method",
+                  "key": "a2VulnerableSite",
+                  "value": "lookout"
+                }
+              ],
+              "result_text": "You put the money in, so someone doesn't need to pull a second shift and can spend it here, sitting on a crate near the arch most evenings, reading a paper without really reading it."
+            },
+            {
+              "label": "Stay soft and fast",
+              "effects": [
+                {
+                  "op": "log_method",
+                  "key": "a2VulnerableSite",
+                  "value": "soft"
+                }
+              ],
+              "result_text": "You leave it as it is. Nobody's ever taken it before, and sometimes a lookout just draws more attention."
+            }
+          ]
+        },
+        {
+          "key": "c4",
+          "type": "resolution",
+          "label": null,
+          "speaker": null,
+          "text": "Either way, the vein keeps doing what it's always done, for now. Whether that keeps being true is a separate question."
+        }
+      ]
+    }
+  },
+  "_keyOrder": {
+    "top": [
+      "id",
+      "pin",
+      "cards",
+      "on_complete"
+    ],
+    "cards": {
+      "c1": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c2": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ],
+      "c3": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text",
+        "choices"
+      ],
+      "c4": [
+        "key",
+        "type",
+        "label",
+        "speaker",
+        "text"
+      ]
+    },
+    "seq": [
+      "c1",
+      "c2",
+      "c3",
+      "c4"
+    ],
+    "elseKeys": []
+  },
+  "_liveSource": "col_a2_vulnerable_site.json",
+  "_liveHash": "328ca411"
+}
+```

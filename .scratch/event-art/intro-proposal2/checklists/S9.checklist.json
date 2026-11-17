@@ -1,0 +1,109 @@
+{
+  "shotId": "S9",
+  "briefHash": "f1a285c284f3d82e",
+  "builtAt": "2026-11-17T10:47:56Z",
+  "items": [
+    {
+      "id": "m1",
+      "category": "props",
+      "text": "A drained pint glass with foam rings stands on the table on the far side.",
+      "hard": false
+    },
+    {
+      "id": "m2",
+      "category": "props",
+      "text": "A crumpled paper napkin lies on the table beside the drained glass on the far side.",
+      "hard": false
+    },
+    {
+      "id": "m3",
+      "category": "props",
+      "text": "The player's half-finished pint is on the table near the bottom-left edge.",
+      "hard": false
+    },
+    {
+      "id": "m4",
+      "category": "props",
+      "text": "The chips basket sits on the table with a few cold chips left in it.",
+      "hard": false
+    },
+    {
+      "id": "m5",
+      "category": "props",
+      "text": "Props are placed on the table as in S8, with the same positions and arrangement.",
+      "hard": false
+    },
+    {
+      "id": "m6",
+      "category": "props",
+      "text": "No carrier bag is visible anywhere, on the table, floor or bench.",
+      "hard": false
+    },
+    {
+      "id": "m7",
+      "category": "cast",
+      "text": "The bench seat opposite the player's side is empty, with no person and no coat or bag on it.",
+      "hard": false
+    },
+    {
+      "id": "m8",
+      "category": "cast",
+      "text": "The barman appears as a small, soft background figure putting a chair up on a table.",
+      "hard": false
+    },
+    {
+      "id": "m9",
+      "category": "cast",
+      "text": "The barman is the only person visible in the image.",
+      "hard": false
+    },
+    {
+      "id": "m10",
+      "category": "unseen",
+      "text": "Archie is not visible anywhere, including at the door or in the doorway.",
+      "hard": false
+    },
+    {
+      "id": "m11",
+      "category": "pose",
+      "text": "The barman is mid-action, lifting or placing a chair upside down on a table.",
+      "hard": false
+    },
+    {
+      "id": "m12",
+      "category": "framing",
+      "text": "The framing matches the blank pub plate and S8, with the table in the foreground and the room unchanged apart from the added props and barman.",
+      "hard": false
+    },
+    {
+      "id": "m13",
+      "category": "framing",
+      "text": "The image keeps the same dimensions as the source plate, with no crop or shift.",
+      "hard": false
+    },
+    {
+      "id": "h-text",
+      "category": "hard",
+      "text": "No legible text or logos anywhere in the image.",
+      "hard": true
+    },
+    {
+      "id": "h-face",
+      "category": "hard",
+      "text": "No player face is shown (the player is never seen).",
+      "hard": true
+    },
+    {
+      "id": "h-bottom",
+      "category": "hard",
+      "text": "Nothing story-critical sits in the bottom ~10% of the image.",
+      "hard": true
+    },
+    {
+      "id": "h-crop",
+      "category": "hard",
+      "text": "The focal point survives the small-phone crop.",
+      "hard": true
+    }
+  ]
+}

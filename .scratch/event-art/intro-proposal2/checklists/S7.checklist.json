@@ -1,0 +1,129 @@
+{
+  "shotId": "S7",
+  "briefHash": "87e822768bc440a6",
+  "builtAt": "2026-11-17T10:46:22Z",
+  "items": [
+    {
+      "id": "cast-Archie",
+      "category": "cast",
+      "text": "Archie is on screen.",
+      "hard": false,
+      "presence": true
+    },
+    {
+      "id": "cast-only",
+      "category": "cast",
+      "text": "No one is on screen except: Archie.",
+      "hard": false,
+      "presence": true
+    },
+    {
+      "id": "m1",
+      "category": "cast",
+      "text": "Archie is the only main figure at the table, seated alone on the far bench seat, with no second main character shown.",
+      "hard": false
+    },
+    {
+      "id": "m2",
+      "category": "cast",
+      "text": "Exactly two background extras are present: one man at the bar and a couple at a far table. Both are small and soft.",
+      "hard": false
+    },
+    {
+      "id": "m3",
+      "category": "cast",
+      "text": "The man at the bar is on the screen-right side, leaning on the bar with his back to the viewer.",
+      "hard": false
+    },
+    {
+      "id": "m4",
+      "category": "pose",
+      "text": "Archie sits on the bench seat opposite the viewer, centred in the frame.",
+      "hard": false
+    },
+    {
+      "id": "m5",
+      "category": "pose",
+      "text": "Archie's eyes are visibly red and streaming, with tears shown.",
+      "hard": false
+    },
+    {
+      "id": "m6",
+      "category": "pose",
+      "text": "One of Archie's hands holds a paper napkin to one eye.",
+      "hard": false
+    },
+    {
+      "id": "m7",
+      "category": "pose",
+      "text": "Archie's other hand is wrapped around a full pint of lager.",
+      "hard": false
+    },
+    {
+      "id": "m8",
+      "category": "pose",
+      "text": "Archie's gaze goes past the camera toward the door behind the viewer. He is not looking at the viewer or down at the table.",
+      "hard": false
+    },
+    {
+      "id": "m9",
+      "category": "props",
+      "text": "A white carrier bag sits on the bench beside Archie.",
+      "hard": false
+    },
+    {
+      "id": "m10",
+      "category": "props",
+      "text": "On the viewer's side of the table, near the front, there is a full pint and a basket of chips with a ramekin of ketchup.",
+      "hard": false
+    },
+    {
+      "id": "m11",
+      "category": "props",
+      "text": "A second full pint sits on Archie's side of the table, and it is the one his hand is holding.",
+      "hard": false
+    },
+    {
+      "id": "m12",
+      "category": "framing",
+      "text": "The pub room, table and window are unchanged from the blank plate, and Archie is not cropped by the frame edge.",
+      "hard": false
+    },
+    {
+      "id": "m13",
+      "category": "unseen",
+      "text": "No calc, glow, sparkle or magical effect appears anywhere in the image.",
+      "hard": false
+    },
+    {
+      "id": "m14",
+      "category": "unseen",
+      "text": "No grey car is visible outside the window.",
+      "hard": false
+    },
+    {
+      "id": "h-text",
+      "category": "hard",
+      "text": "No legible text or logos anywhere in the image.",
+      "hard": true
+    },
+    {
+      "id": "h-face",
+      "category": "hard",
+      "text": "No player face is shown (the player is never seen).",
+      "hard": true
+    },
+    {
+      "id": "h-bottom",
+      "category": "hard",
+      "text": "Nothing story-critical sits in the bottom ~10% of the image.",
+      "hard": true
+    },
+    {
+      "id": "h-crop",
+      "category": "hard",
+      "text": "The focal point survives the small-phone crop.",
+      "hard": true
+    }
+  ]
+}

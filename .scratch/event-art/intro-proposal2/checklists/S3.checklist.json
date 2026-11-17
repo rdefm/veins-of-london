@@ -1,0 +1,115 @@
+{
+  "shotId": "S3",
+  "briefHash": "deb99b608a48946f",
+  "builtAt": "2026-11-17T10:43:05Z",
+  "items": [
+    {
+      "id": "m1",
+      "category": "cast",
+      "text": "Exactly three men are visible in the yard.",
+      "hard": false
+    },
+    {
+      "id": "m2",
+      "category": "cast",
+      "text": "One man wears a black puffer jacket and grey trackies.",
+      "hard": false
+    },
+    {
+      "id": "m3",
+      "category": "cast",
+      "text": "One man wears a dark green hoodie and jeans.",
+      "hard": false
+    },
+    {
+      "id": "m4",
+      "category": "cast",
+      "text": "One man is visibly older than the other two and wears a long dark coat.",
+      "hard": false
+    },
+    {
+      "id": "m5",
+      "category": "cast",
+      "text": "Archie is not in the image.",
+      "hard": false
+    },
+    {
+      "id": "m6",
+      "category": "cast",
+      "text": "The three men look ordinary and realistic, in their twenties to thirties, not cartoonish.",
+      "hard": false
+    },
+    {
+      "id": "m7",
+      "category": "pose",
+      "text": "All three men are standing, not crouching, leaning or running.",
+      "hard": false
+    },
+    {
+      "id": "m8",
+      "category": "pose",
+      "text": "All three men face or look toward the camera and the right-hand wall.",
+      "hard": false
+    },
+    {
+      "id": "m9",
+      "category": "pose",
+      "text": "The men stand just outside the open car doors, in front of the car.",
+      "hard": false
+    },
+    {
+      "id": "m10",
+      "category": "props",
+      "text": "The grey car has its doors open and the headlights on.",
+      "hard": false
+    },
+    {
+      "id": "m11",
+      "category": "props",
+      "text": "The men are lit mostly from the side by the headlight spill.",
+      "hard": false
+    },
+    {
+      "id": "m12",
+      "category": "framing",
+      "text": "The yard, wall and car match the blank plate, with no other changes to the room.",
+      "hard": false
+    },
+    {
+      "id": "m13",
+      "category": "framing",
+      "text": "The three men are at a scale consistent with the room and with Archie's scale in the wall-lean shot.",
+      "hard": false
+    },
+    {
+      "id": "m14",
+      "category": "unseen",
+      "text": "No knife or other weapon is visible in anyone's hands, waistband or pockets.",
+      "hard": false
+    },
+    {
+      "id": "h-text",
+      "category": "hard",
+      "text": "No legible text or logos anywhere in the image.",
+      "hard": true
+    },
+    {
+      "id": "h-face",
+      "category": "hard",
+      "text": "No player face is shown (the player is never seen).",
+      "hard": true
+    },
+    {
+      "id": "h-bottom",
+      "category": "hard",
+      "text": "Nothing story-critical sits in the bottom ~10% of the image.",
+      "hard": true
+    },
+    {
+      "id": "h-crop",
+      "category": "hard",
+      "text": "The focal point survives the small-phone crop.",
+      "hard": true
+    }
+  ]
+}

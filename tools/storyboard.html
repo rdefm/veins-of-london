@@ -115,6 +115,16 @@ header.top .title { display: grid; gap: 6px; min-width: 0 }
 .shot { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 14px }
 .shot-head { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: baseline; justify-content: space-between }
 .shot-head .id { font: 700 13px/1 var(--mono); color: var(--accent) }
+.shot-head h3 { margin: 0 }
+.shot-toggle { background: none; border: 1px solid var(--line); border-radius: 4px; color: var(--muted); cursor: pointer; padding: 2px 8px; font: 700 13px/1 var(--mono) }
+.shot-cards { font: 12px/1 var(--mono); color: var(--muted) }
+.shot-sum { display: inline-flex; gap: 8px; align-items: center; margin-left: auto; font-size: 12px }
+.stamp { border: 2px solid var(--ok); color: var(--ok); border-radius: 4px; padding: 1px 6px; font: 700 12px/1.2 var(--mono); transform: rotate(-2deg) }
+.shot.collapsed .shot-body { display: none }
+.shotassign { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; font-size: 13px }
+.cardpick summary { cursor: pointer; font-weight: 700; color: var(--muted) }
+.cardlist { display: grid; gap: 4px; max-height: 260px; overflow: auto; margin-top: 8px }
+.cardrow { display: flex; gap: 8px; align-items: baseline; font-size: 13px }
 .brief { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 8px 16px; margin: 0 }
 .brief dt { font: 600 11px/1.6 var(--mono); letter-spacing: .05em; text-transform: uppercase; color: var(--muted) }
 .brief dd { margin: 0; max-width: 72ch; white-space: pre-line; overflow-wrap: anywhere }
@@ -589,6 +599,11 @@ button.qs-flow { width: 100%; border: 0; color: var(--fg); font: inherit; font-s
             <span class="mono" id="pos"></span>
             <button id="next" type="button">Next ▶</button>
           </div>
+          <div class="shotassign" id="shot-assign" hidden>
+            <label for="sa-select">Shot for this card</label>
+            <select id="sa-select"></select>
+            <span class="muted" id="sa-note"></span>
+          </div>
           <button id="gameview" type="button" class="gv" aria-pressed="false" title="Hide tool-only annotations (mechanics, ids, image tags) and show the card as in-game">Game view</button>
         </div>
         <section>
@@ -646,7 +661,10 @@ button.qs-flow { width: 100%; border: 0; color: var(--fg); font: inherit; font-s
       </div>
 
       <div class="panel" role="tabpanel" id="panel-shots" aria-labelledby="tab-shots" hidden>
-      <p class="muted" id="shots-none" style="margin:0" hidden>No storyboard for this proposal yet. Ask Claude to storyboard it.</p>
+      <div id="shots-none" hidden>
+        <p class="muted" style="margin:0 0 8px">No storyboard for this proposal yet. Ask Claude to storyboard it, or start an empty one and add shots by hand.</p>
+        <button type="button" class="tb" id="make-sb">Create empty storyboard</button>
+      </div>
       <section id="p-section">
         <h2>Plates</h2>
         <p class="muted" style="margin:0">Blank backgrounds, one per camera setup. Generate these first; shots add the cast onto them.</p>
@@ -656,6 +674,7 @@ button.qs-flow { width: 100%; border: 0; color: var(--fg); font: inherit; font-s
       <section id="s-section">
         <h2>Shots</h2>
         <div class="shots" id="shots"></div>
+        <button type="button" class="tb" id="add-shot" title="Add an empty shot to this board (then Save)">+ New shot</button>
       </section>
 
       <section class="board-verdict" id="board-verdict"></section>
@@ -4047,6 +4066,129 @@ function checkOddsBlock(opt, changed, restructure) {
     replaceContents(shot, Object.fromEntries(sorted.map(([k]) => [k, shot[k]])));
   }
 
+  // Editable plate fields in file order (board-schema.md). id is fixed; `shots` ("Used by") is generated, never edited.
+  const PLATE_FIELDS = [
+    { key: "name", label: "Name", kind: "line" },
+    { key: "variantOf", label: "Variant of", kind: "plate" },
+    { key: "camera", label: "Camera", kind: "line" },
+    { key: "attach", label: "Attach", kind: "lines" },
+    { key: "prompt", label: "Prompt", kind: "text" },
+    { key: "notes", label: "Compositor notes", kind: "text" },
+  ];
+  const PLATE_NAME_RE = /^[a-z0-9_]+$/;
+  // Shot ids whose `plate` is this plate, in board order, as the schema's "S1, S3" text.
+  const plateUsedBy = (board, id) => (board.shots || []).filter((s) => s.plate === id).map((s) => s.id).join(", ");
+  // Appends an empty plate with the next free id (P<n>) and a unique placeholder name; returns its id.
+  function addPlate(board) {
+    board.plates = board.plates || [];
+    const ids = new Set(board.plates.map((p) => p.id)), names = new Set(board.plates.map((p) => p.name));
+    let n = board.plates.length + 1;
+    while (ids.has("P" + n) || names.has("plate_" + n)) n++;
+    board.plates.push({ id: "P" + n, name: "plate_" + n });
+    return "P" + n;
+  }
+  // Removes a plate: shots on it lose their plate, plates that were its variants lose variantOf.
+  function deletePlate(board, id) {
+    const i = (board.plates || []).findIndex((p) => p.id === id);
+    if (i < 0) throw new Error(`no plate ${id}`);
+    board.plates.splice(i, 1);
+    for (const s of board.shots || []) if (s.plate === id) delete s.plate;
+    for (const p of board.plates) if (p.variantOf === id) delete p.variantOf;
+  }
+  // Sets one plate field from editor text. Blank text drops the key (name can't be blank); keys stay in schema order.
+  function setPlateField(board, id, key, text) {
+    const plate = (board.plates || []).find((p) => p.id === id);
+    if (!plate) throw new Error(`no plate ${id}`);
+    const f = PLATE_FIELDS.find((x) => x.key === key);
+    if (!f) throw new Error(`${key} is not an editable plate field`);
+    let v = text.trim();
+    if (f.kind === "lines") { v = text.split("\n").map((x) => x.trim()).filter(Boolean); if (!v.length) v = ""; }
+    if (key === "name") {
+      if (!v) throw new Error("a plate needs a name");
+      if (!PLATE_NAME_RE.test(v)) throw new Error("plate name must be lower-case letters, digits and _");
+      if (board.plates.some((p) => p.id !== id && p.name === v)) throw new Error(`plate name ${v} is already used`);
+    }
+    if (key === "variantOf" && v) {
+      if (v === id) throw new Error("a plate can't be a variant of itself");
+      if (!board.plates.some((p) => p.id === v)) throw new Error(`no plate ${v}`);
+    }
+    if (v === "") { delete plate[key]; return; }
+    plate[key] = v;
+    const order = ["id", "name", "variantOf", "camera", "shots", "attach", "prompt", "notes"];
+    const rank = (k) => { const i = order.indexOf(k); return i < 0 ? order.length : i; };
+    const sorted = Object.keys(plate).map((k, i) => [k, i]).sort((a, b) => rank(a[0]) - rank(b[0]) || a[1] - b[1]);
+    replaceContents(plate, Object.fromEntries(sorted.map(([k]) => [k, plate[k]])));
+  }
+
+  // An empty shot board for a proposal: its cards (no images yet), no plates or shots. eventId = the file's stem, which
+  // shotBoardFor matches without a `source`.
+  function newShotBoard(proposal) {
+    return {
+      eventId: proposal.file.replace(/\.md$/, ""), title: proposal.title || proposal.file, logline: proposal.logline || "",
+      phase: "storyboard", round: 1, approved: null, updatedAt: Date.now(), questions: [],
+      cards: (proposal.cards || []).map((c) => ({ branch: c.branch || "main", key: c.key, type: c.type || "narration", speaker: c.speaker || null,
+        text: c.text || "", ...(c.choices ? { choices: c.choices.map((x) => (typeof x === "string" ? x : x.label || x.text || "")) } : {}),
+        cut: "CLEAR", shot: null, why: "" })),
+      plates: [], shots: [],
+    };
+  }
+  // Appends an empty shot with the next free id (S<n>); returns its id. Cards tagged with a deleted shot's id are untagged.
+  function addShot(board) {
+    board.shots = board.shots || [];
+    const used = new Set(board.shots.map((s) => s.id));
+    let n = board.shots.length + 1;
+    while (used.has("S" + n)) n++;
+    board.shots.push({ id: "S" + n, title: "New shot", method: "pose" });
+    return "S" + n;
+  }
+  // Makes exactly `picked` (indexes into board.cards) the cards of shot `id`: ticked cards take the shot tag (the first
+  // newly-tagged card of a run shows it NEW, later ones HOLD; a card that already had an image cut keeps its cut), unticked
+  // ones lose it (CLEAR). Rewrites the shot's `cards` summary: "branch: cA–cB" for one run in one branch (what the judge
+  // reads), else a colon-free list so the judge falls back to the tags.
+  function setShotCards(board, id, picked) {
+    const shot = (board.shots || []).find((s) => s.id === id);
+    if (!shot) throw new Error(`no shot ${id}`);
+    const want = new Set(picked), cards = board.cards || [];
+    cards.forEach((c, i) => {
+      if (want.has(i)) {
+        if (c.shot !== id) { c.shot = id; if (c.cut !== "NEW" && c.cut !== "HOLD") c.cut = "HOLD"; }
+      } else if (c.shot === id) { c.shot = null; c.cut = "CLEAR"; }
+    });
+    const mine = cards.map((c, i) => [c, i]).filter(([, i]) => want.has(i));
+    if (mine.length && !mine.some(([c]) => c.cut === "NEW")) mine[0][0].cut = "NEW";
+    if (!mine.length) { delete shot.cards; return; }
+    const br = (c) => c.branch || "main";
+    const branches = [...new Set(mine.map(([c]) => br(c)))];
+    const inBranch = cards.filter((c) => br(c) === branches[0]);
+    const pos = mine.map(([c]) => inBranch.indexOf(c));
+    const run = branches.length === 1 && pos.every((p, k) => k === 0 || p === pos[k - 1] + 1);
+    const text = run
+      ? `${branches[0]}: ${mine[0][0].key}` + (mine.length > 1 ? `–${mine[mine.length - 1][0].key}` : "")
+      : branches.map((b) => `${b} ${mine.filter(([c]) => br(c) === b).map(([c]) => c.key).join(", ")}`).join(" · ");
+    setShotField(board, id, "cards", text);
+  }
+  // Gives card `idx` of the shot board to shot `shotId` (null = no shot). It shows the shot NEW unless the card before it
+  // already holds that shot (then HOLD); no shot = CLEAR. Both shots' `cards` summaries follow.
+  function setCardShot(board, idx, shotId) {
+    const c = (board.cards || [])[idx];
+    if (!c) throw new Error("no such card");
+    if (shotId && !(board.shots || []).some((s) => s.id === shotId)) throw new Error(`no shot ${shotId}`);
+    const old = c.shot || null;
+    c.shot = shotId || null;
+    const prev = board.cards[idx - 1];
+    c.cut = !shotId ? "CLEAR" : prev && prev.shot === shotId ? "HOLD" : "NEW";
+    for (const id of new Set([old, shotId])) {
+      if (!id || !board.shots.some((s) => s.id === id)) continue;
+      setShotCards(board, id, board.cards.map((x, i) => x.shot === id ? i : -1).filter((i) => i >= 0));
+    }
+  }
+  function deleteShot(board, id) {
+    const i = (board.shots || []).findIndex((s) => s.id === id);
+    if (i < 0) throw new Error(`no shot ${id}`);
+    board.shots.splice(i, 1);
+    for (const c of board.cards || []) if (c.shot === id) c.shot = null;
+  }
+
   // New boards: each returns {file, md}, a new proposal for .scratch/writing-revamp/. taken: file names already
   // in that folder; liveIds: ids of the live events in data/events/.
   const EVENT_ID_RE = /^[a-z][a-z0-9_]*$/;
@@ -6964,6 +7106,78 @@ function checkOddsBlock(opt, changed, restructure) {
     const next = (list[c.idx + 1] || list[c.idx - 1] || {}).key || b.cards.find((x) => x.key !== c.key).key;
     cardOp((d, key) => { deleteCard(d, key); return next; });
   }
+  // Structural shot edit (add/delete): one undo step, re-renders the board. Returns fn's result.
+  function shotStructure(fn) {
+    const b = shotBoard(); if (!b) return;
+    const before = serialiseBoard(b);
+    let r;
+    try { r = fn(b); } catch (e) { replaceContents(b, JSON.parse(before)); renderEditBar(e.message); return; }
+    b.history.snapshot(before); undoLog.push(b);
+    editSession = false;
+    renderBoard();
+    return r;
+  }
+  function newShot() {
+    const id = shotStructure(addShot);
+    if (!id) return;
+    collapsedShots.delete(id);
+    const a = document.getElementById("shot-" + id);
+    if (a) { a.scrollIntoView({ block: "start" }); const t = a.querySelector("input[type=text]"); if (t) { t.focus(); t.select(); } }
+  }
+  // Card picker for a shot: tick the cards it covers. Ticking a card another shot holds moves it here.
+  const openPickers = new Set();
+  function cardPicker(b, s) {
+    const cards = b.cards || [];
+    const det = el("details", { class: "cardpick" }, el("summary", { text: "Pick cards for this shot" }));
+    if (openPickers.has(s.id)) det.open = true;
+    det.addEventListener("toggle", () => { if (det.open) openPickers.add(s.id); else openPickers.delete(s.id); });
+    const rows = cards.map((c, i) => {
+      const cb = el("input", { type: "checkbox" }); cb.checked = c.shot === s.id;
+      const other = c.shot && c.shot !== s.id ? ` (now ${c.shot})` : "";
+      const snip = (c.text || "").replace(/\s+/g, " ").slice(0, 70);
+      const row = el("label", { class: "cardrow" }, cb, el("span", { class: "id", text: `${c.branch || "main"} · ${c.key}` }),
+        el("span", { class: "muted", text: `${c.cut || ""}${other} ${snip}` }));
+      cb.addEventListener("change", () => {
+        const picked = cards.map((x, j) => j === i ? cb.checked : x.shot === s.id).map((on, j) => on ? j : -1).filter((j) => j >= 0);
+        shotStructure((bb) => setShotCards(bb, s.id, picked));
+      });
+      return row;
+    });
+    det.append(el("div", { class: "cardlist" }, ...(rows.length ? rows : [el("span", { class: "muted", text: "No cards on this board." })])));
+    return det;
+  }
+  // "Shot for this card" under the card preview: assigns the shown card to a shot (or a new one) on the shot board.
+  function renderShotAssign() {
+    const box = $("shot-assign"), sb = shotBoard(), b = board();
+    box.hidden = !sb || !b || !(b.cards || []).length;
+    if (box.hidden) return;
+    const c = b.cards[cardIdx];
+    const idx = b.kind === "proposal" ? sb.cards.findIndex((x) => (x.branch || "main") === c.branch && x.key === c.key) : cardIdx;
+    const sel = $("sa-select");
+    sel.replaceChildren(optionEl("", "— no shot —"), ...(sb.shots || []).map((s) => optionEl(s.id, s.title ? `${s.id} · ${s.title}` : s.id)), optionEl("+new", "+ New shot…"));
+    sel.disabled = idx < 0;
+    $("sa-note").textContent = idx < 0 ? "This card isn't on the storyboard yet; ask Claude to re-cut the board." : "";
+    sel.value = idx >= 0 ? (sb.cards[idx].shot || "") : "";
+    sel.onchange = () => {
+      const v = sel.value;
+      shotStructure((bb) => { const id = v === "+new" ? addShot(bb) : v || null; setCardShot(bb, idx, id); return id; });
+    };
+  }
+  async function makeStoryboard() {
+    const b = board(); if (!b || b.kind !== "proposal" || b.shotBoard) return;
+    const sb = newShotBoard(b);
+    try {
+      const file = [...BOARDS_DIR, sb.eventId, "board.json"];
+      if (await readText(file)) { renderEditBar(`${sb.eventId}/board.json already exists; reload the tool.`); return; }
+      await writeFile(file, serialiseBoard(sb));
+      await loadAll();
+      renderEditBar(`Created ${sb.eventId}/board.json`);
+    } catch (e) { renderEditBar("Couldn't create the storyboard: " + (e && e.message)); }
+  }
+  function removeShot(id, title) {
+    if (!confirm(`Delete shot ${id} "${title}"? Its draft images stay on disk. Undo restores it until you save.`)) return;
+    shotStructure((b) => deleteShot(b, id));
+  }
   // One shot-field edit from editor text; false (with the reason in the edit bar) if the value was refused.
   function editShot(id, key, text, newStep) {
     const b = shotBoard(); if (!b) return false;
@@ -7192,6 +7406,7 @@ function checkOddsBlock(opt, changed, restructure) {
 
   function renderFrame() {
     const b = board(); if (!b) return;
+    renderShotAssign();
     if (b.kind === "proposal") { renderProposalFrame(b); return; }
     $("card-editor").hidden = true; $("branch-editor").hidden = true;
     $("tp-opts").hidden = true; $("tp-outcome").hidden = true; $("tp-label").textContent = "";
@@ -7518,12 +7733,42 @@ function checkOddsBlock(opt, changed, restructure) {
       const draftFigs = (s.drafts || []).map((d) => el("figure", {}, el("img", { src: d.url, alt: `${s.id} ${d.label || "draft"}`, loading: "lazy" }), el("figcaption", { text: d.label || "draft" })));
       const opts = drafts ? [["approve", "Approve draft"], ["revise", "Regenerate"], ["cut", "Drop shot"]]
                           : [["approve", "Approve shot"], ["revise", "Revise"], ["cut", "Cut it"]];
-      return el("article", { class: "shot", id: "shot-" + s.id },
-        el("div", { class: "shot-head" }, h3, el("span", { class: "id", text: s.id })),
-        form, checklistBlock(b, s), files,
+      const body = el("div", { class: "shot-body" },
+        form, cardPicker(b, s), checklistBlock(b, s), files,
         draftFigs.length ? el("div", { class: "drafts" }, ...draftFigs) : null,
         verdictBlock(`${b.eventId}__${s.id}`, drafts ? "Your verdict on the draft" : "Your verdict on the shot", opts));
+      const art = el("article", { class: "shot" + (collapsedShots.has(s.id) ? " collapsed" : ""), id: "shot-" + s.id });
+      const tog = el("button", { type: "button", class: "shot-toggle", "aria-expanded": String(!collapsedShots.has(s.id)), text: collapsedShots.has(s.id) ? "▸" : "▾" });
+      const flip = () => {
+        const c = art.classList.toggle("collapsed");
+        if (c) collapsedShots.add(s.id); else collapsedShots.delete(s.id);
+        tog.setAttribute("aria-expanded", String(!c)); tog.textContent = c ? "▸" : "▾";
+      };
+      tog.addEventListener("click", flip);
+      art.append(el("div", { class: "shot-head" }, tog, h3, el("span", { class: "id", text: s.id }),
+        s.cards ? el("span", { class: "shot-cards", text: s.cards }) : null, shotSummary(b, s)), body);
+      const del = el("button", { type: "button", class: "copy", text: "Delete shot" });
+      del.addEventListener("click", () => removeShot(s.id, s.title || s.id));
+      body.append(del);
+      return art;
     }));
+  }
+
+  // Collapsed-header badges: judge state of the best-ranked draft, and a stamp for a draft (or the shot) you approved.
+  const collapsedShots = new Set();
+  function shotSummary(b, s) {
+    const jd = judgements[b.eventId] || { byFile: {}, shas: {} };
+    const names = s.saveAs ? orderDrafts(filesFor(s.saveAs), jd.byFile) : [];
+    const out = el("span", { class: "shot-sum" });
+    if (names.length) {
+      const top = names[0], j = judgementFor(top, jd.byFile);
+      const st = judgementState(j, jd.shas[top], checklistStale((jd.checklists || {})[s.id], j));
+      out.append(el("span", { class: "jbadge " + st, text: "judge: " + JUDGEMENT_LABEL[st] }));
+    } else out.append(el("span", { class: "jbadge none", text: "no draft" }));
+    const okName = names.find((n) => (feedback[feedbackKeyFor(b.eventId, draftTarget(n))] || {}).verdict === "approve");
+    const shotOk = (feedback[`${b.eventId}__${s.id}`] || {}).verdict === "approve";
+    if (okName || shotOk) out.append(el("span", { class: "stamp", text: "✓ APPROVED" + (okName ? " · " + okName : "") }));
+    return out;
   }
 
   function renderBoard() {
@@ -8081,6 +8326,8 @@ function checkOddsBlock(opt, changed, restructure) {
   $("imgpick").addEventListener("close", () => { ipTok++; revokeIp(); });
   $("save").addEventListener("click", saveBoard);
   $("undo").addEventListener("click", undoEdit);
+  $("add-shot").addEventListener("click", newShot);
+  $("make-sb").addEventListener("click", makeStoryboard);
   $("promote").addEventListener("click", promoteBoard);
   document.addEventListener("keydown", (e) => {
     if (!(e.ctrlKey || e.metaKey) || e.altKey) return;

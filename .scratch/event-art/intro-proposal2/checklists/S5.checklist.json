@@ -1,0 +1,129 @@
+{
+  "shotId": "S5",
+  "briefHash": "f9999f702d971414",
+  "builtAt": "2026-11-17T10:44:45Z",
+  "items": [
+    {
+      "id": "cast-Archie",
+      "category": "cast",
+      "text": "Archie is on screen.",
+      "hard": false,
+      "presence": true
+    },
+    {
+      "id": "cast-only",
+      "category": "cast",
+      "text": "No one is on screen except: Archie.",
+      "hard": false,
+      "presence": true
+    },
+    {
+      "id": "m1",
+      "category": "cast",
+      "text": "Exactly three men are in the yard: Archie (the biz-sprite man), the knife man, and one other man, with nobody extra.",
+      "hard": false
+    },
+    {
+      "id": "m2",
+      "category": "cast",
+      "text": "Archie, the knife man and the third man are in the same positions as in the S4 image.",
+      "hard": false
+    },
+    {
+      "id": "m3",
+      "category": "pose",
+      "text": "Archie holds the carrier bag high above his head in one raised arm.",
+      "hard": false
+    },
+    {
+      "id": "m4",
+      "category": "pose",
+      "text": "Archie's other hand rests at his back jeans pocket.",
+      "hard": false
+    },
+    {
+      "id": "m5",
+      "category": "pose",
+      "text": "The knife man is standing still, not mid-lunge or mid-stride, with the knife still held out.",
+      "hard": false
+    },
+    {
+      "id": "m6",
+      "category": "props",
+      "text": "The carrier bag is clearly visible above Archie's head, held aloft.",
+      "hard": false
+    },
+    {
+      "id": "m7",
+      "category": "props",
+      "text": "The knife is still visible in the knife man's hand.",
+      "hard": false
+    },
+    {
+      "id": "m8",
+      "category": "props",
+      "text": "The yard, car and background match the blank plate, with no new objects added or removed.",
+      "hard": false
+    },
+    {
+      "id": "m9",
+      "category": "cast",
+      "text": "All three men's heads are tilted up and their gaze is on the raised bag, including Archie.",
+      "hard": false
+    },
+    {
+      "id": "m10",
+      "category": "cast",
+      "text": "Nobody is looking at Archie's back pocket or at the camera.",
+      "hard": false
+    },
+    {
+      "id": "m11",
+      "category": "framing",
+      "text": "All three men and the raised bag are fully in frame, with the bag not cropped at the top.",
+      "hard": false
+    },
+    {
+      "id": "m12",
+      "category": "framing",
+      "text": "Camera angle, scale and image size match the S4 image and the blank plate.",
+      "hard": false
+    },
+    {
+      "id": "m13",
+      "category": "unseen",
+      "text": "No pearl is visible anywhere, including in Archie's hand or at his back pocket.",
+      "hard": false
+    },
+    {
+      "id": "m14",
+      "category": "unseen",
+      "text": "Archie's back-pocket hand is just resting there, with nothing held in it or sticking out of the pocket.",
+      "hard": false
+    },
+    {
+      "id": "h-text",
+      "category": "hard",
+      "text": "No legible text or logos anywhere in the image.",
+      "hard": true
+    },
+    {
+      "id": "h-face",
+      "category": "hard",
+      "text": "No player face is shown (the player is never seen).",
+      "hard": true
+    },
+    {
+      "id": "h-bottom",
+      "category": "hard",
+      "text": "Nothing story-critical sits in the bottom ~10% of the image.",
+      "hard": true
+    },
+    {
+      "id": "h-crop",
+      "category": "hard",
+      "text": "The focal point survives the small-phone crop.",
+      "hard": true
+    }
+  ]
+}

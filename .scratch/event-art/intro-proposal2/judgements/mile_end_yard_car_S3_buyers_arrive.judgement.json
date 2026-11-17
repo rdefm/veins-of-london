@@ -1,0 +1,128 @@
+{
+  "schema": 1,
+  "eventId": "intro-proposal2",
+  "shotId": "S3",
+  "draft": "assets/reference-plates/mile_end_yard_car_S3_buyers_arrive.png",
+  "draftSha": "e48cf959deb7f3f349d0253fd3440fbfbddb150e12e3db6cd690191a0d06659d",
+  "briefHash": "deb99b608a48946f",
+  "styleHash": "1ba004d9d81aed00",
+  "rulesHash": "4f53cda18c2baa0c",
+  "model": "claude-cli-default",
+  "judgedAt": "2026-11-17T10:42:54Z",
+  "checks": [
+    {
+      "id": "m1",
+      "result": "pass",
+      "why": "Three men visible: two in the foreground, one by the car."
+    },
+    {
+      "id": "m2",
+      "result": "pass",
+      "why": "Left foreground man wears a black puffer and grey trackies."
+    },
+    {
+      "id": "m3",
+      "result": "pass",
+      "why": "Second man wears a dark green hoodie and blue jeans."
+    },
+    {
+      "id": "m4",
+      "result": "pass",
+      "why": "Bearded man in a long dark coat stands by the car and reads as older, though not strongly."
+    },
+    {
+      "id": "m5",
+      "result": "pass",
+      "why": "No Archie in the image."
+    },
+    {
+      "id": "m6",
+      "result": "pass",
+      "why": "The men look realistic and ordinary, not cartoonish."
+    },
+    {
+      "id": "m7",
+      "result": "fail",
+      "why": "The two foreground men are mid-stride, walking."
+    },
+    {
+      "id": "m8",
+      "result": "fail",
+      "why": "They look sideways or off to the left, not toward the camera and the right wall."
+    },
+    {
+      "id": "m9",
+      "result": "fail",
+      "why": "The men are well in front of the car, and its doors are not visibly open. The coat man stands beside the car, not by open doors."
+    },
+    {
+      "id": "m10",
+      "result": "fail",
+      "why": "The car is rotated to a rear three-quarter view with a red tail light. No open doors or headlights are visible."
+    },
+    {
+      "id": "m11",
+      "result": "fail",
+      "why": "There is no clear side lighting from headlight spill. The lighting comes from the street lamp and the door glow."
+    },
+    {
+      "id": "m12",
+      "result": "fail",
+      "why": "The car's pose and position changed, the white van is gone, the bin is moved and the side box is missing."
+    },
+    {
+      "id": "m13",
+      "result": "pass",
+      "why": "The men are plausibly scaled for the yard, though larger than the car implies."
+    },
+    {
+      "id": "m14",
+      "result": "fail",
+      "why": "The left man holds a small yellow-handled object, possibly a knife or tool, in his hand."
+    },
+    {
+      "id": "h-text",
+      "result": "pass",
+      "why": "No legible text or logos."
+    },
+    {
+      "id": "h-face",
+      "result": "pass",
+      "why": "The player is not shown."
+    },
+    {
+      "id": "h-bottom",
+      "result": "pass",
+      "why": "The bottom 10% is only wet ground."
+    },
+    {
+      "id": "h-crop",
+      "result": "pass",
+      "why": "The men sit at about y 540-1000, inside all the phone crops."
+    }
+  ],
+  "scores": {
+    "brief": 1.5,
+    "style": 2.5,
+    "cast": {}
+  },
+  "metrics": {
+    "size": [
+      1024,
+      1536
+    ],
+    "gridScale": 1,
+    "gridRegularity": 0.006,
+    "colours": 354016,
+    "paletteDistance": 18.01
+  },
+  "verdict": "fail",
+  "rank": 1,
+  "correctionPrompt": "Same image, change only: redraw the car in its original blank-plate pose and position with both doors open and headlights on, restore the white van, bin and side box, stand all three men still just outside the open doors in front of the car with no stride, turn them to face the camera and right-hand wall, light them from the side by the headlight spill, remove the yellow-handled object from the left man's hand, match the room's pixel-art style. Keep everything else identical.",
+  "checklistEditedAt": null,
+  "verdictReasons": [
+    "score brief 1.5 < 3.0",
+    "score style 2.5 < 3.0"
+  ],
+  "threshold": 3.0
+}

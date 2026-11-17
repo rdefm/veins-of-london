@@ -1,0 +1,134 @@
+{
+  "schema": 1,
+  "eventId": "intro-proposal2",
+  "shotId": "S4",
+  "draft": "assets/reference-plates/mile_end_yard_car_S4_archie_steps_in.png",
+  "draftSha": "cccde91db10309c9d032afeb19b5c30a208b9f363e9c26c93b2a7a61bd48c31f",
+  "briefHash": "0a2fbe2cb9e8016d",
+  "styleHash": "1ba004d9d81aed00",
+  "rulesHash": "4f53cda18c2baa0c",
+  "model": "claude-cli-default",
+  "judgedAt": "2026-11-17T10:43:40Z",
+  "checks": [
+    {
+      "id": "cast-Archie",
+      "result": "pass",
+      "why": "Archie is in the right foreground, seen from behind."
+    },
+    {
+      "id": "cast-only",
+      "result": "pass",
+      "why": "Only Archie and the three buyers are visible; no other people."
+    },
+    {
+      "id": "m1",
+      "result": "pass",
+      "why": "Four men: Archie, black puffer, green hoodie and long coat."
+    },
+    {
+      "id": "m2",
+      "result": "unsure",
+      "why": "The S3 image was not provided. The clothes look coherent with the brief."
+    },
+    {
+      "id": "m3",
+      "result": "pass",
+      "why": "Brown messy hair and beard, olive jacket, navy jeans and white sneakers match the master."
+    },
+    {
+      "id": "m4",
+      "result": "pass",
+      "why": "He is the closest figure, centre-right, back three-quarters to camera, head turned in profile."
+    },
+    {
+      "id": "m5",
+      "result": "fail",
+      "why": "He stands fairly flat-footed and static. No clear forward weight shift."
+    },
+    {
+      "id": "m6",
+      "result": "pass",
+      "why": "The knife man is in the mid-ground, centre-left, walking toward the camera."
+    },
+    {
+      "id": "m7",
+      "result": "pass",
+      "why": "The green hoodie man is just behind and beside the knife man."
+    },
+    {
+      "id": "m8",
+      "result": "pass",
+      "why": "The coat man stands back by the car with a hand in his pocket, still."
+    },
+    {
+      "id": "m9",
+      "result": "pass",
+      "why": "A yellow knife with a short blade is held out at his side, though pointed low."
+    },
+    {
+      "id": "m10",
+      "result": "pass",
+      "why": "A clear plastic carrier bag hangs from Archie's hand."
+    },
+    {
+      "id": "m11",
+      "result": "fail",
+      "why": "Archie sits off to the right and is not on the line between camera and knife man, so he does not visibly block the knife's path."
+    },
+    {
+      "id": "m12",
+      "result": "fail",
+      "why": "The car looks altered (interior glow and headlight lost) and the bin and boxes by the bins are changed or missing. The layout is otherwise close to the plate."
+    },
+    {
+      "id": "m13",
+      "result": "pass",
+      "why": "Archie's hands hold only the carrier bag."
+    },
+    {
+      "id": "h-text",
+      "result": "pass",
+      "why": "No legible text or logos."
+    },
+    {
+      "id": "h-face",
+      "result": "pass",
+      "why": "The player is not shown. Archie is seen from behind in profile."
+    },
+    {
+      "id": "h-bottom",
+      "result": "pass",
+      "why": "Only Archie's shoes and wet ground sit in the bottom 10%; nothing story-critical."
+    },
+    {
+      "id": "h-crop",
+      "result": "pass",
+      "why": "The men, the knife and Archie's torso sit within the small-phone crop."
+    }
+  ],
+  "scores": {
+    "brief": 2.5,
+    "style": 3,
+    "cast": {
+      "Archie": 3.5
+    }
+  },
+  "metrics": {
+    "size": [
+      1024,
+      1536
+    ],
+    "gridScale": 1,
+    "gridRegularity": 0.006,
+    "colours": 359573,
+    "paletteDistance": 18.54
+  },
+  "verdict": "fail",
+  "rank": 1,
+  "correctionPrompt": "Same image, change only: shift Archie's weight onto his bent front foot in a lunging forward step; enlarge Archie and move him to the centre, directly between the camera and the knife man so he blocks the knife's path; restore the car's interior glow and headlight, and restore the bin and boxes by the bins exactly as in the blank plate. Keep everything else identical.",
+  "checklistEditedAt": null,
+  "verdictReasons": [
+    "score brief 2.5 < 3.0"
+  ],
+  "threshold": 3.0
+}

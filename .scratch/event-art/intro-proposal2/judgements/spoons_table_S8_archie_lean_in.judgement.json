@@ -1,0 +1,141 @@
+{
+  "schema": 1,
+  "eventId": "intro-proposal2",
+  "shotId": "S8",
+  "draft": "assets/reference-plates/spoons_table_S8_archie_lean_in.png",
+  "draftSha": "6f36c7495c8df0778747c2f664522b75ffe3758f41dbb07dec6a6c10a6b9d67e",
+  "briefHash": "47dfd1625c4afb85",
+  "styleHash": "1ba004d9d81aed00",
+  "rulesHash": "4f53cda18c2baa0c",
+  "model": "claude-cli-default",
+  "judgedAt": "2026-11-17T10:46:57Z",
+  "checks": [
+    {
+      "id": "cast-Archie",
+      "result": "pass",
+      "why": "Archie is clearly on screen on the bench."
+    },
+    {
+      "id": "cast-only",
+      "result": "fail",
+      "why": "Others are visible: the barman and the far couple. They are brief-mandated extras, but they fail a literal 'only Archie' check."
+    },
+    {
+      "id": "m1",
+      "result": "pass",
+      "why": "He sits in the bench booth facing the camera, across the table."
+    },
+    {
+      "id": "m2",
+      "result": "pass",
+      "why": "Same messy brown hair, beard, olive overshirt and white tee. The face reads as the same man."
+    },
+    {
+      "id": "m3",
+      "result": "pass",
+      "why": "No one is at the bar except the barman."
+    },
+    {
+      "id": "m4",
+      "result": "pass",
+      "why": "A barman in a waistcoat leans at the counter with a cloth, small and soft."
+    },
+    {
+      "id": "m5",
+      "result": "pass",
+      "why": "The couple stand in coats at the back. They read as leaving, though the coat-donning motion is not explicit."
+    },
+    {
+      "id": "m6",
+      "result": "pass",
+      "why": "His forearms are folded on the table and his torso sits forward in the booth. The lean is mild."
+    },
+    {
+      "id": "m7",
+      "result": "pass",
+      "why": "He looks straight at the camera."
+    },
+    {
+      "id": "m8",
+      "result": "pass",
+      "why": "His eyes are slightly reddened and glossy, not streaming."
+    },
+    {
+      "id": "m9",
+      "result": "fail",
+      "why": "His head is tilted with a soft, wistful half-smile. That reads as tender or sheepish, not calm and expectant."
+    },
+    {
+      "id": "m10",
+      "result": "pass",
+      "why": "His pint sits to the side, nearly empty."
+    },
+    {
+      "id": "m11",
+      "result": "pass",
+      "why": "A white carrier bag sits beside him on the right."
+    },
+    {
+      "id": "m12",
+      "result": "pass",
+      "why": "The near-side pint is about half full, and the chips basket is part eaten with a ketchup pot."
+    },
+    {
+      "id": "m13",
+      "result": "fail",
+      "why": "The room is substantially different from the blank plate. The window, street, pictures, bar position and perspective all changed, and the bench and table are framed differently."
+    },
+    {
+      "id": "m14",
+      "result": "pass",
+      "why": "No money or calc is visible."
+    },
+    {
+      "id": "h-text",
+      "result": "pass",
+      "why": "No legible text. The fruit machine has only blurry pixel graphics."
+    },
+    {
+      "id": "h-face",
+      "result": "pass",
+      "why": "The player is not shown."
+    },
+    {
+      "id": "h-bottom",
+      "result": "pass",
+      "why": "The bottom 10% is just table edge, with nothing critical."
+    },
+    {
+      "id": "h-crop",
+      "result": "pass",
+      "why": "Archie's face and torso sit around y 540-1080, inside every phone crop."
+    }
+  ],
+  "scores": {
+    "brief": 2.5,
+    "style": 2.5,
+    "cast": {
+      "Archie": 3
+    }
+  },
+  "metrics": {
+    "size": [
+      1024,
+      1536
+    ],
+    "gridScale": 1,
+    "gridRegularity": 0.004,
+    "colours": 255611,
+    "paletteDistance": 15.57
+  },
+  "verdict": "fail",
+  "rank": 1,
+  "correctionPrompt": "Same image, change only: remove the barman and the far couple so only Archie is visible; change Archie's face to a calm, level, neutral expectant look with slightly raised eyebrows, head upright, no smile; restore the room exactly as in the blank plate (same window, street, pictures, bar position, perspective, bench and table framing) and only add Archie, the bag, the pint and the chips. Keep everything else identical.",
+  "checklistEditedAt": null,
+  "verdictReasons": [
+    "cast presence failed: cast-only",
+    "score brief 2.5 < 3.0",
+    "score style 2.5 < 3.0"
+  ],
+  "threshold": 3.0
+}

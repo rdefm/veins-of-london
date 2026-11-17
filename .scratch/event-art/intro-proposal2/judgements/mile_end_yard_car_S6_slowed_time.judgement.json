@@ -1,0 +1,135 @@
+{
+  "schema": 1,
+  "eventId": "intro-proposal2",
+  "shotId": "S6",
+  "draft": "assets/reference-plates/mile_end_yard_car_S6_slowed_time.png",
+  "draftSha": "8723c2304124620e5ab01ca2685f03a8a850d12103ad316b08384003b4041e2d",
+  "briefHash": "9269c3dc6dfcb890",
+  "styleHash": "1ba004d9d81aed00",
+  "rulesHash": "4f53cda18c2baa0c",
+  "model": "claude-cli-default",
+  "judgedAt": "2026-11-17T10:45:20Z",
+  "checks": [
+    {
+      "id": "cast-Archie",
+      "result": "pass",
+      "why": "Archie is visible at the right: brown hair, beard, green jacket, navy jeans, white trainers."
+    },
+    {
+      "id": "cast-only",
+      "result": "pass",
+      "why": "The only other figures are the three slowed men, who are not cast."
+    },
+    {
+      "id": "m1",
+      "result": "pass",
+      "why": "Exactly four men: knife man, hoodie man, older man, Archie."
+    },
+    {
+      "id": "m2",
+      "result": "pass",
+      "why": "Archie stands apart on the right, clear of the three men grouped on the left and centre."
+    },
+    {
+      "id": "m3",
+      "result": "pass",
+      "why": "The knife man leans forward with his arm extended and the knife pointed at the camera."
+    },
+    {
+      "id": "m4",
+      "result": "pass",
+      "why": "The hoodie man has one foot lifted in mid-step."
+    },
+    {
+      "id": "m5",
+      "result": "pass",
+      "why": "The older man stands upright with his hands in his pockets, by the car."
+    },
+    {
+      "id": "m6",
+      "result": "fail",
+      "why": "Archie is turned back toward the camera, but he stands against the right wall with no dark passage mouth visible. The head tilt is weak."
+    },
+    {
+      "id": "m7",
+      "result": "pass",
+      "why": "Pearl shards and some gold bits lie on the tarmac between the men. They are small and the bent band is hard to read."
+    },
+    {
+      "id": "m8",
+      "result": "pass",
+      "why": "Archie holds a pale carrier bag that hangs from his hand. The wrapped handle is not clearly visible."
+    },
+    {
+      "id": "m9",
+      "result": "fail",
+      "why": "There are faint vertical smears and no clear short raindrop streaks. The sideways light smear is barely perceptible."
+    },
+    {
+      "id": "m10",
+      "result": "pass",
+      "why": "A faint blue haze with a rough edge shows near the fence and door. It is subtle and has no glow."
+    },
+    {
+      "id": "m11",
+      "result": "fail",
+      "why": "The room changed: the bins and boxes are gone, the car is repositioned with its doors closed, and the van and fence differ from the plate."
+    },
+    {
+      "id": "m12",
+      "result": "pass",
+      "why": "The knife, pearl, all three men and Archie are fully in frame."
+    },
+    {
+      "id": "m13",
+      "result": "pass",
+      "why": "No runes, sparkles, beams or magic circles are visible."
+    },
+    {
+      "id": "h-text",
+      "result": "pass",
+      "why": "No legible text or logos."
+    },
+    {
+      "id": "h-face",
+      "result": "pass",
+      "why": "No player face is shown."
+    },
+    {
+      "id": "h-bottom",
+      "result": "pass",
+      "why": "The bottom 10% is empty puddled ground."
+    },
+    {
+      "id": "h-crop",
+      "result": "pass",
+      "why": "The men, pearl and Archie sit between y=550 and y=1050, well inside the small-phone crop."
+    }
+  ],
+  "scores": {
+    "brief": 2.5,
+    "style": 2.5,
+    "cast": {
+      "Archie": 3
+    }
+  },
+  "metrics": {
+    "size": [
+      1024,
+      1536
+    ],
+    "gridScale": 1,
+    "gridRegularity": 0.005,
+    "colours": 341134,
+    "paletteDistance": 18.98
+  },
+  "verdict": "fail",
+  "rank": 1,
+  "correctionPrompt": "Same image, change only: restore the blank plate room exactly (bins, boxes, car with open doors, van, fence); put Archie inside the dark side passage mouth, screen-right midground, with a clearer head tilt toward the group; add distinct short diagonal raindrop streaks and a visible sideways light smear inside the dome. Keep everything else identical.",
+  "checklistEditedAt": null,
+  "verdictReasons": [
+    "score brief 2.5 < 3.0",
+    "score style 2.5 < 3.0"
+  ],
+  "threshold": 3.0
+}

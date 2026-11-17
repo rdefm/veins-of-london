@@ -1,0 +1,140 @@
+{
+  "schema": 1,
+  "eventId": "intro-proposal2",
+  "shotId": "S7",
+  "draft": "assets/reference-plates/spoons_table_S7_archie_eyes_streaming.png",
+  "draftSha": "1b8908f7d2ea4efd51f0a9beafa09840f6139ffa1c787f8a79b34047151a54fa",
+  "briefHash": "87e822768bc440a6",
+  "styleHash": "1ba004d9d81aed00",
+  "rulesHash": "4f53cda18c2baa0c",
+  "model": "claude-cli-default",
+  "judgedAt": "2026-11-17T10:46:09Z",
+  "checks": [
+    {
+      "id": "cast-Archie",
+      "result": "pass",
+      "why": "Archie is clearly on screen: brown shaggy hair, beard, olive overshirt, white tee."
+    },
+    {
+      "id": "cast-only",
+      "result": "pass",
+      "why": "Only Archie is a main figure. The others are small background extras."
+    },
+    {
+      "id": "m1",
+      "result": "pass",
+      "why": "He sits alone on the far bench with no second main character."
+    },
+    {
+      "id": "m2",
+      "result": "pass",
+      "why": "There is one man at the bar and a couple at a far table. Both are small and soft."
+    },
+    {
+      "id": "m3",
+      "result": "pass",
+      "why": "The man at the bar is screen-right, hunched over the bar with his back mostly to us."
+    },
+    {
+      "id": "m4",
+      "result": "pass",
+      "why": "He sits centred on the bench seat opposite the viewer."
+    },
+    {
+      "id": "m5",
+      "result": "pass",
+      "why": "His eyes look reddened and watery, with tear tracks and flushed cheeks. This is subtle but readable."
+    },
+    {
+      "id": "m6",
+      "result": "pass",
+      "why": "His right hand holds a white napkin to his eye."
+    },
+    {
+      "id": "m7",
+      "result": "pass",
+      "why": "His other hand wraps around a full pint of lager."
+    },
+    {
+      "id": "m8",
+      "result": "pass",
+      "why": "His gaze is directed off to screen-left, past the camera. He is not looking at the viewer or down."
+    },
+    {
+      "id": "m9",
+      "result": "pass",
+      "why": "A white carrier bag sits on the bench to his right."
+    },
+    {
+      "id": "m10",
+      "result": "pass",
+      "why": "Near the viewer there is a full pint on the right and a chip basket with a ketchup ramekin on the left."
+    },
+    {
+      "id": "m11",
+      "result": "pass",
+      "why": "A second pint is on his side of the table and his hand is round it."
+    },
+    {
+      "id": "m12",
+      "result": "fail",
+      "why": "The room is not unchanged from the blank plate. The window view, framed pictures, bar and lighting are all different, and the room has been regenerated."
+    },
+    {
+      "id": "m13",
+      "result": "pass",
+      "why": "No calc, glow or magical effect is visible. Only normal lamps and the fruit machine are lit."
+    },
+    {
+      "id": "m14",
+      "result": "fail",
+      "why": "A pale grey car with headlights is visible through the window at left."
+    },
+    {
+      "id": "h-text",
+      "result": "pass",
+      "why": "No legible text or logos are visible."
+    },
+    {
+      "id": "h-face",
+      "result": "pass",
+      "why": "No player face is shown."
+    },
+    {
+      "id": "h-bottom",
+      "result": "pass",
+      "why": "Only the table edge sits in the bottom 10%. Nothing story-critical is there."
+    },
+    {
+      "id": "h-crop",
+      "result": "pass",
+      "why": "Archie's face, napkin and pint all sit within the small-phone crop of y 267-1269."
+    }
+  ],
+  "scores": {
+    "brief": 2.5,
+    "style": 2.5,
+    "cast": {
+      "Archie": 3
+    }
+  },
+  "metrics": {
+    "size": [
+      1024,
+      1536
+    ],
+    "gridScale": 1,
+    "gridRegularity": 0.006,
+    "colours": 250192,
+    "paletteDistance": 15.86
+  },
+  "verdict": "fail",
+  "rank": 1,
+  "correctionPrompt": "Same image, change only: restore the window view, framed pictures, bar and lighting exactly as in spoons_table_blank_plate.png without regenerating the room, and remove the grey car with headlights from the window, showing only the blank plate's original view. Keep everything else identical.",
+  "checklistEditedAt": null,
+  "verdictReasons": [
+    "score brief 2.5 < 3.0",
+    "score style 2.5 < 3.0"
+  ],
+  "threshold": 3.0
+}

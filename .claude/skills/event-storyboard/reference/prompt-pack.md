@@ -62,14 +62,19 @@ Light: <each source, its side, colour>.
 Attach: <plate>_blank_plate.png, <Name>_biz_sprite_master.png[, prop art].
 Using the room in <plate>_blank_plate.png, add <who> <where, by plate landmark>,
 <pose>, <gaze/expression>, <props>. <Second character…>
+[<accepted rules in scope, one short line each>]
 Same pixel-art style and scale as the room. Change nothing else in the room.
 Keep the exact image size.
 ```
 
 Ask for 3–4 variations; pick one; cut out with `extract.py`.
 
+**Art rules.** Read `.scratch/event-art/_judge/rules.json`; include each `status: "accepted"` rule whose scope is `global`, a `character` in the shot's cast (names from the `attach` character-reference paths), or the shot's `plate`. Put them after the cast/pose lines and before the fixed tail ("Same pixel-art style…"), one imperative line each, rule text verbatim or trimmed. Keep prompts short: if more than ~5 apply, keep the most specific (character/plate before global). No rules in scope → omit the block. Proposed/rejected/retired rules never go in.
+
 ## Delta prompt (draft revision)
 
 ```
-Same image, change only: <specific changes>. Keep everything else identical.
+Same image, change only: <specific changes>. [<accepted rules in scope the draft broke>] Keep everything else identical.
 ```
+
+Prefer the judge's `correctionPrompt` (Shots tab) when one exists; only add in-scope rules the draft broke.

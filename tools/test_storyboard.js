@@ -27,7 +27,7 @@ const {
   outcomeSlots, setReselectable, setOptionExitFlag, setCardAdvance, hubExit, advanceRule, addOption, deleteOption, moveOption, setOptionField, setOutcomeText, setOutcomeGoto, setOutcomeImage, routeToNewBranch,
   setCheckNote, setCheckOn, setOptionMechanics, setEffects, addBySuccess, deleteBySuccess, setConditionKind, setHideUnless, requiresText,
   addComment, updateComment, deleteComment, filterComments, commentCount, anchorText, anchorType, proseComments,
-  cardImageName, freeImageName, freeResultImageName, setCardImage, eventImageDir, SHOT_FIELDS, serialiseBoard, setShotField, shotFieldText,
+  cardImageName, freeImageName, freeResultImageName, setCardImage, eventImageDir, SHOT_FIELDS, serialiseBoard, setShotField, shotFieldText, addShot, deleteShot, PLATE_FIELDS, plateUsedBy, addPlate, deletePlate, setPlateField, setShotCards, setCardShot, newShotBoard,
   LIVE_EVENTS_DIR, proposalFileName, importBoard, blankBoard, duplicateBoard, boardCardLabel, promoteDraft, serialiseEvent,
   promoteForWrite, promoteSummary, shotBoardFor, boardCut, shotOnPath, workingCopyFor, liveHash, liveDrifted,
   liveEventOptions, openOrImport, lintEvent, lintDraft, nothingFires, inboundRefs, inboundWarnings, promoteGate,
@@ -45,7 +45,7 @@ const {
     " outcomeSlots, setReselectable, setOptionExitFlag, setCardAdvance, hubExit, advanceRule, addOption, deleteOption, moveOption, setOptionField, setOutcomeText, setOutcomeGoto, setOutcomeImage, routeToNewBranch," +
     " setCheckNote, setCheckOn, setOptionMechanics, setEffects, addBySuccess, deleteBySuccess, setConditionKind, setHideUnless, requiresText," +
     " addComment, updateComment, deleteComment, filterComments, commentCount, anchorText, anchorType, proseComments," +
-    " cardImageName, freeImageName, freeResultImageName, setCardImage, eventImageDir, SHOT_FIELDS, serialiseBoard, setShotField, shotFieldText," +
+    " cardImageName, freeImageName, freeResultImageName, setCardImage, eventImageDir, SHOT_FIELDS, serialiseBoard, setShotField, shotFieldText, addShot, deleteShot, PLATE_FIELDS, plateUsedBy, addPlate, deletePlate, setPlateField, setShotCards, setCardShot, newShotBoard," +
     " LIVE_EVENTS_DIR, proposalFileName, importBoard, blankBoard, duplicateBoard, boardCardLabel, promoteDraft, serialiseEvent," +
     " promoteForWrite, promoteSummary, shotBoardFor, boardCut, shotOnPath, workingCopyFor, liveHash, liveDrifted," +
     " liveEventOptions, openOrImport, lintEvent, lintDraft, nothingFires, inboundRefs, inboundWarnings, promoteGate, OBS_ORES, obsIds, effectiveObservation, setCardObserve, addObservation, renameObservation, observationUses, deleteObservation, addObservationBlock, deleteObservationBlock, setObservationMiss, addObservationTier, deleteObservationTier, setObservationTier," +
@@ -1645,6 +1645,108 @@ test("setCardImage: path, CLEAR (null), HOLD (key dropped); assignments survive 
   setCardImage(d, "c3", undefined);
   assert.ok(!("image" in cardByKey(d, "c3")));
   assert.throws(() => setCardImage(d, "zz", null), /no card zz/);
+});
+
+test("addShot appends the next free id; deleteShot removes it and untags its cards", () => {
+  const board = { shots: [{ id: "S1" }, { id: "S3" }], cards: [{ key: "c1", shot: "S3" }, { key: "c2", shot: "S1" }] };
+  assert.strictEqual(addShot(board), "S4");
+  assert.strictEqual(board.shots.length, 3);
+  deleteShot(board, "S3");
+  assert.deepStrictEqual(board.shots.map((s) => s.id), ["S1", "S4"]);
+  assert.strictEqual(board.cards[0].shot, null);
+  assert.strictEqual(board.cards[1].shot, "S1");
+  assert.throws(() => deleteShot(board, "S9"));
+  const empty = {};
+  assert.strictEqual(addShot(empty), "S1");
+});
+
+test("addPlate takes the next free id; deletePlate clears shots' plate and variants' variantOf", () => {
+  const board = { plates: [{ id: "P1", name: "a" }, { id: "P3", name: "b", variantOf: "P1" }], shots: [{ id: "S1", plate: "P1" }, { id: "S2", plate: "P3" }] };
+  assert.strictEqual(addPlate(board), "P4");
+  assert.strictEqual(board.plates[2].name, "plate_4");
+  assert.strictEqual(addPlate({}), "P1");
+  deletePlate(board, "P1");
+  assert.deepStrictEqual(board.plates.map((p) => p.id), ["P3", "P4"]);
+  assert.ok(!("plate" in board.shots[0]));
+  assert.strictEqual(board.shots[1].plate, "P3");
+  assert.ok(!("variantOf" in board.plates[0]));
+  assert.throws(() => deletePlate(board, "P9"), /no plate P9/);
+});
+
+test("setPlateField validates name and variantOf; blanks drop the key; keys stay in schema order", () => {
+  const board = { plates: [{ id: "P1", name: "corner", prompt: "p" }, { id: "P2", name: "pub" }], shots: [] };
+  setPlateField(board, "P1", "name", " new_name2 ");
+  assert.strictEqual(board.plates[0].name, "new_name2");
+  assert.throws(() => setPlateField(board, "P1", "name", "Bad"), /lower-case/);
+  assert.throws(() => setPlateField(board, "P1", "name", "a-b"), /lower-case/);
+  assert.throws(() => setPlateField(board, "P1", "name", "pub"), /already used/);
+  assert.throws(() => setPlateField(board, "P1", "name", " "), /needs a name/);
+  setPlateField(board, "P1", "name", "new_name2");
+  assert.throws(() => setPlateField(board, "P1", "variantOf", "P1"), /itself/);
+  assert.throws(() => setPlateField(board, "P1", "variantOf", "P7"), /no plate P7/);
+  assert.throws(() => setPlateField(board, "P1", "id", "P5"), /not an editable plate field/);
+  assert.throws(() => setPlateField(board, "P9", "camera", "x"), /no plate P9/);
+  setPlateField(board, "P2", "notes", "n");
+  setPlateField(board, "P2", "attach", "a.png\n\n b.png ");
+  setPlateField(board, "P2", "camera", "wide");
+  setPlateField(board, "P2", "variantOf", "P1");
+  assert.deepStrictEqual(Object.keys(board.plates[1]), ["id", "name", "variantOf", "camera", "attach", "notes"]);
+  assert.deepStrictEqual(board.plates[1].attach, ["a.png", "b.png"]);
+  setPlateField(board, "P2", "variantOf", "");
+  setPlateField(board, "P2", "attach", "");
+  assert.deepStrictEqual(Object.keys(board.plates[1]), ["id", "name", "camera", "notes"]);
+});
+
+test("plateUsedBy lists the shots on a plate from their plate fields", () => {
+  const board = { shots: [{ id: "S1", plate: "P1" }, { id: "S2", plate: "P2" }, { id: "S3", plate: "P1" }, { id: "S4" }] };
+  assert.strictEqual(plateUsedBy(board, "P1"), "S1, S3");
+  assert.strictEqual(plateUsedBy(board, "P2"), "S2");
+  assert.strictEqual(plateUsedBy(board, "P3"), "");
+  assert.strictEqual(plateUsedBy({}, "P1"), "");
+});
+
+test("newShotBoard starts empty from a proposal's cards and is matched back by shotBoardFor", () => {
+  const sb = newShotBoard({ file: "gym-proposal.md", title: "Gym", cards: [{ branch: "main", key: "c1", text: "hi", choices: ["a", "b"] }, { branch: "b2", key: "c2", text: "yo", speaker: "X" }] });
+  assert.strictEqual(sb.eventId, "gym-proposal");
+  assert.deepStrictEqual(sb.cards.map((c) => [c.branch, c.key, c.cut, c.shot]), [["main", "c1", "CLEAR", null], ["b2", "c2", "CLEAR", null]]);
+  assert.deepStrictEqual(sb.cards[0].choices, ["a", "b"]);
+  assert.deepStrictEqual([sb.plates, sb.shots], [[], []]);
+  assert.strictEqual(shotBoardFor("gym-proposal.md", "gym", [sb]), sb);
+});
+
+test("setCardShot assigns one card, picks NEW/HOLD, and updates both shots' cards summaries", () => {
+  const b = { shots: [{ id: "S1" }, { id: "S2" }], cards: [{ branch: "main", key: "c1", cut: "NEW", shot: "S1" }, { branch: "main", key: "c2", cut: "CLEAR", shot: null }, { branch: "main", key: "c3", cut: "CLEAR", shot: null }] };
+  setCardShot(b, 1, "S1");
+  assert.deepStrictEqual([b.cards[1].shot, b.cards[1].cut, b.shots[0].cards], ["S1", "HOLD", "main: c1–c2"]);
+  setCardShot(b, 2, "S2");
+  assert.deepStrictEqual([b.cards[2].cut, b.shots[1].cards], ["NEW", "main: c3"]);
+  setCardShot(b, 1, "S2");
+  assert.deepStrictEqual([b.shots[0].cards, b.shots[1].cards], ["main: c1", "main: c2–c3"]);
+  setCardShot(b, 0, null);
+  assert.deepStrictEqual([b.cards[0].cut, "cards" in b.shots[0]], ["CLEAR", false]);
+  assert.throws(() => setCardShot(b, 0, "S9"));
+});
+
+test("setShotCards tags cards, writes a judge-readable summary, moves and clears", () => {
+  const mk = () => ({ shots: [{ id: "S1", title: "t", prompt: "p" }, { id: "S2" }],
+    cards: [{ branch: "main", key: "c1", cut: "CLEAR", shot: null }, { branch: "main", key: "c2", cut: "CLEAR", shot: null },
+      { branch: "main", key: "c3", cut: "NEW", shot: "S2" }, { branch: "b2", key: "c4", cut: "CLEAR", shot: null }] });
+  const b = mk();
+  setShotCards(b, "S1", [0, 1]);
+  assert.strictEqual(b.shots[0].cards, "main: c1–c2");
+  assert.deepStrictEqual(Object.keys(b.shots[0]), ["id", "title", "cards", "prompt"]);
+  assert.deepStrictEqual(b.cards.slice(0, 2).map((c) => [c.shot, c.cut]), [["S1", "NEW"], ["S1", "HOLD"]]);
+  setShotCards(b, "S1", [0, 1, 2]); // takes c3 from S2
+  assert.strictEqual(b.cards[2].shot, "S1");
+  assert.strictEqual(b.shots[0].cards, "main: c1–c3");
+  setShotCards(b, "S1", [0, 3]); // two branches: colon-free, tags take over
+  assert.strictEqual(b.shots[0].cards, "main c1 · b2 c4");
+  assert.deepStrictEqual(b.cards.map((c) => c.shot), ["S1", null, null, "S1"]);
+  assert.strictEqual(b.cards[1].cut, "CLEAR");
+  setShotCards(b, "S1", []);
+  assert.ok(!("cards" in b.shots[0]));
+  assert.ok(b.cards.every((c) => c.shot !== "S1"));
+  assert.throws(() => setShotCards(mk(), "S9", []));
 });
 
 test("setShotField edits shot fields in place; blanks drop the key; lists split; drafts and other keys untouched", () => {

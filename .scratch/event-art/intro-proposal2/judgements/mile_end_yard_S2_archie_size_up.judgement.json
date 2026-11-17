@@ -1,0 +1,139 @@
+{
+  "schema": 1,
+  "eventId": "intro-proposal2",
+  "shotId": "S2",
+  "draft": "assets/reference-plates/mile_end_yard_S2_archie_size_up.png",
+  "draftSha": "64a14cee9fdb858e5d390cf1d7fbdd96d847dc3b9bb012b34427670284550bf5",
+  "briefHash": "1755161715656d5a",
+  "styleHash": "1ba004d9d81aed00",
+  "rulesHash": "4f53cda18c2baa0c",
+  "model": "claude-cli-default",
+  "judgedAt": "2026-11-17T10:42:07Z",
+  "checks": [
+    {
+      "id": "cast-Archie",
+      "result": "pass",
+      "why": "Archie is on screen at right."
+    },
+    {
+      "id": "cast-only",
+      "result": "pass",
+      "why": "Only one person is visible."
+    },
+    {
+      "id": "m1",
+      "result": "pass",
+      "why": "A single figure in the yard."
+    },
+    {
+      "id": "m2",
+      "result": "pass",
+      "why": "Brown hair, beard, olive overshirt, white tee, navy jeans and white trainers match the sprite master. S1 wasn't provided, so that comparison is unchecked."
+    },
+    {
+      "id": "m3",
+      "result": "pass",
+      "why": "He stands upright on his own feet, with no lean on the wall or anything else."
+    },
+    {
+      "id": "m4",
+      "result": "fail",
+      "why": "His body is angled three-quarter to the left, not squarely facing the camera."
+    },
+    {
+      "id": "m5",
+      "result": "unsure",
+      "why": "S1 wasn't provided. He stands by the right wall, which is plausible for the wall-lean spot."
+    },
+    {
+      "id": "m6",
+      "result": "fail",
+      "why": "His gaze is cast downward and to the left, not at the camera."
+    },
+    {
+      "id": "m7",
+      "result": "fail",
+      "why": "No clearly raised eyebrow is visible at this size."
+    },
+    {
+      "id": "m8",
+      "result": "fail",
+      "why": "The expression reads as a soft, neutral or sad smile with tired eyes, not a clearly unimpressed smirk."
+    },
+    {
+      "id": "m9",
+      "result": "pass",
+      "why": "A white carrier bag hangs from his left hand."
+    },
+    {
+      "id": "m10",
+      "result": "fail",
+      "why": "The background differs from the plate. The gate and fence beside the wall are replaced by plain brick, and the cardboard box and ground details near the wall are altered or missing."
+    },
+    {
+      "id": "m11",
+      "result": "fail",
+      "why": "His face is only about 100px wide in a 1024px image, too small to read an eyebrow or smile."
+    },
+    {
+      "id": "m12",
+      "result": "pass",
+      "why": "The crop and size match the plate, and he is fully in frame."
+    },
+    {
+      "id": "m13",
+      "result": "fail",
+      "why": "A white van is parked in the background. It is also in the plate, but the brief says no car should appear."
+    },
+    {
+      "id": "m14",
+      "result": "pass",
+      "why": "No buyers or other people are visible."
+    },
+    {
+      "id": "h-text",
+      "result": "pass",
+      "why": "No legible text or logos."
+    },
+    {
+      "id": "h-face",
+      "result": "pass",
+      "why": "The face shown is Archie's, not the player's."
+    },
+    {
+      "id": "h-bottom",
+      "result": "pass",
+      "why": "Nothing story-critical is in the bottom 10%."
+    },
+    {
+      "id": "h-crop",
+      "result": "pass",
+      "why": "He sits at about y 470-1100, inside the small-phone crop of y 267-1269."
+    }
+  ],
+  "scores": {
+    "brief": 1.5,
+    "style": 3,
+    "cast": {
+      "Archie": 3
+    }
+  },
+  "metrics": {
+    "size": [
+      1024,
+      1536
+    ],
+    "gridScale": 1,
+    "gridRegularity": 0.006,
+    "colours": 271568,
+    "paletteDistance": 15.6
+  },
+  "verdict": "fail",
+  "rank": 1,
+  "correctionPrompt": "Same image, change only: enlarge Archie so his face is much bigger and clear, turn his body squarely to face the camera, aim his eyes straight at the camera, raise one eyebrow clearly higher than the other, give a closed faint smirk with a flat unimpressed look, restore the gate, fence, cardboard box and ground details exactly as in the blank plate, remove the white van. Keep everything else identical.",
+  "checklistEditedAt": null,
+  "verdictReasons": [
+    "score brief 1.5 < 3.0"
+  ],
+  "threshold": 3.0
+}

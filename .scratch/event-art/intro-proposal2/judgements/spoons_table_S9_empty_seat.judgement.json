@@ -1,0 +1,120 @@
+{
+  "schema": 1,
+  "eventId": "intro-proposal2",
+  "shotId": "S9",
+  "draft": "assets/reference-plates/spoons_table_S9_empty_seat.png",
+  "draftSha": "885f6e82e9844d5ae009460c8418ac457ef536c6d402ea724ab1cf505d9f057d",
+  "briefHash": "f1a285c284f3d82e",
+  "styleHash": "1ba004d9d81aed00",
+  "rulesHash": "4f53cda18c2baa0c",
+  "model": "claude-cli-default",
+  "judgedAt": "2026-11-17T10:47:45Z",
+  "checks": [
+    {
+      "id": "m1",
+      "result": "pass",
+      "why": "Drained pint glass with faint foam rings stands on the far side of the table."
+    },
+    {
+      "id": "m2",
+      "result": "pass",
+      "why": "Crumpled white napkin lies right beside the empty glass."
+    },
+    {
+      "id": "m3",
+      "result": "pass",
+      "why": "Half-finished pint sits at the bottom-left of the table."
+    },
+    {
+      "id": "m4",
+      "result": "pass",
+      "why": "Wicker chips basket holds a few chips. They look cold, and the pot of ketchup beside it is an extra."
+    },
+    {
+      "id": "m5",
+      "result": "unsure",
+      "why": "S8 is not provided, so the arrangement cannot be compared. The layout looks plausible."
+    },
+    {
+      "id": "m6",
+      "result": "pass",
+      "why": "No carrier bag is visible."
+    },
+    {
+      "id": "m7",
+      "result": "pass",
+      "why": "The bench seat is empty, with no person, coat or bag."
+    },
+    {
+      "id": "m8",
+      "result": "pass",
+      "why": "A small, soft barman figure stands at the far bar, handling a chair."
+    },
+    {
+      "id": "m9",
+      "result": "pass",
+      "why": "The barman is the only person visible."
+    },
+    {
+      "id": "m10",
+      "result": "pass",
+      "why": "Archie is not visible, and no one is at the door."
+    },
+    {
+      "id": "m11",
+      "result": "unsure",
+      "why": "The barman is mid-action with a chair or ladder shape, but it is too small to confirm an upturned chair on a table."
+    },
+    {
+      "id": "m12",
+      "result": "pass",
+      "why": "The framing matches the plate, with the table in the foreground and the room unchanged."
+    },
+    {
+      "id": "m13",
+      "result": "pass",
+      "why": "The image is the same size as the plate, with no visible shift."
+    },
+    {
+      "id": "h-text",
+      "result": "pass",
+      "why": "No legible text or logos."
+    },
+    {
+      "id": "h-face",
+      "result": "pass",
+      "why": "No player face is shown."
+    },
+    {
+      "id": "h-bottom",
+      "result": "pass",
+      "why": "The pint's base dips slightly into the bottom 10%, but the story-critical props are higher up."
+    },
+    {
+      "id": "h-crop",
+      "result": "pass",
+      "why": "The empty seat and the props mostly survive the small crop. The pint's base is clipped."
+    }
+  ],
+  "scores": {
+    "brief": 3.3,
+    "style": 3.2,
+    "cast": {}
+  },
+  "metrics": {
+    "size": [
+      1024,
+      1536
+    ],
+    "gridScale": 1,
+    "gridRegularity": 0.017,
+    "colours": 266484,
+    "paletteDistance": 17.26
+  },
+  "verdict": "pass",
+  "rank": 1,
+  "correctionPrompt": null,
+  "checklistEditedAt": null,
+  "verdictReasons": [],
+  "threshold": 3.0
+}

@@ -1,0 +1,129 @@
+{
+  "shotId": "S2",
+  "briefHash": "1755161715656d5a",
+  "builtAt": "2026-11-17T10:42:19Z",
+  "items": [
+    {
+      "id": "cast-Archie",
+      "category": "cast",
+      "text": "Archie is on screen.",
+      "hard": false,
+      "presence": true
+    },
+    {
+      "id": "cast-only",
+      "category": "cast",
+      "text": "No one is on screen except: Archie.",
+      "hard": false,
+      "presence": true
+    },
+    {
+      "id": "m1",
+      "category": "cast",
+      "text": "Archie is the only person visible in the yard, a single figure.",
+      "hard": false
+    },
+    {
+      "id": "m2",
+      "category": "cast",
+      "text": "Archie matches the man in the sprite master (same hair, clothes and build) and looks like the same person as in the S1 wall-lean image.",
+      "hard": false
+    },
+    {
+      "id": "m3",
+      "category": "pose",
+      "text": "Archie is standing upright on his own, not leaning against the wall or propped on anything.",
+      "hard": false
+    },
+    {
+      "id": "m4",
+      "category": "pose",
+      "text": "Archie's body is turned to face the camera, not in profile or side-on.",
+      "hard": false
+    },
+    {
+      "id": "m5",
+      "category": "pose",
+      "text": "Archie stands in roughly the same spot in the yard as in S1, not moved to a new position.",
+      "hard": false
+    },
+    {
+      "id": "m6",
+      "category": "pose",
+      "text": "Archie's gaze is aimed at the camera, as if looking the viewer up and down, not off to the side or at the ground.",
+      "hard": false
+    },
+    {
+      "id": "m7",
+      "category": "pose",
+      "text": "One of Archie's eyebrows is clearly raised higher than the other.",
+      "hard": false
+    },
+    {
+      "id": "m8",
+      "category": "pose",
+      "text": "Archie's mouth shows a faint, closed, unimpressed smile, not a wide grin, a frown or a neutral blank.",
+      "hard": false
+    },
+    {
+      "id": "m9",
+      "category": "props",
+      "text": "A carrier bag is hooked on one of Archie's fingers and hangs from his hand.",
+      "hard": false
+    },
+    {
+      "id": "m10",
+      "category": "props",
+      "text": "The yard background matches the blank plate, with no added, moved or removed objects other than Archie's changed pose.",
+      "hard": false
+    },
+    {
+      "id": "m11",
+      "category": "framing",
+      "text": "Archie's face is large and clear enough to read the raised eyebrow and smile.",
+      "hard": false
+    },
+    {
+      "id": "m12",
+      "category": "framing",
+      "text": "Camera angle, crop and image size match the blank plate and S1, with Archie fully in frame.",
+      "hard": false
+    },
+    {
+      "id": "m13",
+      "category": "unseen",
+      "text": "No car appears anywhere in the image.",
+      "hard": false
+    },
+    {
+      "id": "m14",
+      "category": "unseen",
+      "text": "No buyers or other people appear anywhere in the image, including at the edges or in the background.",
+      "hard": false
+    },
+    {
+      "id": "h-text",
+      "category": "hard",
+      "text": "No legible text or logos anywhere in the image.",
+      "hard": true
+    },
+    {
+      "id": "h-face",
+      "category": "hard",
+      "text": "No player face is shown (the player is never seen).",
+      "hard": true
+    },
+    {
+      "id": "h-bottom",
+      "category": "hard",
+      "text": "Nothing story-critical sits in the bottom ~10% of the image.",
+      "hard": true
+    },
+    {
+      "id": "h-crop",
+      "category": "hard",
+      "text": "The focal point survives the small-phone crop.",
+      "hard": true
+    }
+  ]
+}
