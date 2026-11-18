@@ -22,8 +22,9 @@ class ImageData {
     else { this.data = a; this.width = b; this.height = c; }
   }
 }
-const { cellEdges, gridLock, kuwahara, reducePalette, snapToPalette, paletteFromJSON, colourCount, detectGrid, adjustColour } =
-  new Function("ImageData", section + "\nreturn { cellEdges, gridLock, kuwahara, reducePalette, snapToPalette, paletteFromJSON, colourCount, detectGrid, adjustColour };")(ImageData);
+const names = "cellEdges, gridLock, kuwahara, reducePalette, snapToPalette, paletteFromJSON, colourCount, detectGrid, adjustColour, edgeProfile, followEdges, gridAxes";
+const { cellEdges, gridLock, kuwahara, reducePalette, snapToPalette, paletteFromJSON, colourCount, detectGrid, adjustColour, edgeProfile, followEdges, gridAxes } =
+  new Function("ImageData", section + "\nreturn { " + names + " };")(ImageData);
 
 let passed = 0;
 function test(name, fn) { fn(); passed++; console.log("ok - " + name); }
@@ -140,6 +141,62 @@ test("colourCount and adjustColour basics", () => {
   assert.deepStrictEqual(Array.from(same.data), Array.from(img.data));
   const grey = adjustColour(img, 0, -100);
   assert(grey.data[0] === grey.data[1] && grey.data[1] === grey.data[2], "sat -100 greys out");
+});
+
+// Grid whose fake-pixel width drifts linearly from w0 to w1 across n cells.
+function driftBounds(n, w0, w1) {
+  const b = [0];
+  for (let i = 0; i < n; i++) b.push(b[i] + Math.round(w0 + (w1 - w0) * i / (n - 1)));
+  return b;   // integer border positions
+}
+function driftImage(bx, by) {
+  const cellOf = (b, v) => { let i = 0; while (b[i + 1] <= v) i++; return i; };
+  return fill(new ImageData(bx[bx.length - 1], by[by.length - 1]), (x, y) => truthColour(cellOf(bx, x), cellOf(by, y)));
+}
+function mismatches(img, out, xs, ys, bx, by) {
+  const cellOf = (b, v) => { let i = 0; while (b[i + 1] <= v) i++; return i; };
+  let bad = 0;
+  for (let cy = 0; cy < ys.length; cy++) for (let cx = 0; cx < xs.length; cx++) {
+    const mx = (xs[cx][0] + xs[cx][1]) >> 1, my = (ys[cy][0] + ys[cy][1]) >> 1;
+    const t = truthColour(cellOf(bx, mx), cellOf(by, my)), a = px(out, cx, cy);
+    if (a.slice(0, 3).some((v, k) => v !== t[k])) bad++;
+  }
+  return bad;
+}
+
+test("edge-following recovers a drifting grid that a fixed cell size loses", () => {
+  const n = 30, bx = driftBounds(n, 5.0, 5.6), by = driftBounds(n, 5.0, 5.6);
+  const img = driftImage(bx, by), W = img.width, H = img.height;
+  const cell = W / n, prof = edgeProfile(img, W, H), follow = { prof, shift: 3 };
+  const fixed = gridLock(img, W, H, cell, 0, 0, "dominant", 100, null);
+  const moved = gridLock(img, W, H, cell, 0, 0, "dominant", 100, null, follow);
+  const fa = gridAxes(W, H, cell, 0, 0, null), ma = gridAxes(W, H, cell, 0, 0, follow);
+  const badFixed = mismatches(img, fixed, fa.xs, fa.ys, bx, by), badMoved = mismatches(img, moved, ma.xs, ma.ys, bx, by);
+  assert(badFixed > 50, "fixed grid should lose many cells, lost " + badFixed);
+  assert(badMoved <= badFixed * 0.05, "edge-following mismatches " + badMoved + " vs fixed " + badFixed);
+});
+
+test("edge-following changes nothing on a clean regular grid; borders stay ordered and in-bounds", () => {
+  const img = upscale(12, 10, 6, 0, 0, 0), W = img.width, H = img.height;
+  const follow = { prof: edgeProfile(img, W, H), shift: 2 };
+  const a = gridLock(img, W, H, 6, 0, 0, "dominant", 100, null), b = gridLock(img, W, H, 6, 0, 0, "dominant", 100, null, follow);
+  assert.deepStrictEqual(Array.from(b.data), Array.from(a.data));
+  assert.deepStrictEqual(gridAxes(W, H, 6, 0, 0, follow).xs, cellEdges(W, 6, 0));
+  // noisy, offset, fractional: still strictly increasing inside the image with the same cell count
+  const nz = upscale(14, 12, 7.4, 3, 2, 24), p = edgeProfile(nz, nz.width, nz.height);
+  const e = followEdges(nz.width, 7.4, 3, p.dx, 6), base = cellEdges(nz.width, 7.4, 3);
+  assert.strictEqual(e.length, base.length);
+  for (let i = 0; i < e.length; i++) {
+    assert(e[i][1] > e[i][0] && e[i][0] >= 0 && e[i][1] <= nz.width, "cell " + i + " " + e[i]);
+    if (i) assert.strictEqual(e[i][0], e[i - 1][1]);
+  }
+});
+
+test("edge-following is fast on a 1536x1024 image", () => {
+  const img = upscale(192, 128, 8, 0, 0, 0), t0 = Date.now();
+  const follow = { prof: edgeProfile(img, img.width, img.height), shift: 3 };
+  gridAxes(img.width, img.height, 8, 0, 0, follow);
+  assert(Date.now() - t0 < 1500, "took " + (Date.now() - t0) + "ms");
 });
 
 console.log("\n" + passed + " passed");

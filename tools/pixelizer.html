@@ -87,6 +87,14 @@
   </fieldset>
 
   <fieldset>
+    <legend>Follow image edges</legend>
+    <label class="row"><input type="checkbox" id="followChk"> Nudge borders onto edges</label>
+    <label for="followRange">Max shift: <span id="followOut">3</span> px</label>
+    <input type="range" id="followRange" min="1" max="12" step="1" value="3" style="width:100%">
+    <p class="hint">For AI art whose fake pixels drift: each border moves to the nearest strong edge. Keep the shift under half a cell.</p>
+  </fieldset>
+
+  <fieldset>
     <legend>Clean-up (before the grid)</legend>
     <label for="conRange">Contrast: <span id="conOut">0</span>%</label>
     <input type="range" id="conRange" min="-50" max="100" step="5" value="0" style="width:100%">
@@ -192,6 +200,7 @@ const S = {
   colours: "off", n: 32, palette: null, paletteName: "",
   view: "both", grid: true, zoom: 1,
   contrast: 0, sat: 0, smooth: "off", radius: 2, showClean: true,
+  follow: false, followShift: 3, prof: null, profSrc: null,   // prof: edgeProfile of S.src
   outShare: 0, outDark: 70,
   pre: null, preKey: "",  // cleaned source + the settings it was made with
   native: null,  // ImageData of the result at native size
@@ -217,6 +226,63 @@ function cellEdges(len, cell, off) {
   return out;
 }
 
+/**
+ * Per-column / per-row edge strength (dx[x] = step between pixel x and x+1, dy likewise), mean per line,
+ * steps under ~2/channel zeroed as noise. tx/ty are the totals. Big images are subsampled.
+ */
+function edgeProfile(src, w, h) {
+  const d = src.data, dx = new Float64Array(Math.max(0, w - 1)), dy = new Float64Array(Math.max(0, h - 1));
+  const step = Math.max(1, Math.floor(Math.sqrt(w * h / 400000)));
+  for (let y = 0; y < h; y += step) for (let x = 0; x < w - 1; x++) {
+    const i = (y * w + x) * 4;
+    dx[x] += Math.abs(d[i] - d[i + 4]) + Math.abs(d[i + 1] - d[i + 5]) + Math.abs(d[i + 2] - d[i + 6]);
+  }
+  for (let y = 0; y < h - 1; y++) for (let x = 0; x < w; x += step) {
+    const i = (y * w + x) * 4, k = i + w * 4;
+    dy[y] += Math.abs(d[i] - d[k]) + Math.abs(d[i + 1] - d[k + 1]) + Math.abs(d[i + 2] - d[k + 2]);
+  }
+  const prep = (arr, n) => {
+    const lines = Math.ceil(n / step), eps = 2 * 3;
+    let total = 0;
+    for (let i = 0; i < arr.length; i++) { arr[i] /= lines; if (arr[i] < eps) arr[i] = 0; total += arr[i]; }
+    return total;
+  };
+  return { dx, dy, tx: prep(dx, h), ty: prep(dy, w) };
+}
+
+/**
+ * Like cellEdges, but each interior border moves up to `shift` px onto the strongest edge in `prof`
+ * (strength of the border between pixel b-1 and b is prof[b-1]; ties keep the nearest). Borders stay
+ * strictly increasing and inside (0, len); the cell count is unchanged.
+ */
+function followEdges(len, cell, off, prof, shift) {
+  const base = cellEdges(len, cell, off);
+  if (!base.length || !prof || shift < 1) return base;
+  const orig = [base[0][0], ...base.map((e) => e[1])], b = orig.slice();
+  for (let i = 0; i < b.length; i++) {
+    if (orig[i] <= 0 || orig[i] >= len) continue;
+    // search around where the previous (already moved) border plus one nominal cell lands, so drift carries along
+    const pred = i && orig[i - 1] > 0 ? b[i - 1] + (orig[i] - orig[i - 1]) : orig[i];
+    const lo = Math.max(i ? b[i - 1] + 1 : 1, orig[i] - shift, pred - shift);
+    const hi = Math.min(i + 1 < orig.length ? orig[i + 1] - 1 : len - 1, orig[i] + shift, pred + shift, len - 1);
+    let best = orig[i], bestS = prof[orig[i] - 1] || 0;
+    for (let c = lo; c <= hi; c++) {
+      const s = prof[c - 1] || 0;
+      if (s > bestS || (s === bestS && Math.abs(c - pred) < Math.abs(best - pred))) { best = c; bestS = s; }
+    }
+    b[i] = best;
+  }
+  return base.map((_, i) => [b[i], b[i + 1]]);
+}
+
+/** Cell edges for both axes; `follow` {prof: {dx, dy}, shift} turns on edge-following. */
+function gridAxes(w, h, cell, ox, oy, follow) {
+  if (follow && follow.prof && follow.shift >= 1) {
+    return { xs: followEdges(w, cell, ox, follow.prof.dx, follow.shift), ys: followEdges(h, cell, oy, follow.prof.dy, follow.shift) };
+  }
+  return { xs: cellEdges(w, cell, ox), ys: cellEdges(h, cell, oy) };
+}
+
 /** Shrink [a, b) to its central `core`% (at least 1 px). */
 function coreSpan([a, b], core) {
   const len = b - a, keep = Math.max(1, Math.round(len * core / 100));
@@ -238,9 +304,10 @@ function modeOf(counts) {
  * outline {share, dark}: a cell whose opaque pixels are at least `share` (0-1) darker than
  * luminance `dark` takes the dark pixels' colour instead, so thin lines and eyes survive.
  */
-function gridLock(src, w, h, cell, ox, oy, mode, core, outline) {
-  const xs = cellEdges(w, cell, ox).map((e) => coreSpan(e, core));
-  const ys = cellEdges(h, cell, oy).map((e) => coreSpan(e, core));
+function gridLock(src, w, h, cell, ox, oy, mode, core, outline, follow) {
+  const axes = gridAxes(w, h, cell, ox, oy, follow);
+  const xs = axes.xs.map((e) => coreSpan(e, core));
+  const ys = axes.ys.map((e) => coreSpan(e, core));
   const out = new ImageData(Math.max(1, xs.length), Math.max(1, ys.length));
   const d = src.data, o = out.data, counts = new Map(), darkCounts = new Map();
   const share = outline && outline.share > 0 ? outline.share : 0, dark = share ? outline.dark : -1;
@@ -429,23 +496,7 @@ function colourCount(img) {
  * go to the largest cell (a grid of s also fits s/2 perfectly).
  */
 function detectGrid(src, w, h) {
-  const d = src.data, dx = new Float64Array(w - 1), dy = new Float64Array(h - 1);
-  const step = Math.max(1, Math.floor(Math.sqrt(w * h / 400000)));  // subsample big images
-  for (let y = 0; y < h; y += step) for (let x = 0; x < w - 1; x++) {
-    const i = (y * w + x) * 4;
-    dx[x] += Math.abs(d[i] - d[i + 4]) + Math.abs(d[i + 1] - d[i + 5]) + Math.abs(d[i + 2] - d[i + 6]);
-  }
-  for (let y = 0; y < h - 1; y++) for (let x = 0; x < w; x += step) {
-    const i = (y * w + x) * 4, k = i + w * 4;
-    dy[y] += Math.abs(d[i] - d[k]) + Math.abs(d[i + 1] - d[k + 1]) + Math.abs(d[i + 2] - d[k + 2]);
-  }
-  const prep = (arr, n) => {   // per-line mean step; drop steps under ~2/channel as noise
-    const lines = Math.ceil(n / step), eps = 2 * 3;
-    let total = 0;
-    for (let i = 0; i < arr.length; i++) { arr[i] /= lines; if (arr[i] < eps) arr[i] = 0; total += arr[i]; }
-    return total;
-  };
-  const tx = prep(dx, h), ty = prep(dy, w);
+  const { dx, dy, tx, ty } = edgeProfile(src, w, h);
   if (tx + ty <= 0) return null;
   // best phase for one axis: energy on boundaries round(p + k*s) (diff index boundary-1)
   const axis = (arr, s) => {
@@ -484,6 +535,13 @@ function cleaned() {
   return img;
 }
 
+/** Edge-following settings for the maths, or null when off. Profile is cached per loaded image. */
+function followOpts() {
+  if (!S.follow || !S.src) return null;
+  if (S.profSrc !== S.src) { S.prof = edgeProfile(S.src, S.w, S.h); S.profSrc = S.src; }
+  return { prof: S.prof, shift: S.followShift };
+}
+
 function showBefore() {
   if (!S.src) return;
   $("srcCanvas").getContext("2d").putImageData(S.showClean && S.pre ? S.pre : S.src, 0, 0);
@@ -492,14 +550,14 @@ function showBefore() {
 
 function process() {
   if (!S.src) return;
-  const src = cleaned(), outline = { share: S.outShare / 100, dark: S.outDark };
+  const src = cleaned(), outline = { share: S.outShare / 100, dark: S.outDark }, fo = followOpts();
   let pal = null;
   if (S.colours === "palette" && S.palette && S.palette.length) pal = S.palette;
-  if (S.colours === "reduce") pal = reducePalette(gridLock(src, S.w, S.h, S.cell, S.ox, S.oy, "mean", S.core), S.n);
+  if (S.colours === "reduce") pal = reducePalette(gridLock(src, S.w, S.h, S.cell, S.ox, S.oy, "mean", S.core, null, fo), S.n);
   let out;
-  if (pal && S.mode === "dominant") out = gridLock(snapToPalette(src, pal), S.w, S.h, S.cell, S.ox, S.oy, "dominant", S.core, outline);
+  if (pal && S.mode === "dominant") out = gridLock(snapToPalette(src, pal), S.w, S.h, S.cell, S.ox, S.oy, "dominant", S.core, outline, fo);
   else {
-    out = gridLock(src, S.w, S.h, S.cell, S.ox, S.oy, S.mode, S.core, outline);
+    out = gridLock(src, S.w, S.h, S.cell, S.ox, S.oy, S.mode, S.core, outline, fo);
     if (pal) out = snapToPalette(out, pal);
   }
   S.native = out;
@@ -528,7 +586,7 @@ function drawGrid() {
   ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue("--grid");
   ctx.lineWidth = 1;
   ctx.beginPath();
-  const xs = cellEdges(S.w, S.cell, S.ox), ys = cellEdges(S.h, S.cell, S.oy);
+  const { xs, ys } = gridAxes(S.w, S.h, S.cell, S.ox, S.oy, followOpts());
   const vx = xs.length ? [xs[0][0], ...xs.map((e) => e[1])] : [], vy = ys.length ? [ys[0][0], ...ys.map((e) => e[1])] : [];
   const top = vy[0] * S.zoom, bot = vy[vy.length - 1] * S.zoom, left = vx[0] * S.zoom, right = vx[vx.length - 1] * S.zoom;
   for (const x of vx) { const X = Math.round(x * S.zoom) + 0.5; ctx.moveTo(X, top); ctx.lineTo(X, bot); }
@@ -628,6 +686,8 @@ cleanupSlider("satRange", "sat", "satOut");
 cleanupSlider("radRange", "radius", "radOut");
 slider("shareRange", "outShare", "shareOut", (v) => (v ? v + "%" : "off"));
 slider("darkRange", "outDark", "darkOut");
+slider("followRange", "followShift", "followOut");
+$("followChk").addEventListener("change", (e) => { S.follow = e.target.checked; schedule(); });
 seg("smoothSeg", "smooth", () => { $("radiusBox").classList.toggle("hidden", S.smooth === "off"); scheduleHeavy(); });
 $("cleanChk").addEventListener("change", (e) => { S.showClean = e.target.checked; showBefore(); });
 seg("colSeg", "colours", () => {
