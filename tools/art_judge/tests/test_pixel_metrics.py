@@ -44,5 +44,28 @@ class Metrics(unittest.TestCase):
         self.assertIsNone(pixel_grid.pixel_metrics(grid_image())["paletteDistance"])
 
 
+class GridLock(unittest.TestCase):
+    def test_dominant_recovers_clean_grid(self):
+        native = grid_image(scale=1)
+        locked = pixel_grid.grid_lock(grid_image(scale=4), 4, "dominant")
+        self.assertEqual(locked.size, native.size)
+        self.assertEqual(list(locked.getdata()), list(native.getdata()))
+
+    def test_dominant_takes_majority_not_blend(self):
+        im = Image.new("RGB", (4, 4), (200, 0, 0))
+        for x, y in ((0, 0), (1, 0), (0, 1)):
+            im.putpixel((x, y), (0, 0, 200))
+        self.assertEqual(pixel_grid.grid_lock(im, 4, "dominant").getpixel((0, 0)), (200, 0, 0))
+        mean = pixel_grid.grid_lock(im, 4, "mean").getpixel((0, 0))
+        self.assertNotIn(mean, ((200, 0, 0), (0, 0, 200)))
+
+    def test_offset_realigns_shifted_grid(self):
+        shifted = Image.new("RGB", (42, 62))
+        shifted.paste(grid_image(w=10, h=15), (2, 2))
+        locked = pixel_grid.grid_lock(shifted, 4, "dominant", (2, 2))
+        self.assertEqual(locked.size, (10, 15))
+        self.assertEqual(list(locked.getdata()), list(grid_image(scale=1, w=10, h=15).getdata()))
+
+
 if __name__ == "__main__":
     unittest.main()

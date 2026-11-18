@@ -1,0 +1,594 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pixelizer</title>
+<style>
+  :root {
+    --bg: #17171b; --panel: #222228; --line: #34343c; --text: #e6e6ea; --dim: #9a9aa6;
+    --accent: #e0a040; --grid: rgba(255, 0, 200, .55); --check-a: #2a2a30; --check-b: #333339;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body { background: var(--bg); color: var(--text); font: 13px/1.4 system-ui, sans-serif; display: flex; }
+  aside { width: 300px; flex: none; background: var(--panel); border-right: 1px solid var(--line); padding: 14px; overflow-y: auto; }
+  main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  h1 { font-size: 15px; margin: 0 0 12px; }
+  fieldset { border: 1px solid var(--line); border-radius: 6px; margin: 0 0 12px; padding: 8px 10px 10px; }
+  legend { color: var(--dim); padding: 0 4px; }
+  label { display: block; margin: 6px 0 2px; }
+  .row { display: flex; gap: 6px; align-items: center; }
+  .row input[type=range] { flex: 1; min-width: 0; }
+  input[type=number] { width: 72px; background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 4px; padding: 3px 5px; }
+  select { background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 4px; padding: 3px; }
+  button { background: #2f2f37; color: var(--text); border: 1px solid var(--line); border-radius: 4px; padding: 5px 9px; cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); color: #111; border-color: var(--accent); }
+  .seg { display: flex; }
+  .seg button { flex: 1; border-radius: 0; }
+  .seg button:first-child { border-radius: 4px 0 0 4px; }
+  .seg button:last-child { border-radius: 0 4px 4px 0; }
+  .seg button.on { background: var(--accent); color: #111; border-color: var(--accent); }
+  .hint { color: var(--dim); font-size: 12px; margin: 4px 0 0; }
+  .stats { color: var(--dim); font-size: 12px; white-space: pre-line; }
+  #toolbar { display: flex; gap: 8px; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  #toolbar .spacer { flex: 1; }
+  #view { flex: 1; overflow: auto; padding: 12px; position: relative; }
+  #panes { display: flex; gap: 12px; align-items: flex-start; width: max-content; }
+  .pane { position: relative; }
+  .pane .tag { position: absolute; top: -1px; left: 0; transform: translateY(-100%); color: var(--dim); font-size: 11px; }
+  .pane canvas { display: block; image-rendering: pixelated;
+    background: repeating-conic-gradient(var(--check-a) 0 25%, var(--check-b) 0 50%) 0 0 / 16px 16px; }
+  #gridCanvas { position: absolute; inset: 0; pointer-events: none; background: none; }
+  #panes { margin-top: 14px; }
+  #drop { position: absolute; inset: 12px; border: 2px dashed var(--line); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: var(--dim); text-align: center; }
+  body.dragging #drop { border-color: var(--accent); color: var(--text); display: flex !important; background: rgba(0,0,0,.4); z-index: 5; }
+  .hidden { display: none !important; }
+  @media (max-width: 720px) {
+    body { flex-direction: column; height: auto; }
+    aside { width: 100%; border-right: 0; border-bottom: 1px solid var(--line); }
+    main { min-height: 70vh; }
+  }
+</style>
+</head>
+<body>
+<aside>
+  <h1>Pixelizer</h1>
+  <fieldset>
+    <legend>Image</legend>
+    <div class="row">
+      <button class="primary" id="openBtn">Open…</button>
+      <input type="file" id="fileIn" accept="image/*" class="hidden">
+    </div>
+    <p class="hint">Or drop or paste an image anywhere.</p>
+  </fieldset>
+
+  <fieldset>
+    <legend>Grid</legend>
+    <label for="cellRange">Cell size (source px per art pixel)</label>
+    <div class="row">
+      <input type="range" id="cellRange" min="1" max="64" step="0.01" value="4">
+      <input type="number" id="cellNum" min="1" max="256" step="0.01" value="4">
+    </div>
+    <label for="colsNum">Columns (sets cell size)</label>
+    <div class="row">
+      <input type="range" id="colsRange" min="4" max="512" step="1" value="128">
+      <input type="number" id="colsNum" min="1" max="4096" step="1" value="128">
+    </div>
+    <label for="oxRange">Offset X</label>
+    <div class="row"><input type="range" id="oxRange" min="0" max="4" step="0.01" value="0"><input type="number" id="oxNum" step="0.01" value="0"></div>
+    <label for="oyRange">Offset Y</label>
+    <div class="row"><input type="range" id="oyRange" min="0" max="4" step="0.01" value="0"><input type="number" id="oyNum" step="0.01" value="0"></div>
+    <div class="row" style="margin-top:8px">
+      <button id="detectBtn">Auto-detect grid</button>
+      <span class="hint" id="detectOut"></span>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Cell colour</legend>
+    <div class="seg" id="modeSeg">
+      <button data-v="dominant" class="on">Dominant</button>
+      <button data-v="mean">Average</button>
+    </div>
+    <label for="coreRange">Sample core of cell: <span id="coreOut">100</span>%</label>
+    <input type="range" id="coreRange" min="30" max="100" step="5" value="100" style="width:100%">
+    <p class="hint">Below 100% ignores the fuzzy borders between AI "pixels".</p>
+  </fieldset>
+
+  <fieldset>
+    <legend>Colours</legend>
+    <div class="seg" id="colSeg">
+      <button data-v="off" class="on">Off</button>
+      <button data-v="reduce">Reduce</button>
+      <button data-v="palette">Palette</button>
+    </div>
+    <div id="reduceBox" class="hidden">
+      <label for="nRange">Max colours: <span id="nOut">32</span></label>
+      <input type="range" id="nRange" min="2" max="128" step="1" value="32" style="width:100%">
+    </div>
+    <div id="paletteBox" class="hidden">
+      <div class="row" style="margin-top:8px">
+        <button id="palBtn">Load palette JSON…</button>
+        <input type="file" id="palIn" accept=".json,application/json" class="hidden">
+      </div>
+      <p class="hint" id="palOut">e.g. data/palette.json — every #rrggbb in it is used.</p>
+    </div>
+    <p class="hint">With Dominant, colours are reduced before the vote, so near-identical shades count as one.</p>
+  </fieldset>
+
+  <fieldset>
+    <legend>Export</legend>
+    <label for="expNum">Upscale ×</label>
+    <div class="row">
+      <input type="number" id="expNum" min="1" max="64" step="1" value="4">
+      <button id="expBtn">PNG ×N</button>
+      <button id="natBtn">Native PNG</button>
+    </div>
+  </fieldset>
+  <div class="stats" id="stats">No image.</div>
+</aside>
+
+<main>
+  <div id="toolbar">
+    <div class="seg" id="viewSeg">
+      <button data-v="both" class="on">Side by side</button>
+      <button data-v="before">Before</button>
+      <button data-v="after">After</button>
+    </div>
+    <label class="row" style="margin:0"><input type="checkbox" id="gridChk" checked> Grid on before</label>
+    <span class="spacer"></span>
+    <label class="row" style="margin:0">Zoom
+      <input type="range" id="zoomRange" min="0.1" max="8" step="0.05" value="1" style="width:140px">
+      <span id="zoomOut">100%</span></label>
+    <button id="fitBtn">Fit</button>
+  </div>
+  <div id="view">
+    <div id="drop">Drop an image here, paste one, or use Open…</div>
+    <div id="panes" class="hidden">
+      <div class="pane" id="beforePane"><span class="tag">before</span><canvas id="srcCanvas"></canvas><canvas id="gridCanvas"></canvas></div>
+      <div class="pane" id="afterPane"><span class="tag" id="afterTag">after</span><canvas id="outCanvas"></canvas></div>
+    </div>
+  </div>
+</main>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const S = {
+  img: null, name: "image", src: null, w: 0, h: 0,   // src: ImageData of the source
+  cell: 4, ox: 0, oy: 0, mode: "dominant", core: 100,
+  colours: "off", n: 32, palette: null, paletteName: "",
+  view: "both", grid: true, zoom: 1,
+  native: null,  // ImageData of the result at native size
+};
+const store = {
+  get(k) { try { return JSON.parse(localStorage.getItem("pixelizer." + k)); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem("pixelizer." + k, JSON.stringify(v)); } catch { /* no storage */ } },
+};
+
+// ---------- pure image maths ----------
+
+const ALPHA_MIN = 128;  // source pixels below this alpha count as transparent
+
+/** Cell boundaries along one axis: [start, end) source px per cell for a (fractional) cell size + offset. */
+function cellEdges(len, cell, off) {
+  const out = [];
+  for (let i = 0; ; i++) {
+    const a = Math.round(off + i * cell), b = Math.round(off + (i + 1) * cell);
+    if (b > len) break;
+    if (b > a) out.push([a, b]);
+  }
+  return out;
+}
+
+/** Shrink [a, b) to its central `core`% (at least 1 px). */
+function coreSpan([a, b], core) {
+  const len = b - a, keep = Math.max(1, Math.round(len * core / 100));
+  const s = a + Math.floor((len - keep) / 2);
+  return [s, s + keep];
+}
+
+/** Grid-lock: one output pixel per cell, by "dominant" (most common colour) or "mean". */
+function gridLock(src, w, h, cell, ox, oy, mode, core) {
+  const xs = cellEdges(w, cell, ox).map((e) => coreSpan(e, core));
+  const ys = cellEdges(h, cell, oy).map((e) => coreSpan(e, core));
+  const out = new ImageData(Math.max(1, xs.length), Math.max(1, ys.length));
+  const d = src.data, o = out.data, counts = new Map();
+  for (let cy = 0; cy < ys.length; cy++) {
+    const [y0, y1] = ys[cy];
+    for (let cx = 0; cx < xs.length; cx++) {
+      const [x0, x1] = xs[cx];
+      let r = 0, g = 0, b = 0, opaque = 0, total = 0;
+      counts.clear();
+      for (let y = y0; y < y1; y++) {
+        for (let x = x0; x < x1; x++) {
+          const i = (y * w + x) * 4;
+          total++;
+          if (d[i + 3] < ALPHA_MIN) continue;
+          opaque++;
+          if (mode === "mean") { r += d[i]; g += d[i + 1]; b += d[i + 2]; }
+          else { const c = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2]; counts.set(c, (counts.get(c) || 0) + 1); }
+        }
+      }
+      const j = (cy * out.width + cx) * 4;
+      if (opaque * 2 < total) { o[j + 3] = 0; continue; }
+      if (mode === "mean") { o[j] = Math.round(r / opaque); o[j + 1] = Math.round(g / opaque); o[j + 2] = Math.round(b / opaque); }
+      else {
+        let best = -1, bestN = -1;
+        for (const [c, k] of counts) if (k > bestN || (k === bestN && c < best)) { best = c; bestN = k; }
+        o[j] = best >> 16; o[j + 1] = (best >> 8) & 255; o[j + 2] = best & 255;
+      }
+      o[j + 3] = 255;
+    }
+  }
+  return out;
+}
+
+/**
+ * Palette of up to n colours from an ImageData's opaque pixels: k-means over the distinct
+ * colours (weighted by count), seeded deterministically by farthest-point from the most common.
+ */
+function reducePalette(img, n) {
+  const d = img.data, count = new Map();
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i + 3] < ALPHA_MIN) continue;
+    const c = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
+    count.set(c, (count.get(c) || 0) + 1);
+  }
+  if (!count.size) return [[0, 0, 0]];
+  const cols = [], wts = [];
+  for (const [c, k] of count) { cols.push([c >> 16, (c >> 8) & 255, c & 255]); wts.push(k); }
+  const dist = (p, q) => (p[0] - q[0]) ** 2 + (p[1] - q[1]) ** 2 + (p[2] - q[2]) ** 2;
+  let first = 0;
+  for (let i = 1; i < wts.length; i++) if (wts[i] > wts[first]) first = i;
+  const centres = [cols[first].slice()], near = cols.map((p) => dist(p, centres[0]));
+  while (centres.length < Math.min(n, cols.length)) {
+    let far = 0;
+    for (let i = 1; i < cols.length; i++) if (near[i] > near[far]) far = i;
+    if (near[far] === 0) break;
+    centres.push(cols[far].slice());
+    for (let i = 0; i < cols.length; i++) near[i] = Math.min(near[i], dist(cols[i], cols[far]));
+  }
+  const assign = new Int32Array(cols.length);
+  for (let iter = 0; iter < 10; iter++) {
+    const sum = centres.map(() => [0, 0, 0, 0]);
+    for (let i = 0; i < cols.length; i++) {
+      let best = 0, bd = Infinity;
+      for (let k = 0; k < centres.length; k++) { const dd = dist(cols[i], centres[k]); if (dd < bd) { bd = dd; best = k; } }
+      assign[i] = best;
+      const s = sum[best], w = wts[i];
+      s[0] += cols[i][0] * w; s[1] += cols[i][1] * w; s[2] += cols[i][2] * w; s[3] += w;
+    }
+    let moved = false;
+    sum.forEach((s, k) => {
+      if (!s[3]) return;
+      const c = [Math.round(s[0] / s[3]), Math.round(s[1] / s[3]), Math.round(s[2] / s[3])];
+      if (dist(c, centres[k])) moved = true;
+      centres[k] = c;
+    });
+    if (!moved) break;
+  }
+  return centres;
+}
+
+/** Copy of `img` with every opaque pixel snapped to its nearest palette colour (no dither). */
+function snapToPalette(img, pal) {
+  const out = new ImageData(new Uint8ClampedArray(img.data), img.width, img.height);
+  const d = out.data, cache = new Map();
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i + 3] < ALPHA_MIN) continue;
+    const c = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
+    let p = cache.get(c);
+    if (!p) {
+      let bd = Infinity;
+      for (const q of pal) {
+        const dr = d[i] - q[0], dg = d[i + 1] - q[1], db = d[i + 2] - q[2], dd = dr * dr + dg * dg + db * db;
+        if (dd < bd) { bd = dd; p = q; }
+      }
+      cache.set(c, p);
+    }
+    d[i] = p[0]; d[i + 1] = p[1]; d[i + 2] = p[2];
+  }
+  return out;
+}
+
+/** Every #rrggbb(aa) in a palette JSON (under "colors" if present) -> [[r,g,b], ...]. */
+function paletteFromJSON(data) {
+  const hexes = [];
+  const walk = (v) => {
+    if (typeof v === "string" && /^#[0-9a-f]{6}([0-9a-f]{2})?$/i.test(v)) hexes.push(v.slice(1, 7));
+    else if (Array.isArray(v)) v.forEach(walk);
+    else if (v && typeof v === "object") Object.values(v).forEach(walk);
+  };
+  walk(data && data.colors !== undefined ? data.colors : data);
+  return hexes.map((h) => [0, 2, 4].map((k) => parseInt(h.slice(k, k + 2), 16)));
+}
+
+function colourCount(img) {
+  const d = img.data, seen = new Set();
+  for (let i = 0; i < d.length; i += 4) if (d[i + 3]) seen.add((d[i] << 16) | (d[i + 1] << 8) | d[i + 2]);
+  return seen.size;
+}
+
+/**
+ * Estimate {cell, ox, oy, score}: the cell size (fractional, 2-48) whose grid lines catch the most
+ * edge energy, normalised so off-grid/blurred art scores ~0 and a perfect grid 1. Ties within 0.02
+ * go to the largest cell (a grid of s also fits s/2 perfectly).
+ */
+function detectGrid(src, w, h) {
+  const d = src.data, dx = new Float64Array(w - 1), dy = new Float64Array(h - 1);
+  const step = Math.max(1, Math.floor(Math.sqrt(w * h / 400000)));  // subsample big images
+  for (let y = 0; y < h; y += step) for (let x = 0; x < w - 1; x++) {
+    const i = (y * w + x) * 4;
+    dx[x] += Math.abs(d[i] - d[i + 4]) + Math.abs(d[i + 1] - d[i + 5]) + Math.abs(d[i + 2] - d[i + 6]);
+  }
+  for (let y = 0; y < h - 1; y++) for (let x = 0; x < w; x += step) {
+    const i = (y * w + x) * 4, k = i + w * 4;
+    dy[y] += Math.abs(d[i] - d[k]) + Math.abs(d[i + 1] - d[k + 1]) + Math.abs(d[i + 2] - d[k + 2]);
+  }
+  const prep = (arr, n) => {   // per-line mean step; drop steps under ~2/channel as noise
+    const lines = Math.ceil(n / step), eps = 2 * 3;
+    let total = 0;
+    for (let i = 0; i < arr.length; i++) { arr[i] /= lines; if (arr[i] < eps) arr[i] = 0; total += arr[i]; }
+    return total;
+  };
+  const tx = prep(dx, h), ty = prep(dy, w);
+  if (tx + ty <= 0) return null;
+  // best phase for one axis: energy on boundaries round(p + k*s) (diff index boundary-1)
+  const axis = (arr, s) => {
+    let best = -1, bestP = 0;
+    for (let p = 0; p < s; p += 0.25) {
+      let on = 0;
+      for (let k = 1; ; k++) { const b = Math.round(p + k * s); if (b - 1 >= arr.length) break; on += arr[b - 1]; }
+      if (on > best) { best = on; bestP = p; }
+    }
+    return [best, bestP];
+  };
+  const results = [];
+  for (let s = 2; s <= 48; s = Math.round((s + (s < 8 ? 0.05 : 0.1)) * 100) / 100) {
+    const [onx, px] = axis(dx, s), [ony, py] = axis(dy, s);
+    const score = Math.max(0, ((onx + ony) / (tx + ty) - 1 / s) / (1 - 1 / s));
+    results.push({ cell: s, ox: px % s, oy: py % s, score });
+  }
+  const top = Math.max(...results.map((r) => r.score));
+  const near = results.filter((r) => r.score >= top - 0.02);
+  return near.reduce((a, b) => (b.cell > a.cell ? b : a));
+}
+
+// ---------- pipeline ----------
+
+function process() {
+  if (!S.src) return;
+  let src = S.src, pal = null;
+  if (S.colours === "palette" && S.palette && S.palette.length) pal = S.palette;
+  if (S.colours === "reduce") pal = reducePalette(gridLock(S.src, S.w, S.h, S.cell, S.ox, S.oy, "mean", S.core), S.n);
+  let out;
+  if (pal && S.mode === "dominant") out = gridLock(snapToPalette(src, pal), S.w, S.h, S.cell, S.ox, S.oy, "dominant", S.core);
+  else {
+    out = gridLock(src, S.w, S.h, S.cell, S.ox, S.oy, S.mode, S.core);
+    if (pal) out = snapToPalette(out, pal);
+  }
+  S.native = out;
+  const c = $("outCanvas");
+  c.width = out.width; c.height = out.height;
+  c.getContext("2d").putImageData(out, 0, 0);
+  $("afterTag").textContent = `after ${out.width}×${out.height}`;
+  $("stats").textContent =
+    `Source ${S.w}×${S.h}\nGrid ${out.width}×${out.height} cells (cell ${S.cell.toFixed(2)} px)\n` +
+    `Colours in result: ${colourCount(out)}`;
+  layout();
+  drawGrid();
+}
+
+let pending = 0;
+function schedule() { if (!pending) pending = requestAnimationFrame(() => { pending = 0; process(); }); }
+
+function drawGrid() {
+  const g = $("gridCanvas");
+  if (!S.src || !S.grid) { g.width = g.height = 0; return; }
+  // draw at display resolution so lines stay 1px whatever the zoom
+  const zw = Math.round(S.w * S.zoom), zh = Math.round(S.h * S.zoom);
+  g.width = zw; g.height = zh; g.style.width = zw + "px"; g.style.height = zh + "px";
+  const ctx = g.getContext("2d");
+  if (S.cell * S.zoom < 3) return;  // too dense to be useful
+  ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue("--grid");
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  const xs = cellEdges(S.w, S.cell, S.ox), ys = cellEdges(S.h, S.cell, S.oy);
+  const vx = xs.length ? [xs[0][0], ...xs.map((e) => e[1])] : [], vy = ys.length ? [ys[0][0], ...ys.map((e) => e[1])] : [];
+  const top = vy[0] * S.zoom, bot = vy[vy.length - 1] * S.zoom, left = vx[0] * S.zoom, right = vx[vx.length - 1] * S.zoom;
+  for (const x of vx) { const X = Math.round(x * S.zoom) + 0.5; ctx.moveTo(X, top); ctx.lineTo(X, bot); }
+  for (const y of vy) { const Y = Math.round(y * S.zoom) + 0.5; ctx.moveTo(left, Y); ctx.lineTo(right, Y); }
+  ctx.stroke();
+}
+
+function layout() {
+  if (!S.src) return;
+  const zw = Math.round(S.w * S.zoom), zh = Math.round(S.h * S.zoom);
+  const sc = $("srcCanvas");
+  sc.style.width = zw + "px"; sc.style.height = zh + "px";
+  const oc = $("outCanvas");
+  if (S.native) {   // after pane covers the same source area as the grid it came from
+    oc.style.width = Math.round(S.native.width * S.cell * S.zoom) + "px";
+    oc.style.height = Math.round(S.native.height * S.cell * S.zoom) + "px";
+  }
+  $("beforePane").classList.toggle("hidden", S.view === "after");
+  $("afterPane").classList.toggle("hidden", S.view === "before");
+  $("zoomOut").textContent = Math.round(S.zoom * 100) + "%";
+}
+
+function fit() {
+  if (!S.src) return;
+  const v = $("view"), panes = S.view === "both" ? 2 : 1;
+  const availW = (v.clientWidth - 24 - (panes - 1) * 12) / panes, availH = v.clientHeight - 40;
+  setZoom(Math.min(availW / S.w, availH / S.h, 8));
+}
+
+function setZoom(z) {
+  S.zoom = Math.max(0.05, Math.min(16, z));
+  $("zoomRange").value = S.zoom;
+  layout(); drawGrid();
+}
+
+// ---------- controls ----------
+
+function setCell(v, from) {
+  if (!S.src && from !== "init") { S.cell = v; return; }
+  S.cell = Math.max(1, Math.min(256, +v || 1));
+  if (from !== "range") $("cellRange").value = S.cell;
+  if (from !== "num") $("cellNum").value = +S.cell.toFixed(2);
+  const cols = S.w ? Math.floor(S.w / S.cell) : 0;
+  if (from !== "cols") { $("colsNum").value = cols; $("colsRange").value = cols; }
+  for (const k of ["ox", "oy"]) {
+    $(k + "Range").max = S.cell;
+    if (S[k] >= S.cell) setOffset(k, S[k] % S.cell);
+  }
+  $("expNum").value = Math.max(1, Math.round(S.cell));
+  schedule();
+}
+
+function setOffset(k, v, from) {
+  S[k] = Math.max(0, Math.min(S.cell, +v || 0));
+  if (from !== "range") $(k + "Range").value = S[k];
+  if (from !== "num") $(k + "Num").value = +S[k].toFixed(2);
+  schedule();
+}
+
+function seg(id, key, after) {
+  const el = $(id);
+  el.addEventListener("click", (e) => {
+    const b = e.target.closest("button"); if (!b) return;
+    S[key] = b.dataset.v;
+    for (const x of el.children) x.classList.toggle("on", x === b);
+    if (after) after();
+  });
+}
+
+$("cellRange").addEventListener("input", (e) => setCell(+e.target.value, "range"));
+$("cellNum").addEventListener("input", (e) => setCell(+e.target.value, "num"));
+const fromCols = (e, from) => { const c = Math.max(1, +e.target.value || 1); if (S.w) setCell(S.w / c, from); };
+$("colsRange").addEventListener("input", (e) => { $("colsNum").value = e.target.value; fromCols(e, "cols"); });
+$("colsNum").addEventListener("input", (e) => { $("colsRange").value = e.target.value; fromCols(e, "cols"); });
+for (const k of ["ox", "oy"]) {
+  $(k + "Range").addEventListener("input", (e) => setOffset(k, e.target.value, "range"));
+  $(k + "Num").addEventListener("input", (e) => setOffset(k, e.target.value, "num"));
+}
+$("coreRange").addEventListener("input", (e) => { S.core = +e.target.value; $("coreOut").textContent = S.core; schedule(); });
+$("nRange").addEventListener("input", (e) => { S.n = +e.target.value; $("nOut").textContent = S.n; schedule(); });
+seg("modeSeg", "mode", schedule);
+seg("colSeg", "colours", () => {
+  $("reduceBox").classList.toggle("hidden", S.colours !== "reduce");
+  $("paletteBox").classList.toggle("hidden", S.colours !== "palette");
+  schedule();
+});
+seg("viewSeg", "view", () => { layout(); });
+$("gridChk").addEventListener("change", (e) => { S.grid = e.target.checked; drawGrid(); });
+$("zoomRange").addEventListener("input", (e) => setZoom(+e.target.value));
+$("fitBtn").addEventListener("click", fit);
+$("view").addEventListener("wheel", (e) => {
+  if (!e.ctrlKey || !S.src) return;
+  e.preventDefault();
+  setZoom(S.zoom * (e.deltaY < 0 ? 1.15 : 1 / 1.15));
+}, { passive: false });
+
+$("detectBtn").addEventListener("click", () => {
+  if (!S.src) return;
+  $("detectOut").textContent = "…";
+  setTimeout(() => {
+    const r = detectGrid(S.src, S.w, S.h);
+    if (!r || r.score < 0.3) { $("detectOut").textContent = r ? `no clear grid (${r.score.toFixed(2)})` : "flat image"; return; }
+    setCell(r.cell); setOffset("ox", r.ox); setOffset("oy", r.oy);
+    $("detectOut").textContent = `cell ${r.cell}, fit ${r.score.toFixed(2)}`;
+  }, 10);
+});
+
+// ---------- loading ----------
+
+function loadFile(file) {
+  if (!file || !file.type.startsWith("image/")) return;
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  img.onload = () => {
+    S.img = img; S.w = img.naturalWidth; S.h = img.naturalHeight;
+    S.name = (file.name || "pasted").replace(/\.[^.]+$/, "");
+    const c = $("srcCanvas");
+    c.width = S.w; c.height = S.h;
+    const ctx = c.getContext("2d", { willReadFrequently: true });
+    ctx.clearRect(0, 0, S.w, S.h);
+    ctx.drawImage(img, 0, 0);
+    S.src = ctx.getImageData(0, 0, S.w, S.h);
+    URL.revokeObjectURL(url);
+    $("drop").classList.add("hidden");
+    $("panes").classList.remove("hidden");
+    $("colsRange").max = Math.max(4, Math.floor(S.w / 1));
+    setCell(S.cell, "init");
+    fit();
+  };
+  img.src = url;
+}
+
+$("openBtn").addEventListener("click", () => $("fileIn").click());
+$("fileIn").addEventListener("change", (e) => loadFile(e.target.files[0]));
+document.addEventListener("paste", (e) => {
+  for (const it of e.clipboardData.items) if (it.type.startsWith("image/")) { loadFile(it.getAsFile()); break; }
+});
+let dragDepth = 0;
+document.addEventListener("dragenter", (e) => { e.preventDefault(); dragDepth++; document.body.classList.add("dragging"); });
+document.addEventListener("dragleave", () => { if (--dragDepth <= 0) { dragDepth = 0; document.body.classList.remove("dragging"); } });
+document.addEventListener("dragover", (e) => e.preventDefault());
+document.addEventListener("drop", (e) => {
+  e.preventDefault(); dragDepth = 0; document.body.classList.remove("dragging");
+  const f = e.dataTransfer.files[0];
+  if (f && /json/.test(f.type)) loadPalette(f); else loadFile(f);
+});
+
+function loadPalette(file) {
+  file.text().then((t) => {
+    let pal;
+    try { pal = paletteFromJSON(JSON.parse(t)); } catch { pal = []; }
+    if (!pal.length) { $("palOut").textContent = `No #rrggbb colours found in ${file.name}.`; return; }
+    S.palette = pal; S.paletteName = file.name;
+    store.set("palette", { name: file.name, colours: pal });
+    $("palOut").textContent = `${file.name}: ${pal.length} colours.`;
+    schedule();
+  });
+}
+$("palBtn").addEventListener("click", () => $("palIn").click());
+$("palIn").addEventListener("change", (e) => e.target.files[0] && loadPalette(e.target.files[0]));
+
+// ---------- export ----------
+
+function download(canvas, name) {
+  canvas.toBlob((blob) => {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob); a.download = name; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }, "image/png");
+}
+$("natBtn").addEventListener("click", () => S.native && download($("outCanvas"), `${S.name}_native.png`));
+$("expBtn").addEventListener("click", () => {
+  if (!S.native) return;
+  const k = Math.max(1, Math.round(+$("expNum").value || 1));
+  const c = document.createElement("canvas");
+  c.width = S.native.width * k; c.height = S.native.height * k;
+  const ctx = c.getContext("2d");
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage($("outCanvas"), 0, 0, c.width, c.height);
+  download(c, `${S.name}_x${k}.png`);
+});
+
+// ---------- init ----------
+
+(() => {
+  const saved = store.get("palette");
+  if (saved && Array.isArray(saved.colours) && saved.colours.length) {
+    S.palette = saved.colours; S.paletteName = saved.name;
+    $("palOut").textContent = `${saved.name}: ${saved.colours.length} colours (remembered).`;
+  }
+  window.addEventListener("resize", () => { if (S.src) drawGrid(); });
+})();
+</script>
+</body>
+</html>

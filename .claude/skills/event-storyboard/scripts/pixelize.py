@@ -8,7 +8,7 @@ the cleaned result, and the VN image-frame crop on three phone shapes.
 Usage (repo root):
   python .claude/skills/event-storyboard/scripts/pixelize.py IN.png OUT_DIR
       [--scale 4] [--colors 48 | --palette data/palette.json | --no-quantize]
-      [--export-scale N]
+      [--export-scale N] [--mode mean|dominant] [--offset X Y]
 
 Writes OUT_DIR/<stem>_native.png, <stem>_clean.png (native x export-scale,
 default = --scale so it matches the source size) and <stem>_qa.png.
@@ -53,23 +53,35 @@ def main():
     ap.add_argument("--palette", help="snap to this palette JSON instead of --colors")
     ap.add_argument("--no-quantize", action="store_true")
     ap.add_argument("--export-scale", type=int)
+    ap.add_argument("--mode", choices=pixel_grid.LOCK_MODES, default="mean",
+                    help="cell colour: box mean, or most common colour")
+    ap.add_argument("--offset", type=int, nargs=2, default=(0, 0), metavar=("X", "Y"),
+                    help="grid origin in source px")
     a = ap.parse_args()
 
     src = Image.open(a.src).convert("RGB")
     stem = os.path.splitext(os.path.basename(a.src))[0]
     os.makedirs(a.out_dir, exist_ok=True)
 
-    native = pixel_grid.grid_lock(src, a.scale)
-    native_size = native.size
+    offset = tuple(a.offset)
     if a.palette:
         pal, n = pixel_grid.load_palette(a.palette)
-        native = pixel_grid.snap_to_palette_image(native, pal)
+        colour = lambda im: pixel_grid.snap_to_palette_image(im, pal)  # noqa: E731
         note = f"palette {os.path.basename(a.palette)} ({n})"
     elif not a.no_quantize:
-        native = pixel_grid.quantize_colours(native, a.colors)
+        colour = lambda im: pixel_grid.quantize_colours(im, a.colors)  # noqa: E731
         note = f"{a.colors} colours"
     else:
+        colour = None
         note = "unquantised"
+    if a.mode == "dominant" and colour:
+        # colour-reduce at full res first so similar shades vote as one colour
+        native = pixel_grid.grid_lock(colour(src), a.scale, "dominant", offset)
+    else:
+        native = pixel_grid.grid_lock(src, a.scale, a.mode, offset)
+        native = colour(native) if colour else native
+    native_size = native.size
+    note += f", {a.mode}"
     export_scale = a.export_scale or a.scale
     clean = native.resize((native.width * export_scale, native.height * export_scale), Image.NEAREST)
 

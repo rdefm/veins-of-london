@@ -15,9 +15,41 @@ QUANTIZE_METHODS = {"mediancut": Image.Quantize.MEDIANCUT, "octree": Image.Quant
 
 # ---------- grid-lock ----------
 
-def grid_lock(img, scale):
-    """Box-downscale `img` to native pixel size (`scale` source px per art pixel)."""
-    return img.resize((img.width // scale, img.height // scale), Image.BOX)
+LOCK_MODES = ("mean", "dominant")
+
+
+def grid_lock(img, scale, mode="mean", offset=(0, 0)):
+    """Downscale `img` to native pixel size (`scale` source px per art pixel).
+
+    mode "mean" box-averages each cell; "dominant" takes each cell's most common
+    colour (ties -> lowest packed RGB), so no blended edge colours appear; snap or
+    quantise the source first so near-identical shades vote together.
+    `offset` (x, y) shifts the grid origin; the partial cells it leaves are dropped.
+    """
+    ox, oy = offset
+    w, h = (img.width - ox) // scale, (img.height - oy) // scale
+    img = img.crop((ox, oy, ox + w * scale, oy + h * scale))
+    if mode == "mean":
+        return img.resize((w, h), Image.BOX)
+    if mode != "dominant":
+        raise ValueError(f"unknown grid-lock mode {mode!r}")
+    return Image.fromarray(dominant_cells(np.asarray(img.convert("RGB")), scale))
+
+
+def dominant_cells(arr, scale):
+    """(H, W, 3) uint8 array, H and W multiples of `scale` -> (H/s, W/s, 3) most common colour per cell."""
+    h, w = arr.shape[0] // scale, arr.shape[1] // scale
+    a = arr.astype(np.int64)
+    codes = (a[..., 0] << 16) | (a[..., 1] << 8) | a[..., 2]
+    cells = codes.reshape(h, scale, w, scale).transpose(0, 2, 1, 3).reshape(h * w, scale * scale)
+    pairs = (np.arange(h * w, dtype=np.int64)[:, None] << 24) | cells
+    uniq, counts = np.unique(pairs.ravel(), return_counts=True)
+    cell, code = uniq >> 24, uniq & 0xFFFFFF
+    order = np.lexsort((code, -counts, cell))   # per cell: highest count, then lowest code
+    first = order[np.r_[True, cell[order][1:] != cell[order][:-1]]]
+    best = code[first]
+    out = np.stack([(best >> 16) & 255, (best >> 8) & 255, best & 255], axis=1)
+    return out.reshape(h, w, 3).astype(np.uint8)
 
 
 # ---------- palette ----------
