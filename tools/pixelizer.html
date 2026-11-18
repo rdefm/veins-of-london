@@ -201,7 +201,8 @@ const store = {
   set(k, v) { try { localStorage.setItem("pixelizer." + k, JSON.stringify(v)); } catch { /* no storage */ } },
 };
 
-// ---------- pure image maths ----------
+/* ---------- Image maths (pure) ---------- */
+// No DOM/window/localStorage here; ImageData is the only browser type. tools/test_pixelizer.js runs this section.
 
 const ALPHA_MIN = 128;  // source pixels below this alpha count as transparent
 
@@ -466,6 +467,8 @@ function detectGrid(src, w, h) {
   const near = results.filter((r) => r.score >= top - 0.02);
   return near.reduce((a, b) => (b.cell > a.cell ? b : a));
 }
+
+/* ---------- End image maths ---------- */
 
 // ---------- pipeline ----------
 
