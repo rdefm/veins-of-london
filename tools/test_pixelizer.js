@@ -22,8 +22,8 @@ class ImageData {
     else { this.data = a; this.width = b; this.height = c; }
   }
 }
-const names = "cellEdges, gridLock, kuwahara, reducePalette, snapToPalette, paletteFromJSON, colourCount, detectGrid, adjustColour, edgeProfile, followEdges, gridAxes, removeStrayPixels, smoothJaggies, thinOutlines, srgbToOklab, oklabToSrgb, lum";
-const { cellEdges, gridLock, kuwahara, reducePalette, snapToPalette, paletteFromJSON, colourCount, detectGrid, adjustColour, edgeProfile, followEdges, gridAxes, removeStrayPixels, smoothJaggies, thinOutlines, srgbToOklab, oklabToSrgb, lum } =
+const names = "cellEdges, gridLock, kuwahara, reducePalette, snapToPalette, paletteFromJSON, colourCount, detectGrid, adjustColour, edgeProfile, followEdges, gridAxes, removeStrayPixels, smoothJaggies, thinOutlines, srgbToOklab, oklabToSrgb, lum, paletteToJSON";
+const { cellEdges, gridLock, kuwahara, reducePalette, snapToPalette, paletteFromJSON, colourCount, detectGrid, adjustColour, edgeProfile, followEdges, gridAxes, removeStrayPixels, smoothJaggies, thinOutlines, srgbToOklab, oklabToSrgb, lum, paletteToJSON } =
   new Function("ImageData", section + "\nreturn { " + names + " };")(ImageData);
 
 let passed = 0;
@@ -342,6 +342,23 @@ test("thinOutlines leaves solid dark areas alone", () => {
   const img = fill(new ImageData(10, 10), () => BG);
   for (let y = 2; y < 8; y++) for (let x = 2; x < 8; x++) set(img, [[x, y]], INK);
   assert.deepStrictEqual(Array.from(thinOutlines(img, 70).data), Array.from(img.data));
+});
+
+console.log("\n" + passed + " passed");
+
+test("shared palette: small image isn't swamped by a 4x larger one", () => {
+  const A = [[200, 30, 30], [30, 200, 30], [30, 30, 200], [220, 220, 40]];
+  const B = [[120, 20, 160], [20, 160, 160], [240, 140, 20], [130, 130, 130]];
+  const big = fill(new ImageData(16, 16), (x, y) => A[(x >> 3) + 2 * (y >> 3)]);
+  const small = fill(new ImageData(8, 8), (x, y) => B[(x >> 2) + 2 * (y >> 2)]);
+  const pal = reducePalette([big, small], 8);
+  assert.strictEqual(pal.length, 8);
+  for (const c of A.concat(B)) assert(pal.some((q) => q.every((v, k) => Math.abs(v - c[k]) <= 1)), "missing " + c);
+});
+
+test("saved palette JSON round-trips through the palette parser", () => {
+  const pal = [[0, 0, 0], [255, 128, 7], [20, 18, 15]];
+  assert.deepStrictEqual(paletteFromJSON(JSON.parse(JSON.stringify(paletteToJSON(pal)))), pal);
 });
 
 console.log("\n" + passed + " passed");

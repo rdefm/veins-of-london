@@ -149,6 +149,18 @@
         <input type="file" id="palIn" accept=".json,application/json" class="hidden">
       </div>
       <p class="hint" id="palOut">e.g. data/palette.json — every #rrggbb in it is used.</p>
+      <div id="swatches" style="display:flex;flex-wrap:wrap;gap:2px;margin:6px 0"></div>
+      <div class="row">
+        <button id="setBtn">Add images to set…</button>
+        <input type="file" id="setIn" accept="image/*" multiple class="hidden">
+      </div>
+      <div id="setList" class="hint"></div>
+      <label for="setN">Set colours: <span id="setNOut">16</span></label>
+      <input type="range" id="setN" min="2" max="128" step="1" value="16" style="width:100%">
+      <div class="row">
+        <button id="setBuild">Build palette</button>
+        <button id="setSave">Save palette…</button>
+      </div>
     </div>
     <p class="hint">With Dominant, colours are reduced before the vote, so near-identical shades count as one.</p>
   </fieldset>
@@ -444,13 +456,21 @@ function kuwahara(img, r) {
 /**
  * Palette of up to n colours from an ImageData's opaque pixels: k-means in OKLab over the distinct
  * colours (weighted by count), seeded deterministically by farthest-point from the most common.
+ * `img` may be an array of ImageData: each contributes equal total weight whatever its size.
  */
 function reducePalette(img, n) {
-  const d = img.data, count = new Map();
-  for (let i = 0; i < d.length; i += 4) {
-    if (d[i + 3] < ALPHA_MIN) continue;
-    const c = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
-    count.set(c, (count.get(c) || 0) + 1);
+  const imgs = Array.isArray(img) ? img : [img], count = new Map();
+  for (const im of imgs) {
+    const d = im.data;
+    let opaque = 0;
+    for (let i = 0; i < d.length; i += 4) if (d[i + 3] >= ALPHA_MIN) opaque++;
+    if (!opaque) continue;
+    const share = 1 / opaque;
+    for (let i = 0; i < d.length; i += 4) {
+      if (d[i + 3] < ALPHA_MIN) continue;
+      const c = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
+      count.set(c, (count.get(c) || 0) + share);
+    }
   }
   if (!count.size) return [[0, 0, 0]];
   const cols = [], wts = [];
@@ -520,6 +540,15 @@ function paletteFromJSON(data) {
   };
   walk(data && data.colors !== undefined ? data.colors : data);
   return hexes.map((h) => [0, 2, 4].map((k) => parseInt(h.slice(k, k + 2), 16)));
+}
+
+/** Palette JSON in the shape of data/palette.json's colour list: {meta, colors:[{id, hex}]}. */
+function paletteToJSON(pal, name) {
+  const hex = (q) => "#" + q.map((v) => Math.round(v).toString(16).padStart(2, "0")).join("");
+  return {
+    meta: { name: name || "Pixelizer palette", count: pal.length },
+    colors: pal.map((q, i) => ({ id: "c" + String(i + 1).padStart(2, "0"), hex: hex(q) })),
+  };
 }
 
 function colourCount(img) {
@@ -965,9 +994,78 @@ function loadPalette(file) {
     S.palette = pal; S.paletteName = file.name;
     store.set("palette", { name: file.name, colours: pal });
     $("palOut").textContent = `${file.name}: ${pal.length} colours.`;
+    showSwatches();
     schedule();
   });
 }
+function showSwatches() {
+  const box = $("swatches");
+  box.textContent = "";
+  for (const q of S.palette || []) {
+    const s = document.createElement("span");
+    s.style.cssText = `width:14px;height:14px;background:rgb(${q[0]},${q[1]},${q[2]})`;
+    box.appendChild(s);
+  }
+}
+
+// Palette set: images whose grid-locked colours are clustered into one shared palette.
+const palSet = [];   // { name, src: ImageData }
+function renderSet() {
+  const l = $("setList");
+  l.textContent = "";
+  palSet.forEach((it, i) => {
+    const b = document.createElement("button");
+    b.textContent = `${it.name} ✕`;
+    b.addEventListener("click", () => { palSet.splice(i, 1); renderSet(); });
+    l.appendChild(b);
+  });
+}
+function addToSet(file) {
+  if (!file || !file.type.startsWith("image/")) return;
+  const url = URL.createObjectURL(file), img = new Image();
+  img.onload = () => {
+    const c = document.createElement("canvas");
+    c.width = img.naturalWidth; c.height = img.naturalHeight;
+    const ctx = c.getContext("2d", { willReadFrequently: true });
+    ctx.drawImage(img, 0, 0);
+    URL.revokeObjectURL(url);
+    palSet.push({ name: file.name, src: ctx.getImageData(0, 0, c.width, c.height) });
+    renderSet();
+  };
+  img.src = url;
+}
+$("setBtn").addEventListener("click", () => $("setIn").click());
+$("setIn").addEventListener("change", (e) => { [...e.target.files].forEach(addToSet); e.target.value = ""; });
+$("setN").addEventListener("input", (e) => ($("setNOut").textContent = e.target.value));
+$("setBuild").addEventListener("click", () => {
+  if (!palSet.length) { $("palOut").textContent = "Add images to the set first."; return; }
+  const locked = palSet.map((it) => {
+    const r = detectGrid(it.src, it.src.width, it.src.height);
+    const g = r && r.score >= 0.3 ? r : { cell: 1, ox: 0, oy: 0 };
+    return gridLock(it.src, it.src.width, it.src.height, g.cell, g.ox, g.oy, "mean", S.core, null, null);
+  });
+  const pal = reducePalette(locked, +$("setN").value);
+  S.palette = pal; S.paletteName = "built palette";
+  store.set("palette", { name: S.paletteName, colours: pal });
+  $("palOut").textContent = `Built palette: ${pal.length} colours from ${palSet.length} image(s).`;
+  showSwatches();
+  schedule();
+});
+$("setSave").addEventListener("click", async () => {
+  if (!S.palette || !S.palette.length) return;
+  const blob = new Blob([JSON.stringify(paletteToJSON(S.palette), null, 2)], { type: "application/json" });
+  if (window.showSaveFilePicker) {
+    try {
+      const h = await window.showSaveFilePicker({ id: "pixelizer", suggestedName: "palette.json", types: [{ description: "Palette JSON", accept: { "application/json": [".json"] } }] });
+      const w = await h.createWritable();
+      await w.write(blob); await w.close();
+      return;
+    } catch (e) { if (e && e.name === "AbortError") return; }
+  }
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = "palette.json"; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
 $("palBtn").addEventListener("click", () => $("palIn").click());
 $("palIn").addEventListener("change", (e) => e.target.files[0] && loadPalette(e.target.files[0]));
 
@@ -1025,6 +1123,7 @@ document.addEventListener("keydown", (e) => {
   if (saved && Array.isArray(saved.colours) && saved.colours.length) {
     S.palette = saved.colours; S.paletteName = saved.name;
     $("palOut").textContent = `${saved.name}: ${saved.colours.length} colours (remembered).`;
+    showSwatches();
   }
   window.addEventListener("resize", () => { if (S.src) drawGrid(); });
 })();
