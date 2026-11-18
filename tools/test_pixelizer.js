@@ -22,8 +22,8 @@ class ImageData {
     else { this.data = a; this.width = b; this.height = c; }
   }
 }
-const names = "cellEdges, gridLock, kuwahara, reducePalette, snapToPalette, paletteFromJSON, colourCount, detectGrid, adjustColour, edgeProfile, followEdges, gridAxes";
-const { cellEdges, gridLock, kuwahara, reducePalette, snapToPalette, paletteFromJSON, colourCount, detectGrid, adjustColour, edgeProfile, followEdges, gridAxes } =
+const names = "cellEdges, gridLock, kuwahara, reducePalette, snapToPalette, paletteFromJSON, colourCount, detectGrid, adjustColour, edgeProfile, followEdges, gridAxes, removeStrayPixels";
+const { cellEdges, gridLock, kuwahara, reducePalette, snapToPalette, paletteFromJSON, colourCount, detectGrid, adjustColour, edgeProfile, followEdges, gridAxes, removeStrayPixels } =
   new Function("ImageData", section + "\nreturn { " + names + " };")(ImageData);
 
 let passed = 0;
@@ -197,6 +197,32 @@ test("edge-following is fast on a 1536x1024 image", () => {
   const follow = { prof: edgeProfile(img, img.width, img.height), shift: 3 };
   gridAxes(img.width, img.height, 8, 0, 0, follow);
   assert(Date.now() - t0 < 1500, "took " + (Date.now() - t0) + "ms");
+});
+
+test("removeStrayPixels: lone off-colour pixel removed, eye protected, pairs untouched, no new colours", () => {
+  const A = [200, 200, 200], B = [190, 195, 200], DARK = [10, 10, 10];
+  const mk = (f) => { const i = new ImageData(7, 7); fill(i, f); return i; };
+  // lone slightly-different pixel
+  const a = mk((x, y) => (x === 3 && y === 3 ? B : A));
+  assert.deepStrictEqual(px(removeStrayPixels(a, 60), 3, 3).slice(0, 3), A);
+  // eye: kept with protection, removed with it off
+  const e = mk((x, y) => (x === 3 && y === 3 ? DARK : A));
+  assert.deepStrictEqual(px(removeStrayPixels(e, 60), 3, 3).slice(0, 3), DARK);
+  assert.deepStrictEqual(px(removeStrayPixels(e, 0), 3, 3).slice(0, 3), A);
+  // connected pair (orthogonal and diagonal) untouched even with no protection
+  for (const [x2, y2] of [[4, 3], [4, 4]]) {
+    const p = mk((x, y) => ((x === 3 && y === 3) || (x === x2 && y === y2) ? B : A));
+    const r = removeStrayPixels(p, 0);
+    assert.deepStrictEqual(r.data, p.data);
+  }
+  // transparent pixels untouched and not counted as neighbours
+  const t = mk((x, y) => A); t.data[(3 * 7 + 3) * 4 + 3] = 0;
+  assert.strictEqual(px(removeStrayPixels(t, 0), 3, 3)[3], 0);
+  // no new colours on noisy input
+  const n = mk(() => [[10, 20, 30], [200, 100, 50], [90, 90, 90]][Math.floor(rnd() * 3)]);
+  const before = new Set(), after = new Set(), r = removeStrayPixels(n, 0);
+  for (let i = 0; i < n.data.length; i += 4) { before.add(n.data.slice(i, i + 3).join()); after.add(r.data.slice(i, i + 3).join()); }
+  for (const c of after) assert(before.has(c), "new colour " + c);
 });
 
 console.log("\n" + passed + " passed");

@@ -154,6 +154,14 @@
   </fieldset>
 
   <fieldset>
+    <legend>Cleanup (after the grid)</legend>
+    <label><input type="checkbox" id="strayChk"> Remove stray pixels</label>
+    <label for="strayRange">Detail protection: <span id="strayOut">60</span>%</label>
+    <input type="range" id="strayRange" min="0" max="95" step="5" value="60" style="width:100%">
+    <p class="hint">A lone pixel matching no neighbour takes their commonest colour. Protection keeps ones clearly darker or brighter than all neighbours (eyes, highlights); 0 removes them too.</p>
+  </fieldset>
+
+  <fieldset>
     <legend>Export</legend>
     <label for="expNum">Upscale ×</label>
     <div class="row">
@@ -201,7 +209,7 @@ const S = {
   view: "both", grid: true, zoom: 1,
   contrast: 0, sat: 0, smooth: "off", radius: 2, showClean: true,
   follow: false, followShift: 3, prof: null, profSrc: null,   // prof: edgeProfile of S.src
-  outShare: 0, outDark: 70,
+  outShare: 0, outDark: 70, stray: false, strayProtect: 60,
   pre: null, preKey: "",  // cleaned source + the settings it was made with
   native: null,  // ImageData of the result at native size
 };
@@ -519,6 +527,42 @@ function detectGrid(src, w, h) {
   return near.reduce((a, b) => (b.cell > a.cell ? b : a));
 }
 
+/**
+ * Copy of `img` where each opaque pixel matching none of its 8 opaque neighbours takes their most
+ * common colour. `protect` (0-100, 0 = off): a pixel at least 255*(1-protect/100) luma darker or
+ * brighter than every neighbour is kept (eye, highlight). Transparent pixels are never read or written.
+ */
+function removeStrayPixels(img, protect) {
+  const { width: w, height: h } = img, d = img.data;
+  const out = new ImageData(new Uint8ClampedArray(d), w, h);
+  const key = (i) => (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
+  const luma = (i) => 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+  const gap = protect > 0 ? 255 * (1 - protect / 100) : Infinity;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const i = (y * w + x) * 4;
+    if (d[i + 3] < ALPHA_MIN) continue;
+    const me = key(i), L = luma(i), counts = new Map();
+    let n = 0, same = false, darker = true, lighter = true;
+    for (let dy = -1; dy <= 1 && !same; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const nx = x + dx, ny = y + dy;
+      if ((!dx && !dy) || nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+      const j = (ny * w + nx) * 4;
+      if (d[j + 3] < ALPHA_MIN) continue;
+      const k = key(j);
+      if (k === me) { same = true; break; }
+      n++; counts.set(k, (counts.get(k) || 0) + 1);
+      const l = luma(j);
+      if (L > l - gap) darker = false;
+      if (L < l + gap) lighter = false;
+    }
+    if (same || !n || darker || lighter) continue;
+    let best = -1, bk = 0;
+    for (const [k, c] of counts) if (c > best) { best = c; bk = k; }
+    out.data[i] = bk >> 16; out.data[i + 1] = (bk >> 8) & 255; out.data[i + 2] = bk & 255;
+  }
+  return out;
+}
+
 /* ---------- End image maths ---------- */
 
 // ---------- pipeline ----------
@@ -560,6 +604,7 @@ function process() {
     out = gridLock(src, S.w, S.h, S.cell, S.ox, S.oy, S.mode, S.core, outline, fo);
     if (pal) out = snapToPalette(out, pal);
   }
+  if (S.stray) out = removeStrayPixels(out, S.strayProtect);
   S.native = out;
   const c = $("outCanvas");
   c.width = out.width; c.height = out.height;
@@ -687,6 +732,8 @@ cleanupSlider("radRange", "radius", "radOut");
 slider("shareRange", "outShare", "shareOut", (v) => (v ? v + "%" : "off"));
 slider("darkRange", "outDark", "darkOut");
 slider("followRange", "followShift", "followOut");
+slider("strayRange", "strayProtect", "strayOut");
+$("strayChk").addEventListener("change", (e) => { S.stray = e.target.checked; schedule(); });
 $("followChk").addEventListener("change", (e) => { S.follow = e.target.checked; schedule(); });
 seg("smoothSeg", "smooth", () => { $("radiusBox").classList.toggle("hidden", S.smooth === "off"); scheduleHeavy(); });
 $("cleanChk").addEventListener("change", (e) => { S.showClean = e.target.checked; showBefore(); });
