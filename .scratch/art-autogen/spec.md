@@ -2,7 +2,7 @@
 
 Status: needs-info
 
-Blocked by: the agreement gate in `.scratch/art-judge/spec.md` (proposed: ≥ 80% judge/user agreement over ≥ 20 reviewed drafts from ≥ 3 events). Move to `ready-for-agent` when the art judge's agreement report says the gate is met.
+Blocked by: the agreement gate in `.scratch/art-judge_COMPLETED/spec.md` (proposed: ≥ 80% judge/user agreement over ≥ 20 reviewed drafts from ≥ 3 events). Move to `ready-for-agent` when the art judge's agreement report says the gate is met.
 
 ## Problem Statement
 

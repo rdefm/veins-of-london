@@ -1,9 +1,9 @@
 {
   "images": [
     "assets/events/col_a1_intro/col_a1_intro_card1.png",
-    "assets/events/col_a1_intro/col_a1_intro_card6.png",
+    "assets/events/intro/intro_card8.png",
     "assets/events/col_a1_hakim_meet/col_a1_hakim_meet_card1.png",
     "assets/events/biz_a1_proposition/biz_a1_proposition_main_1.png"
   ],
-  "card": "Full sprite-frame pixel art in a contemporary indie technique (Backbone, NORCO, The Last Night, Eastward): a genuine pixel grid, limited palette, dithered shading, no vector or cel-shaded linework, no anti-aliasing. Grounded, realistic London colour: vivid where the real city is vivid (brick red, bus and pillar-box red, shopfront paint, park green), restrained elsewhere. Not neon, not fantasy-saturated, not dark noir, not flat grey. Gold is reserved for calc and currency. No legible text or logos unless the shot needs them. Curate this list: replace the images with your current best finished cards."
+  "card": "Full sprite-frame pixel art in a contemporary indie technique (Backbone, NORCO, The Last Night, Eastward): a genuine pixel grid, limited palette, dithered shading, no vector or cel-shaded linework, no anti-aliasing. Grounded, realistic London colour: vivid where the real city is vivid (brick red, bus and pillar-box red, shopfront paint, park green), restrained elsewhere. Not neon, not fantasy-saturated, not dark noir, not flat grey. Gold is reserved for calc and currency. No legible text or logos unless the shot needs them."
 }

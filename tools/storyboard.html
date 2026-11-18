@@ -4235,7 +4235,7 @@ function checkOddsBlock(opt, changed, restructure) {
   function liveBoard(file, text) {
     const draft = importDraft(file, text);
     return { kind: "proposal", liveOnly: true, eventId: LIVE_PREFIX + file, file, title: file, logline: "", questions: [], cards: [],
-      draft, legacy: false, conv: new Map(), saved: serialiseDraft(draft), driftChecked: true };
+      draft, legacy: false, conv: new Map(), saved: serialiseDraft(draft), history: makeHistory(), driftChecked: true };
   }
   // The proposal file already editing live event `file` (its draft's `_liveSource`), or null. files: [{name, md}].
   function workingCopyFor(file, files) {

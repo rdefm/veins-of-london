@@ -1,0 +1,114 @@
+[
+  {
+    "id": "r1",
+    "scope": {
+      "kind": "global",
+      "name": ""
+    },
+    "text": "Characters must share the plate's lighting, colour grade, shadows and wet-ground reflections so they never look pasted on top of the background.",
+    "status": "proposed",
+    "source": {
+      "eventId": "prologue_archie_sells_pearls",
+      "draft": "assets/reference-plates/stratford_car_park_S1_archie_on_watch.png",
+      "note": "Looks odd, like he's superimposed. Also it's strange he's just standing in the middle of the lane where cars drive. His smile is normal and his expressin shows 0 sign of nervousness"
+    },
+    "createdAt": "2026-11-18T09:57:47Z",
+    "decidedAt": null
+  },
+  {
+    "id": "r2",
+    "scope": {
+      "kind": "global",
+      "name": ""
+    },
+    "text": "Place characters where a real person would plausibly stand in that location (e.g. pavement, kerb, doorway, beside a car), never in the middle of a driving lane or other traffic path.",
+    "status": "proposed",
+    "source": {
+      "eventId": "prologue_archie_sells_pearls",
+      "draft": "assets/reference-plates/stratford_car_park_S1_archie_on_watch.png",
+      "note": "Looks odd, like he's superimposed. Also it's strange he's just standing in the middle of the lane where cars drive. His smile is normal and his expressin shows 0 sign of nervousness"
+    },
+    "createdAt": "2026-11-18T09:57:47Z",
+    "decidedAt": null
+  },
+  {
+    "id": "r3",
+    "scope": {
+      "kind": "global",
+      "name": ""
+    },
+    "text": "Each character's facial expression and body language must clearly show the emotion the beat's prose calls for, not a default neutral smile.",
+    "status": "proposed",
+    "source": {
+      "eventId": "prologue_archie_sells_pearls",
+      "draft": "assets/reference-plates/stratford_car_park_S1_archie_on_watch.png",
+      "note": "Looks odd, like he's superimposed. Also it's strange he's just standing in the middle of the lane where cars drive. His smile is normal and his expressin shows 0 sign of nervousness"
+    },
+    "createdAt": "2026-11-18T09:57:47Z",
+    "decidedAt": null
+  },
+  {
+    "id": "r4",
+    "scope": {
+      "kind": "global",
+      "name": ""
+    },
+    "text": "Character faces use the same simplified, low-detail pixel style as the rest of the game's art, never a more detailed or realistic rendering.",
+    "status": "proposed",
+    "source": {
+      "eventId": "prologue_archie_sells_pearls",
+      "draft": "assets/reference-plates/stratford_car_park_S1_archie_on_watch_v3.png",
+      "note": "Why are you suggesting he shift his weight, and have rain on him? I disagree. I also feel his face doesn't match the reference, it's too detailed and thus would differ from the rest of the game's images and create inconsistent art"
+    },
+    "createdAt": "2026-11-18T09:57:59Z",
+    "decidedAt": null
+  },
+  {
+    "id": "r5",
+    "scope": {
+      "kind": "global",
+      "name": ""
+    },
+    "text": "Do not add rain, wetness or other weather effects on characters unless the brief explicitly asks for it.",
+    "status": "rejected",
+    "source": {
+      "eventId": "prologue_archie_sells_pearls",
+      "draft": "assets/reference-plates/stratford_car_park_S1_archie_on_watch_v3.png",
+      "note": "Why are you suggesting he shift his weight, and have rain on him? I disagree. I also feel his face doesn't match the reference, it's too detailed and thus would differ from the rest of the game's images and create inconsistent art"
+    },
+    "createdAt": "2026-11-18T09:57:59Z",
+    "decidedAt": "2026-11-18T10:05:06Z"
+  },
+  {
+    "id": "r6",
+    "scope": {
+      "kind": "global",
+      "name": ""
+    },
+    "text": "Do not invent pose changes such as weight shifts that the brief does not call for.",
+    "status": "rejected",
+    "source": {
+      "eventId": "prologue_archie_sells_pearls",
+      "draft": "assets/reference-plates/stratford_car_park_S1_archie_on_watch_v3.png",
+      "note": "Why are you suggesting he shift his weight, and have rain on him? I disagree. I also feel his face doesn't match the reference, it's too detailed and thus would differ from the rest of the game's images and create inconsistent art"
+    },
+    "createdAt": "2026-11-18T09:57:59Z",
+    "decidedAt": "2026-11-18T10:05:06Z"
+  },
+  {
+    "id": "r7",
+    "scope": {
+      "kind": "character",
+      "name": "Archie"
+    },
+    "text": "Archie's face must match his reference sheet in features and level of detail.",
+    "status": "proposed",
+    "source": {
+      "eventId": "prologue_archie_sells_pearls",
+      "draft": "assets/reference-plates/stratford_car_park_S1_archie_on_watch_v3.png",
+      "note": "Why are you suggesting he shift his weight, and have rain on him? I disagree. I also feel his face doesn't match the reference, it's too detailed and thus would differ from the rest of the game's images and create inconsistent art"
+    },
+    "createdAt": "2026-11-18T09:57:59Z",
+    "decidedAt": null
+  }
+]

@@ -1,0 +1,156 @@
+{
+  "eventId": "prologue_archie_sells_pearls",
+  "title": "Archie sells pearls",
+  "source": ".scratch/writing-revamp/prologue-archie-sells-pearls-proposal2.md",
+  "logline": "Your first sale is so boring nobody looks up; the real handover is Archie pressing two pearls on you at arm's length.",
+  "phase": "storyboard",
+  "round": 5,
+  "approved": null,
+  "updatedAt": 1794996402491,
+  "questions": [
+    "Time of day/weather? Board assumes overcast weekday afternoon, dry-ish wet tarmac. Change if the prologue timeline puts this at night.",
+    "The buyer has no sprite or name. Board describes him as a forgettable man (30s, dark puffer, phone in hand). OK as a one-off extra, or is he someone we'll see again?",
+    "c4 'strolls off' contradicts holding S3 (pearls held out), so the board spends a 4th shot (S4, Archie walking away, same plate). Cut S4 and accept the hold mismatch?",
+    "Background ArcelorMittal Orbit (red lattice tower) as the Stratford tell, shapes only, no branding. OK, or keep the skyline generic?",
+    "Text: c4 'What that' looks like a typo for 'With that'. Not touched (storyboard doesn't edit prose)."
+  ],
+  "cards": [
+    {
+      "branch": "main",
+      "key": "c1",
+      "type": "narration",
+      "speaker": null,
+      "text": "Archie is there already, an easy smile on his lips. He gives you a nod, then his eyes go back to scanning the car park.",
+      "cut": "NEW",
+      "shot": "S1",
+      "why": "New location (Stratford car park): establish place and Archie on watch."
+    },
+    {
+      "branch": "main",
+      "key": "c5",
+      "type": "narration",
+      "speaker": null,
+      "text": "The buyer arrives, turns the pearl over once, checks something on his phone, and pays. A woman walks past with a Lidl bag and doesn't look up.",
+      "cut": "NEW",
+      "shot": "S2",
+      "why": "New person enters and the deal happens: the sale is the beat, its ordinariness is the joke (Lidl woman in frame)."
+    },
+    {
+      "branch": "main",
+      "key": "c2",
+      "type": "speaker",
+      "speaker": "Archie",
+      "text": "\"That's it. Job done, no biggie.\" He counts £120 into your hand. \"Most of them are that boring, luckily.\"",
+      "cut": "HOLD",
+      "shot": "S2",
+      "why": "Same moment, dialogue tail. S2's frozen instant is the buyer paying Archie, which leads straight into the count; a cash insert would be a near-duplicate beat."
+    },
+    {
+      "branch": "main",
+      "key": "c3",
+      "type": "speaker",
+      "speaker": "Archie",
+      "text": "He holds two more pearls out at arm's length, eyes streaming. \"Take these, just in case. Keep 'em on you, so you've got them when you need them.\"",
+      "cut": "NEW",
+      "shot": "S3",
+      "why": "The turn: the pearls come to you (equip). Strongest framing here — POV, Archie near lens, arm out, face screwed up, eyes streaming."
+    },
+    {
+      "branch": "main",
+      "key": "c4",
+      "type": "narration",
+      "speaker": null,
+      "text": "What that, Archie strolls off with a smile, humming to himself.",
+      "cut": "NEW",
+      "shot": "S4",
+      "why": "Decisive action (he leaves); holding S3 would show him still offering pearls. Cheap pose on the same plate."
+    }
+  ],
+  "plates": [
+    {
+      "id": "P1",
+      "name": "stratford_car_park",
+      "variantOf": null,
+      "camera": "player standing eye height in a supermarket car park, looking across the bays at a trolley shelter, Stratford towers beyond",
+      "shots": "S1, S2, S3, S4",
+      "attach": [
+        "assets/events/prologue_archie_cultivation/prologue_archie_cultivation_card1.png"
+      ],
+      "prompt": "Attach: col_a1_closer_card1.png.\nA blank background plate for a pixel-art game scene: an open-air surface car park outside a discount supermarket in Stratford, East London, overcast weekday afternoon, tarmac still damp from earlier rain.\nCamera: standing eye height, about 1.6 m, normal lens, looking straight across the parking bays toward a trolley shelter in the middle distance.\nSet: centre midground, a metal trolley shelter with a few chained trolleys, an empty bay of tarmac in front of it. Screen-left, a row of ordinary parked hatchbacks receding. Screen-right midground, a pay-and-display machine on a post and a tall car-park lamppost. Background, the supermarket's low glass frontage with a blank sign panel (shapes only), and behind it glassy Stratford residential towers and, small and far, the red lattice loops of the Orbit tower. Painted white bay lines and a few puddles on the tarmac.\nLight: flat overcast daylight from screen-left, cool grey; warm interior light from the supermarket glass.\nGenuine pixel art: visible pixel grid with roughly 4×4 screen pixels per art pixel, limited palette, dithered shading, crisp hard edges, no anti-aliasing, no painterly blur, no vector/cel-shaded linework. Match the pixel-art technique and colour treatment of col_a1_closer_card1prologue_archie_cultivation_car1.png, not its content.\nGrounded, realistic London colour: brick, shopfront paint, wet pavement, sodium and LED light. Vivid where the real city is, restrained elsewhere. No neon, no fantasy glow.\nPortrait 2:3 (1024×1536), full-bleed, no border. No people, not even distant background figures (extras are added per shot). No text, letters, numbers or logos: signs, number plates and the machine show shapes only.\nKeep the tarmac in front of the trolley shelter clear in the middle of the frame where people will stand; the top and bottom 15% may be cropped, so only sky and tarmac go there.",
+      "notes": "Light: overcast key from screen-left (cool grey), warm spill from supermarket glass behind. Actors stand on the clear tarmac in front of the shelter; the shelter is something Archie can lean on. Near-lens staging (S3) needs no new camera."
+    }
+  ],
+  "shots": [
+    {
+      "id": "S1",
+      "title": "Archie on watch by the trolleys",
+      "cards": "main: c1",
+      "plate": "P1",
+      "method": "pose",
+      "job": "Establish the meet: Archie close to you, smiling but on edge, watching the car park.",
+      "attach": [
+        "assets/reference-plates/stratford_car_park_blank_plate.png",
+        "assets/character-references/Archie/Archie_biz_sprite_master.png",
+        "assets/reference-plates/stratford_car_park_S1_archie_on_watch_v2.png"
+      ],
+      "prompt": "Attach: stratford_car_park_blank_plate.png, Archie_biz_sprite_master.png, stratford_car_park_S1_archie_on_watch_v2.png.\nUsing the car park in stratford_car_park_blank_plate.png exactly as it is, add the man from Archie_biz_sprite_master.png. Use stratford_car_park_S1_archie_on_watch_v2.png only as a guide to his position and size; redraw him as described here.\nPosition: close to the camera, in the screen-left third of the frame, at the edge of the aisle beside the parked cars, not in the middle of the lane. His feet are about four-fifths of the way down the image. Keep at least two of the parked cars visible beside him. The trolley shelter stays small and far behind him.\nPose: standing, hands in his jacket pockets, body facing the camera.\nExpression: his mouth has an easy smile, but his eyes give him away: brows slightly drawn, eyes narrowed and alert, head turned screen-right, eyes scanning across the car park toward the pay machine and far bays, not looking at the camera. Friendly on the surface, watchful underneath.\nFace and style: draw him exactly like Archie_biz_sprite_master.png: same face, same chunky pixels, same simple low-detail shading. No extra facial detail, no finer pixels, no realistic rendering.\nLight: the same flat grey overcast light as the plate, from screen-left, with a soft contact shadow under his feet, so he sits in the scene rather than looking pasted on.\nDo not change the car park: keep the buildings, the Orbit tower's red colour, the cars, the trolley shelter, the pay machine and the lamppost exactly where and how they are.\nNo other people.\nSame pixel-art style as the car park. Keep the exact image size.",
+      "saveAs": "assets/reference-plates/stratford_car_park_S1_archie_on_watch.png",
+      "unseen": "The buyer (not arrived), any pearl, any cash.",
+      "file": "assets/events/prologue_archie_sells_pearls/prologue_archie_sells_pearls_card1.png"
+    },
+    {
+      "id": "S2",
+      "title": "The most boring deal in London",
+      "cards": "main: c5–c2",
+      "plate": "P1",
+      "method": "pose",
+      "job": "The sale itself, played flat: buyer pays, Archie takes it, a shopper walks past without looking.",
+      "attach": [
+        "assets/reference-plates/stratford_car_park_blank_plate.png",
+        "assets/character-references/Archie/Archie_biz_sprite_master.png",
+        "assets/combat/icons/timePearl.png",
+        "assets/reference-plates/stratford_car_park_S1_archie_on_watch.png"
+      ],
+      "prompt": "Attach: stratford_car_park_blank_plate.png, Archie_biz_sprite_master.png, timePearl.png, stratford_car_park_S1_archie_on_watch.png.\nUsing the car park in stratford_car_park_blank_plate.png, add two men standing face to face in front of the trolley shelter, centre midground, in profile to the camera.\nScreen-left: the man from Archie_biz_sprite_master.png (same as in stratford_car_park_S1_archie_on_watch.png), off the shelter now, one hand out, taking a small fold of banknotes (shapes only, no printing).\nScreen-right: the buyer, an unremarkable man in his thirties, short dark hair, dark puffer jacket, jeans, trainers. One hand holds the banknotes out to Archie; in the other he still has the small pearl from timePearl.png pinched between finger and thumb, about to pocket it. His phone pokes out of his jacket pocket. Bored expression.\nForeground screen-right, walking left to right past them: a woman in a raincoat carrying a plain blue-and-yellow supermarket carrier bag (no logo, no text), eyes down on the tarmac, not looking at them.\nSame pixel-art style and scale as the room. Change nothing else in the room. Keep the exact image size.",
+      "saveAs": "assets/reference-plates/stratford_car_park_S2_deal_done.png",
+      "unseen": "The player (camera is their eyes); the two extra pearls; any calc glow — the pearl is just a pearl here.",
+      "canon": "Buyer is a one-off extra described in words (see questions).",
+      "file": "assets/events/prologue_archie_sells_pearls/prologue_archie_sells_pearls_card2.png"
+    },
+    {
+      "id": "S3",
+      "title": "Two pearls at arm's length",
+      "cards": "main: c3",
+      "plate": "P1",
+      "method": "pose",
+      "job": "The payoff: Archie gives you the pearls and physically can't stand being near them — care and the allergy gag in one frame.",
+      "attach": [
+        "assets/reference-plates/stratford_car_park_blank_plate.png",
+        "assets/character-references/Archie/Archie_biz_sprite_master.png",
+        "assets/combat/icons/timePearl.png",
+        "assets/reference-plates/stratford_car_park_S1_archie_on_watch.png"
+      ],
+      "prompt": "Attach: stratford_car_park_blank_plate.png, Archie_biz_sprite_master.png, timePearl.png, stratford_car_park_S1_archie_on_watch.png.\nUsing the car park in stratford_car_park_blank_plate.png, add the man from Archie_biz_sprite_master.png (same as in stratford_car_park_S1_archie_on_watch.png) standing close to the camera, slightly screen-left of centre, framed from mid-thigh up, filling about two thirds of the frame height. His arm is stretched straight out toward the camera, palm up, holding two small pearls like the one in timePearl.png, in the centre of the frame. He leans his head and shoulders back away from them, face screwed up, eyes watering with tears running down his cheeks, but still half-smiling at the camera. The trolley shelter stays visible behind him, crisp.\nNo other people.\nSame pixel-art style and scale as the room. Change nothing else in the room. Keep the exact image size.",
+      "saveAs": "assets/reference-plates/stratford_car_park_S3_pearls_at_arms_length.png",
+      "unseen": "The buyer (gone), the player's face/body (POV; no hand reaching in so 'you' stays faceless).",
+      "file": "assets/events/prologue_archie_sells_pearls/prologue_archie_sells_pearls_card4.png"
+    },
+    {
+      "id": "S4",
+      "title": "Archie strolls off",
+      "cards": "main: c4",
+      "plate": "P1",
+      "method": "pose",
+      "job": "Close the scene: Archie leaves, unbothered, the car park as dull as ever.",
+      "attach": [
+        "assets/reference-plates/stratford_car_park_blank_plate.png",
+        "assets/character-references/Archie/Archie_biz_sprite_master.png",
+        "assets/reference-plates/stratford_car_park_S1_archie_on_watch.png"
+      ],
+      "prompt": "Attach: stratford_car_park_blank_plate.png, Archie_biz_sprite_master.png, stratford_car_park_S1_archie_on_watch.png.\nUsing the car park in stratford_car_park_blank_plate.png, add the man from Archie_biz_sprite_master.png (same as in stratford_car_park_S1_archie_on_watch.png) walking away from the camera along the tarmac past the trolley shelter, toward the far screen-right rows, seen three-quarter from behind, small in the frame, hands in pockets, head tilted up as if humming.\nNo other people.\nSame pixel-art style and scale as the room. Change nothing else in the room. Keep the exact image size.",
+      "saveAs": "assets/reference-plates/stratford_car_park_S4_archie_strolls_off.png",
+      "unseen": "Pearls, cash.",
+      "file": "assets/events/prologue_archie_sells_pearls/prologue_archie_sells_pearls_card5.png"
+    }
+  ]
+}

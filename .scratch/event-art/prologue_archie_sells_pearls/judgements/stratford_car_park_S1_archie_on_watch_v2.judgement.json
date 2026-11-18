@@ -1,0 +1,137 @@
+{
+  "schema": 1,
+  "eventId": "prologue_archie_sells_pearls",
+  "shotId": "S1",
+  "draft": "assets/reference-plates/stratford_car_park_S1_archie_on_watch_v2.png",
+  "draftSha": "1b3ff89091a83378d4f3f6ced9814cae0847f84919412d3bd69f05dfa223e74a",
+  "briefHash": "33e1169aaee2ecfc",
+  "styleHash": "bf648fa9b62c31dd",
+  "rulesHash": "4f53cda18c2baa0c",
+  "model": "claude-cli-default",
+  "judgedAt": "2026-11-18T09:59:00Z",
+  "checks": [
+    {
+      "id": "cast-Archie",
+      "result": "pass",
+      "why": "Archie is on screen at the left: curly brown hair, beard, green overshirt, grey tee, dark jeans and white trainers."
+    },
+    {
+      "id": "cast-only",
+      "result": "pass",
+      "why": "Archie is the only figure in the image."
+    },
+    {
+      "id": "m1",
+      "result": "pass",
+      "why": "There is exactly one person, and he is the man from the sprite master."
+    },
+    {
+      "id": "m2",
+      "result": "fail",
+      "why": "The outfit matches, but the face and hair are drawn finer and more realistically than the chunky sprite master, with more facial shading and tighter curls."
+    },
+    {
+      "id": "m3",
+      "result": "pass",
+      "why": "His body runs from about x80 to x410, centred near x245, so he sits in the screen-left third."
+    },
+    {
+      "id": "m4",
+      "result": "pass",
+      "why": "He stands at the left edge of the lane beside the parked bays and car, not in the middle of the aisle."
+    },
+    {
+      "id": "m5",
+      "result": "pass",
+      "why": "He is big in the frame with his feet at about y1300, roughly 0.85 of the height; that is close to four-fifths."
+    },
+    {
+      "id": "m6",
+      "result": "pass",
+      "why": "The trolley shelter stays small and far behind him."
+    },
+    {
+      "id": "m7",
+      "result": "pass",
+      "why": "The light on him is flat and grey, matching the plate. A soft dark reflection under his feet on the wet tarmac grounds him, but a true contact shadow is faint."
+    },
+    {
+      "id": "m8",
+      "result": "pass",
+      "why": "Both hands are in his jeans pockets. The brief asked for jacket pockets, but the open overshirt makes this read as close."
+    },
+    {
+      "id": "m9",
+      "result": "pass",
+      "why": "His head is turned toward screen-right."
+    },
+    {
+      "id": "m10",
+      "result": "pass",
+      "why": "His eyes look right, toward the pay machine and the far bays, not at the camera."
+    },
+    {
+      "id": "m11",
+      "result": "fail",
+      "why": "The smile is there, but his eyes and brow look relaxed and content, not wary or on edge."
+    },
+    {
+      "id": "m12",
+      "result": "fail",
+      "why": "The red ArcelorMittal Orbit tower has been recoloured grey. Most of the parked cars are hidden behind him, with only the dark grey car visible."
+    },
+    {
+      "id": "m13",
+      "result": "pass",
+      "why": "There is no buyer or second figure anywhere, including in the background."
+    },
+    {
+      "id": "m14",
+      "result": "pass",
+      "why": "No pearl or cash is visible."
+    },
+    {
+      "id": "h-text",
+      "result": "pass",
+      "why": "The shop sign is blank, and the pay machine and number plate have no legible text."
+    },
+    {
+      "id": "h-face",
+      "result": "pass",
+      "why": "No player is shown."
+    },
+    {
+      "id": "h-bottom",
+      "result": "pass",
+      "why": "His feet end near y1300, above the bottom 10% band, which starts at y1381."
+    },
+    {
+      "id": "h-crop",
+      "result": "pass",
+      "why": "In the small crop (y266-1268) his head, face and body survive; only the shoe tips are trimmed."
+    }
+  ],
+  "scores": {
+    "brief": 3,
+    "style": 3,
+    "cast": {
+      "Archie": 3
+    }
+  },
+  "metrics": {
+    "size": [
+      1024,
+      1535
+    ],
+    "gridScale": 1,
+    "gridRegularity": 0.003,
+    "colours": 256,
+    "paletteDistance": 10.67
+  },
+  "verdict": "pass",
+  "rank": 1,
+  "correctionPrompt": null,
+  "checklistEditedAt": null,
+  "verdictReasons": [],
+  "threshold": 3.0
+}

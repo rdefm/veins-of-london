@@ -1,0 +1,139 @@
+{
+  "schema": 1,
+  "eventId": "prologue_archie_sells_pearls",
+  "shotId": "S1",
+  "draft": "assets/reference-plates/stratford_car_park_S1_archie_on_watch.png",
+  "draftSha": "7705051b449ded850a0dd2af342a704d6e366826168951349a358b9f5df91525",
+  "briefHash": "33e1169aaee2ecfc",
+  "styleHash": "bf648fa9b62c31dd",
+  "rulesHash": "4f53cda18c2baa0c",
+  "model": "claude-cli-default",
+  "judgedAt": "2026-11-18T09:58:04Z",
+  "checks": [
+    {
+      "id": "cast-Archie",
+      "result": "pass",
+      "why": "Archie is on screen: curly brown hair, beard, olive overshirt, white tee, dark jeans, white trainers."
+    },
+    {
+      "id": "cast-only",
+      "result": "pass",
+      "why": "Archie is the only figure in the frame."
+    },
+    {
+      "id": "m1",
+      "result": "pass",
+      "why": "Exactly one person is visible, and he matches the sprite master."
+    },
+    {
+      "id": "m2",
+      "result": "pass",
+      "why": "Face, hair, beard and outfit match the references, with similar simple pixel shading and no added realism."
+    },
+    {
+      "id": "m3",
+      "result": "fail",
+      "why": "He stands in the centre of the frame (about x 420-580 of 1023), not the screen-left third."
+    },
+    {
+      "id": "m4",
+      "result": "fail",
+      "why": "He stands in the middle of the lane in front of the shelter, away from the parked cars."
+    },
+    {
+      "id": "m5",
+      "result": "fail",
+      "why": "His feet are about 72% of the way down (y≈1110), not ~80%. He is mid-size, not big and close."
+    },
+    {
+      "id": "m6",
+      "result": "fail",
+      "why": "The trolley shelter was enlarged, sits directly behind him and frames him, so it is not small and far back."
+    },
+    {
+      "id": "m7",
+      "result": "fail",
+      "why": "Light is flat overcast, but there is no clear soft contact shadow under his feet, only a faint wet reflection."
+    },
+    {
+      "id": "m8",
+      "result": "pass",
+      "why": "Both hands are in his jacket/jeans pockets."
+    },
+    {
+      "id": "m9",
+      "result": "pass",
+      "why": "His head is turned toward screen-right."
+    },
+    {
+      "id": "m10",
+      "result": "pass",
+      "why": "His eyes look screen-right toward the pay machine, not at the camera."
+    },
+    {
+      "id": "m11",
+      "result": "unsure",
+      "why": "The easy smile is there, but his eyes read relaxed or amused more than wary."
+    },
+    {
+      "id": "m12",
+      "result": "fail",
+      "why": "The scene was re-rendered: buildings moved, shelter bigger and lower, trolleys changed to two loose ones, pay machine moved, Orbit lost its red."
+    },
+    {
+      "id": "m13",
+      "result": "pass",
+      "why": "No buyer or other figure anywhere."
+    },
+    {
+      "id": "m14",
+      "result": "pass",
+      "why": "No pearl or cash visible."
+    },
+    {
+      "id": "h-text",
+      "result": "pass",
+      "why": "Shop sign is blank. Number plates are illegible smudges."
+    },
+    {
+      "id": "h-face",
+      "result": "pass",
+      "why": "The player is not shown."
+    },
+    {
+      "id": "h-bottom",
+      "result": "pass",
+      "why": "The bottom 10% is empty wet tarmac."
+    },
+    {
+      "id": "h-crop",
+      "result": "pass",
+      "why": "Archie (y≈575-1115) is fully inside the small crop (y 268-1269)."
+    }
+  ],
+  "scores": {
+    "brief": 1.5,
+    "style": 3,
+    "cast": {
+      "Archie": 3
+    }
+  },
+  "metrics": {
+    "size": [
+      1023,
+      1537
+    ],
+    "gridScale": 1,
+    "gridRegularity": 0.005,
+    "colours": 256,
+    "paletteDistance": 10.17
+  },
+  "verdict": "fail",
+  "rank": 3,
+  "correctionPrompt": "Same image, change only: restore the car park exactly as in stratford_car_park_blank_plate.png (buildings, small far-back trolley shelter with its original trolleys, pay machine position, Orbit's red), then move Archie to the screen-left third at the aisle edge beside the parked cars, enlarge him so he is closer to camera with feet about 80% down the image, and add a soft grey contact shadow under his feet. Keep everything else identical.",
+  "checklistEditedAt": null,
+  "verdictReasons": [
+    "score brief 1.5 < 3.0"
+  ],
+  "threshold": 3.0
+}

@@ -1,0 +1,29 @@
+[
+  {
+    "eventId": "prologue_archie_sells_pearls",
+    "round": 3,
+    "phase": "storyboard",
+    "target": "assets/reference-plates/stratford_car_park_S1_archie_on_watch_v3.png",
+    "verdict": null,
+    "note": "Why are you suggesting he shift his weight, and have rain on him? I disagree. I also feel his face doesn't match the reference, it's too detailed and thus would differ from the rest of the game's images and create inconsistent art",
+    "at": 1794995773669
+  },
+  {
+    "eventId": "prologue_archie_sells_pearls",
+    "round": 3,
+    "phase": "storyboard",
+    "target": "assets/reference-plates/stratford_car_park_S1_archie_on_watch.png",
+    "verdict": null,
+    "note": "Looks odd, like he's superimposed. Also it's strange he's just standing in the middle of the lane where cars drive. His smile is normal and his expressin shows 0 sign of nervousness",
+    "at": 1794995386298
+  },
+  {
+    "eventId": "prologue_archie_sells_pearls",
+    "round": 3,
+    "phase": "storyboard",
+    "target": "S1",
+    "verdict": null,
+    "note": "",
+    "at": 1794995384285
+  }
+]
