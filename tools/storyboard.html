@@ -169,6 +169,7 @@ header.top .title { display: grid; gap: 6px; min-width: 0 }
 .jbadge.pass { color: var(--ok); border-color: var(--ok) }
 .jbadge.fail { color: var(--warn); border-color: var(--warn) }
 .jbadge.stale { color: var(--accent); border-color: var(--accent) }
+.jbadge.needs { color: var(--warn); border-color: var(--warn); background: color-mix(in srgb, var(--warn) 15%, transparent) }
 .jscore { color: var(--muted) }
 .checklist summary { cursor: pointer; font-size: 13px }
 .clist { list-style: none; margin: 6px 0; padding: 0; display: grid; gap: 4px }
@@ -1678,6 +1679,11 @@ function checkOddsBlock(opt, changed, restructure) {
     };
     return names.map((n, i) => ({ n, k: key(n, i) }))
       .sort((a, b) => (a.k[0] - b.k[0]) || (a.k[1] - b.k[1]) || (a.k[2] - b.k[2])).map((x) => x.n);
+  }
+  // A shot is "needs you" while art autogen has marked its takes (`needsYou` on a judgement) and none is approved yet.
+  function shotNeedsYou(names, byFile, approved) {
+    if (approved) return false;
+    return names.some((n) => { const j = judgementFor(n, byFile); return !!(j && j.needsYou === true); });
   }
   // Brief, style and per-cast scores as [label, value] pairs; a cast member with unchecked identity shows "n/a".
   function judgementScores(j) {
@@ -7885,6 +7891,7 @@ function checkOddsBlock(opt, changed, restructure) {
     } else out.append(el("span", { class: "jbadge none", text: "no draft" }));
     const okName = names.find((n) => (feedback[feedbackKeyFor(b.eventId, draftTarget(n))] || {}).verdict === "approve");
     const shotOk = (feedback[`${b.eventId}__${s.id}`] || {}).verdict === "approve";
+    if (shotNeedsYou(names, jd.byFile, !!(okName || shotOk))) out.append(el("span", { class: "jbadge needs", text: "needs you" }));
     if (okName || shotOk) out.append(el("span", { class: "stamp", text: "✓ APPROVED" + (okName ? " · " + okName : "") }));
     return out;
   }

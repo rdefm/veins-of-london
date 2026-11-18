@@ -289,6 +289,71 @@ class Spend(GenBase):
         self.assertIn("month to date", out)
 
 
+class FailingBackend(RuleScoringBackend):
+    """Fails the first `fails` take judgements (h-text), then passes; correction calls reply with a fixed edit."""
+    def __init__(self, fails=None):
+        super().__init__()
+        self.fails, self.judged = fails, 0
+
+    def call(self, key, instruction, images, schema):
+        if key.startswith("correct"):
+            self.calls.append({"key": key})
+            return {"changes": "remove the sign text"}
+        if key.startswith("judge") and (self.fails is None or self.judged < self.fails):
+            self.judged += 1
+            self.calls.append({"key": key})
+            return good_reply(IDS + ["rule-g1", "rule-c1", "rule-p1"], {"h-text": "fail"})
+        if key.startswith("judge"):
+            self.judged += 1
+        return super().call(key, instruction, images, schema)
+
+
+class Retry(GenBase):
+    def judgement(self, n):
+        return judge.read_json(os.path.join(self.ws.event_dir("ev"), "judgements", "ev_S1_archie_v%d.judgement.json" % n))
+
+    def test_fail_twice_then_pass(self):
+        ib, _, log, _ = self.run_gen(1, FailingBackend(fails=2))
+        self.assertEqual([t["verdict"] for t in log["takes"]], ["fail", "fail", "pass"])
+        self.assertEqual([t["parent"] for t in log["takes"]],
+                         [None, "%s/ev_S1_archie_v1.png" % PLATES, "%s/ev_S1_archie_v2.png" % PLATES])
+        self.assertEqual([c["op"] for c in ib.calls], ["generate", "edit", "edit"])
+        self.assertIn("remove the sign text", ib.calls[1]["prompt"])
+        self.assertTrue(ib.calls[1]["prompt"].startswith("Same image, change only:"))
+        self.assertNotIn("needsYou", log)
+        self.assertNotIn("needsYou", self.judgement(3))
+
+    def test_always_fails_three_retries_per_original_then_needs_you(self):
+        ib, _, log, _ = self.run_gen(2, FailingBackend())
+        self.assertEqual([c["op"] for c in ib.calls], ["generate"] * 2 + ["edit"] * 6)
+        self.assertEqual(len(log["takes"]), 8)
+        self.assertTrue(log["needsYou"])
+        for n in range(1, 9):
+            self.assertTrue(self.judgement(n)["needsYou"])
+            self.assertIsNotNone(self.judgement(n)["rank"])
+
+    def test_a_pass_stops_retries_for_other_failures(self):
+        class OneGood(FailingBackend):
+            def call(self, key, instruction, images, schema):
+                if key.startswith("judge") and key.endswith("_v2"):
+                    return RuleScoringBackend.call(self, key, instruction, images, schema)
+                return super().call(key, instruction, images, schema)
+        ib, _, log, _ = self.run_gen(3, OneGood())
+        self.assertEqual([c["op"] for c in ib.calls], ["generate"] * 3)
+        self.assertNotIn("needsYou", log)
+
+    def test_retry_spend_counted(self):
+        _, _, log, _ = self.run_gen(1, FailingBackend())
+        self.assertEqual(len(log["takes"]), 4)
+        self.assertAlmostEqual(log["totalCost"], 0.16)
+
+    def test_rerun_with_pass_clears_marker(self):
+        self.run_gen(1, FailingBackend())
+        self.assertTrue(self.judgement(1)["needsYou"])
+        self.run_gen(1, RuleScoringBackend())
+        self.assertNotIn("needsYou", self.judgement(1))
+
+
 def spend_ledger(ws):
     return spend.load_ledger(ws)
 

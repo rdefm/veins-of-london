@@ -3240,7 +3240,16 @@ test("ruleSource gives the board and draft file name; mergeRules keeps unparsed 
 const judgeStart = html.indexOf("/* ---------- Judgements (pure) ---------- */"), judgeEnd = html.indexOf("/* ---------- End judgements ---------- */");
 assert(judgeStart !== -1 && judgeEnd !== -1, "could not locate judgements markers in storyboard.html");
 const JM = new Function(html.slice(judgeStart, judgeEnd) +
-  "\nreturn { draftTarget, feedbackKeyFor, feedbackTargetOf, DRAFT_VERDICTS, JUDGEMENT_SUFFIX, judgementFileFor, judgementFor, judgementState, orderDrafts, judgementScores, judgementProblems, judgementCorrection, shotCardsOf, briefKey, checklistWarning, editedChecklist, checklistStale, newCheckItem };")();
+  "\nreturn { draftTarget, feedbackKeyFor, feedbackTargetOf, DRAFT_VERDICTS, JUDGEMENT_SUFFIX, judgementFileFor, judgementFor, judgementState, orderDrafts, judgementScores, judgementProblems, judgementCorrection, shotCardsOf, briefKey, checklistWarning, editedChecklist, checklistStale, newCheckItem, shotNeedsYou };")();
+
+test("needs-you badge: marked takes, cleared once a take is approved", () => {
+  const by = { "s1_v1.judgement.json": { verdict: "fail", needsYou: true }, "s1_v2.judgement.json": { verdict: "fail", needsYou: true } };
+  const names = ["s1_v1.png", "s1_v2.png"];
+  assert.strictEqual(JM.shotNeedsYou(names, by, false), true);
+  assert.strictEqual(JM.shotNeedsYou(names, by, true), false, "approval clears it");
+  assert.strictEqual(JM.shotNeedsYou(names, { "s1_v1.judgement.json": { verdict: "fail" } }, false), false, "unmarked shot");
+  assert.strictEqual(JM.shotNeedsYou([], {}, false), false);
+});
 
 test("judgements match drafts by stem, incl. _vN and _clean files", () => {
   const by = { "s1_v2.judgement.json": { verdict: "pass" }, "s1.judgement.json": { verdict: "fail" } };
