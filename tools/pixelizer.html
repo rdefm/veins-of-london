@@ -87,6 +87,33 @@
   </fieldset>
 
   <fieldset>
+    <legend>Clean-up (before the grid)</legend>
+    <label for="conRange">Contrast: <span id="conOut">0</span>%</label>
+    <input type="range" id="conRange" min="-50" max="100" step="5" value="0" style="width:100%">
+    <label for="satRange">Saturation: <span id="satOut">0</span>%</label>
+    <input type="range" id="satRange" min="-100" max="100" step="5" value="0" style="width:100%">
+    <label>Smoothing</label>
+    <div class="seg" id="smoothSeg">
+      <button data-v="off" class="on">Off</button>
+      <button data-v="kuwahara">Flatten texture</button>
+    </div>
+    <div id="radiusBox" class="hidden">
+      <label for="radRange">Strength: <span id="radOut">2</span></label>
+      <input type="range" id="radRange" min="1" max="8" step="1" value="2" style="width:100%">
+    </div>
+    <p class="hint">Flattening keeps hard edges but removes fine texture, so cells vote between clean areas. Try strength ≈ half the cell size.</p>
+  </fieldset>
+
+  <fieldset>
+    <legend>Outline priority</legend>
+    <label for="shareRange">Dark share that wins a cell: <span id="shareOut">off</span></label>
+    <input type="range" id="shareRange" min="0" max="60" step="5" value="0" style="width:100%">
+    <label for="darkRange">Counts as dark below brightness: <span id="darkOut">70</span></label>
+    <input type="range" id="darkRange" min="10" max="160" step="5" value="70" style="width:100%">
+    <p class="hint">Keeps thin lines and eyes: a cell this share dark takes the dark colour even without a majority.</p>
+  </fieldset>
+
+  <fieldset>
     <legend>Cell colour</legend>
     <div class="seg" id="modeSeg">
       <button data-v="dominant" class="on">Dominant</button>
@@ -123,10 +150,12 @@
     <label for="expNum">Upscale ×</label>
     <div class="row">
       <input type="number" id="expNum" min="1" max="64" step="1" value="4">
-      <button id="expBtn">PNG ×N</button>
-      <button id="natBtn">Native PNG</button>
+      <button class="primary" id="saveBtn">Save…</button>
+      <button id="natBtn">Save native</button>
     </div>
+    <p class="hint">Save writes the result at ×N with hard edges (Ctrl+S). Chrome/Edge ask where to save; other browsers download.</p>
   </fieldset>
+  <div class="hint" id="saveOut" style="margin:-6px 0 8px"></div>
   <div class="stats" id="stats">No image.</div>
 </aside>
 
@@ -138,6 +167,7 @@
       <button data-v="after">After</button>
     </div>
     <label class="row" style="margin:0"><input type="checkbox" id="gridChk" checked> Grid on before</label>
+    <label class="row" style="margin:0"><input type="checkbox" id="cleanChk" checked> Before shows clean-up</label>
     <span class="spacer"></span>
     <label class="row" style="margin:0">Zoom
       <input type="range" id="zoomRange" min="0.1" max="8" step="0.05" value="1" style="width:140px">
@@ -147,7 +177,7 @@
   <div id="view">
     <div id="drop">Drop an image here, paste one, or use Open…</div>
     <div id="panes" class="hidden">
-      <div class="pane" id="beforePane"><span class="tag">before</span><canvas id="srcCanvas"></canvas><canvas id="gridCanvas"></canvas></div>
+      <div class="pane" id="beforePane"><span class="tag" id="beforeTag">before</span><canvas id="srcCanvas"></canvas><canvas id="gridCanvas"></canvas></div>
       <div class="pane" id="afterPane"><span class="tag" id="afterTag">after</span><canvas id="outCanvas"></canvas></div>
     </div>
   </div>
@@ -161,6 +191,9 @@ const S = {
   cell: 4, ox: 0, oy: 0, mode: "dominant", core: 100,
   colours: "off", n: 32, palette: null, paletteName: "",
   view: "both", grid: true, zoom: 1,
+  contrast: 0, sat: 0, smooth: "off", radius: 2, showClean: true,
+  outShare: 0, outDark: 70,
+  pre: null, preKey: "",  // cleaned source + the settings it was made with
   native: null,  // ImageData of the result at native size
 };
 const store = {
@@ -190,37 +223,114 @@ function coreSpan([a, b], core) {
   return [s, s + keep];
 }
 
-/** Grid-lock: one output pixel per cell, by "dominant" (most common colour) or "mean". */
-function gridLock(src, w, h, cell, ox, oy, mode, core) {
+const lum = (r, g, b) => 0.299 * r + 0.587 * g + 0.114 * b;
+
+/** Most common packed colour in a count Map (ties -> lowest code). */
+function modeOf(counts) {
+  let best = -1, bestN = -1;
+  for (const [c, k] of counts) if (k > bestN || (k === bestN && c < best)) { best = c; bestN = k; }
+  return best;
+}
+
+/**
+ * Grid-lock: one output pixel per cell, by "dominant" (most common colour) or "mean".
+ * outline {share, dark}: a cell whose opaque pixels are at least `share` (0-1) darker than
+ * luminance `dark` takes the dark pixels' colour instead, so thin lines and eyes survive.
+ */
+function gridLock(src, w, h, cell, ox, oy, mode, core, outline) {
   const xs = cellEdges(w, cell, ox).map((e) => coreSpan(e, core));
   const ys = cellEdges(h, cell, oy).map((e) => coreSpan(e, core));
   const out = new ImageData(Math.max(1, xs.length), Math.max(1, ys.length));
-  const d = src.data, o = out.data, counts = new Map();
+  const d = src.data, o = out.data, counts = new Map(), darkCounts = new Map();
+  const share = outline && outline.share > 0 ? outline.share : 0, dark = share ? outline.dark : -1;
   for (let cy = 0; cy < ys.length; cy++) {
     const [y0, y1] = ys[cy];
     for (let cx = 0; cx < xs.length; cx++) {
       const [x0, x1] = xs[cx];
-      let r = 0, g = 0, b = 0, opaque = 0, total = 0;
-      counts.clear();
+      let r = 0, g = 0, b = 0, opaque = 0, total = 0, nd = 0, dr = 0, dg = 0, db = 0;
+      counts.clear(); darkCounts.clear();
       for (let y = y0; y < y1; y++) {
         for (let x = x0; x < x1; x++) {
           const i = (y * w + x) * 4;
           total++;
           if (d[i + 3] < ALPHA_MIN) continue;
           opaque++;
-          if (mode === "mean") { r += d[i]; g += d[i + 1]; b += d[i + 2]; }
-          else { const c = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2]; counts.set(c, (counts.get(c) || 0) + 1); }
+          const isDark = share && lum(d[i], d[i + 1], d[i + 2]) < dark;
+          if (isDark) nd++;
+          if (mode === "mean") {
+            r += d[i]; g += d[i + 1]; b += d[i + 2];
+            if (isDark) { dr += d[i]; dg += d[i + 1]; db += d[i + 2]; }
+          } else {
+            const c = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
+            counts.set(c, (counts.get(c) || 0) + 1);
+            if (isDark) darkCounts.set(c, (darkCounts.get(c) || 0) + 1);
+          }
         }
       }
       const j = (cy * out.width + cx) * 4;
       if (opaque * 2 < total) { o[j + 3] = 0; continue; }
-      if (mode === "mean") { o[j] = Math.round(r / opaque); o[j + 1] = Math.round(g / opaque); o[j + 2] = Math.round(b / opaque); }
-      else {
-        let best = -1, bestN = -1;
-        for (const [c, k] of counts) if (k > bestN || (k === bestN && c < best)) { best = c; bestN = k; }
+      const useDark = share && nd > 0 && nd >= share * opaque;
+      if (mode === "mean") {
+        const n = useDark ? nd : opaque;
+        if (useDark) { r = dr; g = dg; b = db; }
+        o[j] = Math.round(r / n); o[j + 1] = Math.round(g / n); o[j + 2] = Math.round(b / n);
+      } else {
+        const best = modeOf(useDark ? darkCounts : counts);
         o[j] = best >> 16; o[j + 1] = (best >> 8) & 255; o[j + 2] = best & 255;
       }
       o[j + 3] = 255;
+    }
+  }
+  return out;
+}
+
+/** Contrast (-100..100, %) about mid-grey, then saturation (-100..100, %) about luminance. */
+function adjustColour(img, contrast, sat) {
+  const out = new ImageData(new Uint8ClampedArray(img.data), img.width, img.height), d = out.data;
+  const kc = 1 + contrast / 100, ks = 1 + sat / 100;
+  for (let i = 0; i < d.length; i += 4) {
+    let r = (d[i] - 128) * kc + 128, g = (d[i + 1] - 128) * kc + 128, b = (d[i + 2] - 128) * kc + 128;
+    const l = lum(r, g, b);
+    d[i] = l + (r - l) * ks; d[i + 1] = l + (g - l) * ks; d[i + 2] = l + (b - l) * ks;
+  }
+  return out;
+}
+
+/**
+ * Kuwahara filter, radius r: each pixel takes the mean colour of whichever of its four
+ * (r+1)² quadrants has the lowest luminance variance. Flattens texture, keeps hard edges.
+ * Summed-area tables make it O(pixels) whatever the radius.
+ */
+function kuwahara(img, r) {
+  const w = img.width, h = img.height, d = img.data, W = w + 1;
+  const sr = new Float64Array(W * (h + 1)), sg = new Float64Array(W * (h + 1)), sb = new Float64Array(W * (h + 1));
+  const sl = new Float64Array(W * (h + 1)), sq = new Float64Array(W * (h + 1));
+  for (let y = 0; y < h; y++) {
+    let ar = 0, ag = 0, ab = 0, al = 0, aq = 0;
+    for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 4, l = lum(d[i], d[i + 1], d[i + 2]);
+      ar += d[i]; ag += d[i + 1]; ab += d[i + 2]; al += l; aq += l * l;
+      const k = (y + 1) * W + x + 1, u = k - W;
+      sr[k] = sr[u] + ar; sg[k] = sg[u] + ag; sb[k] = sb[u] + ab; sl[k] = sl[u] + al; sq[k] = sq[u] + aq;
+    }
+  }
+  const out = new ImageData(new Uint8ClampedArray(d), w, h), o = out.data;
+  for (let y = 0; y < h; y++) {
+    const yA = Math.max(0, y - r), yB = y + 1, yC = y, yD = Math.min(h, y + r + 1);
+    for (let x = 0; x < w; x++) {
+      const xA = Math.max(0, x - r), xB = x + 1, xC = x, xD = Math.min(w, x + r + 1);
+      let bestV = Infinity, a = 0, b = 0, c = 0, e = 0, bn = 1;
+      for (let q = 0; q < 4; q++) {
+        const x0 = q & 1 ? xC : xA, x1 = q & 1 ? xD : xB, y0 = q & 2 ? yC : yA, y1 = q & 2 ? yD : yB;
+        const k11 = y1 * W + x1, k01 = y0 * W + x1, k10 = y1 * W + x0, k00 = y0 * W + x0;
+        const n = (x1 - x0) * (y1 - y0), m = (sl[k11] - sl[k01] - sl[k10] + sl[k00]) / n;
+        const v = (sq[k11] - sq[k01] - sq[k10] + sq[k00]) / n - m * m;
+        if (v < bestV) { bestV = v; a = k11; b = k01; c = k10; e = k00; bn = n; }
+      }
+      const i = (y * w + x) * 4;
+      o[i] = (sr[a] - sr[b] - sr[c] + sr[e]) / bn;
+      o[i + 1] = (sg[a] - sg[b] - sg[c] + sg[e]) / bn;
+      o[i + 2] = (sb[a] - sb[b] - sb[c] + sb[e]) / bn;
     }
   }
   return out;
@@ -359,15 +469,34 @@ function detectGrid(src, w, h) {
 
 // ---------- pipeline ----------
 
+/** Source after clean-up (contrast/saturation, then smoothing); cached until those settings change. */
+function cleaned() {
+  const key = [S.contrast, S.sat, S.smooth, S.radius].join();
+  if (S.preKey === key && S.pre) return S.pre;
+  let img = S.src;
+  if (S.contrast || S.sat) img = adjustColour(img, S.contrast, S.sat);
+  if (S.smooth === "kuwahara") img = kuwahara(img, S.radius);
+  S.pre = img; S.preKey = key;
+  showBefore();
+  return img;
+}
+
+function showBefore() {
+  if (!S.src) return;
+  $("srcCanvas").getContext("2d").putImageData(S.showClean && S.pre ? S.pre : S.src, 0, 0);
+  $("beforeTag").textContent = S.showClean && S.pre !== S.src ? "before (cleaned)" : "before";
+}
+
 function process() {
   if (!S.src) return;
-  let src = S.src, pal = null;
+  const src = cleaned(), outline = { share: S.outShare / 100, dark: S.outDark };
+  let pal = null;
   if (S.colours === "palette" && S.palette && S.palette.length) pal = S.palette;
-  if (S.colours === "reduce") pal = reducePalette(gridLock(S.src, S.w, S.h, S.cell, S.ox, S.oy, "mean", S.core), S.n);
+  if (S.colours === "reduce") pal = reducePalette(gridLock(src, S.w, S.h, S.cell, S.ox, S.oy, "mean", S.core), S.n);
   let out;
-  if (pal && S.mode === "dominant") out = gridLock(snapToPalette(src, pal), S.w, S.h, S.cell, S.ox, S.oy, "dominant", S.core);
+  if (pal && S.mode === "dominant") out = gridLock(snapToPalette(src, pal), S.w, S.h, S.cell, S.ox, S.oy, "dominant", S.core, outline);
   else {
-    out = gridLock(src, S.w, S.h, S.cell, S.ox, S.oy, S.mode, S.core);
+    out = gridLock(src, S.w, S.h, S.cell, S.ox, S.oy, S.mode, S.core, outline);
     if (pal) out = snapToPalette(out, pal);
   }
   S.native = out;
@@ -478,6 +607,26 @@ for (const k of ["ox", "oy"]) {
 $("coreRange").addEventListener("input", (e) => { S.core = +e.target.value; $("coreOut").textContent = S.core; schedule(); });
 $("nRange").addEventListener("input", (e) => { S.n = +e.target.value; $("nOut").textContent = S.n; schedule(); });
 seg("modeSeg", "mode", schedule);
+const slider = (id, key, out, fmt = (v) => v) => $(id).addEventListener("input", (e) => {
+  S[key] = +e.target.value; $(out).textContent = fmt(S[key]); schedule();
+});
+// clean-up sliders: with smoothing on (~1s on a large image) they apply on release, not while dragging
+const cleanupSlider = (id, key, out) => {
+  const el = $(id);
+  el.addEventListener("input", () => { $(out).textContent = el.value; if (S.smooth === "off") { S[key] = +el.value; schedule(); } });
+  el.addEventListener("change", () => { S[key] = +el.value; scheduleHeavy(); });
+};
+function scheduleHeavy() {
+  $("stats").textContent = "Working…";
+  setTimeout(schedule, 20);   // let the label paint before the filter blocks the page
+}
+cleanupSlider("conRange", "contrast", "conOut");
+cleanupSlider("satRange", "sat", "satOut");
+cleanupSlider("radRange", "radius", "radOut");
+slider("shareRange", "outShare", "shareOut", (v) => (v ? v + "%" : "off"));
+slider("darkRange", "outDark", "darkOut");
+seg("smoothSeg", "smooth", () => { $("radiusBox").classList.toggle("hidden", S.smooth === "off"); scheduleHeavy(); });
+$("cleanChk").addEventListener("change", (e) => { S.showClean = e.target.checked; showBefore(); });
 seg("colSeg", "colours", () => {
   $("reduceBox").classList.toggle("hidden", S.colours !== "reduce");
   $("paletteBox").classList.toggle("hidden", S.colours !== "palette");
@@ -519,6 +668,7 @@ function loadFile(file) {
     ctx.clearRect(0, 0, S.w, S.h);
     ctx.drawImage(img, 0, 0);
     S.src = ctx.getImageData(0, 0, S.w, S.h);
+    S.pre = null; S.preKey = "";
     URL.revokeObjectURL(url);
     $("drop").classList.add("hidden");
     $("panes").classList.remove("hidden");
@@ -560,15 +710,36 @@ $("palIn").addEventListener("change", (e) => e.target.files[0] && loadPalette(e.
 
 // ---------- export ----------
 
-function download(canvas, name) {
-  canvas.toBlob((blob) => {
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob); a.download = name; a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-  }, "image/png");
+/** Save a canvas as PNG: native save dialog where supported (remembers the folder), else a download. */
+async function savePNG(canvas, name) {
+  const blob = await new Promise((res) => canvas.toBlob(res, "image/png"));
+  if (window.showSaveFilePicker) {
+    try {
+      const handle = await window.showSaveFilePicker({
+        id: "pixelizer", suggestedName: name,
+        types: [{ description: "PNG image", accept: { "image/png": [".png"] } }],
+      });
+      const w = await handle.createWritable();
+      await w.write(blob); await w.close();
+      flash(`Saved ${handle.name}`);
+      return;
+    } catch (e) {
+      if (e && e.name === "AbortError") return;   // user cancelled
+    }
+  }
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  flash(`Downloaded ${name}`);
 }
-$("natBtn").addEventListener("click", () => S.native && download($("outCanvas"), `${S.name}_native.png`));
-$("expBtn").addEventListener("click", () => {
+
+function flash(msg) {
+  const s = $("saveOut");
+  s.textContent = msg;
+  clearTimeout(flash.t); flash.t = setTimeout(() => (s.textContent = ""), 4000);
+}
+
+function saveUpscaled() {
   if (!S.native) return;
   const k = Math.max(1, Math.round(+$("expNum").value || 1));
   const c = document.createElement("canvas");
@@ -576,7 +747,12 @@ $("expBtn").addEventListener("click", () => {
   const ctx = c.getContext("2d");
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage($("outCanvas"), 0, 0, c.width, c.height);
-  download(c, `${S.name}_x${k}.png`);
+  savePNG(c, `${S.name}_pixel_x${k}.png`);
+}
+$("natBtn").addEventListener("click", () => S.native && savePNG($("outCanvas"), `${S.name}_pixel_native.png`));
+$("saveBtn").addEventListener("click", saveUpscaled);
+document.addEventListener("keydown", (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") { e.preventDefault(); saveUpscaled(); }
 });
 
 // ---------- init ----------

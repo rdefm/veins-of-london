@@ -395,7 +395,7 @@ live-tree check. `sim_combat_balance.gd` (+ `_impl.gd`) is the seeded live-`Comb
 
 ## tools/*.py, *.html, *.js — asset/content pipeline tooling
 
-`png_io.py` is a pure-stdlib PNG reader/writer. `pixel_grid.py` is the shared grid-lock (mean or dominant colour per cell, grid offset)/palette-snap helper (pixelize, plate compositor, art judge) plus the judge's pixel metrics. `pixelizer.html` is a standalone browser tool: open/drop an image, set fractional cell size/columns/offset (or auto-detect), dominant/average cells, colour reduce or palette JSON, export native/upscaled PNG. `make_palette_swatch.py` renders
+`png_io.py` is a pure-stdlib PNG reader/writer. `pixel_grid.py` is the shared grid-lock (mean or dominant colour per cell, grid offset)/palette-snap helper (pixelize, plate compositor, art judge) plus the judge's pixel metrics. `pixelizer.html` is a standalone browser tool: open/drop an image, pre-clean (contrast, saturation, Kuwahara flatten), fractional cell size/columns/offset (or auto-detect), dominant/average cells with outline priority, colour reduce or palette JSON, save native/upscaled PNG. `make_palette_swatch.py` renders
 the palette swatch; `pack_daily_cycle.py` preserves the retired cycle-atlas pipeline.
 `quest-editor-mobile.html`
 is the mobile quest draft editor (bundles for `data/events/*.json`), sharing a byte-identical "Choice mechanics" section (option id/check/requires/goto/exit flag, hub advance rule, event `at`) with `storyboard.html`; `test_quest_editor.js`
