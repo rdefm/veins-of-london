@@ -37,6 +37,10 @@ class FakeImageBackend:
     def _cost(self, n):
         return {"amount": round(self.cost_per_image * n, 6), "currency": "USD", "units": "%d image(s)" % n}
 
+    def estimate(self, n=1):
+        """Expected cost amount of a call producing `n` images."""
+        return round(self.cost_per_image * n, 6)
+
     def generate(self, prompt, references, size, n):
         self.calls.append({"op": "generate", "prompt": prompt, "references": list(references),
                            "size": list(size), "n": n})

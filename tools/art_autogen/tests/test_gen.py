@@ -13,6 +13,7 @@ sys.path.insert(0, os.path.join(TOOLS, "art_judge"))
 sys.path.insert(0, os.path.join(TOOLS, "art_judge", "tests"))
 
 import gen  # noqa: E402
+import spend  # noqa: E402
 import judge  # noqa: E402
 from image_backend import FakeImageBackend  # noqa: E402
 from test_batch import ScoringBackend  # noqa: E402
@@ -206,6 +207,90 @@ class Cli(GenBase):
         self.ws.write_json(os.path.join(self.ws.event_dir("ev"), "board.json"), self.board)
         with self.assertRaises(gen.GenError):
             self.run_gen(1)
+
+
+class Spend(GenBase):
+    def set_caps(self, per_run, per_month):
+        self.ws.write_json(os.path.join(self.ws.judge_dir(), "autogen.json"),
+                           {"caps": {"perRun": per_run, "perMonth": per_month}})
+
+    def gen_at(self, takes, now, cost=0.04):
+        ib = FakeImageBackend(cost_per_image=cost, size=tuple(CANVAS))
+        return ib, gen.run_gen(self.ws, ib, RuleScoringBackend(), "ev", "S1", takes, size=tuple(CANVAS), now=now)
+
+    def test_exactly_at_run_cap_allowed_one_over_refused(self):
+        self.set_caps(0.08, 100)
+        ib, (log, _) = self.gen_at(3, "2026-11-10T10:00:00Z")
+        self.assertEqual(len(ib.calls), 2)
+        self.assertEqual(log["runTotal"], 0.08)
+        self.assertEqual(log["stopped"]["reason"], "cap")
+        self.assertIn("per-run", log["stopped"]["detail"])
+
+    def test_month_cap_holds_across_runs_and_resets(self):
+        self.set_caps(100, 0.08)
+        ib, (log, _) = self.gen_at(2, "2026-11-10T10:00:00Z")
+        self.assertEqual(len(ib.calls), 2)
+        ib, (log, _) = self.gen_at(1, "2026-11-20T10:00:00Z")
+        self.assertEqual(len(ib.calls), 0)
+        self.assertIn("per-month", log["stopped"]["detail"])
+        self.assertEqual(log["monthToDate"], 0.08)
+        ib, (log, _) = self.gen_at(1, "2026-12-01T00:00:00Z")
+        self.assertEqual(len(ib.calls), 1)
+        self.assertEqual(log["monthToDate"], 0.04)
+
+    def test_cap_stop_keeps_earlier_work(self):
+        self.set_caps(0.08, 100)
+        _, (log, path) = self.gen_at(4, "2026-11-10T10:00:00Z")
+        self.assertEqual(len(log["takes"]), 2)
+        saved = judge.read_json(path)
+        self.assertEqual(len(saved["takes"]), 2)
+        self.assertEqual(saved["stopped"]["reason"], "cap")
+        for t in saved["takes"]:
+            self.assertTrue(os.path.isfile(os.path.join(self.tmp, t["file"])))
+            self.assertTrue(os.path.isfile(os.path.join(self.tmp, t["judgement"])))
+        self.assertEqual(len(spend_ledger(self.ws)["entries"]), 2)
+
+    def test_ledger_records_every_call(self):
+        self.set_caps(100, 100)
+        self.gen_at(3, "2026-11-10T10:00:00Z")
+        entries = spend_ledger(self.ws)["entries"]
+        self.assertEqual([e["amount"] for e in entries], [0.04] * 3)
+        self.assertEqual(entries[0]["eventId"], "ev")
+
+    def test_estimate_confirm(self):
+        asked = []
+        ok = spend.make_confirm(True)
+        self.assertTrue(ok(0.16, 4))
+        import builtins
+        real = builtins.input
+        builtins.input = lambda prompt="": asked.append(prompt) or "n"
+        self.addCleanup(setattr, builtins, "input", real)
+        self.assertFalse(spend.make_confirm(False)(0.16, 4))
+        self.assertIn("0.16", asked[0])
+
+    def test_cli_declined_makes_no_calls(self):
+        import builtins
+        real = builtins.input
+        builtins.input = lambda prompt="": "n"
+        self.addCleanup(setattr, builtins, "input", real)
+        rc = gen.main(["--board", "ev", "--shot", "S1", "--repo", self.tmp, "--backend", "fake"])
+        self.assertEqual(rc, 1)
+        self.assertFalse(os.path.exists(spend.ledger_path(self.ws)))
+
+    def test_cli_yes_prints_totals(self):
+        import io
+        from contextlib import redirect_stdout
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            rc = gen.main(["--board", "ev", "--shot", "S1", "--takes", "1", "--yes", "--repo", self.tmp,
+                           "--backend", "fake", "--fake-replies", self.tmp])
+        out = buf.getvalue()
+        self.assertIn("run total", out)
+        self.assertIn("month to date", out)
+
+
+def spend_ledger(ws):
+    return spend.load_ledger(ws)
 
 
 if __name__ == "__main__":

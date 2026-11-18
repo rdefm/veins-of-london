@@ -16,6 +16,7 @@ sys.path.insert(0, os.path.join(HERE, "..", "art_judge"))
 sys.path.insert(0, HERE)
 
 import judge  # noqa: E402
+import spend  # noqa: E402
 from image_backend import FakeImageBackend, ImageBackendError  # noqa: E402
 
 DEFAULT_TAKES = 4
@@ -129,7 +130,7 @@ def next_take_path(ws, shot):
 # ---------- run ----------
 
 def run_gen(ws, image_backend, judge_backend, event_id, shot_id, takes=DEFAULT_TAKES,
-            threshold=judge.DEFAULT_THRESHOLD, size=DEFAULT_SIZE):
+            threshold=judge.DEFAULT_THRESHOLD, size=DEFAULT_SIZE, now=None):
     board = judge.load_board(ws, event_id)
     shot = judge.find_shot(board, shot_id)
     prompt, atts = compile_prompt(ws, board, shot)
@@ -138,13 +139,19 @@ def run_gen(ws, image_backend, judge_backend, event_id, shot_id, takes=DEFAULT_T
     log = {"schema": 1, "eventId": event_id, "shotId": shot_id, "runId": run_id, "startedAt": judge.now_iso(),
            "backend": image_backend.name, "judgeBackend": getattr(judge_backend, "model_used", "?"),
            "settings": {"takes": takes, "size": list(size), "threshold": threshold}, "takes": []}
+    guard = spend.SpendGuard(ws, run_id, now)
     log_path = os.path.join(ws.event_dir(event_id), "runs", "%s__%s.json" % (run_id, shot_id))
     for i in range(takes):
+        refusal = guard.check(image_backend.estimate(1))
+        if refusal:
+            log["stopped"] = {"reason": "cap", "detail": refusal}
+            break
         try:
             images, cost = image_backend.generate(prompt, [(r, os.path.join(ws.repo, p)) for r, p in refs], size, 1)
         except ImageBackendError as e:
             log["takes"].append({"error": str(e)})
             break
+        guard.record(event_id, shot_id, image_backend.name, cost)
         path = ws.write_take(next_take_path(ws, shot), images[0])
         entry = {"file": judge.rel(ws, path), "prompt": prompt, "references": [list(r) for r in refs],
                  "backend": image_backend.name, "settings": {"size": list(size), "index": i + 1},
@@ -156,6 +163,8 @@ def run_gen(ws, image_backend, judge_backend, event_id, shot_id, takes=DEFAULT_T
         ws.write_json(log_path, log)
     log["finishedAt"] = judge.now_iso()
     log["totalCost"] = round(sum((t.get("cost") or {}).get("amount", 0) for t in log["takes"]), 6)
+    log["runTotal"] = guard.run_total
+    log["monthToDate"] = guard.month_to_date()
     ws.write_json(log_path, log)
     judge.rank_shot(ws, event_id, judge.find_drafts(ws, shot))
     return log, log_path
@@ -169,6 +178,7 @@ def main(argv=None):
     ap.add_argument("--image-backend", choices=["fake"], default="fake")
     ap.add_argument("--backend", choices=["claude", "fake"], help="judge backend")
     ap.add_argument("--fake-replies", help="dir of recorded judge replies for the fake judge backend")
+    ap.add_argument("--yes", action="store_true", help="skip the cost estimate confirmation")
     ap.add_argument("--model")
     ap.add_argument("--threshold", type=float)
     ap.add_argument("--repo", default=judge.REPO_ROOT, help=argparse.SUPPRESS)
@@ -178,12 +188,19 @@ def main(argv=None):
         if a.takes < 1:
             raise GenError("--takes must be at least 1")
         jb = judge.make_backend(ws, a.backend, a.fake_replies, None, a.model)
-        log, path = run_gen(ws, FakeImageBackend(), jb, a.board, a.shot, a.takes,
+        ib = FakeImageBackend()
+        est = round(ib.estimate(1) * a.takes, 6)
+        if not spend.make_confirm(a.yes)(est, a.takes):
+            print("cancelled", file=sys.stderr)
+            return 1
+        log, path = run_gen(ws, ib, jb, a.board, a.shot, a.takes,
                             judge.resolve_threshold(ws, a.threshold))
     except (GenError, judge.JudgeError) as e:
         print("error: %s" % e, file=sys.stderr)
         return 2
-    print("%d take(s), cost %s" % (len(log["takes"]), log["totalCost"]))
+    print("%d take(s), run total %s, month to date %s" % (len(log["takes"]), log["runTotal"], log["monthToDate"]))
+    if log.get("stopped"):
+        print("stopped: %s" % log["stopped"]["detail"])
     for t in log["takes"]:
         print("  %s -> %s" % (t.get("file"), t.get("verdict") or t.get("error")))
     print("log: %s" % judge.rel(ws, path))
