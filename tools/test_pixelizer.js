@@ -22,8 +22,8 @@ class ImageData {
     else { this.data = a; this.width = b; this.height = c; }
   }
 }
-const names = "cellEdges, gridLock, kuwahara, reducePalette, snapToPalette, paletteFromJSON, colourCount, detectGrid, adjustColour, edgeProfile, followEdges, gridAxes, removeStrayPixels";
-const { cellEdges, gridLock, kuwahara, reducePalette, snapToPalette, paletteFromJSON, colourCount, detectGrid, adjustColour, edgeProfile, followEdges, gridAxes, removeStrayPixels } =
+const names = "cellEdges, gridLock, kuwahara, reducePalette, snapToPalette, paletteFromJSON, colourCount, detectGrid, adjustColour, edgeProfile, followEdges, gridAxes, removeStrayPixels, smoothJaggies, thinOutlines, srgbToOklab, oklabToSrgb, lum";
+const { cellEdges, gridLock, kuwahara, reducePalette, snapToPalette, paletteFromJSON, colourCount, detectGrid, adjustColour, edgeProfile, followEdges, gridAxes, removeStrayPixels, smoothJaggies, thinOutlines, srgbToOklab, oklabToSrgb, lum } =
   new Function("ImageData", section + "\nreturn { " + names + " };")(ImageData);
 
 let passed = 0;
@@ -223,6 +223,125 @@ test("removeStrayPixels: lone off-colour pixel removed, eye protected, pairs unt
   const before = new Set(), after = new Set(), r = removeStrayPixels(n, 0);
   for (let i = 0; i < n.data.length; i += 4) { before.add(n.data.slice(i, i + 3).join()); after.add(r.data.slice(i, i + 3).join()); }
   for (const c of after) assert(before.has(c), "new colour " + c);
+});
+
+
+test("OKLab round-trips sRGB within 1 per channel", () => {
+  for (let k = 0; k < 4000; k++) {
+    const c = [Math.floor(rnd() * 256), Math.floor(rnd() * 256), Math.floor(rnd() * 256)];
+    const back = oklabToSrgb(...srgbToOklab(...c));
+    c.forEach((v, i) => assert(Math.abs(back[i] - v) <= 1, c + " -> " + back));
+  }
+  assert.deepStrictEqual(oklabToSrgb(...srgbToOklab(0, 0, 0)), [0, 0, 0]);
+  assert.deepStrictEqual(oklabToSrgb(...srgbToOklab(255, 255, 255)), [255, 255, 255]);
+});
+
+test("palette snap picks the perceptual match, not the RGB-nearest", () => {
+  // deep indigo: RGB-nearest is the dark grey, perceptually the saturated blue
+  const pal = [[20, 20, 20], [10, 0, 80]], c = [20, 10, 50];
+  const rgb = (q) => (c[0] - q[0]) ** 2 + (c[1] - q[1]) ** 2 + (c[2] - q[2]) ** 2;
+  assert(rgb(pal[0]) < rgb(pal[1]), "premise: RGB prefers the grey");
+  const out = snapToPalette(fill(new ImageData(2, 1), () => c), pal);
+  assert.deepStrictEqual(px(out, 0, 0).slice(0, 3), pal[1]);
+});
+
+test("reducePalette returns exact sRGB ints and keeps perceptually distinct darks apart", () => {
+  const img = fill(new ImageData(30, 1), (x) => [[20, 20, 25], [25, 10, 60], [230, 230, 230]][x % 3]);
+  const pal = reducePalette(img, 3);
+  assert.strictEqual(pal.length, 3);
+  for (const c of pal) assert(c.every((v) => Number.isInteger(v) && v >= 0 && v <= 255));
+  assert.strictEqual(colourCount(snapToPalette(img, pal)), 3);
+});
+
+test("dark test is perceptual: saturated red is not dark where luma said it was; greys unchanged", () => {
+  const cell = (c) => fill(new ImageData(4, 4), (x) => (x === 0 ? c : [230, 230, 230]));
+  const outline = { share: 0.1, dark: 70 };
+  const red = [200, 0, 0];
+  assert(lum(...red) < 70, "premise: luma calls it dark");
+  assert.deepStrictEqual(px(gridLock(cell(red), 4, 4, 4, 0, 0, "dominant", 100, outline), 0, 0).slice(0, 3), [230, 230, 230]);
+  const grey = [60, 60, 60];
+  assert.deepStrictEqual(px(gridLock(cell(grey), 4, 4, 4, 0, 0, "dominant", 100, outline), 0, 0).slice(0, 3), grey);
+  const dark = [10, 10, 40];
+  assert.deepStrictEqual(px(gridLock(cell(dark), 4, 4, 4, 0, 0, "dominant", 100, outline), 0, 0).slice(0, 3), dark);
+});
+
+test("snapping a 1536x1024 image stays interactive", () => {
+  const img = fill(new ImageData(1536, 1024), (x, y) => [(x * 7) & 255, (y * 3) & 255, ((x + y) * 5) & 255]);
+  const pal = Array.from({ length: 32 }, () => [Math.floor(rnd() * 256), Math.floor(rnd() * 256), Math.floor(rnd() * 256)]);
+  const t0 = Date.now();
+  snapToPalette(img, pal);
+  assert(Date.now() - t0 < 3000, "took " + (Date.now() - t0) + "ms");
+});
+
+const set = (img, pts, c) => { for (const [x, y] of pts) { const i = (y * img.width + x) * 4; img.data[i] = c[0]; img.data[i + 1] = c[1]; img.data[i + 2] = c[2]; img.data[i + 3] = 255; } };
+const BG = [220, 220, 220], INK = [10, 10, 10];
+const same3 = (a, b) => a[0] === b[0] && a[1] === b[1] && a[2] === b[2];
+
+test("smoothJaggies: staircase of L-shaped doubles becomes a connected 1-px diagonal; no new colours", () => {
+  const img = fill(new ImageData(10, 10), () => BG), line = [];
+  for (let k = 0; k < 8; k++) { line.push([k, k]); if (k < 7) line.push([k + 1, k]); }
+  set(img, line, INK);
+  const out = smoothJaggies(img);
+  const ink = [];
+  for (let y = 0; y < 10; y++) for (let x = 0; x < 10; x++) if (same3(px(out, x, y), INK)) ink.push([x, y]);
+  assert(ink.length < line.length, "doubles removed: " + ink.length + " vs " + line.length);
+  const has = (x, y) => ink.some(([a, b]) => a === x && b === y);
+  for (const [x, y] of ink) {
+    let n = 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if ((dx || dy) && has(x + dx, y + dy)) n++;
+    assert(n <= 2, "pixel " + x + "," + y + " has " + n + " neighbours");
+  }
+  const seen = new Set([ink[0].join()]), stack = [ink[0]];
+  while (stack.length) {
+    const [x, y] = stack.pop();
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const k = [x + dx, y + dy];
+      if (has(k[0], k[1]) && !seen.has(k.join())) { seen.add(k.join()); stack.push(k); }
+    }
+  }
+  assert.strictEqual(seen.size, ink.length, "line stays connected");
+  for (let i = 0; i < out.data.length; i += 4) assert(same3(out.data.slice(i, i + 3), BG) || same3(out.data.slice(i, i + 3), INK));
+});
+
+test("smoothJaggies: filled blocks, straight lines and transparent pixels untouched", () => {
+  const img = fill(new ImageData(8, 8), () => BG);
+  set(img, [[2, 2], [3, 2], [2, 3], [3, 3]], INK);
+  set(img, [[5, 1], [5, 2], [5, 3], [5, 4], [5, 5]], INK);
+  img.data[3] = 0;
+  assert.deepStrictEqual(Array.from(smoothJaggies(img).data), Array.from(img.data));
+});
+
+test("thinOutlines: 2-px dark ring around a shape becomes 1 px and stays closed; separate lines not merged", () => {
+  const W = 14, H = 14, img = new ImageData(W, H), ring = [];
+  for (let y = 2; y <= 11; y++) for (let x = 2; x <= 11; x++) {
+    const edge = Math.min(x - 2, 11 - x, y - 2, 11 - y);
+    set(img, [[x, y]], edge < 2 ? INK : BG);
+    if (edge === 0) ring.push([x, y]);
+  }
+  const out = thinOutlines(img, 70);
+  const dark = (x, y) => px(out, x, y)[3] === 255 && same3(px(out, x, y), INK);
+  let inkCount = 0;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (dark(x, y)) inkCount++;
+  assert.strictEqual(inkCount, ring.length, "only the outer ring remains: " + inkCount + " vs " + ring.length);
+  for (const [x, y] of ring) assert(dark(x, y), "ring pixel kept " + x + "," + y);
+  const seen = new Set(), stack = [[6, 6]];
+  while (stack.length) {
+    const [x, y] = stack.pop();
+    if (x < 0 || y < 0 || x >= W || y >= H || seen.has(x + "," + y) || dark(x, y)) continue;
+    assert(px(out, x, y)[3] === 255, "leaked outside at " + x + "," + y);
+    seen.add(x + "," + y); stack.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
+  }
+  assert(seen.size > 0);
+  for (let i = 0; i < out.data.length; i += 4) if (out.data[i + 3] === 255) assert(same3(out.data.slice(i, i + 3), INK) || same3(out.data.slice(i, i + 3), BG));
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (px(img, x, y)[3] === 0) assert.strictEqual(px(out, x, y)[3], 0);
+  const two = fill(new ImageData(9, 6), () => BG);
+  set(two, Array.from({ length: 6 }, (_, y) => [2, y]).concat(Array.from({ length: 6 }, (_, y) => [5, y])), INK);
+  assert.deepStrictEqual(Array.from(thinOutlines(two, 70).data), Array.from(two.data));
+});
+
+test("thinOutlines leaves solid dark areas alone", () => {
+  const img = fill(new ImageData(10, 10), () => BG);
+  for (let y = 2; y < 8; y++) for (let x = 2; x < 8; x++) set(img, [[x, y]], INK);
+  assert.deepStrictEqual(Array.from(thinOutlines(img, 70).data), Array.from(img.data));
 });
 
 console.log("\n" + passed + " passed");

@@ -118,7 +118,7 @@
     <input type="range" id="shareRange" min="0" max="60" step="5" value="0" style="width:100%">
     <label for="darkRange">Counts as dark below brightness: <span id="darkOut">70</span></label>
     <input type="range" id="darkRange" min="10" max="160" step="5" value="70" style="width:100%">
-    <p class="hint">Keeps thin lines and eyes: a cell this share dark takes the dark colour even without a majority.</p>
+    <p class="hint">Keeps thin lines and eyes: a cell this share dark takes the dark colour even without a majority. Brightness is perceptual (OKLab), on a grey 0–255 scale.</p>
   </fieldset>
 
   <fieldset>
@@ -159,6 +159,10 @@
     <label for="strayRange">Detail protection: <span id="strayOut">60</span>%</label>
     <input type="range" id="strayRange" min="0" max="95" step="5" value="60" style="width:100%">
     <p class="hint">A lone pixel matching no neighbour takes their commonest colour. Protection keeps ones clearly darker or brighter than all neighbours (eyes, highlights); 0 removes them too.</p>
+    <label><input type="checkbox" id="jagChk"> Smooth jagged edges</label>
+    <p class="hint">Drops the extra corner pixel of L-shaped doubles so diagonals and curves step cleanly.</p>
+    <label><input type="checkbox" id="thinChk"> Thin outlines</label>
+    <p class="hint">Dark outlines 2 px thick (dark = the outline-priority brightness) come back to 1 px, keeping the outer side.</p>
   </fieldset>
 
   <fieldset>
@@ -209,7 +213,7 @@ const S = {
   view: "both", grid: true, zoom: 1,
   contrast: 0, sat: 0, smooth: "off", radius: 2, showClean: true,
   follow: false, followShift: 3, prof: null, profSrc: null,   // prof: edgeProfile of S.src
-  outShare: 0, outDark: 70, stray: false, strayProtect: 60,
+  outShare: 0, outDark: 70, stray: false, strayProtect: 60, jag: false, thin: false,
   pre: null, preKey: "",  // cleaned source + the settings it was made with
   native: null,  // ImageData of the result at native size
 };
@@ -300,6 +304,30 @@ function coreSpan([a, b], core) {
 
 const lum = (r, g, b) => 0.299 * r + 0.587 * g + 0.114 * b;
 
+// OKLab (Ottosson): perceptual distances for palette snapping, colour reduction and the dark test.
+const LIN = new Float64Array(256).map((_, v) => { const c = v / 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; });
+function srgbToOklab(r, g, b) {
+  const lr = LIN[Math.round(r)], lg = LIN[Math.round(g)], lb = LIN[Math.round(b)];
+  const l = Math.cbrt(0.4122214708 * lr + 0.5363325363 * lg + 0.0514459929 * lb);
+  const m = Math.cbrt(0.2119034982 * lr + 0.6806995451 * lg + 0.1073969566 * lb);
+  const s = Math.cbrt(0.0883024619 * lr + 0.2817188376 * lg + 0.6299787005 * lb);
+  return [0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s,
+    1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s,
+    0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s];
+}
+/** OKLab -> [r, g, b] integers 0-255 (clamped). */
+function oklabToSrgb(L, a, b) {
+  const l = (L + 0.3963377774 * a + 0.2158037573 * b) ** 3, m = (L - 0.1055613458 * a - 0.0638541728 * b) ** 3, s = (L - 0.0894841775 * a - 1.2914855480 * b) ** 3;
+  const enc = (v) => { v = Math.min(1, Math.max(0, v)); return Math.round(255 * (v <= 0.0031308 ? 12.92 * v : 1.055 * v ** (1 / 2.4) - 0.055)); };
+  return [enc(4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s),
+    enc(-1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s),
+    enc(-0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s)];
+}
+const oklabL = (r, g, b) => srgbToOklab(r, g, b)[0];
+/** The slider's 0-255 brightness as an OKLab lightness: that of the grey with the same value. */
+const darkLevel = (v) => oklabL(v, v, v);
+const labDist = (p, q) => (p[0] - q[0]) ** 2 + (p[1] - q[1]) ** 2 + (p[2] - q[2]) ** 2;
+
 /** Most common packed colour in a count Map (ties -> lowest code). */
 function modeOf(counts) {
   let best = -1, bestN = -1;
@@ -310,7 +338,8 @@ function modeOf(counts) {
 /**
  * Grid-lock: one output pixel per cell, by "dominant" (most common colour) or "mean".
  * outline {share, dark}: a cell whose opaque pixels are at least `share` (0-1) darker than
- * luminance `dark` takes the dark pixels' colour instead, so thin lines and eyes survive.
+ * brightness `dark` (0-255 grey scale, judged by OKLab lightness) takes the dark pixels' colour
+ * instead, so thin lines and eyes survive.
  */
 function gridLock(src, w, h, cell, ox, oy, mode, core, outline, follow) {
   const axes = gridAxes(w, h, cell, ox, oy, follow);
@@ -318,7 +347,7 @@ function gridLock(src, w, h, cell, ox, oy, mode, core, outline, follow) {
   const ys = axes.ys.map((e) => coreSpan(e, core));
   const out = new ImageData(Math.max(1, xs.length), Math.max(1, ys.length));
   const d = src.data, o = out.data, counts = new Map(), darkCounts = new Map();
-  const share = outline && outline.share > 0 ? outline.share : 0, dark = share ? outline.dark : -1;
+  const share = outline && outline.share > 0 ? outline.share : 0, dark = share ? darkLevel(outline.dark) : -1;
   for (let cy = 0; cy < ys.length; cy++) {
     const [y0, y1] = ys[cy];
     for (let cx = 0; cx < xs.length; cx++) {
@@ -331,7 +360,7 @@ function gridLock(src, w, h, cell, ox, oy, mode, core, outline, follow) {
           total++;
           if (d[i + 3] < ALPHA_MIN) continue;
           opaque++;
-          const isDark = share && lum(d[i], d[i + 1], d[i + 2]) < dark;
+          const isDark = share && oklabL(d[i], d[i + 1], d[i + 2]) < dark;
           if (isDark) nd++;
           if (mode === "mean") {
             r += d[i]; g += d[i + 1]; b += d[i + 2];
@@ -413,7 +442,7 @@ function kuwahara(img, r) {
 }
 
 /**
- * Palette of up to n colours from an ImageData's opaque pixels: k-means over the distinct
+ * Palette of up to n colours from an ImageData's opaque pixels: k-means in OKLab over the distinct
  * colours (weighted by count), seeded deterministically by farthest-point from the most common.
  */
 function reducePalette(img, n) {
@@ -425,8 +454,8 @@ function reducePalette(img, n) {
   }
   if (!count.size) return [[0, 0, 0]];
   const cols = [], wts = [];
-  for (const [c, k] of count) { cols.push([c >> 16, (c >> 8) & 255, c & 255]); wts.push(k); }
-  const dist = (p, q) => (p[0] - q[0]) ** 2 + (p[1] - q[1]) ** 2 + (p[2] - q[2]) ** 2;
+  for (const [c, k] of count) { cols.push(srgbToOklab(c >> 16, (c >> 8) & 255, c & 255)); wts.push(k); }
+  const dist = labDist;
   let first = 0;
   for (let i = 1; i < wts.length; i++) if (wts[i] > wts[first]) first = i;
   const centres = [cols[first].slice()], near = cols.map((p) => dist(p, centres[0]));
@@ -450,28 +479,29 @@ function reducePalette(img, n) {
     let moved = false;
     sum.forEach((s, k) => {
       if (!s[3]) return;
-      const c = [Math.round(s[0] / s[3]), Math.round(s[1] / s[3]), Math.round(s[2] / s[3])];
-      if (dist(c, centres[k])) moved = true;
+      const c = [s[0] / s[3], s[1] / s[3], s[2] / s[3]];
+      if (dist(c, centres[k]) > 1e-10) moved = true;
       centres[k] = c;
     });
     if (!moved) break;
   }
-  return centres;
+  return centres.map((c) => oklabToSrgb(c[0], c[1], c[2]));
 }
 
 /** Copy of `img` with every opaque pixel snapped to its nearest palette colour (no dither). */
 function snapToPalette(img, pal) {
   const out = new ImageData(new Uint8ClampedArray(img.data), img.width, img.height);
-  const d = out.data, cache = new Map();
+  const d = out.data, cache = new Map(), palLab = pal.map((q) => srgbToOklab(q[0], q[1], q[2]));
   for (let i = 0; i < d.length; i += 4) {
     if (d[i + 3] < ALPHA_MIN) continue;
     const c = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
     let p = cache.get(c);
     if (!p) {
       let bd = Infinity;
-      for (const q of pal) {
-        const dr = d[i] - q[0], dg = d[i + 1] - q[1], db = d[i + 2] - q[2], dd = dr * dr + dg * dg + db * db;
-        if (dd < bd) { bd = dd; p = q; }
+      const lab = srgbToOklab(d[i], d[i + 1], d[i + 2]);
+      for (let k = 0; k < pal.length; k++) {
+        const dd = labDist(lab, palLab[k]);
+        if (dd < bd) { bd = dd; p = pal[k]; }
       }
       cache.set(c, p);
     }
@@ -563,6 +593,125 @@ function removeStrayPixels(img, protect) {
   return out;
 }
 
+const N8 = [[-1, -1], [0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0]];   // clockwise ring around a pixel
+
+/** True when the neighbours of (x, y) with `on(nx, ny)` form exactly one 8-connected group. */
+function oneGroup(on, x, y) {
+  const ring = N8.map(([dx, dy]) => (on(x + dx, y + dy) ? 1 : 0));
+  const total = ring.reduce((a, b) => a + b, 0);
+  if (!total) return false;
+  // 8-connected inside the ring: ring-adjacent neighbours, plus the orthogonal ones across a missing corner
+  const seen = new Array(8).fill(false), start = ring.indexOf(1), stack = [start];
+  seen[start] = true;
+  let n = 0;
+  while (stack.length) {
+    const k = stack.pop(); n++;
+    for (let j = 0; j < 8; j++) {
+      if (seen[j] || !ring[j]) continue;
+      const dx = Math.abs(N8[k][0] - N8[j][0]), dy = Math.abs(N8[k][1] - N8[j][1]);
+      if (dx <= 1 && dy <= 1) { seen[j] = true; stack.push(j); }
+    }
+  }
+  return n === total;
+}
+
+/** Most common colour among the 8 neighbours of (x, y) that are opaque and pass `ok(index)`; -1 if none. */
+function commonNeighbour(d, w, h, x, y, ok) {
+  const counts = new Map();
+  for (const [dx, dy] of N8) {
+    const nx = x + dx, ny = y + dy;
+    if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+    const j = (ny * w + nx) * 4;
+    if (d[j + 3] < ALPHA_MIN || !ok(j)) continue;
+    const k = (d[j] << 16) | (d[j + 1] << 8) | d[j + 2];
+    counts.set(k, (counts.get(k) || 0) + 1);
+  }
+  return counts.size ? modeOf(counts) : -1;
+}
+
+/**
+ * Copy of `img` with the corner pixel of every L-shaped double on a 1-px line removed: an opaque
+ * pixel with exactly two same-colour orthogonal neighbours that are perpendicular, whose shared
+ * diagonal is a different colour (so not a filled block) and whose removal keeps its same-colour
+ * neighbours connected. It takes the commonest other neighbouring colour. Scanned in order, each
+ * pixel seeing earlier removals, so 2-step staircases collapse to clean diagonals.
+ */
+function smoothJaggies(img) {
+  const { width: w, height: h } = img;
+  const out = new ImageData(new Uint8ClampedArray(img.data), w, h), d = out.data;
+  const op = (x, y) => x >= 0 && y >= 0 && x < w && y < h && d[(y * w + x) * 4 + 3] >= ALPHA_MIN;
+  const key = (x, y) => { const i = (y * w + x) * 4; return (d[i] << 16) | (d[i + 1] << 8) | d[i + 2]; };
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    if (!op(x, y)) continue;
+    const me = key(x, y), same = (sx, sy) => op(sx, sy) && key(sx, sy) === me;
+    const dirs = [[0, -1], [1, 0], [0, 1], [-1, 0]].filter(([dx, dy]) => same(x + dx, y + dy));
+    if (dirs.length !== 2 || dirs[0][0] === -dirs[1][0] && dirs[0][1] === -dirs[1][1]) continue;
+    if (same(x + dirs[0][0] + dirs[1][0], y + dirs[0][1] + dirs[1][1])) continue;
+    if (!oneGroup(same, x, y)) continue;
+    const c = commonNeighbour(d, w, h, x, y, (j) => ((d[j] << 16) | (d[j + 1] << 8) | d[j + 2]) !== me);
+    if (c < 0) continue;
+    const i = (y * w + x) * 4;
+    d[i] = c >> 16; d[i + 1] = (c >> 8) & 255; d[i + 2] = c & 255;
+  }
+  return out;
+}
+
+/**
+ * Copy of `img` with dark outlines 2 px thick brought back to 1 px, keeping the side facing the
+ * outside (transparent or off-image). `dark` is the outline-priority brightness (0-255 scale, OKLab
+ * lightness). Only thin dark pixels are touched (none with a fully dark 3x3 block near them, so
+ * solid dark areas stay), only inner-layer ones (no transparent/off-image neighbour, at least 3 dark
+ * orthogonal neighbours), and only where the outer layer next to them is one connected group and every other dark neighbour stays attached to it. They take the
+ * commonest bright neighbouring colour. 1-px lines and 2-px gaps between lines are never changed.
+ */
+function thinOutlines(img, dark) {
+  const { width: w, height: h } = img;
+  const out = new ImageData(new Uint8ClampedArray(img.data), w, h), d = out.data;
+  const lv = darkLevel(dark), isOp = (x, y) => x >= 0 && y >= 0 && x < w && y < h && d[(y * w + x) * 4 + 3] >= ALPHA_MIN;
+  const orig = new Uint8Array(w * h);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const i = (y * w + x) * 4;
+    if (d[i + 3] >= ALPHA_MIN && oklabL(d[i], d[i + 1], d[i + 2]) < lv) orig[y * w + x] = 1;
+  }
+  const at = (x, y) => x >= 0 && y >= 0 && x < w && y < h && orig[y * w + x] === 1;
+  const core = new Uint8Array(w * h);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    let all = true;
+    for (let dy = -1; dy <= 1 && all; dy++) for (let dx = -1; dx <= 1; dx++) if (!at(x + dx, y + dy)) { all = false; break; }
+    core[y * w + x] = all ? 1 : 0;
+  }
+  const cur = Uint8Array.from(orig), edge = new Uint8Array(w * h);   // edge: dark pixels touching the outside; never removed
+  const live = (x, y) => x >= 0 && y >= 0 && x < w && y < h && cur[y * w + x] === 1;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    if (orig[y * w + x] && N8.some(([dx, dy]) => !isOp(x + dx, y + dy))) edge[y * w + x] = 1;
+  }
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    if (!orig[y * w + x]) continue;
+    let thin = true, outer = false;
+    for (const [dx, dy] of N8.concat([[0, 0]])) {
+      const nx = x + dx, ny = y + dy;
+      if (nx >= 0 && ny >= 0 && nx < w && ny < h && core[ny * w + nx]) thin = false;
+      if (!isOp(nx, ny)) outer = true;
+    }
+    if (!thin || outer) continue;
+    const orth = [[0, -1], [1, 0], [0, 1], [-1, 0]].filter(([dx, dy]) => at(x + dx, y + dy)).length;
+    if (orth < 3 || !oneGroup((nx, ny) => live(nx, ny) && edge[ny * w + nx] === 1, x, y)) continue;
+    let attached = true;
+    for (const [dx, dy] of N8) {
+      const nx = x + dx, ny = y + dy;
+      if (!live(nx, ny) || edge[ny * w + nx]) continue;
+      if (!N8.some(([ex, ey]) => live(nx + ex, ny + ey) && edge[(ny + ey) * w + nx + ex] === 1)) attached = false;
+    }
+    if (!attached) continue;
+    const c = commonNeighbour(d, w, h, x, y, (j) => !orig[(j >> 2)]);
+    if (c < 0) continue;
+    const i = (y * w + x) * 4;
+    d[i] = c >> 16; d[i + 1] = (c >> 8) & 255; d[i + 2] = c & 255;
+    cur[y * w + x] = 0;
+  }
+  return out;
+}
+
 /* ---------- End image maths ---------- */
 
 // ---------- pipeline ----------
@@ -605,6 +754,8 @@ function process() {
     if (pal) out = snapToPalette(out, pal);
   }
   if (S.stray) out = removeStrayPixels(out, S.strayProtect);
+  if (S.jag) out = smoothJaggies(out);
+  if (S.thin) out = thinOutlines(out, S.outDark);
   S.native = out;
   const c = $("outCanvas");
   c.width = out.width; c.height = out.height;
@@ -734,6 +885,8 @@ slider("darkRange", "outDark", "darkOut");
 slider("followRange", "followShift", "followOut");
 slider("strayRange", "strayProtect", "strayOut");
 $("strayChk").addEventListener("change", (e) => { S.stray = e.target.checked; schedule(); });
+$("jagChk").addEventListener("change", (e) => { S.jag = e.target.checked; schedule(); });
+$("thinChk").addEventListener("change", (e) => { S.thin = e.target.checked; schedule(); });
 $("followChk").addEventListener("change", (e) => { S.follow = e.target.checked; schedule(); });
 seg("smoothSeg", "smooth", () => { $("radiusBox").classList.toggle("hidden", S.smooth === "off"); scheduleHeavy(); });
 $("cleanChk").addEventListener("change", (e) => { S.showClean = e.target.checked; showBefore(); });
