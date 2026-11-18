@@ -62,9 +62,11 @@ class Workspace:
         """The only write path: refuses anything outside the art workspace."""
         full = self.check_inside(path)
         os.makedirs(os.path.dirname(full), exist_ok=True)
-        with open(full, "w", encoding="utf-8") as f:
+        tmp = full + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
             json.dump(obj, f, indent=2, ensure_ascii=False)
             f.write("\n")
+        os.replace(tmp, full)
 
 
 def read_json(path, default=None):

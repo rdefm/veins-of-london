@@ -9,6 +9,7 @@ and assets/events/ are never touched. API keys are never read into any written f
 """
 import argparse
 import os
+import random
 import re
 import sys
 
@@ -44,8 +45,9 @@ class GenWorkspace(judge.Workspace):
         if os.path.dirname(full) != self.plates:
             raise GenError("refusing to write a take outside assets/reference-plates: %s" % full)
         os.makedirs(self.plates, exist_ok=True)
-        with open(full, "wb") as f:
+        with open(full + ".tmp", "wb") as f:
             f.write(data)
+        os.replace(full + ".tmp", full)
         return full
 
 
@@ -131,34 +133,62 @@ def next_take_path(ws, shot):
 
 # ---------- run ----------
 
+def shot_log_path(ws, event_id, run_id, shot_id):
+    return os.path.join(ws.event_dir(event_id), "runs", "%s__%s.json" % (run_id, shot_id))
+
+
+def new_run_id():
+    return judge.now_iso().replace(":", "").replace("-", "") + "-%04x" % random.randrange(65536)
+
+
 def run_gen(ws, image_backend, judge_backend, event_id, shot_id, takes=DEFAULT_TAKES,
-            threshold=judge.DEFAULT_THRESHOLD, size=DEFAULT_SIZE, now=None, retries=MAX_RETRIES):
+            threshold=judge.DEFAULT_THRESHOLD, size=DEFAULT_SIZE, now=None, retries=MAX_RETRIES, run_id=None):
+    """Makes, judges and retries takes for one shot. Resumable: with the same `run_id` an unfinished log is
+    continued (made takes kept, unjudged takes judged, retry chains picked up, only the missing takes generated);
+    a finished log is returned untouched."""
     board = judge.load_board(ws, event_id)
     shot = judge.find_shot(board, shot_id)
     prompt, atts = compile_prompt(ws, board, shot)
     refs = [(role, judge.rel(ws, p)) for role, p in atts]
-    run_id = judge.now_iso().replace(":", "").replace("-", "")
-    log = {"schema": 1, "eventId": event_id, "shotId": shot_id, "runId": run_id, "startedAt": judge.now_iso(),
-           "backend": image_backend.name, "judgeBackend": getattr(judge_backend, "model_used", "?"),
-           "settings": {"takes": takes, "size": list(size), "threshold": threshold}, "takes": []}
+    run_id = run_id or new_run_id()
+    log_path = shot_log_path(ws, event_id, run_id, shot_id)
+    log = judge.read_json(log_path)
+    if isinstance(log, dict) and log.get("finishedAt"):
+        return log, log_path
+    if not isinstance(log, dict):
+        log = {"schema": 1, "eventId": event_id, "shotId": shot_id, "runId": run_id, "startedAt": judge.now_iso(),
+               "backend": image_backend.name, "judgeBackend": getattr(judge_backend, "model_used", "?"),
+               "settings": {"takes": takes, "size": list(size), "threshold": threshold}, "takes": []}
+    log["takes"] = [t for t in log["takes"] if not t.get("error")]
+    log.pop("stopped", None)
     guard = spend.SpendGuard(ws, run_id, now)
-    log_path = os.path.join(ws.event_dir(event_id), "runs", "%s__%s.json" % (run_id, shot_id))
     abs_refs = [(r, os.path.join(ws.repo, p)) for r, p in refs]
 
-    def record(path, cost, parent, settings, take_prompt):
-        guard.record(event_id, shot_id, image_backend.name, cost)
-        entry = {"file": judge.rel(ws, path), "prompt": take_prompt, "references": [list(r) for r in refs],
-                 "backend": image_backend.name, "settings": settings,
-                 "seed": None, "parent": parent, "cost": cost, "judgement": None, "verdict": None}
+    def judge_entry(entry):
+        path = os.path.join(ws.repo, entry["file"])
         out = judge.judge_draft(ws, judge_backend, event_id, shot_id, path, threshold)
         entry["judgement"] = judge.rel(ws, judge.judgement_path(ws, event_id, path))
         entry["verdict"] = out.get("verdict")
+        ws.write_json(log_path, log)
+        return out
+
+    def record(path, cost, parent, settings, take_prompt):
+        entry = {"file": judge.rel(ws, path), "prompt": take_prompt, "references": [list(r) for r in refs],
+                 "backend": image_backend.name, "settings": settings,
+                 "seed": None, "parent": parent, "cost": cost, "judgement": None, "verdict": None}
         log["takes"].append(entry)
         ws.write_json(log_path, log)
-        return entry, out
+        guard.record(event_id, shot_id, image_backend.name, cost, entry["file"])
+        return entry, judge_entry(entry)
 
-    originals = []
-    for i in range(takes):
+    for entry in log["takes"]:
+        if entry.get("judgement") is None:
+            judge_entry(entry)
+
+    def failed():
+        return log.get("stopped") or any(t.get("error") for t in log["takes"])
+
+    for i in range(len([t for t in log["takes"] if t.get("parent") is None]), takes):
         refusal = guard.check(image_backend.estimate(1))
         if refusal:
             log["stopped"] = {"reason": "cap", "detail": refusal}
@@ -169,15 +199,28 @@ def run_gen(ws, image_backend, judge_backend, event_id, shot_id, takes=DEFAULT_T
             log["takes"].append({"error": str(e)})
             break
         path = ws.write_take(next_take_path(ws, shot), images[0])
-        entry, out = record(path, cost, None, {"size": list(size), "index": i + 1}, prompt)
-        originals.append((path, entry, out))
+        record(path, cost, None, {"size": list(size), "index": i + 1}, prompt)
 
-    passed = any(e["verdict"] == "pass" for _, e, _ in originals)
-    for path, entry, out in originals:
-        if passed or log.get("stopped") or any(t.get("error") for t in log["takes"]):
+    by_file = {t["file"]: t for t in log["takes"] if t.get("file")}
+    chains = []
+    for t in log["takes"]:
+        if t.get("file") and t.get("parent") is None:
+            chain = [t]
+            while True:
+                nxt = [c for c in by_file.values() if c.get("parent") == chain[-1]["file"]]
+                if not nxt:
+                    break
+                chain.append(nxt[0])
+            chains.append(chain)
+    passed = any(t.get("verdict") == "pass" for t in log["takes"])
+    for chain in chains:
+        if passed or failed():
             break
-        passed = _retry_chain(ws, image_backend, record, guard, log, path, entry, out, retries)
-    if log["takes"] and not passed and not log.get("stopped") and not any(t.get("error") for t in log["takes"]):
+        tail = chain[-1]
+        out = judge.read_json(os.path.join(ws.repo, tail["judgement"]), {}) or {}
+        passed = _retry_chain(ws, image_backend, record, guard, log, os.path.join(ws.repo, tail["file"]), tail, out,
+                              max(0, retries - (len(chain) - 1)), len(chain) - 1)
+    if log["takes"] and not passed and not failed():
         log["needsYou"] = True
     log["finishedAt"] = judge.now_iso()
     log["totalCost"] = round(sum((t.get("cost") or {}).get("amount", 0) for t in log["takes"]), 6)
@@ -190,7 +233,7 @@ def run_gen(ws, image_backend, judge_backend, event_id, shot_id, takes=DEFAULT_T
     return log, log_path
 
 
-def _retry_chain(ws, image_backend, record, guard, log, path, entry, out, retries):
+def _retry_chain(ws, image_backend, record, guard, log, path, entry, out, retries, done=0):
     """Edit a failing take with its correctionPrompt, up to `retries` times, each retry judged and chained to its
     parent. Returns True once a take in the chain passes; stops quietly when a cap, a backend error or a missing
     correction ends the chain."""
@@ -214,7 +257,7 @@ def _retry_chain(ws, image_backend, record, guard, log, path, entry, out, retrie
         shot = judge.find_shot(judge.load_board(ws, log["eventId"]), log["shotId"])
         new_path = ws.write_take(next_take_path(ws, shot), images[0])
         parent = entry["file"]
-        entry, out = record(new_path, cost, parent, {"op": "edit", "retry": n + 1}, correction)
+        entry, out = record(new_path, cost, parent, {"op": "edit", "retry": done + n + 1}, correction)
         path = new_path
     return entry["verdict"] == "pass"
 

@@ -43,12 +43,15 @@ def month_total(ledger, month):
     return round(sum(e.get("amount", 0) for e in ledger["entries"] if month_of(e.get("at", "")) == month), 6)
 
 
-def record(ws, run_id, event_id, shot_id, backend, cost, now=None):
+def record(ws, run_id, event_id, shot_id, backend, cost, now=None, file=None):
+    """Appends one call's cost. A call with a `file` already in the ledger under this run is not counted twice."""
     at = now or judge.now_iso()
     ledger = load_ledger(ws)
+    if file and any(e.get("runId") == run_id and e.get("file") == file for e in ledger["entries"]):
+        return
     ledger["entries"].append({"at": at, "runId": run_id, "eventId": event_id, "shotId": shot_id,
                               "backend": backend, "amount": cost.get("amount", 0),
-                              "currency": cost.get("currency"), "units": cost.get("units")})
+                              "currency": cost.get("currency"), "units": cost.get("units"), "file": file})
     ws.write_json(ledger_path(ws), ledger)
 
 
@@ -60,7 +63,8 @@ class SpendGuard:
         self.run_id = run_id
         self.now = now
         self.caps = load_caps(ws)
-        self.run_total = 0.0
+        self.run_total = round(sum(e.get("amount", 0) for e in load_ledger(ws)["entries"]
+                                   if e.get("runId") == run_id), 6)
 
     def _month(self):
         return month_of(self.now or judge.now_iso())
@@ -80,9 +84,9 @@ class SpendGuard:
                 self.caps["perMonth"], mtd, estimate)
         return None
 
-    def record(self, event_id, shot_id, backend, cost):
+    def record(self, event_id, shot_id, backend, cost, file=None):
         self.run_total = round(self.run_total + cost.get("amount", 0), 6)
-        record(self.ws, self.run_id, event_id, shot_id, backend, cost, self.now)
+        record(self.ws, self.run_id, event_id, shot_id, backend, cost, self.now, file)
 
 
 def make_confirm(yes):
