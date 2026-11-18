@@ -1,0 +1,140 @@
+{
+  "schema": 1,
+  "eventId": "prologue_archie_sells_pearls",
+  "shotId": "S1",
+  "draft": "assets/reference-plates/stratford_car_park_S1_archie_on_watch_v3.png",
+  "draftSha": "21dba045a6b1f0a349731b05ae2c1dc5c52325c35ad40c177db967fc0f1ff430",
+  "briefHash": "14c65a7f844dc264",
+  "styleHash": "bf648fa9b62c31dd",
+  "rulesHash": "4f53cda18c2baa0c",
+  "model": "claude-cli-default",
+  "judgedAt": "2026-11-18T12:52:15Z",
+  "checks": [
+    {
+      "id": "cast-Archie",
+      "result": "pass",
+      "why": "Archie is clearly on screen in the left foreground."
+    },
+    {
+      "id": "cast-only",
+      "result": "pass",
+      "why": "No other figures anywhere in the car park."
+    },
+    {
+      "id": "m1",
+      "result": "pass",
+      "why": "Exactly one person: Archie. No one else in the distance."
+    },
+    {
+      "id": "m2",
+      "result": "pass",
+      "why": "Same curly brown hair, beard, olive overshirt with chest pocket, white tee, dark jeans and white trainers, with chunky low-detail shading."
+    },
+    {
+      "id": "m3",
+      "result": "pass",
+      "why": "He is standing with his body square to the camera."
+    },
+    {
+      "id": "m4",
+      "result": "pass",
+      "why": "Both hands are tucked into his pockets."
+    },
+    {
+      "id": "m5",
+      "result": "pass",
+      "why": "His head is turned toward screen-right."
+    },
+    {
+      "id": "m6",
+      "result": "pass",
+      "why": "His eyes look sideways to screen-right, toward the pay machine, not at the viewer."
+    },
+    {
+      "id": "m7",
+      "result": "pass",
+      "why": "Easy, relaxed closed-mouth smile."
+    },
+    {
+      "id": "m8",
+      "result": "fail",
+      "why": "Brows are neutral or slightly raised and eyes are not narrowed, so he reads as wry and amused, not alert and on edge."
+    },
+    {
+      "id": "m9",
+      "result": "pass",
+      "why": "Close to camera, centred about x≈220 of 848 (left third), at the edge of the aisle next to the parked bays."
+    },
+    {
+      "id": "m10",
+      "result": "fail",
+      "why": "Feet are at about 83% down, which is right, but the shadow is a hard black disc, not a soft contact shadow, so he looks pasted on."
+    },
+    {
+      "id": "m11",
+      "result": "fail",
+      "why": "Only the grey car is clearly visible. The blue car is just a roof sliver, and his body hides the silver and orange cars."
+    },
+    {
+      "id": "m12",
+      "result": "fail",
+      "why": "The Orbit tower has lost its red and is now grey/beige. The plate is also redrawn and softened, though the shelter, pay machine, lamppost and bollards are roughly in place."
+    },
+    {
+      "id": "m13",
+      "result": "pass",
+      "why": "No buyer or second figure anywhere."
+    },
+    {
+      "id": "m14",
+      "result": "pass",
+      "why": "No pearl, cash or coins visible."
+    },
+    {
+      "id": "h-text",
+      "result": "pass",
+      "why": "Shop sign and number plates are blank. No legible text or logos."
+    },
+    {
+      "id": "h-face",
+      "result": "pass",
+      "why": "The player is not shown."
+    },
+    {
+      "id": "h-bottom",
+      "result": "pass",
+      "why": "The bottom 10% holds only wet tarmac and his reflection."
+    },
+    {
+      "id": "h-crop",
+      "result": "pass",
+      "why": "Small crop (y 217-1047) keeps his head and body. Only the shoe tips touch the edge."
+    }
+  ],
+  "scores": {
+    "brief": 2.5,
+    "style": 2,
+    "cast": {
+      "Archie": 3.5
+    }
+  },
+  "metrics": {
+    "size": [
+      848,
+      1264
+    ],
+    "gridScale": 1,
+    "gridRegularity": 0.037,
+    "colours": 28508,
+    "paletteDistance": 10.83
+  },
+  "verdict": "fail",
+  "rank": null,
+  "correctionPrompt": "Same image, change only: draw Archie's brows lower and drawn together with narrowed, alert eyes; swap the hard black disc under his feet for a soft, faint grey contact shadow; move him a little screen-left so the blue and silver cars beside him show clearly; put the Orbit tower's red back; restore the car park's crisp chunky pixels from stratford_car_park_blank_plate.png instead of the softened redraw. Keep everything else identical.",
+  "checklistEditedAt": null,
+  "verdictReasons": [
+    "score brief 2.5 < 3.0",
+    "score style 2.0 < 3.0"
+  ],
+  "threshold": 3.0
+}

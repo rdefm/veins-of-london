@@ -115,7 +115,7 @@ func run() -> void:
 		_pick(RESTOCK)
 		assert_eq(_key(), "s_lock", "no ward: a plain lock on the cellar stairs")
 		_pick(UNLOCKED)
-		assert_eq(_key(), "s_room")
+		assert_eq(_key(), "s_room_empty")
 		_pick("Walk to the vein")
 		restore.call()
 		assert_eq(_key(), "s_claim")
@@ -140,7 +140,7 @@ func run() -> void:
 		assert_eq(_key(), "s_lock")
 		_pick(UNLOCKED)
 		restore.call()
-		assert_eq(_key(), "s_room", "the yard door route never meets the till camera")
+		assert_eq(_key(), "s_room_empty", "the yard door route never meets the till camera")
 	)
 
 	run_case("the_hinge_pins_result_shows_once_through_the_stockroom_to_the_cellar", func():
@@ -192,7 +192,7 @@ func run() -> void:
 		assert_eq(_key(), "s_cellar")
 		_pick("Walk past like you belong")
 		restore.call()
-		assert_eq(_key(), "s_room", "the cellar skips the back room, the stairs, the ward and the camera")
+		assert_eq(_key(), "s_room_empty", "the cellar skips the back room, the stairs, the ward and the camera")
 	)
 
 	run_case("the_drayman's_slot_opens_the_flap_with_no_roll", func():
@@ -406,7 +406,7 @@ func run() -> void:
 		var ok := _force_checks(1.0)
 		_pick("Open a Wormhole")
 		ok.call()
-		assert_eq(_key(), "s_room")
+		assert_eq(_key(), "s_room_empty")
 		assert_eq(Events.alert_level(), 0)
 	)
 
@@ -420,13 +420,13 @@ func run() -> void:
 			var ok := _force_checks(1.0)
 			_pick("Open a Wormhole")
 			ok.call()
-			assert_eq(_key(), "s_room")
+			assert_eq(_key(), "s_room_empty" if guards == 0 else "s_room_guarded")
 			var breath := _index("Prophet's Breath: slip past")
 			if guards == 0:
 				assert_true(_shown("Walk to the vein"), "no guards: walk to the vein")
 				for label in ["Fight for the room", "Bluff past"]:
 					assert_true(not _shown(label), "no guards: no %s" % label)
-				assert_eq(Events.option_gate(breath)["display"], "hide", "no guards: nobody to slip past")
+				assert_eq(breath, -1, "no guards: nobody to slip past")
 			else:
 				assert_true(not _shown("Walk to the vein"), "guards: no walking past them")
 				assert_true(_shown("Fight for the room"))
@@ -442,7 +442,7 @@ func run() -> void:
 			"door": ["s_seen_door"],
 			"stock": ["s_seen_in", "post", "post2", "post3", "s_back_loud", "s_back_in"],
 			"lock": ["s_stairs_in", "s_ward", "s_ward2", "s_ward3"],
-			"cellar": ["s_room", "s_claim_route", "s_final", "s_claim", "s_claim_a", "s_getaway", "s_retreat"],
+			"cellar": ["s_room", "s_room_guarded", "s_room_empty", "s_claim_route", "s_final", "s_claim", "s_claim_a", "s_getaway", "s_retreat"],
 			"": ["s_win_out", "s_win_out2", "s_win_in", "s_win_in2", "s_win_wit", "s_alarm", "s_alarm2", "s_reinf", "s_resume", "s_resume2", "s_out"],
 		}
 		for obs in want:

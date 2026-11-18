@@ -8,7 +8,7 @@ All commands from repo root. `<id>` = board/event id.
 
 - `claude` CLI logged in (judge uses your plan, no API key).
 - `.scratch/event-art/_judge/style.json`: 3-5 approved finished cards (`assets/events/...`) + written style card.
-- Character masters exist in `assets/character-references/<Name>/` for every cast member (else "identity unchecked").
+- Character masters exist in `assets/character-references/<Name>/` for every cast member (else "identity unchecked"). The master is `<Name>_reference.png` (biz sprite master only as fallback). The judge scores the face first: a face that doesn't look like the reference caps the cast score at 2, even if outfit and style match.
 
 ## Steps
 

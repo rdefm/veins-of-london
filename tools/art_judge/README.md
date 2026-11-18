@@ -53,6 +53,8 @@ No network. Needs Pillow.
 
 Saved per shot with a `briefHash` (job, prompt, attach, unseen, the shot's cards' text, `allowPlayerFace`). Reused until the hash changes, then rebuilt (one model call). Items: `{id, category: cast|pose|props|framing|unseen|hard, text, hard, presence?}`. Added by the CLI, not the model: a `cast-<Name>` presence item per cast member, `cast-only` (no extras), and four hard items (no legible text/logos; no player face unless the shot sets `"allowPlayerFace": true`; nothing story-critical in the bottom ~10%; focal point survives the small-phone crop). The model adds pose/props/framing/unseen/cast items (`m1…`).
 
+The cast reference is `assets/character-references/<Name>/<Name>_reference.png` (falls back to `*_biz_sprite_master.png`). The cast score checks the face (shape, eyes, brows, beard, hair) first; a different-looking face caps it at 2.
+
 Cast = names from `assets/character-references/<Name>/` paths in the shot's `attach`, plus an optional shot `cast` list.
 
 ## Judgement schema v1

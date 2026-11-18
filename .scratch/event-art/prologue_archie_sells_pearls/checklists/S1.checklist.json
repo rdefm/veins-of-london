@@ -1,7 +1,7 @@
 {
   "shotId": "S1",
-  "briefHash": "33e1169aaee2ecfc",
-  "builtAt": "2026-11-18T09:58:15Z",
+  "briefHash": "14c65a7f844dc264",
+  "builtAt": "2026-11-18T12:52:28Z",
   "items": [
     {
       "id": "cast-Archie",
@@ -20,85 +20,79 @@
     {
       "id": "m1",
       "category": "cast",
-      "text": "Exactly one person is in the image: Archie, the man from the sprite master, and nobody else.",
+      "text": "Exactly one person is in the image: Archie (the man from the sprite master), with no other people anywhere in the car park.",
       "hard": false
     },
     {
       "id": "m2",
       "category": "cast",
-      "text": "Archie's face, outfit and level of pixel detail match the sprite master, with no added facial realism.",
+      "text": "Archie's face, clothes and chunky low-detail shading match the Archie sprite master (same man, not a different character).",
       "hard": false
     },
     {
       "id": "m3",
-      "category": "framing",
-      "text": "Archie stands in the screen-left third of the frame.",
+      "category": "pose",
+      "text": "Archie is standing with his body facing the camera.",
       "hard": false
     },
     {
       "id": "m4",
-      "category": "framing",
-      "text": "Archie stands at the edge of the aisle by the parked cars, not in the middle of the lane.",
+      "category": "pose",
+      "text": "Both of Archie's hands are in his jacket pockets.",
       "hard": false
     },
     {
       "id": "m5",
-      "category": "framing",
-      "text": "Archie is close to the camera and big in the frame, with his feet about four-fifths of the way down the image.",
+      "category": "pose",
+      "text": "Archie's head is turned toward screen-right, not straight at the camera.",
       "hard": false
     },
     {
       "id": "m6",
-      "category": "framing",
-      "text": "The trolley shelter is still small and in the background behind Archie.",
+      "category": "pose",
+      "text": "Archie's eyes look off toward the pay machine and far bays (screen-right), not at the viewer.",
       "hard": false
     },
     {
       "id": "m7",
-      "category": "framing",
-      "text": "A soft contact shadow sits under Archie's feet, and his lighting is the plate's flat grey overcast light from screen-left.",
+      "category": "pose",
+      "text": "Archie's mouth shows an easy, relaxed smile.",
       "hard": false
     },
     {
       "id": "m8",
       "category": "pose",
-      "text": "Archie's hands are in his jacket pockets.",
+      "text": "Archie's brows are slightly drawn and his eyes narrowed, so he reads as alert and watchful rather than simply happy.",
       "hard": false
     },
     {
       "id": "m9",
-      "category": "pose",
-      "text": "Archie's head is turned screen-right.",
+      "category": "framing",
+      "text": "Archie is close to the camera and stands in the screen-left third of the frame, at the edge of the aisle beside the parked cars, not in the middle of the lane.",
       "hard": false
     },
     {
       "id": "m10",
-      "category": "pose",
-      "text": "Archie's eyes look across the car park toward the pay machine and far bays, not at the camera.",
-      "hard": false
-    },
-    {
-      "id": "m11",
-      "category": "pose",
-      "text": "Archie has an easy smile on his mouth while his eyes look wary or watchful.",
+      "category": "framing",
+      "text": "Archie's feet sit about four-fifths of the way down the image, with a soft contact shadow under them.",
       "hard": false
     },
     {
       "id": "m12",
       "category": "props",
-      "text": "The car park, parked cars, trolley shelter and pay machine from the plate are unchanged.",
+      "text": "The trolley shelter is still small and far behind Archie, and the pay machine, lamppost, cars, buildings and red Orbit tower are where they are on the blank plate.",
       "hard": false
     },
     {
       "id": "m13",
       "category": "unseen",
-      "text": "No buyer or second figure is visible anywhere, including in the background.",
+      "text": "No buyer or second figure is arriving or visible anywhere, including in the distance.",
       "hard": false
     },
     {
       "id": "m14",
       "category": "unseen",
-      "text": "No pearl and no cash are visible anywhere in the image.",
+      "text": "No pearl, cash, banknotes or coins are visible, in Archie's hands or anywhere else.",
       "hard": false
     },
     {
@@ -125,5 +119,7 @@
       "text": "The focal point survives the small-phone crop.",
       "hard": true
     }
-  ]
+  ],
+  "edited": true,
+  "editedAt": "2026-11-18T12:59:30Z"
 }

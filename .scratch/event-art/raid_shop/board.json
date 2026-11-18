@@ -1,0 +1,1274 @@
+{
+ "eventId": "raid_shop",
+ "title": "Shop raid",
+ "logline": "Get to a vein under a shop that's still trading, where every customer is a witness and the staff in fleeces aren't staff.",
+ "phase": "storyboard",
+ "round": 3,
+ "approved": null,
+ "updatedAt": 1795011655477,
+ "questions": [
+  "Per-ore vein art: the engine has no way to pick an image by the raided vein's ore. Needs a code change (proposal: if raid_shop_card<n>_<ore>.png exists for the raid's vein ore, use it before raid_shop_card<n>.png). Ticket it?",
+  "Cellar wides S6/S13 show the crack too: composed onto all 5 lit variants (compose only, no extra generations). OK?",
+  "Cameras are random (raidSecurity), so the till camera isn't in the plate; s_cam/s_cam2 hold S2 with the camera just above frame. Want a camera-on-bracket variant plate instead (+1 plate, compose-only shot)?",
+  "s_ward holds the stockroom (S3) since the ward is invisible. Spend a cellar-stairs plate on it instead?",
+  "Budget: 18 shots (S3, S5, S14, S18 are plates, free) on 6 plates + 10 ore variant edits; 11 pose generations + 3 choice results. Cut candidates: S15–S17, S7."
+ ],
+ "cards": [
+  {
+   "branch": "main",
+   "key": "s_intro",
+   "type": "tension",
+   "speaker": null,
+   "text": "A late-opening shop, still trading: strip lights, a queue of two, a bus stop outside. The vein is in the cellar, under the back room. There will be guards nearby; everyone else in there is a witness. Get this wrong and you get it wrong in front of a whole street.",
+   "cut": "NEW",
+   "shot": "S1",
+   "why": "New location: establish the shop on a live street, with all three ways in (door, passage, flaps) on screen."
+  },
+  {
+   "branch": "main",
+   "key": "s_front",
+   "type": "choice",
+   "speaker": null,
+   "text": "You can make out 2 ways in. One: front door, past the till and staff door, then stockroom and stairs. Two: round the back, yard, door, stockroom, stairs. One is easier, but you're much more exposed.",
+   "choices": [
+    "Walk in as a customer",
+    "Round the back",
+    "Other ways in…"
+   ],
+   "cut": "HOLD",
+   "shot": "S1",
+   "why": "Route choice: S1 shows door, passage and flaps without favouring one."
+  },
+  {
+   "branch": "main",
+   "key": "s_front2",
+   "type": "choice",
+   "speaker": null,
+   "text": "What you read buys you other ways in. Some skip the shop altogether.",
+   "choices": [
+    "The cellar flap",
+    "Open a Wormhole",
+    "Back out…"
+   ],
+   "cut": "HOLD",
+   "shot": "S1",
+   "why": "Same street; flaps already visible, wormhole needs no image."
+  },
+  {
+   "branch": "main",
+   "key": "s_in_cust",
+   "type": "tension",
+   "speaker": null,
+   "text": "The door chimes. Three aisles, a humming fridge, a regular at the counter in no hurry to leave. The staff door is behind the till.",
+   "cut": "NEW",
+   "shot": "S2",
+   "why": "Location change: inside, the till and staff door."
+  },
+  {
+   "branch": "main",
+   "key": "s_back",
+   "type": "choice",
+   "speaker": null,
+   "text": "Nobody's guarding the stockroom. But staff come back here for stock every few minutes, and a stranger among the shelves takes some explaining. The cellar door is at the far end.",
+   "choices": [
+    "Go in a quiet spell",
+    "Keep to the blind side of the shelving",
+    "Hope nobody's restocking",
+    "Other ways…"
+   ],
+   "cut": "NEW",
+   "shot": "S3",
+   "why": "Location change: stockroom, cellar door far end."
+  },
+  {
+   "branch": "main",
+   "key": "s_back2",
+   "type": "choice",
+   "speaker": null,
+   "text": "Or let something you brought do the work.",
+   "choices": [
+    "Prophet's Breath: know where they are",
+    "Back out…"
+   ],
+   "cut": "HOLD",
+   "shot": "S3",
+   "why": "Same room, item choice."
+  },
+  {
+   "branch": "main",
+   "key": "s_lock",
+   "type": "choice",
+   "speaker": null,
+   "text": "The cellar door is locked, and the lock is newer than the door. Somebody spent money back here, and not on the shop.",
+   "choices": [
+    "Pick it quiet",
+    "Hope it isn't locked",
+    "Rougher ways…"
+   ],
+   "cut": "HOLD",
+   "shot": "S3",
+   "why": "Lock on the far door; a new deadlock is in the plate."
+  },
+  {
+   "branch": "main",
+   "key": "s_lock2",
+   "type": "choice",
+   "speaker": null,
+   "text": "Or make some noise, and hope the shop makes more.",
+   "choices": [
+    "Walk down",
+    "Force the door",
+    "Blast the door",
+    "Back out…"
+   ],
+   "cut": "HOLD",
+   "shot": "S3",
+   "why": "Same door, rougher choices; no pre-empting."
+  },
+  {
+   "branch": "main",
+   "key": "s_yard",
+   "type": "choice",
+   "speaker": null,
+   "text": "Round the back: bins, flattened boxes, a stack of empty crates. A man in a shop fleece is having a smoke beside the yard door, which is the door you need. He's watching the door more than his phone.",
+   "choices": [
+    "Wait for the smoker to finish",
+    "Pose as the delivery",
+    "Other ways…"
+   ],
+   "cut": "NEW",
+   "shot": "S4",
+   "why": "Location change: yard, smoker in front of the door you need."
+  },
+  {
+   "branch": "main",
+   "key": "s_yard2",
+   "type": "choice",
+   "speaker": null,
+   "text": "Or trust to luck, or to something you brought.",
+   "choices": [
+    "Hope he's gone in",
+    "Prophet's Breath: know when he goes in",
+    "Time Pearl: freeze him",
+    "Back out…"
+   ],
+   "cut": "HOLD",
+   "shot": "S4",
+   "why": "Same moment, item choice. Time Pearl result gets S15."
+  },
+  {
+   "branch": "main",
+   "key": "s_door",
+   "type": "choice",
+   "speaker": null,
+   "text": "The yard door: old wood, painted so many times the gaps have filled in. It's locked from the inside. The stockroom is through it, and the cellar door beyond that.",
+   "choices": [
+    "Slide the hinge pins out",
+    "Pick it",
+    "Rougher ways…"
+   ],
+   "cut": "NEW",
+   "shot": "S5",
+   "why": "Smoker gone: just the door. Blank plate, no generation."
+  },
+  {
+   "branch": "main",
+   "key": "s_door2",
+   "type": "choice",
+   "speaker": null,
+   "text": "Or make some noise about it.",
+   "choices": [
+    "Walk in",
+    "Force the door",
+    "Blast the door",
+    "Back out…"
+   ],
+   "cut": "HOLD",
+   "shot": "S5",
+   "why": "Same door."
+  },
+  {
+   "branch": "main",
+   "key": "s_flap",
+   "type": "choice",
+   "speaker": null,
+   "text": "The cellar flap: two iron-edged doors in the pavement, where deliveries go down the chute. It's the shortest way in. No till, no stockroom, no stairs. It's also on a busy street, in full view of the bus stop.",
+   "choices": [
+    "Take the flap while the drayman has it open",
+    "Lever the rotten flap",
+    "Hope no one on the street looks down",
+    "Other ways…"
+   ],
+   "cut": "HOLD",
+   "shot": "S1",
+   "why": "Flaps and bus stop are both in S1; no cut needed."
+  },
+  {
+   "branch": "main",
+   "key": "s_flap2",
+   "type": "choice",
+   "speaker": null,
+   "text": "Or the quick way, which is also the loud way, on a street full of people.",
+   "choices": [
+    "Blast the flap",
+    "Back out…"
+   ],
+   "cut": "HOLD",
+   "shot": "S1",
+   "why": "Same street. Blast result gets S16."
+  },
+  {
+   "branch": "main",
+   "key": "s_cellar",
+   "type": "choice",
+   "speaker": null,
+   "text": "You land among barrels and boxes in the cellar. The till, the stockroom and the stairs are all over your head. Between you and the vein is one guard on a crate, half turned away from you.",
+   "choices": [
+    "Wait for the guard on the vein to turn",
+    "Walk past like you belong",
+    "Prophet's Breath: know when he turns",
+    "Other ways…"
+   ],
+   "cut": "NEW",
+   "shot": "S6",
+   "why": "Location change: cellar, one guard on the vein."
+  },
+  {
+   "branch": "main",
+   "key": "s_cellar2",
+   "type": "choice",
+   "speaker": null,
+   "text": "Or stop him where he sits.",
+   "choices": [
+    "Time Pearl: freeze him",
+    "Back out…"
+   ],
+   "cut": "HOLD",
+   "shot": "S6",
+   "why": "Same moment, Time Pearl choice."
+  },
+  {
+   "branch": "main",
+   "key": "s_seen_flap",
+   "type": "tension",
+   "speaker": null,
+   "text": "A woman at the bus stop has stopped scrolling. She's watching you, and so is her phone.",
+   "cut": "NEW",
+   "shot": "S7",
+   "why": "Reaction carries the beat: the witness looks up and films."
+  },
+  {
+   "branch": "main",
+   "key": "s_win_wit",
+   "type": "choice",
+   "speaker": null,
+   "text": "Someone's seen you who isn't paid to stop you. They can't fight you, and you can't fight them. But they can tell someone, and on a street like this, someone is always listening.",
+   "choices": [
+    "Talk it out",
+    "Duck out of sight",
+    "Run for it"
+   ],
+   "cut": "HOLD",
+   "shot": "S7",
+   "why": "Witness window: she is the witness."
+  },
+  {
+   "branch": "main",
+   "key": "s_seen_yard",
+   "type": "tension",
+   "speaker": null,
+   "text": "The smoker looks up, and keeps looking.",
+   "cut": "NEW",
+   "shot": "S8",
+   "why": "Power flip: the smoker clocks you."
+  },
+  {
+   "branch": "main",
+   "key": "s_win_out",
+   "type": "choice",
+   "speaker": null,
+   "text": "A man in a shop fleece is looking at you across the yard. He isn't surprised. He's turned sideways, one arm behind him, holding a phone or a weapon. He's watching you.",
+   "choices": [
+    "Take him down",
+    "Talk it out",
+    "Duck out of sight",
+    "Other ways…"
+   ],
+   "cut": "HOLD",
+   "shot": "S8",
+   "why": "Same stare; S8 already has him side-on, arm hidden."
+  },
+  {
+   "branch": "main",
+   "key": "s_win_out2",
+   "type": "choice",
+   "speaker": null,
+   "text": "Something you brought, or the road home.",
+   "choices": [
+    "Pan's Rapture",
+    "Blast him",
+    "Get out of here"
+   ],
+   "cut": "HOLD",
+   "shot": "S8",
+   "why": "Same moment, item choice."
+  },
+  {
+   "branch": "main",
+   "key": "s_win_in",
+   "type": "choice",
+   "speaker": null,
+   "text": "A man in the stockroom has seen you. He puts his box down carefully, like he'll need both hands.",
+   "choices": [
+    "Take him down",
+    "Talk it out",
+    "Duck out of sight",
+    "Other ways…"
+   ],
+   "cut": "HOLD",
+   "shot": "S9",
+   "why": "He's lowering the box in S9: same instant."
+  },
+  {
+   "branch": "main",
+   "key": "s_win_in2",
+   "type": "choice",
+   "speaker": null,
+   "text": "Something you brought, or the road home.",
+   "choices": [
+    "Pan's Rapture",
+    "Blast him",
+    "Run for it"
+   ],
+   "cut": "HOLD",
+   "shot": "S9",
+   "why": "Same moment."
+  },
+  {
+   "branch": "main",
+   "key": "s_seen_door",
+   "type": "tension",
+   "speaker": null,
+   "text": "The yard door opens from inside. A man in a shop fleece looks out at you.",
+   "cut": "NEW",
+   "shot": "S8",
+   "why": "Return: a fleece man at the ajar yard door, looking at you (see S8 canon)."
+  },
+  {
+   "branch": "main",
+   "key": "s_seen_in",
+   "type": "tension",
+   "speaker": null,
+   "text": "A door bangs, and a man in a shop fleece comes round the shelving with a box in his arms. He isn't staff. Staff don't look at you like that.",
+   "cut": "NEW",
+   "shot": "S9",
+   "why": "New person enters: man with a box."
+  },
+  {
+   "branch": "main",
+   "key": "s_alarm",
+   "type": "choice",
+   "speaker": null,
+   "text": "The shop's awake. Daniela is on the phone, customers are leaving without their shopping, and the men in fleeces are searching the building. If they find you now, they find you in front of everyone.",
+   "choices": [
+    "Hide",
+    "Bluff them",
+    "Pan's Rapture",
+    "Other ways…"
+   ],
+   "cut": "NEW",
+   "shot": "S10",
+   "why": "Big turn: the shop is awake, witnesses leave, search in the open."
+  },
+  {
+   "branch": "main",
+   "key": "s_alarm2",
+   "type": "choice",
+   "speaker": null,
+   "text": "Or scare them off, or leave while you still can.",
+   "choices": [
+    "Panic",
+    "Run for it"
+   ],
+   "cut": "HOLD",
+   "shot": "S10",
+   "why": "Same moment."
+  },
+  {
+   "branch": "main",
+   "key": "post",
+   "type": "choice",
+   "speaker": null,
+   "text": "The stockroom isn't empty. Men in shop fleeces are stacking a shelf that's already full. They work for whoever owns the cellar, not the shop, and they're between you and the cellar door.",
+   "choices": [
+    "Fight",
+    "Bluff past",
+    "Other ways…"
+   ],
+   "cut": "NEW",
+   "shot": "S11",
+   "why": "New obstacle: the guard post in the stockroom."
+  },
+  {
+   "branch": "main",
+   "key": "post2",
+   "type": "choice",
+   "speaker": null,
+   "text": "Something you brought.",
+   "choices": [
+    "Prophet's Breath: skip the post",
+    "Time Pearl: freeze and rush past",
+    "Time Pearl: freeze the line guard",
+    "More…"
+   ],
+   "cut": "HOLD",
+   "shot": "S11",
+   "why": "Item choices on the same post."
+  },
+  {
+   "branch": "main",
+   "key": "post3",
+   "type": "choice",
+   "speaker": null,
+   "text": "Something that makes a post forget what it's for.",
+   "choices": [
+    "Pandemonium",
+    "Panic",
+    "Pan's Rapture",
+    "Back out…"
+   ],
+   "cut": "HOLD",
+   "shot": "S11",
+   "why": "Same. Pan's Rapture result gets S17."
+  },
+  {
+   "branch": "main",
+   "key": "s_reinf",
+   "type": "choice",
+   "speaker": null,
+   "text": "The shop door chimes, and keeps chiming. More of the owner's people are coming in the front, past the customers going out.",
+   "choices": [
+    "Keep moving"
+   ],
+   "cut": "NEW",
+   "shot": "S10",
+   "why": "Cutaway to the shop floor: more of them coming in the front."
+  },
+  {
+   "branch": "main",
+   "key": "s_cam",
+   "type": "choice",
+   "speaker": null,
+   "text": "Over the till, a camera on a bracket pans slowly across the queue. There's a screen in the back somewhere. If it gets a good look at you heading for the staff door, someone will come out to see who you are.",
+   "choices": [
+    "Time the sweep",
+    "Stay in its blind spot",
+    "Hope it's on the blink",
+    "Other ways…"
+   ],
+   "cut": "HOLD",
+   "shot": "S2",
+   "why": "Camera is 'over the till', just above frame: security features are random, so it isn't baked into the plate."
+  },
+  {
+   "branch": "main",
+   "key": "s_cam2",
+   "type": "choice",
+   "speaker": null,
+   "text": "A camera is a system. It can't be talked round. It can only be stopped.",
+   "choices": [
+    "Time Pearl: freeze it",
+    "Blast it",
+    "Back out…"
+   ],
+   "cut": "HOLD",
+   "shot": "S2",
+   "why": "Same."
+  },
+  {
+   "branch": "main",
+   "key": "s_win_cam",
+   "type": "choice",
+   "speaker": null,
+   "text": "The camera's had a good look at you. Somebody in the back is watching the screen by now, and they're coming out to look in person.",
+   "choices": [
+    "Take him down",
+    "Duck out of sight",
+    "Blast him",
+    "Back out…"
+   ],
+   "cut": "HOLD",
+   "shot": "S2",
+   "why": "Someone is coming out, not yet out: don't reveal early."
+  },
+  {
+   "branch": "main",
+   "key": "s_ward",
+   "type": "choice",
+   "speaker": null,
+   "text": "There's a ward on the cellar stairs. The air on the top step feels held, like a breath. Walk through it as you are and it goes off, and whoever set it will know.",
+   "choices": [
+    "Step through",
+    "Slip it",
+    "Throw a decoy",
+    "Other ways…"
+   ],
+   "cut": "HOLD",
+   "shot": "S3",
+   "why": "Ward is invisible ('air feels held'); cellar door is at the far end of S3."
+  },
+  {
+   "branch": "main",
+   "key": "s_ward2",
+   "type": "choice",
+   "speaker": null,
+   "text": "Something you brought, or someone else to go first.",
+   "choices": [
+    "Trick a guard into it",
+    "Powder past it",
+    "Open a Wormhole past it",
+    "More…"
+   ],
+   "cut": "HOLD",
+   "shot": "S3",
+   "why": "Same."
+  },
+  {
+   "branch": "main",
+   "key": "s_ward3",
+   "type": "choice",
+   "speaker": null,
+   "text": "A ward is a system. Systems can be stopped.",
+   "choices": [
+    "Time Pearl: freeze the ward",
+    "Back out…"
+   ],
+   "cut": "HOLD",
+   "shot": "S3",
+   "why": "Same."
+  },
+  {
+   "branch": "main",
+   "key": "s_till",
+   "type": "choice",
+   "speaker": null,
+   "text": "The woman on the till is scanning a meal deal without looking at it. Her badge says DANIELA. The staff door is beside her, propped open on a box of receipts. To get through it, you need her to be looking somewhere else, or not caring.",
+   "choices": [
+    "Ask for the toilet",
+    "Spin her the story she wants",
+    "Wait until she's serving the regular",
+    "Other ways…"
+   ],
+   "cut": "HOLD",
+   "shot": "S2",
+   "why": "Daniela at the till is already S2's focus."
+  },
+  {
+   "branch": "main",
+   "key": "s_till2",
+   "type": "choice",
+   "speaker": null,
+   "text": "The staff door is still propped open, and Daniela is still beside it.",
+   "choices": [
+    "Hope the card machine goes down",
+    "Prophet's Breath: know when she's busy",
+    "Back out…"
+   ],
+   "cut": "HOLD",
+   "shot": "S2",
+   "why": "Same."
+  },
+  {
+   "branch": "main",
+   "key": "s_seen_till",
+   "type": "tension",
+   "speaker": null,
+   "text": "Daniela looks up from the till, straight at you. Her hand goes under the counter, to the phone.",
+   "cut": "NEW",
+   "shot": "S12",
+   "why": "Reaction carries the beat: Daniela looks up, hand to the phone."
+  },
+  {
+   "branch": "main",
+   "key": "s_retreat",
+   "type": "choice",
+   "speaker": null,
+   "text": "The street's right there. You can leave now and hope no one noticed you; if they did, they'll be on guard next time.",
+   "choices": [
+    "Walk out calmly",
+    "Run for it",
+    "Open a Wormhole out",
+    "Carry on"
+   ],
+   "cut": "NEW",
+   "shot": "S1",
+   "why": "Back on the street: return to S1."
+  },
+  {
+   "branch": "main",
+   "key": "s_resume",
+   "type": "tension",
+   "speaker": null,
+   "text": "You give it a count of ten, and listen.",
+   "cut": "HOLD",
+   "shot": null,
+   "why": "Follows several windows: no image of its own; holds whatever is up."
+  },
+  {
+   "branch": "main",
+   "key": "s_resume2",
+   "type": "tension",
+   "speaker": null,
+   "text": "Then you get on with it.",
+   "cut": "HOLD",
+   "shot": null,
+   "why": "Same."
+  },
+  {
+   "branch": "main",
+   "key": "s_room",
+   "type": "tension",
+   "speaker": null,
+   "text": "The cellar: one bulb, old brick, barrels, and a vein humming in the floor you can feel through your shoes.",
+   "cut": "NEW",
+   "shot": "S19",
+   "why": "Location: the cellar, empty frame, vein lit in its ore colour."
+  },
+  {
+   "branch": "main",
+   "key": "s_room_guarded",
+   "type": "choice",
+   "speaker": null,
+   "text": "Oh, and the guards are looking at you.",
+   "choices": [
+    "Fight for the room",
+    "Bluff past",
+    "Prophet's Breath: slip past"
+   ],
+   "cut": "NEW",
+   "shot": "S13",
+   "why": "Power flip: the guards on their feet facing you."
+  },
+  {
+   "branch": "main",
+   "key": "s_room_empty",
+   "type": "choice",
+   "speaker": null,
+   "text": "Nobody's posted down here.",
+   "choices": [
+    "Walk to the vein"
+   ],
+   "cut": "HOLD",
+   "shot": "S19",
+   "why": "Nobody here: the empty lit cellar holds."
+  },
+  {
+   "branch": "main",
+   "key": "s_claim_route",
+   "type": "tension",
+   "speaker": null,
+   "text": "You kneel on the vein. It's warm, like a pipe. Over your head, you hear the shop door chime faintly.",
+   "cut": "NEW",
+   "shot": "S14",
+   "why": "Payoff: the vein close, lit in its ore colour (insert)."
+  },
+  {
+   "branch": "main",
+   "key": "s_claim",
+   "type": "choice",
+   "speaker": null,
+   "text": "This is what you came for. Claim it and it's yours, and the people who had it will know who took it. Loot it and you leave with what you can carry. If nobody saw you, nobody knows.",
+   "choices": [
+    "Claim it",
+    "Loot and leave"
+   ],
+   "cut": "HOLD",
+   "shot": "S14",
+   "why": "Claim/loot decided over the vein."
+  },
+  {
+   "branch": "main",
+   "key": "s_final",
+   "type": "choice",
+   "speaker": null,
+   "text": "Upstairs, the shop door chimes and keeps chiming: the owner's people, coming in past the customers going out. They'll be on the cellar stairs in a minute.",
+   "choices": [
+    "Reach for the vein"
+   ],
+   "cut": "HOLD",
+   "shot": "S14",
+   "why": "Same vein, footsteps off-screen above."
+  },
+  {
+   "branch": "main",
+   "key": "s_claim_a",
+   "type": "choice",
+   "speaker": null,
+   "text": "Upstairs, the shop has stopped pretending. Claim it and it's yours, and the people who had it will know who took it. Loot it and at least you'll be carrying something when you run.",
+   "choices": [
+    "Claim it",
+    "Loot and leave"
+   ],
+   "cut": "HOLD",
+   "shot": "S14",
+   "why": "Same."
+  },
+  {
+   "branch": "main",
+   "key": "s_getaway",
+   "type": "choice",
+   "speaker": null,
+   "text": "The way you came is full of people looking for you. There's the yard, if you're quick. There's the shop floor, where a customer is just a customer.",
+   "choices": [
+    "Run",
+    "Out through the shop",
+    "Open a Wormhole"
+   ],
+   "cut": "NEW",
+   "shot": "S10",
+   "why": "The way out is full of people: return to the awake shop floor."
+  },
+  {
+   "branch": "main",
+   "key": "s_back_loud",
+   "type": "tension",
+   "speaker": null,
+   "text": "You're in the stockroom, and the yard door behind you is open to the night. The silence you hear is either completely normal, or the sound of alerted guards listening. Your paranoia makes it hard to know which.",
+   "cut": "NEW",
+   "shot": "S3",
+   "why": "Back in the empty stockroom after a loud entry."
+  },
+  {
+   "branch": "main",
+   "key": "s_back_in",
+   "type": "tension",
+   "speaker": null,
+   "text": "The stockroom: cages of crisps, a pallet of water, a mop in a bucket. The cellar door is at the far end. ",
+   "cut": "NEW",
+   "shot": "S3",
+   "why": "Stockroom, quiet entry."
+  },
+  {
+   "branch": "main",
+   "key": "s_stairs_in",
+   "type": "tension",
+   "speaker": null,
+   "text": "The cellar door is behind a stack of empty crates. Warm air comes through the gap underneath it, and a hum you can feel in the floor. That's the vein.",
+   "cut": "HOLD",
+   "shot": "S3",
+   "why": "Cellar door behind crates: in S3's far end."
+  },
+  {
+   "branch": "main",
+   "key": "s_out",
+   "type": "tension",
+   "speaker": null,
+   "text": "Outside, the bus stop queue hasn't moved and nobody's looking at you. The vein is still under the shop. It'll be there next time, and so will they.",
+   "cut": "NEW",
+   "shot": "S1",
+   "why": "Out on the street, queue unmoved: return to S1."
+  }
+ ],
+ "plates": [
+  {
+   "id": "P1",
+   "name": "shop_street_night",
+   "variantOf": null,
+   "camera": "across the road from the shopfront, eye level, bus stop screen-right, side passage screen-left",
+   "shots": "S1, S7, S16",
+   "attach": [
+    "assets/events/raid_playground/raid_playground_main_1.png"
+   ],
+   "prompt": "Attach: raid_playground_main_1.png (match its pixel-art technique and colour treatment, not its content).\nA blank background plate for a pixel-art game scene: a small independent late-night off-licence / corner shop on an ordinary East London high street, about 10pm, damp night, pavement wet from earlier rain.\nCamera: standing on the far pavement, eye height about 1.6 m, normal lens, looking straight across a quiet two-lane road at the shopfront.\nSet: centre: the shop, one wide lit window crammed with shapes of bottles and crisp boxes, a glass door screen-right of the window, a blank fascia sign above (colour block only). In the pavement directly in front of the window, a pair of iron-edged cellar delivery flaps, shut. Screen-left of the shop, a narrow dark side passage between the shop and the next building (a shuttered launderette). Screen-right foreground, on our side of the road, a bus shelter with a bench and a blank lit advert panel, side-on so its inside is visible. Flats with a few lit windows above the shops. Road and kerb across the bottom of the frame.\nLight: cold white LED spill from the shop window across the wet pavement and flaps; orange sodium streetlamp screen-left; blank advert panel glow in the bus shelter screen-right; side passage stays dark.\nGenuine pixel art: visible pixel grid with roughly 4×4 screen pixels per art pixel, limited palette, dithered shading, crisp hard edges, no anti-aliasing, no painterly blur, no vector/cel-shaded linework.\nGrounded, realistic London colour: brick, shopfront paint, wet pavement, sodium and LED light. Vivid where the real city is, restrained elsewhere. No neon, no fantasy glow.\nPortrait 2:3 (1024×1536), full-bleed, no border. No people, not even distant background figures (extras are added per shot). No text, letters, numbers or logos: signs, price tags, posters, screens and paper show shapes only.\nKeep the floor area clear in the middle of the frame where people will stand; the top and bottom 15% may be cropped, so only sky/ceiling/floor goes there.",
+   "notes": "Actors: bus-stop woman sits/stands inside shelter, screen-right, nearer camera. Customers seen through shop window. Flap centre, below window: S16 edits it. Light key from shop window (centre), sodium fill from screen-left."
+  },
+  {
+   "id": "P2",
+   "name": "shop_floor",
+   "variantOf": null,
+   "camera": "just inside the front door, eye level, looking up the middle aisle; counter screen-right",
+   "shots": "S2, S10, S12",
+   "attach": [
+    "assets/events/raid_playground/raid_playground_main_1.png"
+   ],
+   "prompt": "Attach: raid_playground_main_1.png (match its pixel-art technique and colour treatment, not its content).\nA blank background plate for a pixel-art game scene: inside a small, cramped independent off-licence / corner shop at night, still trading.\nCamera: standing just inside the front door, eye height about 1.6 m, normal lens, looking up the middle aisle toward the back of the shop.\nSet: screen-left: a humming glass-door drinks fridge running the length of the wall. Centre: a short aisle of crowded shelves (crisps, tins, bread), floor of scuffed lino tiles. Screen-right midground: the counter with a till, a card machine and a rack of scratchcards (blank), behind it a closed cigarette cabinet (shapes only, no branding). Behind and right of the counter, a plain staff door propped open on a cardboard box, a darker stockroom glimpse through the gap. The counter area stays clear for one shopkeeper to stand behind it.\nLight: flat cold-white LED strip lights overhead; cooler blue-white from the fridge screen-left; warm dim light through the staff door gap.\nGenuine pixel art: visible pixel grid with roughly 4×4 screen pixels per art pixel, limited palette, dithered shading, crisp hard edges, no anti-aliasing, no painterly blur, no vector/cel-shaded linework.\nGrounded, realistic London colour: brick, shopfront paint, wet pavement, sodium and LED light. Vivid where the real city is, restrained elsewhere. No neon, no fantasy glow.\nPortrait 2:3 (1024×1536), full-bleed, no border. No people, not even distant background figures (extras are added per shot). No text, letters, numbers or logos: signs, price tags, posters, screens and paper show shapes only.\nKeep the floor area clear in the middle of the frame where people will stand; the top and bottom 15% may be cropped, so only sky/ceiling/floor goes there.",
+   "notes": "Daniela always behind counter screen-right, facing screen-left/camera. Regular at counter front. Staff door right of cigarette cabinet. Camera over till is NOT in plate (security features are random): it sits just above frame."
+  },
+  {
+   "id": "P3",
+   "name": "shop_yard",
+   "variantOf": null,
+   "camera": "from the mouth of the side passage, eye level, looking into the back yard; yard door screen-right",
+   "shots": "S4, S5, S8, S15",
+   "attach": [
+    "assets/events/raid_playground/raid_playground_main_1.png"
+   ],
+   "prompt": "Attach: raid_playground_main_1.png (match its pixel-art technique and colour treatment, not its content).\nA blank background plate for a pixel-art game scene: the small walled back yard behind a London corner shop, about 10pm, damp night.\nCamera: standing at the end of the dark side passage where it opens into the yard, eye height about 1.6 m, normal lens, looking across the yard.\nSet: screen-left: two big wheelie bins and a pile of flattened cardboard boxes. Centre: wet concrete yard floor, clear. Screen-right midground: the shop's back door, old wood painted thick with many coats of dark green paint, shut, a bulkhead lamp above it and a stack of empty plastic bread crates beside it. Background: a brick back wall topped with broken glass, the lit back windows of flats beyond it.\nLight: single warm-orange bulkhead lamp over the door, screen-right, pooling on the concrete; cool grey city glow above the wall; screen-left corner in shadow.\nGenuine pixel art: visible pixel grid with roughly 4×4 screen pixels per art pixel, limited palette, dithered shading, crisp hard edges, no anti-aliasing, no painterly blur, no vector/cel-shaded linework.\nGrounded, realistic London colour: brick, shopfront paint, wet pavement, sodium and LED light. Vivid where the real city is, restrained elsewhere. No neon, no fantasy glow.\nPortrait 2:3 (1024×1536), full-bleed, no border. No people, not even distant background figures (extras are added per shot). No text, letters, numbers or logos: signs, price tags, posters, screens and paper show shapes only.\nKeep the floor area clear in the middle of the frame where people will stand; the top and bottom 15% may be cropped, so only sky/ceiling/floor goes there.",
+   "notes": "Smoker stands beside the door, left of it, in the lamp pool. Key light screen-right. 180: smoker faces screen-left toward camera side."
+  },
+  {
+   "id": "P4",
+   "name": "shop_stockroom",
+   "variantOf": null,
+   "camera": "just inside the yard door, eye level, looking down the stockroom to the cellar door at the far end",
+   "shots": "S3, S9, S11, S17",
+   "attach": [
+    "assets/events/raid_playground/raid_playground_main_1.png"
+   ],
+   "prompt": "Attach: raid_playground_main_1.png (match its pixel-art technique and colour treatment, not its content).\nA blank background plate for a pixel-art game scene: the narrow stockroom at the back of a London corner shop, at night.\nCamera: standing just inside the back door, eye height about 1.6 m, normal lens, looking down the length of the room.\nSet: screen-left: tall metal shelving packed with stock boxes, running away from camera; partway down, a swing door to the shop floor. Screen-right: wheeled cages of crisp boxes and a shrink-wrapped pallet of bottled water. Foreground right: a mop in a yellow bucket. Far end, centre: a plain old cellar door with a new brass deadlock, a stack of empty crates beside it; a thin line of warm light under the door. Floor clear down the middle.\nLight: one cold fluorescent tube overhead, slightly flickering cast; warm thin line under the cellar door at the far end.\nGenuine pixel art: visible pixel grid with roughly 4×4 screen pixels per art pixel, limited palette, dithered shading, crisp hard edges, no anti-aliasing, no painterly blur, no vector/cel-shaded linework.\nGrounded, realistic London colour: brick, shopfront paint, wet pavement, sodium and LED light. Vivid where the real city is, restrained elsewhere. No neon, no fantasy glow.\nPortrait 2:3 (1024×1536), full-bleed, no border. No people, not even distant background figures (extras are added per shot). No text, letters, numbers or logos: signs, price tags, posters, screens and paper show shapes only.\nKeep the floor area clear in the middle of the frame where people will stand; the top and bottom 15% may be cropped, so only sky/ceiling/floor goes there.",
+   "notes": "Fleece men stand mid-room between camera and cellar door. Keep cellar door visible past them. S17 men sit on the water pallet screen-right."
+  },
+  {
+   "id": "P5",
+   "name": "shop_cellar",
+   "variantOf": null,
+   "camera": "from the foot of the cellar stairs, slightly high, looking across the vaulted cellar to the vein",
+   "shots": "S6, S13",
+   "attach": [
+    "assets/events/raid_playground/raid_playground_main_1.png"
+   ],
+   "prompt": "Attach: raid_playground_main_1.png (match its pixel-art technique and colour treatment, not its content).\nA blank background plate for a pixel-art game scene: an old Victorian brick cellar under a London corner shop, at night.\nCamera: standing on the bottom step of the cellar stairs, eye height about 1.8 m, normal lens, slightly looking down across the cellar.\nSet: low brick barrel-vault ceiling. Screen-left: stacked beer kegs and barrels; top-left the sloped wooden delivery chute coming down from the pavement flaps. Centre midground: old worn flagstones, and running across them a jagged crack about a metre long, a few fingers wide, dark inside (nothing in it lit yet). Screen-right: an upturned crate beside a stack of boxes, a space beside it for a guard to sit. Back wall: damp brick, a blocked-up arch.\nLight: one bare warm bulb hanging from the vault, centre, just below the top crop line; deep shadow in the corners; faint cool spill from the chute top-left.\nGenuine pixel art: visible pixel grid with roughly 4×4 screen pixels per art pixel, limited palette, dithered shading, crisp hard edges, no anti-aliasing, no painterly blur, no vector/cel-shaded linework.\nGrounded, realistic London colour: brick, shopfront paint, wet pavement, sodium and LED light. Vivid where the real city is, restrained elsewhere. No neon, no fantasy glow.\nPortrait 2:3 (1024×1536), full-bleed, no border. No people, not even distant background figures (extras are added per shot). No text, letters, numbers or logos: signs, price tags, posters, screens and paper show shapes only.\nKeep the floor area clear in the middle of the frame where people will stand; the top and bottom 15% may be cropped, so only sky/ceiling/floor goes there.",
+   "notes": "Base plate = vein dark. Shots S6/S13 are generated on this base, then their cut-outs composed onto each ore variant P5a–P5e (no regeneration). Guard sits on crate screen-right. Crack centre midground, must stay visible past actors."
+  },
+  {
+   "id": "P6",
+   "name": "shop_cellar_vein_insert",
+   "variantOf": null,
+   "camera": "insert: low close-up of the cellar floor crack, looking down at about 45°",
+   "shots": "S18 (base, harvested); S14 via P6a–P6e",
+   "attach": [
+    "assets/events/raid_playground/raid_playground_main_1.png",
+    "assets/reference-plates/shop_cellar_blank_plate.png"
+   ],
+   "prompt": "Attach: raid_playground_main_1.png (match its pixel-art technique and colour treatment, not its content).\nA blank background plate for a pixel-art game scene: close-up of the crack in the cellar floor from shop_cellar_blank_plate.png (match its flagstones, crack shape and bulb light).\nCamera: crouching close to the floor, looking down at about 45°, normal lens; the crack crosses the frame diagonally through the centre.\nSet: worn flagstones, grit, a little damp. Centre: the jagged crack, dark and dead inside, a little dust settled along its lips. Nothing glows.\nLight: same single warm bulb from above and behind camera; soft shadow edges.\nGenuine pixel art: visible pixel grid with roughly 4×4 screen pixels per art pixel, limited palette, dithered shading, crisp hard edges, no anti-aliasing, no painterly blur, no vector/cel-shaded linework.\nGrounded, realistic London colour: brick, shopfront paint, wet pavement, sodium and LED light. Vivid where the real city is, restrained elsewhere. No neon, no fantasy glow.\nPortrait 2:3 (1024×1536), full-bleed, no border. No people, not even distant background figures (extras are added per shot). No text, letters, numbers or logos: signs, price tags, posters, screens and paper show shapes only.\nKeep the floor area clear in the middle of the frame where people will stand; the top and bottom 15% may be cropped, so only sky/ceiling/floor goes there.",
+   "notes": "Base = harvested vein (glow gone): it is S18's card as-is. Lit versions are P6a–P6e."
+  },
+  {
+   "id": "P5a",
+   "name": "shop_cellar_vein_time",
+   "variantOf": "P5",
+   "camera": "= P5, crack lit time (#4d78a8)",
+   "shots": "S6, S13 (composed)",
+   "attach": [
+    "assets/reference-plates/shop_cellar_blank_plate.png"
+   ],
+   "prompt": "Attach: shop_cellar_blank_plate.png.\nEdit this image. Add only: light coming up out of the crack in the floor, cool steel blue (#4d78a8), brightest deep inside the crack and fading at its lips, spilling a soft cool steel blue wash a short way across the nearby flagstones and the lower edges of the nearest barrels and crate. Steady light, like a lamp left on under the floor: no sparkles, no rays, no particles, no smoke. Change nothing else. Keep the exact image size.",
+   "notes": "Ore time. Hex from data/palette.json ore_time."
+  },
+  {
+   "id": "P5b",
+   "name": "shop_cellar_vein_physics",
+   "variantOf": "P5",
+   "camera": "= P5, crack lit physics (#b8562f)",
+   "shots": "S6, S13 (composed)",
+   "attach": [
+    "assets/reference-plates/shop_cellar_blank_plate.png"
+   ],
+   "prompt": "Attach: shop_cellar_blank_plate.png.\nEdit this image. Add only: light coming up out of the crack in the floor, burnt orange (#b8562f), brightest deep inside the crack and fading at its lips, spilling a soft burnt orange wash a short way across the nearby flagstones and the lower edges of the nearest barrels and crate. Steady light, like a lamp left on under the floor: no sparkles, no rays, no particles, no smoke. Change nothing else. Keep the exact image size.",
+   "notes": "Ore physics. Hex from data/palette.json ore_physics."
+  },
+  {
+   "id": "P5c",
+   "name": "shop_cellar_vein_life",
+   "variantOf": "P5",
+   "camera": "= P5, crack lit life (#5a8f4f)",
+   "shots": "S6, S13 (composed)",
+   "attach": [
+    "assets/reference-plates/shop_cellar_blank_plate.png"
+   ],
+   "prompt": "Attach: shop_cellar_blank_plate.png.\nEdit this image. Add only: light coming up out of the crack in the floor, moss green (#5a8f4f), brightest deep inside the crack and fading at its lips, spilling a soft moss green wash a short way across the nearby flagstones and the lower edges of the nearest barrels and crate. Steady light, like a lamp left on under the floor: no sparkles, no rays, no particles, no smoke. Change nothing else. Keep the exact image size.",
+   "notes": "Ore life. Hex from data/palette.json ore_life."
+  },
+  {
+   "id": "P5d",
+   "name": "shop_cellar_vein_fate",
+   "variantOf": "P5",
+   "camera": "= P5, crack lit fate (#7a5a9e)",
+   "shots": "S6, S13 (composed)",
+   "attach": [
+    "assets/reference-plates/shop_cellar_blank_plate.png"
+   ],
+   "prompt": "Attach: shop_cellar_blank_plate.png.\nEdit this image. Add only: light coming up out of the crack in the floor, dusky violet (#7a5a9e), brightest deep inside the crack and fading at its lips, spilling a soft dusky violet wash a short way across the nearby flagstones and the lower edges of the nearest barrels and crate. Steady light, like a lamp left on under the floor: no sparkles, no rays, no particles, no smoke. Change nothing else. Keep the exact image size.",
+   "notes": "Ore fate. Hex from data/palette.json ore_fate."
+  },
+  {
+   "id": "P5e",
+   "name": "shop_cellar_vein_emotion",
+   "variantOf": "P5",
+   "camera": "= P5, crack lit emotion (#b85a82)",
+   "shots": "S6, S13 (composed)",
+   "attach": [
+    "assets/reference-plates/shop_cellar_blank_plate.png"
+   ],
+   "prompt": "Attach: shop_cellar_blank_plate.png.\nEdit this image. Add only: light coming up out of the crack in the floor, dusky rose pink (#b85a82), brightest deep inside the crack and fading at its lips, spilling a soft dusky rose pink wash a short way across the nearby flagstones and the lower edges of the nearest barrels and crate. Steady light, like a lamp left on under the floor: no sparkles, no rays, no particles, no smoke. Change nothing else. Keep the exact image size.",
+   "notes": "Ore emotion. Hex from data/palette.json ore_emotion."
+  },
+  {
+   "id": "P6a",
+   "name": "shop_cellar_vein_insert_vein_time",
+   "variantOf": "P6",
+   "camera": "= P6, crack lit time (#4d78a8)",
+   "shots": "S14 (time)",
+   "attach": [
+    "assets/reference-plates/shop_cellar_vein_insert_blank_plate.png"
+   ],
+   "prompt": "Attach: shop_cellar_vein_insert_blank_plate.png.\nEdit this image. Add only: light coming up out of the crack in the floor, cool steel blue (#4d78a8), brightest deep inside the crack and fading at its lips, spilling a soft cool steel blue wash a short way across the nearby flagstones. Steady light, like a lamp left on under the floor: no sparkles, no rays, no particles, no smoke. Change nothing else. Keep the exact image size.",
+   "notes": "Ore time. Hex from data/palette.json ore_time."
+  },
+  {
+   "id": "P6b",
+   "name": "shop_cellar_vein_insert_vein_physics",
+   "variantOf": "P6",
+   "camera": "= P6, crack lit physics (#b8562f)",
+   "shots": "S14 (physics)",
+   "attach": [
+    "assets/reference-plates/shop_cellar_vein_insert_blank_plate.png"
+   ],
+   "prompt": "Attach: shop_cellar_vein_insert_blank_plate.png.\nEdit this image. Add only: light coming up out of the crack in the floor, burnt orange (#b8562f), brightest deep inside the crack and fading at its lips, spilling a soft burnt orange wash a short way across the nearby flagstones. Steady light, like a lamp left on under the floor: no sparkles, no rays, no particles, no smoke. Change nothing else. Keep the exact image size.",
+   "notes": "Ore physics. Hex from data/palette.json ore_physics."
+  },
+  {
+   "id": "P6c",
+   "name": "shop_cellar_vein_insert_vein_life",
+   "variantOf": "P6",
+   "camera": "= P6, crack lit life (#5a8f4f)",
+   "shots": "S14 (life)",
+   "attach": [
+    "assets/reference-plates/shop_cellar_vein_insert_blank_plate.png"
+   ],
+   "prompt": "Attach: shop_cellar_vein_insert_blank_plate.png.\nEdit this image. Add only: light coming up out of the crack in the floor, moss green (#5a8f4f), brightest deep inside the crack and fading at its lips, spilling a soft moss green wash a short way across the nearby flagstones. Steady light, like a lamp left on under the floor: no sparkles, no rays, no particles, no smoke. Change nothing else. Keep the exact image size.",
+   "notes": "Ore life. Hex from data/palette.json ore_life."
+  },
+  {
+   "id": "P6d",
+   "name": "shop_cellar_vein_insert_vein_fate",
+   "variantOf": "P6",
+   "camera": "= P6, crack lit fate (#7a5a9e)",
+   "shots": "S14 (fate)",
+   "attach": [
+    "assets/reference-plates/shop_cellar_vein_insert_blank_plate.png"
+   ],
+   "prompt": "Attach: shop_cellar_vein_insert_blank_plate.png.\nEdit this image. Add only: light coming up out of the crack in the floor, dusky violet (#7a5a9e), brightest deep inside the crack and fading at its lips, spilling a soft dusky violet wash a short way across the nearby flagstones. Steady light, like a lamp left on under the floor: no sparkles, no rays, no particles, no smoke. Change nothing else. Keep the exact image size.",
+   "notes": "Ore fate. Hex from data/palette.json ore_fate."
+  },
+  {
+   "id": "P6e",
+   "name": "shop_cellar_vein_insert_vein_emotion",
+   "variantOf": "P6",
+   "camera": "= P6, crack lit emotion (#b85a82)",
+   "shots": "S14 (emotion)",
+   "attach": [
+    "assets/reference-plates/shop_cellar_vein_insert_blank_plate.png"
+   ],
+   "prompt": "Attach: shop_cellar_vein_insert_blank_plate.png.\nEdit this image. Add only: light coming up out of the crack in the floor, dusky rose pink (#b85a82), brightest deep inside the crack and fading at its lips, spilling a soft dusky rose pink wash a short way across the nearby flagstones. Steady light, like a lamp left on under the floor: no sparkles, no rays, no particles, no smoke. Change nothing else. Keep the exact image size.",
+   "notes": "Ore emotion. Hex from data/palette.json ore_emotion."
+  }
+ ],
+ "shots": [
+  {
+   "id": "S1",
+   "title": "The shop, still trading",
+   "cards": "main: s_intro–s_front2, s_flap–s_flap2 (returns at s_retreat, s_out)",
+   "plate": "P1",
+   "method": "pose",
+   "job": "Establish the target: a lit shop on a live street, everyone a witness; the three ways in (door, side passage, flaps) all readable.",
+   "attach": [
+    "assets/reference-plates/shop_street_night_blank_plate.png"
+   ],
+   "prompt": "Attach: shop_street_night_blank_plate.png.\nUsing the street in shop_street_night_blank_plate.png, add three small extras:\n- Inside the shop, seen through the window: two customers queueing at the counter, backs half to us (a man in a hoodie, an older man in a flat cap).\n- In the bus shelter screen-right: a woman in her 30s in a long dark coat, sitting on the bench, head down, face lit by her phone.\nNobody looks at the camera. Nobody near the side passage or the flaps.\nSame pixel-art style and scale as the scene. Change nothing else in the scene. Keep the exact image size.",
+   "saveAs": "assets/reference-plates/shop_street_night_S1_queue_and_bus_stop.png",
+   "unseen": "Guards, the drayman, any vein. Nobody looks at the player.",
+   "file": "assets/events/raid_shop/raid_shop_card1.png, assets/events/raid_shop/raid_shop_card41.png, assets/events/raid_shop/raid_shop_card55.png"
+  },
+  {
+   "id": "S2",
+   "title": "Inside: the till and the staff door",
+   "cards": "main: s_in_cust (holds s_cam–s_win_cam, s_till–s_till2)",
+   "plate": "P2",
+   "method": "pose",
+   "job": "Walking in as a customer: Daniela, the regular, and the staff door you need, all in one look.",
+   "attach": [
+    "assets/reference-plates/shop_floor_blank_plate.png"
+   ],
+   "prompt": "Attach: shop_floor_blank_plate.png.\nUsing the shop in shop_floor_blank_plate.png, add:\n- Behind the counter screen-right: a woman in her mid-40s, hair scraped back, grey cardigan over a black top, a lanyard with a blank badge. She is scanning a meal deal without looking at it, eyes on the middle distance, bored. Her body faces screen-left.\n- At the front of the counter: an older man in a flat cap and a worn anorak, leaning on the counter, scratching a scratchcard with a coin, in no hurry, back three-quarters to the camera.\nNobody looks at the camera. The staff door behind her stays visible and propped open.\nSame pixel-art style and scale as the scene. Change nothing else in the scene. Keep the exact image size.",
+   "saveAs": "assets/reference-plates/shop_floor_S2_daniela_and_regular.png",
+   "unseen": "The camera over the till (just above frame), any fleece men, the stockroom beyond the door.",
+   "file": "assets/events/raid_shop/raid_shop_card4.png",
+   "canon": "Daniela has no reference sheet: this draft becomes her reference for S10/S12."
+  },
+  {
+   "id": "S3",
+   "title": "The stockroom, cellar door at the far end",
+   "cards": "main: s_back–s_lock2 (returns at s_back_loud, s_back_in; holds s_stairs_in, s_ward–s_ward3)",
+   "plate": "P4",
+   "method": "props",
+   "job": "The empty stretch between you and the cellar door: nobody here, yet.",
+   "attach": [
+    "assets/reference-plates/shop_stockroom_blank_plate.png"
+   ],
+   "prompt": "No generation: shop_stockroom_blank_plate.png is the card.",
+   "saveAs": "assets/reference-plates/shop_stockroom_blank_plate.png",
+   "unseen": "Anyone. The ward (invisible by design).",
+   "file": "assets/events/raid_shop/raid_shop_card5.png, assets/events/raid_shop/raid_shop_card52.png, assets/events/raid_shop/raid_shop_card53.png"
+  },
+  {
+   "id": "S4",
+   "title": "Smoker by the yard door",
+   "cards": "main: s_yard–s_yard2",
+   "plate": "P3",
+   "method": "pose",
+   "job": "The back way has one problem, and he's standing in front of the door you need.",
+   "attach": [
+    "assets/reference-plates/shop_yard_blank_plate.png"
+   ],
+   "prompt": "Attach: shop_yard_blank_plate.png.\nUsing the yard in shop_yard_blank_plate.png, add one man standing just left of the back door, in the lamp pool: late 20s, stocky, a plain navy fleece zipped to the chin, no logo, dark work trousers. He's smoking, cigarette at his side, phone in his other hand, but his head is turned to the door, watching it, not the phone. Side-on to the camera, facing screen-right. Calm, bored, alert underneath.\nSame pixel-art style and scale as the scene. Change nothing else in the scene. Keep the exact image size.",
+   "saveAs": "assets/reference-plates/shop_yard_S4_smoker_watching_door.png",
+   "unseen": "The player. Anything inside.",
+   "file": "assets/events/raid_shop/raid_shop_card9.png",
+   "canon": "The owner's men wear a plain navy fleece, no logo, everywhere (S4, S8, S9, S10, S11, S13). OK?"
+  },
+  {
+   "id": "S5",
+   "title": "The yard door, clear",
+   "cards": "main: s_door–s_door2",
+   "plate": "P3",
+   "method": "props",
+   "job": "Smoker gone; just you and an old, much-painted, locked door.",
+   "attach": [
+    "assets/reference-plates/shop_yard_blank_plate.png"
+   ],
+   "prompt": "No generation: shop_yard_blank_plate.png is the card.",
+   "saveAs": "assets/reference-plates/shop_yard_blank_plate.png",
+   "unseen": "The smoker (gone in).",
+   "file": "assets/events/raid_shop/raid_shop_card11.png"
+  },
+  {
+   "id": "S6",
+   "title": "Guard on the vein",
+   "cards": "main: s_cellar–s_cellar2",
+   "plate": "P5",
+   "method": "pose",
+   "job": "You're in. One bored guard on a crate is all that's between you and the vein.",
+   "attach": [
+    "assets/reference-plates/shop_cellar_blank_plate.png"
+   ],
+   "prompt": "Attach: shop_cellar_blank_plate.png.\nUsing the cellar in shop_cellar_blank_plate.png, add one man sitting on the upturned crate screen-right: 30s, a plain navy fleece zipped to the chin, no logo, dark work trousers, slumped forward, elbows on knees, phone in hand, half turned away from the camera toward the back wall, mid-yawn. The crack in the floor stays fully visible beside him.\nSame pixel-art style and scale as the scene. Change nothing else in the scene. Keep the exact image size.",
+   "saveAs": "assets/reference-plates/shop_cellar_S6_guard_on_crate.png",
+   "unseen": "Other guards, the player.",
+   "file": "assets/events/raid_shop/raid_shop_card15_<ore>.png (×5 ores)"
+  },
+  {
+   "id": "S7",
+   "title": "The woman at the bus stop looks up",
+   "cards": "main: s_seen_flap–s_win_wit",
+   "plate": "P1",
+   "method": "pose",
+   "job": "A witness: someone not paid to stop you, recording you.",
+   "attach": [
+    "assets/reference-plates/shop_street_night_blank_plate.png",
+    "assets/reference-plates/shop_street_night_S1_queue_and_bus_stop.png"
+   ],
+   "prompt": "Attach: shop_street_night_blank_plate.png, shop_street_night_S1_queue_and_bus_stop.png.\nUsing the street in shop_street_night_blank_plate.png, add the woman from shop_street_night_S1_queue_and_bus_stop.png (same coat, same face), now standing at the open front of the bus shelter screen-right, nearer the camera, waist up in frame. She holds her phone up at chest height, its back to us, pointed across the road at the flaps. Her eyes are over the top of the phone, on us, unimpressed.\nKeep the two customers in the shop window unchanged.\nSame pixel-art style and scale as the scene. Change nothing else in the scene. Keep the exact image size.",
+   "saveAs": "assets/reference-plates/shop_street_night_S7_bus_stop_woman_filming.png",
+   "unseen": "The player, any guard.",
+   "file": "assets/events/raid_shop/raid_shop_card17.png",
+   "reuse": "Window customers: S1 cut-out unchanged"
+  },
+  {
+   "id": "S8",
+   "title": "The smoker clocks you",
+   "cards": "main: s_seen_yard–s_win_out2 (returns at s_seen_door)",
+   "plate": "P3",
+   "method": "pose",
+   "job": "Spotted at the back: he isn't surprised, and one hand is behind him.",
+   "attach": [
+    "assets/reference-plates/shop_yard_blank_plate.png",
+    "assets/reference-plates/shop_yard_S4_smoker_watching_door.png"
+   ],
+   "prompt": "Attach: shop_yard_blank_plate.png, shop_yard_S4_smoker_watching_door.png.\nUsing the yard in shop_yard_blank_plate.png, add the man from shop_yard_S4_smoker_watching_door.png (same face, same navy fleece). Now the back door behind him is ajar, a strip of light in the gap. He stands in front of it, turned side-on, body angled screen-right, his far arm hidden behind his back. Head turned fully to look straight at the camera, flat stare, not surprised. Cigarette dropped on the concrete by his feet, still smoking.\nSame pixel-art style and scale as the scene. Change nothing else in the scene. Keep the exact image size.",
+   "saveAs": "assets/reference-plates/shop_yard_S8_smoker_clocks_you.png",
+   "unseen": "What's in his hidden hand.",
+   "file": "assets/events/raid_shop/raid_shop_card19.png, assets/events/raid_shop/raid_shop_card24.png",
+   "canon": "Holding S8 at s_seen_door ('door opens, a man looks out') reuses him in front of an ajar door instead of in the doorway. Close enough?"
+  },
+  {
+   "id": "S9",
+   "title": "Man with a box",
+   "cards": "main: s_seen_in–s_win_in2",
+   "plate": "P4",
+   "method": "pose",
+   "job": "Spotted inside: a 'stock man' who looks at you like no staff ever would.",
+   "attach": [
+    "assets/reference-plates/shop_stockroom_blank_plate.png"
+   ],
+   "prompt": "Attach: shop_stockroom_blank_plate.png.\nUsing the stockroom in shop_stockroom_blank_plate.png, add one man coming round the end of the left-hand shelving, mid-room: 40s, big, shaved head, a plain navy fleece zipped to the chin, no logo, dark work trousers. He holds a cardboard box in both arms and is starting to lower it, eyes fixed on the camera, face calm and hard. The cellar door at the far end stays visible.\nSame pixel-art style and scale as the scene. Change nothing else in the scene. Keep the exact image size.",
+   "saveAs": "assets/reference-plates/shop_stockroom_S9_man_with_box.png",
+   "unseen": "Other fleece men.",
+   "file": "assets/events/raid_shop/raid_shop_card25.png"
+  },
+  {
+   "id": "S10",
+   "title": "The shop's awake",
+   "cards": "main: s_alarm–s_alarm2 (returns at s_reinf, s_getaway)",
+   "plate": "P2",
+   "method": "pose",
+   "job": "The alarm has gone: witnesses leaving, the owner's men searching in the open.",
+   "attach": [
+    "assets/reference-plates/shop_floor_blank_plate.png",
+    "assets/reference-plates/shop_floor_S2_daniela_and_regular.png"
+   ],
+   "prompt": "Attach: shop_floor_blank_plate.png, shop_floor_S2_daniela_and_regular.png.\nUsing the shop in shop_floor_blank_plate.png, add:\n- Behind the counter, the woman from shop_floor_S2_daniela_and_regular.png (same face and cardigan), phone to her ear, other hand flat on the counter, looking up the aisle.\n- Near the camera, screen-left foreground, cropped at the shoulders: the older man in the flat cap hurrying out toward the door, back to us.\n- Up the aisle, centre: two men in a plain navy fleece zipped to the chin, no logo, dark work trousers, one looking down the aisle at the shelves, one turning toward the staff door. Searching, not yet seeing the camera.\nSame pixel-art style and scale as the scene. Change nothing else in the scene. Keep the exact image size.",
+   "saveAs": "assets/reference-plates/shop_floor_S10_shop_awake.png",
+   "unseen": "The player (nobody has found them yet).",
+   "file": "assets/events/raid_shop/raid_shop_card26.png, assets/events/raid_shop/raid_shop_card31.png, assets/events/raid_shop/raid_shop_card51.png"
+  },
+  {
+   "id": "S11",
+   "title": "The post",
+   "cards": "main: post–post3",
+   "plate": "P4",
+   "method": "pose",
+   "job": "The stockroom is a guard post in fleeces, between you and the cellar door.",
+   "attach": [
+    "assets/reference-plates/shop_stockroom_blank_plate.png",
+    "assets/reference-plates/shop_stockroom_S9_man_with_box.png"
+   ],
+   "prompt": "Attach: shop_stockroom_blank_plate.png, shop_stockroom_S9_man_with_box.png.\nUsing the stockroom in shop_stockroom_blank_plate.png, add three men in a plain navy fleece zipped to the chin, no logo, dark work trousers, standing mid-room in front of the cellar door, pretending to stack the already-full left shelving. One (the big man from shop_stockroom_S9_man_with_box.png) holds a box he isn't shelving. One leans on the water pallet screen-right. The third, nearest the cellar door, has turned his head and is looking straight at the camera. The cellar door is still visible between them.\nSame pixel-art style and scale as the scene. Change nothing else in the scene. Keep the exact image size.",
+   "saveAs": "assets/reference-plates/shop_stockroom_S11_the_post.png",
+   "unseen": "Weapons. The cellar beyond.",
+   "file": "assets/events/raid_shop/raid_shop_card28.png"
+  },
+  {
+   "id": "S12",
+   "title": "Daniela looks up",
+   "cards": "main: s_seen_till",
+   "plate": "P2",
+   "method": "pose",
+   "job": "The one witness who matters has seen you, and is reaching for the phone.",
+   "attach": [
+    "assets/reference-plates/shop_floor_blank_plate.png",
+    "assets/reference-plates/shop_floor_S2_daniela_and_regular.png"
+   ],
+   "prompt": "Attach: shop_floor_blank_plate.png, shop_floor_S2_daniela_and_regular.png.\nUsing the shop in shop_floor_blank_plate.png, add the woman from shop_floor_S2_daniela_and_regular.png behind the counter (same face, cardigan, lanyard). She has stopped scanning; head up, looking straight at the camera, flat and wary. Her right hand has gone down under the counter edge, out of sight. Keep the regular at the counter exactly as in shop_floor_S2_daniela_and_regular.png.\nSame pixel-art style and scale as the scene. Change nothing else in the scene. Keep the exact image size.",
+   "saveAs": "assets/reference-plates/shop_floor_S12_daniela_looks_up.png",
+   "unseen": "The phone itself (under the counter). Fleece men.",
+   "file": "assets/events/raid_shop/raid_shop_card40.png",
+   "reuse": "Regular: S2 cut-out unchanged"
+  },
+  {
+   "id": "S13",
+   "title": "Guards on their feet",
+   "cards": "main: s_room_guarded",
+   "plate": "P5",
+   "method": "pose",
+   "job": "The last room: the guards have stood up, and they're between you and the vein.",
+   "attach": [
+    "assets/reference-plates/shop_cellar_blank_plate.png",
+    "assets/reference-plates/shop_cellar_S6_guard_on_crate.png"
+   ],
+   "prompt": "Attach: shop_cellar_blank_plate.png, shop_cellar_S6_guard_on_crate.png.\nUsing the cellar in shop_cellar_blank_plate.png, add three men in a plain navy fleece zipped to the chin, no logo, dark work trousers, standing in the middle of the cellar between the camera and the crack in the floor, looking straight up at the camera on the stairs. Centre: the guard from shop_cellar_S6_guard_on_crate.png, now standing. Left: a lean man by the barrels. Right: a heavier man by the upturned crate. Weight forward, hands loose. The crack in the floor stays visible between their feet.\nSame pixel-art style and scale as the scene. Change nothing else in the scene. Keep the exact image size.",
+   "saveAs": "assets/reference-plates/shop_cellar_S13_guards_standing.png",
+   "unseen": "The player.",
+   "file": "assets/events/raid_shop/raid_shop_card45_<ore>.png (×5 ores)"
+  },
+  {
+   "id": "S14",
+   "title": "The vein, lit",
+   "cards": "main: s_claim_route–s_claim_a",
+   "plate": "P6a–P6e",
+   "method": "props",
+   "job": "The payoff: you've reached it, and it's alive. Claim or loot is decided over this image.",
+   "attach": [
+    "assets/reference-plates/shop_cellar_vein_insert_vein_time_blank_plate.png"
+   ],
+   "prompt": "No generation: the lit insert variant for the raid's ore (P6a–P6e) is the card.",
+   "saveAs": "(variant plates P6a–P6e)",
+   "unseen": "Anyone, any hand.",
+   "file": "assets/events/raid_shop/raid_shop_card47_<ore>.png (×5 ores)",
+   "canon": "Needs per-ore image selection at runtime (not supported yet)."
+  },
+  {
+   "id": "S18",
+   "title": "Result: vein harvested",
+   "cards": "main: s_claim › Loot and leave, s_claim_a › Loot and leave (choice results)",
+   "plate": "P6",
+   "method": "props",
+   "job": "The cost of looting: the light's gone out of it.",
+   "attach": [
+    "assets/reference-plates/shop_cellar_vein_insert_blank_plate.png"
+   ],
+   "prompt": "No generation: shop_cellar_vein_insert_blank_plate.png (dead crack) is the card.",
+   "saveAs": "assets/reference-plates/shop_cellar_vein_insert_blank_plate.png",
+   "unseen": "Any glow.",
+   "file": "assets/events/raid_shop/raid_shop_result_harvested.png",
+   "canon": "Choice-result image on both Loot options (JSON image key). 'Claim it' keeps the lit vein."
+  },
+  {
+   "id": "S19",
+   "title": "The cellar, vein lit",
+   "cards": "main: s_room, s_room_empty",
+   "plate": "P5a–P5e",
+   "method": "props",
+   "job": "Arrival in the last room: the vein glowing in the floor; then, if nobody's posted, the room stays empty.",
+   "attach": [
+    "assets/reference-plates/shop_cellar_vein_time_blank_plate.png"
+   ],
+   "prompt": "No generation: the lit cellar variant for the raid's ore (P5a–P5e) is the card.",
+   "saveAs": "(variant plates P5a–P5e)",
+   "unseen": "Guards (S13 cuts to them).",
+   "file": "assets/events/raid_shop/raid_shop_card44_<ore>.png (×5 ores)",
+   "canon": "Needs per-ore image selection at runtime (ticket pending)."
+  },
+  {
+   "id": "S15",
+   "title": "Result: smoker frozen",
+   "cards": "main: s_yard2 › Time Pearl: freeze him (choice result)",
+   "plate": "P3",
+   "method": "pose",
+   "job": "Payoff of a Time Pearl: the world stops mid-gesture; you walk past.",
+   "attach": [
+    "assets/reference-plates/shop_yard_blank_plate.png",
+    "assets/reference-plates/shop_yard_S4_smoker_watching_door.png"
+   ],
+   "prompt": "Attach: shop_yard_blank_plate.png, shop_yard_S4_smoker_watching_door.png.\nUsing the yard in shop_yard_blank_plate.png, add the man from shop_yard_S4_smoker_watching_door.png (same face, same fleece) beside the back door, frozen mid-gesture: lighter halfway to his mouth, flame a still, unmoving tongue, the smoke from his last drag hanging in the air in a motionless curl. Eyes half-blinked. Nothing glows or sparkles; it only looks stopped.\nSame pixel-art style and scale as the scene. Change nothing else in the scene. Keep the exact image size.",
+   "saveAs": "assets/reference-plates/shop_yard_S15_smoker_frozen.png",
+   "unseen": "The player, any visible time effect beyond stillness.",
+   "file": "assets/events/raid_shop/raid_shop_result_freeze_smoker.png",
+   "canon": "Choice-result image: needs an explicit image on that choice in raid_shop.json (JSON edit, your OK at placement)."
+  },
+  {
+   "id": "S16",
+   "title": "Result: flap blown",
+   "cards": "main: s_flap2 › Blast the flap (choice result)",
+   "plate": "P1",
+   "method": "pose",
+   "job": "The loud way on a busy street: everybody's turned round.",
+   "attach": [
+    "assets/reference-plates/shop_street_night_blank_plate.png",
+    "assets/reference-plates/shop_street_night_S7_bus_stop_woman_filming.png"
+   ],
+   "prompt": "Attach: shop_street_night_blank_plate.png, shop_street_night_S7_bus_stop_woman_filming.png.\nUsing the street in shop_street_night_blank_plate.png, change the cellar flaps: one is torn off and lying in two pieces on the wet pavement, the other bent up open, a dark hole beneath, grey dust and smoke still hanging over it, small debris across the pavement. Add the woman from shop_street_night_S7_bus_stop_woman_filming.png in the bus shelter screen-right, crouched, arm up over her head, phone still in her hand. Behind the shop window, the two customers have ducked. No fire, no flash.\nSame pixel-art style and scale as the scene. Change nothing else in the scene. Keep the exact image size.",
+   "saveAs": "assets/reference-plates/shop_street_night_S16_flap_blasted.png",
+   "unseen": "The player (already down the hole).",
+   "file": "assets/events/raid_shop/raid_shop_result_blast_flap.png",
+   "canon": "Choice-result image: needs an explicit image on that choice (JSON edit)."
+  },
+  {
+   "id": "S17",
+   "title": "Result: the post goes soft",
+   "cards": "main: post3 › Pan's Rapture (choice result)",
+   "plate": "P4",
+   "method": "pose",
+   "job": "Pan's Rapture: the guard post sits down in the stock and offers you a crisp.",
+   "attach": [
+    "assets/reference-plates/shop_stockroom_blank_plate.png",
+    "assets/reference-plates/shop_stockroom_S11_the_post.png"
+   ],
+   "prompt": "Attach: shop_stockroom_blank_plate.png, shop_stockroom_S11_the_post.png.\nUsing the stockroom in shop_stockroom_blank_plate.png, add the three men from shop_stockroom_S11_the_post.png (same faces and fleeces), now sitting on the stock, dreamy and smiling: one on the water pallet screen-right, one on an upturned crate, one cross-legged on the floor. The nearest holds an open packet of crisps out toward the camera, offering it, smiling vaguely. The cellar door behind them is unguarded. No glow, no effects; only their faces have changed.\nSame pixel-art style and scale as the scene. Change nothing else in the scene. Keep the exact image size.",
+   "saveAs": "assets/reference-plates/shop_stockroom_S17_post_soft.png",
+   "unseen": "The player, any magic effect.",
+   "file": "assets/events/raid_shop/raid_shop_result_pan_rapture.png",
+   "canon": "Choice-result image: needs an explicit image on that choice (JSON edit)."
+  }
+ ]
+}

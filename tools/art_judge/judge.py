@@ -166,12 +166,12 @@ def cast_of(shot):
 
 
 def cast_refs(ws, name):
+    """The character's master reference (`<Name>_reference.png`); falls back to the biz sprite master when absent."""
     d = os.path.join(ws.repo, "assets", "character-references", name)
-    found = sorted(glob.glob(os.path.join(d, "*_biz_sprite_master.png")))
     ref = os.path.join(d, "%s_reference.png" % name)
     if os.path.isfile(ref):
-        found.append(ref)
-    return found
+        return [ref]
+    return sorted(glob.glob(os.path.join(d, "*_biz_sprite_master.png")))
 
 
 def plate_path(ws, board, shot):
@@ -423,7 +423,9 @@ def build_judge_request(ws, board, shot, checklist, draft_path, style_images, st
     ]
     if cast_checked:
         lines.append("  cast: one score per name in %s for face, hair, outfit, build and signature items against that "
-                     "person's CAST REFERENCE images." % ", ".join(cast_checked))
+                     "person's CAST REFERENCE images. Judge the FACE first: face shape, eye size and spacing, brows, nose, beard "
+                     "and hair must look like the same person as the reference, not merely wear the same outfit. A face that "
+                     "reads as a different person caps that cast score at 2 even if outfit and style match." % ", ".join(cast_checked))
     if unchecked:
         lines.append("  Do NOT score %s (no reference image exists); omit them from cast." % ", ".join(unchecked))
     lines += ["", "Style card: %s" % (style_card or "(none supplied; use the style references)"), "",

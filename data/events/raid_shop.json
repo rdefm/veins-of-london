@@ -2779,20 +2779,16 @@
     { "key": "s_resume", "type": "tension", "label": null, "speaker": null, "text": "You give it a count of ten, and listen.", "goto": [{ "if": { "all": [{ "reinforcements": true }, { "flag": "sReinfOpen" }] }, "card": "s_reinf" }], "observe": null },
     { "key": "s_resume2", "type": "tension", "label": null, "speaker": null, "text": "Then you get on with it.", "goto": [{ "if": { "flag": "sAt_till" }, "card": "s_till" }, { "if": { "flag": "sAt_back" }, "card": "s_back" }, { "if": { "flag": "sAt_stairs" }, "card": "s_stairs_in" }, { "if": { "flag": "sAt_yard" }, "card": "s_yard" }, { "if": { "flag": "sAt_door" }, "card": "s_door" }, { "if": { "flag": "sAt_flap" }, "card": "s_flap" }, { "if": { "flag": "sAt_cellar" }, "card": "s_cellar" }], "observe": null },
     {
-      "key": "s_room", "type": "choice", "label": null, "speaker": null, "text": "The cellar: one bulb, old brick, barrels, and a vein humming in the floor you can feel through your shoes. Oh, and the guards now looking at you.",
+      "key": "s_room", "type": "tension", "label": null, "speaker": null, "text": "The cellar: one bulb, old brick, barrels, and a vein humming in the floor you can feel through your shoes.", "goto": [{ "if": { "security": { "feature": "guards", "atLeast": 1 } }, "card": "s_room_guarded" }, { "card": "s_room_empty" }], "observe": "cellar"
+    },
+    {
+      "key": "s_room_guarded", "type": "choice", "label": null, "speaker": null, "text": "Oh, and the guards are looking at you.",
       "choices": [
         {
           "label": "Fight for the room",
           "requires": { "security": { "feature": "guards", "atLeast": 1 }, "display": "hide" },
           "effects": [{ "op": "start_raid_combat", "preset": "veinGuards" }],
           "result_text": "They don't give it up.",
-          "goto": "s_claim_route"
-        },
-        {
-          "label": "Walk to the vein",
-          "requires": { "security": { "feature": "guards", "atMost": 0 }, "display": "hide" },
-          "effects": [],
-          "result_text": "Nobody's posted down here. You walk across to the vein.",
           "goto": "s_claim_route"
         },
         {
@@ -2846,6 +2842,13 @@
             { "item": "prophetsBreath", "optional": true, "label": "Prophet's Breath", "effect": { "kind": "unlock" } }
           ]
         }
+      ],
+      "observe": "cellar"
+    },
+    {
+      "key": "s_room_empty", "type": "choice", "label": null, "speaker": null, "text": "Nobody's posted down here.",
+      "choices": [
+        { "label": "Walk to the vein", "effects": [], "result_text": "You walk across to the vein.", "goto": "s_claim_route" }
       ],
       "observe": "cellar"
     },
@@ -2962,7 +2965,7 @@
       ],
       "observe": "cellar"
     },
-    { "key": "s_back_loud", "type": "tension", "label": null, "speaker": null, "text": "You're in the stockroom, and the yard door behind you is open to the night. The silence you hear is either completely normal, or the sound of alerted guards listening. Your paranoia makes it heard to know which.", "goto": [{ "if": { "all": [{ "alert": { "atLeast": 2 } }, { "security": { "feature": "guards", "atLeast": 1 } }] }, "card": "post" }, { "if": { "alert": { "atLeast": 2 } }, "card": "s_alarm" }], "observe": "stock" },
+    { "key": "s_back_loud", "type": "tension", "label": null, "speaker": null, "text": "You're in the stockroom, and the yard door behind you is open to the night. The silence you hear is either completely normal, or the sound of alerted guards listening. Your paranoia makes it hard to know which.", "goto": [{ "if": { "all": [{ "alert": { "atLeast": 2 } }, { "security": { "feature": "guards", "atLeast": 1 } }] }, "card": "post" }, { "if": { "alert": { "atLeast": 2 } }, "card": "s_alarm" }], "observe": "stock" },
     { "key": "s_back_in", "type": "tension", "label": null, "speaker": null, "text": "The stockroom: cages of crisps, a pallet of water, a mop in a bucket. The cellar door is at the far end. ", "goto": [{ "if": { "security": { "feature": "guards", "atLeast": 1 } }, "card": "post" }, { "card": "s_back" }], "observe": "stock" },
     { "key": "s_stairs_in", "type": "tension", "label": null, "speaker": null, "text": "The cellar door is behind a stack of empty crates. Warm air comes through the gap underneath it, and a hum you can feel in the floor. That's the vein.", "goto": [{ "if": { "security": { "feature": "ward", "atLeast": 1 } }, "card": "s_ward" }, { "card": "s_lock" }], "observe": "lock" },
     { "key": "s_out", "type": "tension", "label": null, "speaker": null, "text": "Outside, the bus stop queue hasn't moved and nobody's looking at you. The vein is still under the shop. It'll be there next time, and so will they.", "observe": null }
