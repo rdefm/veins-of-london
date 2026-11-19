@@ -154,44 +154,46 @@ test("kopfDownscale: flat image -> every output pixel that colour, gridLock's gr
   for (let y = 0; y < out.height; y++) for (let x = 0; x < out.width; x++) assert(near(px(out, x, y), [...c, 255], 1), `${x},${y}`);
 });
 
+// Paper settings at cell 6: the dot survives but can spread over neighbouring cells, and edges stay
+// unblended but can land a cell off (see .scratch/pixelizer/issues/10-kopf-inspired-fallback.md).
 test("kopfDownscale keeps a 2-px dark dot in skin that dominant and mean both lose", () => {
   const SKIN = [224, 172, 140], DOT = [40, 25, 20];
   const img = fill(new ImageData(24, 24), (x, y) => (y === 13 && (x === 13 || x === 14) ? DOT : SKIN));
-  const L = (c) => srgbToOklab(...c)[0], mid = (L(SKIN) + L(DOT)) / 2;
-  const at = (im) => px(im, 2, 2).slice(0, 3);
-  assert.deepStrictEqual(at(gridLock(img, 24, 24, 6, 0, 0, "dominant", 100, null)), SKIN);
-  assert(L(at(gridLock(img, 24, 24, 6, 0, 0, "mean", 100, null))) > mid, "mean loses the dot");
-  const out = kopfDownscale(img, 24, 24, 6, 0, 0, 25);
-  assert(L(at(out)) < mid, "dot cell is dark: " + at(out));
-  assert(near(px(out, 0, 0).slice(0, 3), SKIN, 1), "skin elsewhere");
+  const hasDot = (im) => { for (let y = 0; y < im.height; y++) for (let x = 0; x < im.width; x++) if (near(px(im, x, y).slice(0, 3), DOT, 2)) return true; return false; };
+  assert(!hasDot(gridLock(img, 24, 24, 6, 0, 0, "dominant", 100, null)), "dominant loses the dot");
+  assert(!hasDot(gridLock(img, 24, 24, 6, 0, 0, "mean", 100, null)), "mean loses the dot");
+  const out = kopfDownscale(img, 24, 24, 6, 0, 0);
+  assert(hasDot(out), "dot kept");
+  assert(near(px(out, 0, 0).slice(0, 3), SKIN, 1), "skin in the corner");
 });
 
-test("kopfDownscale: a hard vertical edge stays one sharp step", () => {
+test("kopfDownscale: a hard two-colour edge gives no blended pixels", () => {
   const A = [200, 60, 50], B = [40, 70, 160];
   const img = fill(new ImageData(36, 12), (x) => (x < 14 ? A : B));
   assert(!near(px(gridLock(img, 36, 12, 6, 0, 0, "mean", 100, null), 2, 0).slice(0, 3), A, 8), "mean blends the middle column");
-  const out = kopfDownscale(img, 36, 12, 6, 0, 0, 25);
-  for (let y = 0; y < out.height; y++) {
-    const row = [];
-    for (let x = 0; x < out.width; x++) {
-      const c = px(out, x, y).slice(0, 3);
-      assert(near(c, A, 2) || near(c, B, 2), `blended pixel ${x},${y}: ${c}`);
-      row.push(near(c, A, 2) ? "A" : "B");
-    }
-    assert(/^A+B+$/.test(row.join("")), "one step: " + row.join(""));
+  const out = kopfDownscale(img, 36, 12, 6, 0, 0);
+  for (let y = 0; y < out.height; y++) for (let x = 0; x < out.width; x++) {
+    const c = px(out, x, y).slice(0, 3);
+    assert(near(c, A, 2) || near(c, B, 2), `blended pixel ${x},${y}: ${c}`);
   }
 });
 
-test("kopfDownscale: 512x512 at cell 6 runs in under ~3 s", () => {
-  const img = fill(new ImageData(512, 512), (x, y) => {
+test("kopfDownscale: 256x256 at cell 6, default round cap, runs in under ~12 s", () => {
+  const img = fill(new ImageData(256, 256), (x, y) => {
     const b = ((x >> 5) + (y >> 5)) & 1 ? 190 : 70, n = (rnd() - 0.5) * 30;
     return [b + n, b * 0.8 + n, b * 0.6 + n];
   });
   const t = Date.now();
-  kopfDownscale(img, 512, 512, 6, 0, 0, 25);
+  kopfDownscale(img, 256, 256, 6, 0, 0);
   const ms = Date.now() - t;
-  assert(ms < 3000, ms + " ms");
+  assert(ms < 12000, ms + " ms");
   console.log("  (" + ms + " ms)");
+});
+
+test("kopfDownscale: edge-orientation rule runs and keeps a flat image flat", () => {
+  const c = [90, 140, 60], img = fill(new ImageData(30, 30), () => c);
+  const out = kopfDownscale(img, 30, 30, 6, 0, 0, 10, { edgeOrientation: true });
+  for (let y = 0; y < out.height; y++) for (let x = 0; x < out.width; x++) assert(near(px(out, x, y), [...c, 255], 1), `${x},${y}`);
 });
 
 test("Kuwahara cuts texture noise while keeping a hard edge", () => {

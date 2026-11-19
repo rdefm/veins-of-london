@@ -416,132 +416,175 @@ function gridLock(src, w, h, cell, ox, oy, mode, core, outline, follow) {
 }
 
 /**
- * Content-adaptive downscale (Kopf, Shamir & Peers 2013, "Content-adaptive image downscaling", Alg. 1).
- * One output pixel per cell of the plain grid `gridLock` uses; each is a 2D Gaussian kernel in source
- * space (centre, covariance, OKLab colour) fitted by EM: E-step weights source pixels per kernel
- * (normalised over the kernel's pixels, then shared out across the kernels competing for each pixel),
- * M-step refits centre, covariance and colour, C-step clamps covariance eigenvalues and pulls each
- * centre towards its neighbours while keeping it inside its own cell. Cells mostly transparent come
- * out transparent; transparent pixels take no part in the fit.
+ * Content-adaptive downscale (Kopf, Shamir & Peers 2013, "Content-adaptive image downscaling", §3–4 and
+ * its supplementary pseudocode). One output pixel per cell of the plain grid `gridLock` uses; each is a
+ * bilateral Gaussian kernel (spatial mean/covariance in source px, colour mean, colour sigma) fitted by EM
+ * with a correction step after every M-step:
+ *   E: w_k(i) (eq. 2–4) normalised over R_k, then gamma_k(i) = w_k(i) / sum_n w_n(i) (eq. 7)
+ *   M: mu (eq. 8), Sigma about the new mu (eq. 9), nu (eq. 10)
+ *   C: mu halfway to its 4-neighbours' mean, clamped to the cell centre ± r/4 (eq. 11); Sigma's
+ *      eigenvalues clamped to [0.05, 0.1] (eq. 12); sigma_k and the neighbour's ×1.1 when a directional
+ *      variance exceeds 0.2 r (eq. 13); optional edge-orientation rule (§4.2), off unless
+ *      opts.edgeOrientation — the paper turns it off for pixel art (§5.1).
+ * Stops once a round changes nothing, after at most `iterations` rounds (§5.3).
+ * Readings where the paper gives no unit or scale: the eq. 12 clamp and the eq. 13 offsets are in output
+ * pixels (cells); colour is OKLab, so "middle grey" is (0.5, 0, 0) and sigma_k starts at 1e-4 as printed.
+ * Pixel positions are integer source coordinates and R_k is |x - x_k| < 2r, |y - y_k| < 2r (pseudocode,
+ * Fig. 1). Transparent pixels take no part; a mostly transparent cell gives a transparent pixel and its
+ * kernel is left out.
  */
-function kopfDownscale(src, w, h, cell, ox, oy, iterations = 25) {
-  const xs = cellEdges(w, cell, ox), ys = cellEdges(h, cell, oy);
-  const nx = Math.max(1, xs.length), ny = Math.max(1, ys.length), K = xs.length * ys.length;
-  const out = new ImageData(nx, ny);
+function kopfDownscale(src, w, h, cell, ox, oy, iterations = 50, opts = {}) {
+  const xs = cellEdges(w, cell, ox), ys = cellEdges(h, cell, oy), XW = xs.length, YH = ys.length;
+  const out = new ImageData(Math.max(1, XW), Math.max(1, YH));
+  const K = XW * YH;
   if (!K) return out;
-  const d = src.data, N = w * h;
-  // Per-pixel OKLab, opaque mask.
-  const lab = new Float32Array(N * 3), op = new Uint8Array(N);
+  const r = cell, r2 = r * r, d = src.data, N = w * h, edgeRule = !!opts.edgeOrientation;
+  const lab = new Float64Array(N * 3), op = new Uint8Array(N);
   for (let p = 0, i = 0; p < N; p++, i += 4) {
     if (d[i + 3] < ALPHA_MIN) continue;
     op[p] = 1;
     const c = srgbToOklab(d[i], d[i + 1], d[i + 2]);
     lab[p * 3] = c[0]; lab[p * 3 + 1] = c[1]; lab[p * 3 + 2] = c[2];
   }
-  // Alg. 1 C-step eigenvalue clamp [0.05, 0.1], read as output-pixel units (cell²) — picked reading; it
-  // brackets the initial r/3 variance at cell ~6.
-  const cw = Math.max(1, cell), lmin = 0.05 * cw * cw, lmax = 0.1 * cw * cw;
-  // Kernel k's region (Alg. 1: the pixels it competes for) is its cell plus the 8 neighbouring cells;
-  // each pass only visits the part within 3 sigma_max of its centre (the rest weighs < e^-4.5).
-  const R = 3 * Math.sqrt(lmax), win = 2 * Math.ceil(R) + 2;
-  const rx0 = new Int32Array(K), rx1 = new Int32Array(K), ry0 = new Int32Array(K), ry1 = new Int32Array(K), off = new Int32Array(K + 1);
-  const bx0 = new Int32Array(K), bx1 = new Int32Array(K), by0 = new Int32Array(K), by1 = new Int32Array(K);
+  const xk = new Float64Array(K), yk = new Float64Array(K), alive = new Uint8Array(K);
+  const rx0 = new Int32Array(K), rx1 = new Int32Array(K), ry0 = new Int32Array(K), ry1 = new Int32Array(K), off = new Float64Array(K + 1);
   const mx = new Float64Array(K), my = new Float64Array(K), s11 = new Float64Array(K), s12 = new Float64Array(K), s22 = new Float64Array(K);
-  const cL = new Float64Array(K), cA = new Float64Array(K), cB = new Float64Array(K), alive = new Uint8Array(K);
-  const ccx = new Float64Array(K), ccy = new Float64Array(K);
-  for (let cy = 0; cy < ys.length; cy++) for (let cx = 0; cx < xs.length; cx++) {
-    const k = cy * xs.length + cx, [x0, x1] = xs[cx], [y0, y1] = ys[cy];
-    rx0[k] = xs[Math.max(0, cx - 1)][0]; rx1[k] = xs[Math.min(xs.length - 1, cx + 1)][1];
-    ry0[k] = ys[Math.max(0, cy - 1)][0]; ry1[k] = ys[Math.min(ys.length - 1, cy + 1)][1];
-    off[k + 1] = off[k] + Math.min(win, rx1[k] - rx0[k]) * Math.min(win, ry1[k] - ry0[k]);
-    ccx[k] = mx[k] = (x0 + x1) / 2; ccy[k] = my[k] = (y0 + y1) / 2;
-    // Alg. 1 initial covariance: diag(r_x/3, r_y/3), within the clamp.
-    s11[k] = Math.min(lmax, Math.max(lmin, (x1 - x0) / 3)); s22[k] = Math.min(lmax, Math.max(lmin, (y1 - y0) / 3)); s12[k] = 0;
-    // Initial colour: the cell's pixel farthest (OKLab) from the cell mean (picked; Alg. 1 starts from
-    // mid-grey). The fit is bistable — a kernel started on a high-contrast minority (an eye) keeps it,
-    // one started on the majority averages it away — and a low-contrast outlier relaxes back to the mean.
-    let opq = 0, mL = 0, mA = 0, mB = 0;
-    for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
-      const p = y * w + x;
-      if (!op[p]) continue;
-      opq++; mL += lab[p * 3]; mA += lab[p * 3 + 1]; mB += lab[p * 3 + 2];
-    }
+  const cL = new Float64Array(K), cA = new Float64Array(K), cB = new Float64Array(K), sig = new Float64Array(K);
+  // Integer coordinates c with |c - centre| < 2r, inside [0, len).
+  const span = (centre, len) => {
+    let a = Math.max(0, Math.ceil(centre - 2 * r)), b = Math.min(len, Math.floor(centre + 2 * r) + 1);
+    if (centre - a >= 2 * r) a++;
+    if (b - 1 - centre >= 2 * r) b--;
+    return [a, b];
+  };
+  for (let cy = 0; cy < YH; cy++) for (let cx = 0; cx < XW; cx++) {
+    const k = cy * XW + cx, [x0, x1] = xs[cx], [y0, y1] = ys[cy];
+    // (x_k, y_k): centre of the output pixel in source coordinates (eq. 6).
+    xk[k] = (x0 + x1) / 2; yk[k] = (y0 + y1) / 2;
+    [rx0[k], rx1[k]] = span(xk[k], w); [ry0[k], ry1[k]] = span(yk[k], h);
+    off[k + 1] = off[k] + (rx1[k] - rx0[k]) * (ry1[k] - ry0[k]);
+    let opq = 0;
+    for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) opq += op[y * w + x];
     alive[k] = opq * 2 >= (x1 - x0) * (y1 - y0) ? 1 : 0;
-    if (opq) { mL /= opq; mA /= opq; mB /= opq; }
-    let best = -1, bd = -1;
-    for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
-      const p = y * w + x;
-      if (!op[p]) continue;
-      const dd = (lab[p * 3] - mL) ** 2 + (lab[p * 3 + 1] - mA) ** 2 + (lab[p * 3 + 2] - mB) ** 2;
-      if (dd > bd + 1e-12) { bd = dd; best = p; }
-    }
-    if (best >= 0) { cL[k] = lab[best * 3]; cA[k] = lab[best * 3 + 1]; cB[k] = lab[best * 3 + 2]; }
+    // Eq. 6 initialisation.
+    mx[k] = xk[k]; my[k] = yk[k];
+    s11[k] = r / 3; s22[k] = r / 3; s12[k] = 0;
+    cL[k] = 0.5; cA[k] = 0; cB[k] = 0;
+    sig[k] = 1e-4;
   }
-  // Colour sigma in OKLab units (picked: the paper's range sigma is for CIELAB; 0.08 is roughly a
-  // just-clearly-different step in OKLab lightness).
-  const inv2sr = 1 / (2 * 0.08 * 0.08);
-  const wt = new Float32Array(off[K]), S = new Float32Array(N);
+  // gamma per (kernel, pixel in R_k); holds log-weights during the E-step.
+  const gam = new Float32Array(off[K]), M = new Float64Array(N), S = new Float64Array(N);
+  const lmin = 0.05 * r2, lmax = 0.1 * r2;
+  const nbrs = (cx, cy, eight) => {
+    const res = [];
+    for (let ey = -1; ey <= 1; ey++) for (let ex = -1; ex <= 1; ex++) {
+      if (!ex && !ey) continue;
+      if (!eight && ex && ey) continue;
+      const nx = cx + ex, ny = cy + ey;
+      if (nx < 0 || ny < 0 || nx >= XW || ny >= YH || !alive[ny * XW + nx]) continue;
+      res.push([ny * XW + nx, ex, ey]);
+    }
+    return res;
+  };
+  const N4 = [], N8 = [];
+  for (let cy = 0; cy < YH; cy++) for (let cx = 0; cx < XW; cx++) { N4.push(nbrs(cx, cy, false)); N8.push(nbrs(cx, cy, true)); }
+  // gamma_n at source pixel (x, y), 0 outside R_n.
+  const gAt = (n, x, y) => (x < rx0[n] || x >= rx1[n] || y < ry0[n] || y >= ry1[n]) ? 0
+    : gam[off[n] + (y - ry0[n]) * (rx1[n] - rx0[n]) + (x - rx0[n])];
+  const params = [mx, my, s11, s12, s22, cL, cA, cB, sig], prev = params.map((a) => new Float64Array(K));
+  const snapshot = () => params.forEach((a, j) => prev[j].set(a));
   for (let it = 0; it < iterations; it++) {
-    // E-step.
-    S.fill(0);
+    snapshot();
+    // ---- E-step ----
+    M.fill(-Infinity); S.fill(0);
     for (let k = 0; k < K; k++) {
       if (!alive[k]) continue;
       const det = s11[k] * s22[k] - s12[k] * s12[k];
       const i11 = 0.5 * s22[k] / det, i12 = -s12[k] / det, i22 = 0.5 * s11[k] / det;
-      const mxk = mx[k], myk = my[k], lk = cL[k], ak = cA[k], bk = cB[k];
-      const X0 = Math.max(rx0[k], Math.floor(mxk - R)), Y0 = Math.max(ry0[k], Math.floor(myk - R));
-      const X1 = Math.min(rx1[k], X0 + win, Math.ceil(mxk + R)), Y1 = Math.min(ry1[k], Y0 + win, Math.ceil(myk + R));
-      bx0[k] = X0; bx1[k] = X1; by0[k] = Y0; by1[k] = Y1;
-      // Exponents are <= 0; weights below e^-60 are taken as 0 (they cannot matter after normalising
-      // unless every weight is that small, in which case the pass reruns shifted by the largest exponent).
-      let sum = 0, shift = 0;
-      for (let pass = 0; pass < 2 && sum <= 1e-200; pass++) {
-        let q = off[k], mxE = -Infinity;
-        sum = 0;
-        for (let y = Y0; y < Y1; y++) {
-          const dy = y + 0.5 - myk, row = y * w, ey = i22 * dy * dy, cy2 = i12 * dy;
-          for (let x = X0; x < X1; x++, q++) {
-            const p = row + x;
-            if (!op[p]) { wt[q] = 0; continue; }
-            const dx = x + 0.5 - mxk, p3 = p * 3;
-            const dl = lab[p3] - lk, da = lab[p3 + 1] - ak, db = lab[p3 + 2] - bk;
-            const e = shift - (i11 * dx * dx + cy2 * dx + ey) - (dl * dl + da * da + db * db) * inv2sr;
-            if (e > mxE) mxE = e;
-            const v = e < -60 ? 0 : Math.exp(e);
-            wt[q] = v; sum += v;
-          }
-        }
-        shift = -mxE;
-      }
-      if (sum <= 0) continue;
-      const inv = 1 / sum;
-      let q = off[k];
+      const mxk = mx[k], myk = my[k], lk = cL[k], ak = cA[k], bk = cB[k], ic = 1 / (2 * sig[k] * sig[k]);
+      const X0 = rx0[k], X1 = rx1[k], Y0 = ry0[k], Y1 = ry1[k];
+      // log w_k(i) up to a constant: largest value first, then the normalising sum (eq. 2) in log space.
+      let mxE = -Infinity;
       for (let y = Y0; y < Y1; y++) {
-        const row = y * w;
-        for (let x = X0; x < X1; x++, q++) if (wt[q]) { wt[q] *= inv; S[row + x] += wt[q]; }
+        const dy = y - myk, ey = i22 * dy * dy, cy2 = i12 * dy;
+        for (let x = X0; x < X1; x++) {
+          const p = y * w + x;
+          if (!op[p]) continue;
+          const dx = x - mxk, p3 = p * 3, dl = lab[p3] - lk, da = lab[p3 + 1] - ak, db = lab[p3 + 2] - bk;
+          const e = -(i11 * dx * dx + cy2 * dx + ey) - (dl * dl + da * da + db * db) * ic;
+          if (e > mxE) mxE = e;
+        }
+      }
+      let q = off[k], sum = 0;
+      for (let y = Y0; y < Y1; y++) {
+        const dy = y - myk, ey = i22 * dy * dy, cy2 = i12 * dy;
+        for (let x = X0; x < X1; x++, q++) {
+          const p = y * w + x;
+          if (!op[p]) { gam[q] = -Infinity; continue; }
+          const dx = x - mxk, p3 = p * 3, dl = lab[p3] - lk, da = lab[p3 + 1] - ak, db = lab[p3 + 2] - bk;
+          const v = -(i11 * dx * dx + cy2 * dx + ey) - (dl * dl + da * da + db * db) * ic - mxE;
+          gam[q] = v;
+          if (v > -100) sum += Math.exp(v);
+        }
+      }
+      const ls = Math.log(sum);
+      q = off[k];
+      for (let y = Y0; y < Y1; y++) for (let x = X0; x < X1; x++, q++) {
+        const v = gam[q] - ls, p = y * w + x;
+        gam[q] = v;
+        if (v > M[p]) M[p] = v;
       }
     }
-    // M-step.
+    for (let k = 0; k < K; k++) {
+      if (!alive[k]) continue;
+      let q = off[k];
+      for (let y = ry0[k]; y < ry1[k]; y++) for (let x = rx0[k]; x < rx1[k]; x++, q++) {
+        const p = y * w + x, v = gam[q] - M[p];
+        if (v > -100) S[p] += Math.exp(v);
+      }
+    }
+    for (let k = 0; k < K; k++) {
+      if (!alive[k]) continue;
+      let q = off[k];
+      for (let y = ry0[k]; y < ry1[k]; y++) for (let x = rx0[k]; x < rx1[k]; x++, q++) {
+        const p = y * w + x, v = gam[q] - M[p];
+        gam[q] = v > -100 ? Math.exp(v) / S[p] : 0;
+      }
+    }
+    // ---- M-step ----
     for (let k = 0; k < K; k++) {
       if (!alive[k]) continue;
       let g = 0, sx = 0, sy = 0, sxx = 0, sxy = 0, syy = 0, sl = 0, sa = 0, sb = 0, q = off[k];
-      for (let y = by0[k]; y < by1[k]; y++) {
-        const py = y + 0.5;
-        for (let x = bx0[k]; x < bx1[k]; x++, q++) {
-          const p = y * w + x;
-          if (!wt[q] || !S[p]) continue;
-          const gm = wt[q] / S[p], px = x + 0.5, p3 = p * 3;
-          g += gm; sx += gm * px; sy += gm * py;
-          sxx += gm * px * px; sxy += gm * px * py; syy += gm * py * py;
-          sl += gm * lab[p3]; sa += gm * lab[p3 + 1]; sb += gm * lab[p3 + 2];
-        }
+      for (let y = ry0[k]; y < ry1[k]; y++) for (let x = rx0[k]; x < rx1[k]; x++, q++) {
+        const gm = gam[q];
+        if (!gm) continue;
+        const p3 = (y * w + x) * 3;
+        g += gm; sx += gm * x; sy += gm * y;
+        sxx += gm * x * x; sxy += gm * x * y; syy += gm * y * y;
+        sl += gm * lab[p3]; sa += gm * lab[p3 + 1]; sb += gm * lab[p3 + 2];
       }
-      if (g <= 1e-9) continue;
+      if (g <= 1e-12) continue;
       mx[k] = sx / g; my[k] = sy / g;
       s11[k] = sxx / g - mx[k] * mx[k]; s12[k] = sxy / g - mx[k] * my[k]; s22[k] = syy / g - my[k] * my[k];
       cL[k] = sl / g; cA[k] = sa / g; cB[k] = sb / g;
     }
-    // C-step: clamp covariance eigenvalues (2x2 symmetric, closed form).
+    // ---- C-step ----
+    // Spatial constraints (eq. 11).
+    const bx = new Float64Array(K), by = new Float64Array(K);
+    for (let k = 0; k < K; k++) {
+      if (!alive[k]) continue;
+      const nb = N4[k];
+      if (!nb.length) { bx[k] = mx[k]; by[k] = my[k]; continue; }
+      let ax = 0, ay = 0;
+      for (const [n] of nb) { ax += mx[n]; ay += my[n]; }
+      bx[k] = ax / nb.length; by[k] = ay / nb.length;
+    }
+    for (let k = 0; k < K; k++) {
+      if (!alive[k]) continue;
+      mx[k] = Math.min(xk[k] + r / 4, Math.max(xk[k] - r / 4, 0.5 * mx[k] + 0.5 * bx[k]));
+      my[k] = Math.min(yk[k] + r / 4, Math.max(yk[k] - r / 4, 0.5 * my[k] + 0.5 * by[k]));
+    }
+    // Spatial variance (eq. 12): eigenvalues clamped, in cells².
     for (let k = 0; k < K; k++) {
       if (!alive[k]) continue;
       const a = s11[k], b = s12[k], c = s22[k], tr = (a + c) / 2, rad = Math.sqrt(((a - c) / 2) ** 2 + b * b);
@@ -549,26 +592,50 @@ function kopfDownscale(src, w, h, cell, ox, oy, iterations = 25) {
       const th = 0.5 * Math.atan2(2 * b, a - c), co = Math.cos(th), si = Math.sin(th);
       s11[k] = l1 * co * co + l2 * si * si; s22[k] = l1 * si * si + l2 * co * co; s12[k] = (l1 - l2) * co * si;
     }
-    // C-step spatial smoothness: centre offset (from its cell centre) averaged half-and-half with the mean
-    // offset of its 4-neighbours (offsets, not positions, so border kernels aren't pulled inwards), then
-    // clamped to stay inside its own cell.
-    const nmx = Float64Array.from(mx), nmy = Float64Array.from(my);
-    for (let cy = 0; cy < ys.length; cy++) for (let cx = 0; cx < xs.length; cx++) {
-      const k = cy * xs.length + cx;
+    // Shape constraints (§4.2): sigma_k changes are collected, then applied, so the order kernels are
+    // visited in does not matter.
+    const grow = new Float64Array(K);
+    for (let cy = 0; cy < YH; cy++) for (let cx = 0; cx < XW; cx++) {
+      const k = cy * XW + cx;
       if (!alive[k]) continue;
-      let ax = 0, ay = 0, n = 0;
-      for (const [ex, ey] of [[cx - 1, cy], [cx + 1, cy], [cx, cy - 1], [cx, cy + 1]]) {
-        if (ex < 0 || ey < 0 || ex >= xs.length || ey >= ys.length) continue;
-        const m = ey * xs.length + ex;
-        if (!alive[m]) continue;
-        ax += mx[m] - ccx[m]; ay += my[m] - ccy[m]; n++;
+      // Locality, eq. 13: directional variance towards each 8-neighbour, offsets in cells.
+      const nb = N8[k], s = new Float64Array(nb.length);
+      let q = off[k];
+      for (let y = ry0[k]; y < ry1[k]; y++) for (let x = rx0[k]; x < rx1[k]; x++, q++) {
+        const gm = gam[q];
+        if (!gm) continue;
+        const ux = (x - mx[k]) / r, uy = (y - my[k]) / r;
+        for (let j = 0; j < nb.length; j++) { const t = ux * nb[j][1] + uy * nb[j][2]; if (t > 0) s[j] += gm * t * t; }
       }
-      let dx = mx[k] - ccx[k], dy = my[k] - ccy[k];
-      if (n) { dx = 0.5 * (dx + ax / n); dy = 0.5 * (dy + ay / n); }
-      nmx[k] = Math.min(xs[cx][1], Math.max(xs[cx][0], ccx[k] + dx));
-      nmy[k] = Math.min(ys[cy][1], Math.max(ys[cy][0], ccy[k] + dy));
+      for (let j = 0; j < nb.length; j++) if (s[j] > 0.2 * r) { grow[k]++; grow[nb[j][0]]++; }
+      if (!edgeRule) continue;
+      // Edge orientation: 4-neighbours with an abrupt transition (f < 0.08 r_x r_y) whose edge direction
+      // (summed gradient of gamma_k / (gamma_k + gamma_n)) is more than 25° off the pixel edge's.
+      for (const [n, ex, ey] of N4[k]) {
+        let f = 0, ogx = 0, ogy = 0;
+        q = off[k];
+        const W = rx1[k] - rx0[k];
+        for (let y = ry0[k]; y < ry1[k]; y++) for (let x = rx0[k]; x < rx1[k]; x++, q++) {
+          const gk = gam[q], gn = gAt(n, x, y);
+          f += gk * gn;
+          if (gk + gn <= 0) continue;
+          const t = gk / (gk + gn);
+          if (x + 1 < rx1[k]) { const gk2 = gam[q + 1], gn2 = gAt(n, x + 1, y); if (gk2 + gn2 > 0) ogx += gk2 / (gk2 + gn2) - t; }
+          if (y + 1 < ry1[k]) { const gk2 = gam[q + W], gn2 = gAt(n, x, y + 1); if (gk2 + gn2 > 0) ogy += gk2 / (gk2 + gn2) - t; }
+        }
+        const on = Math.hypot(ogx, ogy);
+        if (f >= 0.08 * r2 || !on) continue;
+        // Angle between the two edges' normals as lines (the gradient points back towards k).
+        const cos = Math.abs(ogx * ex + ogy * ey) / (on * Math.hypot(ex, ey));
+        if (cos < Math.cos(25 * Math.PI / 180)) { grow[k]++; grow[n]++; }
+      }
     }
-    mx.set(nmx); my.set(nmy);
+    // §4.2: each kernel matching a condition gets sigma_k +10% once per step (the pseudocode instead
+    // multiplies once per matching neighbour pair).
+    for (let k = 0; k < K; k++) if (grow[k]) sig[k] *= 1.1;
+    // Converged: no parameter moved (beyond float noise) this round.
+    const moved = params.some((a, j) => a.some((v, k) => alive[k] && Math.abs(v - prev[j][k]) > 1e-6 * Math.max(1, Math.abs(v))));
+    if (!moved) break;
   }
   const o = out.data;
   for (let k = 0; k < K; k++) {
