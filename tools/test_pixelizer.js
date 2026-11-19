@@ -190,6 +190,15 @@ test("kopfDownscale: 256x256 at cell 6, default round cap, runs in under ~12 s",
   console.log("  (" + ms + " ms)");
 });
 
+test("kopfDownscale reports each round to opts.onProgress (round, cap), stopping at convergence", () => {
+  const img = fill(new ImageData(24, 24), (x, y) => (x < 12 ? [200, 60, 60] : [40, 40, 160]));
+  const seen = [];
+  const out = kopfDownscale(img, 24, 24, 6, 0, 0, 30, { onProgress: (i, n) => seen.push([i, n]) });
+  assert(seen.length >= 1 && seen.length <= 30, "rounds " + seen.length);
+  seen.forEach(([i, n], j) => { assert.strictEqual(i, j + 1); assert.strictEqual(n, 30); });
+  assert.strictEqual(out.width, 4);
+});
+
 test("kopfDownscale: edge-orientation rule runs and keeps a flat image flat", () => {
   const c = [90, 140, 60], img = fill(new ImageData(30, 30), () => c);
   const out = kopfDownscale(img, 30, 30, 6, 0, 0, 10, { edgeOrientation: true });

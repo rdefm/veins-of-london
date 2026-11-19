@@ -25,6 +25,7 @@
   button { background: #2f2f37; color: var(--text); border: 1px solid var(--line); border-radius: 4px; padding: 5px 9px; cursor: pointer; }
   button:hover { border-color: var(--accent); }
   button.primary { background: var(--accent); color: #111; border-color: var(--accent); }
+  .dim, input:disabled { opacity: 0.4; }
   .seg { display: flex; }
   .seg button { flex: 1; border-radius: 0; }
   .seg button:first-child { border-radius: 4px 0 0 4px; }
@@ -130,10 +131,16 @@
     <div class="seg" id="modeSeg">
       <button data-v="dominant" class="on">Dominant</button>
       <button data-v="mean">Average</button>
+      <button data-v="detail">Detail</button>
     </div>
     <label for="coreRange">Sample core of cell: <span id="coreOut">100</span>%</label>
     <input type="range" id="coreRange" min="30" max="100" step="5" value="100" style="width:100%">
     <p class="hint">Below 100% ignores the fuzzy borders between AI "pixels".</p>
+    <div id="itersBox" class="hidden">
+      <label for="itersRange">Detail rounds (max): <span id="itersOut">50</span></label>
+      <input type="range" id="itersRange" min="5" max="100" step="5" value="50" style="width:100%">
+    </div>
+    <p class="hint">Detail fits each art pixel to the shapes under it (content-adaptive downscale), so small features like eyes survive. Slow on big images; outline share and sample core don't apply, and edge-following is ignored.</p>
   </fieldset>
 
   <fieldset>
@@ -224,7 +231,7 @@
 const $ = (id) => document.getElementById(id);
 const S = {
   img: null, name: "image", src: null, w: 0, h: 0,   // src: ImageData of the source
-  cell: 4, ox: 0, oy: 0, mode: "dominant", core: 100,
+  cell: 4, ox: 0, oy: 0, mode: "dominant", core: 100, kopfIters: 50,
   colours: "off", n: 32, palette: null, paletteName: "",
   view: "both", grid: true, zoom: 1,
   contrast: 0, sat: 0, smooth: "off", radius: 2, showClean: true,
@@ -426,7 +433,8 @@ function gridLock(src, w, h, cell, ox, oy, mode, core, outline, follow) {
  *      eigenvalues clamped to [0.05, 0.1] (eq. 12); sigma_k and the neighbour's ×1.1 when a directional
  *      variance exceeds 0.2 r (eq. 13); optional edge-orientation rule (§4.2), off unless
  *      opts.edgeOrientation — the paper turns it off for pixel art (§5.1).
- * Stops once a round changes nothing, after at most `iterations` rounds (§5.3).
+ * Stops once a round changes nothing, after at most `iterations` rounds (§5.3); opts.onProgress(round,
+ * iterations) is called after each round.
  * Readings where the paper gives no unit or scale: the eq. 12 clamp and the eq. 13 offsets are in output
  * pixels (cells); colour is OKLab, so "middle grey" is (0.5, 0, 0) and sigma_k starts at 1e-4 as printed.
  * Pixel positions are integer source coordinates and R_k is |x - x_k| < 2r, |y - y_k| < 2r (pseudocode,
@@ -635,6 +643,7 @@ function kopfDownscale(src, w, h, cell, ox, oy, iterations = 50, opts = {}) {
     for (let k = 0; k < K; k++) if (grow[k]) sig[k] *= 1.1;
     // Converged: no parameter moved (beyond float noise) this round.
     const moved = params.some((a, j) => a.some((v, k) => alive[k] && Math.abs(v - prev[j][k]) > 1e-6 * Math.max(1, Math.abs(v))));
+    if (opts.onProgress) opts.onProgress(it + 1, iterations);
     if (!moved) break;
   }
   const o = out.data;
@@ -1005,7 +1014,7 @@ function cleaned() {
 
 /** Edge-following settings for the maths, or null when off. Profile is cached per loaded image. */
 function followOpts() {
-  if (!S.follow || !S.src) return null;
+  if (!S.follow || !S.src || S.mode === "detail") return null;   // Detail fits its own kernels on the plain grid
   if (S.profSrc !== S.src) { S.prof = edgeProfile(S.src, S.w, S.h); S.profSrc = S.src; }
   return { prof: S.prof, shift: S.followShift };
 }
@@ -1016,17 +1025,82 @@ function showBefore() {
   $("beforeTag").textContent = S.showClean && S.pre !== S.src ? "before (cleaned)" : "before";
 }
 
+// Detail mode: kopfDownscale runs in a Web Worker built from the maths section above. The last result is
+// cached per (cleaned source, cell, offset, rounds) so later pipeline steps re-apply without a rerun; a
+// changed key terminates the running worker and starts again.
+const MATHS = (() => {
+  const t = document.currentScript.textContent;
+  return t.slice(t.indexOf("/* ---------- Image maths (pure) ---------- */"), t.indexOf("/* ---------- End image maths ---------- */"));
+})();
+const KOPF = { worker: null, runSrc: null, runKey: "", src: null, key: "", out: null, noWorker: false, url: "" };
+const WORKER_MAIN = `
+onmessage = (e) => {
+  const { src, w, h, cell, ox, oy, iters } = e.data;
+  const out = kopfDownscale(src, w, h, cell, ox, oy, iters, { onProgress: (i, n) => postMessage({ progress: i, n }) });
+  postMessage({ data: out.data, w: out.width, h: out.height }, [out.data.buffer]);
+};`;
+
+function cancelKopf() {
+  if (KOPF.worker) KOPF.worker.terminate();
+  KOPF.worker = null; KOPF.runSrc = null; KOPF.runKey = "";
+}
+
+/** Detail-mode grid for `src` if ready (cached or computed in-page as a fallback), else null after starting/continuing a worker run. */
+function kopfResult(src) {
+  const key = [S.cell, S.ox, S.oy, S.kopfIters].join();
+  if (KOPF.src === src && KOPF.key === key && KOPF.out) return KOPF.out;
+  if (KOPF.worker && KOPF.runSrc === src && KOPF.runKey === key) return null;
+  cancelKopf();
+  let worker = null;
+  if (!KOPF.noWorker) try {
+    KOPF.url ||= URL.createObjectURL(new Blob([MATHS, WORKER_MAIN], { type: "text/javascript" }));
+    worker = new Worker(KOPF.url);
+  } catch { /* no workers (e.g. blocked on file://): compute in-page below */ }
+  if (!worker) {
+    KOPF.out = kopfDownscale(src, S.w, S.h, S.cell, S.ox, S.oy, S.kopfIters); KOPF.src = src; KOPF.key = key;
+    return KOPF.out;
+  }
+  KOPF.worker = worker; KOPF.runSrc = src; KOPF.runKey = key;
+  $("stats").textContent = "Detail: starting…";
+  worker.onmessage = (e) => {
+    if (KOPF.worker !== worker) return;
+    const m = e.data;
+    if (m.progress) { $("stats").textContent = `Detail: round ${m.progress}/${m.n}… (stops early once settled)`; return; }
+    KOPF.out = new ImageData(new Uint8ClampedArray(m.data.buffer), m.w, m.h); KOPF.src = src; KOPF.key = key;
+    worker.terminate(); KOPF.worker = null; KOPF.runSrc = null; KOPF.runKey = "";
+    schedule();
+  };
+  worker.onerror = (e) => {
+    if (KOPF.worker !== worker) return;
+    e.preventDefault();
+    cancelKopf();
+    KOPF.noWorker = true;   // e.g. blob workers refused on file://: rerun in-page
+    $("stats").textContent = "Working… (no background worker; the page will pause)";
+    setTimeout(schedule, 20);
+  };
+  worker.postMessage({ src, w: S.w, h: S.h, cell: S.cell, ox: S.ox, oy: S.oy, iters: S.kopfIters });
+  return null;
+}
+
 function process() {
   if (!S.src) return;
   const src = cleaned(), outline = { share: S.outShare / 100, dark: S.outDark, lightShare: S.lightShare / 100, light: S.outLight }, fo = followOpts();
   let pal = null;
   if (S.colours === "palette" && S.palette && S.palette.length) pal = S.palette;
-  if (S.colours === "reduce") pal = reducePalette(gridLock(src, S.w, S.h, S.cell, S.ox, S.oy, "mean", S.core, null, fo), S.n);
   let out;
-  if (pal && S.mode === "dominant") out = gridLock(snapToPalette(src, pal), S.w, S.h, S.cell, S.ox, S.oy, "dominant", S.core, outline, fo);
-  else {
-    out = gridLock(src, S.w, S.h, S.cell, S.ox, S.oy, S.mode, S.core, outline, fo);
+  if (S.mode === "detail") {
+    out = kopfResult(src);
+    if (!out) return;   // worker running; it calls schedule() when done
+    if (S.colours === "reduce") pal = reducePalette(out, S.n);
     if (pal) out = snapToPalette(out, pal);
+  } else {
+    cancelKopf();
+    if (S.colours === "reduce") pal = reducePalette(gridLock(src, S.w, S.h, S.cell, S.ox, S.oy, "mean", S.core, null, fo), S.n);
+    if (pal && S.mode === "dominant") out = gridLock(snapToPalette(src, pal), S.w, S.h, S.cell, S.ox, S.oy, "dominant", S.core, outline, fo);
+    else {
+      out = gridLock(src, S.w, S.h, S.cell, S.ox, S.oy, S.mode, S.core, outline, fo);
+      if (pal) out = snapToPalette(out, pal);
+    }
   }
   if (S.stray) out = removeStrayPixels(out, S.strayProtect);
   if (S.jag) out = smoothJaggies(out);
@@ -1138,7 +1212,19 @@ for (const k of ["ox", "oy"]) {
 }
 $("coreRange").addEventListener("input", (e) => { S.core = +e.target.value; $("coreOut").textContent = S.core; schedule(); });
 $("nRange").addEventListener("input", (e) => { S.n = +e.target.value; $("nOut").textContent = S.n; schedule(); });
-seg("modeSeg", "mode", schedule);
+/** Detail mode ignores outline share and sample core: disable those controls (and dim their labels). */
+function modeUI() {
+  const detail = S.mode === "detail";
+  for (const id of ["shareRange", "lShareRange", "lightRange", "coreRange"]) {
+    $(id).disabled = detail;
+    document.querySelector(`label[for="${id}"]`).classList.toggle("dim", detail);
+  }
+  $("itersBox").classList.toggle("hidden", !detail);
+  for (const b of $("modeSeg").children) b.classList.toggle("on", b.dataset.v === S.mode);
+}
+seg("modeSeg", "mode", () => { store.set("mode", S.mode); modeUI(); schedule(); });
+$("itersRange").addEventListener("input", (e) => { $("itersOut").textContent = e.target.value; });
+$("itersRange").addEventListener("change", (e) => { S.kopfIters = +e.target.value; store.set("kopfIters", S.kopfIters); schedule(); });
 const slider = (id, key, out, fmt = (v) => v) => $(id).addEventListener("input", (e) => {
   S[key] = +e.target.value; $(out).textContent = fmt(S[key]); schedule();
 });
@@ -1373,6 +1459,10 @@ document.addEventListener("keydown", (e) => {
     $("palOut").textContent = `${saved.name}: ${saved.colours.length} colours (remembered).`;
     showSwatches();
   }
+  const mode = store.get("mode"), iters = store.get("kopfIters");
+  if (["dominant", "mean", "detail"].includes(mode)) S.mode = mode;
+  if (Number.isFinite(iters) && iters >= 5 && iters <= 100) { S.kopfIters = iters; $("itersRange").value = iters; $("itersOut").textContent = iters; }
+  modeUI();
   window.addEventListener("resize", () => { if (S.src) drawGrid(); });
 })();
 </script>
