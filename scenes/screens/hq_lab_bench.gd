@@ -75,6 +75,16 @@ const _SCALE_W := 196.0
 const _ARROW_W := 24.0
 const _MARGIN_X := RecipeBookPage.RECIPE_LINE_X + _NOTE_INDENT + _SCALE_W + _ARROW_W
 const _MARGIN_W := RecipeBookPage.RECIPE_LINE_X + RecipeBookPage.RECIPE_LINE_W - _MARGIN_X
+# Knowledge checklist columns, art x: the rung mark, label, state word,
+# right-aligned max rank; a locked rung's note runs under label to the edge.
+const _RUNG_MARK := 30.0
+const _RUNG_LABEL_X := RecipeBookPage.RECIPE_LINE_X + _RUNG_MARK + 14.0
+const _RUNG_LABEL_W := 300.0
+const _RUNG_STATE_X := _RUNG_LABEL_X + _RUNG_LABEL_W + 10.0
+const _RUNG_STATE_W := 110.0
+const _RUNG_CEILING_X := _RUNG_STATE_X + _RUNG_STATE_W
+const _RUNG_CEILING_W := RecipeBookPage.RECIPE_LINE_X + RecipeBookPage.RECIPE_LINE_W - _RUNG_CEILING_X
+const _RUNG_NOTE_W := RecipeBookPage.RECIPE_LINE_X + RecipeBookPage.RECIPE_LINE_W - _RUNG_LABEL_X
 # Wraps are counted a little narrower than drawn so a rounding difference at
 # screen size never wraps one line more than budgeted.
 const _WRAP_SLACK := 0.92
@@ -613,35 +623,65 @@ func _build_procedure(book: RecipeBookPage, recipe_key: String) -> void:
 				book.place_on_lines(note, _MARGIN_X, _MARGIN_W, line_y, _BODY_PITCH, int(row["lines"]), _NOTE_FONT, 9)
 
 
-# Page 2, interim: the knowledge ladder and the batch controls, scrolling on
-# the body lines.
+# Page 2: the knowledge checklist on the body lines (see _add_ladder), then
+# the batch controls scrolling on the lines left below it.
 func _build_knowledge(book: RecipeBookPage, recipe_key: String) -> void:
 	var body: Array = RecipeBookPage.RECIPE_BODY_LINES
+	var used := _add_ladder(book, recipe_key)
+	var top := float(body[mini(used, body.size() - 1)]) - _BODY_PITCH
 	var scroller := UI.scroll_container()
 	var content := UI.vbox(6)
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroller.add_child(content)
-	book.place(scroller, Rect2(RecipeBookPage.RECIPE_LINE_X, float(body[0]) - _BODY_PITCH, RecipeBookPage.RECIPE_LINE_W, float(body[-1]) - float(body[0]) + _BODY_PITCH))
-	var ladder := UI.vbox(2)
-	ladder.name = "LadderRegion"
-	ladder.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	content.add_child(ladder)
-	_add_ladder(ladder, recipe_key)
+	book.place(scroller, Rect2(RecipeBookPage.RECIPE_LINE_X, top, RecipeBookPage.RECIPE_LINE_W, float(body[-1]) - top))
 	_add_batch_controls(content, recipe_key, Lab.base_calc(recipe_key))
 
 
-# The knowledge ladder (recipe-acquisition spec § Recipe book): one line
-# per rung, owned rungs in ink, locked ones muted with their source.
-func _add_ladder(ladder: VBoxContainer, recipe_key: String) -> void:
-	var heading := _page_label(str(GameData.RECIPE_KNOWLEDGE["ladder"]["heading"]), RecipeBookPage.INK)
-	heading.add_theme_font_size_override("font_size", 15)
-	ladder.add_child(heading)
+# The knowledge checklist (spec lab-recipe-page § Knowledge ladder data), in
+# the LadderRegion overlay: the heading, then per rung its mark, label, state
+# word when owned and max rank in the right column, a locked rung's note
+# pencilled on the lines beneath, and last "You can reach". Returns the body
+# lines used.
+func _add_ladder(book: RecipeBookPage, recipe_key: String) -> int:
+	var strings: Dictionary = GameData.RECIPE_KNOWLEDGE["ladder"]
+	var body: Array = RecipeBookPage.RECIPE_BODY_LINES
+	var region := book.add_region("LadderRegion")
+	var x := RecipeBookPage.RECIPE_LINE_X
+	var heading := _page_label(str(strings["heading"]), RecipeBookPage.INK)
+	book.place_on_line(heading, x, RecipeBookPage.RECIPE_LINE_W, body[0], _STEP_FONT, 10, region)
+	var line := 1
 	for row in RecipeKnowledge.ladder_rows(recipe_key):
-		var label := _page_label(row["text"], RecipeBookPage.INK_MUTED if row["state"] == "locked" else RecipeBookPage.INK)
-		label.name = "Rung_%s" % row["rung"]
-		label.add_theme_font_size_override("font_size", 13)
-		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		ladder.add_child(label)
+		if line >= body.size() - 1:
+			break
+		var rung := str(row["rung"])
+		var locked: bool = row["state"] == "locked"
+		var line_y: float = body[line]
+		book.place(RecipeBookPage.RungMark.new(row["state"]), Rect2(x, line_y - _BODY_PITCH + 8.0, _RUNG_MARK, _BODY_PITCH - 12.0), 0.0, 9, region)
+		var label := _page_label(row["label"], RecipeBookPage.INK_MUTED if locked else RecipeBookPage.INK)
+		label.name = "Rung_%s" % rung
+		label.clip_text = true
+		book.place_on_line(label, _RUNG_LABEL_X, _RUNG_LABEL_W, line_y, RecipeBookPage.fit_font(row["label"], _RUNG_LABEL_W, _STEP_FONT, _STEP_FONT_FLOOR), 10, region)
+		if not locked:
+			var state := _page_label(str(strings["pageStates"].get(row["state"], row["state"])), RecipeBookPage.INK)
+			state.name = "Rung_%s_State" % rung
+			book.place_on_line(state, _RUNG_STATE_X, _RUNG_STATE_W, line_y, _NOTE_FONT, 9, region)
+		var ceiling := _page_label(row["ceiling"], RecipeBookPage.INK_MUTED if locked else RecipeBookPage.INK)
+		ceiling.name = "Rung_%s_Ceiling" % rung
+		ceiling.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		book.place_on_line(ceiling, _RUNG_CEILING_X, _RUNG_CEILING_W, line_y, _NOTE_FONT, 9, region)
+		line += 1
+		if locked:
+			var count := mini(RecipeBookPage.line_count(str(row["note"]), _RUNG_NOTE_W * _WRAP_SLACK, _NOTE_FONT), body.size() - 1 - line)
+			if count > 0:
+				var note := _page_label(str(row["note"]), RecipeBookPage.PENCIL)
+				note.name = "Rung_%s_Note" % rung
+				book.place_on_lines(note, _RUNG_LABEL_X, _RUNG_NOTE_W, body[line], _BODY_PITCH, count, _NOTE_FONT, 9, region)
+				line += count
+	var ceiling_rank := RecipeKnowledge.rank_ceiling(recipe_key)
+	var reach := _page_label(str(strings["reach"]) % (str(ceiling_rank) if ceiling_rank > 0 else str(strings["unreached"])), RecipeBookPage.INK)
+	reach.name = "ReachLine"
+	book.place_on_line(reach, x, RecipeBookPage.RECIPE_LINE_W, body[line], _STEP_FONT, 10, region)
+	return line + 1
 
 
 # Batch ×N at best rank, once performed by hand; multi-target once the best

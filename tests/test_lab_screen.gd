@@ -71,16 +71,30 @@ func run() -> void:
 		assert_true(NodeQuery.label_texts(screen).has("Page 2/2"), "Next turns to page 2")
 		var ladder := screen.find_child("LadderRegion", true, false)
 		assert_true(ladder != null, "the ladder region shows")
+		var strings: Dictionary = GameData.RECIPE_KNOWLEDGE["ladder"]
 		var rows := RecipeKnowledge.ladder_rows("timePearl")
 		for row in rows:
-			var rung_label := ladder.find_child("Rung_%s" % row["rung"], true, false) as Label
-			assert_true(rung_label != null and rung_label.text == row["text"], "%s rung rendered" % row["rung"])
+			var rung := str(row["rung"])
+			var rung_label := ladder.find_child("Rung_%s" % rung, true, false) as Label
+			assert_true(rung_label != null and rung_label.text == row["label"], "%s rung rendered" % rung)
+			assert_eq((ladder.find_child("Rung_%s_Ceiling" % rung, true, false) as Label).text, row["ceiling"], "%s max rank" % rung)
+			var state := ladder.find_child("Rung_%s_State" % rung, true, false) as Label
+			var note := ladder.find_child("Rung_%s_Note" % rung, true, false) as Label
+			if row["state"] == "locked":
+				assert_true(state == null, "%s locked: no state word" % rung)
+				assert_true(note != null and note.text == row["note"], "%s locked: its note pencilled" % rung)
+			else:
+				assert_eq(state.text, strings["pageStates"][row["state"]], "%s owned: its state word" % rung)
+				assert_true(note == null, "%s owned: no note" % rung)
+		assert_eq(rows[1]["state"], "vague", "hint1 owned rough")
+		assert_eq((ladder.find_child("ReachLine", true, false) as Label).text, strings["reach"] % str(RecipeKnowledge.rank_ceiling("timePearl")), "You can reach the rank ceiling")
 		RecipeKnowledge.grant_rung("timePearl", "hint2", "vague")
 		EventBus.flush_now()
 		ladder = screen.find_child("LadderRegion", true, false)
-		var hint2_text: String = RecipeKnowledge.ladder_rows("timePearl")[2]["text"]
-		assert_eq((ladder.find_child("Rung_hint2", true, false) as Label).text, hint2_text, "a grant redraws the ladder")
-		assert_true(hint2_text != rows[2]["text"], "with hint2 now owned")
+		assert_eq((ladder.find_child("Rung_hint2_State", true, false) as Label).text, strings["pageStates"]["vague"], "a grant redraws page 2")
+		assert_true(ladder.find_child("Rung_hint2_Note", true, false) == null, "hint2's lock note gone")
+		assert_eq((ladder.find_child("ReachLine", true, false) as Label).text, strings["reach"] % str(RecipeKnowledge.rank_ceiling("timePearl")), "and the reach line rises")
+		assert_eq(RecipeKnowledge.rank_ceiling("timePearl"), 4, "to hint2's ceiling")
 		assert_true(NodeQuery.find_button(screen, "Craft manually") != null)
 		assert_true(NodeQuery.find_button(screen, "Batch ×1").disabled, "no batch before a hand run")
 		screen.free()
@@ -179,7 +193,7 @@ func run() -> void:
 		assert_true(NodeQuery.label_texts(screen).has("2. %s · ?" % Lab.apparatus_name("grinding")), "the book shows the step, no band")
 		assert_true(NodeQuery.label_texts(screen).has(GameData.LAB["insightNote"]), "with the insight note")
 		NodeQuery.find_button(screen, "Next ›").pressed.emit()
-		var hint2 := screen.find_child("Rung_hint2", true, false) as Label
+		var hint2 := screen.find_child("Rung_hint2_Note", true, false) as Label
 		assert_true(hint2.text.contains("insight: "), "the ladder names the insight")
 		screen.free()
 	)

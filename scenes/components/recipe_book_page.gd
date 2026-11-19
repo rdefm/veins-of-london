@@ -82,17 +82,28 @@ func to_local_rect(art_rect: Rect2) -> Rect2:
 	return Rect2(art_origin() + art_rect.position * s, art_rect.size * s)
 
 
+# A full-page overlay to group placed children under (pass it as `parent`);
+# it shares the page's origin and size, so art rects map onto it unchanged.
+func add_region(region_name: String) -> Control:
+	var region := Control.new()
+	region.name = region_name
+	region.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	UI.anchor_full_rect(region)
+	add_child(region)
+	return region
+
+
 # Parks `node` at an art-space rect; font_size > 0 also scales its text (floored at min_font).
-func place(node: Control, art_rect: Rect2, font_size: float = 0.0, min_font: int = 9) -> void:
-	add_child(node)
+func place(node: Control, art_rect: Rect2, font_size: float = 0.0, min_font: int = 9, parent: Control = null) -> void:
+	(self if parent == null else parent).add_child(node)
 	_placed.append({ "node": node, "rect": art_rect, "font": font_size, "min": min_font })
 	_apply(_placed[-1])
 
 
 # Parks a one-line `label` so its text baseline sits `LINE_LIFT` art px above
 # the ruled line whose top edge is at art y `line_y`, from art x `x` across `width`.
-func place_on_line(label: Label, x: float, width: float, line_y: float, font_size: float, min_font: int = 9) -> void:
-	add_child(label)
+func place_on_line(label: Label, x: float, width: float, line_y: float, font_size: float, min_font: int = 9, parent: Control = null) -> void:
+	(self if parent == null else parent).add_child(label)
 	label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	_placed.append({ "node": label, "rect": Rect2(x, line_y - LINE_LIFT, width, 0.0), "font": font_size, "min": min_font, "baseline": true })
 	_apply(_placed[-1])
@@ -100,8 +111,8 @@ func place_on_line(label: Label, x: float, width: float, line_y: float, font_siz
 
 # place_on_line for a word-wrapped `label` over `lines` ruled lines spaced
 # `pitch` art px apart, each wrapped line's baseline on its own ruled line.
-func place_on_lines(label: Label, x: float, width: float, line_y: float, pitch: float, lines: int, font_size: float, min_font: int = 9) -> void:
-	add_child(label)
+func place_on_lines(label: Label, x: float, width: float, line_y: float, pitch: float, lines: int, font_size: float, min_font: int = 9, parent: Control = null) -> void:
+	(self if parent == null else parent).add_child(label)
 	label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	label.max_lines_visible = lines
@@ -149,6 +160,34 @@ class MarginArrow extends Control:
 		var head := minf(4.0, size.x * 0.3)
 		draw_polyline(PackedVector2Array([Vector2(size.x * 0.3, 0), Vector2(size.x * 0.3, tip.y), tip]), PENCIL, 1.5)
 		draw_polyline(PackedVector2Array([tip + Vector2(-head, -head), tip, tip + Vector2(-head, head)]), PENCIL, 1.5)
+
+
+# A checklist box: empty in pencil for a locked rung, inked with a tick for
+# an exact one, a squiggled tick for a rough (vague) one.
+class RungMark extends Control:
+	var state := "locked"
+
+	func _init(rung_state: String = "locked") -> void:
+		state = rung_state
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _draw() -> void:
+		var side := minf(size.x, size.y)
+		var box := Rect2((size - Vector2(side, side)) * 0.5, Vector2(side, side))
+		var owned := state != "locked"
+		draw_rect(box, INK if owned else PENCIL, false, 1.5)
+		if not owned:
+			return
+		var p := box.position
+		var s := box.size.x
+		if state == "vague":
+			var points := PackedVector2Array()
+			for i in 9:
+				var t := float(i) / 8.0
+				points.append(p + Vector2(0.15 + 0.75 * t, 0.65 - 0.4 * t) * s + Vector2(0, sin(t * TAU * 2.0) * s * 0.06))
+			draw_polyline(points, INK, 2.0)
+		else:
+			draw_polyline(PackedVector2Array([p + Vector2(0.2, 0.5) * s, p + Vector2(0.42, 0.75) * s, p + Vector2(0.85, 0.2) * s]), INK, 2.0)
 
 
 # Largest font size (art px, floored at `floor`) at which `text` fits one line of `width`.
