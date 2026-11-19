@@ -415,6 +415,171 @@ function gridLock(src, w, h, cell, ox, oy, mode, core, outline, follow) {
   return out;
 }
 
+/**
+ * Content-adaptive downscale (Kopf, Shamir & Peers 2013, "Content-adaptive image downscaling", Alg. 1).
+ * One output pixel per cell of the plain grid `gridLock` uses; each is a 2D Gaussian kernel in source
+ * space (centre, covariance, OKLab colour) fitted by EM: E-step weights source pixels per kernel
+ * (normalised over the kernel's pixels, then shared out across the kernels competing for each pixel),
+ * M-step refits centre, covariance and colour, C-step clamps covariance eigenvalues and pulls each
+ * centre towards its neighbours while keeping it inside its own cell. Cells mostly transparent come
+ * out transparent; transparent pixels take no part in the fit.
+ */
+function kopfDownscale(src, w, h, cell, ox, oy, iterations = 25) {
+  const xs = cellEdges(w, cell, ox), ys = cellEdges(h, cell, oy);
+  const nx = Math.max(1, xs.length), ny = Math.max(1, ys.length), K = xs.length * ys.length;
+  const out = new ImageData(nx, ny);
+  if (!K) return out;
+  const d = src.data, N = w * h;
+  // Per-pixel OKLab, opaque mask.
+  const lab = new Float32Array(N * 3), op = new Uint8Array(N);
+  for (let p = 0, i = 0; p < N; p++, i += 4) {
+    if (d[i + 3] < ALPHA_MIN) continue;
+    op[p] = 1;
+    const c = srgbToOklab(d[i], d[i + 1], d[i + 2]);
+    lab[p * 3] = c[0]; lab[p * 3 + 1] = c[1]; lab[p * 3 + 2] = c[2];
+  }
+  // Alg. 1 C-step eigenvalue clamp [0.05, 0.1], read as output-pixel units (cell²) — picked reading; it
+  // brackets the initial r/3 variance at cell ~6.
+  const cw = Math.max(1, cell), lmin = 0.05 * cw * cw, lmax = 0.1 * cw * cw;
+  // Kernel k's region (Alg. 1: the pixels it competes for) is its cell plus the 8 neighbouring cells;
+  // each pass only visits the part within 3 sigma_max of its centre (the rest weighs < e^-4.5).
+  const R = 3 * Math.sqrt(lmax), win = 2 * Math.ceil(R) + 2;
+  const rx0 = new Int32Array(K), rx1 = new Int32Array(K), ry0 = new Int32Array(K), ry1 = new Int32Array(K), off = new Int32Array(K + 1);
+  const bx0 = new Int32Array(K), bx1 = new Int32Array(K), by0 = new Int32Array(K), by1 = new Int32Array(K);
+  const mx = new Float64Array(K), my = new Float64Array(K), s11 = new Float64Array(K), s12 = new Float64Array(K), s22 = new Float64Array(K);
+  const cL = new Float64Array(K), cA = new Float64Array(K), cB = new Float64Array(K), alive = new Uint8Array(K);
+  const ccx = new Float64Array(K), ccy = new Float64Array(K);
+  for (let cy = 0; cy < ys.length; cy++) for (let cx = 0; cx < xs.length; cx++) {
+    const k = cy * xs.length + cx, [x0, x1] = xs[cx], [y0, y1] = ys[cy];
+    rx0[k] = xs[Math.max(0, cx - 1)][0]; rx1[k] = xs[Math.min(xs.length - 1, cx + 1)][1];
+    ry0[k] = ys[Math.max(0, cy - 1)][0]; ry1[k] = ys[Math.min(ys.length - 1, cy + 1)][1];
+    off[k + 1] = off[k] + Math.min(win, rx1[k] - rx0[k]) * Math.min(win, ry1[k] - ry0[k]);
+    ccx[k] = mx[k] = (x0 + x1) / 2; ccy[k] = my[k] = (y0 + y1) / 2;
+    // Alg. 1 initial covariance: diag(r_x/3, r_y/3), within the clamp.
+    s11[k] = Math.min(lmax, Math.max(lmin, (x1 - x0) / 3)); s22[k] = Math.min(lmax, Math.max(lmin, (y1 - y0) / 3)); s12[k] = 0;
+    // Initial colour: the cell's pixel farthest (OKLab) from the cell mean (picked; Alg. 1 starts from
+    // mid-grey). The fit is bistable — a kernel started on a high-contrast minority (an eye) keeps it,
+    // one started on the majority averages it away — and a low-contrast outlier relaxes back to the mean.
+    let opq = 0, mL = 0, mA = 0, mB = 0;
+    for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
+      const p = y * w + x;
+      if (!op[p]) continue;
+      opq++; mL += lab[p * 3]; mA += lab[p * 3 + 1]; mB += lab[p * 3 + 2];
+    }
+    alive[k] = opq * 2 >= (x1 - x0) * (y1 - y0) ? 1 : 0;
+    if (opq) { mL /= opq; mA /= opq; mB /= opq; }
+    let best = -1, bd = -1;
+    for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
+      const p = y * w + x;
+      if (!op[p]) continue;
+      const dd = (lab[p * 3] - mL) ** 2 + (lab[p * 3 + 1] - mA) ** 2 + (lab[p * 3 + 2] - mB) ** 2;
+      if (dd > bd + 1e-12) { bd = dd; best = p; }
+    }
+    if (best >= 0) { cL[k] = lab[best * 3]; cA[k] = lab[best * 3 + 1]; cB[k] = lab[best * 3 + 2]; }
+  }
+  // Colour sigma in OKLab units (picked: the paper's range sigma is for CIELAB; 0.08 is roughly a
+  // just-clearly-different step in OKLab lightness).
+  const inv2sr = 1 / (2 * 0.08 * 0.08);
+  const wt = new Float32Array(off[K]), S = new Float32Array(N);
+  for (let it = 0; it < iterations; it++) {
+    // E-step.
+    S.fill(0);
+    for (let k = 0; k < K; k++) {
+      if (!alive[k]) continue;
+      const det = s11[k] * s22[k] - s12[k] * s12[k];
+      const i11 = 0.5 * s22[k] / det, i12 = -s12[k] / det, i22 = 0.5 * s11[k] / det;
+      const mxk = mx[k], myk = my[k], lk = cL[k], ak = cA[k], bk = cB[k];
+      const X0 = Math.max(rx0[k], Math.floor(mxk - R)), Y0 = Math.max(ry0[k], Math.floor(myk - R));
+      const X1 = Math.min(rx1[k], X0 + win, Math.ceil(mxk + R)), Y1 = Math.min(ry1[k], Y0 + win, Math.ceil(myk + R));
+      bx0[k] = X0; bx1[k] = X1; by0[k] = Y0; by1[k] = Y1;
+      // Exponents are <= 0; weights below e^-60 are taken as 0 (they cannot matter after normalising
+      // unless every weight is that small, in which case the pass reruns shifted by the largest exponent).
+      let sum = 0, shift = 0;
+      for (let pass = 0; pass < 2 && sum <= 1e-200; pass++) {
+        let q = off[k], mxE = -Infinity;
+        sum = 0;
+        for (let y = Y0; y < Y1; y++) {
+          const dy = y + 0.5 - myk, row = y * w, ey = i22 * dy * dy, cy2 = i12 * dy;
+          for (let x = X0; x < X1; x++, q++) {
+            const p = row + x;
+            if (!op[p]) { wt[q] = 0; continue; }
+            const dx = x + 0.5 - mxk, p3 = p * 3;
+            const dl = lab[p3] - lk, da = lab[p3 + 1] - ak, db = lab[p3 + 2] - bk;
+            const e = shift - (i11 * dx * dx + cy2 * dx + ey) - (dl * dl + da * da + db * db) * inv2sr;
+            if (e > mxE) mxE = e;
+            const v = e < -60 ? 0 : Math.exp(e);
+            wt[q] = v; sum += v;
+          }
+        }
+        shift = -mxE;
+      }
+      if (sum <= 0) continue;
+      const inv = 1 / sum;
+      let q = off[k];
+      for (let y = Y0; y < Y1; y++) {
+        const row = y * w;
+        for (let x = X0; x < X1; x++, q++) if (wt[q]) { wt[q] *= inv; S[row + x] += wt[q]; }
+      }
+    }
+    // M-step.
+    for (let k = 0; k < K; k++) {
+      if (!alive[k]) continue;
+      let g = 0, sx = 0, sy = 0, sxx = 0, sxy = 0, syy = 0, sl = 0, sa = 0, sb = 0, q = off[k];
+      for (let y = by0[k]; y < by1[k]; y++) {
+        const py = y + 0.5;
+        for (let x = bx0[k]; x < bx1[k]; x++, q++) {
+          const p = y * w + x;
+          if (!wt[q] || !S[p]) continue;
+          const gm = wt[q] / S[p], px = x + 0.5, p3 = p * 3;
+          g += gm; sx += gm * px; sy += gm * py;
+          sxx += gm * px * px; sxy += gm * px * py; syy += gm * py * py;
+          sl += gm * lab[p3]; sa += gm * lab[p3 + 1]; sb += gm * lab[p3 + 2];
+        }
+      }
+      if (g <= 1e-9) continue;
+      mx[k] = sx / g; my[k] = sy / g;
+      s11[k] = sxx / g - mx[k] * mx[k]; s12[k] = sxy / g - mx[k] * my[k]; s22[k] = syy / g - my[k] * my[k];
+      cL[k] = sl / g; cA[k] = sa / g; cB[k] = sb / g;
+    }
+    // C-step: clamp covariance eigenvalues (2x2 symmetric, closed form).
+    for (let k = 0; k < K; k++) {
+      if (!alive[k]) continue;
+      const a = s11[k], b = s12[k], c = s22[k], tr = (a + c) / 2, rad = Math.sqrt(((a - c) / 2) ** 2 + b * b);
+      const l1 = Math.min(lmax, Math.max(lmin, tr + rad)), l2 = Math.min(lmax, Math.max(lmin, tr - rad));
+      const th = 0.5 * Math.atan2(2 * b, a - c), co = Math.cos(th), si = Math.sin(th);
+      s11[k] = l1 * co * co + l2 * si * si; s22[k] = l1 * si * si + l2 * co * co; s12[k] = (l1 - l2) * co * si;
+    }
+    // C-step spatial smoothness: centre offset (from its cell centre) averaged half-and-half with the mean
+    // offset of its 4-neighbours (offsets, not positions, so border kernels aren't pulled inwards), then
+    // clamped to stay inside its own cell.
+    const nmx = Float64Array.from(mx), nmy = Float64Array.from(my);
+    for (let cy = 0; cy < ys.length; cy++) for (let cx = 0; cx < xs.length; cx++) {
+      const k = cy * xs.length + cx;
+      if (!alive[k]) continue;
+      let ax = 0, ay = 0, n = 0;
+      for (const [ex, ey] of [[cx - 1, cy], [cx + 1, cy], [cx, cy - 1], [cx, cy + 1]]) {
+        if (ex < 0 || ey < 0 || ex >= xs.length || ey >= ys.length) continue;
+        const m = ey * xs.length + ex;
+        if (!alive[m]) continue;
+        ax += mx[m] - ccx[m]; ay += my[m] - ccy[m]; n++;
+      }
+      let dx = mx[k] - ccx[k], dy = my[k] - ccy[k];
+      if (n) { dx = 0.5 * (dx + ax / n); dy = 0.5 * (dy + ay / n); }
+      nmx[k] = Math.min(xs[cx][1], Math.max(xs[cx][0], ccx[k] + dx));
+      nmy[k] = Math.min(ys[cy][1], Math.max(ys[cy][0], ccy[k] + dy));
+    }
+    mx.set(nmx); my.set(nmy);
+  }
+  const o = out.data;
+  for (let k = 0; k < K; k++) {
+    const j = k * 4;
+    if (!alive[k]) { o[j + 3] = 0; continue; }
+    const c = oklabToSrgb(cL[k], cA[k], cB[k]);
+    o[j] = c[0]; o[j + 1] = c[1]; o[j + 2] = c[2]; o[j + 3] = 255;
+  }
+  return out;
+}
+
 /** Contrast (-100..100, %) about mid-grey, then saturation (-100..100, %) about luminance. */
 function adjustColour(img, contrast, sat) {
   const out = new ImageData(new Uint8ClampedArray(img.data), img.width, img.height), d = out.data;
