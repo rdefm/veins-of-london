@@ -1055,6 +1055,8 @@ func _restore_int_types(state: Dictionary) -> void:
 
 	if state.has("flags"):
 		_int_key(state["flags"], "consSoldCount")
+		_int_key(state["flags"], "jamesDialCalcQty")
+		_int_key(state["flags"], "jamesDialAttemptCost")
 		_int_key(state["flags"], "oddities")
 		_int_key(state["flags"], "sparSessions")
 
@@ -1194,6 +1196,9 @@ func _restore_int_types(state: Dictionary) -> void:
 			_int_key(entry.get("payload", {}), "expiresDay")
 		elif entry.get("kind", "") == Partners.TROUBLE_KIND:
 			for key in ["expiresDay", "qty", "unitPrice", "amount"]:
+				_int_key(entry.get("payload", {}), key)
+		elif entry.get("kind", "") in [JamesDial.EVALUATION, JamesDial.REPAIR]:
+			for key in ["attemptCost", "calcQty", "calcPay"]:
 				_int_key(entry.get("payload", {}), key)
 	var favours: Dictionary = state.get("favours", {})
 	_int_dict_values(favours.get("lastIssued", {}))

@@ -350,6 +350,13 @@ func new_game_state() -> Dictionary:
 			# every tick until the player acts.
 			"archieBuyerSmsQueued": false,
 			"jamesExperimentSeen": false,
+			# James's Dial chain (systems/james_dial.gd): *Queued guards each summons;
+			# CalcQty/AttemptCost hold the evaluation's quote for the repair.
+			"jamesDialEvaluationQueued": false, "jamesDialRepairRequested": false,
+			"jamesDialCalcQty": 0, "jamesDialAttemptCost": 0,
+			"jamesDialRepairQueued": false, "jamesDialRestored": false,
+			"jamesDialOfferQueued": false, "jamesDialOfferSeen": false,
+			"jamesPlayerDialQueued": false, "jamesPlayerDialSeen": false,
 			"jamesJobActive": false, "jamesJobAccepted": false,
 			# Gates ArchieDeals.roll_daily_offer() true from offer-queued
 			# until declined or its accepted deal (incl. any mugging fight) resolves.

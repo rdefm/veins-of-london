@@ -1,0 +1,82 @@
+{
+  "id": "james_dial_evaluation",
+  "fillFromContext": true,
+  "on_complete": [
+    { "op": "lose_time_block" },
+    { "op": "add", "path": "player.cash", "value": 300 },
+    { "op": "set_flag", "flag": "jamesDialRepairRequested", "value": true },
+    { "op": "push_message", "contact": "james", "fillFromContext": true, "text": "{calcQty} time calc. Not {attemptCost}. Not 'about {calcQty}'." },
+    { "op": "set_screen", "screen": "phone" }
+  ],
+  "cards": [
+    { "key": "c1", "type": "narration", "label": "Bermondsey — James's unit", "speaker": null, "text": "James has cleared a square of bench and set an envelope beside it. There are three trays of pearls. The tray marked REJECTS is nearly empty, which strikes you as optimistic." },
+    { "key": "c2", "type": "speaker", "label": null, "speaker": "James", "text": "\"Made by my assistant. I haven't had a chance to review them. Grade them and confirm they're in the right trays. Three hundred pounds for the afternoon. Gloves.\"" },
+    { "key": "c3", "type": "narration", "label": "Later", "speaker": null, "text": "One pearl looks sound until you turn it under the lamp. A hairline crack reaches the calc. You put it with the rejects. James checks it, then raises an eyebrow slightly. You almost thought you saw a hint of an approving smile at the corner of James's lips. Almost. " },
+    { "key": "c4", "type": "narration", "label": null, "speaker": null, "text": "James takes his umbrella and looks at the handle. A brass collar turns around its handle with a neat series of clicks. There is a dial at the end of the handle, but it doesn't seem to be a clock. James places it on the table beside a tin containing a watch-sized mechanism." },
+    { "key": "c5", "type": "speaker", "label": null, "speaker": "James", "text": "\"There is another job. This stays between us - understood?\" Something about his look makes you nod reflexively. \"Good.\"" },
+    { "key": "c17", "type": "speaker", "text": "This is known as a Dial. Few know about them, and even fewer have them. They are incredibly rare, keyed to an individual, and enhance the effect of orichalchum items.", "speaker": "James", "label": null },
+    { "key": "c19", "type": "narration", "text": "They also recharge automatically, and provide stronger orichalchum effects than items alone can.", "label": null, "speaker": null },
+    { "key": "c18", "type": "narration", "text": "Each Dial requires a Movement to work. Unfortunately, this Movement is broken, and crafting expertise alone can't fix it.", "label": null, "speaker": null },
+    {
+      "key": "c6", "type": "choice", "label": null, "speaker": null, "text": "\"Look first. Touch it when I tell you.\" He opens a jar of time calc and measures a pinch onto a glass slide. James keeps the tin between you. He is watching your hands, not the work you have just finished.",
+      "choices": [
+        {
+          "id": "askMaker",
+          "label": "Ask whose it is",
+          "effects": [],
+          "result_text": null,
+          "goto": 9
+        },
+        {
+          "id": "askRisk",
+          "label": "Ask if it's safe",
+          "effects": [],
+          "result_text": null,
+          "goto": 10
+        },
+        {
+          "id": "followDirections",
+          "label": "Wait for instructions",
+          "effects": [],
+          "result_text": null,
+          "goto": 11
+        }
+      ]
+    },
+    { "key": "c7", "type": "speaker", "label": null, "speaker": "James", "text": "\"Mine. My teacher made the Dial for me when I was young. The collar still works. The Movement doesn't.\" He closes the tin before you can get a better look at the damage. \"That answers the relevant part of your question.\"", "goto": 12 },
+    { "key": "c8", "type": "speaker", "label": null, "speaker": "James", "text": "\"The Dial is sound. Its Movement is broken, so it holds no charge. I wouldn't let you put a hand over it otherwise.\" He moves the slide clear of the baton. \"A sensible question. Don't make a habit of surprising me.\"", "goto": 12 },
+    { "key": "c9", "type": "speaker", "label": null, "speaker": "James", "text": "\"Good. Hold your hand above the slide. No pressure, and don't touch the metal.\" He puts the crooked mechanism beside the calc and folds his arms." },
+    { "key": "c10", "type": "narration", "label": null, "speaker": null, "text": "You hold a hand above the slide. The calc gathers under your fingers and you apply it to the Dial. The crooked wheel gives a dry click and turns a fraction. It stops before it can turn again. James has not looked away." },
+    {
+      "key": "c11", "type": "choice", "label": null, "speaker": null, "text": "The wheel is still. You feel resistance if you try to move it further. James has not told you to stop.",
+      "choices": [
+        {
+          "id": "forceIt",
+          "label": "Keep forcing it",
+          "effects": [],
+          "result_text": "You press further. The wheel moves one more tooth, then catches. James slides the tin away. \"Enough.\"",
+          "goto": 14
+        },
+        {
+          "id": "drawBack",
+          "label": "Draw back",
+          "effects": [],
+          "result_text": "You take your hand away. The calc settles at once. \"Quite right,\" James says. \"Force is how that wheel got bent.\"",
+          "goto": 14
+        },
+        {
+          "id": "askControl",
+          "label": "Ask James to try",
+          "effects": [],
+          "result_text": "James puts his hand where yours was. The calc stays flat; the wheel doesn't move. ",
+          "goto": 14
+        }
+      ]
+    },
+    { "key": "c12", "type": "speaker", "label": null, "speaker": "James", "text": "\"Crafting or fixing a Dial requires both skill and a natural gift. You demonstrated the gift when I first saw you and the calc moved. You've since proven you could develop the skill\"" },
+    { "key": "c13", "type": "speaker", "label": null, "speaker": "James", "text": "\"I would greatly appreciate it if you could mend this broken Time Movement. At your present skill, one attempt takes {attemptCost} units of time calc. Bring {calcQty}. I am allowing for a failure, not expecting one.\"" },
+    { "key": "c14", "type": "speaker", "label": null, "speaker": "You", "text": "\"It's your Dial. Am I paying for the calc?\"" },
+    { "key": "c15", "type": "speaker", "label": null, "speaker": "James", "text": "\"No. You find it; I pay for it when you bring it. Come back when you have the full amount.\"" },
+    { "key": "c16", "type": "resolution", "label": null, "speaker": null, "text": "James puts the Movement back in the draw. The repair can wait for the calc. James has already messaged you by the time you reach the street, repeating how much calc you need. It's the most conversation you've ever seen James that wasn't berating someone." }
+  ]
+}

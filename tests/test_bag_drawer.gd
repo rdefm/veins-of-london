@@ -70,7 +70,7 @@ func _non_button_texts(root: Node) -> String:
 
 
 func run() -> void:
-	run_case("tap_outside_the_open_bag_drawer_closes_it", func():
+	await run_case("tap_outside_the_open_bag_drawer_closes_it", func():
 		GameState.reset()
 		Bag.open()
 

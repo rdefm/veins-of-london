@@ -65,5 +65,16 @@
   "maxChargeBonusByLevel": [0, 0, 5, 12, 22, 35],
   "rechargeRateBonusByLevel": [0, 0, 0, 0, 0.5, 1.0],
   "castMagnitudePerLevel": 0.25,
-  "castBlackHoleFreezeBonusByLevel": [0, 0, 0, 1, 1, 2]
+  "castBlackHoleFreezeBonusByLevel": [0, 0, 0, 1, 1, 2],
+  "jamesQuest": {
+    "minCraftingSkill": 3,
+    "repairAttempts": 2,
+    "repairOreType": "time",
+    "texts": {
+      "james_dial_evaluation": "Paid bench work. One block. Bring steady hands.",
+      "james_dial_repair": "You have the calc. Bring it before you spend it.",
+      "james_dial_offer": "Eight. Not ten past.",
+      "james_player_dial_creation": "Bring the calc on the page. All of it."
+    }
+  }
 }

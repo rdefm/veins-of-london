@@ -1,0 +1,13 @@
+{
+  "id": "james_player_dial_creation",
+  "on_complete": [
+    { "op": "set_flag", "flag": "jamesPlayerDialSeen", "value": true },
+    { "op": "set_screen", "screen": "hq_dial" }
+  ],
+  "cards": [
+    { "key": "c1", "type": "narration", "label": "Bermondsey — James's unit", "speaker": null, "text": "James has the ledger page you took home pinned flat under a jar. He taps the figures without looking at them." },
+    { "key": "c2", "type": "speaker", "label": null, "speaker": "James", "text": "\"Seeding is yours to do. I can't hold your hand through it, and I wouldn't if I could. It has to learn you, not me.\"" },
+    { "key": "c3", "type": "speaker", "label": null, "speaker": "James", "text": "\"Do it at home, at your own bench. If it takes, bring it here. It'll need a Movement before it's anything but an ornament.\"" },
+    { "key": "c4", "type": "narration", "label": null, "speaker": null, "text": "He folds the page back into your hand and goes back to his pearls. That appears to be the lesson." }
+  ]
+}

@@ -40,6 +40,12 @@ Every route proves the same capacity and reaches the same request. The test cann
       "value": true
     },
     {
+      "op": "push_message",
+      "contact": "james",
+      "fillFromContext": true,
+      "text": "{calcQty} time calc. Not {attemptCost}. Not 'about {calcQty}'."
+    },
+    {
       "op": "set_screen",
       "screen": "phone"
     }
@@ -88,17 +94,22 @@ Every route proves the same capacity and reaches the same request. The test cann
           "key": "c17",
           "type": "speaker",
           "text": "This is known as a Dial. Few know about them, and even fewer have them. They are incredibly rare, keyed to an individual, and enhance the effect of orichalchum items.",
-          "speaker": "James"
+          "speaker": "James",
+          "label": null
         },
         {
           "key": "c19",
           "type": "narration",
-          "text": "They also recharge automatically, and provide stronger orichalchum effects than items alone can."
+          "text": "They also recharge automatically, and provide stronger orichalchum effects than items alone can.",
+          "label": null,
+          "speaker": null
         },
         {
           "key": "c18",
           "type": "narration",
-          "text": "Each Dial requires a Movement to work. Unfortunately, this Movement is broken, and crafting expertise alone can't fix it."
+          "text": "Each Dial requires a Movement to work. Unfortunately, this Movement is broken, and crafting expertise alone can't fix it.",
+          "label": null,
+          "speaker": null
         },
         {
           "type": "choice",

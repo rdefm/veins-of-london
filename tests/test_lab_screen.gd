@@ -196,7 +196,7 @@ func run() -> void:
 		assert_true(vague["vague"])
 		_assert_gauge_band(screen, "compression", vague, "a vague step: its faded region")
 
-		Crafting.inventory_add(ActiveEffects.PROPHETS_BREATH, 1, 1)
+		Crafting.inventory_add(ActiveEffects.PROPHETS_BREATH, 5, 1)  # level 5: current steps and clues both exact
 		Lab.use_effect(ActiveEffects.PROPHETS_BREATH)
 		_assert_gauge_band(screen, "compression", { "low": 82.0 - Lab.band_half_width("timePearl"), "high": 82.0 +Lab.band_half_width("timePearl"), "vague": false }, "Breath: the true band")
 		_assert_gauge_band(screen, "grinding", Lab.step_region("timePearl", Lab.known_procedure("timePearl")[1]), "Breath reveals the hidden grind's band")

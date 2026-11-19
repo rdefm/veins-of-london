@@ -75,6 +75,7 @@ Data file per system: see `data/*.json` below.
 | lodedinnit_feed.gd | LodedInnit Feed: per-block post roll (weighted author, per-author `authorMult`, self-replies, no repeat until pool spent, likes, 0-2 canned comments, cap 50), templated hire-status posts (`post_status`: hired/let go/poached/market flip), unseen badge count, `mark_seen`, card display model (R§3.10 "LodedInnit Feed") |
 | hiring.gd | LodedInnit roster + `state.hiring` status, rollover market flips; profile level/cap/wage; `hire()` (or poach: ×premium, relation cost) into a free role-room seat, first week prepaid pot→float or float top-up ask; wage refresh; `let_go()`; weekly faction poach offers on hires (`daily_poach_tick`, `match_poach`, `decline_poach`) (R§3.10 "Hiring") |
 | jobs.gd | James's jobs, trust bands |
+| james_dial.gd | James's Dial chain summons (`daily_tick`): evaluation → repair → offer → player Dial creation, once each; holds the repair calc quote and re-prices the repair payload. Data: dial.json `jamesQuest` |
 | key_members.gd | Faction key members (R§3.10): member/faction lookup, `contenders`, `leader_of`, `speaker_for` (= the faction leader), `send` (unlocks + intro first); standing sources, `daily_tick` succession, `aggression_scale` (leader mult × `gratitude_scale`)/`baseline_shift`, `inside_man` (warnings, leaks, back channel), `can_offer`/`offer_prize`/`accept_offer` (secret-offer prizes) |
 | faction_incidents.gd | FactionIncidents (R§3.1f): daily tick runs data-driven triggers (`raidedByFaction`, `warBetween`, `truceExpiring`, `turfFlip`, `succession`, `secretOffer`) with cooldowns/conditions; a hit queues its event + key-member pending message; `start_pending` plays it. Data: faction_incidents.json. |
 | grudges.gd | Grudges: `state.grudges`, `state.grudgeEffects` (soft marks, revenge windows), `record`, `answer`/`answer_district` hooks, `use_clean_slate` (Bag item clears one grudge + revenge window), `raid_odds_bonus`, `daily_tick` expiry, `soft_pressure` (read by `FactionAI.threat`), district rows. Data: constants.json `factionGrudge`. |
@@ -309,7 +310,7 @@ overlays; hides the top board on title/intro/combat and the nav dock per screen.
 | constants.json | calendar.gd (calendar), time_system.gd, jobs.gd, GameState.gd, contacts.gd (roster, roleFlags, skillCaps), rooms.gd (specialities, productionLogDays), business.gd (weekly wages), business_stats.gd (businessStatsDays), shares.gd (sharesDays, sharesWindowDays), guardUpkeep, guard_kit.gd, loadout.gd, events.gd (eventChecks, eventLabels), observation.gd (observation) |
 | constants.json (faction politics) | factions.gd (factionRivalry), faction_sim.gd (factionFloor), faction_ai.gd (factionStances/Pressure/Escalation/War/Conclave), intel.gd (intel), raiding.gd (stockpileRaid, raidSecurity), network_handler.gd (networkMenu), diplomacy.gd (factionFavours, factionGifts, callForAid), partners.gd (partners), barometer.gd (factionEscalation) |
 | daily_cycle.json | time_transition.gd (circle layout, sky clips, colours, timing) |
-| dial.json | dial.gd |
+| dial.json | dial.gd; `jamesQuest` (gate, repair attempts/ore, summons texts) → james_dial.gd |
 | districts.json | widely read (sites, economy, factions, raiding) |
 | enemies.json | combat.gd |
 | faction_trade.json | economy.gd |

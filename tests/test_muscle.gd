@@ -547,7 +547,7 @@ func _loss_cases() -> void:
 		g["traits"] = ["lightFingered"]
 		Muscle.post(id, "v1")
 		var vein: Dictionary = Cultivating.find_vein("v1")
-		var recipe: String = GameData.GUARD_KIT["items"].keys()[0]
+		var recipe: String = GameData.GUARD_KIT["items"][0]
 		vein["guardKit"] = { recipe: { "1": 1000 } }
 		GameState.state["world"]["day"] = _monday()
 		Rng.set_seed(5)

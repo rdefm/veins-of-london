@@ -222,7 +222,8 @@ New event proposed for `data/events/james_dial_offer.json`. This follows the (no
           "key": "c17",
           "type": "speaker",
           "text": "\"Because it grows with you. Two would grow at half the pace, and neither would be worth carrying.\" A pause. \"Start soon. You're not getting any younger, which I gather comes as a shock at your age.\"",
-          "speaker": "James"
+          "speaker": "James",
+          "label": null
         },
         {
           "type": "speaker",
@@ -269,13 +270,15 @@ New event proposed for `data/events/james_dial_offer.json`. This follows the (no
           "key": "c18",
           "type": "speaker",
           "text": "\"Collect the calc and bring it here. I'll guide you through creating the Dial itself, and help you fit it to something at least forearm-length that you can carry without explaining.\"",
-          "speaker": "James"
+          "speaker": "James",
+          "label": null
         },
         {
           "key": "c19",
           "type": "speaker",
           "text": "\"I chose an umbrella. This is London, after all.\" ",
-          "speaker": "James"
+          "speaker": "James",
+          "label": null
         },
         {
           "type": "resolution",

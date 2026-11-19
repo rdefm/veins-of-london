@@ -1,0 +1,83 @@
+{
+  "id": "james_dial_offer",
+  "on_complete": [
+    { "op": "set_flag", "flag": "dialGiftGranted", "value": true },
+    { "op": "set_flag", "flag": "jamesDialOfferSeen", "value": true },
+    { "op": "set_screen", "screen": "phone" }
+  ],
+  "cards": [
+    { "key": "c1", "type": "narration", "label": "Bermondsey — James's unit", "speaker": null, "text": "James's text said \"Eight. Not ten past.\" Due to bus delays, it is nine minutes past. The door opens as soon as you press the buzzer; James must have been waiting. He doesn't look impressed." },
+    { "key": "c2", "type": "narration", "label": null, "speaker": null, "text": "The Dial is back on the umbrella handle. Under the collar, the Movement ticks, steady. James hasn't put the umbrella down since you came in." },
+    { "key": "c3", "type": "narration", "label": null, "speaker": null, "text": "Without a word he sweeps a jar off the shelf. Two clicks of the collar; he presses the catch. The jar stops a hand's width above the concrete and hangs there, perfectly still." },
+    { "key": "c4", "type": "speaker", "label": null, "speaker": "James", "text": "He takes the jar out of the air and puts it back. \"Forty years it's been with me. It knows how I stand, how I grip, how long I hesitate.\" He looks down a the umbrella handle, a mixture of relief, joy, and contentedness on his face." },
+    { "key": "c5", "type": "speaker", "label": null, "speaker": "You", "text": "\"Could I make one?\"" },
+    { "key": "c6", "type": "speaker", "label": null, "speaker": "James", "text": "\"You could. That is the problem.\" He pushes his glasses up by the bent arm. \"I'm sure you have more questions. Ask away.\"" },
+    {
+      "key": "c7", "type": "choice", "label": null, "speaker": null, "text": "James sits on the stool with the umbrella across his knees, and waits.",
+      "choices": [
+        {
+          "id": "askWhy",
+          "label": "Ask why he's helping",
+          "effects": [],
+          "result_text": null,
+          "goto": 7
+        },
+        {
+          "id": "askWhoKnows",
+          "label": "Ask who else knows",
+          "effects": [],
+          "result_text": null,
+          "goto": 8
+        },
+        {
+          "id": "askTeacher",
+          "label": "Ask who taught him",
+          "effects": [],
+          "result_text": null,
+          "goto": 9
+        },
+        {
+          "id": "askCost",
+          "label": "Ask what it costs",
+          "effects": [],
+          "result_text": null,
+          "goto": 10
+        }
+      ]
+    },
+    { "key": "c8", "type": "speaker", "label": null, "speaker": "James", "text": "\"I am past sixty, and Movements wear. You are the only person I know of who can make me another, and a careless one is no use to me.\" He says it flatly. It sounds rehearsed.", "goto": 6 },
+    { "key": "c9", "type": "speaker", "label": null, "speaker": "James", "text": "\"Me. Keep it that way.\" He doesn't smile. \"People who can make these get found. Then someone offers them a bench, a salary and a door that locks from the outside. The ones who say no aren't asked twice.\"", "goto": 6 },
+    { "key": "c10", "type": "speaker", "label": null, "speaker": "James", "text": "\"Someone the calc moved for.\" He turns the collar one click, then back. \"In forty years I've met two such people. You're the second.\" He doesn't say who the first one was.", "goto": 6 },
+    { "key": "c11", "type": "speaker", "label": null, "speaker": "James", "text": "\"Calc of all five types. 100 of each, 200 of life. Dial's essentially become living things, so it takes more life.\" He tears a page from his ledger, which you have never seen him do. The figures are already written on it." },
+    { "key": "c12", "type": "speaker", "label": null, "speaker": "You", "text": "\"Why not make two? Keep a spare.\"" },
+    { "key": "c17", "type": "speaker", "text": "\"Because it grows with you. Two would grow at half the pace, and neither would be worth carrying.\" A pause. \"Start soon. You're not getting any younger, which I gather comes as a shock at your age.\"", "speaker": "James", "label": null },
+    { "key": "c13", "type": "speaker", "label": null, "speaker": "James", "text": "\"You can always adjust the Movement later, and any Complications you load into it. But the Dial itself is the key, and it grows alongside you over time\"" },
+    {
+      "key": "c14", "type": "choice", "label": null, "speaker": null, "text": "James looks at you over his glasses, as though checking you for wear.",
+      "choices": [
+        {
+          "id": "thankHim",
+          "label": "Thank him",
+          "effects": [],
+          "result_text": "\"Don't.\" He is already looking at the shelf."
+        },
+        {
+          "id": "startThisWeek",
+          "label": "Say you'll start this week",
+          "effects": [],
+          "result_text": "\"Start when you can afford it. Not before. I'm not lending you calc.\""
+        },
+        {
+          "id": "pocketPage",
+          "label": "Fold the page away",
+          "effects": [],
+          "result_text": "You fold the page into your wallet. James watches it go, and seems content with where it's kept."
+        }
+      ]
+    },
+    { "key": "c15", "type": "speaker", "label": null, "speaker": "James", "text": "\"I'll craft the housing for you; they don't require the Gift, but they do take years of practice to make. Consider it my gift to you.\" " },
+    { "key": "c18", "type": "speaker", "text": "\"Collect the calc and bring it here. I'll guide you through creating the Dial itself, and help you fit it to something at least forearm-length that you can carry without explaining.\"", "speaker": "James", "label": null },
+    { "key": "c19", "type": "speaker", "text": "\"I chose an umbrella. This is London, after all.\" ", "speaker": "James", "label": null },
+    { "key": "c16", "type": "resolution", "label": null, "speaker": null, "text": "The door closes while you're still saying goodbye. On the street you unfold the page. Under the figures he has added one line: Tell no one. Not even Archie.", "image": "res://assets/events/james_dial_offer/james_dial_offer_b11_8.png" }
+  ]
+}

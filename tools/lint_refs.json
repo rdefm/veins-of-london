@@ -480,6 +480,37 @@
 			},
 			"observations": {}
 		},
+		"james_dial_evaluation": {
+			"choiceCards": {
+				"c11": [
+					"forceIt",
+					"drawBack",
+					"askControl"
+				],
+				"c6": [
+					"askMaker",
+					"askRisk",
+					"followDirections"
+				]
+			},
+			"observations": {}
+		},
+		"james_dial_offer": {
+			"choiceCards": {
+				"c14": [
+					"thankHim",
+					"startThisWeek",
+					"pocketPage"
+				],
+				"c7": [
+					"askWhy",
+					"askWhoKnows",
+					"askTeacher",
+					"askCost"
+				]
+			},
+			"observations": {}
+		},
 		"james_dial_repair": {
 			"choiceCards": {
 				"c12": [
@@ -571,6 +602,10 @@
 					"physics": 2
 				}
 			}
+		},
+		"james_player_dial_creation": {
+			"choiceCards": {},
+			"observations": {}
 		},
 		"kensington_exhibit": {
 			"choiceCards": {},
@@ -1747,10 +1782,19 @@
 		"introAskedSource",
 		"introBrave",
 		"introWantsHalf",
+		"jamesDialAttemptCost",
+		"jamesDialCalcQty",
+		"jamesDialEvaluationQueued",
+		"jamesDialOfferQueued",
+		"jamesDialOfferSeen",
+		"jamesDialRepairQueued",
+		"jamesDialRepairRequested",
 		"jamesDialRestored",
 		"jamesExperimentSeen",
 		"jamesJobAccepted",
 		"jamesJobActive",
+		"jamesPlayerDialQueued",
+		"jamesPlayerDialSeen",
 		"jamesRecipesUnlocked",
 		"luckyOmen",
 		"metArchie",
@@ -3686,9 +3730,19 @@
 		"flags.homeRaidEventSeen",
 		"flags.homeRaidWon",
 		"flags.homeUnlocked",
+		"flags.jamesDialAttemptCost",
+		"flags.jamesDialCalcQty",
+		"flags.jamesDialEvaluationQueued",
+		"flags.jamesDialOfferQueued",
+		"flags.jamesDialOfferSeen",
+		"flags.jamesDialRepairQueued",
+		"flags.jamesDialRepairRequested",
+		"flags.jamesDialRestored",
 		"flags.jamesExperimentSeen",
 		"flags.jamesJobAccepted",
 		"flags.jamesJobActive",
+		"flags.jamesPlayerDialQueued",
+		"flags.jamesPlayerDialSeen",
 		"flags.jamesRecipesUnlocked",
 		"flags.luckyOmen",
 		"flags.metArchie",

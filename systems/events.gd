@@ -2151,7 +2151,11 @@ static func _apply_one(effect: Dictionary, context: Dictionary = {}) -> void:
 			Contacts.set_role(effect["contact"], effect["role"])
 		"push_message":
 			# Optional "from" lets an authored SMS thread replay its own outgoing "player" lines verbatim; defaults to "them" when omitted.
-			Messages.append(effect["contact"], effect.get("from", "them"), effect["text"])
+			# "fillFromContext": true fills {key} placeholders from the event context.
+			var message: String = effect["text"]
+			if effect.get("fillFromContext", false):
+				message = message.format(context)
+			Messages.append(effect["contact"], effect.get("from", "them"), message)
 		# Ticker story article + timed ore demand rise, both keyed by a market.json storyRises id.
 		"post_story":
 			var story_id: String = effect["story"]
