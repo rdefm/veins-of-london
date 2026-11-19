@@ -97,6 +97,17 @@ func place_on_line(label: Label, x: float, width: float, line_y: float, font_siz
 	_apply(_placed[-1])
 
 
+# place_on_line for a word-wrapped `label` over `lines` ruled lines spaced
+# `pitch` art px apart, each wrapped line's baseline on its own ruled line.
+func place_on_lines(label: Label, x: float, width: float, line_y: float, pitch: float, lines: int, font_size: float, min_font: int = 9) -> void:
+	add_child(label)
+	label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.max_lines_visible = lines
+	_placed.append({ "node": label, "rect": Rect2(x, line_y - LINE_LIFT, width, 0.0), "font": font_size, "min": min_font, "baseline": true, "pitch": pitch, "lines": lines })
+	_apply(_placed[-1])
+
+
 func _layout() -> void:
 	for entry in _placed:
 		_apply(entry)
@@ -111,6 +122,10 @@ func _apply(entry: Dictionary) -> void:
 		node.add_theme_font_size_override("font_size", px)
 		node.position = Vector2(r.position.x, r.position.y - f.get_ascent(px))
 		node.size = Vector2(r.size.x, f.get_height(px))
+		if entry.has("pitch"):
+			var pitch: float = entry["pitch"] * art_scale()
+			node.add_theme_constant_override("line_spacing", int(round(pitch - f.get_height(px))))
+			node.size.y = f.get_height(px) + pitch * (entry["lines"] - 1)
 		return
 	node.position = r.position
 	node.size = r.size
@@ -129,3 +144,18 @@ static func fit_font(text: String, width: float, start: float, floor_size: float
 	while size > floor_size and f.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, int(size)).x > width:
 		size -= 2.0
 	return size
+
+
+# Lines `text` word-wraps to across `width` at `font_size` (both art px).
+static func line_count(text: String, width: float, font_size: float) -> int:
+	var f := font()
+	var lines := 1
+	var line := ""
+	for word in text.split(" ", false):
+		var candidate: String = word if line == "" else line + " " + word
+		if line != "" and f.get_string_size(candidate, HORIZONTAL_ALIGNMENT_LEFT, -1, int(font_size)).x > width:
+			lines += 1
+			line = word
+		else:
+			line = candidate
+	return lines

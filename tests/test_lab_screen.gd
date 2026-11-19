@@ -61,6 +61,14 @@ func run() -> void:
 		var hint2: Dictionary = GameData.LAB["procedures"]["timePearl"]["hints"][1]
 		assert_true(NodeQuery.label_texts(screen).has(hint1["vague"]["note"]), "with its direction note")
 		assert_true(not NodeQuery.label_texts(screen).has(hint2["vague"]["note"]), "an unknown step stays hidden")
+		assert_true(NodeQuery.label_texts(screen).has(_name("timePearl")), "the header repeats the name")
+		assert_true(NodeQuery.label_texts(screen).has("Stock: 0"), "and the stock")
+		assert_true(NodeQuery.label_texts(screen).has("Page 1/2"), "page 1 of the recipe")
+		assert_true(NodeQuery.find_button(screen, "Craft manually") != null, "Craft manually in the bar")
+		assert_true(NodeQuery.find_button(screen, "Rewind").disabled, "Rewind with nothing to pay")
+		assert_eq(screen.find_child("LadderRegion", true, false), null, "the ladder waits on page 2")
+		NodeQuery.find_button(screen, "Next ›").pressed.emit()
+		assert_true(NodeQuery.label_texts(screen).has("Page 2/2"), "Next turns to page 2")
 		var ladder := screen.find_child("LadderRegion", true, false)
 		assert_true(ladder != null, "the ladder region shows")
 		var rows := RecipeKnowledge.ladder_rows("timePearl")
@@ -86,6 +94,7 @@ func run() -> void:
 		GameState.state["lab"]["bestRanks"]["timePearl"] = 2
 		var screen := _screen()
 		screen._open_recipe("timePearl")
+		NodeQuery.find_button(screen, "Next ›").pressed.emit()
 		var batch := NodeQuery.find_button(screen, "Batch ×1")
 		assert_true(not batch.disabled, "enabled once performed")
 		batch.pressed.emit()
@@ -110,6 +119,7 @@ func run() -> void:
 		GameState.state["lab"]["bestRanks"][key] = int(cfg["minTier"]) - 1
 		var screen := _screen()
 		screen._open_recipe(key)
+		NodeQuery.find_button(screen, "Next ›").pressed.emit()
 		assert_true(_find_checkbox(screen, "Multi-target").disabled, "locked below the multi tier")
 		GameState.state["lab"]["bestRanks"][key] = int(cfg["minTier"])
 		EventBus.state_changed.emit()
@@ -136,6 +146,7 @@ func run() -> void:
 		NodeQuery.find_button(screen, "Done").pressed.emit()
 		assert_true(NodeQuery.label_texts(screen).has("2. %s · ?" % Lab.apparatus_name("grinding")), "the book shows the step, no band")
 		assert_true(NodeQuery.label_texts(screen).has(GameData.LAB["insightNote"]), "with the insight note")
+		NodeQuery.find_button(screen, "Next ›").pressed.emit()
 		var hint2 := screen.find_child("Rung_hint2", true, false) as Label
 		assert_true(hint2.text.contains("insight: "), "the ladder names the insight")
 		screen.free()
@@ -312,6 +323,53 @@ func run() -> void:
 		assert_eq(screen.find_child("RewindChoice", true, false), null, "the popup closes")
 		assert_true(NodeQuery.find_button(screen, "Rewind").disabled, "no Rewind left to spend")
 		screen.free()
+	)
+
+	run_case("book_returns_to_the_list_page_and_tab_and_a_recipe_reopens_on_page_1", func():
+		GameState.reset()
+		for recipe_key in GameData.RECIPES.keys():
+			Lab.grant_recipe(recipe_key)
+		var ore := ""
+		for candidate in HqLabBenchScreen.ORE_ORDER:
+			if Lab.known_recipes(candidate).size() > HqLabBenchScreen.PER_PAGE:
+				ore = candidate
+				break
+		var picked: String = Lab.known_recipes(ore)[HqLabBenchScreen.PER_PAGE]
+		var screen := _screen()
+		screen._open_tab(ore)
+		NodeQuery.find_button(screen, "Next ›").pressed.emit()
+		screen._open_recipe(picked)
+		NodeQuery.find_button(screen, "Next ›").pressed.emit()
+		NodeQuery.find_button(screen, "‹ Book").pressed.emit()
+		assert_eq(screen._page, HqLabBenchScreen.Page.BOOK, "‹ Book shows the list")
+		assert_true(NodeQuery.label_texts(screen).has(_name(picked)), "on the list page the recipe came from")
+		assert_true(NodeQuery.find_button(screen, "‹ Prev") != null, "still page 2 of the tab")
+		screen._open_recipe(picked)
+		assert_true(NodeQuery.label_texts(screen).has("Page 1/2"), "a reopened recipe starts on page 1")
+		var other: String = HqLabBenchScreen.ORE_ORDER[(HqLabBenchScreen.ORE_ORDER.find(ore) + 1) % HqLabBenchScreen.ORE_ORDER.size()]
+		for button in screen.find_children("*", "Button", true, false):
+			if button.get_meta("ore", "") == other:
+				button.pressed.emit()
+				break
+		assert_eq(screen._page, HqLabBenchScreen.Page.BOOK, "a tab on a recipe page opens a list")
+		assert_eq(screen._selected_ore(), other, "that ore's list")
+		screen.free()
+	)
+
+	run_case("every_recipe_procedure_fits_page_1_at_every_specificity", func():
+		var body := RecipeBookPage.RECIPE_BODY_LINES.size()
+		for specificity in GameData.LAB["specificities"]:
+			GameState.reset()
+			var screen := _screen()
+			for recipe_key in GameData.LAB["procedures"].keys():
+				Lab.grant_recipe(recipe_key)
+				for rung in RecipeKnowledge.rungs():
+					if rung != "base":
+						RecipeKnowledge.grant_rung(recipe_key, rung, specificity)
+				var rows: Array = screen._procedure_rows(recipe_key)
+				var last: Dictionary = rows[-1]
+				assert_true(int(last["line"]) + int(last["lines"]) <= body, "%s (%s) fits page 1" % [recipe_key, specificity])
+			screen.free()
 	)
 
 	run_case("a_touch_and_its_emulated_mouse_twin_tap_a_jar_once", func():

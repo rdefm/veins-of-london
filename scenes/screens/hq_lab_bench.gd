@@ -4,9 +4,10 @@ extends Control
 # The HQ Lab zone: the Lab plate (docs/hq-diorama-vision.md §5.1) over the
 # live Lab system (.scratch/lab-port/spec.md § Screens). Jar badges show the
 # player's real calc; the recipes notebook opens the recipe book of known
-# recipes by ore tab (§5.2 look), and a recipe's page shows its procedure as
-# known, best rank, the reserved knowledge-ladder region, batch and Craft
-# manually.
+# recipes by ore tab (§5.2 look), and a recipe opens its own notebook page
+# (.scratch/lab-recipe-page/spec.md): the procedure as known on page 1, the
+# knowledge ladder and batch on page 2, with a bar of navigation, Rewind
+# and Craft manually.
 #
 # "Craft manually" docks the book under the Press, over the plate's lower
 # edge, with the plate lifted so its jars sit just below the top bar: the
@@ -59,9 +60,23 @@ const _STEP_BOX := Rect2(210, 115, 215, 210)
 const _STEP_TEXT := Rect2(450, 150, 380, 130)
 const _STEP_BAND := Rect2(450, 290, 380, 50)
 
+# Recipe page geometry on RecipeBookPage.RECIPE_TEXTURE, art space: the
+# header's icon frame, then per step its line, band and wrapped note.
+const RECIPE_PAGES := 2
+const _HEADER_ICON := Rect2(232, 225, 172, 168)
+const _BODY_PITCH := 44.0
+const _STEP_FONT := 26.0
+const _STEP_FONT_FLOOR := 20.0
+const _NOTE_FONT := 22.0
+const _NOTE_INDENT := 40.0
+# Wraps are counted a little narrower than drawn so a rounding difference at
+# screen size never wraps one line more than budgeted.
+const _WRAP_SLACK := 0.92
+
 enum Page { NONE, BOOK, RECIPE, RUN }
 
-# View state only: which book page and ore tab are open, the picked batch
+# View state only: which book page and ore tab are open, the open recipe's
+# page (0 procedure, 1 knowledge), the picked batch
 # size, and in a docked run the open gauge's apparatus, the last refusal
 # notice, the browsed step (-1 follows the run's next step) and the finished
 # run's result; whether the Rewind choice is open.
@@ -70,6 +85,7 @@ var _rewind_open := false
 var _book_ore := ""
 var _book_page := 0
 var _recipe_key := ""
+var _recipe_page := 0
 var _craft_qty := 1
 var _gauge := ""
 var _notice := ""
@@ -121,11 +137,8 @@ func _refresh() -> void:
 		if _page == Page.RECIPE and not Lab.is_known(_recipe_key):
 			_page = Page.BOOK
 		_build_plate(Rect2(Vector2.ZERO, size))
-		match _page:
-			Page.BOOK:
-				_build_overlay(_build_book())
-			Page.RECIPE:
-				_build_overlay(_build_book(), _build_recipe_card())
+		if _page == Page.BOOK or _page == Page.RECIPE:
+			_build_overlay(_build_book())
 	if _rewind_open:
 		_build_rewind_choice()
 
@@ -317,9 +330,8 @@ func _on_run_zone_tapped(zone: String) -> void:
 
 # ── Book overlay ─────────────────────────────────────────────────────────
 
-# A dim backdrop (tap to step back) under the book column; card, when
-# given, stacks centred above the book.
-func _build_overlay(column: Control, card: Control = null) -> void:
+# A dim backdrop (tap to step back) under the book column.
+func _build_overlay(column: Control) -> void:
 	var dim := ColorRect.new()
 	dim.color = Color(0, 0, 0, 0.5)
 	UI.anchor_full_rect(dim)
@@ -333,13 +345,6 @@ func _build_overlay(column: Control, card: Control = null) -> void:
 	column.offset_top = UI.safe_area_top_inset() + _OVERLAY_MARGIN
 	column.offset_bottom = -(UI.nav_bar_clearance() + _OVERLAY_MARGIN)
 	add_child(column)
-
-	if card != null:
-		var centre := CenterContainer.new()
-		UI.anchor_full_rect(centre)
-		centre.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		centre.add_child(card)
-		add_child(centre)
 
 
 func _on_dim_gui_input(event: InputEvent) -> void:
@@ -359,6 +364,8 @@ func _selected_ore() -> String:
 
 
 func _build_book() -> Control:
+	if _page == Page.RECIPE:
+		return _build_recipe_book()
 	var ore := _selected_ore()
 	var known := Lab.known_recipes(ore)
 	var pages := maxi(1, ceili(known.size() / float(PER_PAGE)))
@@ -398,7 +405,10 @@ func _build_book() -> Control:
 
 
 func _turn_page(step: int) -> void:
-	_book_page += step
+	if _page == Page.RECIPE:
+		_recipe_page = clampi(_recipe_page + step, 0, RECIPE_PAGES - 1)
+	else:
+		_book_page += step
 	_refresh()
 
 
@@ -442,29 +452,7 @@ func _build_tabs(book: RecipeBookPage, ore: String) -> void:
 func _build_entry(book: RecipeBookPage, recipe_key: String, slot: int) -> void:
 	var recipe: Dictionary = GameData.RECIPES[recipe_key]
 	var top: float = _ENTRY_TOP + _ENTRY_STEP * slot
-
-	var icon := TextureRect.new()
-	icon.texture = ItemIcons.texture(recipe_key)
-	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	book.place(icon, Rect2(232, top + 20, 172, 168))
-
-	var lines: Array = _ENTRY_LINES[slot]
-	var name_size := RecipeBookPage.fit_font(recipe["name"], _ENTRY_TEXT_W, 40.0, 26.0)
-	var name_label := _page_label(recipe["name"], RecipeBookPage.INK)
-	name_label.clip_text = true
-	book.place_on_line(name_label, _ENTRY_TEXT_X, _ENTRY_TEXT_W, lines[0], name_size, 11)
-
-	var cost := _page_label("Cost: %s" % _calc_text(Lab.base_calc(recipe_key)), RecipeBookPage.INK_MUTED)
-	book.place_on_line(cost, _ENTRY_TEXT_X, _ENTRY_TEXT_W, lines[1], 28.0, 10)
-
-	var stock := _page_label("Stock: %d" % Crafting.inventory_qty(recipe_key), RecipeBookPage.INK_MUTED)
-	book.place_on_line(stock, _ENTRY_TEXT_X, _ENTRY_TEXT_W, lines[2], 28.0, 10)
-
-	var rank := _page_label("Best rank: %s" % _rank_text(recipe_key), RecipeBookPage.INK)
-	book.place_on_line(rank, _ENTRY_TEXT_X, _ENTRY_TEXT_W, lines[3], 26.0, 10)
+	_place_entry_text(book, recipe_key, Rect2(232, top + 20, 172, 168), _ENTRY_LINES[slot])
 
 	var hit := Button.new()
 	hit.flat = true
@@ -495,6 +483,7 @@ func _rank_text(recipe_key: String) -> String:
 
 func _open_recipe(recipe_key: String) -> void:
 	_recipe_key = recipe_key
+	_recipe_page = 0
 	_craft_qty = 1
 	_notice = ""
 	_show(Page.RECIPE)
@@ -502,50 +491,147 @@ func _open_recipe(recipe_key: String) -> void:
 
 # ── Recipe page ──────────────────────────────────────────────────────────
 
-func _build_recipe_card() -> Control:
-	var c := MapCardStyle.card(18, 0.16)
-	c["panel"].custom_minimum_size.x = 330
+# The open recipe's notebook page (spec lab-recipe-page § Solution) over the
+# recipe art, ore tabs kept, and its bar: navigation, then Craft manually.
+func _build_recipe_book() -> Control:
+	_recipe_page = clampi(_recipe_page, 0, RECIPE_PAGES - 1)
+	var book := RecipeBookPage.new(RecipeBookPage.RECIPE_TEXTURE)
+	_build_tabs(book, _selected_ore())
+	# The list entry opened up, in slot 0's frame and header lines.
+	_place_entry_text(book, _recipe_key, _HEADER_ICON, RecipeBookPage.RECIPE_HEADER_LINES)
+	if _recipe_page == 0:
+		_build_procedure(book, _recipe_key)
+	else:
+		_build_knowledge(book, _recipe_key)
+
+	var column := UI.vbox(6)
+	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	column.add_child(book)
+	var panel := PanelContainer.new()
+	MapCardStyle.style_panel(panel, 12, 0.0)
+	var rows := UI.vbox(6)
+	panel.add_child(rows)
+	if _notice != "":
+		var notice := MapCardStyle.label(_notice, 13, MapCardStyle.action())
+		notice.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		rows.add_child(notice)
+	var nav := UI.hbox(6)
+	rows.add_child(nav)
+	nav.add_child(MapCardStyle.text_button("‹ Book", func(): _show(Page.BOOK)))
+	if _recipe_page > 0:
+		nav.add_child(MapCardStyle.text_button("‹ Prev", func(): _turn_page(-1)))
+	var counter := UI.label("Page %d/%d" % [_recipe_page + 1, RECIPE_PAGES])
+	counter.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	counter.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	nav.add_child(counter)
+	if _recipe_page < RECIPE_PAGES - 1:
+		nav.add_child(MapCardStyle.text_button("Next ›", func(): _turn_page(1)))
+	_add_rewind_controls(nav, false)
+	var craft := MapCardStyle.text_button("Craft manually", _dock)
+	craft.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	rows.add_child(craft)
+	column.add_child(panel)
+	return column
+
+
+# A recipe's entry: its icon in icon_rect, then name, cost, stock and best
+# rank on the four ruled lines whose top edges are `lines` (art space).
+func _place_entry_text(book: RecipeBookPage, recipe_key: String, icon_rect: Rect2, lines: Array) -> void:
+	var recipe: Dictionary = GameData.RECIPES[recipe_key]
+	var icon := TextureRect.new()
+	icon.texture = ItemIcons.texture(recipe_key)
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	book.place(icon, icon_rect)
+
+	var name_label := _page_label(recipe["name"], RecipeBookPage.INK)
+	name_label.clip_text = true
+	book.place_on_line(name_label, _ENTRY_TEXT_X, _ENTRY_TEXT_W, lines[0], RecipeBookPage.fit_font(recipe["name"], _ENTRY_TEXT_W, 40.0, 26.0), 11)
+	var cost := _page_label("Cost: %s" % _calc_text(Lab.base_calc(recipe_key)), RecipeBookPage.INK_MUTED)
+	book.place_on_line(cost, _ENTRY_TEXT_X, _ENTRY_TEXT_W, lines[1], 28.0, 10)
+	var stock := _page_label("Stock: %d" % Crafting.inventory_qty(recipe_key), RecipeBookPage.INK_MUTED)
+	book.place_on_line(stock, _ENTRY_TEXT_X, _ENTRY_TEXT_W, lines[2], 28.0, 10)
+	var rank := _page_label("Best rank: %s" % _rank_text(recipe_key), RecipeBookPage.INK)
+	book.place_on_line(rank, _ENTRY_TEXT_X, _ENTRY_TEXT_W, lines[3], 26.0, 10)
+
+
+# Page 1's layout: per known step its line, its band (when it has one) and
+# its note, as { kind, line, lines, ... } with line the first body line used
+# (step rows carry step and index, band rows region, note rows step). The procedure fits when every row ends within the body lines.
+func _procedure_rows(recipe_key: String) -> Array:
+	var rows := []
+	var line := 0
+	var steps := Lab.known_procedure(recipe_key)
+	for i in steps.size():
+		var step: Dictionary = steps[i]
+		rows.append({ "kind": "step", "step": step, "index": i, "line": line, "lines": 1 })
+		line += 1
+		var region := Lab.step_region(recipe_key, step)
+		if not region.is_empty():
+			rows.append({ "kind": "band", "region": region, "line": line, "lines": 1 })
+			line += 1
+		if step.has("note"):
+			var width := (RecipeBookPage.RECIPE_LINE_W - _NOTE_INDENT) * _WRAP_SLACK
+			var count := RecipeBookPage.line_count(str(step["note"]), width, _NOTE_FONT)
+			rows.append({ "kind": "note", "step": step, "index": i, "line": line, "lines": count })
+			line += count
+	return rows
+
+
+# Page 1: the known procedure written on the body lines (see _procedure_rows).
+func _build_procedure(book: RecipeBookPage, recipe_key: String) -> void:
+	var body: Array = RecipeBookPage.RECIPE_BODY_LINES
+	var x := RecipeBookPage.RECIPE_LINE_X
+	var width := RecipeBookPage.RECIPE_LINE_W
+	for row in _procedure_rows(recipe_key):
+		if int(row["line"]) + int(row["lines"]) > body.size():
+			break
+		var line_y: float = body[row["line"]]
+		match row["kind"]:
+			"step":
+				var text := "%d. %s" % [int(row["index"]) + 1, _step_text(row["step"])]
+				var label := _page_label(text, RecipeBookPage.INK)
+				label.clip_text = true
+				book.place_on_line(label, x, width, line_y, RecipeBookPage.fit_font(text, width, _STEP_FONT, _STEP_FONT_FLOOR), 10)
+			"band":
+				var band := LabGauges.BandGauge.new()
+				band.custom_minimum_size = Vector2.ZERO
+				band.set_region(row["region"])
+				book.place(band, Rect2(x + _NOTE_INDENT, line_y - _BODY_PITCH + 10.0, width - _NOTE_INDENT, _BODY_PITCH - 14.0))
+			"note":
+				var note := _page_label(str(row["step"]["note"]), RecipeBookPage.INK_MUTED)
+				book.place_on_lines(note, x + _NOTE_INDENT, width - _NOTE_INDENT, line_y, _BODY_PITCH, int(row["lines"]), _NOTE_FONT, 9)
+
+
+# Page 2, interim: the knowledge ladder and the batch controls, scrolling on
+# the body lines.
+func _build_knowledge(book: RecipeBookPage, recipe_key: String) -> void:
+	var body: Array = RecipeBookPage.RECIPE_BODY_LINES
 	var scroller := UI.scroll_container()
-	scroller.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroller.custom_minimum_size.y = minf(560.0, maxf(size.y - 120.0, 240.0))
 	var content := UI.vbox(6)
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroller.add_child(content)
-	c["content"].add_child(scroller)
-
-	var recipe_key := _recipe_key
-	var recipe: Dictionary = GameData.RECIPES[recipe_key]
-	var cost := Lab.base_calc(recipe_key)
-	content.add_child(UI.heading(recipe["name"], 18))
-	content.add_child(UI.label("Best rank: %s" % _rank_text(recipe_key)))
-	content.add_child(UI.muted_label("Cost per craft: %s" % _calc_text(cost)))
-	if _notice != "":
-		content.add_child(MapCardStyle.label(_notice, 13, MapCardStyle.action()))
-
-	content.add_child(UI.heading("Procedure", 14))
-	var steps := Lab.known_procedure(recipe_key)
-	for i in steps.size():
-		_add_known_step(content, i, steps[i])
+	book.place(scroller, Rect2(RecipeBookPage.RECIPE_LINE_X, float(body[0]) - _BODY_PITCH, RecipeBookPage.RECIPE_LINE_W, float(body[-1]) - float(body[0]) + _BODY_PITCH))
 	var ladder := UI.vbox(2)
 	ladder.name = "LadderRegion"
 	ladder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	content.add_child(ladder)
 	_add_ladder(ladder, recipe_key)
-
-	content.add_child(MapCardStyle.text_button("Craft manually", _dock))
-	_add_batch_controls(content, recipe_key, cost)
-	_add_rewind_controls(content)
-	c["content"].add_child(MapCardStyle.footer([MapCardStyle.text_button("Back to book", func(): _show(Page.BOOK))]))
-	return c["panel"]
+	_add_batch_controls(content, recipe_key, Lab.base_calc(recipe_key))
 
 
 # The knowledge ladder (recipe-acquisition spec § Recipe book): one line
-# per rung, owned rungs bright, locked ones muted with their source.
+# per rung, owned rungs in ink, locked ones muted with their source.
 func _add_ladder(ladder: VBoxContainer, recipe_key: String) -> void:
-	ladder.add_child(UI.heading(str(GameData.RECIPE_KNOWLEDGE["ladder"]["heading"]), 14))
+	var heading := _page_label(str(GameData.RECIPE_KNOWLEDGE["ladder"]["heading"]), RecipeBookPage.INK)
+	heading.add_theme_font_size_override("font_size", 15)
+	ladder.add_child(heading)
 	for row in RecipeKnowledge.ladder_rows(recipe_key):
-		var label := UI.muted_label(row["text"]) if row["state"] == "locked" else UI.label(row["text"])
+		var label := _page_label(row["text"], RecipeBookPage.INK_MUTED if row["state"] == "locked" else RecipeBookPage.INK)
 		label.name = "Rung_%s" % row["rung"]
+		label.add_theme_font_size_override("font_size", 13)
 		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		ladder.add_child(label)
 
@@ -566,7 +652,7 @@ func _add_batch_controls(content: VBoxContainer, recipe_key: String, cost: Dicti
 	var multi_offered: bool = multi_cfg["craftable"].has(recipe_key) and not Crafting.is_always_multi(recipe_key)
 	var craft := MapCardStyle.action_button(_batch_label(_craft_qty), func(): _on_batch(recipe_key, picked[0]), reason != "", reason)
 	var craft_button := craft.get_child(0) as Button
-	var total := UI.label(_batch_total_text(cost, _craft_qty))
+	var total := _page_label(_batch_total_text(cost, _craft_qty), RecipeBookPage.INK)
 	var on_change := func(value: int) -> void:
 		picked[0] = value
 		total.text = _batch_total_text(cost, value)
@@ -579,10 +665,13 @@ func _add_batch_controls(content: VBoxContainer, recipe_key: String, cost: Dicti
 		multi.button_pressed = Crafting.get_craft_multi(recipe_key)
 		multi.disabled = not Crafting.multi_craft_available(recipe_key)
 		multi.toggled.connect(func(on: bool): Crafting.set_craft_multi(recipe_key, on))
+		for colour in ["font_color", "font_pressed_color", "font_hover_color"]:
+			multi.add_theme_color_override(colour, RecipeBookPage.INK)
+		multi.add_theme_color_override("font_disabled_color", RecipeBookPage.INK_MUTED)
 		content.add_child(multi)
 		if multi.disabled:
 			# PROSE-REVIEW: multi-target gate.
-			content.add_child(UI.muted_label("Best rank %d unlocks multi-target." % int(multi_cfg["minTier"])))
+			content.add_child(_page_label("Best rank %d unlocks multi-target." % int(multi_cfg["minTier"]), RecipeBookPage.INK_MUTED))
 	content.add_child(craft)
 
 
@@ -608,16 +697,22 @@ func _on_batch(recipe_key: String, qty: int) -> void:
 
 # One Rewind button; it opens the choice of the two Rewinds (spec § Rewind):
 # the last run or batch, or the whole time block. Each needs a Rewind item
-# or a loaded Dial Rewind charge.
-func _add_rewind_controls(content: VBoxContainer) -> void:
+# or a loaded Dial Rewind charge. In a bar row (with_note off) the
+# no-Rewind note rides on the button's tooltip instead of its own line.
+func _add_rewind_controls(content: Container, with_note: bool = true) -> void:
 	if LessonSession.is_open():
 		return
 	var can_pay := Rewind.can_pay()
 	var any := Lab.has_rewind_point() or Rewind.block_rewind_block_reason() == ""
-	content.add_child(MapCardStyle.text_button("Rewind", _open_rewind_choice, not can_pay or not any))
+	var button := MapCardStyle.text_button("Rewind", _open_rewind_choice, not can_pay or not any)
+	content.add_child(button)
 	if not can_pay:
 		# PROSE-REVIEW: no Rewind to spend.
-		content.add_child(UI.muted_label("No Rewind to spend."))
+		var note := "No Rewind to spend."
+		if with_note:
+			content.add_child(UI.muted_label(note))
+		else:
+			button.tooltip_text = note
 
 
 func _open_rewind_choice() -> void:
@@ -941,21 +1036,6 @@ func _effect_buttons() -> Array[Control]:
 			var qty := Stash.player_item_qty(item)
 			out.append(MapCardStyle.text_button("Use %s (%d)" % [item_name, qty], func(): Lab.use_effect(item), qty <= 0))
 	return out
-
-
-# A known step: its line (see _step_text), its band on a 0-100 track (faded
-# when vague), and the hint's note saying which way to go.
-func _add_known_step(content: VBoxContainer, index: int, step: Dictionary) -> void:
-	content.add_child(UI.label("%d. %s" % [index + 1, _step_text(step)]))
-	var region := Lab.step_region(_recipe_key, step)
-	if not region.is_empty():
-		var band := LabGauges.BandGauge.new()
-		band.set_region(region)
-		content.add_child(band)
-	if step.has("note"):
-		var note := UI.muted_label(step["note"])
-		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		content.add_child(note)
 
 
 # A known step's line: apparatus, the calc it adds, and its band -- exact as
