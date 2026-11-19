@@ -118,7 +118,11 @@
     <input type="range" id="shareRange" min="0" max="60" step="5" value="0" style="width:100%">
     <label for="darkRange">Counts as dark below brightness: <span id="darkOut">70</span></label>
     <input type="range" id="darkRange" min="10" max="160" step="5" value="70" style="width:100%">
-    <p class="hint">Keeps thin lines and eyes: a cell this share dark takes the dark colour even without a majority. Brightness is perceptual (OKLab), on a grey 0–255 scale.</p>
+    <label for="lShareRange">Light share that wins a cell: <span id="lShareOut">off</span></label>
+    <input type="range" id="lShareRange" min="0" max="60" step="5" value="0" style="width:100%">
+    <label for="lightRange">Counts as light above brightness: <span id="lightOut">200</span></label>
+    <input type="range" id="lightRange" min="100" max="250" step="5" value="200" style="width:100%">
+    <p class="hint">Keeps thin lines and eyes: a cell this share dark takes the dark colour even without a majority; light share does the same for eye whites and catchlights. If both pass, the larger share wins (tie → dark). Brightness is perceptual (OKLab), on a grey 0–255 scale.</p>
   </fieldset>
 
   <fieldset>
@@ -225,7 +229,7 @@ const S = {
   view: "both", grid: true, zoom: 1,
   contrast: 0, sat: 0, smooth: "off", radius: 2, showClean: true,
   follow: false, followShift: 3, prof: null, profSrc: null,   // prof: edgeProfile of S.src
-  outShare: 0, outDark: 70, stray: false, strayProtect: 60, jag: false, thin: false,
+  outShare: 0, outDark: 70, lightShare: 0, outLight: 200, stray: false, strayProtect: 60, jag: false, thin: false,
   pre: null, preKey: "",  // cleaned source + the settings it was made with
   native: null,  // ImageData of the result at native size
 };
@@ -351,48 +355,58 @@ function modeOf(counts) {
  * Grid-lock: one output pixel per cell, by "dominant" (most common colour) or "mean".
  * outline {share, dark}: a cell whose opaque pixels are at least `share` (0-1) darker than
  * brightness `dark` (0-255 grey scale, judged by OKLab lightness) takes the dark pixels' colour
- * instead, so thin lines and eyes survive.
+ * instead, so thin lines and eyes survive. outline {lightShare, light} is the bright counterpart
+ * (pixels brighter than `light`), for eye whites and catchlights. A cell passing both tests takes
+ * whichever side makes up more of it; dark wins a tie.
  */
 function gridLock(src, w, h, cell, ox, oy, mode, core, outline, follow) {
   const axes = gridAxes(w, h, cell, ox, oy, follow);
   const xs = axes.xs.map((e) => coreSpan(e, core));
   const ys = axes.ys.map((e) => coreSpan(e, core));
   const out = new ImageData(Math.max(1, xs.length), Math.max(1, ys.length));
-  const d = src.data, o = out.data, counts = new Map(), darkCounts = new Map();
+  const d = src.data, o = out.data, counts = new Map(), darkCounts = new Map(), lightCounts = new Map();
   const share = outline && outline.share > 0 ? outline.share : 0, dark = share ? darkLevel(outline.dark) : -1;
+  const lShare = outline && outline.lightShare > 0 ? outline.lightShare : 0, light = lShare ? darkLevel(outline.light) : 2;
   for (let cy = 0; cy < ys.length; cy++) {
     const [y0, y1] = ys[cy];
     for (let cx = 0; cx < xs.length; cx++) {
       const [x0, x1] = xs[cx];
-      let r = 0, g = 0, b = 0, opaque = 0, total = 0, nd = 0, dr = 0, dg = 0, db = 0;
-      counts.clear(); darkCounts.clear();
+      let r = 0, g = 0, b = 0, opaque = 0, total = 0, nd = 0, dr = 0, dg = 0, db = 0, nl = 0, lr = 0, lg = 0, lb = 0;
+      counts.clear(); darkCounts.clear(); lightCounts.clear();
       for (let y = y0; y < y1; y++) {
         for (let x = x0; x < x1; x++) {
           const i = (y * w + x) * 4;
           total++;
           if (d[i + 3] < ALPHA_MIN) continue;
           opaque++;
-          const isDark = share && oklabL(d[i], d[i + 1], d[i + 2]) < dark;
+          const L = share || lShare ? oklabL(d[i], d[i + 1], d[i + 2]) : 0;
+          const isDark = share && L < dark, isLight = lShare && L > light;
           if (isDark) nd++;
+          if (isLight) nl++;
           if (mode === "mean") {
             r += d[i]; g += d[i + 1]; b += d[i + 2];
             if (isDark) { dr += d[i]; dg += d[i + 1]; db += d[i + 2]; }
+            if (isLight) { lr += d[i]; lg += d[i + 1]; lb += d[i + 2]; }
           } else {
             const c = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
             counts.set(c, (counts.get(c) || 0) + 1);
             if (isDark) darkCounts.set(c, (darkCounts.get(c) || 0) + 1);
+            if (isLight) lightCounts.set(c, (lightCounts.get(c) || 0) + 1);
           }
         }
       }
       const j = (cy * out.width + cx) * 4;
       if (opaque * 2 < total) { o[j + 3] = 0; continue; }
-      const useDark = share && nd > 0 && nd >= share * opaque;
+      let useDark = share && nd > 0 && nd >= share * opaque;
+      const useLight = lShare && nl > 0 && nl >= lShare * opaque && !(useDark && nd >= nl);
+      if (useLight) useDark = false;
       if (mode === "mean") {
-        const n = useDark ? nd : opaque;
+        const n = useDark ? nd : useLight ? nl : opaque;
         if (useDark) { r = dr; g = dg; b = db; }
+        if (useLight) { r = lr; g = lg; b = lb; }
         o[j] = Math.round(r / n); o[j + 1] = Math.round(g / n); o[j + 2] = Math.round(b / n);
       } else {
-        const best = modeOf(useDark ? darkCounts : counts);
+        const best = modeOf(useDark ? darkCounts : useLight ? lightCounts : counts);
         o[j] = best >> 16; o[j + 1] = (best >> 8) & 255; o[j + 2] = best & 255;
       }
       o[j + 3] = 255;
@@ -772,7 +786,7 @@ function showBefore() {
 
 function process() {
   if (!S.src) return;
-  const src = cleaned(), outline = { share: S.outShare / 100, dark: S.outDark }, fo = followOpts();
+  const src = cleaned(), outline = { share: S.outShare / 100, dark: S.outDark, lightShare: S.lightShare / 100, light: S.outLight }, fo = followOpts();
   let pal = null;
   if (S.colours === "palette" && S.palette && S.palette.length) pal = S.palette;
   if (S.colours === "reduce") pal = reducePalette(gridLock(src, S.w, S.h, S.cell, S.ox, S.oy, "mean", S.core, null, fo), S.n);
@@ -911,6 +925,8 @@ cleanupSlider("satRange", "sat", "satOut");
 cleanupSlider("radRange", "radius", "radOut");
 slider("shareRange", "outShare", "shareOut", (v) => (v ? v + "%" : "off"));
 slider("darkRange", "outDark", "darkOut");
+slider("lShareRange", "lightShare", "lShareOut", (v) => (v ? v + "%" : "off"));
+slider("lightRange", "outLight", "lightOut");
 slider("followRange", "followShift", "followOut");
 slider("strayRange", "strayProtect", "strayOut");
 $("strayChk").addEventListener("change", (e) => { S.stray = e.target.checked; schedule(); });

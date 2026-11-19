@@ -110,6 +110,41 @@ test("outline priority keeps a thin dark line that plain dominant and mean lose"
   assert.deepStrictEqual(px(meanOut, 0, 0).slice(0, 3), [10, 10, 10]);
 });
 
+const BROWN = [120, 80, 50], WHITE = [250, 250, 250], PUPIL = [10, 10, 10];
+const LIGHT_ON = { share: 0, dark: 70, lightShare: 0.05, light: 200 };
+const cellOf = (img, mode, outline) => px(gridLock(img, 6, 6, 6, 0, 0, mode, 100, outline), 0, 0).slice(0, 3);
+
+test("light share keeps a 2-px white fleck that plain dominant and mean lose", () => {
+  const img = fill(new ImageData(6, 6), (x, y) => (y === 2 && (x === 2 || x === 3) ? WHITE : BROWN));
+  assert.deepStrictEqual(cellOf(img, "dominant", null), BROWN);
+  assert(cellOf(img, "mean", null)[0] < 150, "mean washes the fleck out");
+  assert.deepStrictEqual(cellOf(img, "dominant", LIGHT_ON), WHITE);
+  assert.deepStrictEqual(cellOf(img, "mean", LIGHT_ON), WHITE);
+  const pal = [BROWN, WHITE, PUPIL];
+  assert.deepStrictEqual(cellOf(snapToPalette(img, pal), "dominant", LIGHT_ON), WHITE, "palette-snapped path");
+});
+
+test("dark and light shares both pass: larger share wins, tie goes to dark", () => {
+  const both = { share: 0.05, dark: 70, lightShare: 0.05, light: 200 };
+  // 2 pupil px, 4 white px, rest brown
+  const more = fill(new ImageData(6, 6), (x, y) => (y === 2 && x < 2 ? PUPIL : y === 3 && x < 4 ? WHITE : BROWN));
+  assert.deepStrictEqual(cellOf(more, "dominant", both), WHITE);
+  assert.deepStrictEqual(cellOf(more, "mean", both), WHITE);
+  // 3 pupil px, 3 white px
+  const tie = fill(new ImageData(6, 6), (x, y) => (y === 2 && x < 3 ? PUPIL : y === 3 && x < 3 ? WHITE : BROWN));
+  assert.deepStrictEqual(cellOf(tie, "dominant", both), PUPIL);
+  assert.deepStrictEqual(cellOf(tie, "mean", both), PUPIL);
+});
+
+test("light share leaves a cell with no light pixels unchanged", () => {
+  const img = fill(new ImageData(6, 6), (x, y) => (x === 2 ? PUPIL : [120 + y, 80, 50 + x]));
+  for (const mode of ["dominant", "mean"]) {
+    const off = { share: 0.1, dark: 70 }, on = { ...off, lightShare: 0.05, light: 200 };
+    assert.deepStrictEqual(cellOf(img, mode, on), cellOf(img, mode, off), mode);
+    assert.deepStrictEqual(cellOf(img, mode, { lightShare: 0.05, light: 200 }), cellOf(img, mode, null), mode + " without dark share");
+  }
+});
+
 test("Kuwahara cuts texture noise while keeping a hard edge", () => {
   const w = 40, h = 20;
   const img = fill(new ImageData(w, h), (x) => { const b = x < 20 ? 60 : 200, n = (rnd() - 0.5) * 40; return [b + n, b + n, b + n]; });
