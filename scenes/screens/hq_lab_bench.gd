@@ -6,8 +6,8 @@ extends Control
 # player's real calc; the recipes notebook opens the recipe book of known
 # recipes by ore tab (§5.2 look), and a recipe opens its own notebook page
 # (.scratch/lab-recipe-page/spec.md): the procedure as known on page 1, the
-# knowledge ladder and batch on page 2, with a bar of navigation, Rewind
-# and Craft manually.
+# knowledge ladder on page 2, with a bar of navigation, Rewind, Craft
+# manually and Auto-craft (its quantity sheet docked on the bar).
 #
 # "Craft manually" docks the book under the Press, over the plate's lower
 # edge, with the plate lifted so its jars sit just below the top bar: the
@@ -95,9 +95,10 @@ enum Page { NONE, BOOK, RECIPE, RUN }
 # page (0 procedure, 1 knowledge), the picked batch
 # size, and in a docked run the open gauge's apparatus, the last refusal
 # notice, the browsed step (-1 follows the run's next step) and the finished
-# run's result; whether the Rewind choice is open.
+# run's result; whether the Rewind choice or the Auto-craft sheet is open.
 var _page := Page.NONE
 var _rewind_open := false
+var _batch_open := false
 var _book_ore := ""
 var _book_page := 0
 var _recipe_key := ""
@@ -155,6 +156,9 @@ func _refresh() -> void:
 		_build_plate(Rect2(Vector2.ZERO, size))
 		if _page == Page.BOOK or _page == Page.RECIPE:
 			_build_overlay(_build_book())
+	_batch_open = _batch_open and _page == Page.RECIPE and _batch_block_reason(_recipe_key) == ""
+	if _batch_open:
+		_build_batch_sheet()
 	if _rewind_open:
 		_build_rewind_choice()
 
@@ -508,7 +512,8 @@ func _open_recipe(recipe_key: String) -> void:
 # ── Recipe page ──────────────────────────────────────────────────────────
 
 # The open recipe's notebook page (spec lab-recipe-page § Solution) over the
-# recipe art, ore tabs kept, and its bar: navigation, then Craft manually.
+# recipe art, ore tabs kept, and its bar: navigation, then Craft manually
+# and Auto-craft, closed with its reason while batch is blocked.
 func _build_recipe_book() -> Control:
 	_recipe_page = clampi(_recipe_page, 0, RECIPE_PAGES - 1)
 	var book := RecipeBookPage.new(RecipeBookPage.RECIPE_TEXTURE)
@@ -543,9 +548,16 @@ func _build_recipe_book() -> Control:
 	if _recipe_page < RECIPE_PAGES - 1:
 		nav.add_child(MapCardStyle.text_button("Next ›", func(): _turn_page(1)))
 	_add_rewind_controls(nav, false)
+	var actions := UI.hbox(6)
+	rows.add_child(actions)
 	var craft := MapCardStyle.text_button("Craft manually", _dock)
 	craft.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	rows.add_child(craft)
+	craft.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	actions.add_child(craft)
+	var reason := _batch_block_reason(_recipe_key)
+	var auto := MapCardStyle.action_button("Auto-craft", _open_batch_sheet, reason != "", reason)
+	auto.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	actions.add_child(auto)
 	column.add_child(panel)
 	return column
 
@@ -623,18 +635,9 @@ func _build_procedure(book: RecipeBookPage, recipe_key: String) -> void:
 				book.place_on_lines(note, _MARGIN_X, _MARGIN_W, line_y, _BODY_PITCH, int(row["lines"]), _NOTE_FONT, 9)
 
 
-# Page 2: the knowledge checklist on the body lines (see _add_ladder), then
-# the batch controls scrolling on the lines left below it.
+# Page 2: the knowledge checklist on the body lines (see _add_ladder).
 func _build_knowledge(book: RecipeBookPage, recipe_key: String) -> void:
-	var body: Array = RecipeBookPage.RECIPE_BODY_LINES
-	var used := _add_ladder(book, recipe_key)
-	var top := float(body[mini(used, body.size() - 1)]) - _BODY_PITCH
-	var scroller := UI.scroll_container()
-	var content := UI.vbox(6)
-	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroller.add_child(content)
-	book.place(scroller, Rect2(RecipeBookPage.RECIPE_LINE_X, top, RecipeBookPage.RECIPE_LINE_W, float(body[-1]) - top))
-	_add_batch_controls(content, recipe_key, Lab.base_calc(recipe_key))
+	_add_ladder(book, recipe_key)
 
 
 # The knowledge checklist (spec lab-recipe-page § Knowledge ladder data), in
@@ -684,47 +687,92 @@ func _add_ladder(book: RecipeBookPage, recipe_key: String) -> int:
 	return line + 1
 
 
-# Batch ×N at best rank, once performed by hand; multi-target once the best
-# rank reaches the multi variant's tier.
-func _add_batch_controls(content: VBoxContainer, recipe_key: String, cost: Dictionary) -> void:
-	var lab: Dictionary = GameState.state["lab"]
-	var most := Lab.max_batch(recipe_key)
-	_craft_qty = clampi(_craft_qty, 1, maxi(most, 1))
-	var picked := [_craft_qty]
-	var reason := ""
-	if not lab["performedOnce"].has(recipe_key):
-		reason = "Craft one by hand first."
-	elif most < 1:
-		reason = "Not enough calc."
-	var multi_cfg: Dictionary = GameData.LOADOUT["multiTarget"]
-	var multi_offered: bool = multi_cfg["craftable"].has(recipe_key) and not Crafting.is_always_multi(recipe_key)
-	var craft := MapCardStyle.action_button(_batch_label(_craft_qty), func(): _on_batch(recipe_key, picked[0]), reason != "", reason)
-	var craft_button := craft.get_child(0) as Button
-	var total := _page_label(_batch_total_text(cost, _craft_qty), RecipeBookPage.INK)
+# Why Auto-craft is closed: batch needs one hand run and calc for one.
+func _batch_block_reason(recipe_key: String) -> String:
+	if not GameState.state["lab"]["performedOnce"].has(recipe_key):
+		return "Craft one by hand first."
+	if Lab.max_batch(recipe_key) < 1:
+		return "Not enough calc."
+	return ""
+
+
+func _open_batch_sheet() -> void:
+	_batch_open = true
+	_refresh()
+
+
+func _close_batch_sheet() -> void:
+	_batch_open = false
+	_refresh()
+
+
+# The Auto-craft sheet (spec lab-recipe-page § Solution), docked on the bottom
+# bar over a dim that cancels it: the quantity slider (1..max batch, the last
+# pick kept), the total calc, the multi-target toggle and its gate line when
+# the recipe offers it, and Craft ×N at best rank.
+func _build_batch_sheet() -> void:
+	var recipe_key := _recipe_key
+	var dim := ColorRect.new()
+	dim.name = "BatchSheet"
+	dim.color = Color(0, 0, 0, 0.5)
+	UI.anchor_full_rect(dim)
+	dim.mouse_filter = Control.MOUSE_FILTER_STOP
+	dim.gui_input.connect(func(event: InputEvent):
+		if (event is InputEventMouseButton or event is InputEventScreenTouch) and event.pressed \
+				and not TouchInput.is_emulated_mouse(event):
+			_close_batch_sheet())
+	add_child(dim)
+
+	var cost := Lab.base_calc(recipe_key)
+	var most := maxi(Lab.max_batch(recipe_key), 1)
+	_craft_qty = clampi(_craft_qty, 1, most)
+	var c := MapCardStyle.card(12, 0.16)
+	var content: VBoxContainer = c["content"]
+	content.add_child(UI.heading("Auto-craft", 16))
+	var total := UI.label(_batch_total_text(cost, _craft_qty))
+	var confirm := MapCardStyle.text_button(_batch_label(_craft_qty), func(): _on_batch(recipe_key, _craft_qty))
+	confirm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var on_change := func(value: int) -> void:
-		picked[0] = value
+		_craft_qty = value
 		total.text = _batch_total_text(cost, value)
-		craft_button.text = _batch_label(value)
-	content.add_child(MapCardStyle.quantity_slider("Batch", _craft_qty, maxi(most, 1), on_change, func(value: int): _craft_qty = value))
+		confirm.text = _batch_label(value)
+	content.add_child(MapCardStyle.quantity_slider("Batch", _craft_qty, most, on_change, func(value: int): _craft_qty = value))
 	content.add_child(total)
-	if multi_offered:
+	var multi_cfg: Dictionary = GameData.LOADOUT["multiTarget"]
+	if multi_cfg["craftable"].has(recipe_key) and not Crafting.is_always_multi(recipe_key):
 		var multi := CheckBox.new()
 		multi.text = "Multi-target"
 		multi.button_pressed = Crafting.get_craft_multi(recipe_key)
 		multi.disabled = not Crafting.multi_craft_available(recipe_key)
 		multi.toggled.connect(func(on: bool): Crafting.set_craft_multi(recipe_key, on))
-		for colour in ["font_color", "font_pressed_color", "font_hover_color"]:
-			multi.add_theme_color_override(colour, RecipeBookPage.INK)
-		multi.add_theme_color_override("font_disabled_color", RecipeBookPage.INK_MUTED)
 		content.add_child(multi)
 		if multi.disabled:
 			# PROSE-REVIEW: multi-target gate.
-			content.add_child(_page_label("Best rank %d unlocks multi-target." % int(multi_cfg["minTier"]), RecipeBookPage.INK_MUTED))
-	content.add_child(craft)
+			content.add_child(UI.muted_label("Best rank %d unlocks multi-target." % int(multi_cfg["minTier"])))
+	var buttons := UI.hbox(6)
+	# PROSE-REVIEW: sheet cancel label.
+	buttons.add_child(MapCardStyle.text_button("Cancel", _close_batch_sheet))
+	buttons.add_child(confirm)
+	content.add_child(buttons)
+
+	# Bottom-anchored, growing up from just above the nav bar over the bar.
+	var panel: PanelContainer = c["panel"]
+	panel.anchor_left = 0.0
+	panel.anchor_right = 1.0
+	panel.anchor_top = 1.0
+	panel.anchor_bottom = 1.0
+	panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	panel.offset_left = _OVERLAY_MARGIN
+	panel.offset_right = -_OVERLAY_MARGIN
+	panel.offset_top = 0.0
+	panel.offset_bottom = -(UI.nav_bar_clearance() + _OVERLAY_MARGIN)
+	panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(panel)
 
 
+# PROSE-REVIEW: batch confirm label.
 func _batch_label(qty: int) -> String:
-	return "Batch ×%d" % qty
+	return "Craft ×%d" % qty
 
 
 func _batch_total_text(cost: Dictionary, qty: int) -> String:
@@ -736,6 +784,7 @@ func _batch_total_text(cost: Dictionary, qty: int) -> String:
 
 func _on_batch(recipe_key: String, qty: int) -> void:
 	var outcome := Lab.batch(recipe_key, qty, Crafting.get_craft_multi(recipe_key))
+	_batch_open = false
 	_notice = "" if outcome["ok"] else outcome["reason"]
 	if outcome["ok"]:
 		# PROSE-REVIEW: batch toast.

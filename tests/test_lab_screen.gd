@@ -96,7 +96,8 @@ func run() -> void:
 		assert_eq((ladder.find_child("ReachLine", true, false) as Label).text, strings["reach"] % str(RecipeKnowledge.rank_ceiling("timePearl")), "and the reach line rises")
 		assert_eq(RecipeKnowledge.rank_ceiling("timePearl"), 4, "to hint2's ceiling")
 		assert_true(NodeQuery.find_button(screen, "Craft manually") != null)
-		assert_true(NodeQuery.find_button(screen, "Batch ×1").disabled, "no batch before a hand run")
+		assert_true(NodeQuery.find_button(screen, "Auto-craft").disabled, "no batch before a hand run")
+		assert_true(NodeQuery.label_texts(screen).has("Craft one by hand first."), "with its reason")
 		screen.free()
 	)
 
@@ -140,13 +141,44 @@ func run() -> void:
 		GameState.state["lab"]["bestRanks"]["timePearl"] = 2
 		var screen := _screen()
 		screen._open_recipe("timePearl")
-		NodeQuery.find_button(screen, "Next ›").pressed.emit()
-		var batch := NodeQuery.find_button(screen, "Batch ×1")
-		assert_true(not batch.disabled, "enabled once performed")
-		batch.pressed.emit()
+		var auto := NodeQuery.find_button(screen, "Auto-craft")
+		assert_true(not auto.disabled, "enabled once performed")
+		assert_eq(screen.find_child("BatchSheet", true, false), null, "the sheet waits for a tap")
+		auto.pressed.emit()
+		assert_true(screen.find_child("BatchSheet", true, false) != null, "Auto-craft opens the sheet")
+		var slider := _find_of(screen, func(n): return n is HSlider) as HSlider
+		assert_eq(int(slider.max_value), Lab.max_batch("timePearl"), "slider runs to max batch")
+		assert_eq(int(slider.min_value), 1)
+		assert_true(_has_label_starting(screen, "Total: "), "the total line shows")
+		NodeQuery.find_button(screen, "Craft ×1").pressed.emit()
 		assert_eq(Crafting.inventory_qty("timePearl"), 1, "one item filed")
 		assert_eq(int(GameState.state["player"]["inventory"]["timePearl"].get("2", 0)), 1, "at best rank")
 		assert_eq(Lab.calc_available("time"), 5, "base calc spent")
+		assert_eq(screen.find_child("BatchSheet", true, false), null, "confirm closes the sheet")
+		NodeQuery.find_button(screen, "Auto-craft").pressed.emit()
+		NodeQuery.find_button(screen, "Cancel").pressed.emit()
+		assert_eq(screen.find_child("BatchSheet", true, false), null, "Cancel closes the sheet")
+		NodeQuery.find_button(screen, "Auto-craft").pressed.emit()
+		var dim := screen.find_child("BatchSheet", true, false) as Control
+		var tap := InputEventMouseButton.new()
+		tap.button_index = MOUSE_BUTTON_LEFT
+		tap.pressed = true
+		dim.gui_input.emit(tap)
+		assert_eq(screen.find_child("BatchSheet", true, false), null, "the dim closes the sheet")
+		assert_eq(Crafting.inventory_qty("timePearl"), 1, "cancelling crafts nothing")
+		assert_eq(Lab.calc_available("time"), 5)
+		screen.free()
+	)
+
+	run_case("auto_craft_is_closed_when_calc_is_short", func():
+		GameState.reset()
+		GameState.state["player"]["orichalchum"]["time"] = 0
+		Lab.grant_recipe("timePearl")
+		GameState.state["lab"]["performedOnce"].append("timePearl")
+		var screen := _screen()
+		screen._open_recipe("timePearl")
+		assert_true(NodeQuery.find_button(screen, "Auto-craft").disabled, "closed without calc")
+		assert_true(NodeQuery.label_texts(screen).has("Not enough calc."), "with its reason")
 		screen.free()
 	)
 
@@ -163,13 +195,38 @@ func run() -> void:
 		Lab.grant_recipe(key)
 		GameState.state["lab"]["performedOnce"].append(key)
 		GameState.state["lab"]["bestRanks"][key] = int(cfg["minTier"]) - 1
+		for ore in Lab.base_calc(key).keys():
+			GameState.state["player"]["orichalchum"][ore] = 100
 		var screen := _screen()
 		screen._open_recipe(key)
-		NodeQuery.find_button(screen, "Next ›").pressed.emit()
+		NodeQuery.find_button(screen, "Auto-craft").pressed.emit()
 		assert_true(_find_checkbox(screen, "Multi-target").disabled, "locked below the multi tier")
+		assert_true(NodeQuery.label_texts(screen).has("Best rank %d unlocks multi-target." % int(cfg["minTier"])), "with its gate line")
 		GameState.state["lab"]["bestRanks"][key] = int(cfg["minTier"])
 		EventBus.state_changed.emit()
 		assert_true(not _find_checkbox(screen, "Multi-target").disabled, "open at the multi tier")
+		screen.free()
+	)
+
+	run_case("multi_target_toggle_only_for_offered_recipes", func():
+		GameState.reset()
+		var cfg: Dictionary = GameData.LOADOUT["multiTarget"]
+		var key := ""
+		for candidate in GameData.RECIPES.keys():
+			if Lab.procedure_def(candidate).size() > 0 and not cfg["craftable"].has(candidate):
+				key = candidate
+				break
+		if key == "":
+			return
+		Lab.grant_recipe(key)
+		GameState.state["lab"]["performedOnce"].append(key)
+		for ore in Lab.base_calc(key).keys():
+			GameState.state["player"]["orichalchum"][ore] = 100
+		var screen := _screen()
+		screen._open_recipe(key)
+		NodeQuery.find_button(screen, "Auto-craft").pressed.emit()
+		assert_true(screen.find_child("BatchSheet", true, false) != null, "sheet open")
+		assert_eq(_find_checkbox(screen, "Multi-target"), null, "no toggle for a recipe that doesn't offer it")
 		screen.free()
 	)
 
