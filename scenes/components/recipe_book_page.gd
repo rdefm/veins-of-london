@@ -4,9 +4,20 @@ extends Control
 # The ring-bound recipe page (docs/hq-diorama-vision.md §5.2): the blank side-tab
 # art drawn aspect-fit, with child controls placed by rects in the art's own
 # 1024x1536 pixel space so they follow the page at any size. crop() shows
-# just a strip of the same art.
+# just a strip of the same art. Built with RECIPE_TEXTURE instead, it is the
+# recipe page: slot 0's header over plain ruled lines (spec lab-recipe-page § Art).
 
 const PAGE_TEXTURE := "res://assets/hq/recipe-book-side-tabs-blank.png"
+const RECIPE_TEXTURE := "res://assets/hq/recipe-book-recipe-page-blank.png"
+# Recipe page ruled-line top edges, art y: the header's four (name, cost,
+# stock, best rank), then the evenly spaced body lines below its divider.
+const RECIPE_HEADER_LINES := [252.0, 300.0, 399.0, 442.0]
+const RECIPE_BODY_LINES := [
+	503.0, 547.0, 591.0, 635.0, 679.0, 723.0, 767.0, 811.0, 855.0, 899.0,
+	943.0, 987.0, 1031.0, 1075.0, 1119.0, 1163.0, 1207.0, 1251.0, 1295.0, 1339.0,
+]
+const RECIPE_LINE_X := 200.0
+const RECIPE_LINE_W := 628.0
 const FONT_PATH := "res://assets/fonts/PixelifySans.ttf"
 const ART_SIZE := Vector2(1024, 1536)
 const INK := Color("#4a3320")
@@ -16,6 +27,7 @@ const LINE_LIFT := 3.0
 static var _font: Font
 
 var art_size := ART_SIZE
+var texture_path: String
 var _page: TextureRect
 var _placed: Array = []
 
@@ -26,14 +38,15 @@ static func font() -> Font:
 	return _font
 
 
-func _init() -> void:
+func _init(path: String = PAGE_TEXTURE) -> void:
+	texture_path = path
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	clip_contents = true
 	custom_minimum_size = Vector2(260, 390)
 	size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_page = TextureRect.new()
-	_page.texture = load(PAGE_TEXTURE)
+	_page.texture = load(texture_path)
 	_page.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_page.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	_page.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -42,11 +55,11 @@ func _init() -> void:
 	resized.connect(_layout)
 
 
-# Shows only `region` of the side-tabs art; placed rects are then in that
+# Shows only `region` of the page art; placed rects are then in that
 # region's own pixel space.
 func crop(region: Rect2) -> void:
 	var atlas := AtlasTexture.new()
-	atlas.atlas = load(PAGE_TEXTURE)
+	atlas.atlas = load(texture_path)
 	atlas.region = region
 	_page.texture = atlas
 	art_size = region.size

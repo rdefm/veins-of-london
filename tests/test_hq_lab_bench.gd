@@ -132,6 +132,30 @@ func run() -> void:
 		screen.free()
 	)
 
+	run_case("recipe_book_page_builds_with_either_art_and_its_line_table_matches_the_recipe_art", func():
+		var list_page := RecipeBookPage.new()
+		assert_eq((list_page.get_child(0) as TextureRect).texture.resource_path, RecipeBookPage.PAGE_TEXTURE, "list pages default to the side-tabs art")
+		list_page.free()
+
+		var recipe_page := RecipeBookPage.new(RecipeBookPage.RECIPE_TEXTURE)
+		var tex := (recipe_page.get_child(0) as TextureRect).texture
+		assert_eq(tex.resource_path, RecipeBookPage.RECIPE_TEXTURE, "recipe page uses the recipe art")
+		assert_eq(Vector2(tex.get_size()), RecipeBookPage.ART_SIZE, "same 1024x1536 art space")
+		recipe_page.crop(Rect2(0, 90, 1024, 360))
+		assert_eq(((recipe_page.get_child(0) as TextureRect).texture as AtlasTexture).atlas.resource_path, RecipeBookPage.RECIPE_TEXTURE, "crop keeps the chosen art")
+		recipe_page.free()
+
+		var body: Array = RecipeBookPage.RECIPE_BODY_LINES
+		for i in range(1, body.size()):
+			assert_eq(body[i] - body[i - 1], body[1] - body[0], "body lines evenly spaced")
+		var img := tex.get_image()
+		var mid_x := int(RecipeBookPage.RECIPE_LINE_X + RecipeBookPage.RECIPE_LINE_W * 0.5)
+		for y in RecipeBookPage.RECIPE_HEADER_LINES + body:
+			var on := img.get_pixel(mid_x, int(y)).get_luminance()
+			var above := img.get_pixel(mid_x, int(y) - 3).get_luminance()
+			assert_true(on < above - 0.05, "ruled line top edge at art y %d" % int(y))
+	)
+
 	run_case("hq_lab_bench_ore_containers_exist_for_all_five_types", func():
 		GameState.reset()
 		var screen := HqLabBenchScreen.new()
