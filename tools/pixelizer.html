@@ -215,7 +215,7 @@
     <span class="spacer"></span>
     <label class="row" style="margin:0">Zoom
       <input type="range" id="zoomRange" min="0.1" max="8" step="0.05" value="1" style="width:140px">
-      <span id="zoomOut">100%</span></label>
+      <input type="number" id="zoomNum" min="5" max="1600" step="1" value="100" style="width:64px" title="Zoom %">%</label>
     <button id="fitBtn">Fit</button>
   </div>
   <div id="view">
@@ -1161,7 +1161,7 @@ function layout() {
   }
   $("beforePane").classList.toggle("hidden", S.view === "after");
   $("afterPane").classList.toggle("hidden", S.view === "before");
-  $("zoomOut").textContent = Math.round(S.zoom * 100) + "%";
+  if (document.activeElement !== $("zoomNum")) $("zoomNum").value = +(S.zoom * 100).toFixed(1);
 }
 
 function fit() {
@@ -1271,6 +1271,12 @@ seg("colSeg", "colours", () => {
 seg("viewSeg", "view", () => { layout(); });
 $("gridChk").addEventListener("change", (e) => { S.grid = e.target.checked; drawGrid(); });
 $("zoomRange").addEventListener("input", (e) => setZoom(+e.target.value));
+// typed zoom %: applies on Enter/blur or the spinner, so partial typing ("1" on the way to "150") doesn't jump
+$("zoomNum").addEventListener("change", (e) => {
+  const v = +e.target.value;
+  if (v > 0) setZoom(v / 100);
+  e.target.value = +(S.zoom * 100).toFixed(1);
+});
 $("fitBtn").addEventListener("click", fit);
 $("view").addEventListener("wheel", (e) => {
   if (!e.ctrlKey || !S.src) return;
