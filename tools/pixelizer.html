@@ -139,6 +139,7 @@
     <div id="itersBox" class="hidden">
       <label for="itersRange">Detail rounds (max): <span id="itersOut">50</span></label>
       <input type="range" id="itersRange" min="5" max="100" step="5" value="50" style="width:100%">
+      <p class="hint" id="detailOut" style="color:var(--accent)">Runs automatically whenever the grid changes.</p>
     </div>
     <p class="hint">Detail fits each art pixel to the shapes under it (content-adaptive downscale), so small features like eyes survive. Slow on big images; outline share and sample core don't apply, and edge-following is ignored.</p>
   </fieldset>
@@ -1040,6 +1041,13 @@ onmessage = (e) => {
   postMessage({ data: out.data, w: out.width, h: out.height }, [out.data.buffer]);
 };`;
 
+/** Detail progress where it can be seen: under the Detail controls, on the after pane's tag, and in stats. */
+function detailStatus(msg) {
+  $("detailOut").textContent = msg;
+  $("afterTag").textContent = msg;
+  $("stats").textContent = msg;
+}
+
 function cancelKopf() {
   if (KOPF.worker) KOPF.worker.terminate();
   KOPF.worker = null; KOPF.runSrc = null; KOPF.runKey = "";
@@ -1061,13 +1069,15 @@ function kopfResult(src) {
     return KOPF.out;
   }
   KOPF.worker = worker; KOPF.runSrc = src; KOPF.runKey = key;
-  $("stats").textContent = "Detail: starting…";
+  const t0 = Date.now(), secs = () => ((Date.now() - t0) / 1000).toFixed(0) + " s";
+  detailStatus("Detail: starting…");
   worker.onmessage = (e) => {
     if (KOPF.worker !== worker) return;
     const m = e.data;
-    if (m.progress) { $("stats").textContent = `Detail: round ${m.progress}/${m.n}… (stops early once settled)`; return; }
+    if (m.progress) { detailStatus(`Detail: round ${m.progress}/${m.n}, ${secs()} (stops early once settled)`); return; }
     KOPF.out = new ImageData(new Uint8ClampedArray(m.data.buffer), m.w, m.h); KOPF.src = src; KOPF.key = key;
     worker.terminate(); KOPF.worker = null; KOPF.runSrc = null; KOPF.runKey = "";
+    $("detailOut").textContent = `Detail done in ${secs()}. Reruns automatically when the grid changes.`;
     schedule();
   };
   worker.onerror = (e) => {
@@ -1075,7 +1085,7 @@ function kopfResult(src) {
     e.preventDefault();
     cancelKopf();
     KOPF.noWorker = true;   // e.g. blob workers refused on file://: rerun in-page
-    $("stats").textContent = "Working… (no background worker; the page will pause)";
+    detailStatus("Detail: no background worker, running in-page (the page will pause)…");
     setTimeout(schedule, 20);
   };
   worker.postMessage({ src, w: S.w, h: S.h, cell: S.cell, ox: S.ox, oy: S.oy, iters: S.kopfIters });
