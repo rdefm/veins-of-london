@@ -11,6 +11,7 @@ const FONT_PATH := "res://assets/fonts/PixelifySans.ttf"
 const ART_SIZE := Vector2(1024, 1536)
 const INK := Color("#4a3320")
 const INK_MUTED := Color("#7a6246")
+const LINE_LIFT := 3.0
 
 static var _font: Font
 
@@ -74,6 +75,15 @@ func place(node: Control, art_rect: Rect2, font_size: float = 0.0, min_font: int
 	_apply(_placed[-1])
 
 
+# Parks a one-line `label` so its text baseline sits `LINE_LIFT` art px above
+# the ruled line whose top edge is at art y `line_y`, from art x `x` across `width`.
+func place_on_line(label: Label, x: float, width: float, line_y: float, font_size: float, min_font: int = 9) -> void:
+	add_child(label)
+	label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	_placed.append({ "node": label, "rect": Rect2(x, line_y - LINE_LIFT, width, 0.0), "font": font_size, "min": min_font, "baseline": true })
+	_apply(_placed[-1])
+
+
 func _layout() -> void:
 	for entry in _placed:
 		_apply(entry)
@@ -82,6 +92,13 @@ func _layout() -> void:
 func _apply(entry: Dictionary) -> void:
 	var node: Control = entry["node"]
 	var r := to_local_rect(entry["rect"])
+	if entry.get("baseline", false):
+		var px := maxi(int(round(entry["font"] * art_scale())), entry["min"])
+		var f: Font = node.get_theme_font("font")
+		node.add_theme_font_size_override("font_size", px)
+		node.position = Vector2(r.position.x, r.position.y - f.get_ascent(px))
+		node.size = Vector2(r.size.x, f.get_height(px))
+		return
 	node.position = r.position
 	node.size = r.size
 	if entry["font"] > 0.0:

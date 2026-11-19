@@ -39,6 +39,16 @@ const _TAB_HIT := Vector2(125, 200)
 const _ENTRY_TOP := 205.0
 const _ENTRY_STEP := 290.0
 const _ENTRY_HEIGHT := 250.0
+# Top edges of each slot's ruled lines (name, cost, stock, best rank); the
+# art's spacing drifts a few px per slot, so they're measured, not stepped.
+const _ENTRY_LINES := [
+	[252.0, 300.0, 399.0, 442.0],
+	[546.0, 594.0, 690.0, 731.0],
+	[835.0, 884.0, 980.0, 1022.0],
+	[1126.0, 1174.0, 1271.0, 1311.0],
+]
+const _ENTRY_TEXT_X := 456.0
+const _ENTRY_TEXT_W := 368.0
 
 # Docked notebook geometry: a strip of the side-tabs art cropped to its first
 # entry slot, the browsed step; rects are in the strip's own pixel space (art
@@ -441,19 +451,20 @@ func _build_entry(book: RecipeBookPage, recipe_key: String, slot: int) -> void:
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	book.place(icon, Rect2(232, top + 20, 172, 168))
 
-	var name_size := RecipeBookPage.fit_font(recipe["name"], 372.0, 44.0, 26.0)
+	var lines: Array = _ENTRY_LINES[slot]
+	var name_size := RecipeBookPage.fit_font(recipe["name"], _ENTRY_TEXT_W, 40.0, 26.0)
 	var name_label := _page_label(recipe["name"], RecipeBookPage.INK)
 	name_label.clip_text = true
-	book.place(name_label, Rect2(452, top + 8, 376, 56), name_size, 11)
+	book.place_on_line(name_label, _ENTRY_TEXT_X, _ENTRY_TEXT_W, lines[0], name_size, 11)
 
 	var cost := _page_label("Cost: %s" % _calc_text(Lab.base_calc(recipe_key)), RecipeBookPage.INK_MUTED)
-	book.place(cost, Rect2(452, top + 76, 376, 40), 28.0, 10)
+	book.place_on_line(cost, _ENTRY_TEXT_X, _ENTRY_TEXT_W, lines[1], 28.0, 10)
 
 	var stock := _page_label("Stock: %d" % Crafting.inventory_qty(recipe_key), RecipeBookPage.INK_MUTED)
-	book.place(stock, Rect2(452, top + 140, 376, 40), 28.0, 10)
+	book.place_on_line(stock, _ENTRY_TEXT_X, _ENTRY_TEXT_W, lines[2], 28.0, 10)
 
 	var rank := _page_label("Best rank: %s" % _rank_text(recipe_key), RecipeBookPage.INK)
-	book.place(rank, Rect2(452, top + 207, 376, 36), 26.0, 10)
+	book.place_on_line(rank, _ENTRY_TEXT_X, _ENTRY_TEXT_W, lines[3], 26.0, 10)
 
 	var hit := Button.new()
 	hit.flat = true
