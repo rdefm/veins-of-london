@@ -97,6 +97,53 @@ class BandGauge extends StepGauge:
 		_draw_track()
 
 
+# The recipe page's pencil scale for a known step's band (spec lab-recipe-page
+# § Solution): a thin 0-100 scale line with an ink bracket over an exact band,
+# or a hatched pencil band over a rough one.
+class PencilScale extends StepGauge:
+	const HATCH_GAP := 4.0
+
+	func _init() -> void:
+		custom_minimum_size = Vector2.ZERO
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _draw() -> void:
+		var mid := size.y * 0.5
+		var pencil := RecipeBookPage.PENCIL
+		draw_line(Vector2(0, mid), Vector2(size.x, mid), pencil, 1.5)
+		for value in [0.0, 50.0, 100.0]:
+			var tick := size.y * (0.18 if value == 50.0 else 0.28)
+			draw_line(Vector2(_x(value), mid - tick), Vector2(_x(value), mid + tick), pencil, 1.5)
+		if band_high <= band_low:
+			return
+		if band_vague:
+			_draw_hatch(_x(band_low), _x(band_high), mid - size.y * 0.36, mid + size.y * 0.36)
+		else:
+			_draw_bracket(_x(band_low), _x(band_high), mid, size.y * 0.4)
+
+	func _draw_bracket(lo: float, hi: float, mid: float, half: float) -> void:
+		var ink := RecipeBookPage.INK
+		var foot := minf(5.0, (hi - lo) / 3.0)
+		draw_line(Vector2(lo, mid), Vector2(hi, mid), ink, 3.0)
+		for edge in [[lo, foot], [hi, -foot]]:
+			draw_polyline(PackedVector2Array([
+				Vector2(edge[0] + edge[1], mid - half), Vector2(edge[0], mid - half),
+				Vector2(edge[0], mid + half), Vector2(edge[0] + edge[1], mid + half),
+			]), ink, 2.5)
+
+	# 45° strokes clipped to lo..hi between top and bottom.
+	func _draw_hatch(lo: float, hi: float, top: float, bottom: float) -> void:
+		var colour := Color(RecipeBookPage.PENCIL, 0.9)
+		var rise := bottom - top
+		var start := lo - rise
+		while start < hi:
+			var t0 := maxf(0.0, lo - start)
+			var t1 := minf(rise, hi - start)
+			if t1 > t0:
+				draw_line(Vector2(start + t0, bottom - t0), Vector2(start + t1, bottom - t1), colour, 1.5)
+			start += HATCH_GAP
+
+
 # Heat / compress: hold and the needle rises; release commits the raw
 # needle value. With crack_at set, reaching it commits at once.
 class HoldGauge extends StepGauge:

@@ -86,6 +86,38 @@ func run() -> void:
 		screen.free()
 	)
 
+	run_case("page_1_draws_exact_and_rough_bands_as_pencil_scales_beside_margin_notes", func():
+		GameState.reset()
+		Lab.grant_recipe("timePearl")
+		RecipeKnowledge.grant_rung("timePearl", "hint1", "vague")
+		RecipeKnowledge.grant_rung("timePearl", "hint2", "exact")
+		var screen := _screen()
+		screen._open_recipe("timePearl")
+		var book: RecipeBookPage = _find_of(screen, func(n): return n is RecipeBookPage)
+		var scales := []
+		var notes := []
+		for entry in book._placed:
+			if entry["node"] is LabGauges.PencilScale:
+				scales.append(entry)
+			elif entry["node"] is Label and entry["node"].autowrap_mode != TextServer.AUTOWRAP_OFF:
+				notes.append(entry)
+		assert_eq(_find_of(book, func(n): return n is LabGauges.BandGauge), null, "no grey band track on the page")
+		var vague := []
+		var regions := 0
+		for step in Lab.known_procedure("timePearl"):
+			var region := Lab.step_region("timePearl", step)
+			if not region.is_empty():
+				regions += 1
+				vague.append(region["vague"])
+		assert_eq(scales.map(func(e): return e["node"].band_vague), vague, "one scale per banded step, rough ones hatched")
+		assert_true(vague.has(true) and vague.has(false), "both kinds drawn")
+		assert_eq(notes.size(), 2, "both hints pencilled in")
+		for note in notes:
+			var beside := scales.filter(func(e): return absf(e["rect"].end.y - note["rect"].position.y) < 10.0)
+			assert_true(not beside.is_empty() and note["rect"].position.x >= beside[0]["rect"].end.x, "note sits right of its step's scale")
+		screen.free()
+	)
+
 	run_case("batch_crafts_at_best_rank_once_performed", func():
 		GameState.reset()
 		GameState.state["player"]["orichalchum"]["time"] = 10
@@ -435,4 +467,15 @@ func _find_checkbox(root: Node, text: String) -> CheckBox:
 	for box in root.find_children("*", "CheckBox", true, false):
 		if box.text == text and not box.is_queued_for_deletion():
 			return box
+	return null
+
+
+# First node under root (root included) that `match` accepts, or null.
+func _find_of(root: Node, match: Callable) -> Node:
+	if match.call(root):
+		return root
+	for child in root.get_children():
+		var found := _find_of(child, match)
+		if found != null:
+			return found
 	return null

@@ -61,14 +61,20 @@ const _STEP_TEXT := Rect2(450, 150, 380, 130)
 const _STEP_BAND := Rect2(450, 290, 380, 50)
 
 # Recipe page geometry on RecipeBookPage.RECIPE_TEXTURE, art space: the
-# header's icon frame, then per step its line, band and wrapped note.
+# header's icon frame, then per step its line and below it the pencil scale
+# (indented, _SCALE_W wide) beside the wrapped margin note from _MARGIN_X,
+# the margin arrow in the _ARROW_W gap between them.
 const RECIPE_PAGES := 2
 const _HEADER_ICON := Rect2(232, 225, 172, 168)
 const _BODY_PITCH := 44.0
 const _STEP_FONT := 26.0
 const _STEP_FONT_FLOOR := 20.0
-const _NOTE_FONT := 22.0
+const _NOTE_FONT := 20.0
 const _NOTE_INDENT := 40.0
+const _SCALE_W := 196.0
+const _ARROW_W := 24.0
+const _MARGIN_X := RecipeBookPage.RECIPE_LINE_X + _NOTE_INDENT + _SCALE_W + _ARROW_W
+const _MARGIN_W := RecipeBookPage.RECIPE_LINE_X + RecipeBookPage.RECIPE_LINE_W - _MARGIN_X
 # Wraps are counted a little narrower than drawn so a rounding difference at
 # screen size never wraps one line more than budgeted.
 const _WRAP_SLACK := 0.92
@@ -557,9 +563,10 @@ func _place_entry_text(book: RecipeBookPage, recipe_key: String, icon_rect: Rect
 	book.place_on_line(rank, _ENTRY_TEXT_X, _ENTRY_TEXT_W, lines[3], 26.0, 10)
 
 
-# Page 1's layout: per known step its line, its band (when it has one) and
-# its note, as { kind, line, lines, ... } with line the first body line used
-# (step rows carry step and index, band rows region, note rows step). The procedure fits when every row ends within the body lines.
+# Page 1's layout: per known step its line, then on the lines below it its
+# band (when it has one) beside its margin note, as { kind, line, lines, ... }
+# with line the first body line used (step rows carry step and index, band
+# rows region, note rows step). The procedure fits when every row ends within the body lines.
 func _procedure_rows(recipe_key: String) -> Array:
 	var rows := []
 	var line := 0
@@ -568,15 +575,16 @@ func _procedure_rows(recipe_key: String) -> Array:
 		var step: Dictionary = steps[i]
 		rows.append({ "kind": "step", "step": step, "index": i, "line": line, "lines": 1 })
 		line += 1
+		var used := 0
 		var region := Lab.step_region(recipe_key, step)
 		if not region.is_empty():
 			rows.append({ "kind": "band", "region": region, "line": line, "lines": 1 })
-			line += 1
+			used = 1
 		if step.has("note"):
-			var width := (RecipeBookPage.RECIPE_LINE_W - _NOTE_INDENT) * _WRAP_SLACK
-			var count := RecipeBookPage.line_count(str(step["note"]), width, _NOTE_FONT)
+			var count := RecipeBookPage.line_count(str(step["note"]), _MARGIN_W * _WRAP_SLACK, _NOTE_FONT)
 			rows.append({ "kind": "note", "step": step, "index": i, "line": line, "lines": count })
-			line += count
+			used = maxi(used, count)
+		line += used
 	return rows
 
 
@@ -596,13 +604,13 @@ func _build_procedure(book: RecipeBookPage, recipe_key: String) -> void:
 				label.clip_text = true
 				book.place_on_line(label, x, width, line_y, RecipeBookPage.fit_font(text, width, _STEP_FONT, _STEP_FONT_FLOOR), 10)
 			"band":
-				var band := LabGauges.BandGauge.new()
-				band.custom_minimum_size = Vector2.ZERO
-				band.set_region(row["region"])
-				book.place(band, Rect2(x + _NOTE_INDENT, line_y - _BODY_PITCH + 10.0, width - _NOTE_INDENT, _BODY_PITCH - 14.0))
+				var pencil := LabGauges.PencilScale.new()
+				pencil.set_region(row["region"])
+				book.place(pencil, Rect2(x + _NOTE_INDENT, line_y - _BODY_PITCH + 10.0, _SCALE_W, _BODY_PITCH - 14.0))
 			"note":
+				book.place(RecipeBookPage.MarginArrow.new(), Rect2(_MARGIN_X - _ARROW_W + 4.0, line_y - _BODY_PITCH + 4.0, _ARROW_W - 8.0, _BODY_PITCH - 14.0))
 				var note := _page_label(str(row["step"]["note"]), RecipeBookPage.INK_MUTED)
-				book.place_on_lines(note, x + _NOTE_INDENT, width - _NOTE_INDENT, line_y, _BODY_PITCH, int(row["lines"]), _NOTE_FONT, 9)
+				book.place_on_lines(note, _MARGIN_X, _MARGIN_W, line_y, _BODY_PITCH, int(row["lines"]), _NOTE_FONT, 9)
 
 
 # Page 2, interim: the knowledge ladder and the batch controls, scrolling on

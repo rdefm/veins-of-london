@@ -22,6 +22,7 @@ const FONT_PATH := "res://assets/fonts/PixelifySans.ttf"
 const ART_SIZE := Vector2(1024, 1536)
 const INK := Color("#4a3320")
 const INK_MUTED := Color("#7a6246")
+const PENCIL := Color("#7d776e")
 const LINE_LIFT := 3.0
 
 static var _font: Font
@@ -135,6 +136,19 @@ func _apply(entry: Dictionary) -> void:
 			node.add_theme_font_size_override("font_size", px)
 		elif node is Button:
 			node.add_theme_font_size_override("font_size", px)
+
+
+# A pencilled hook from the top of its rect down and right into an arrowhead
+# at its bottom-right, tying a margin note to the line above it.
+class MarginArrow extends Control:
+	func _init() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _draw() -> void:
+		var tip := Vector2(size.x - 1.0, size.y * 0.75)
+		var head := minf(4.0, size.x * 0.3)
+		draw_polyline(PackedVector2Array([Vector2(size.x * 0.3, 0), Vector2(size.x * 0.3, tip.y), tip]), PENCIL, 1.5)
+		draw_polyline(PackedVector2Array([tip + Vector2(-head, -head), tip, tip + Vector2(-head, head)]), PENCIL, 1.5)
 
 
 # Largest font size (art px, floored at `floor`) at which `text` fits one line of `width`.
