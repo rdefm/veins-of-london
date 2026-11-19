@@ -170,6 +170,22 @@ func run() -> void:
 		screen.free()
 	)
 
+	run_case("items_opens_the_bag_and_keeps_the_recipe_page", func():
+		GameState.reset()
+		Lab.grant_recipe("timePearl")
+		var screen := _screen()
+		screen._open_recipe("timePearl")
+		screen._turn_page(1)
+		NodeQuery.find_button(screen, "Items").pressed.emit()
+		assert_true(bool(GameState.state["bagDrawerOpen"]), "Items opens the bag drawer")
+		Bag.close()
+		assert_eq(screen._page, HqLabBenchScreen.Page.RECIPE, "still on the recipe page")
+		assert_eq(screen._recipe_key, "timePearl", "same recipe")
+		assert_eq(screen._recipe_page, 1, "same page index")
+		assert_true(NodeQuery.label_texts(screen).has("Page 2/%d" % HqLabBenchScreen.RECIPE_PAGES), "page 2 still shown")
+		screen.free()
+	)
+
 	run_case("auto_craft_is_closed_when_calc_is_short", func():
 		GameState.reset()
 		GameState.state["player"]["orichalchum"]["time"] = 0

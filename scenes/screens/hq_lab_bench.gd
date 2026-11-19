@@ -513,7 +513,8 @@ func _open_recipe(recipe_key: String) -> void:
 
 # The open recipe's notebook page (spec lab-recipe-page § Solution) over the
 # recipe art, ore tabs kept, and its bar: navigation, then Craft manually
-# and Auto-craft, closed with its reason while batch is blocked.
+# and Auto-craft, closed with its reason while batch is blocked, then Items,
+# which opens the global bag drawer over the bench.
 func _build_recipe_book() -> Control:
 	_recipe_page = clampi(_recipe_page, 0, RECIPE_PAGES - 1)
 	var book := RecipeBookPage.new(RecipeBookPage.RECIPE_TEXTURE)
@@ -558,6 +559,9 @@ func _build_recipe_book() -> Control:
 	var auto := MapCardStyle.action_button("Auto-craft", _open_batch_sheet, reason != "", reason)
 	auto.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	actions.add_child(auto)
+	var items := MapCardStyle.text_button("Items", Bag.open)
+	items.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	actions.add_child(items)
 	column.add_child(panel)
 	return column
 
