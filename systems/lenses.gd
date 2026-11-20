@@ -99,6 +99,15 @@ static func time_fog_cut(owner_id: String = "") -> float:
 	return float(GameData.DIAL_LENS["timeFogCutByTier"][tier_for("time", owner_id)])
 
 
+# Physics Lens combat sight (R§1.4 Lenses): flat Strike damage added to hits
+# dealt and cut from hits taken, physicsFlatByTier[tier]. The player needs
+# Sense >= senseGates.combat; a contact (no Sense) gets it from its own Dial.
+static func physics_flat(owner_id: String = "") -> int:
+	if owner_id == "" and not sense_unlocked("combat"):
+		return 0
+	return int(GameData.DIAL_LENS["physicsFlatByTier"][tier_for("physics", owner_id)])
+
+
 # Life Lens combat sight: enemy HP shown as hp/hpMax. Player only.
 static func life_hp_sight() -> bool:
 	return has("life") and sense_unlocked("combat")

@@ -1606,6 +1606,64 @@ func run() -> void:
 		assert_eq(CombatRoundsScreen._intent_text(combat, CombatRounds.enemy_intents(combat, e)[0]), CombatRoundsScreen.UNREAD_TEXT, "another lens: ?")
 	)
 
+	run_case("physics_lens_adds_flat_to_strikes_dealt_and_cuts_strikes_taken_after_crit_before_shield", func():
+		var start := func(ore: String, tier: int, sense: int) -> Dictionary:
+			GameState.reset()
+			var dial: Dictionary = Dial.new_dial("collective_brolly")
+			dial["lenses"] = [{ "ore": ore, "tier": tier }]
+			GameState.state["player"]["dial"] = dial
+			GameState.state["player"]["senseSkill"] = sense
+			return _start_vs([_slow_mugger(200)], [[["strike", "strike"]]], [])
+		var gate := int(GameData.DIAL_LENS["senseGates"]["combat"])
+		var flat := int(GameData.DIAL_LENS["physicsFlatByTier"][3])
+		var you := CombatRounds.PLAYER_INDEX
+		var combat: Dictionary = start.call("physics", 3, gate)
+		assert_eq(int(combat["combatants"][you]["physicsFlat"]), flat, "set from the Lens tier")
+		assert_eq(int(start.call("physics", 3, gate - 1)["combatants"][you]["physicsFlat"]), 0, "below the gate, none")
+		assert_eq(int(start.call("time", 3, gate)["combatants"][you]["physicsFlat"]), 0, "another lens, none")
+		# One Strike from `from` on `to`: lowest roll, crit as given, no evade.
+		# `open` strikes from behind (no guard).
+		var strike := func(cp: Dictionary, from: int, to: int, crit: bool, open := false) -> Dictionary:
+			cp["combatants"][from]["lowRolls"] = 1
+			cp["combatants"][to]["evadeChance"] = 0.0
+			var beats: Array = []
+			CombatRounds._strike(cp, from, to, CombatRounds.MOVE_STRIKE, RandomNumberGenerator.new(), beats, true, open, 0.0, crit)
+			return _first(beats, "hit") if not _first(beats, "hit").is_empty() else _first(beats, "chip")
+		combat = start.call("physics", 3, gate)
+		var e: int = CombatRounds.side_indices(combat, CombatRounds.SIDE_ENEMY)[0]
+		var mine := int(CombatRounds.damage_range(combat, you)[0])
+		var theirs := int(CombatRounds.damage_range(combat, e)[0])
+		var hit: Dictionary = strike.call(combat, you, e, false, true)
+		assert_eq(hit["kind"], "hit", "open mugger")
+		assert_eq(int(hit["dmg"]), mine + flat, "dealt: roll + N")
+		hit = strike.call(combat, you, e, true, true)
+		assert_eq(int(hit["dmg"]), mine * 2 + flat, "after the crit doubles")
+		combat["combatants"][you]["shield"] = 50
+		hit = strike.call(combat, e, you, true)
+		var chipped := maxi(1, GameState.round_epsilon(theirs * CombatRounds.chip_multiplier(combat["combatants"][e], combat["combatants"][you]))) * 2
+		assert_eq(hit["kind"], "chip", "the Shield holds the player Guarded")
+		assert_eq(int(hit["dmg"]), maxi(1, chipped - flat), "taken: crit chip - N, floor 1")
+		assert_eq(int(hit["absorbed"]), int(hit["dmg"]), "then the Shield soaks it")
+		combat["combatants"][you]["physicsFlat"] = 99
+		assert_eq(int(strike.call(combat, e, you, false)["dmg"]), 1, "chip still lands for 1")
+		var hp := int(combat["combatants"][e]["hp"])
+		CombatRounds._deal_damage(combat, you, e, 4, "blast", CombatRounds.MOVE_STRIKE, [], {})
+		assert_eq(int(combat["combatants"][e]["hp"]), hp - 4, "item damage takes no flat")
+	)
+
+	run_case("a_contact_physics_lens_applies_to_that_ally_only", func():
+		GameState.reset()
+		_recruit("james")
+		var james_dial: Dictionary = Dial.new_dial("collective_brolly")
+		james_dial["lenses"] = [{ "ore": "physics", "tier": 2 }]
+		GameState.state["contacts"]["james"]["dial"] = james_dial
+		_start_with_allies([_slow_james()], [["strike", "strike"]])
+		var combat: Dictionary = GameState.state["combat"]
+		var ally: int = CombatRounds.side_indices(combat, CombatRounds.SIDE_ALLY).filter(func(i): return i != CombatRounds.PLAYER_INDEX)[0]
+		assert_eq(int(combat["combatants"][ally]["physicsFlat"]), int(GameData.DIAL_LENS["physicsFlatByTier"][2]), "James's own Lens, no Sense gate")
+		assert_eq(int(combat["combatants"][CombatRounds.PLAYER_INDEX]["physicsFlat"]), 0, "not the player's")
+	)
+
 	run_case("fate_lens_adds_to_player_crit_and_leg_it_and_ally_crit_from_its_own_dial", func():
 		GameState.reset()
 		_recruit("james")

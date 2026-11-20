@@ -674,6 +674,9 @@ static func new_combatant(side: String, name: String, level: int, hp: int, hp_ma
 		# Time Lens combat sight: the share cut from enemy unread chances
 		# as this combatant reads them (player: its strip; ally: its AI).
 		"timeFogCut": 0.0,
+		# Physics Lens combat sight: flat damage added to this combatant's
+		# Strikes and cut from Strikes it takes (_deal_damage()).
+		"physicsFlat": 0,
 		# Life / Emotion Lens combat sight (player): enemy hp/hpMax on the
 		# strip; an enemy action's target shown even unread.
 		"lifeHpSight": false,
@@ -2616,7 +2619,7 @@ static func _strike(cp: Dictionary, actor_idx: int, target_idx: int, move_id: St
 	dmg = GameState.round_epsilon(dmg * anger_factor(actor, true))
 	_deal_damage(cp, actor_idx, target_idx, dmg, "chip" if guarded else "hit", move_id, beats, {
 		"roll": roll, "crit": crit, "guarded": guarded, "lady": lady, "critChance": chance,
-	})
+	}, forced.is_empty())
 	_reflect_hit(cp, actor_idx, target_idx, move_id, beats)
 	_retaliate(cp, actor_idx, target_idx, rng, beats, free)
 
@@ -2688,12 +2691,17 @@ static func evade_chance(cp: Dictionary, actor: Dictionary, target: Dictionary) 
 # `dmg`, scaled by the target's anger (anger_factor()), drains its Shield
 # pool 1:1 before its HP (R§3.7b Damage); beats `kind` with dmg, absorbed and
 # hpAfter, then the KO if it drops (an ally's own failsafe can hold it on
-# 1 hp instead, _ally_failsafe()).
-static func _deal_damage(cp: Dictionary, actor_idx: int, target_idx: int, dmg: int, kind: String, move_id: String, beats: Array, extra: Dictionary) -> void:
+# 1 hp instead, _ally_failsafe()). A `strike` hit with damage left then
+# takes the Physics Lens flat: + the attacker's physicsFlat, - the target's,
+# floored at 1 (R§3.7b Damage).
+static func _deal_damage(cp: Dictionary, actor_idx: int, target_idx: int, dmg: int, kind: String, move_id: String, beats: Array, extra: Dictionary, strike := false) -> void:
 	var target: Dictionary = cp["combatants"][target_idx]
 	dmg = GameState.round_epsilon(dmg * anger_factor(target, false))
 	if is_emotion_immune(cp, target):
 		dmg = GameState.round_epsilon(dmg * (100 - int(target["damageCut"])) / 100.0)
+	if strike and dmg > 0:
+		var flat: int = int(cp["combatants"][actor_idx].get("physicsFlat", 0)) - int(target.get("physicsFlat", 0))
+		dmg = maxi(1, dmg + flat)
 	var absorbed: int = mini(target["shield"], dmg)
 	target["shield"] -= absorbed
 	target["hp"] = maxi(0, target["hp"] - (dmg - absorbed))
