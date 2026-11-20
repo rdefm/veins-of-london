@@ -20,6 +20,33 @@ static func _first_hit_day() -> int:
 	return -1
 
 
+# Loads a Time Lens (tier 1) on a fresh player Dial at Sense `sense`.
+static func _load_time_lens(sense: int) -> void:
+	var player: Dictionary = GameState.state["player"]
+	player["senseSkill"] = sense
+	GameState.state["flags"]["dialGiftGranted"] = true
+	var dial: Dictionary = Dial.new_dial("collective_brolly")
+	dial["level"] = 5
+	dial["lenses"] = [{ "ore": "time", "tier": 1 }]
+	player["dial"] = dial
+
+
+# maybe_trigger's result in shoreditch for each of today's blocks from
+# `from_block` on, each from a fresh state on `seed`/`day` (optionally with a
+# Time Lens loaded).
+static func _block_hits(seed: int, day: int, with_lens: bool, from_block: int = 0) -> Array:
+	var hits := []
+	for block in range(from_block, TimeSystem.BLOCKS_PER_DAY):
+		_fresh(-100)
+		if with_lens:
+			_load_time_lens(5)
+		GameState.state["world"]["rollSeed"] = seed
+		GameState.state["world"]["day"] = day
+		GameState.state["world"]["timeBlock"] = block
+		hits.append(Ambush.maybe_trigger("shoreditch"))
+	return hits
+
+
 func run() -> void:
 	run_case("every_faction_has_a_squad_of_known_templates", func():
 		for faction_id in GameData.FACTIONS:
@@ -135,4 +162,74 @@ func run() -> void:
 		GameState.state["world"]["currentDistrict"] = "shoreditch"
 		Ambush.resolve("firm", false)
 		assert_eq(GameState.state["grudges"]["firm"]["district"], "shoreditch")
+	)
+
+	run_case("due_today_agrees_with_every_block_roll_and_is_pure", func():
+		_fresh(-100)
+		var seed: int = int(GameState.state["world"]["rollSeed"])
+		var saw_due := false
+		var saw_clear := false
+		for day in range(1, 41):
+			for from_block in TimeSystem.BLOCKS_PER_DAY:
+				_fresh(-100)
+				GameState.state["world"]["rollSeed"] = seed
+				GameState.state["world"]["day"] = day
+				GameState.state["world"]["timeBlock"] = from_block
+				var before: Dictionary = GameState.deep_copy(GameState.state)
+				var due := Ambush.due_today()
+				assert_eq(GameState.state, before, "due_today changes nothing")
+				var hit: bool = _block_hits(seed, day, false, from_block).has(true)
+				assert_eq(due.has("shoreditch"), hit, "day %d from block %d" % [day, from_block])
+				saw_due = saw_due or hit
+				saw_clear = saw_clear or not hit
+		assert_true(saw_due and saw_clear, "40 days give both outcomes")
+	)
+
+	run_case("forewarning_needs_time_lens_and_world_gate_and_never_moves_ambushes", func():
+		_fresh(-100)
+		var seed: int = int(GameState.state["world"]["rollSeed"])
+		var day := _first_hit_day()
+		assert_true(day > 0, "a hit day exists")
+		_fresh(-100)
+		GameState.state["world"]["rollSeed"] = seed
+		GameState.state["world"]["day"] = day
+		assert_true(Ambush.due_today().has("shoreditch"))
+		assert_eq(Ambush.forewarned_today(), [] as Array[String], "no lens")
+		_load_time_lens(Lenses.gate_level("world") - 1)
+		assert_eq(Ambush.forewarned_today(), [] as Array[String], "below the world gate")
+		_load_time_lens(Lenses.gate_level("world"))
+		assert_eq(Ambush.forewarned_today(), Ambush.due_today(), "at the gate")
+		for d in range(1, 21):
+			assert_eq(_block_hits(seed, d, true), _block_hits(seed, d, false), "day %d same with lens" % d)
+	)
+
+	run_case("prophets_breath_clears_the_forewarning", func():
+		_fresh(-100)
+		var seed: int = int(GameState.state["world"]["rollSeed"])
+		var day := _first_hit_day()
+		_fresh(-100)
+		_load_time_lens(5)
+		GameState.state["world"]["rollSeed"] = seed
+		GameState.state["world"]["day"] = day
+		assert_true(not Ambush.forewarned_today().is_empty(), "warned before")
+		Crafting.inventory_add(ActiveEffects.PROPHETS_BREATH, 1, 1)
+		ActiveEffects.use(ActiveEffects.PROPHETS_BREATH)
+		assert_eq(Ambush.due_today(), [] as Array[String], "suppressed: nothing due")
+		assert_eq(Ambush.forewarned_today(), [] as Array[String])
+	)
+
+	run_case("brief_names_forewarned_districts", func():
+		_fresh(-100)
+		var seed: int = int(GameState.state["world"]["rollSeed"])
+		var day := _first_hit_day()
+		_fresh(-100)
+		GameState.state["world"]["rollSeed"] = seed
+		GameState.state["world"]["day"] = day
+		var key := "ambush:%d" % day
+		assert_true(DailyBrief.items().all(func(r): return r["key"] != key), "no row without the lens")
+		_load_time_lens(5)
+		var rows := DailyBrief.items().filter(func(r): return r["key"] == key)
+		assert_eq(rows.size(), 1)
+		assert_eq([rows[0]["tier"], rows[0]["kind"], rows[0]["action"]], ["urgent", "ambushForewarning", { "to": "map" }])
+		assert_true(String(rows[0]["label"]).contains("Shoreditch"), rows[0]["label"])
 	)

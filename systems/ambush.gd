@@ -13,10 +13,13 @@ static func _cfg() -> Dictionary:
 	return GameData.TURF["ambush"]
 
 
-# Stable [0,1) roll for this block's action in the district.
-static func _unit(district_id: String, salt: String) -> float:
+# Stable [0,1) roll for an action in the district keyed to `block` of today
+# (-1 = the current world.timeBlock).
+static func _unit(district_id: String, salt: String, block: int = -1) -> float:
 	var world: Dictionary = GameState.state["world"]
-	return Rng.stable_unit("ambush|%d|%d|%d|%s|%s" % [int(world["rollSeed"]), int(world["day"]), int(world["timeBlock"]), district_id, salt])
+	if block < 0:
+		block = int(world["timeBlock"])
+	return Rng.stable_unit("ambush|%d|%d|%d|%s|%s" % [int(world["rollSeed"]), int(world["day"]), block, district_id, salt])
 
 
 # Rolls the district's ambush chance. True when it hit and the intro event
@@ -37,6 +40,34 @@ static func maybe_trigger(district_id: String) -> bool:
 		"district": district_id,
 	})
 	return true
+
+
+# Districts (GameData.DISTRICTS order) where any of today's keyed rolls still
+# to come (one per time block from world.timeBlock on, at the current chance)
+# would hit: exactly the rolls maybe_trigger can still make today. Pure;
+# changes nothing. Empty while Prophet's Breath is active, since
+# maybe_trigger rolls nothing then.
+static func due_today() -> Array[String]:
+	var due: Array[String] = []
+	if ActiveEffects.prophets_breath_active():
+		return due
+	for district_id in GameData.DISTRICTS:
+		if Turf.ambush_chances(district_id).is_empty():
+			continue
+		var chance := Turf.ambush_chance(district_id)
+		for block in range(int(GameState.state["world"]["timeBlock"]), TimeSystem.BLOCKS_PER_DAY):
+			if _unit(district_id, "hit", block) < chance:
+				due.append(district_id)
+				break
+	return due
+
+
+# Time Lens world sight (R§1.4 Lenses): due_today() for a player with a Time
+# Lens loaded at Sense >= senseGates.world; empty otherwise.
+static func forewarned_today() -> Array[String]:
+	if not Lenses.has("time") or not Lenses.sense_unlocked("world"):
+		return [] as Array[String]
+	return due_today()
 
 
 # Weighted by each faction's own chance; `unit` in [0,1).

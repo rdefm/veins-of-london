@@ -109,6 +109,12 @@
       "consequence": "You pay £{wage}. Match it or they leave on {deadline}.",
       "actionLabel": "Decide"
     },
+    "ambushForewarning": {
+      "tier": "urgent", "kind": "ambushForewarning",
+      "label": "Ambush due · {districts}",
+      "consequence": "Someone's waiting for you to start work there today.",
+      "actionLabel": "Open map"
+    },
     "contractAtRisk": {
       "tier": "urgent", "kind": "contractAtRisk",
       "label": "{buyer} order short by {shortfall}",

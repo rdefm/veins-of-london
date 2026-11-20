@@ -15,6 +15,7 @@ const BADGE_TIERS := ["urgent", "story"]
 static func items() -> Array[Dictionary]:
 	var rows: Array[Dictionary] = []
 	_alarm_rows(rows)
+	_ambush_forewarning_rows(rows)
 	_guard_shortfall_rows(rows)
 	_bill_rows(rows)
 	_arrears_rows(rows)
@@ -148,6 +149,17 @@ static func _alarm_rows(rows: Array[Dictionary]) -> void:
 			rows.append(_row("alarmHome", "alarm:home", values, { "to": "alarms" }, 0))
 		else:
 			rows.append(_row("alarmVein", "alarm:%s" % alarm["veinId"], values, { "to": "alarms" }, 0))
+
+
+# Time Lens forewarning (Ambush.forewarned_today): one row naming every
+# district where an ambush is due today.
+static func _ambush_forewarning_rows(rows: Array[Dictionary]) -> void:
+	var due := Ambush.forewarned_today()
+	if due.is_empty():
+		return
+	var names: Array = due.map(func(district_id: String) -> String: return String(GameData.DISTRICTS[district_id]["name"]))
+	var values := { "districts": ", ".join(PackedStringArray(names)) }
+	rows.append(_row("ambushForewarning", "ambush:%d" % int(GameState.state["world"]["day"]), values, { "to": "map" }, 0))
 
 
 static func _guard_shortfall_rows(rows: Array[Dictionary]) -> void:
