@@ -55,7 +55,7 @@ static func complete_trade(contact_id: String) -> Dictionary:
 	# even though a real trade happened.
 	if result.get("ok", false):
 		Messages.append(contact_id, "them", _next_bark(contact_id))
-		Modal.open("sale_result", { "earned": result["earned"], "gross": result["earned"], "mugged": false })
+		Modal.open("sale_result", { "earned": result["earned"], "gross": result["earned"], "mugged": false, "lucky": result["lucky"] })
 		# The flat half of VENDOR_TRADE_RELATION_GAIN's "both fire" shape --
 		# the tradeProgress-meter half already fired inside
 		# sell_to_faction_from_sell_state() above.

@@ -126,6 +126,10 @@ static func execute_sale(items: Array) -> Dictionary:
 	Contacts.award_relation("archie", ARCHIE_SALE_RELATION_GAIN)
 
 	var player_cut: int = int(floor(gross * get_archie_cut_ratio()))
+	# Fate Lens lucky price (LuckyPrice): one roll per sale, on the player's cut.
+	var lucky := LuckyPrice.roll()
+	if lucky:
+		player_cut += LuckyPrice.sale_bonus(player_cut)
 
 	# Separate tradeProgress accumulator (R§3.6), on top of the flat award
 	# above. Computed *after* player_cut so a sale crossing a tradeProgress
@@ -149,8 +153,8 @@ static func execute_sale(items: Array) -> Dictionary:
 		Bank.record(player_cut, "Archie sale")
 		BusinessStats.record_sale(player_cut)
 		Objectives.refresh()
-		Modal.open("sale_result", { "earned": player_cut, "gross": gross, "mugged": false })
-		return { "ok": true, "mugged": false, "earned": player_cut, "gross": gross }
+		Modal.open("sale_result", { "earned": player_cut, "gross": gross, "mugged": false, "lucky": lucky })
+		return { "ok": true, "mugged": false, "earned": player_cut, "gross": gross, "lucky": lucky }
 
 
 # Called by combat.gd's onWin dispatch on "muggingWon".
@@ -472,7 +476,10 @@ static func _take_player_items(recipe_key: String, qty: int, tier: int, multi: b
 # contributes nothing, same silent-skip as a failed vein buy/sell. contact_id
 # ("" for every caller but Collective.complete_trade) rides every leg so a
 # trade through a specific vendor builds that vendor's own relation too, not
-# just the faction meter.
+# just the faction meter. Once anything settles, the trade makes one Fate Lens
+# lucky-price roll (LuckyPrice); a hit moves saleBonus of the sale legs plus
+# buyDiscount of the buy legs from the faction's resources (floored at £0)
+# to the player, folded into `earned`.
 static func sell_to_faction_from_sell_state(faction_id: String, contact_id: String = "") -> Dictionary:
 	var sell_state: Dictionary = GameState.state["sellState"]
 	var items: Array = []
@@ -510,31 +517,50 @@ static func sell_to_faction_from_sell_state(faction_id: String, contact_id: Stri
 	if items.is_empty() and vein_ids.is_empty() and buy_vein_ids.is_empty() and buy_items.is_empty():
 		return { "ok": false, "reason": "Nothing to trade." }
 
-	var earned := 0
+	var sale_total := 0
+	var buy_total := 0
+	var settled := false
 	if not items.is_empty():
 		var item_result := execute_faction_sale(faction_id, items, contact_id)
-		earned += item_result.get("earned", 0)
+		if item_result.get("ok", false):
+			sale_total += int(item_result["earned"])
+			settled = true
 
 	if not buy_items.is_empty():
 		var buy_result := execute_faction_purchase(faction_id, buy_items)
 		if buy_result.get("ok", false):
-			earned -= int(buy_result["cost"])
+			buy_total += int(buy_result["cost"])
+			settled = true
 
 	var veins_sold := 0
 	for vein_id in vein_ids:
 		var vein_result := VeinTrade.sell_to_faction(vein_id, faction_id, null, contact_id)
 		if vein_result.get("ok", false):
-			earned += int(vein_result["price"])
+			sale_total += int(vein_result["price"])
 			veins_sold += 1
+			settled = true
 
 	var veins_bought := 0
 	for vein_id in buy_vein_ids:
 		var buy_result := VeinTrade.buy_from_faction(vein_id, faction_id, contact_id)
 		if buy_result.get("ok", false):
-			earned -= int(buy_result["price"])
+			buy_total += int(buy_result["price"])
 			veins_bought += 1
+			settled = true
 
-	return { "ok": true, "earned": earned, "veinsSold": veins_sold, "veinsBought": veins_bought }
+	var earned := sale_total - buy_total
+	var lucky := settled and LuckyPrice.roll()
+	if lucky:
+		var delta := LuckyPrice.sale_bonus(sale_total) + LuckyPrice.buy_discount(buy_total)
+		if delta > 0:
+			var faction: Dictionary = GameState.state["factions"][faction_id]
+			faction["resources"] = maxi(0, int(faction["resources"]) - delta)
+			GameState.state["player"]["cash"] += delta
+			Bank.record(delta, "Lucky price")
+			earned += delta
+		EventBus.mark_changed()
+
+	return { "ok": true, "earned": earned, "veinsSold": veins_sold, "veinsBought": veins_bought, "lucky": lucky }
 
 
 # A faction shop's Trade-menu confirm (no contact attached): settles the cart
@@ -544,5 +570,5 @@ static func complete_shop_trade(faction_id: String) -> Dictionary:
 		return { "ok": false, "reason": "Barred from this shop." }
 	var result := sell_to_faction_from_sell_state(faction_id)
 	if result.get("ok", false):
-		Modal.open("sale_result", { "earned": result["earned"], "gross": result["earned"], "mugged": false })
+		Modal.open("sale_result", { "earned": result["earned"], "gross": result["earned"], "mugged": false, "lucky": result["lucky"] })
 	return result

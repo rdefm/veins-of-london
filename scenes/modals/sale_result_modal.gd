@@ -13,6 +13,8 @@ static func build(container: VBoxContainer, data: Dictionary) -> void:
 	else:
 		container.add_child(UI.label("Smooth as you like. Buyer paid promptly and left."))
 	container.add_child(UI.label(("+£%d" % earned) if earned >= 0 else ("-£%d" % -earned)))
+	if data.get("lucky", false):
+		container.add_child(UI.label(LuckyPrice.line()))
 	container.add_child(MapCardStyle.footer([MapCardStyle.text_button("Back to it", func(): close())]))
 
 

@@ -88,6 +88,7 @@ Data file per system: see `data/*.json` below.
 | map_events.gd | Map event queue + playback |
 | soho.gd | Soho Marketplace (R§3.13): buys/sells ore and tiered items against London stock; sell/buy fee ladders by whole-cart order value; pure `fee_rows` (rung, rate, fee, net, next rung, ladder, Archie comparison) match what `trade` charges |
 | market.gd | London market (R§3.13): per-good quote/history, item stock by tier, conserved elastic flows (`_plan_day`), `availability`, `tier_price`, legacy migration, flow + move recording, daily reprice (⑥.6; also above-trigger days, `outside_craft_eligible`), tomorrow's projection (`projected_quotes`), story rises, annotations, sales history, delivery log, Stock Market reads |
+| lucky_price.gd | Fate Lens lucky buyer (R§3.13 Lucky price): eligibility, hit chance, one roll per Trade-menu trade, sale bonus / buy discount, result line |
 | market_insight.gd | Market row `!` reads (R§3.13 Insight): merges sources' lines + notable flag per good off `Market.projected_quotes`; Fate gut-feeling source |
 | map_hit_test.gd | Tap-hit geometry, Network diagram |
 | map_layout.gd | Resolves stops vs. live sites/veins |
@@ -234,7 +235,7 @@ overlays; hides the top board on title/intro/combat and the nav dock per screen.
 |---|---|
 | modal_registry.gd | type id -> content script table; the only content path modal_layer.gd dispatches through |
 | seed_result_modal.gd | Seed-attempt result card |
-| sale_result_modal.gd | Archie/faction sale result card; close plays a deferred quest event if one is queued, else routes to Phone home |
+| sale_result_modal.gd | Archie/faction sale result card (lucky-price line on a hit); close plays a deferred quest event if one is queued, else routes to Phone home |
 | archie_deal_result_modal.gd | Archie deal-vein result card; close routes to Phone home |
 | james_job_offer_modal.gd | James job offer card; Accept/Decline hand off to Jobs |
 | james_job_short_modal.gd | James job "not enough stock" card |
@@ -313,7 +314,7 @@ overlays; hides the top board on title/intro/combat and the nav dock per screen.
 | constants.json | calendar.gd (calendar), time_system.gd, jobs.gd, GameState.gd, contacts.gd (roster, roleFlags, skillCaps), rooms.gd (specialities, productionLogDays), business.gd (weekly wages), business_stats.gd (businessStatsDays), shares.gd (sharesDays, sharesWindowDays), guardUpkeep, guard_kit.gd, loadout.gd, events.gd (eventChecks, eventLabels), observation.gd (observation) |
 | constants.json (faction politics) | factions.gd (factionRivalry), faction_sim.gd (factionFloor), faction_ai.gd (factionStances/Pressure/Escalation/War/Conclave), intel.gd (intel), raiding.gd (stockpileRaid, raidSecurity), network_handler.gd (networkMenu), diplomacy.gd (factionFavours, factionGifts, callForAid), partners.gd (partners), barometer.gd (factionEscalation) |
 | daily_cycle.json | time_transition.gd (circle layout, sky clips, colours, timing) |
-| dial.json | dial.gd; `lens` (slots, craft, senseGates, peripheralShare, per-tier effect tables) → dial.gd/lenses.gd; `fateMarketReadsByTier`/`fateMarket` → market_insight.gd; `jamesQuest` (gate, repair attempts/ore, summons texts) → james_dial.gd |
+| dial.json | dial.gd; `lens` (slots, craft, senseGates, peripheralShare, per-tier effect tables) → dial.gd/lenses.gd; `fateMarketReadsByTier`/`fateMarket` → market_insight.gd; `fateLuckyPrice` → lucky_price.gd; `jamesQuest` (gate, repair attempts/ore, summons texts) → james_dial.gd |
 | districts.json | widely read (sites, economy, factions, raiding) |
 | enemies.json | combat.gd |
 | faction_trade.json | economy.gd |

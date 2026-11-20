@@ -175,7 +175,8 @@ static func check(side: String, cart: Array) -> String:
 	return ""
 
 
-# Executes the cart; the cash moved is exactly fee_rows(side, cart)["net"].
+# Executes the cart; the cash moved is fee_rows(side, cart)["net"] plus
+# `luckyDelta`, the Fate Lens lucky-price adjustment (LuckyPrice; 0 on a miss).
 static func trade(side: String, cart: Array) -> Dictionary:
 	var reason := check(side, cart)
 	if reason != "":
@@ -201,10 +202,16 @@ static func trade(side: String, cart: Array) -> Dictionary:
 				player["orichalchum"][good_type] = int(player["orichalchum"].get(good_type, 0)) + qty
 			else:
 				Crafting.inventory_add(good_type, tier, qty)
-	player["cash"] = int(player["cash"]) + int(rows["net"])
-	Bank.record(int(rows["net"]), "Soho sale" if side == SELL else "Soho purchase")
+	var lucky := LuckyPrice.roll()
+	var lucky_delta := 0
+	if lucky:
+		lucky_delta = LuckyPrice.sale_bonus(int(rows["net"])) if side == SELL else LuckyPrice.buy_discount(-int(rows["net"]))
+		Notify.push(LuckyPrice.line())
+	var cash_moved := int(rows["net"]) + lucky_delta
+	player["cash"] = int(player["cash"]) + cash_moved
+	Bank.record(cash_moved, "Soho sale" if side == SELL else "Soho purchase")
 	if side == SELL:
-		BusinessStats.record_sale(int(rows["net"]))
+		BusinessStats.record_sale(cash_moved)
 	Objectives.refresh()
 	EventBus.mark_changed()
-	return { "ok": true, "rows": rows }
+	return { "ok": true, "rows": rows, "lucky": lucky, "luckyDelta": lucky_delta }

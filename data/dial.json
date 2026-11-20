@@ -72,6 +72,12 @@
     "fateAllRollsLabel": "Fate Lens",
     "fateRollRangeWidthByTier": [0, 40, 30, 20, 15, 10],
     "fateMarketReadsByTier": [0, 1, 1, 2, 2, 3],
+    "fateLuckyPrice": {
+      "chanceByTier": [0, 0.05, 0.08, 0.11, 0.14, 0.18],
+      "saleBonus": 0.05,
+      "buyDiscount": 0.05,
+      "line": "They gave you a better price as they were in a rush - must be your lucky day!"
+    },
     "fateMarket": {
       "heldFalling": "A feeling: sell this soon, before it slips.",
       "heldRising": "A feeling: sit on this. It's about to climb.",
