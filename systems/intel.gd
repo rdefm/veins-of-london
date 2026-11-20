@@ -71,16 +71,24 @@ static func level_at(level_id: String) -> int:
 
 
 static func knows(observer: String, target: String, level_id: String) -> bool:
-	return meter(observer, target) >= level_at(level_id)
+	return meter(observer, target) >= level_at(level_id) or (level_id == VEIN_SECURITY and physics_read(observer))
+
+
+# Physics Lens security read (R§1.4 Lenses): the player with a loaded Physics
+# Lens at Sense >= senseGates.world reads one intel level higher on the
+# vein-security track only, so knows every faction's vein security from meter
+# 0. The stored meter is unchanged.
+static func physics_read(observer: String) -> bool:
+	return observer == Shares.PLAYER and Lenses.has("physics") and Lenses.sense_unlocked("world")
 
 
 # The highest level observer has reached on target ({ id, at, name }), or {}
-# below the first.
+# below the first; at least vein security under physics_read().
 static func level(observer: String, target: String) -> Dictionary:
 	var reached := {}
 	var value := meter(observer, target)
 	for entry in _cfg()["levels"]:
-		if value >= int(entry["at"]):
+		if value >= int(entry["at"]) or (entry["id"] == VEIN_SECURITY and physics_read(observer)):
 			reached = entry
 	return reached
 
@@ -238,6 +246,51 @@ static func score_raid_options(observer: String, target: String, options: Array)
 		if inverted:
 			chance = low + high - chance
 		option["score"] = chance * lerpf(mean, float(option["value"]), sight)
+
+
+# Raid site sheet security read for a faction vein: Alarms, Ward and Guards
+# rows ({ label, text }) from Raiding.security_profile() and the vein's kit
+# allocation capped by the faction's held units (as Combat.event_fight_kit),
+# each text the unknown mark below the player's vein-security level.
+static func vein_security_read(vein: Dictionary) -> Array:
+	var words: Dictionary = _cfg()["securityRead"]
+	var known := knows(Shares.PLAYER, String(vein.get("factionId", "")), VEIN_SECURITY)
+	var texts := [String(words["unknown"]), String(words["unknown"]), String(words["unknown"])]
+	if known:
+		var profile := Raiding.security_profile(vein)
+		var alarms: Array[String] = []
+		if bool(profile["alarm"]):
+			alarms.append(String(words["alarm"]))
+		var cameras := int(profile["cameras"])
+		if cameras > 0:
+			alarms.append(String(words["camera" if cameras == 1 else "cameras"]) % cameras)
+		texts[0] = ", ".join(alarms) if not alarms.is_empty() else String(words["none"])
+		var ward_type := String(profile["wardType"])
+		texts[1] = String(GameData.WARDS["types"][ward_type]["name"]) if GameData.WARDS["types"].has(ward_type) else String(words["none"])
+		texts[2] = _guards_text(vein, int(profile["guards"]), String(profile["strength"]), words)
+	return [
+		{ "label": String(words["alarms"]), "text": texts[0] },
+		{ "label": String(words["ward"]), "text": texts[1] },
+		{ "label": String(words["guards"]), "text": texts[2] },
+	]
+
+
+static func _guards_text(vein: Dictionary, count: int, strength: String, words: Dictionary) -> String:
+	if count <= 0:
+		return String(words["none"])
+	var parts: Array[String] = [String(words["guardCount" if count == 1 else "guardsCount"]) % count]
+	if strength != "":
+		parts.append(strength)
+	var kit: Array[String] = []
+	var allocation: Dictionary = vein.get("kit", {})
+	var stock: Dictionary = GameState.state["factions"][String(vein["factionId"])]["holdings"]["items"]
+	for recipe_key in allocation:
+		var units := mini(int(allocation[recipe_key]), GuardKit.unit_count({ recipe_key: stock.get(recipe_key, {}) }))
+		if units > 0 and GameData.RECIPES.has(recipe_key):
+			kit.append("%s ×%d" % [GameData.RECIPES[recipe_key]["name"], units])
+	if not kit.is_empty():
+		parts.append(String(words["kit"]) % ", ".join(kit))
+	return " · ".join(parts)
 
 
 # faction_id's site veins counted per security label, e.g. { "Hired Guard": 2 }.

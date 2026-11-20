@@ -587,7 +587,8 @@ func _build_faction_vein_content(content: VBoxContainer, vein: Dictionary, site_
 	var c := _map_card()
 	c["content"].add_child(MapCardStyle.label(faction["name"], 14, MapPalette.faction_colour(faction["id"])))
 	c["content"].add_child(MapCardStyle.tint_symbols(UI.symbol_row([{ "symbol": ore["symbol"], "fallback": SymbolGlyph.ore_fallback(vein["oreType"]) }, " %s — %s" % [ore["name"], band["label"]]]), MapCardStyle.dim()))
-	c["content"].add_child(_security_line(vein, MapCardStyle.dim()))
+	for row in Intel.vein_security_read(vein):
+		c["content"].add_child(MapCardStyle.label("%s: %s" % [row["label"], row["text"]], 12, MapCardStyle.dim()))
 
 	var actions := UI.hflow()
 

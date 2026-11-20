@@ -244,6 +244,62 @@ func run() -> void:
 		assert_eq(int(GameState.state["player"]["cash"]), 100000, "nothing charged")
 	)
 
+	run_case("a_physics_lens_at_sense_two_reads_vein_security_from_meter_zero", func():
+		_fresh()
+		_load_lens("physics", 2)
+		assert_true(Intel.knows(Shares.PLAYER, "firm", Intel.VEIN_SECURITY), "vein security known one level early")
+		assert_true(not Intel.knows(Shares.PLAYER, "firm", Intel.HOLDINGS), "other levels unchanged")
+		assert_eq(Intel.level(Shares.PLAYER, "firm")["id"], Intel.VEIN_SECURITY)
+		assert_eq(Intel.meter(Shares.PLAYER, "firm"), 0, "stored meter not raised")
+		assert_true(not Intel.knows("guild", "firm", Intel.VEIN_SECURITY), "factions don't read through the player's lens")
+		_set_meter(Shares.PLAYER, "firm", 45)
+		assert_eq(Intel.level(Shares.PLAYER, "firm")["id"], Intel.HOLDINGS, "a higher real level still wins")
+	)
+
+	run_case("no_security_read_without_the_physics_lens_or_below_sense_two", func():
+		_fresh()
+		_load_lens("physics", 1)
+		assert_true(not Intel.knows(Shares.PLAYER, "firm", Intel.VEIN_SECURITY), "Sense 1 too low")
+		_load_lens("time", 2)
+		assert_true(not Intel.knows(Shares.PLAYER, "firm", Intel.VEIN_SECURITY), "wrong lens")
+		assert_eq(Intel.level(Shares.PLAYER, "firm"), {})
+	)
+
+	run_case("the_raid_site_security_read_shows_alarms_ward_and_guards_or_unknown", func():
+		_fresh()
+		var vein := Fixtures.seed_faction_vein("fv_read", 40, "firm")
+		vein["security"] = Cultivating.WARDED_TIER_ID
+		vein["features"] = { "alarm": true, "cameras": 2, "ward": "time" }
+		var words: Dictionary = GameData.INTEL["securityRead"]
+		var hidden := Intel.vein_security_read(vein)
+		assert_eq(hidden.map(func(r): return r["label"]), [words["alarms"], words["ward"], words["guards"]])
+		for row in hidden:
+			assert_eq(row["text"], words["unknown"], "%s unknown below the level" % row["label"])
+		_load_lens("physics", 2)
+		var shown := Intel.vein_security_read(vein)
+		assert_eq(shown[0]["text"], "%s, %s" % [words["alarm"], words["cameras"] % 2])
+		assert_eq(shown[1]["text"], GameData.WARDS["types"]["time"]["name"])
+		var counts := Muscle.empty_counts()
+		counts[0] = 2
+		vein["guards"] = counts
+		vein["kit"] = { "blast": 3 }
+		GameState.state["factions"]["firm"]["holdings"]["items"]["blast"] = { "1": 2 }
+		var guards_text := String(Intel.vein_security_read(vein)[2]["text"])
+		var expected := " · ".join([String(words["guardsCount"]) % 2, Muscle.strength_word(counts), String(words["kit"]) % ("%s ×2" % GameData.RECIPES["blast"]["name"])])
+		assert_eq(guards_text, expected, "count, strength, kit capped by held")
+	)
+
+
+# Loads a tier-1 Lens of `ore` on a fresh player Dial at Sense `sense`.
+static func _load_lens(ore: String, sense: int) -> void:
+	var player: Dictionary = GameState.state["player"]
+	player["senseSkill"] = sense
+	GameState.state["flags"]["dialGiftGranted"] = true
+	var dial: Dictionary = Dial.new_dial("collective_brolly")
+	dial["level"] = 5
+	dial["lenses"] = [{ "ore": ore, "tier": 1 }]
+	player["dial"] = dial
+
 
 static func _fresh() -> void:
 	GameState.reset()
