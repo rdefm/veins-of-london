@@ -19,6 +19,10 @@ One nested depth of an ore's block (best first, each with its own base chance an
 **Sense**:
 Player skill (`player.senseSkill`/`senseXP`, curve `data/sense.json` `senseXpLevels`, 11 entries, levels 6-10 placeholder). Perception; levelled by prospecting (`sites.json` `prospectSenseXp`) and, later, observation.
 
+**Lens**:
+A Dial component with one ore and a tier (`{ ore, tier }`): decides which ore the Dial sees and how strongly; does nothing without a Dial. Owned in `player.lensInventory`, loaded in a Dial's `lenses` (one per ore per Dial, slots by Dial level). Player [[Sense]] level decides which kinds of lens effect are live. "Movement powers the Dial, Lenses see, Complications cast."
+_Avoid_: "eyepiece" (UI dressing only), "attunement" for the lens itself.
+
 **Tenure**:
 Whether the player rents or owns their current home tier (`state.home.tenure`, `"rented"`/`"owned"`). Rented pays the tier's rent (`dailyCost`) each rollover; owned pays utilities. The bedsit is rent-only. See ADR 0006.
 _Avoid_: "lease", "mortgage" — neither exists.

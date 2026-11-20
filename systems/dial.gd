@@ -106,6 +106,8 @@ static func new_dial(haft_id: String, day: int = -1) -> Dictionary:
 		"capacityMax": capacity_max(1),
 		"movement": null,
 		"loadedComplications": [],
+		# Loaded Lenses ({ ore, tier }), at most lens_slots(level), one per ore (R§1.4 Lenses).
+		"lenses": [],
 		"haftId": haft_id,
 	}
 
@@ -339,6 +341,101 @@ static func unload_complication(index: int, owner_id: String = "") -> Dictionary
 	loaded.remove_at(index)
 	Crafting.inventory_add(Crafting.inventory_key(entry["recipeKey"], entry.get("multi", false)), entry["tier"], 1)
 
+	EventBus.mark_changed()
+	return { "ok": true }
+
+
+# Lenses (R§1.4 Lenses): crafting, and load/unload into any owner's Dial.
+# Owned Lenses live in player.lensInventory; loaded ones in dial.lenses. Same
+# Movement-style craft contract: ingredients (calc of the lens ore) always
+# spent, chance-gated, tier = crafting skill at craft time.
+
+
+static func lens_slots(level: int) -> int:
+	var curve: Array = GameData.DIAL_LENS["lensSlotsByLevel"]
+	return int(curve[clampi(level, 0, curve.size() - 1)])
+
+
+static func lens_craft_chance(skill: int) -> float:
+	# Same shape as movement_craft_chance(), keyed off the lens block's baseSuccess.
+	return min(0.95, GameData.DIAL_LENS["baseSuccess"] + (skill - 1) * 0.13 + Home.get_workshop_bonus())
+
+
+# Same shape as movement_calc_cost(): calc of the lens ore.
+static func lens_calc_cost(skill: int) -> int:
+	return maxi(1, GameState.round_epsilon(GameData.DIAL_LENS["ingredientBase"] - (skill - 1) * 0.8))
+
+
+static func attempt_craft_lens(ore: String) -> Dictionary:
+	if not GameState.state["flags"].get("dialGiftGranted", false):
+		return { "ok": false, "reason": "You don't have the gift." }
+	if not GameData.ORE_TYPES.has(ore):
+		return { "ok": false, "reason": "Unknown ore type." }
+	var player: Dictionary = GameState.state["player"]
+	var skill: int = player["craftingSkill"]
+	var cost: int = lens_calc_cost(skill)
+	var orichalchum: Dictionary = player["orichalchum"]
+	if orichalchum.get(ore, 0) < cost:
+		return { "ok": false, "reason": "Not enough calc." }
+
+	orichalchum[ore] = orichalchum.get(ore, 0) - cost
+	var xp_reward: int = int(GameData.DIAL_LENS["xpReward"])
+	if Rng.chance(lens_craft_chance(skill)):
+		player["lensInventory"].append({ "ore": ore, "tier": skill })
+		Crafting.award_crafting_xp(xp_reward, true)
+		EventBus.mark_changed()
+		return { "ok": true, "success": true, "ore": ore, "tier": skill }
+	Crafting.award_crafting_xp(int(floor(float(xp_reward) / 3.0)), true)
+	EventBus.mark_changed()
+	return { "ok": true, "success": false }
+
+
+static func _loadout_locked() -> bool:
+	return GameState.state["event"] != null or GameState.state["combat"]["active"]
+
+
+# Moves player.lensInventory[inventory_index] onto owner_id's Dial. Refused
+# mid-event/fight, with slots full, or with that ore already loaded there.
+static func load_lens(inventory_index: int, owner_id: String = "") -> Dictionary:
+	var dial_v: Variant = dial_of(owner_id)
+	if dial_v == null:
+		return { "ok": false, "reason": "No Dial." }
+	if _loadout_locked():
+		return { "ok": false, "reason": "Not now." }
+	var inventory: Array = GameState.state["player"]["lensInventory"]
+	if inventory_index < 0 or inventory_index >= inventory.size():
+		return { "ok": false, "reason": "No such Lens." }
+	var dial: Dictionary = dial_v
+	if not dial.has("lenses"):
+		dial["lenses"] = []
+	var loaded: Array = dial["lenses"]
+	if loaded.size() >= lens_slots(dial["level"]):
+		return { "ok": false, "reason": "No free lens slot." }
+	var incoming: Dictionary = inventory[inventory_index]
+	for lens in loaded:
+		if lens["ore"] == incoming["ore"]:
+			return { "ok": false, "reason": "That ore already has a Lens." }
+
+	inventory.remove_at(inventory_index)
+	loaded.append(incoming)
+	EventBus.mark_changed()
+	return { "ok": true }
+
+
+# Returns dial.lenses[slot] to player.lensInventory intact.
+static func unload_lens(slot: int, owner_id: String = "") -> Dictionary:
+	var dial_v: Variant = dial_of(owner_id)
+	if dial_v == null:
+		return { "ok": false, "reason": "No Dial." }
+	if _loadout_locked():
+		return { "ok": false, "reason": "Not now." }
+	var loaded: Array = dial_v.get("lenses", [])
+	if slot < 0 or slot >= loaded.size():
+		return { "ok": false, "reason": "No such Lens." }
+
+	var lens: Dictionary = loaded[slot]
+	loaded.remove_at(slot)
+	GameState.state["player"]["lensInventory"].append(lens)
 	EventBus.mark_changed()
 	return { "ok": true }
 

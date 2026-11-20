@@ -1,0 +1,169 @@
+extends "res://tests/test_base.gd"
+
+# Lens crafting, load/unload (Dial) and the Lenses read layer (R§1.4 Lenses).
+
+const HAFT_ID := "collective_brolly"
+const CONTACT_ID := "james"
+
+
+static func _setup(level: int = 1) -> void:
+	GameState.reset()
+	GameState.state["flags"]["dialGiftGranted"] = true
+	var dial: Dictionary = Dial.new_dial(HAFT_ID)
+	dial["level"] = level
+	GameState.state["player"]["dial"] = dial
+
+
+static func _give(ore: String, tier: int) -> void:
+	GameState.state["player"]["lensInventory"].append({ "ore": ore, "tier": tier })
+
+
+static func _give_contact_dial(level: int) -> void:
+	var dial: Dictionary = Dial.new_dial(HAFT_ID)
+	dial["level"] = level
+	GameState.state["contacts"][CONTACT_ID]["dial"] = dial
+
+
+# Re-runs a craft from the same snapshot over seeds until the wanted outcome; capped.
+func _craft_until(ore: String, want_success: bool) -> Dictionary:
+	var snapshot: Dictionary = GameState.deep_copy(GameState.state)
+	for seed in range(500):
+		GameState.state = GameState.deep_copy(snapshot)
+		Rng.set_seed(seed)
+		var result := Dial.attempt_craft_lens(ore)
+		if result.get("ok", false) and result["success"] == want_success:
+			return result
+	return {}
+
+
+func run() -> void:
+	run_case("craft_refused_without_gift", func():
+		_setup()
+		GameState.state["flags"]["dialGiftGranted"] = false
+		GameState.state["player"]["orichalchum"]["fate"] = 100
+		var result := Dial.attempt_craft_lens("fate")
+		assert_true(not result["ok"], "no gift, no lens")
+		assert_eq(GameState.state["player"]["orichalchum"]["fate"], 100, "nothing spent")
+	)
+
+	run_case("craft_refused_without_calc_or_bad_ore", func():
+		_setup()
+		GameState.state["player"]["orichalchum"]["fate"] = 0
+		assert_true(not Dial.attempt_craft_lens("fate")["ok"], "short of calc refused")
+		GameState.state["player"]["orichalchum"]["fate"] = 100
+		assert_true(not Dial.attempt_craft_lens("energy")["ok"], "unknown ore refused")
+	)
+
+	run_case("craft_success_spends_ore_and_adds_lens_at_skill_tier", func():
+		_setup()
+		GameState.state["player"]["craftingSkill"] = 3
+		GameState.state["player"]["orichalchum"]["physics"] = 100
+		var cost := Dial.lens_calc_cost(3)
+		var result := _craft_until("physics", true)
+		assert_true(not result.is_empty(), "found a succeeding seed")
+		assert_eq(GameState.state["player"]["orichalchum"]["physics"], 100 - cost, "lens ore spent")
+		assert_eq(GameState.state["player"]["lensInventory"], [{ "ore": "physics", "tier": 3 }], "lens at crafting-skill tier")
+	)
+
+	run_case("craft_failure_still_spends_ore", func():
+		_setup()
+		GameState.state["player"]["orichalchum"]["life"] = 100
+		var cost := Dial.lens_calc_cost(1)
+		var result := _craft_until("life", false)
+		assert_true(not result.is_empty(), "found a failing seed")
+		assert_eq(GameState.state["player"]["orichalchum"]["life"], 100 - cost, "lens ore spent on failure")
+		assert_eq(GameState.state["player"]["lensInventory"].size(), 0, "no lens on failure")
+	)
+
+	run_case("slot_count_follows_dial_level", func():
+		var curve: Array = GameData.DIAL_LENS["lensSlotsByLevel"]
+		for level in range(curve.size()):
+			assert_eq(Dial.lens_slots(level), int(curve[level]), "slots at level %d" % level)
+		assert_eq(Dial.lens_slots(1), 1, "level 1 has one slot")
+		assert_eq(Dial.lens_slots(5), 3, "level 5 has three")
+	)
+
+	run_case("load_moves_lens_and_refuses_when_full", func():
+		_setup(1)
+		_give("time", 2)
+		_give("fate", 1)
+		assert_true(Dial.load_lens(0)["ok"], "first load fits")
+		assert_eq(Lenses.loaded(), [{ "ore": "time", "tier": 2 }], "lens on the Dial")
+		assert_eq(GameState.state["player"]["lensInventory"], [{ "ore": "fate", "tier": 1 }], "removed from inventory")
+		assert_true(not Dial.load_lens(0)["ok"], "level 1 Dial has one slot")
+		assert_eq(GameState.state["player"]["lensInventory"].size(), 1, "refused lens stays owned")
+	)
+
+	run_case("load_refuses_duplicate_ore", func():
+		_setup(3)
+		_give("time", 1)
+		_give("time", 3)
+		assert_true(Dial.load_lens(0)["ok"], "first time lens loads")
+		assert_true(not Dial.load_lens(0)["ok"], "second time lens refused on same Dial")
+	)
+
+	run_case("load_and_unload_refused_in_event_or_combat", func():
+		_setup(3)
+		_give("emotion", 1)
+		GameState.state["event"] = { "eventId": "x" }
+		assert_true(not Dial.load_lens(0)["ok"], "refused mid-event")
+		GameState.state["event"] = null
+		assert_true(Dial.load_lens(0)["ok"], "loads outside events")
+		GameState.state["combat"]["active"] = true
+		assert_true(not Dial.unload_lens(0)["ok"], "unload refused mid-fight")
+		assert_true(not Dial.load_lens(0)["ok"], "load refused mid-fight")
+		GameState.state["combat"]["active"] = false
+	)
+
+	run_case("unload_returns_exact_unit", func():
+		_setup(3)
+		_give("physics", 4)
+		_give("life", 2)
+		Dial.load_lens(0)
+		Dial.load_lens(0)
+		assert_true(Dial.unload_lens(0)["ok"], "unload ok")
+		assert_eq(GameState.state["player"]["lensInventory"], [{ "ore": "physics", "tier": 4 }], "same unit back")
+		assert_eq(Lenses.loaded(), [{ "ore": "life", "tier": 2 }], "other lens stays loaded")
+		assert_true(not Dial.unload_lens(5)["ok"], "bad slot refused")
+	)
+
+	run_case("lenses_queries_player", func():
+		GameState.reset()
+		assert_eq(Lenses.loaded(), [], "no Dial, no lenses")
+		assert_eq(Lenses.tier_for("time"), 0, "no Dial tier 0")
+		_setup(3)
+		_give("fate", 3)
+		Dial.load_lens(0)
+		assert_eq(Lenses.tier_for("fate"), 3, "fate tier")
+		assert_eq(Lenses.tier_for("time"), 0, "unloaded ore tier 0")
+		assert_true(Lenses.has("fate"), "has fate")
+		assert_true(not Lenses.has("time"), "no time")
+	)
+
+	run_case("lenses_queries_contact_dial", func():
+		_setup(1)
+		assert_true(GameState.state["contacts"].has(CONTACT_ID), "fixture contact exists")
+		_give_contact_dial(2)
+		_give("time", 1)
+		assert_true(Dial.load_lens(0, CONTACT_ID)["ok"], "contact Dial loads via same function")
+		assert_eq(Lenses.tier_for("time", CONTACT_ID), 1, "contact time lens")
+		assert_true(Lenses.has("time", CONTACT_ID), "contact has time")
+		assert_true(not Lenses.has("time"), "player Dial unaffected")
+		_give("physics", 1)
+		assert_true(not Dial.load_lens(0, CONTACT_ID)["ok"], "level 2 contact Dial has one slot")
+		assert_true(Dial.unload_lens(0, CONTACT_ID)["ok"], "contact unload")
+		assert_eq(GameState.state["player"]["lensInventory"].size(), 2, "back to player inventory")
+	)
+
+	run_case("sense_unlocked_by_gate_player_only", func():
+		_setup(1)
+		var gates: Dictionary = GameData.DIAL_LENS["senseGates"]
+		GameState.state["player"]["senseSkill"] = 2
+		assert_true(Lenses.sense_unlocked("world"), "Sense 2 opens world")
+		assert_true(not Lenses.sense_unlocked("combat"), "Sense 2 below combat gate %d" % gates["combat"])
+		GameState.state["player"]["senseSkill"] = 5
+		for gate in gates:
+			assert_true(Lenses.sense_unlocked(gate), "Sense 5 opens %s" % gate)
+			assert_true(not Lenses.sense_unlocked(gate, CONTACT_ID), "contact never has Sense (%s)" % gate)
+		assert_true(not Lenses.sense_unlocked("nope"), "unknown gate false")
+	)

@@ -4566,6 +4566,7 @@
 		"player.inventory.enhancementPowder",
 		"player.inventory.rewind",
 		"player.inventory.timePearl",
+		"player.lensInventory",
 		"player.loadout",
 		"player.loadout.lastRecipe",
 		"player.loadout.slots",

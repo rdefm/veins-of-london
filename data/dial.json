@@ -61,6 +61,17 @@
   },
   "attunementBonusByTier": [0, 0.02, 0.04, 0.07, 0.10, 0.15],
   "capacityByLevel": [0, 1, 2, 3, 4, 4],
+  "lens": {
+    "lensSlotsByLevel": [0, 1, 1, 2, 2, 3],
+    "baseSuccess": 0.35,
+    "ingredientBase": 20,
+    "xpReward": 30,
+    "senseGates": { "world": 2, "combat": 3, "glimpse": 4, "peripheral": 5 },
+    "fateAllRollsBonusByTier": [0, 0.01, 0.02, 0.03, 0.04, 0.05],
+    "fateRollRangeWidthByTier": [0, 40, 30, 20, 15, 10],
+    "timeFogCutByTier": [0, 0.2, 0.3, 0.4, 0.5, 0.6],
+    "physicsFlatByTier": [0, 1, 2, 3, 4, 5]
+  },
   "xpLevels": [0, 0, 50, 150, 400, 1000],
   "maxChargeBonusByLevel": [0, 0, 5, 12, 22, 35],
   "rechargeRateBonusByLevel": [0, 0, 0, 0, 0.5, 1.0],

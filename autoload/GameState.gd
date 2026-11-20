@@ -173,11 +173,14 @@ func new_game_state() -> Dictionary:
 			# null until Dial.attempt_seed() succeeds (refuses outright
 			# once non-null). Seeded shape: { level, xp, currentCharge,
 			# maxCharge, rechargeRate, lastRegenDay, combatRegenTurnCounter,
-			# capacityMax, movement, loadedComplications, haftId }.
+			# capacityMax, movement, loadedComplications, lenses, haftId }.
 			"dial": null,
 			# Crafted-but-unseated Movements ({ archetype, oreType, tier }) --
 			# moved out on Dial.seat_movement(), back in on unseat_movement().
 			"movementInventory": [],
+			# Crafted-but-unloaded Lenses ({ ore, tier }) -- moved out on
+			# Dial.load_lens() (to any owner's dial.lenses), back in on unload_lens().
+			"lensInventory": [],
 			"craftingSkill": 1, "craftingXP": 0,
 			"cultivatingSkill": 1, "cultivatingXP": 0,
 			"senseSkill": 1, "senseXP": 0,

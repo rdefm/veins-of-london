@@ -50,6 +50,10 @@ var DIAL_ATTUNEMENT_BONUS_BY_TIER: Array = []
 # Dial.capacity_max()'s lookup, independent of which Movement is seated.
 var DIAL_CAPACITY_BY_LEVEL: Array = []
 
+# "lens" block (R§1.4 Lenses): lensSlotsByLevel, craft baseSuccess/
+# ingredientBase/xpReward, senseGates, and the per-tier effect tables.
+var DIAL_LENS: Dictionary = {}
+
 # Dial's level ladder. maxChargeBonusByLevel is the primary per-level curve
 # on top of the seated Movement's stats; rechargeRateBonusByLevel is
 # sparser -- bigger reserve now, faster refill later.
@@ -440,6 +444,7 @@ const MANIFEST: Array[Dictionary] = [
 		{"field": "DIAL_MOVEMENTS", "key": "movements", "type": TYPE_DICTIONARY},
 		{"field": "DIAL_ATTUNEMENT_BONUS_BY_TIER", "key": "attunementBonusByTier", "type": TYPE_ARRAY},
 		{"field": "DIAL_CAPACITY_BY_LEVEL", "key": "capacityByLevel", "type": TYPE_ARRAY},
+		{"field": "DIAL_LENS", "key": "lens", "type": TYPE_DICTIONARY},
 		{"field": "DIAL_XP_LEVELS", "key": "xpLevels", "type": TYPE_ARRAY},
 		{"field": "DIAL_MAX_CHARGE_BONUS_BY_LEVEL", "key": "maxChargeBonusByLevel", "type": TYPE_ARRAY},
 		{"field": "DIAL_RECHARGE_RATE_BONUS_BY_LEVEL", "key": "rechargeRateBonusByLevel", "type": TYPE_ARRAY},

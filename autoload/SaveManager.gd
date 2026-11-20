@@ -888,6 +888,8 @@ func _restore_dial_ints(dial: Dictionary) -> void:
 	# convention as combat.evadeChance/mapView.zoom above.
 	if dial.get("movement") != null:
 		_int_key(dial["movement"], "tier")
+	for lens in dial.get("lenses", []):
+		_int_key(lens, "tier")
 
 
 func _restore_int_types(state: Dictionary) -> void:
@@ -1093,6 +1095,8 @@ func _restore_int_types(state: Dictionary) -> void:
 		# Crafted-but-unseated Movements carry the same tier field.
 		for movement in player.get("movementInventory", []):
 			_int_key(movement, "tier")
+		for lens in player.get("lensInventory", []):
+			_int_key(lens, "tier")
 
 	if state.has("world"):
 		var world: Dictionary = state["world"]
