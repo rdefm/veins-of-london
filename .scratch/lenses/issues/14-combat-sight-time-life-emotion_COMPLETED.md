@@ -4,7 +4,7 @@
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** done
 
 **Relevant files:**
 - `systems/combat_rounds.gd`
@@ -16,7 +16,7 @@
 - `docs/REFERENCE.md` §3.7b Fog
 
 **Acceptance:**
-- [ ] Unread rate drops with a Time lens (seeded test); unchanged without.
-- [ ] HP numbers / unread targets shown only with the right lens + gate.
-- [ ] James with a Time lens: his reads see more intents. Human QA: strip display.
-- [ ] Syntax check clean, tests pass; REFERENCE/CODEMAP updated for this ticket's part.
+- [x] Unread rate drops with a Time lens (seeded test); unchanged without.
+- [x] HP numbers / unread targets shown only with the right lens + gate.
+- [x] James with a Time lens: his reads see more intents. Human QA: strip display.
+- [x] Syntax check clean, tests pass; REFERENCE/CODEMAP updated for this ticket's part.
