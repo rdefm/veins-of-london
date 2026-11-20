@@ -457,8 +457,10 @@ static func _tally(side: String, kind: String, good_type: String) -> int:
 # (split by tierMix) plus recorded supply at its tiers. Demand is nameless
 # demand (Ticker-scaled, price-elastic, plus derived ore demand and story
 # rises) plus recorded demand, capped at what is held, drawn across tiers in
-# proportion to stock + supply in whole units.
-static func _plan_day(kind: String, good_type: String) -> Dictionary:
+# proportion to stock + supply in whole units. item_stocks ({ recipeKey:
+# stock }) overrides the item stocks ore derived demand reads; null reads
+# today's.
+static func _plan_day(kind: String, good_type: String, item_stocks: Variant = null) -> Dictionary:
 	var stock := _tier_stocks(kind, good_type)
 	var supply: Array[int] = []
 	supply.resize(stock.size())
@@ -477,7 +479,7 @@ static func _plan_day(kind: String, good_type: String) -> Dictionary:
 	baseline *= demand_mult(kind, good_type)
 	if kind == "ore":
 		baseline += civilian_demand(kind, good_type) * story_rise_fraction(good_type)
-		baseline += derived_ore_demand(good_type)
+		baseline += derived_ore_demand(good_type) if item_stocks == null else _derived_ore_demand(good_type, item_stocks)
 	var tiered: Dictionary = _market().get("demandTiers", {}).get(good_type, {})
 	var tiered_total := 0
 	for qty in tiered.values():
@@ -532,9 +534,7 @@ static func tier_price(good_type: String, tier: int) -> int:
 static func daily_reprice() -> void:
 	if not is_running():
 		return
-	var cfg := _config()
-	var smoothing: float = cfg["smoothing"]
-	var history_days: int = int(cfg["historyDays"])
+	var history_days: int = int(_config()["historyDays"])
 	var market := _market()
 	var ticker_shifts := _ticker_shifts()
 	for kind in KINDS:
@@ -542,12 +542,9 @@ static func daily_reprice() -> void:
 			var good: Dictionary = market["goods"][kind][good_type]
 			var plan := _plan_day(kind, good_type)
 			_set_tier_stocks(kind, good_type, plan["after"])
-			var stock: int = int(good["stock"])
-			var base := float(base_price(kind, good_type))
 			var price: int = int(good["price"])
-			var moved: int = GameState.round_epsilon(price + (target_price(kind, good_type, stock) - price) * smoothing)
 			good["prevPrice"] = price
-			good["price"] = clampi(moved, GameState.round_epsilon(base * cfg["priceMinMult"]), GameState.round_epsilon(base * cfg["priceMaxMult"]))
+			good["price"] = _next_price(kind, good_type, int(good["stock"]))
 			var history: Array = good["history"]
 			history.append(good["price"])
 			while history.size() > history_days:
@@ -561,6 +558,39 @@ static func daily_reprice() -> void:
 	market["demand"] = { "ore": {}, "consumable": {} }
 	market.erase("demandTiers")
 	market.erase("moves")
+
+
+# Today's price moved a smoothing fraction toward the target for `stock`,
+# clamped to [priceMinMult, priceMaxMult] x base.
+static func _next_price(kind: String, good_type: String, stock: int) -> int:
+	var cfg := _config()
+	var base := float(base_price(kind, good_type))
+	var price: int = int(_market()["goods"][kind][good_type]["price"])
+	var moved: int = GameState.round_epsilon(price + (target_price(kind, good_type, stock) - price) * float(cfg["smoothing"]))
+	return clampi(moved, GameState.round_epsilon(base * cfg["priceMinMult"]), GameState.round_epsilon(base * cfg["priceMaxMult"]))
+
+
+# Tomorrow's quote per good if the player does nothing more today
+# (R§3.13 "Projection"): daily_reprice()'s flow and price step run on today's
+# plan without writing state, items first, ore derived demand from the items'
+# post-flow stocks. Blind to rollover steps that trade before the reprice.
+# { "ore": { type: quote }, "consumable": { recipeKey: quote } }.
+static func projected_quotes() -> Dictionary:
+	var result := {}
+	var item_stocks := {}
+	for kind in KINDS:
+		result[kind] = {}
+		for good_type in _market()["goods"][kind]:
+			if not is_running():
+				result[kind][good_type] = quote(kind, good_type)
+				continue
+			var stock := 0
+			for qty in _plan_day(kind, good_type, item_stocks if kind == "ore" else null)["after"]:
+				stock += int(qty)
+			if kind == "consumable":
+				item_stocks[good_type] = stock
+			result[kind][good_type] = _next_price(kind, good_type, stock)
+	return result
 
 
 # Consecutive days each item has closed above outsideCraft.triggerMult x base

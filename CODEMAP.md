@@ -87,7 +87,8 @@ Data file per system: see `data/*.json` below.
 | turf.gd | Turf (R§3.1 "Turf"): per-district contender vein counts/shares, controller (top >= second + controlMargin), foothold tier, contested; `recompute()` rewrites `state.turf` once per daily tick (⑤d3), queuing flip headline + map event. `danger_mod`/`price_mod`/`raid_odds_adj`: effective district modifiers. `ambush_chance`: ambush odds (R§3.1d). |
 | map_events.gd | Map event queue + playback |
 | soho.gd | Soho Marketplace (R§3.13): buys/sells ore and tiered items against London stock; sell/buy fee ladders by whole-cart order value; pure `fee_rows` (rung, rate, fee, net, next rung, ladder, Archie comparison) match what `trade` charges |
-| market.gd | London market (R§3.13): per-good quote/history, item stock by tier (ore untiered), conserved elastic flows (`_plan_day`), `availability`, `tier_price`, legacy migration, supply/demand + move recording, daily reprice (⑥.6; also the above-trigger day counter and `outside_craft_eligible`), story rises, annotations, sales history, delivery log, Stock Market reads |
+| market.gd | London market (R§3.13): per-good quote/history, item stock by tier, conserved elastic flows (`_plan_day`), `availability`, `tier_price`, legacy migration, flow + move recording, daily reprice (⑥.6; also above-trigger days, `outside_craft_eligible`), tomorrow's projection (`projected_quotes`), story rises, annotations, sales history, delivery log, Stock Market reads |
+| market_insight.gd | Market row `!` reads (R§3.13 Insight): merges sources' lines + notable flag per good off `Market.projected_quotes`; Fate gut-feeling source |
 | map_hit_test.gd | Tap-hit geometry, Network diagram |
 | map_layout.gd | Resolves stops vs. live sites/veins |
 | map_nav.gd | Map drill-down nav (list → panel → site sheet or vein detail panel, mutually exclusive) |
@@ -184,6 +185,7 @@ overlays; hides the top board on title/intro/combat and the nav dock per screen.
 | contact_cards.gd | Shared contact/faction card builders (incl. membership actions, faction Benefits tier ladder, handler card, Owen card, Targets/Sourcing, Nadia's ledger + "Go with Nadia", key-member card, recipe-seller Trade door, pending-message actions (lowball, peace offer, favour)), inline Contacts action-row layout, Phone-OS chrome repaint (text-only for card-chrome apps) |
 | contract_card.gd | Draggable BizBrief Sales card |
 | line_chart.gd | `_draw` line chart (palette-id or app accent colour, optional overlaid series on a shared scale, max label, first/last day, optional counted event markers); opt-in touch/drag history-point inspection for Ticker, compact chart for BizBrief Stats |
+| market_insight_icon.gd | The `!` on Ticker Stock Market and Trade sheet rows: grey/untappable when silent, red + pulsing when notable, tap → bubble of every line |
 | price_move.gd | ▲/▼ + £ delta text and colour for a Market day move (Stock Market rows, sell lanes) |
 | floorplan_view.gd | Estate-agent plan for a home tier from floorplans.json; static, or with tappable slot overlays showing current use |
 | departure_board_casing.gd | Top board's sign housing: code-drawn metal frame, corner bolts, recessed bezel; optional nine-patch `assets/ui/departure_board_frame.png` slot |
@@ -245,7 +247,7 @@ overlays; hides the top board on title/intro/combat and the nav dock per screen.
 | guard_hire_modal.gd | guard_hire modal: "Hire board" header with next-Monday date; cards with name, level, wage (base struck when traits change it), signed trait rows, returning tag, Hire button; hired slot is a dashed "Hired — refills Monday" card |
 | guard_kit_modal.gd | guard_kit modal registry adapter (data.target is a GuardKit kit target) |
 | guard_kit_view.gd | Guard kit stocking sheet on the Trade pattern: Stock/Return tabs, grouped tiers with steppers, sticky slots/capacity totals, review; confirm calls GuardKit stock/unstock per line |
-| sell_menu_view.gd | Trade-only sheet: sell/buy and category tabs, Map ore glyphs, grouped item tiers, sticky totals and review; five modes: Archie, Collective contact, faction shop (no contact), Soho (rows, fee ladder and net from Soho; trades via Soho.trade), recipe seller (collapsible recipe rows + ore filter, buy-only rungs via RecipeKnowledge.buy); invokes existing trade systems |
+| sell_menu_view.gd | Trade-only sheet: sell/buy and category tabs, ore glyphs, grouped item tiers, `!` per good, sticky totals and review; five modes: Archie, Collective contact, faction shop (no contact), Soho (rows, fee ladder and net from Soho; trades via Soho.trade), recipe seller (collapsible recipe rows + ore filter, buy-only rungs via RecipeKnowledge.buy); invokes existing trade systems |
 | nadia_supply_modal.gd | Nadia ore-supply objective card |
 | network_targets_modal.gd | Handler Targets picker: faction veins, soft/freeze questions |
 | network_sourcing_modal.gd | Handler Sourcing order: ore type + minimum tier |
@@ -281,7 +283,7 @@ overlays; hides the top board on title/intro/combat and the nav dock per screen.
 | messages_app.gd | Conversation inbox (fixed-height rows: bold name, one-line `…` preview, unread pill, per-contact Clear) + single-thread texting view: sent replies right/blue, incoming left/grey, each new incoming preceded by a tap-skippable three-dot typing bubble (`Messages.typing_seconds`); thread set in Inter; action bar incl. Owen's reply choices |
 | todo_app.gd | ToDo app: carousel of Todo.get_pages() under a ~35% banner (swipe/arrows, no wrap, dots + new-goal pips, marks page seen); banner art `assets/phone/todo/<id>.png` with `default.png` fallback; locked/done banner states; goals, collapsed dimmed done goals, collapsible ledger, Board ladder; rent/deposit strip on top |
 | factions_app.gd | The Register (app id `factions`): masthead and routes (Your standing, Market shares, London politics); Your standing = in-app view of `build_row` rows, each opening a dossier (actions, identity, footprint, Benefits, Intel, Activity). Shares: Ore/Crafting, ore choice, bars. Politics: stance-tinted pair grid, legend, pair strip. Palette `register_*`. |
-| ticker_app.gd | Ticker News: state stories by recency, newest-first wires, full state and wire articles, live impact, same-axis Influence sheet. Stock Market: filters, Ore/Items lists, demand modifiers, price detail and chart, annotations and demand drivers |
+| ticker_app.gd | Ticker News: state stories by recency, newest-first wires, full state and wire articles, live impact, same-axis Influence sheet. Stock Market: filters, Ore/Items lists with insight `!`, demand modifiers, price detail and chart, annotations and demand drivers |
 | profile_app.gd | Stats, the Body/Mind/Soul skill wheel card, the Move Book card (You + recruit tabs), equipment, and a two-slot Loadout card (with the recruit's Move Book rows) (equip/unequip) for the player and each recruited combat contact, plus the shared Dial loadout card; during prep Change loadout shows only participants' Loadout + Dial cards |
 | dialer_app.gd | Phone recent-calls placeholder; no telephony state/actions |
 | settings_app.gd | Reduced-motion, alarm-vibration and quick-combat-pacing preference controls |
@@ -311,7 +313,7 @@ overlays; hides the top board on title/intro/combat and the nav dock per screen.
 | constants.json | calendar.gd (calendar), time_system.gd, jobs.gd, GameState.gd, contacts.gd (roster, roleFlags, skillCaps), rooms.gd (specialities, productionLogDays), business.gd (weekly wages), business_stats.gd (businessStatsDays), shares.gd (sharesDays, sharesWindowDays), guardUpkeep, guard_kit.gd, loadout.gd, events.gd (eventChecks, eventLabels), observation.gd (observation) |
 | constants.json (faction politics) | factions.gd (factionRivalry), faction_sim.gd (factionFloor), faction_ai.gd (factionStances/Pressure/Escalation/War/Conclave), intel.gd (intel), raiding.gd (stockpileRaid, raidSecurity), network_handler.gd (networkMenu), diplomacy.gd (factionFavours, factionGifts, callForAid), partners.gd (partners), barometer.gd (factionEscalation) |
 | daily_cycle.json | time_transition.gd (circle layout, sky clips, colours, timing) |
-| dial.json | dial.gd; `lens` (slots, craft, senseGates, peripheralShare, per-tier effect tables) → dial.gd/lenses.gd; `jamesQuest` (gate, repair attempts/ore, summons texts) → james_dial.gd |
+| dial.json | dial.gd; `lens` (slots, craft, senseGates, peripheralShare, per-tier effect tables) → dial.gd/lenses.gd; `fateMarketReadsByTier`/`fateMarket` → market_insight.gd; `jamesQuest` (gate, repair attempts/ore, summons texts) → james_dial.gd |
 | districts.json | widely read (sites, economy, factions, raiding) |
 | enemies.json | combat.gd |
 | faction_trade.json | economy.gd |
@@ -328,7 +330,7 @@ overlays; hides the top board on title/intro/combat and the nav dock per screen.
 | floorplans.json | GameData.gd + floorplan_view.gd (per-tier plan asset, size, slot rects) |
 | hq_visuals.json | hq_diorama.gd, hq*.gd screens |
 | map_layout.json | map_layout.gd, map_hit_test.gd |
-| market.json | soho.gd (`soho` ladders, margin, floor, unlock flag); market.gd (constants, sim start, priceLot, ore conversion rate, annotation cap/thresholds, delivery-log cap, Independents shares + buy cover, per-good normalStock/civilianDemand, storyRises); auto_sell.gd (`autoSell` moods, defaultMood, salesXp, offMarketPerSalesLevel); shares.gd (via Market.independents_share) |
+| market.json | market_insight.gd (`insightNotableMove`); soho.gd (`soho` ladders, margin, floor, unlock flag); market.gd (constants, sim start, priceLot, ore conversion rate, annotation/delivery caps, Independents shares + buy cover, per-good stock/demand, storyRises); auto_sell.gd (`autoSell` moods, defaultMood, salesXp, offMarketPerSalesLevel); shares.gd (via Market.independents_share) |
 | map_palette.json | GameData.gd (validated) + map_palette.gd (Map tab light/dark colour tokens, zone-tint strength, faction/ore/zoneTint dark overrides) + map_controls.gd (`darkModeLabel`) |
 | todo.json | todo.gd (per-questline label, subtitle, accent, doneFlag, emptyText; act2/board page style, copy strings) |
 | objectives.json | objectives.gd, todo.gd, daily_brief.gd (optional briefAction / earlyBriefAction + note: Story-row destination), collective.gd, business_quest.gd |

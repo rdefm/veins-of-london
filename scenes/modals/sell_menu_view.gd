@@ -35,6 +35,8 @@ var _expanded_recipes: Dictionary = {}
 var _ore_filter := ""
 var _soho_rung := -1
 var _scroll: ScrollContainer
+# MarketInsight.reads() for the rows being rendered.
+var _insight := {}
 
 
 func refresh(data: Dictionary) -> void:
@@ -67,6 +69,7 @@ func _render(reset_scroll: bool = false) -> void:
 	var layout := UI.vbox(0)
 	add_child(layout)
 	var entries := _recipe_entries() if _is_recipe_seller() else _entries()
+	_insight = {} if _is_recipe_seller() else MarketInsight.reads()
 	_build_header(layout)
 	if not _review:
 		_build_categories(layout)
@@ -242,6 +245,7 @@ func _build_item_groups(body: VBoxContainer, entries: Array) -> void:
 			badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			badge.add_child(_label("%d selected" % picked, 11, TEXT, false))
 			inner.add_child(badge)
+		inner.add_child(_insight_icon("consumable", tiers[0]["recipeKey"]))
 		inner.add_child(_label("⌃" if expanded else "⌄", 18, MUTED, false))
 		if expanded:
 			var indent := MarginContainer.new()
@@ -299,6 +303,8 @@ func _add_row(parent: VBoxContainer, entry: Dictionary, tier_row: bool = false) 
 	if entry["direction"] == "buy":
 		stock_text = " · stock %d" % int(entry["stock"])
 	meta.add_child(_label(stock_text, 12, MUTED, false))
+	if entry["kind"] != "vein" and not tier_row:
+		row.add_child(_insight_icon(entry["kind"], entry["oreType"] if entry["kind"] == "ore" else entry["recipeKey"]))
 	if entry["kind"] == "vein":
 		var chosen := int(entry["qty"]) > 0
 		var button := _button("✓ Added" if chosen else "+ Add", _toggle_vein.bind(entry), BUTTON_BG, 44)
@@ -314,6 +320,13 @@ func _add_row(parent: VBoxContainer, entry: Dictionary, tier_row: bool = false) 
 		(slider.get_child(1) as Label).add_theme_color_override("font_color", TEXT)
 		row.add_child(slider)
 	parent.add_child(_divider())
+
+
+# The good's `!` (MarketInsightIcon); one per ore row and per item group.
+func _insight_icon(kind: String, good_type: String) -> MarketInsightIcon:
+	var icon := MarketInsightIcon.make(MarketInsight.read_for(_insight, kind, good_type))
+	icon.name = "TradeInsight_%s_%s" % [kind, good_type]
+	return icon
 
 
 func _build_review(body: VBoxContainer, entries: Array) -> void:

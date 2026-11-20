@@ -55,7 +55,7 @@ Magnitudes scale with **lens tier**. Sense level gates which columns are live.
 | **Time** | Ore-roll bonus (time) | Ambush forewarning | Fewer unread enemy intents |
 | **Physics** | Ore-roll bonus (physics) | Raid site sheet shows guard kit + ward; +1 intel level on vein security | Flat +damage dealt / −damage taken |
 | **Life** | Ore-roll bonus (life) | Prospect weights shift to higher site tiers; vein drift forecast | Enemy HP shown as numbers |
-| **Fate** | Light bonus to **all** rolls | Event check rolls shown as a range; tomorrow's market direction | Pre-rolled enemy crits flagged on intents |
+| **Fate** | Light bonus to **all** rolls | Event check rolls shown as a range; gut feeling on notable market moves (market `!`) | Pre-rolled enemy crits flagged on intents |
 | **Emotion** | Ore-roll bonus (emotion) | Exact faction Threat + grudge countdown; exact contact relation | Shows each enemy action's target |
 
 ### "Always" — ore-roll bonus
@@ -68,7 +68,7 @@ Each one shows something the sim already computes, leads to a decision, and appe
 - **Time — ambush forewarning.** A morning notification naming the district where an ambush is due today. Requires the ambush roll to be made at day start for every district *whether or not a lens is loaded*, so the lens changes knowledge, not the RNG stream (§3.1d).
 - **Physics — security read.** Raid site sheet shows the vein's guard kit and ward type before committing. Implemented as +1 intel level on the vein-security track (does not bypass the intel meter).
 - **Life — prospect + drift.** `Sites.prospect` site-tier weights shift toward higher tiers (`lifeProspectShiftByTier`, placeholder); stacks with Be A Lady's best-of-two. Vein sheet shows tonight's drift range / collapse risk.
-- **Fate — roll range.** A shown check option's `?` modal and button show the d100 as a band, e.g. "Roll 40–60 · need 55+". The band always contains the real roll at a seeded offset (`Rng.stable_unit`, not centred). Width by tier, placeholder `[0, 40, 30, 20, 15, 10]`. Recomputed live from `check_roll(i)` like `revealed_roll` (toggles shift it). Dejà Vu stays the exact reveal. Also: tomorrow's market quote direction (up/flat/down) per line on the market screen.
+- **Fate — roll range.** A shown check option's `?` modal and button show the d100 as a band, e.g. "Roll 40–60 · need 55+". The band always contains the real roll at a seeded offset (`Rng.stable_unit`, not centred). Width by tier, placeholder `[0, 40, 30, 20, 15, 10]`. Recomputed live from `check_roll(i)` like `revealed_roll` (toggles shift it). Dejà Vu stays the exact reveal. Market: a gut-feeling source in the market row `!` (08a, REFERENCE §3.13 Insight) — notable projected moves only (≥ 5%), direction only: held goods "sell soon"/"hold on", plus the N biggest unheld moves by tier (`fateMarketReadsByTier`).
 - **Emotion — standing.** Exact Threat toward the player and grudge window remaining on the faction screens; exact contact relation number in contact cards.
 
 ### Sense L3 — combat sight

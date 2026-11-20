@@ -71,6 +71,13 @@
     "fateAllRollsBonusByTier": [0, 0.01, 0.02, 0.03, 0.04, 0.05],
     "fateAllRollsLabel": "Fate Lens",
     "fateRollRangeWidthByTier": [0, 40, 30, 20, 15, 10],
+    "fateMarketReadsByTier": [0, 1, 1, 2, 2, 3],
+    "fateMarket": {
+      "heldFalling": "A feeling: sell this soon, before it slips.",
+      "heldRising": "A feeling: sit on this. It's about to climb.",
+      "rising": "A feeling this one's about to climb.",
+      "falling": "A feeling this one's about to slip."
+    },
     "timeFogCutByTier": [0, 0.2, 0.3, 0.4, 0.5, 0.6],
     "physicsFlatByTier": [0, 1, 2, 3, 4, 5],
     "effects": {
@@ -91,7 +98,7 @@
       },
       "fate": {
         "always": "An edge on fate calc, and a lighter one on every roll you make.",
-        "world": "Check rolls shown as a range; tomorrow's market direction.",
+        "world": "Check rolls shown as a range; a gut feeling for tomorrow's market.",
         "combat": "See which enemy moves will crit."
       },
       "emotion": {

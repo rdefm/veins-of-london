@@ -1,7 +1,8 @@
 # The Ticker: News tab (one headline card per barometer axis, opening a
 # state article and same-axis Influence sheet; tappable read-only wires)
 # and Stock Market tab (London prices
-# with ▲/▼ versus yesterday, active demand modifiers, and a per-good price
+# with ▲/▼ versus yesterday and a MarketInsightIcon `!` per row, active
+# demand modifiers, and a per-good price
 # chart with annotations; ore-type + "In stock" filters, collapsible Ore/Items
 # lists). The tab, selected good, filter and collapse are view state held
 # here, not in state.phoneNav, so they reset with the screen.
@@ -44,6 +45,8 @@ var _sans: SystemFont = null
 var _sans_bold: FontVariation = null
 var _open_wire: Dictionary = {}
 var _influence_open := false
+# MarketInsight.reads() for the Stock Market list being built.
+var _insight := {}
 
 
 func build(content: VBoxContainer) -> void:
@@ -259,6 +262,7 @@ func _build_stock_market(content: VBoxContainer) -> void:
 	content.add_child(brief)
 
 	content.add_child(_news_margins(_build_stock_filter(), 0, 16, 0, 0))
+	_insight = MarketInsight.reads()
 	content.add_child(_build_good_section("ore", "Ore"))
 	content.add_child(_build_good_section("consumable", "Items"))
 
@@ -419,6 +423,9 @@ func _good_row(kind: String, good_type: String) -> Control:
 	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	for child in inner.find_children("*", "Control", true, false):
 		child.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var insight := MarketInsightIcon.make(MarketInsight.read_for(_insight, kind, good_type))
+	insight.name = "TickerInsight_%s_%s" % [kind, good_type]
+	inner.add_child(insight)
 	return b
 
 
