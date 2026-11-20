@@ -61,7 +61,7 @@ func _build_seeded_screen(player: Dictionary, dial: Dictionary) -> void:
 	var chrome_top: float = safe_top + 16.0
 	var chrome_scroll := TouchScrollContainer.new()
 	chrome_scroll.position = Vector2(16.0, chrome_top)
-	chrome_scroll.custom_minimum_size = Vector2(screen.x - 32.0, device_top - chrome_top)
+	chrome_scroll.custom_minimum_size = Vector2(screen.x - 32.0, device_top - EYEPIECE_OVERHANG - chrome_top)
 	chrome_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	add_child(chrome_scroll)
 
@@ -78,6 +78,7 @@ func _build_seeded_screen(player: Dictionary, dial: Dictionary) -> void:
 	add_child(device_wrap)
 
 	_build_flanking_sockets(device_wrap, dial)
+	_build_eyepieces(device_wrap, dial)
 const SOCKET_TILE_WIDTH := 80.0
 const SOCKET_TILE_HEIGHT := 44.0
 const CLOCK_FACE_RADIUS_NATIVE := 90.0
@@ -94,12 +95,34 @@ func _socket_positions() -> Array[Vector2]:
 		center + Vector2(dx, dy) - half,
 	]
 func _build_flanking_sockets(wrap: Control, dial: Dictionary) -> void:
-	var loaded: Array = dial["loadedComplications"]
 	var positions := _socket_positions()
 	for i in range(dial["capacityMax"]):
-		var tile := _build_socket_tile(i, loaded)
+		var tile := DialLoadoutMenu.socket_button("complication", i)
+		tile.custom_minimum_size = Vector2(SOCKET_TILE_WIDTH, SOCKET_TILE_HEIGHT)
 		tile.position = positions[i]
 		wrap.add_child(tile)
+
+# Lens sockets as eyepieces in a centred row on the Dial's crown, above the face.
+const EYEPIECE_WIDTH := 56.0
+const EYEPIECE_HEIGHT := 40.0
+const EYEPIECE_GAP := 6.0
+const EYEPIECE_CENTER_Y := -14.0
+const EYEPIECE_OVERHANG := EYEPIECE_HEIGHT / 2.0 - EYEPIECE_CENTER_Y
+func _eyepiece_positions(count: int) -> Array[Vector2]:
+	var row_width: float = count * EYEPIECE_WIDTH + maxi(count - 1, 0) * EYEPIECE_GAP
+	var x0: float = FACE_CENTER_NATIVE.x * DEVICE_SCALE - row_width / 2.0
+	var out: Array[Vector2] = []
+	for i in range(count):
+		out.append(Vector2(x0 + i * (EYEPIECE_WIDTH + EYEPIECE_GAP), EYEPIECE_CENTER_Y - EYEPIECE_HEIGHT / 2.0))
+	return out
+func _build_eyepieces(wrap: Control, dial: Dictionary) -> void:
+	var count: int = Dial.lens_slots(dial["level"])
+	var positions := _eyepiece_positions(count)
+	for i in range(count):
+		var eyepiece := DialLoadoutMenu.socket_button("lens", i)
+		eyepiece.custom_minimum_size = Vector2(EYEPIECE_WIDTH, EYEPIECE_HEIGHT)
+		eyepiece.position = positions[i]
+		wrap.add_child(eyepiece)
 func _build_unseeded(content: VBoxContainer, player: Dictionary) -> void:
 	if GameState.state["flags"].get("dialGiftGranted", false):
 		content.add_child(UI.label("You've been given something rare. It wants a name."))
@@ -189,20 +212,7 @@ func _needle_rotation_degrees(dial: Dictionary) -> float:
 	var fraction: float = clampf(dial["currentCharge"] / max_charge, 0.0, 1.0)
 	return lerpf(NEEDLE_MIN_DEG, NEEDLE_MAX_DEG, fraction)
 func _build_top_block(content: VBoxContainer) -> void:
-	# Complications sit in the flanking sockets on the device art.
-	var card := DialLoadoutMenu.build("", false)
+	# Lenses sit as eyepieces and Complications in the flanking sockets on the device art.
+	var card := DialLoadoutMenu.build("", true)
 	if card != null:
 		content.add_child(card)
-func _build_socket_tile(index: int, loaded: Array) -> Control:
-	if index >= loaded.size():
-		var empty := MapCardStyle.chip_button("Empty", func(): Modal.open("dial_load_complication"))
-		empty.custom_minimum_size = Vector2(SOCKET_TILE_WIDTH, SOCKET_TILE_HEIGHT)
-		return empty
-
-	var entry: Dictionary = loaded[index]
-	var recipe: Dictionary = GameData.RECIPES[entry["recipeKey"]]
-	var captured_index: int = index
-	var tile := MapCardStyle.style_chip(UI.symbol_button([ItemIcons.part(entry["recipeKey"]), "%s t%d" % [recipe["name"], entry["tier"]]], func(): Dial.unload_complication(captured_index)))
-	tile.custom_minimum_size = Vector2(SOCKET_TILE_WIDTH, SOCKET_TILE_HEIGHT)
-	tile.clip_contents = true
-	return tile

@@ -70,7 +70,44 @@
     "fateAllRollsBonusByTier": [0, 0.01, 0.02, 0.03, 0.04, 0.05],
     "fateRollRangeWidthByTier": [0, 40, 30, 20, 15, 10],
     "timeFogCutByTier": [0, 0.2, 0.3, 0.4, 0.5, 0.6],
-    "physicsFlatByTier": [0, 1, 2, 3, 4, 5]
+    "physicsFlatByTier": [0, 1, 2, 3, 4, 5],
+    "effects": {
+      "time": {
+        "always": "An edge on time calc: reading, crafting, cultivating, seeding.",
+        "world": "Morning word of which district has an ambush due.",
+        "combat": "Fewer enemy intents stay unread."
+      },
+      "physics": {
+        "always": "An edge on physics calc: reading, crafting, cultivating, seeding.",
+        "world": "Raid sheets show the guard kit and the ward.",
+        "combat": "You hit a little harder and take a little less."
+      },
+      "life": {
+        "always": "An edge on life calc: reading, crafting, cultivating, seeding.",
+        "world": "Prospecting leans to richer sites; vein sheets show tonight's drift.",
+        "combat": "Enemy HP as numbers."
+      },
+      "fate": {
+        "always": "An edge on fate calc, and a lighter one on every roll you make.",
+        "world": "Check rolls shown as a range; tomorrow's market direction.",
+        "combat": "See which enemy moves will crit."
+      },
+      "emotion": {
+        "always": "An edge on emotion calc: reading, crafting, cultivating, seeding.",
+        "world": "Exact Threat, grudge countdowns and contact standing.",
+        "combat": "See who they're targeting."
+      }
+    },
+    "sharedEffects": {
+      "glimpse": "Glimpse: once per event or fight, a second look.",
+      "peripheral": "Lenses in your pocket still help, at half strength."
+    },
+    "contactEffects": {
+      "time": "Sets the winding ore. In a fight, they read the room better.",
+      "physics": "Sets the winding ore. They hit a little harder and take a little less.",
+      "fate": "Sets the winding ore. Their crits come a little more often."
+    },
+    "contactNoEffect": "Sets the winding ore. Nothing more: a contact has no Sight."
   },
   "xpLevels": [0, 0, 50, 150, 400, 1000],
   "maxChargeBonusByLevel": [0, 0, 5, 12, 22, 35],

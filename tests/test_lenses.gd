@@ -167,3 +167,63 @@ func run() -> void:
 			assert_true(not Lenses.sense_unlocked(gate, CONTACT_ID), "contact never has Sense (%s)" % gate)
 		assert_true(not Lenses.sense_unlocked("nope"), "unknown gate false")
 	)
+
+	run_case("swap_lens_replaces_in_place_and_returns_the_old_lens", func():
+		_setup(1)
+		_give("time", 1)
+		Dial.load_lens(0)
+		_give("life", 3)
+		var r := Dial.swap_lens(0, 0)
+		assert_true(r["ok"], "swap ok")
+		assert_eq(Lenses.loaded(), [{ "ore": "life", "tier": 3 }], "new lens in the slot")
+		assert_eq(GameState.state["player"]["lensInventory"], [{ "ore": "time", "tier": 1 }], "old lens back in inventory")
+	)
+
+	run_case("swap_lens_allows_same_ore_in_its_own_slot_but_not_another", func():
+		_setup(3)
+		_give("time", 1)
+		_give("life", 1)
+		Dial.load_lens(0)
+		Dial.load_lens(0)
+		_give("time", 4)
+		assert_true(Dial.can_load_lens(0, "", 0)["ok"], "a time lens may replace the time lens")
+		assert_true(not Dial.can_load_lens(0, "", 1)["ok"], "a time lens may not replace life while time is loaded")
+		assert_true(not Dial.swap_lens(1, 0)["ok"], "swap refused")
+		assert_eq(Lenses.tier_for("life"), 1, "life untouched")
+		GameState.state["combat"]["active"] = true
+		assert_true(not Dial.swap_lens(0, 0)["ok"], "swap refused mid-fight")
+	)
+
+	run_case("swap_complication_keeps_detent_and_returns_the_old_unit", func():
+		_setup(2)
+		var inv: Dictionary = GameState.state["player"]["inventory"]
+		inv["timePearl"] = { "1": 1 }
+		Dial.load_complication("timePearl", 1)
+		inv["timePearl"] = { "3": 1 }
+		var r := Dial.swap_complication(0, "timePearl", 3)
+		assert_true(r["ok"], "swap ok")
+		var entry: Dictionary = GameState.state["player"]["dial"]["loadedComplications"][0]
+		assert_eq([entry["tier"], entry["detent"]], [3, 0], "new tier, same detent")
+		assert_eq(inv["timePearl"].get("1", 0), 1, "old unit back in its tier bucket")
+		assert_eq(inv["timePearl"].get("3", 0), 0, "new unit out of inventory")
+		assert_true(not Dial.swap_complication(0, "timePearl", 5)["ok"], "nothing at tier 5 to swap in")
+	)
+
+	run_case("effect_rows_lock_by_sense_for_player_and_collapse_for_contact", func():
+		_setup(1)
+		GameState.state["player"]["senseSkill"] = 2
+		var rows := Lenses.effect_rows("emotion")
+		var by_gate := {}
+		for row in rows:
+			by_gate[row["gate"]] = row
+		assert_eq(rows[0]["gate"], "always", "always first")
+		assert_true(by_gate["always"]["unlocked"] and by_gate["world"]["unlocked"], "Sense 2 opens always + world")
+		assert_true(not by_gate["combat"]["unlocked"], "combat locked at Sense 2")
+		assert_eq(by_gate["combat"]["level"], int(GameData.DIAL_LENS["senseGates"]["combat"]), "locked row names its level")
+		assert_eq(by_gate["combat"]["text"], GameData.DIAL_LENS["effects"]["emotion"]["combat"], "per-ore text")
+		assert_eq(by_gate["glimpse"]["text"], GameData.DIAL_LENS["sharedEffects"]["glimpse"], "shared text")
+		var contact_rows := Lenses.effect_rows("physics", CONTACT_ID)
+		assert_eq(contact_rows.size(), 1, "contact has one row")
+		assert_eq(contact_rows[0]["text"], GameData.DIAL_LENS["contactEffects"]["physics"], "contact physics text")
+		assert_eq(Lenses.effect_rows("life", CONTACT_ID)[0]["text"], GameData.DIAL_LENS["contactNoEffect"], "life does nothing on a contact")
+	)

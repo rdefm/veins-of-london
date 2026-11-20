@@ -26,7 +26,7 @@ func run() -> void:
 		assert_true(DialLoadoutMenu.build("some_recruit") == null, "owner without a Dial -> no menu")
 	)
 
-	run_case("profile_dial_menu_wind_unload_unseat_work_and_conserve_units", func():
+	run_case("profile_dial_menu_wind_works_and_sockets_render", func():
 		GameState.reset()
 		var player: Dictionary = GameState.state["player"]
 		var dial := _dial()
@@ -52,18 +52,25 @@ func run() -> void:
 
 		phone = PhoneScreen.new()
 		phone._ready()
-		var unload_btn := NodeQuery.find_button_by_effective_text(phone, GameData.RECIPES["timePearl"]["symbol"] + "Unload Time Pearl t1")
-		assert_true(unload_btn != null, "Profile shows Unload for the loaded unit")
-		if unload_btn != null:
-			unload_btn.pressed.emit()
-		assert_eq(Crafting.inventory_qty("timePearl"), 1, "unload returns the unit")
+		for socket in ["Socket_movement_0", "Socket_lens_0", "Socket_complication_0"]:
+			assert_true(phone.find_child(socket, true, false) is Button, "Profile renders %s" % socket)
+		(phone.find_child("Socket_complication_0", true, false) as Button).pressed.emit()
+		assert_eq(GameState.state["modal"]["data"], { "owner": "", "kind": "complication", "slot": 0, "mode": "filled" }, "a filled socket opens its menu")
 		phone.free()
+	)
 
-		phone = PhoneScreen.new()
-		phone._ready()
-		NodeQuery.find_button_by_effective_text(phone, "Unseat").pressed.emit()
-		assert_eq(GameState.state["player"]["movementInventory"].size(), 1, "unseat returns the Movement")
-		phone.free()
+	run_case("profile_contact_dial_card_gets_all_three_socket_rows", func():
+		GameState.reset()
+		GameState.state["player"]["dial"] = _dial()
+		Dial.grant_contact_dial("james")
+		var card: Control = DialLoadoutMenu.build("james")
+		assert_true(card != null, "James's Dial gets a card")
+		assert_true(card.find_child("Socket_lens_0", true, false) is Button, "James's card has a lens row")
+		assert_true(card.find_child("Socket_complication_0", true, false) is Button, "James's card has a complication row")
+		assert_true(card.find_child("Socket_movement_0", true, false) is Button, "James's card has a movement row")
+		(card.find_child("Socket_lens_0", true, false) as Button).pressed.emit()
+		assert_eq(GameState.state["modal"]["data"]["owner"], "james", "socket modal targets James's Dial")
+		card.free()
 	)
 
 	run_case("profile_shows_hp_and_hp_bar_for_a_fresh_game", func():

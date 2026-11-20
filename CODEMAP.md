@@ -37,7 +37,7 @@ Data file per system: see `data/*.json` below.
 | network_handler.gd | Network handler Targets (timed `collective.networkIntel` claim_bonus/security_freeze), Sourcing (site delivered by handler text), the intel menu (relation- and gouge-priced, gated products: raid/market intel, raid warnings, boost, privacy, disinformation, reduction), and factions' daily budgeted buys of the same products |
 | combat_pacing.gd | Persisted normal/quick pacing toggle |
 | lab.gd | `state.lab` knowledge (`grant_*`), `known_procedure`, bands, `pending_step`, manual run on real calc (`add_ore`, `perform_*`, `finish_run`, crack/abandon), scoring, clues, re-run bonus, Lady/Breath, `lab_run_completed` hook, `batch`, `rewind`, `item_tier`/`staff_item_tier`, `base_calc`, Debug tools (skill override, revoke, best rank, refill calc). Spec: .scratch/lab-port/spec.md |
-| lenses.gd | Lenses: read layer for loaded Lenses per Dial owner (`loaded`, `tier_for`, `has`) and Sense gates (`sense_unlocked`, player only) (R§1.4 Lenses) |
+| lenses.gd | Lenses: read layer for loaded Lenses per Dial owner (`loaded`, `tier_for`, `has`), Sense gates (`sense_unlocked`, `gate_level`, player only) and Lens Details text (`one_line`, `effect_rows`) (R§1.4 Lenses) |
 | lesson_session.gd | Locked bench lesson (`state.lab.lesson`, `start_lesson_session` op): pool calc for runs, failed-run refill + escalation (hint exact, talk-through; optional per-lesson `lines`), `resume()` back to the paused event. Lab, Nav, Rewind and the bench gate on it. Spec: .scratch/recipe-acquisition/spec.md |
 | recipe_knowledge.gd | Recipe knowledge ladder over Lab: rung states (base/hint1/hint2/master), `rank_ceiling`, `seller_of`, `seller_recipes`/`seller_ores` (ore-filter grouping), buying (`gate_met`, `price`, `buy`), `master_source`, `ladder_rows`, `grant_rung` (+ op), `roll_insight`, `maybe_queue_introductions`. Spec: .scratch/recipe-acquisition/spec.md |
 | combat_rounds.gd | CombatRounds: Open/Guarded rules core on any passed-in combat dict (R§3.7b), driven by Combat. Seeded plans+fog, AI allies, moves, loadouts, Dial casts, kit items + ally Failsafe, round-boundary reinforcements, player-KO play-on, move levels/XP/peek, Rewind frames, scripted lock/forced hits/post-Rewind, pearl lock, demo beat queue/procs, coach marks, beat log, blocks |
@@ -150,8 +150,8 @@ overlays; hides the top board on title/intro/combat and the nav dock per screen.
 | event.gd | Event-card screen: framed image + cream text box; footer (Action icon left when an observation/item exists, → right); Action popup lists Observe then items, Observe opens a per-ore bottom sheet; choice card = prompt then buttons step; ? modal on check options (odds, mods, item toggles); outcome marker; Leave-only fallback |
 | factions.gd | Factions tab |
 | hq.gd | HQ tab: renders the home tier's room plate (bedsit fallback), routes zone taps to sub-screens |
-| hq_dial.gd | HQ Dial sub-view: unseeded = first-lens ore picker + haft Seed buttons; seeded = DialLoadoutMenu (no complication rows) above the device art with flanking Complication sockets |
-| dial_loadout_menu.gd | `DialLoadoutMenu.build(owner_id, with_complication_rows)`: shared Dial loadout card (readouts, seat/unseat/swap, one Wind button per loaded Lens, load/unload); null when owner has no Dial (owner = "" player or a contact id, e.g. James). Used by Profile and HQ Dial |
+| hq_dial.gd | HQ Dial sub-view: unseeded = first-lens ore picker + haft Seed buttons; seeded = DialLoadoutMenu (Movement row only) above the device art, with Lens sockets as eyepieces on the crown and flanking Complication sockets |
+| dial_loadout_menu.gd | `DialLoadoutMenu.build(owner_id, sockets_on_device)`: shared Dial card with MOVEMENT/LENSES/COMPLICATIONS socket rows, Wind and Craft component; `socket_button` taps open `dial_socket`. Null when owner has no Dial. Used by Profile, combat prep and HQ Dial (R§1.4 Loadout menu) |
 | hq_door.gd | Security zone (lock/cameras/door/alarm/ward); guard tile = HQ headcount readout + Manage › to security (hint, no link without the Security Office); HQ kit row opens the HQ stocking sheet; Guard kits row opens hq_guard_kit |
 | security.gd | Security screen (from the Security Office tile): header (‹ HQ, title, Hire ›), summary strip (guards/posted/ready/out/Mon bill), underlined tab row; Posts tab (see security_posts.gd), Guards tab (filter chips, level-sorted GuardWidgets rows, Hire, row opens detail), Costs tab (see security_costs.gd) |
 | security_posts.gd | Security Posts tab: HQ / vein place cards (band-coloured score, hardware/guards split bar, slot tiles to the post cap, n/cap · wage footer, Kit link at ≥1 guard), veins by value, guardless non-top veins fold to a row, Reserve tray above the cards (tap a ready chip, then a "+ Post X here" slot; selection is screen-local) |
@@ -252,10 +252,10 @@ overlays; hides the top board on title/intro/combat and the nav dock per screen.
 | network_intel_modal.gd | Handler intel menu: product rows at relation price, gate lock, faction/disinformation pickers, running timers |
 | sell_vein_quote_modal.gd | Single-vein sale confirmation card |
 | apply_vein_item_modal.gd | Bag-stack picker for Root Feed / Good Year / Deadweight on one vein |
-| craft_components_menu_modal.gd | Movement-archetype picker; Craft hands off to movement_craft |
+| craft_components_menu_modal.gd | Dial component crafting, tabbed Movement \| Lens: Movement rows hand off to movement_craft; Lens rows craft via `Dial.attempt_craft_lens` |
 | movement_craft_modal.gd | Shows a Movement's five-ore cost and chance; Craft attempts it and pushes success/fail notices |
-| movement_swap_modal.gd | Seat a Movement from movementInventory into the Dial |
-| dial_load_complication_modal.gd | Load a crafted complication into the Dial |
+| dial_socket_modal.gd | One modal for every Dial socket: pick (held components of that kind, load or swap), filled (Details / Swap / Remove), details (Lens effects by Sense gate) |
+| dial_wind_modal.gd | Wind ore choice when 2+ Lenses are loaded: one row per loaded Lens's ore |
 | combat_setup_modal.gd | Debug combat setup: fight type, location override (`location_options()`), fight-only player level, player slot picks (written to real slots via `Loadout.debug_grant()`), enemy count/level + per-enemy template/archetype, contact toggles, 0–2 debug allies (level + slots); requests `CombatPrep.KIND_DEBUG` → `Combat.start_debug_combat()` |
 | combat_block_reason_modal.gd | Why a combat command row is disabled: the action name and its block reason, opened from the row's red "!" (combat_rounds.gd) |
 | network_reference_modal.gd | Network Map legend |

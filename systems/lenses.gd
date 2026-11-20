@@ -25,6 +25,32 @@ static func has(ore: String, owner_id: String = "") -> bool:
 	return tier_for(ore, owner_id) > 0
 
 
+# Sense level a gate needs; 0 for "always" (no gate).
+static func gate_level(gate: String) -> int:
+	return int(GameData.DIAL_LENS["senseGates"].get(gate, 0))
+
+
+# One-line effect of a Lens of `ore` (its always-on bonus), for pickers.
+static func one_line(ore: String) -> String:
+	return str(GameData.DIAL_LENS["effects"].get(ore, {}).get("always", ""))
+
+
+# Lens Details rows, in Sense order: { gate, level, text, unlocked }. A
+# contact's Lens has one row (its winding ore plus any combat effect, R§1.4
+# Contact Dials); the player's lists every gate, locked ones by current Sense.
+static func effect_rows(ore: String, owner_id: String = "") -> Array:
+	var lens_data: Dictionary = GameData.DIAL_LENS
+	if owner_id != "":
+		var text: String = lens_data["contactEffects"].get(ore, lens_data["contactNoEffect"])
+		return [{ "gate": "always", "level": 0, "text": text, "unlocked": true }]
+	var effects: Dictionary = lens_data["effects"].get(ore, {})
+	var rows: Array = [{ "gate": "always", "level": 0, "text": str(effects.get("always", "")), "unlocked": true }]
+	for gate in ["world", "combat", "glimpse", "peripheral"]:
+		var text: String = str(effects.get(gate, lens_data["sharedEffects"].get(gate, "")))
+		rows.append({ "gate": gate, "level": gate_level(gate), "text": text, "unlocked": sense_unlocked(gate) })
+	return rows
+
+
 # Player Sense >= senseGates[gate]. A contact has no Sense, so always false for one.
 static func sense_unlocked(gate: String, owner_id: String = "") -> bool:
 	if owner_id != "":

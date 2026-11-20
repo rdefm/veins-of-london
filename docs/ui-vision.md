@@ -238,6 +238,7 @@ log are one material, confirmed dot-matrix (resolved 2026-09-10):**
 | HQ Train panel | Generic Family-4 chrome, no bespoke object; carries `combat-presentation`-pattern ticket 08's training animation — no workout-app visual mimicry |
 | Ore-store readout | A handwritten inventory slip — running totals per ore type, in hand, the kind of thing someone updates every time stock moves. The existing raid-warning line (`_build_hq_ore_readout()`) rides the same slip rather than a separate element |
 | Event/dialogue cards (`scenes/screens/event.gd`) | Generic Family-4 chrome, no bespoke object, plus a persistent pixel-art image slot — **detailed spec: §11** |
+| Dial loadout card (`dial_loadout_menu.gd`) | Generic Family-4 chrome: three labelled socket rows (MOVEMENT · LENSES · COMPLICATIONS) of paper chips, `+` when empty. On the HQ Dial the Lens sockets sit as eyepieces on the device crown and Complications flank it, same taps |
 
 Every row is now resolved. What's left is implementation detail, tracked
 in §9.

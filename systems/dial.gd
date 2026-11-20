@@ -353,6 +353,33 @@ static func unload_complication(index: int, owner_id: String = "") -> Dictionary
 	return { "ok": true }
 
 
+# Puts one unit of recipe_key at tier in loadedComplications[index], keeping
+# that slot's detent; the replaced unit returns to its tier bucket.
+static func swap_complication(index: int, recipe_key: String, tier: int, owner_id: String = "", multi: bool = false) -> Dictionary:
+	var dial_v: Variant = dial_of(owner_id)
+	if dial_v == null:
+		return { "ok": false, "reason": "No Dial." }
+	var loaded: Array = dial_v["loadedComplications"]
+	if index < 0 or index >= loaded.size():
+		return { "ok": false, "reason": "No such Complication." }
+	if not GameData.RECIPES.has(recipe_key):
+		return { "ok": false, "reason": "Unknown recipe." }
+	var inventory_key := Crafting.inventory_key(recipe_key, multi)
+	if GameState.state["player"]["inventory"].get(inventory_key, {}).get(str(tier), 0) <= 0:
+		return { "ok": false, "reason": "Nothing to load." }
+
+	var outgoing: Dictionary = loaded[index]
+	Crafting.inventory_remove_from_tier(inventory_key, tier, 1)
+	Crafting.inventory_add(Crafting.inventory_key(outgoing["recipeKey"], outgoing.get("multi", false)), outgoing["tier"], 1)
+	var entry := { "recipeKey": recipe_key, "tier": tier, "detent": outgoing.get("detent", index) }
+	if multi:
+		entry["multi"] = true
+	loaded[index] = entry
+
+	EventBus.mark_changed()
+	return { "ok": true }
+
+
 # Lenses (R§1.4 Lenses): crafting, and load/unload into any owner's Dial.
 # Owned Lenses live in player.lensInventory; loaded ones in dial.lenses. Same
 # Movement-style craft contract: ingredients (calc of the lens ore) always
@@ -402,9 +429,11 @@ static func _loadout_locked() -> bool:
 	return GameState.state["event"] != null or GameState.state["combat"]["active"]
 
 
-# Moves player.lensInventory[inventory_index] onto owner_id's Dial. Refused
-# mid-event/fight, with slots full, or with that ore already loaded there.
-static func load_lens(inventory_index: int, owner_id: String = "") -> Dictionary:
+# Whether player.lensInventory[inventory_index] may go onto owner_id's Dial,
+# into a free slot (replacing_slot -1) or in place of dial.lenses[replacing_slot].
+# Refused mid-event/fight, with slots full, or with that ore already loaded in
+# another slot.
+static func can_load_lens(inventory_index: int, owner_id: String = "", replacing_slot: int = -1) -> Dictionary:
 	var dial_v: Variant = dial_of(owner_id)
 	if dial_v == null:
 		return { "ok": false, "reason": "No Dial." }
@@ -413,19 +442,46 @@ static func load_lens(inventory_index: int, owner_id: String = "") -> Dictionary
 	var inventory: Array = GameState.state["player"]["lensInventory"]
 	if inventory_index < 0 or inventory_index >= inventory.size():
 		return { "ok": false, "reason": "No such Lens." }
-	var dial: Dictionary = dial_v
-	if not dial.has("lenses"):
-		dial["lenses"] = []
-	var loaded: Array = dial["lenses"]
-	if loaded.size() >= lens_slots(dial["level"]):
+	var loaded: Array = dial_v.get("lenses", [])
+	if replacing_slot >= loaded.size():
+		return { "ok": false, "reason": "No such Lens." }
+	if replacing_slot < 0 and loaded.size() >= lens_slots(dial_v["level"]):
 		return { "ok": false, "reason": "No free lens slot." }
 	var incoming: Dictionary = inventory[inventory_index]
-	for lens in loaded:
-		if lens["ore"] == incoming["ore"]:
+	for i in range(loaded.size()):
+		if i != replacing_slot and loaded[i]["ore"] == incoming["ore"]:
 			return { "ok": false, "reason": "That ore already has a Lens." }
+	return { "ok": true }
 
+
+# Moves player.lensInventory[inventory_index] onto owner_id's Dial.
+static func load_lens(inventory_index: int, owner_id: String = "") -> Dictionary:
+	var check := can_load_lens(inventory_index, owner_id)
+	if not check["ok"]:
+		return check
+	var dial: Dictionary = dial_of(owner_id)
+	if not dial.has("lenses"):
+		dial["lenses"] = []
+	var inventory: Array = GameState.state["player"]["lensInventory"]
+	var incoming: Dictionary = inventory[inventory_index]
 	inventory.remove_at(inventory_index)
-	loaded.append(incoming)
+	dial["lenses"].append(incoming)
+	EventBus.mark_changed()
+	return { "ok": true }
+
+
+# Puts player.lensInventory[inventory_index] in dial.lenses[slot]; the Lens it
+# replaces returns to lensInventory intact.
+static func swap_lens(slot: int, inventory_index: int, owner_id: String = "") -> Dictionary:
+	var check := can_load_lens(inventory_index, owner_id, slot)
+	if not check["ok"]:
+		return check
+	var loaded: Array = dial_of(owner_id)["lenses"]
+	var inventory: Array = GameState.state["player"]["lensInventory"]
+	var incoming: Dictionary = inventory[inventory_index]
+	inventory.remove_at(inventory_index)
+	inventory.append(loaded[slot])
+	loaded[slot] = incoming
 	EventBus.mark_changed()
 	return { "ok": true }
 

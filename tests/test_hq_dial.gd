@@ -118,101 +118,73 @@ func run() -> void:
 		assert_true(NodeQuery.label_texts_with_symbols(screen).any(func(t: String): return t.begins_with("Level %d Dial" % dial["level"])), "the Dial's level/haft heading must render")
 		assert_true(NodeQuery.label_texts_with_symbols(screen).has("Charge 3/10 (regen 0/day)"), "the Dial's charge stat must render off the device readout, not a bar")
 		assert_true(NodeQuery.label_texts_with_symbols(screen).has("Capacity %d/%d" % [Dial.capacity_used(dial), dial["capacityMax"]]), "the Dial's capacity stat must render")
-		assert_true(NodeQuery.find_button_by_effective_text(screen, "Craft new Movement") != null, "must expose a Craft new Movement button in the consolidated top block")
+		assert_true(NodeQuery.find_button_by_effective_text(screen, DialLoadoutMenu.CRAFT_TEXT) != null, "must expose a Craft component button in the top block")
 
 		screen.free()
 	)
 
-	run_case("hq_dial_screen_craft_new_movement_hands_off_to_the_craft_components_menu_modal", func():
+	run_case("hq_dial_screen_craft_component_hands_off_to_the_craft_components_menu_modal", func():
 		GameState.reset()
 		GameState.state["player"]["dial"] = _fresh_dial()
 
 		var screen := HqDialScreen.new()
 		screen._ready()
 
-		NodeQuery.find_button_by_effective_text(screen, "Craft new Movement").pressed.emit()
-		assert_eq(GameState.state["modal"]["type"], "craft_components_menu", "Craft new Movement must open the unchanged archetype-list -> movement_craft chain")
+		NodeQuery.find_button_by_effective_text(screen, DialLoadoutMenu.CRAFT_TEXT).pressed.emit()
+		assert_eq(GameState.state["modal"]["type"], "craft_components_menu", "Craft component must open the Movement | Lens craft menu")
 
 		screen.free()
 	)
 
-	run_case("hq_dial_screen_swap_button_disabled_with_an_empty_movement_inventory", func():
+	run_case("hq_dial_screen_movement_socket_opens_picker_when_empty_and_menu_when_filled", func():
 		GameState.reset()
-		GameState.state["player"]["dial"] = _fresh_dial()
-
-		var screen := HqDialScreen.new()
-		screen._ready()
-
-		assert_true(NodeQuery.find_button_by_effective_text(screen, "Swap").disabled, "Swap must be disabled when movementInventory is empty -- nothing to swap to")
-
-		screen.free()
-	)
-
-	run_case("hq_dial_screen_swap_opens_the_movement_swap_picker_which_seats_via_dial_system", func():
-		GameState.reset()
-		var player: Dictionary = GameState.state["player"]
-		player["dial"] = _fresh_dial()
-		player["movementInventory"] = [{ "archetype": "recharge", "tier": 1 }]
-
-		var screen := HqDialScreen.new()
-		screen._ready()
-
-		var swap_button := NodeQuery.find_button_by_effective_text(screen, "Swap")
-		assert_true(not swap_button.disabled, "Swap must be enabled once movementInventory has an entry")
-		swap_button.pressed.emit()
-		assert_eq(GameState.state["modal"]["type"], "movement_swap", "Swap must open the movement_swap picker modal")
-
-		screen.free()
-	)
-
-	run_case("hq_dial_screen_unseat_matches_dial_system", func():
-		GameState.reset()
-		var player: Dictionary = GameState.state["player"]
 		var dial := _fresh_dial()
-		dial["movement"] = { "archetype": "recharge", "tier": 1 }
-		player["dial"] = dial
+		GameState.state["player"]["dial"] = dial
 
 		var screen := HqDialScreen.new()
 		screen._ready()
+		(screen.find_child("Socket_movement_0", true, false) as Button).pressed.emit()
+		assert_eq(GameState.state["modal"]["data"]["mode"], "pick", "empty Movement socket opens the picker")
+		screen.free()
 
-		NodeQuery.find_button_by_effective_text(screen, "Unseat").pressed.emit()
-		assert_eq(GameState.state["player"]["dial"]["movement"], null, "screen's Unseat button should unseat via Dial.unseat_movement")
-		assert_eq(GameState.state["player"]["movementInventory"].size(), 1, "unseating should return the Movement to movementInventory")
-
+		dial["movement"] = { "archetype": "recharge", "tier": 1 }
+		screen = HqDialScreen.new()
+		screen._ready()
+		(screen.find_child("Socket_movement_0", true, false) as Button).pressed.emit()
+		assert_eq(GameState.state["modal"]["type"], "dial_socket", "socket modal")
+		assert_eq(GameState.state["modal"]["data"]["mode"], "filled", "filled Movement socket opens Details / Swap / Remove")
 		screen.free()
 	)
 
-	# hq-diorama ticket 17: the bottom tray is gone -- an Empty housing is
-	# now itself the load entry point, opening modal_layer.gd's "dial_load_
-	# complication" picker (that modal's own pick-a-recipe -> Dial.load_
-	# complication behaviour is covered by tests/test_modal_layer.gd, not
-	# duplicated here).
-	run_case("hq_dial_screen_tapping_an_empty_housing_opens_the_load_complication_modal", func():
+	run_case("hq_dial_screen_lens_eyepieces_render_per_lens_slot_and_tap_like_sockets", func():
+		GameState.reset()
+		var dial := _fresh_dial()
+		dial["level"] = 3
+		dial["lenses"] = [{ "ore": "time", "tier": 2 }]
+		GameState.state["player"]["dial"] = dial
+
+		var screen := HqDialScreen.new()
+		screen._ready()
+		var eyepieces := screen.find_children("Socket_lens_*", "Button", true, false)
+		assert_eq(eyepieces.size(), Dial.lens_slots(3), "one eyepiece per lens slot")
+		(screen.find_child("Socket_lens_1", true, false) as Button).pressed.emit()
+		assert_eq(GameState.state["modal"]["data"], { "owner": "", "kind": "lens", "slot": 1, "mode": "pick" }, "empty eyepiece opens the lens picker")
+		(screen.find_child("Socket_lens_0", true, false) as Button).pressed.emit()
+		assert_eq(GameState.state["modal"]["data"]["mode"], "filled", "loaded eyepiece opens its menu")
+		screen.free()
+	)
+
+	run_case("hq_dial_screen_tapping_an_empty_housing_opens_the_complication_picker", func():
 		GameState.reset()
 		GameState.state["player"]["dial"] = _fresh_dial()
 
 		var screen := HqDialScreen.new()
 		screen._ready()
 
-		NodeQuery.find_button_by_effective_text(screen, "Empty").pressed.emit()
-		assert_eq(GameState.state["modal"]["type"], "dial_load_complication", "tapping an Empty housing must open the load-complication picker")
-
-		screen.free()
-	)
-
-	run_case("hq_dial_screen_tapping_a_loaded_housing_unloads_it_via_dial_system", func():
-		GameState.reset()
-		var player: Dictionary = GameState.state["player"]
-		player["dial"] = _fresh_dial()
-		player["inventory"]["timePearl"] = { "1": 1 }
-		Dial.load_complication("timePearl", 1)
-
-		var screen := HqDialScreen.new()
-		screen._ready()
-
-		NodeQuery.find_button_by_effective_text(screen, "⧖Time Pearl t1").pressed.emit()
-		assert_eq(GameState.state["player"]["dial"]["loadedComplications"], [], "tapping a loaded housing tile should unload it via Dial.unload_complication")
-		assert_eq(Crafting.inventory_qty("timePearl"), 1, "unloading should return the unit to regular inventory")
+		(screen.find_child("Socket_complication_0", true, false) as Button).pressed.emit()
+		assert_eq(GameState.state["modal"]["type"], "dial_socket", "tapping an empty housing opens the socket picker")
+		assert_eq(GameState.state["modal"]["data"]["kind"], "complication", "for Complications")
+		assert_eq(GameState.state["modal"]["data"]["mode"], "pick", "in pick mode")
 
 		screen.free()
 	)
@@ -229,17 +201,15 @@ func run() -> void:
 		var screen := HqDialScreen.new()
 		screen._ready()
 
-		assert_true(NodeQuery.label_texts_with_symbols(screen).any(func(t: String): return t.begins_with("⧖Time Pearl t1")), "a loaded Complication must show in its housing tile")
-		var empties := screen.find_children("", "Button", true, false).filter(func(b): return (b as Button).text == "Empty")
-		assert_eq(empties.size(), 3, "the remaining 3 housings must show Empty")
+		assert_true(NodeQuery.label_texts_with_symbols(screen).any(func(t: String): return t.begins_with("⧖Time Pearl T1")), "a loaded Complication must show in its housing tile")
+		var empties := screen.find_children("Socket_complication_*", "Button", true, false).filter(func(b): return (b as Button).text == DialLoadoutMenu.EMPTY_SOCKET_TEXT)
+		assert_eq(empties.size(), 3, "the remaining 3 housings must show empty")
+		(screen.find_child("Socket_complication_0", true, false) as Button).pressed.emit()
+		assert_eq(GameState.state["modal"]["data"]["mode"], "filled", "a loaded housing opens Details / Swap / Remove")
 
 		screen.free()
 	)
 
-	# hq-diorama ticket 17: the old "4 housings for now" UI-only display cap
-	# (independent of the real capacityMax) is gone -- exactly capacityMax
-	# housings render now, no more, no less, and no separate cap can block
-	# loading ahead of the real one.
 	run_case("hq_dial_screen_renders_exactly_capacity_max_housings_no_separate_display_cap", func():
 		GameState.reset()
 		var player: Dictionary = GameState.state["player"]
@@ -250,8 +220,7 @@ func run() -> void:
 		var screen := HqDialScreen.new()
 		screen._ready()
 
-		var empties := screen.find_children("", "Button", true, false).filter(func(b): return (b as Button).text == "Empty")
-		assert_eq(empties.size(), 2, "exactly capacityMax housings should render")
+		assert_eq(screen.find_children("Socket_complication_*", "Button", true, false).size(), 2, "exactly capacityMax housings should render")
 
 		screen.free()
 	)
