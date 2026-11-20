@@ -549,7 +549,8 @@ func _build_choice_button(label: String, choice_index: int) -> Control:
 	var chips: Array = Observation.chips(choice)
 	var left: Control = b
 	var seen: Dictionary = Events.revealed_roll(choice_index)
-	if not chips.is_empty() or not seen.is_empty():
+	var band: Dictionary = Events.roll_range(choice_index)
+	if not chips.is_empty() or not seen.is_empty() or not band.is_empty():
 		var col := UI.vbox(2)
 		col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		col.add_child(b)
@@ -557,6 +558,11 @@ func _build_choice_button(label: String, choice_index: int) -> Control:
 			col.add_child(_build_explain_chips(chips))
 		if not seen.is_empty():
 			col.add_child(_build_revealed_roll(choice_index, seen))
+		elif not band.is_empty():
+			var band_label := UI.muted_label(range_line(band))
+			band_label.name = "RollRange"
+			band_label.add_theme_font_size_override("font_size", EXPLAIN_CHIP_FONT_SIZE)
+			col.add_child(band_label)
 		left = col
 	if Events.check_odds(choice_index).is_empty() and chips.is_empty() and Events.item_toggles(choice_index).is_empty():
 		return b
@@ -692,6 +698,10 @@ static func check_context_lines(odds: Dictionary) -> Array:
 		lines.append(GameData.EVENT_CHECKS["noModifiers"])
 	return lines
 
+# Fate Lens roll band line (R§3.9a "Fate range").
+static func range_line(band: Dictionary) -> String:
+	return GameData.EVENT_CHECKS["rangeFormat"] % [band["low"], band["high"], band["needed"]]
+
 func _open_context_modal(choice_index: int) -> void:
 	_context_choice = choice_index
 	_restore_context_modal()
@@ -758,6 +768,9 @@ func _restore_context_modal() -> void:
 	if not locked and not odds.is_empty():
 		for line in check_context_lines(odds):
 			content.add_child(UI.label(line))
+		var band: Dictionary = Events.roll_range(_context_choice)
+		if not band.is_empty():
+			content.add_child(UI.label(range_line(band)))
 	for toggle in Events.item_toggles(_context_choice):
 		content.add_child(_build_item_toggle(_context_choice, toggle))
 	var close := UI.button("Close", _close_context_modal)

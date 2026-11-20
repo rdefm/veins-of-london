@@ -1177,6 +1177,46 @@ func run() -> void:
 		GameData.EVENTS = original_events
 	)
 
+	run_case("fate_lens_roll_range_contains_the_committed_roll", func():
+		GameState.reset()
+		Crafting.inventory_add("prophetsBreath", 1, 1)
+		Crafting.inventory_add("dejaVu", 1, 1)
+		var original_events := _install_item_check_event(0.4, true)
+		Events.start_event("test_check_event")
+		Events.advance()
+		var dial: Dictionary = Dial.new_dial("test_haft")
+		GameState.state["player"]["dial"] = dial
+		GameState.state["player"]["senseSkill"] = Lenses.gate_level("world")
+		assert_eq(Events.roll_range(0), {}, "no Fate Lens, no band")
+		dial["lenses"] = [{ "ore": "fate", "tier": 1 }]
+		GameState.state["player"]["senseSkill"] = Lenses.gate_level("world") - 1
+		assert_eq(Events.roll_range(0), {}, "below the Sense gate")
+		GameState.state["player"]["senseSkill"] = Lenses.gate_level("world")
+		assert_eq(Events.roll_range(1), {}, "plain option shows nothing")
+		var curve: Array = GameData.DIAL_LENS["fateRollRangeWidthByTier"]
+		var offsets := {}
+		for tier in range(1, 6):
+			dial["lenses"] = [{ "ore": "fate", "tier": tier }]
+			for seed in range(40):
+				GameState.state["world"]["rollSeed"] = seed
+				for toggled in [false, true]:
+					if Events.active_toggles(0).has("prophetsBreath") != toggled:
+						Events.toggle_item(0, "prophetsBreath")
+					var band := Events.roll_range(0)
+					var roll: int = clampi(ceili(snappedf(100.0 - Events.check_roll(0) * 100.0, 0.000001)), 1, 100)
+					assert_eq(band["high"] - band["low"], int(curve[tier]), "width follows tier %d" % tier)
+					assert_true(band["low"] >= 1 and band["high"] <= 100, "band inside d100")
+					assert_true(band["low"] <= roll and roll <= band["high"], "band contains roll (tier %d seed %d)" % [tier, seed])
+					offsets[roll - band["low"]] = true
+		assert_true(offsets.size() > 3, "offset varies, not always centred")
+		var p: float = Events.check_odds(0)["probability"]
+		assert_eq(Events.roll_range(0)["needed"], floori(snappedf(100.0 - p * 100.0, 0.000001)) + 1)
+		assert_true(Events.reveal_card()["ok"])
+		assert_eq(Events.roll_range(0), {}, "Déjà Vu's exact roll replaces the band")
+		assert_true(not Events.revealed_roll(0).is_empty())
+		GameData.EVENTS = original_events
+	)
+
 	run_case("powder_bonus_is_spent_on_a_failed_roll_and_not_when_merely_held", func():
 		GameState.reset()
 		Crafting.inventory_add("enhancementPowder", 1, 2)

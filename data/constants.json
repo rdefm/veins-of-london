@@ -855,7 +855,8 @@
     "cleanSlateButton": "Use Clean Slate",
     "failContinueButton": "Continue",
     "revealFormat": "Will roll %d · needed %d+",
-    "revealButton": "Use %s: see this card's rolls"
+    "revealButton": "Use %s: see this card's rolls",
+    "rangeFormat": "Roll %d–%d · need %d+"
   },
   "calendar": {
     "startMonth": 3,

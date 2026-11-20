@@ -1458,9 +1458,16 @@ static func run_key() -> String:
 # re-roll draws a second value per attempt and keeps the lower (best of two).
 # Never draws from the global Rng stream.
 static func check_roll(choice_index: int, attempt_index: int = 0) -> float:
+	var key := _check_roll_key(choice_index, attempt_index)
+	var roll: float = Rng.stable_unit(key)
+	if prior_rolls(choice_index) > 0:
+		roll = minf(roll, Rng.stable_unit(key + "|adv"))
+	return roll
+
+
+static func _check_roll_key(choice_index: int, attempt_index: int) -> String:
 	var event_state: Dictionary = GameState.state["event"]
-	var prior: int = prior_rolls(choice_index)
-	var key := "%d|%s|%d|%d|%d" % [int(GameState.state["world"]["rollSeed"]), event_state["eventId"], int(event_state["cardIndex"]), choice_index, prior]
+	var key := "%d|%s|%d|%d|%d" % [int(GameState.state["world"]["rollSeed"]), event_state["eventId"], int(event_state["cardIndex"]), choice_index, prior_rolls(choice_index)]
 	if _event_def().get("repeatable", false):
 		key += "|" + run_key()
 	var toggled := active_toggles(choice_index)
@@ -1468,10 +1475,17 @@ static func check_roll(choice_index: int, attempt_index: int = 0) -> float:
 		key += "|" + ",".join(PackedStringArray(toggled))
 	if attempt_index > 0:
 		key += "|a%d" % attempt_index
-	var roll: float = Rng.stable_unit(key)
-	if prior > 0:
-		roll = minf(roll, Rng.stable_unit(key + "|adv"))
-	return roll
+	return key
+
+
+# d100 figure of a check roll as the resolution shows it (§3.9a "d100 display").
+static func _d100(roll: float) -> int:
+	return clampi(ceili(snappedf(100.0 - roll * 100.0, 0.000001)), 1, 100)
+
+
+# d100 "need N+" for a success probability (§3.9a "d100 display").
+static func _d100_needed(p: float) -> int:
+	return floori(snappedf(100.0 - p * 100.0, 0.000001)) + 1
 
 
 # ── Déjà Vu reveal (R§3.9a "Reveal") ──
@@ -1531,8 +1545,32 @@ static func revealed_roll(choice_index: int) -> Dictionary:
 	var p: float = odds_for(check_with_offers(choice), active_toggles(choice_index))["probability"]
 	var rolls: Array = []
 	for attempt in range(check_attempts(choice)):
-		rolls.append(clampi(ceili(snappedf(100.0 - check_roll(choice_index, attempt) * 100.0, 0.000001)), 1, 100))
-	return { "roll": rolls[0], "needed": floori(snappedf(100.0 - p * 100.0, 0.000001)) + 1, "rolls": rolls }
+		rolls.append(_d100(check_roll(choice_index, attempt)))
+	return { "roll": rolls[0], "needed": _d100_needed(p), "rolls": rolls }
+
+
+# Fate Lens world sight (R§1.4 Lenses, R§3.9a "Fate range"): the check
+# option's first-attempt d100 as a band {low, high, needed}, or {} without a
+# loaded Fate Lens, below Sense senseGates.world, on a non-check or hidden
+# option, or once Déjà Vu revealed the card. Band width is
+# fateRollRangeWidthByTier at the Lens tier; the real roll sits at a seeded
+# offset inside it (own key off the roll key, so toggles move both), then the
+# band is shifted to fit 1-100. Recomputed each call, never stored.
+static func roll_range(choice_index: int) -> Dictionary:
+	if is_revealed() or not is_awaiting_choice():
+		return {}
+	if not Lenses.has("fate") or not Lenses.sense_unlocked("world"):
+		return {}
+	var choice: Dictionary = current_card()["choices"][choice_index]
+	if not choice.has("check") or option_gate(choice_index)["display"] == "hide":
+		return {}
+	var curve: Array = GameData.DIAL_LENS["fateRollRangeWidthByTier"]
+	var width: int = int(curve[clampi(Lenses.tier_for("fate"), 0, curve.size() - 1)])
+	var roll: int = _d100(check_roll(choice_index))
+	var below: int = mini(floori(Rng.stable_unit(_check_roll_key(choice_index, 0) + "|fateRange") * float(width + 1)), width)
+	var low: int = clampi(roll - below, 1, 100 - width)
+	var p: float = odds_for(check_with_offers(choice), active_toggles(choice_index))["probability"]
+	return { "low": low, "high": low + width, "needed": _d100_needed(p) }
 
 
 # ── wards (R§3.12 "Wards") ──
