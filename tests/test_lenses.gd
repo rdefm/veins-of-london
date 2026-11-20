@@ -408,3 +408,33 @@ func run() -> void:
 		assert_eq(f["collapseChance"], 0.0, "depletes instead of the collapse roll")
 		assert_true(Cultivating.drift_forecast_text(thin).contains("100%"), "text names the risk")
 	)
+
+	run_case("emotion_lens_standing_lines_gated", func():
+		_setup(1)
+		var gate := int(GameData.DIAL_LENS["senseGates"]["world"])
+		GameState.state["player"]["senseSkill"] = gate
+		assert_eq(Lenses.emotion_standing_lines("firm"), [], "no lens, no lines")
+		GameState.state["player"]["dial"]["lenses"] = [{ "ore": "emotion", "tier": 1 }]
+		var text: Dictionary = GameData.DIAL_LENS["emotionStanding"]
+		var threat_line: String = String(text["threat"]) % FactionAI.threat("firm", Shares.PLAYER)
+		assert_eq(Lenses.emotion_standing_lines("firm"), [threat_line], "threat only, no grudge")
+		GameState.state["player"]["senseSkill"] = gate - 1
+		assert_eq(Lenses.emotion_standing_lines("firm"), [], "below Sense gate")
+	)
+
+	run_case("emotion_lens_grudge_countdown", func():
+		_setup(1)
+		GameState.state["player"]["senseSkill"] = int(GameData.DIAL_LENS["senseGates"]["world"])
+		GameState.state["player"]["dial"]["lenses"] = [{ "ore": "emotion", "tier": 1 }]
+		var text: Dictionary = GameData.DIAL_LENS["emotionStanding"]
+		var window := int(GameData.FACTION_GRUDGE["windowDays"])
+		assert_eq(Grudges.days_left("firm"), -1, "no grudge")
+		Grudges.record("firm", "shoreditch")
+		assert_eq(Grudges.days_left("firm"), window, "fresh grudge")
+		assert_eq(Lenses.emotion_standing_lines("firm")[1], String(text["grudgeDays"]) % window, "countdown line")
+		GameState.state["world"]["day"] += window - 1
+		assert_eq(Lenses.emotion_standing_lines("firm")[1], String(text["grudgeOneDay"]), "one day")
+		GameState.state["world"]["day"] += 1
+		assert_eq(Grudges.days_left("firm"), 0, "last day")
+		assert_eq(Lenses.emotion_standing_lines("firm")[1], String(text["grudgeLastDay"]), "last day line")
+	)

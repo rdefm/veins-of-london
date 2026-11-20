@@ -84,7 +84,13 @@
       "rising": "A feeling this one's about to climb.",
       "falling": "A feeling this one's about to slip."
     },
-    "timeFogCutByTier": [0, 0.2, 0.3, 0.4, 0.5, 0.6],
+    "emotionStanding": {
+      "threat": "Threat toward you: %.1f",
+      "grudgeDays": "Grudge: %d days left to answer it.",
+      "grudgeOneDay": "Grudge: one day left to answer it.",
+      "grudgeLastDay": "Grudge: answer it today or it goes cold."
+    },
+    "timeFogCutByTier":[0, 0.2, 0.3, 0.4, 0.5, 0.6],
     "physicsFlatByTier": [0, 1, 2, 3, 4, 5],
     "effects": {
       "time": {

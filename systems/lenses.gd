@@ -61,6 +61,29 @@ static func life_drift_sight() -> bool:
 	return has("life") and sense_unlocked("world")
 
 
+# Emotion Lens world sight on faction cards: a loaded Emotion Lens and Sense >= senseGates.world.
+static func emotion_standing_sight() -> bool:
+	return has("emotion") and sense_unlocked("world")
+
+
+# Emotion Lens faction-card lines (R§1.4 Lenses): exact Threat toward the player
+# (FactionAI.threat) and, with an open grudge, its days left (Grudges.days_left).
+# Empty without emotion_standing_sight. Strings: dial.json lens.emotionStanding.
+static func emotion_standing_lines(faction_id: String) -> Array:
+	if not emotion_standing_sight():
+		return []
+	var text: Dictionary = GameData.DIAL_LENS["emotionStanding"]
+	var lines: Array = [String(text["threat"]) % FactionAI.threat(faction_id, Shares.PLAYER)]
+	var left := Grudges.days_left(faction_id)
+	if left == 0:
+		lines.append(String(text["grudgeLastDay"]))
+	elif left == 1:
+		lines.append(String(text["grudgeOneDay"]))
+	elif left > 1:
+		lines.append(String(text["grudgeDays"]) % left)
+	return lines
+
+
 # Label for the Fate line in a mods breakdown.
 static func fate_label() -> String:
 	return str(GameData.DIAL_LENS["fateAllRollsLabel"])

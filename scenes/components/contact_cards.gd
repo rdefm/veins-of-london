@@ -800,6 +800,8 @@ static func build_faction_card(faction_id: String, economy: Control = null) -> C
 		c["content"].add_child(economy)
 	c["content"].add_child(UI.label("Relation: %d / %d" % [rel, f["joinRelation"]]))
 	c["content"].add_child(UI.bar(rel, f["joinRelation"]))
+	for line in Lenses.emotion_standing_lines(faction_id):
+		c["content"].add_child(UI.muted_label(line))
 
 	for action in build_membership_actions(faction_id):
 		c["content"].add_child(action)

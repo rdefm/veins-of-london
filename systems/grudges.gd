@@ -127,11 +127,18 @@ static func soft_pressure() -> float:
 	return total
 
 
+# Days left to answer faction_id's grudge (0 = last day); -1 with no grudge.
+static func days_left(faction_id: String) -> int:
+	if not has_grudge(faction_id):
+		return -1
+	var grudge: Dictionary = GameState.state["grudges"][faction_id]
+	return maxi(0, int(_cfg()["windowDays"]) - (_day() - int(grudge["sinceDay"])))
+
+
 # District panel rows: { faction, daysLeft } for grudges set in district_id.
 static func rows_for_district(district_id: String) -> Array:
 	var rows := []
 	for faction_id in GameState.state["grudges"].keys():
-		var grudge: Dictionary = GameState.state["grudges"][faction_id]
-		if grudge["district"] == district_id:
-			rows.append({ "faction": faction_id, "daysLeft": maxi(0, int(_cfg()["windowDays"]) - (_day() - int(grudge["sinceDay"]))) })
+		if GameState.state["grudges"][faction_id]["district"] == district_id:
+			rows.append({ "faction": faction_id, "daysLeft": days_left(faction_id) })
 	return rows
