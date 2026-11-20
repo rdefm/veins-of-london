@@ -67,6 +67,7 @@
     "ingredientBase": 20,
     "xpReward": 30,
     "senseGates": { "world": 2, "combat": 3, "glimpse": 4, "peripheral": 5 },
+    "peripheralShare": 0.5,
     "fateAllRollsBonusByTier": [0, 0.01, 0.02, 0.03, 0.04, 0.05],
     "fateAllRollsLabel": "Fate Lens",
     "fateRollRangeWidthByTier": [0, 40, 30, 20, 15, 10],

@@ -534,6 +534,17 @@
        }
       },
       {
+       "id": "senseWorldSight",
+       "levelFrom": {
+        "from": "DIAL_LENS",
+        "path": [
+         "senseGates",
+         "world"
+        ]
+       },
+       "text": "World sight: loaded Lenses read the city"
+      },
+      {
        "id": "sense3",
        "level": 3,
        "text": "+{v}% observation",
@@ -546,6 +557,17 @@
          "scale": 100
         }
        }
+      },
+      {
+       "id": "senseCombatSight",
+       "levelFrom": {
+        "from": "DIAL_LENS",
+        "path": [
+         "senseGates",
+         "combat"
+        ]
+       },
+       "text": "Combat sight: loaded Lenses read a fight"
       },
       {
        "id": "sense4",
@@ -562,6 +584,17 @@
        }
       },
       {
+       "id": "senseGlimpse",
+       "levelFrom": {
+        "from": "DIAL_LENS",
+        "path": [
+         "senseGates",
+         "glimpse"
+        ]
+       },
+       "text": "Glimpse: once per event or fight, a second look"
+      },
+      {
        "id": "sense5",
        "level": 5,
        "text": "+{v}% observation",
@@ -574,6 +607,17 @@
          "scale": 100
         }
        }
+      },
+      {
+       "id": "sensePeripheral",
+       "levelFrom": {
+        "from": "DIAL_LENS",
+        "path": [
+         "senseGates",
+         "peripheral"
+        ]
+       },
+       "text": "Peripheral sight: pocketed Lenses help at half strength"
       },
       {
        "id": "sense6",

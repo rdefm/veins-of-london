@@ -164,7 +164,7 @@ Descriptions (verbatim):
 
 **Dial-level cast scaling:** `castMagnitudePerLevel` (0.25) and `castBlackHoleFreezeBonusByLevel` ([0,0,0,1,1,2], index = level). Cast magnitude multiplier = `1 + 0.25 × level` (1.25/1.5/1.75/2/2.25 for L1–5). See §3.5.
 
-**Attunement bonus / ore-roll bonus** (`Dial.attunement_bonus(oreType)`) — a flat additive bonus to whichever chance formula the caller is about to roll (observation blocks of that ore, `Sites.attempt_seed()`'s seed chance, a `(1+bonus)` multiplier on cultivate gain), and converted into the Lab's `benchBonus` when `oreType` is one of the recipe's ingredients (§3.5), applied only when the player's Dial has a Lens of `oreType` loaded, magnitude by that Lens's tier (`Lenses.tier_for`) — never by Movements or loaded Complications. `attunementBonusByTier = [0, 0.02, 0.04, 0.07, 0.10, 0.15]` (index = tier).
+**Attunement bonus / ore-roll bonus** (`Dial.attunement_bonus(oreType)`) — a flat additive bonus to whichever chance formula the caller is about to roll (observation blocks of that ore, `Sites.attempt_seed()`'s seed chance, a `(1+bonus)` multiplier on cultivate gain), and converted into the Lab's `benchBonus` when `oreType` is one of the recipe's ingredients (§3.5), applied only when the player's Dial has a Lens of `oreType` loaded, magnitude by that Lens's tier (`Lenses.tier_for`) — never by Movements or loaded Complications. **Peripheral sight:** with no Lens of `oreType` loaded and player `senseSkill ≥ senseGates.peripheral`, the best owned-but-unloaded Lens of that ore in `lensInventory` (`Lenses.peripheral_tier`) gives `lens.peripheralShare` (0.5) × its tier's value; a loaded Lens always wins (no stacking). Attunement only — never the Fate all-rolls bonus or world/combat sight. `attunementBonusByTier = [0, 0.02, 0.04, 0.07, 0.10, 0.15]` (index = tier).
 
 **Complications** — loading (`Dial.load_complication(recipeKey, tier)`) moves one unit of any existing crafted consumable recipe out of `Crafting`'s tier-bucketed `player.inventory` (§2/§3.5) into `player.dial.loadedComplications`, unchanged in tier; unloading (`Dial.unload_complication(index)`) reverses it exactly — never duplicated or destroyed. Each loaded entry is `{ recipeKey, tier, detent }`: `detent` is a cosmetic display-order position for the (out-of-scope) Collar UI, assigned as the entry's load-time index, read nowhere else. Ticket 14 dropped the old per-recipe `capacityCost` field (`data/recipes.json` no longer has one) — every loaded entry now costs exactly one slot, regardless of which recipe it is or the tier it was crafted at. `Dial.capacity_used(dial)` (count of loaded entries) may never exceed `dial.capacityMax`.
 
@@ -176,7 +176,8 @@ Descriptions (verbatim):
 |---|---|
 | lensSlotsByLevel | `[0, 1, 1, 2, 2, 3]` (index = Dial level; separate from Complication capacity) — `Dial.lens_slots(level)` |
 | baseSuccess / ingredientBase / xpReward | 0.35 / 20 / 30 (Movement-style craft) |
-| senseGates | `{ world: 2, combat: 3, glimpse: 4, peripheral: 5 }` (player Sense level per effect column) |
+| senseGates | `{ world: 2, combat: 3, glimpse: 4, peripheral: 5 }` (player Sense level per effect column; `skill_feats.json` Sense feats list each via `levelFrom`) |
+| peripheralShare | `0.5` (Peripheral sight: share of an unloaded Lens's attunement) |
 | fateAllRollsBonusByTier / fateAllRollsLabel | `[0, 0.01, 0.02, 0.03, 0.04, 0.05]` / "Fate Lens" — see Fate Lens all-rolls bonus below |
 | fateRollRangeWidthByTier | `[0, 40, 30, 20, 15, 10]` |
 | timeFogCutByTier | `[0, 0.2, 0.3, 0.4, 0.5, 0.6]` |

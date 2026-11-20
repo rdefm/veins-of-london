@@ -25,6 +25,19 @@ static func has(ore: String, owner_id: String = "") -> bool:
 	return tier_for(ore, owner_id) > 0
 
 
+# Peripheral sight (R§1.4 Lenses): the best tier among the player's owned but
+# unloaded Lenses of `ore`, at Sense >= senseGates.peripheral and only while no
+# Lens of that ore is loaded; 0 otherwise. Player only.
+static func peripheral_tier(ore: String) -> int:
+	if Dial.dial_of("") == null or not sense_unlocked("peripheral") or has(ore):
+		return 0
+	var best: int = 0
+	for lens in GameState.state["player"].get("lensInventory", []):
+		if lens["ore"] == ore:
+			best = maxi(best, int(lens["tier"]))
+	return best
+
+
 # A loaded Fate Lens's light bonus to every roll that Dial's owner makes
 # (R§1.4 Lenses): fateAllRollsBonusByTier at its tier, 0.0 with none. Each
 # roll's call site adds it before that roll's own clamp.

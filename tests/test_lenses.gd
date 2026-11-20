@@ -297,3 +297,24 @@ func run() -> void:
 		assert_eq(contact_rows[0]["text"], GameData.DIAL_LENS["contactEffects"]["physics"], "contact physics text")
 		assert_eq(Lenses.effect_rows("life", CONTACT_ID)[0]["text"], GameData.DIAL_LENS["contactNoEffect"], "life does nothing on a contact")
 	)
+
+	run_case("peripheral_sight_half_attunement_from_unloaded_lens_at_sense_gate", func():
+		_setup(1)
+		var curve: Array = GameData.DIAL_ATTUNEMENT_BONUS_BY_TIER
+		var share: float = float(GameData.DIAL_LENS["peripheralShare"])
+		var gate: int = int(GameData.DIAL_LENS["senseGates"]["peripheral"])
+		_give("life", 2)
+		_give("life", 4)
+		GameState.state["player"]["senseSkill"] = gate - 1
+		assert_eq(Dial.attunement_bonus("life"), 0.0, "below gate: pocket lens does nothing")
+		GameState.state["player"]["senseSkill"] = gate
+		assert_almost_eq(Dial.attunement_bonus("life"), float(curve[4]) * share, 0.0001, "best owned tier at half")
+		assert_eq(Dial.attunement_bonus("time"), 0.0, "no owned lens of that ore")
+		GameState.state["player"]["dial"]["lenses"] = [{ "ore": "life", "tier": 1 }]
+		assert_almost_eq(Dial.attunement_bonus("life"), float(curve[1]), 0.0001, "loaded lens wins, no stacking")
+		GameState.state["player"]["dial"]["lenses"] = []
+		_give("fate", 5)
+		assert_eq(Lenses.fate_all_rolls_bonus(), 0.0, "pocket Fate lens gives no all-rolls bonus")
+		assert_true(not Lenses.has("fate"), "pocket lens is not loaded for world/combat sight")
+	)
+

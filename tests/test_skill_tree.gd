@@ -55,6 +55,19 @@ func run() -> void:
 		assert_eq([strike["level"], strike["isMax"]], [5, true], "move at max")
 	)
 
+	run_case("sense_lists_lens_feats_at_gate_levels", func():
+		GameState.reset()
+		GameState.state["player"]["senseSkill"] = 3
+		var sense := _sub(_bucket(SkillTree.project(), "mind"), "sense")
+		var gates: Dictionary = GameData.DIAL_LENS["senseGates"]
+		var ids := { "senseWorldSight": "world", "senseCombatSight": "combat", "senseGlimpse": "glimpse", "sensePeripheral": "peripheral" }
+		for id in ids:
+			var feat := _feat(sense, id)
+			assert_eq(feat.get("level", -1), int(gates[ids[id]]), "%s at its Sense gate" % id)
+			assert_eq(feat.get("unlocked"), 3 >= int(gates[ids[id]]), "%s unlock by Sense" % id)
+		assert_true(not _feat(sense, "sense5").is_empty(), "flat observation feats kept")
+	)
+
 	run_case("body_feats_seed_the_existing_effects", func():
 		GameState.reset()
 		GameState.state["player"]["bodySkill"] = 3

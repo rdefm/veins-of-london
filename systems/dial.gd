@@ -267,17 +267,21 @@ static func unseat_movement(owner_id: String = "") -> Dictionary:
 
 # The ore-roll bonus (R§3.5): flat additive, applied when the player's Dial has
 # a Lens of ore_type loaded; magnitude by that Lens's tier per data/dial.json's
-# attunementBonusByTier. Callers (Lab.bench_bonus(),
+# attunementBonusByTier. With none loaded, Peripheral sight gives lens.peripheralShare
+# of the best owned Lens's tier value (Lenses.peripheral_tier). Callers (Lab.bench_bonus(),
 # Sites.attempt_seed()) add this on top of their own chance formula.
 # Cultivating.cultivate() instead multiplies its rolled gain by (1 + this
 # bonus), since that action has no chance to shift (R§3.4). Never baked in,
 # since NPC contacts roll those same formulas without a Dial.
 static func attunement_bonus(ore_type: String) -> float:
-	var tier: int = Lenses.tier_for(ore_type)
-	if tier <= 0:
-		return 0.0
 	var curve: Array = GameData.DIAL_ATTUNEMENT_BONUS_BY_TIER
-	return curve[clampi(tier, 0, curve.size() - 1)]
+	var tier: int = Lenses.tier_for(ore_type)
+	if tier > 0:
+		return curve[clampi(tier, 0, curve.size() - 1)]
+	var pocket: int = Lenses.peripheral_tier(ore_type)
+	if pocket > 0:
+		return float(curve[clampi(pocket, 0, curve.size() - 1)]) * float(GameData.DIAL_LENS["peripheralShare"])
+	return 0.0
 
 
 # Shared 0.95 ceiling for single-ore-type chance actions (Sites.attempt_seed()).
