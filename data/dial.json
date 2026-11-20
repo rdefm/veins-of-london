@@ -121,7 +121,7 @@
       }
     },
     "glimpse": {
-      "eventReroll": "Glimpse: one more look at this.",
+      "eventReroll": "Lense: one more look at this.",
       "combatRow": "Glimpse: %s",
       "combatRowNoTarget": "Glimpse",
       "combatTooltip": "Once per fight, free: one enemy's whole plan, this round.",
