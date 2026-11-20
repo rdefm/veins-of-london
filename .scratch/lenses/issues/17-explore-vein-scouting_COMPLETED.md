@@ -19,7 +19,7 @@ The idea: the raid site sheet's vein info (Alarms, Ward, Guards rows) unlocks on
 - REFERENCE.md §1.11 "Intel" (data), §3.1 "Intel", §3.12 "Security profile", §1.4 Lenses, §6 save format (if new state)
 - `.scratch/lenses/spec.md`: "Physics — security read"
 
-**Status:** ready-for-human
+**Status:** ready-for-human (design agreed 2026-11-20; tickets 18–22 published)
 
 ## Notes
 
@@ -54,7 +54,34 @@ The idea: the raid site sheet's vein info (Alarms, Ward, Guards rows) unlocks on
 
 ## Outcome
 
-- [ ] Each open question answered and recorded under `## Comments`
-- [ ] REFERENCE.md / spec changes agreed (no design written as decided before the human approves)
-- [ ] Implementation tickets written as vertical slices with blocking edges
-- [ ] This ticket renamed `_COMPLETED`
+- [x] Each open question answered and recorded under `## Comments`
+- [x] REFERENCE.md / spec changes agreed (no design written as decided before the human approves)
+- [x] Implementation tickets written as vertical slices with blocking edges (18–22)
+- [x] This ticket renamed `_COMPLETED`
+
+## Comments
+
+### 2026-11-20 — design agreed with human
+
+**Aims (human):** scout one faction vein to learn its security. Intel goes stale (1 week). Categories run easiest to hardest: alarms/cameras, then guards, then ward. A scout costs 1 time block. Repeat scouts roll again and add to what's already known for that vein. Faction intel also uncovers vein security, on random veins of that faction.
+
+Answers to the open questions:
+1. **Threshold:** remove the `veinSecurity` level from the ladder entirely. There is no faction-wide unlock. The rest of the ladder is unchanged (holdings 40 → stash 100).
+2. **Staleness:** a clock per category. A found category stays fresh 7 days from the day it was found or refreshed. A re-scout that hits it refreshes the snapshot and the clock.
+3. **Snapshot:** records what was seen. It can drift wrong if the faction changes guards or kit. Once stale it shows `?`.
+4. **Cost/risk:** 1 time block. No risk otherwise: no spotted roll, no ambush roll.
+5. **Format:** a plain Scout button on the raid site sheet. The result is a short notification. No authored event.
+6. **Intel gain:** `gain.scout` lowered 8 → **2**, applied per manual scout.
+7. **Physics lens:** "+1 intel level" is replaced by a bonus to every scout category chance. It follows the standard lens pattern: switched on by a loaded Physics lens plus Sense ≥ L2, with the size set by **lens tier** (`physicsScoutBonusByTier`, placeholder `[0, 0.05, 0.10, 0.15, 0.20, 0.25]`). Applies to manual and weekly scouts. Dial `effects.physics.world` text rewritten (PROSE-REVIEW).
+8. **Factions app:** the "Veins: N Warded…" line becomes "Veins scouted: N of M". N counts veins with ≥1 fresh category.
+9. **Partial reads:** five independent categories, rolled separately on each scout:
+   alarms/cameras **80%**, guard count **50%**, guard strength **40%**, guard kit **30%**, ward **25%**.
+   Strength and kit can be known while count isn't (e.g. "? guards · tough").
+10. **AI symmetry:** player only.
+11. **Where shown:** the raid site sheet only. No raid-prep display, since the player taps the vein before raiding.
+
+**Weekly intel route:** on the Monday rollover, for each faction, `floor(meter / 5)` free scout rolls are made. Each lands on a random vein of that faction and uses the same per-category chances. Several can land on the same vein. One notification summarises the finds.
+
+**`fileComplaint`** is gated on `veinSecurity` today. New gate: the target vein has ≥1 fresh scouted category (option c).
+
+**Tickets (approved breakdown):** 18 prefactor (security read built from category facts) → 19 scout a faction vein → 20 vein security comes only from scouting → 21 Physics lens sharpens scouting (blocked by 19, 20). 22 weekly scouting is blocked by 19 only. All new strings are PROSE-REVIEW.
