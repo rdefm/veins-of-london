@@ -167,7 +167,9 @@ static func better_tier(a: String, b: String) -> String:
 
 # fate_bonus (a prospect's Fate Lens all-rolls bonus): that share of the total
 # weight moves from the lowest tiers up to the top tier (fate_shifted_weights()).
-static func roll_tier(district_id: String, fate_bonus: float = 0.0) -> String:
+# life_shift (a prospect's Life Lens world sight): each tier first hands that
+# share of its weight one tier up (life_shifted_weights()).
+static func roll_tier(district_id: String, fate_bonus: float = 0.0, life_shift: float = 0.0) -> String:
 	var district: Dictionary = GameData.DISTRICTS[district_id]
 	var skill: int = GameState.state["player"]["cultivatingSkill"]
 	var weights := compute_tier_weights(district.get("siteQualityMod", 0.0), skill)
@@ -177,7 +179,7 @@ static func roll_tier(district_id: String, fate_bonus: float = 0.0) -> String:
 		weights["rich"] += 10
 		GameState.state["flags"]["greenwichTipOff"] = false
 
-	return roll_tier_from_weights(fate_shifted_weights(weights, fate_bonus))
+	return roll_tier_from_weights(fate_shifted_weights(life_shifted_weights(weights, life_shift), fate_bonus))
 
 
 # Once a district is at siteCap, the site being rolled replaces land that's
@@ -188,8 +190,23 @@ static func compute_at_cap_tier_weights() -> Dictionary:
 	return _tier_weights_from_table(GameData.SITE_AT_CAP_TIER_WEIGHTS)
 
 
-static func roll_tier_at_cap(fate_bonus: float = 0.0) -> String:
-	return roll_tier_from_weights(fate_shifted_weights(compute_at_cap_tier_weights(), fate_bonus))
+static func roll_tier_at_cap(fate_bonus: float = 0.0, life_shift: float = 0.0) -> String:
+	return roll_tier_from_weights(fate_shifted_weights(life_shifted_weights(compute_at_cap_tier_weights(), life_shift), fate_bonus))
+
+
+# Each tier below the top hands `shift` of its own (pre-shift) weight to the
+# tier one above it, so the whole distribution leans up a step; the total is
+# unchanged. Returns a copy.
+static func life_shifted_weights(weights: Dictionary, shift: float) -> Dictionary:
+	var out := weights.duplicate()
+	if shift <= 0.0:
+		return out
+	var order: Array = GameData.SITE_TIER_ORDER
+	for i in range(order.size() - 1):
+		var moved := float(weights[order[i]]) * shift
+		out[order[i]] = float(out[order[i]]) - moved
+		out[order[i + 1]] = float(out[order[i + 1]]) + moved
+	return out
 
 
 # Moves `bonus` of the total weight to the top tier, taken from the lowest
@@ -366,9 +383,10 @@ static func _reroll_worst_unclaimed(district_id: String, forced_ore: String = ""
 # Rng stream is unchanged, then the ore is overridden and the tier raised to fair.
 static func _create_site(district_id: String, at_cap: bool = false, forced_ore: String = "") -> Dictionary:
 	var fate := Lenses.fate_all_rolls_bonus()
-	var tier := roll_tier_at_cap(fate) if at_cap else roll_tier(district_id, fate)
+	var life := Lenses.life_prospect_shift()
+	var tier := roll_tier_at_cap(fate, life) if at_cap else roll_tier(district_id, fate, life)
 	if ActiveEffects.lady_active():
-		var second := roll_tier_at_cap(fate) if at_cap else roll_tier(district_id, fate)
+		var second := roll_tier_at_cap(fate, life) if at_cap else roll_tier(district_id, fate, life)
 		tier = better_tier(tier, second)
 	if forced_ore != "":
 		var min_tier: String = GameData.OBJECTIVES["col_a1_des_sites"]["params"]["minTier"]

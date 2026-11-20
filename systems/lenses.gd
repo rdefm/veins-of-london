@@ -46,6 +46,21 @@ static func fate_all_rolls_bonus(owner_id: String = "") -> float:
 	return float(curve[clampi(tier_for("fate", owner_id), 0, curve.size() - 1)])
 
 
+# Life Lens world sight (R§1.4 Lenses): the player's prospect tier-weight shift,
+# sites.json lifeProspectShiftByTier at the loaded Life Lens's tier while Sense
+# >= senseGates.world; 0.0 otherwise.
+static func life_prospect_shift() -> float:
+	if not sense_unlocked("world"):
+		return 0.0
+	var curve: Array = GameData.SITE_LIFE_PROSPECT_SHIFT_BY_TIER
+	return float(curve[clampi(tier_for("life"), 0, curve.size() - 1)])
+
+
+# Life Lens world sight on the vein sheet: a loaded Life Lens and Sense >= senseGates.world.
+static func life_drift_sight() -> bool:
+	return has("life") and sense_unlocked("world")
+
+
 # Label for the Fate line in a mods breakdown.
 static func fate_label() -> String:
 	return str(GameData.DIAL_LENS["fateAllRollsLabel"])

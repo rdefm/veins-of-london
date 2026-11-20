@@ -318,3 +318,93 @@ func run() -> void:
 		assert_true(not Lenses.has("fate"), "pocket lens is not loaded for world/combat sight")
 	)
 
+
+	run_case("life_shifted_weights_hands_each_tier_a_share_one_step_up", func():
+		var w := { "barren": 20.0, "poor": 30.0, "fair": 32.0, "rich": 14.0, "saturated": 4.0 }
+		assert_eq(Sites.life_shifted_weights(w, 0.0), w, "no shift, unchanged")
+		var s := Sites.life_shifted_weights(w, 0.1)
+		assert_almost_eq(float(s["barren"]), 18.0, 0.0001, "barren gives 10%")
+		assert_almost_eq(float(s["poor"]), 29.0, 0.0001, "poor gets 2, gives 3")
+		assert_almost_eq(float(s["saturated"]), 5.4, 0.0001, "saturated gets rich's 1.4")
+		var total := 0.0
+		for tier in s:
+			total += float(s[tier])
+		assert_almost_eq(total, 100.0, 0.0001, "total unchanged")
+		assert_almost_eq(float(w["barren"]), 20.0, 0.0001, "input not mutated")
+	)
+
+	run_case("life_prospect_shift_needs_life_lens_and_world_sense", func():
+		_setup(1)
+		var gate: int = int(GameData.DIAL_LENS["senseGates"]["world"])
+		GameState.state["player"]["senseSkill"] = gate
+		assert_eq(Lenses.life_prospect_shift(), 0.0, "no lens")
+		GameState.state["player"]["dial"]["lenses"] = [{ "ore": "life", "tier": 3 }]
+		assert_almost_eq(Lenses.life_prospect_shift(), float(GameData.SITE_LIFE_PROSPECT_SHIFT_BY_TIER[3]), 0.0001, "tier 3 curve")
+		assert_true(Lenses.life_drift_sight(), "drift sight on")
+		GameState.state["player"]["senseSkill"] = gate - 1
+		assert_eq(Lenses.life_prospect_shift(), 0.0, "below Sense gate")
+		assert_true(not Lenses.life_drift_sight(), "drift sight off below gate")
+	)
+
+	run_case("life_lens_prospect_tiers_shift_up_seeded", func():
+		_setup(1)
+		GameState.state["player"]["senseSkill"] = int(GameData.DIAL_LENS["senseGates"]["world"])
+		var order: Array = GameData.SITE_TIER_ORDER
+		var snapshot: Dictionary = GameState.deep_copy(GameState.state)
+		var with_life: Dictionary = GameState.deep_copy(snapshot)
+		with_life["player"]["dial"]["lenses"] = [{ "ore": "life", "tier": 5 }]
+		var higher := 0
+		for seed in range(200):
+			GameState.state = GameState.deep_copy(snapshot)
+			Rng.set_seed(seed)
+			var plain: int = order.find(Sites._create_site("camden")["tier"])
+			GameState.state = GameState.deep_copy(snapshot)
+			Rng.set_seed(seed)
+			assert_eq(order.find(Sites._create_site("camden")["tier"]), plain, "seed %d: no lens, unchanged" % seed)
+			GameState.state = GameState.deep_copy(with_life)
+			Rng.set_seed(seed)
+			var lensed: int = order.find(Sites._create_site("camden")["tier"])
+			assert_true(lensed >= plain, "seed %d: Life lens never rolls lower" % seed)
+			if lensed > plain:
+				higher += 1
+		assert_true(higher > 20, "Life lens lifts a fair share of rolls (%d/200)" % higher)
+	)
+
+	run_case("drift_forecast_brackets_the_nightly_drift", func():
+		_setup(1)
+		var lows := {}
+		var highs := {}
+		for start in [30, 70]:
+			var vein: Dictionary = Cultivating.make_vein("life", start, "", null, {})
+			vein["level"] = 2
+			var f := Cultivating.drift_forecast(vein)
+			var seen_low := false
+			var seen_high := false
+			for seed in range(100):
+				var copy: Dictionary = GameState.deep_copy(vein)
+				Rng.set_seed(seed)
+				Cultivating._drift_one(copy)
+				assert_true(copy["growth"] >= f["low"] and copy["growth"] <= f["high"], "start %d seed %d: %d in %d-%d" % [start, seed, copy["growth"], f["low"], f["high"]])
+				seen_low = seen_low or copy["growth"] == f["low"]
+				seen_high = seen_high or copy["growth"] == f["high"]
+			assert_true(seen_low and seen_high, "start %d: both ends reachable" % start)
+		var neutral: Dictionary = Cultivating.make_vein("life", int(GameData.VEIN_GROWTH["neutral"]), "", null, {})
+		var nf := Cultivating.drift_forecast(neutral)
+		assert_eq([nf["low"], nf["high"]], [50, 50], "neutral holds")
+	)
+
+	run_case("drift_forecast_collapse_and_deplete_risk", func():
+		_setup(1)
+		var p: float = float(GameData.VEIN_GROWTH["collapseChancePerDay"])
+		var thin: Dictionary = Cultivating.make_vein("life", 3, "", null, {})
+		thin["level"] = 1
+		var f := Cultivating.drift_forecast(thin)
+		assert_eq(f["low"], 0, "can hit the wall")
+		assert_almost_eq(f["collapseChance"], 0.8 * p, 0.0001, "4 of 5 rolls reach 0, then the collapse roll")
+		assert_eq(f["depleteChance"], 0.0, "level 1 never depletes")
+		thin["level"] = 2
+		f = Cultivating.drift_forecast(thin)
+		assert_almost_eq(f["depleteChance"], 1.0, 0.0001, "every roll reaches 0 at level 2")
+		assert_eq(f["collapseChance"], 0.0, "depletes instead of the collapse roll")
+		assert_true(Cultivating.drift_forecast_text(thin).contains("100%"), "text names the risk")
+	)

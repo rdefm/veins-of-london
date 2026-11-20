@@ -64,6 +64,58 @@ static func drift_magnitude(level: int) -> int:
 	return level + Rng.randi_range(vg["driftRandomMin"], vg["driftRandomMax"])
 
 
+# Growth after one night's drift of `delta` toward the wall the vein leans
+# toward, clamped to 0..ceiling; a vein at neutral stays put.
+static func drifted_growth(vein: Dictionary, delta: int) -> int:
+	var neutral: int = GameData.VEIN_GROWTH["neutral"]
+	var growth: int = vein["growth"]
+	if growth == neutral:
+		return growth
+	var direction: int = 1 if growth > neutral else -1
+	return clampi(growth + delta * direction, 0, ceiling(vein))
+
+
+# Tonight's drift outcome for the vein sheet (Life Lens world sight, R§1.4
+# Lenses), from the same pieces the daily tick rolls: growth range over every
+# drift_magnitude roll, the level-up chance with tonight's streak, and the
+# share of rolls that land at 0 (then a level drop, or at level 1 the
+# collapse roll). Chances are 0..1.
+static func drift_forecast(vein: Dictionary) -> Dictionary:
+	var vg: Dictionary = GameData.VEIN_GROWTH
+	var level: int = vein.get("level", 1)
+	var low: int = 0x7FFFFFFF
+	var high: int = -1
+	var at_zero: int = 0
+	var rolls: int = 0
+	for r in range(int(vg["driftRandomMin"]), int(vg["driftRandomMax"]) + 1):
+		var g := drifted_growth(vein, level + r)
+		low = mini(low, g)
+		high = maxi(high, g)
+		rolls += 1
+		if g <= 0:
+			at_zero += 1
+	var mature: float = level_up_chance(vein.get("developmentStreak", 0) + 1) if is_development_eligible(vein) else 0.0
+	var zero_share: float = float(at_zero) / float(rolls) * (1.0 - mature)
+	return {
+		"low": low,
+		"high": high,
+		"matureChance": mature,
+		"depleteChance": zero_share if level > 1 else 0.0,
+		"collapseChance": zero_share * float(vg["collapseChancePerDay"]) if level <= 1 else 0.0,
+	}
+
+
+static func drift_forecast_text(vein: Dictionary) -> String:
+	var f := drift_forecast(vein)
+	var words: Dictionary = GameData.VEIN_GROWTH["driftForecast"]
+	var parts: Array = [words["exact"] % f["low"] if f["low"] == f["high"] else words["range"] % [f["low"], f["high"]]]
+	for key in ["mature", "deplete", "collapse"]:
+		var chance: float = f[key + "Chance"]
+		if chance > 0.0:
+			parts.append(words[key] % maxi(1, GameState.round_epsilon(chance * 100.0)))
+	return " · ".join(parts)
+
+
 # Tolerates growth above 100 (a wildCeiling vein) -- the "rampant" band's max is deliberately open-ended (R§1.2).
 static func _band_for_growth(growth: int) -> Dictionary:
 	for band in GameData.VEIN_GROWTH["bands"]:
@@ -626,9 +678,7 @@ static func _drift_one(vein: Dictionary) -> void:
 	var vein_ceiling: int = ceiling(vein)
 
 	if growth != neutral:
-		var delta: int = drift_magnitude(vein.get("level", 1))
-		var direction: int = 1 if growth > neutral else -1
-		vein["growth"] = clampi(growth + delta * direction, 0, vein_ceiling)
+		vein["growth"] = drifted_growth(vein, drift_magnitude(vein.get("level", 1)))
 
 	if vein["growth"] >= vein_ceiling:
 		vein["rampantDays"] = mini(vein["rampantDays"] + 1, GameData.VEIN_GROWTH["rampantSeedDays"])
@@ -707,13 +757,15 @@ static func _advance_development_streak(vein: Dictionary) -> void:
 # capped at 100%). An ineligible (maxed) vein never rolls at all -- not a
 # guaranteed-fail roll. Success resets growth to neutral in place of that
 # night's drift, so the caller must skip _drift_one() when this returns true.
+static func level_up_chance(streak: int) -> float:
+	return clampf(GameData.VEIN_GROWTH["levelUpChancePerDay"] * (streak - 1), 0.0, 1.0)
+
+
 static func _roll_level_up(vein: Dictionary) -> bool:
 	if not is_development_eligible(vein):
 		return false
 
-	var streak: int = vein.get("developmentStreak", 0)
-	var chance: float = minf(1.0, GameData.VEIN_GROWTH["levelUpChancePerDay"] * (streak - 1))
-	if not Rng.chance(chance):
+	if not Rng.chance(level_up_chance(vein.get("developmentStreak", 0))):
 		return false
 
 	vein["level"] = mini(vein.get("level", 1) + 1, level_cap(vein))

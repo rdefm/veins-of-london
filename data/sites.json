@@ -7,5 +7,6 @@
   "seedTierMod": { "poor": -0.15, "fair": 0.0, "rich": 0.20, "saturated": 0.35 },
   "discoveryBonusPool": ["vigour", "wildCeiling", "yield"],
   "naturalVeinChance": 0.05,
-  "ladySeedBonusPerLevel": 0.05
+  "ladySeedBonusPerLevel": 0.05,
+  "lifeProspectShiftByTier": [0, 0.10, 0.15, 0.20, 0.25, 0.30]
 }

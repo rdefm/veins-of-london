@@ -661,6 +661,8 @@ func _build_vein_action_card(vein: Dictionary) -> Control:
 		c["content"].add_child(MapCardStyle.label(Cultivating.COLLAPSED_VEIN_WARNING, 12, MapPalette.colour("danger")))
 	else:
 		c["content"].add_child(_dim_label(Cultivating.days_to_wall_text(vein)))
+	if Lenses.life_drift_sight():
+		c["content"].add_child(_dim_label(Cultivating.drift_forecast_text(vein)))
 	var actions := UI.hflow()
 
 	var cultivate_label := "Vein at ceiling" if at_ceiling else UI.format_block_cost_label("Cultivate", 1, Travel.can_afford(district, 1))

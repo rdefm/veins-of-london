@@ -54,6 +54,13 @@
   "developmentThreshold": 90,
   "driftRandomMin": 1,
   "driftRandomMax": 5,
+  "driftForecast": {
+    "range": "Tonight: growth %d–%d",
+    "exact": "Tonight: growth %d",
+    "mature": "%d%% it matures",
+    "deplete": "%d%% it drops a level",
+    "collapse": "%d%% it collapses"
+  },
   "seedOreCost": 150,
   "cultivatingXpLevels": [0, 0, 80, 220, 500, 1000],
   "veinSaleBaseUnits": 1400
