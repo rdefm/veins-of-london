@@ -1024,6 +1024,9 @@ static func _start_round_combat(context: String, vein_id, enemies: Array, log_li
 	fighter["dial"] = _round_dial("")
 	fighter["fateBonus"] = Lenses.fate_all_rolls_bonus("")
 	fighter["fateCritSight"] = Lenses.fate_crit_sight()
+	fighter["timeFogCut"] = Lenses.time_fog_cut()
+	fighter["lifeHpSight"] = Lenses.life_hp_sight()
+	fighter["emotionTargetSight"] = Lenses.emotion_target_sight()
 	fighter["moveOwner"] = ""
 	fighter["moveLevels"] = MoveLevels.levels_of("")
 	CombatRounds.carry_in(fighter, ActiveEffects.prophets_breath_active(), ActiveEffects.lady_level())
@@ -1150,6 +1153,7 @@ static func _round_ally_combatant(entry: Dictionary) -> Dictionary:
 	if contact_id != "":
 		ally["dial"] = _round_dial(contact_id)
 		ally["fateBonus"] = Lenses.fate_all_rolls_bonus(contact_id)
+		ally["timeFogCut"] = Lenses.time_fog_cut(contact_id)
 		# A recruit's move levels and XP are its own; anyone else's roll per fight.
 		if GameState.state["contacts"].has(contact_id):
 			ally["moveOwner"] = contact_id

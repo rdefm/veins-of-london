@@ -1502,6 +1502,110 @@ func run() -> void:
 		assert_true(not CombatRounds.enemy_intents(combat, e)[0].has("crit"), "no Fate Lens, no flag")
 	)
 
+	run_case("time_lens_cuts_the_unread_rate_past_the_combat_gate_off_the_same_fog_stream", func():
+		var fog := func(lens_tier: int, sense: int) -> Array:
+			var out: Array = []
+			for seed_value in range(1, 21):
+				GameState.reset()
+				if lens_tier > 0:
+					var dial: Dictionary = Dial.new_dial("collective_brolly")
+					dial["lenses"] = [{ "ore": "time", "tier": lens_tier }]
+					GameState.state["player"]["dial"] = dial
+				GameState.state["player"]["senseSkill"] = sense
+				Combat._start_round_combat(Combat.CONTEXT_EVENT_MUGGING, null, [_mugger(), _mugger()], [], "", [], null,
+					{ "seed": seed_value, "fog": true, "enemyPlans": [[["strike", "strike"]], [["strike", "guard"]]] })
+				var combat: Dictionary = GameState.state["combat"]
+				for e in CombatRounds.side_indices(combat, CombatRounds.SIDE_ENEMY):
+					for key in ["plan", "nextPlan"]:
+						for action in combat["combatants"][e][key]:
+							out.append([combat["fogRngState"], action["unread"]])
+			return out
+		var gate := int(GameData.DIAL_LENS["senseGates"]["combat"])
+		var without: Array = fog.call(0, gate)
+		var lensed: Array = fog.call(5, gate)
+		assert_eq(lensed.map(func(a): return a[0]), without.map(func(a): return a[0]), "the lens never moves the fog stream (same draws per fight)")
+		var count := func(rows: Array) -> int:
+			return rows.filter(func(a): return a[1]).size()
+		assert_true(count.call(without) > 0, "the fight has fog to cut")
+		assert_true(count.call(lensed) < count.call(without), "a Time Lens reads more")
+		for i in range(lensed.size()):
+			assert_true(not lensed[i][1] or without[i][1], "never unread where it read before")
+		assert_eq(fog.call(5, gate - 1), without, "below the Sense gate, unchanged")
+		assert_almost_eq(float(GameState.state["combat"]["combatants"][CombatRounds.PLAYER_INDEX]["timeFogCut"]), 0.0, 0.0001, "no cut below the gate")
+	)
+
+	run_case("an_ally_time_lens_cuts_only_that_allys_ai_reads", func():
+		GameState.reset()
+		_recruit("james")
+		var james_dial: Dictionary = Dial.new_dial("collective_brolly")
+		james_dial["lenses"] = [{ "ore": "time", "tier": 5 }]
+		GameState.state["contacts"]["james"]["dial"] = james_dial
+		_start_with_allies([_slow_james()], [["strike", "strike"]], 1, true)
+		var combat: Dictionary = GameState.state["combat"]
+		var ally: int = CombatRounds.side_indices(combat, CombatRounds.SIDE_ALLY).filter(func(i): return i != CombatRounds.PLAYER_INDEX)[0]
+		var e: int = CombatRounds.side_indices(combat, CombatRounds.SIDE_ENEMY)[0]
+		assert_almost_eq(float(combat["combatants"][ally]["timeFogCut"]), float(GameData.DIAL_LENS["timeFogCutByTier"][5]), 0.0001, "James's own Lens, no Sense gate")
+		assert_almost_eq(float(combat["combatants"][CombatRounds.PLAYER_INDEX]["timeFogCut"]), 0.0, 0.0001, "not the player's")
+		var base := CombatRounds.unread_chance(combat, e, 1)
+		var his := CombatRounds.unread_chance(combat, e, 1, ally)
+		assert_true(base > 0.0 and his < base, "his threshold sits lower")
+		assert_eq(CombatRounds._ally_reads(combat, e, 1, (base + his) / 2.0), [ally], "a roll between the thresholds: James reads it")
+		assert_eq(CombatRounds._ally_reads(combat, e, 1, his / 2.0), [], "below his threshold: unread to him too")
+		var action: Dictionary = combat["combatants"][e]["plan"][1]
+		action["unread"] = true
+		action["target"] = ally
+		action["allyReads"] = [ally]
+		assert_true(not CombatRounds.is_read(combat, e, 1), "the player still can't read it")
+		assert_true(CombatRounds.is_read(combat, e, 1, ally), "James reads it")
+		assert_true(CombatRounds._read_strike_targets(combat, ally).has(ally), "his AI sees the Strike coming")
+		assert_true(CombatRoundsScreen._intent_text(combat, CombatRounds.enemy_intents(combat, e)[1]) == CombatRoundsScreen.UNREAD_TEXT, "the strip stays ?")
+		action["allyReads"] = []
+		assert_true(not CombatRounds.is_read(combat, e, 1, ally), "not listed, unread to him")
+	)
+
+	run_case("life_lens_shows_enemy_hp_numbers_on_every_card_past_the_combat_gate", func():
+		var exact := func(ore: String, sense: int) -> Array:
+			GameState.reset()
+			var dial: Dictionary = Dial.new_dial("collective_brolly")
+			dial["lenses"] = [{ "ore": ore, "tier": 1 }]
+			GameState.state["player"]["dial"] = dial
+			GameState.state["player"]["senseSkill"] = sense
+			var combat := _start_vs([_slow_mugger()], [[["strike", "strike"]]], [])
+			var roster := CombatRoundsScreen.stage_roster(combat, -1)
+			var e: int = CombatRounds.side_indices(combat, CombatRounds.SIDE_ENEMY)[0]
+			return [
+				CombatRoundsScreen._strip_entry(combat, roster, { "actor": e, "index": 0 }, false)["exactHp"],
+				CombatRoundsScreen._strip_entry(combat, roster, { "actor": CombatRounds.PLAYER_INDEX, "index": 0 }, false)["exactHp"],
+			]
+		var gate := int(GameData.DIAL_LENS["senseGates"]["combat"])
+		assert_eq(exact.call("life", gate), [true, false], "enemy cards show hp/hpMax; the player's doesn't change")
+		assert_eq(exact.call("life", gate - 1), [false, false], "below the gate, no")
+		assert_eq(exact.call("time", gate), [false, false], "another lens, no")
+	)
+
+	run_case("emotion_lens_shows_unread_targets_past_the_combat_gate", func():
+		var start := func(ore: String, sense: int) -> Dictionary:
+			GameState.reset()
+			var dial: Dictionary = Dial.new_dial("collective_brolly")
+			dial["lenses"] = [{ "ore": ore, "tier": 1 }]
+			GameState.state["player"]["dial"] = dial
+			GameState.state["player"]["senseSkill"] = sense
+			return _start_vs([_slow_mugger()], [[["strike", "strike"]]], [], 1, [[[true, false]]])
+		var gate := int(GameData.DIAL_LENS["senseGates"]["combat"])
+		var combat: Dictionary = start.call("emotion", gate)
+		var e: int = CombatRounds.side_indices(combat, CombatRounds.SIDE_ENEMY)[0]
+		var intents := CombatRounds.enemy_intents(combat, e)
+		assert_true(intents[0]["unread"] and intents[0]["target"] == CombatRounds.PLAYER_INDEX, "the unread Strike's target shows")
+		assert_eq(intents[0]["move"], "", "its move stays hidden")
+		var you := CombatRounds.display_name(combat["combatants"][CombatRounds.PLAYER_INDEX])
+		assert_eq(CombatRoundsScreen._intent_text(combat, intents[0]), "%s → %s" % [CombatRoundsScreen.UNREAD_TEXT, you], "strip: ? → target")
+		assert_eq(intents[1]["target"], CombatRounds.PLAYER_INDEX, "a read one shows its target without sight")
+		combat = start.call("emotion", gate - 1)
+		assert_true(not CombatRounds.enemy_intents(combat, e)[0].has("target"), "below the gate, no target")
+		combat = start.call("life", gate)
+		assert_eq(CombatRoundsScreen._intent_text(combat, CombatRounds.enemy_intents(combat, e)[0]), CombatRoundsScreen.UNREAD_TEXT, "another lens: ?")
+	)
+
 	run_case("fate_lens_adds_to_player_crit_and_leg_it_and_ally_crit_from_its_own_dial", func():
 		GameState.reset()
 		_recruit("james")

@@ -547,6 +547,7 @@ static func _strip_entry(cp: Dictionary, roster: Dictionary, position: Dictionar
 		"actor": actor, "index": position["index"], "nextRound": next_round,
 		"name": CombatRounds.display_name(c), "level": null, "hp": c["hp"], "hpMax": c["hpMax"],
 		"factionName": "", "factionColour": TurnOrderStrip.NEUTRAL_COLOUR, "isEnemy": c["side"] == CombatRounds.SIDE_ENEMY,
+		"exactHp": c["side"] == CombatRounds.SIDE_ENEMY and bool(cp["combatants"][CombatRounds.PLAYER_INDEX].get("lifeHpSight", false)),
 	}
 
 
@@ -1046,10 +1047,13 @@ func _build_timeline_card(cp: Dictionary) -> Control:
 
 
 # An enemy intent: its move type, plus target and damage range under sight;
-# "?" while unread, and "→ ?" for a furious enemy's target; a Fate Lens
-# crit flag (intent crit) appends lens.fateCritMark.
+# "?" while unread ("? → target" under Emotion Lens sight), and "→ ?" for a
+# furious enemy's target; a Fate Lens crit flag (intent crit) appends
+# lens.fateCritMark.
 static func _intent_text(cp: Dictionary, intent: Dictionary) -> String:
 	if intent.get("unread", false):
+		if intent.has("target"):
+			return "%s → %s" % [UNREAD_TEXT, CombatRounds.display_name(cp["combatants"][intent["target"]])]
 		return UNREAD_TEXT
 	var text: String = intent["name"]
 	if intent.get("targetUnread", false):

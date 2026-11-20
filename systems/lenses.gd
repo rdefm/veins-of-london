@@ -90,6 +90,26 @@ static func fate_crit_sight() -> bool:
 	return has("fate") and sense_unlocked("combat")
 
 
+# Time Lens combat sight (R§1.4 Lenses): the share cut from enemy unread
+# chances, timeFogCutByTier[tier]. The player needs Sense >=
+# senseGates.combat; a contact (no Sense) applies it to its own AI reads.
+static func time_fog_cut(owner_id: String = "") -> float:
+	if owner_id == "" and not sense_unlocked("combat"):
+		return 0.0
+	return float(GameData.DIAL_LENS["timeFogCutByTier"][tier_for("time", owner_id)])
+
+
+# Life Lens combat sight: enemy HP shown as hp/hpMax. Player only.
+static func life_hp_sight() -> bool:
+	return has("life") and sense_unlocked("combat")
+
+
+# Emotion Lens combat sight: an enemy action's target shows, read or not.
+# Player only.
+static func emotion_target_sight() -> bool:
+	return has("emotion") and sense_unlocked("combat")
+
+
 # Label for the Fate line in a mods breakdown.
 static func fate_label() -> String:
 	return str(GameData.DIAL_LENS["fateAllRollsLabel"])

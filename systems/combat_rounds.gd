@@ -671,6 +671,13 @@ static func new_combatant(side: String, name: String, level: int, hp: int, hp_ma
 		# Fate Lens combat sight (player): read enemy Strikes flag their
 		# pre-rolled crit (enemy_intents()).
 		"fateCritSight": false,
+		# Time Lens combat sight: the share cut from enemy unread chances
+		# as this combatant reads them (player: its strip; ally: its AI).
+		"timeFogCut": 0.0,
+		# Life / Emotion Lens combat sight (player): enemy hp/hpMax on the
+		# strip; an enemy action's target shown even unread.
+		"lifeHpSight": false,
+		"emotionTargetSight": false,
 		# Pan statuses (R§3.7b Table 4), counted down on the combatant's own
 		# resolved actions: Panic and Pan's Rapture turns still to play, and
 		# Panger/Pandemonium's anger (angerPct either way; fury turns its
@@ -784,24 +791,40 @@ static func _plan_from(cp: Dictionary, actor: int, moves: Array, rng: RandomNumb
 # `round_no`) read or unread: a fog roll under unread_chance(), or the test
 # override; every action reads with the fight's fog off. Draws one roll per
 # action the enemy's level gives, whatever the plan holds, so the stream
-# stays in step however the fight goes.
+# stays in step however the fight goes; a Time Lens moves the threshold
+# only. A fog-rolled action lists in allyReads each ally whose own Time
+# Lens threshold its roll clears (is_read()).
 static func _roll_fog(cp: Dictionary, actor: int, plan: Array, round_no: int, fog_rng: RandomNumberGenerator) -> void:
 	var combatant: Dictionary = cp["combatants"][actor]
 	var override = combatant.get("unreadOverride")
 	var forced: Array = override[(round_no - 1) % override.size()] if override != null and not override.is_empty() else []
 	for a in range(actions_per_round(combatant)):
-		var unread := fog_rng.randf() < unread_chance(cp, actor, a)
+		var roll := fog_rng.randf()
+		var unread := roll < unread_chance(cp, actor, a)
 		if a >= plan.size():
 			continue
 		if override != null and not override.is_empty():
 			unread = a < forced.size() and bool(forced[a])
+		else:
+			plan[a]["allyReads"] = _ally_reads(cp, actor, a, roll)
 		plan[a]["unread"] = bool(cp["fog"]) and unread
 
 
-# The chance enemy `actor`'s action `index` rolls unread (data fog): the
-# player's Combat Skill base, raised per level the enemy is above the player
-# (lowered per level below), scaled by the action's position, within [0, 1].
-static func unread_chance(cp: Dictionary, actor: int, index: int) -> float:
+# The allies with a Time Lens cut whose threshold for enemy `actor`'s action
+# `index` a fog `roll` clears (unread_chance() as that ally reads it).
+static func _ally_reads(cp: Dictionary, actor: int, index: int, roll: float) -> Array:
+	var result: Array = []
+	for i in side_indices(cp, SIDE_ALLY):
+		if i != PLAYER_INDEX and float(cp["combatants"][i].get("timeFogCut", 0.0)) > 0.0 and roll >= unread_chance(cp, actor, index, i):
+			result.append(i)
+	return result
+
+
+# The chance enemy `actor`'s action `index` rolls unread (data fog) to
+# `viewer`: the player's Combat Skill base, raised per level the enemy is
+# above the player (lowered per level below), scaled by the action's
+# position, within [0, 1], then cut by the viewer's Time Lens timeFogCut.
+static func unread_chance(cp: Dictionary, actor: int, index: int, viewer: int = PLAYER_INDEX) -> float:
 	var fog: Dictionary = _data()["fog"]
 	var player_level: int = cp["combatants"][PLAYER_INDEX]["level"]
 	var gap: int = int(cp["combatants"][actor]["level"]) - player_level
@@ -812,7 +835,8 @@ static func unread_chance(cp: Dictionary, actor: int, index: int) -> float:
 		chance += gap * float(fog["perLevelBelow"])
 	var multipliers: Array = fog["positionMultiplier"]
 	chance *= float(multipliers[mini(index, multipliers.size() - 1)])
-	return clampf(chance, 0.0, 1.0)
+	chance = clampf(chance, 0.0, 1.0)
+	return chance * (1.0 - float(cp["combatants"][viewer].get("timeFogCut", 0.0)))
 
 
 static func _pick_pattern(patterns: Array, rng: RandomNumberGenerator) -> Dictionary:
@@ -963,6 +987,7 @@ static func _commit_kit_item(cp: Dictionary, actor: int, patients: Array) -> voi
 			action = _kit_action(cp, actor, KIT_BLAST, aimed)
 		if not action.is_empty():
 			action["unread"] = bool(plan[i].get("unread", false))
+			action["allyReads"] = plan[i].get("allyReads", [])
 			plan[i] = action
 		return
 
@@ -1147,7 +1172,7 @@ static func _ally_item_action(cp: Dictionary, ally: int, plan: Array, planned: D
 		var patient := _ally_heal_patient(cp, ally, unit["move"], planned["patients"])
 		if patient >= 0:
 			return _unit_action(unit, -1 if unit["multi"] else patient)
-	if not has_sight(cp) and not planned["sight"] and opponents.any(func(e): return range(combatants[e]["plan"].size()).any(func(i): return not is_read(cp, e, i))):
+	if not has_sight(cp) and not planned["sight"] and opponents.any(func(e): return range(combatants[e]["plan"].size()).any(func(i): return not is_read(cp, e, i, ally))):
 		for unit in _units_with(units, [ITEM_SIGHT]):
 			return _unit_action(unit, PLAYER_INDEX)
 	var struck := _read_strike_targets(cp, ally)
@@ -1224,7 +1249,7 @@ static func _read_strike_targets(cp: Dictionary, ally: int) -> Array:
 			continue
 		var plan: Array = combatants[e]["plan"]
 		for i in range(plan.size()):
-			if not _action_lost(cp, e, i) and is_read(cp, e, i) and status_turn(cp, e, i) == "" and move(plan[i]["move"])["effect"] == EFFECT_DAMAGE:
+			if not _action_lost(cp, e, i) and is_read(cp, e, i, ally) and status_turn(cp, e, i) == "" and move(plan[i]["move"])["effect"] == EFFECT_DAMAGE:
 				result.append(int(plan[i]["target"]))
 	return result
 
@@ -1261,7 +1286,7 @@ static func _ally_pan_target(cp: Dictionary, ally: int, panned: Array, need_offe
 		var plan: Array = combatants[e]["plan"]
 		var count := 0
 		for i in range(plan.size()):
-			if is_read(cp, e, i) and status_turn(cp, e, i) == "" and move(plan[i]["move"])["effect"] in [EFFECT_DAMAGE, EFFECT_STUN]:
+			if is_read(cp, e, i, ally) and status_turn(cp, e, i) == "" and move(plan[i]["move"])["effect"] in [EFFECT_DAMAGE, EFFECT_STUN]:
 				count += 1
 		if count > best_count:
 			best = e
@@ -1302,7 +1327,7 @@ static func _ally_action(cp: Dictionary, ally: int, index: int, count: int, fein
 				return { "move": MOVE_STRIKE, "target": e, "part": 0 }
 	for e in enemies:
 		var plan: Array = combatants[e]["plan"]
-		if index < plan.size() and not _action_lost(cp, e, index) and is_read(cp, e, index) and status_turn(cp, e, index) == "" and int(plan[index]["target"]) == ally and move(plan[index]["move"])["effect"] in [EFFECT_DAMAGE, EFFECT_STUN]:
+		if index < plan.size() and not _action_lost(cp, e, index) and is_read(cp, e, index, ally) and status_turn(cp, e, index) == "" and int(plan[index]["target"]) == ally and move(plan[index]["move"])["effect"] in [EFFECT_DAMAGE, EFFECT_STUN]:
 			return { "move": MOVE_GUARD, "target": ally, "part": 0 }
 	for e in enemies:
 		if _ally_sees_open(cp, e, ally, index, feints):
@@ -1334,7 +1359,7 @@ static func _ally_sees_open(cp: Dictionary, e: int, observer: int, index: int, f
 	for i in range(mini(plan.size(), index + 1)):
 		if _action_lost(cp, e, i):
 			continue
-		var effect := _planned_guard(cp, e, i, plan[i])
+		var effect := _planned_guard(cp, e, i, plan[i], false, observer)
 		if effect != UNCHANGED:
 			events.append({ "actor": e, "index": i, "guard": effect })
 	for f in feints:
@@ -1884,11 +1909,14 @@ static func _plan_of(cp: Dictionary, actor: int) -> Array:
 # furious enemy's actions read as fury_move()'s, its Strike or Stun carrying
 # targetUnread in place of a target (R§3.7b Table 4). A read damage action
 # whose pre-rolled crit lands adds crit: true while the player has
-# fateCritSight (Fate Lens combat sight).
+# fateCritSight (Fate Lens combat sight); with emotionTargetSight (Emotion
+# Lens combat sight) every non-furious action carries its target, unread
+# ones too.
 static func enemy_intents(cp: Dictionary, actor: int, next_round: bool = false) -> Array:
 	var sight := has_sight(cp)
 	if next_round and not sight:
 		return []
+	var emotion: bool = bool(cp["combatants"][PLAYER_INDEX].get("emotionTargetSight", false))
 	var result: Array = []
 	var plan: Array = cp["combatants"][actor]["nextPlan" if next_round else "plan"]
 	for index in range(plan.size()):
@@ -1898,7 +1926,10 @@ static func enemy_intents(cp: Dictionary, actor: int, next_round: bool = false) 
 			result.append({ "move": status, "name": _data()["statusTurns"][status]["name"], "status": true })
 			continue
 		if not next_round and not is_read(cp, actor, index):
-			result.append({ "move": "", "name": "", "unread": true })
+			var hidden := { "move": "", "name": "", "unread": true }
+			if emotion and not _is_furious(cp, actor) and int(action["target"]) >= 0 and int(action["target"]) != actor:
+				hidden["target"] = int(action["target"])
+			result.append(hidden)
 			continue
 		var move_id := fury_move(cp, actor, action["move"])
 		var m := move(move_id)
@@ -1906,9 +1937,9 @@ static func enemy_intents(cp: Dictionary, actor: int, next_round: bool = false) 
 		var furious: bool = _is_furious(cp, actor) and m["effect"] in [EFFECT_DAMAGE, EFFECT_STUN]
 		if furious:
 			intent["targetUnread"] = true
+		if not furious and (sight or (emotion and int(action["target"]) >= 0)):
+			intent["target"] = int(action["target"])
 		if sight:
-			if not furious:
-				intent["target"] = int(action["target"])
 			if m["effect"] == EFFECT_DAMAGE:
 				var roll_range := damage_range(cp, actor)
 				intent["dmgMin"] = roll_range[0]
@@ -1969,11 +2000,13 @@ static func next_round_timeline(cp: Dictionary) -> Array:
 	return entries
 
 
-# Whether the player can read `actor`'s action `index` this round: always
-# for the player and allies; for an enemy, unless it rolled unread, while
-# Prophet's Breath sight lasts, once the action has resolved, or where a
-# status turn takes it; a countering fight's enemies only once resolved.
-static func is_read(cp: Dictionary, actor: int, index: int) -> bool:
+# Whether `viewer` (the player, or an ally's AI) can read `actor`'s action
+# `index` this round: always for the player and allies; for an enemy, unless
+# it rolled unread, while Prophet's Breath sight lasts, once the action has
+# resolved, or where a status turn takes it; a countering fight's enemies
+# only once resolved. An ally reads all the player reads, plus an unread
+# action listing it in allyReads (its own Time Lens, _roll_fog()).
+static func is_read(cp: Dictionary, actor: int, index: int, viewer: int = PLAYER_INDEX) -> bool:
 	var combatant: Dictionary = cp["combatants"][actor]
 	if combatant["side"] != SIDE_ENEMY or status_turn(cp, actor, index) != "":
 		return true
@@ -1984,6 +2017,8 @@ static func is_read(cp: Dictionary, actor: int, index: int) -> bool:
 		return true
 	var plan: Array = combatant["plan"]
 	if index >= plan.size() or not plan[index].get("unread", false):
+		return true
+	if viewer != PLAYER_INDEX and plan[index].get("allyReads", []).has(viewer):
 		return true
 	return is_resolved(cp, actor, index)
 
@@ -2022,13 +2057,13 @@ static func guard_preview(cp: Dictionary, actor: int, next_round: bool = false) 
 
 
 # The guard effect `actor`'s planned `action` at `index` (this round, or
-# next_round's) has as the player reads it: a status turn's, UNKNOWN for an
-# unread action this round, else the move's.
-static func _planned_guard(cp: Dictionary, actor: int, index: int, action: Dictionary, next_round: bool = false) -> String:
+# next_round's) has as `viewer` reads it (is_read()): a status turn's,
+# UNKNOWN for an unread action this round, else the move's.
+static func _planned_guard(cp: Dictionary, actor: int, index: int, action: Dictionary, next_round: bool = false, viewer: int = PLAYER_INDEX) -> String:
 	var status := status_turn(cp, actor, index, next_round)
 	if status != "":
 		return _data()["statusTurns"][status]["actorGuard"]
-	if not next_round and not is_read(cp, actor, index):
+	if not next_round and not is_read(cp, actor, index, viewer):
 		return UNKNOWN
 	return move(fury_move(cp, actor, action["move"])).get("actorGuard", UNCHANGED)
 

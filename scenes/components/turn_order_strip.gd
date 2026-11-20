@@ -111,7 +111,8 @@ class NameplateCard extends Control:
 # used for selection/ghosting) and "occurrenceId" (this specific card's
 # identity) are deliberately separate fields -- plus optional "actionText"
 # (the card's action, String), "actionUnread" (bool, styles it as an unread intent),
-# "guardBadge" (String) and "statusBadge" (String, running statuses), shown
+# "guardBadge" (String), "statusBadge" (String, running statuses) and
+# "exactHp" (bool, Life Lens: hp/hpMax shown even off focus), shown
 # on every card; "flip" ({ from, delay, stagger, seconds }), flapping the
 # card's action and guard badge from `from` to their text, the flipped cards
 # staggered in row order; and "focused" (bool), which when present decides that
@@ -528,7 +529,7 @@ func _build_card(entry: Dictionary, is_focused: bool, card_size: Vector2) -> Nam
 	card.faction_colour = entry["factionColour"]
 	card.is_focused = is_focused
 	card.is_enemy = entry["isEnemy"]
-	card.shows_exact_hp = is_focused
+	card.shows_exact_hp = is_focused or entry.get("exactHp", false)
 	card.action_text = entry.get("actionText", "")
 	card.action_unread = entry.get("actionUnread", false)
 	card.action_frozen = entry.get("actionFrozen", false)
