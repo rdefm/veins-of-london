@@ -1403,6 +1403,105 @@ func run() -> void:
 			assert_true(combat["combatants"][CombatRounds.PLAYER_INDEX]["loadout"][0]["used"], "spent")
 	)
 
+	run_case("enemy_crits_preroll_on_the_plan_the_same_with_or_without_a_fate_lens", func():
+		var crits := func() -> Array:
+			_start_vs([_mugger(), _mugger()], [[["strike", "strike"]], [["strike", "guard"]]], [], 5)
+			var combat: Dictionary = GameState.state["combat"]
+			var out: Array = []
+			for e in CombatRounds.side_indices(combat, CombatRounds.SIDE_ENEMY):
+				for key in ["plan", "nextPlan"]:
+					for action in combat["combatants"][e][key]:
+						assert_true(action.has("crit"), "every planned action carries its crit")
+						out.append(action["crit"])
+			return out
+		GameState.reset()
+		var without: Array = crits.call()
+		GameState.reset()
+		var dial: Dictionary = Dial.new_dial("collective_brolly")
+		dial["lenses"] = [{ "ore": "fate", "tier": 5 }]
+		GameState.state["player"]["dial"] = dial
+		GameState.state["player"]["senseSkill"] = int(GameData.DIAL_LENS["senseGates"]["combat"])
+		assert_eq(crits.call(), without, "a Fate Lens never changes the pre-roll")
+	)
+
+	run_case("a_planned_crit_decides_the_resolved_enemy_strike", func():
+		GameState.reset()
+		var combat := _start_vs([_slow_mugger(1000)], [[["strike", "strike"]]], [])
+		var e: int = CombatRounds.side_indices(combat, CombatRounds.SIDE_ENEMY)[0]
+		var planned := [true, false]
+		for i in range(2):
+			combat["combatants"][e]["plan"][i]["crit"] = planned[i]
+		var hits: Array = []
+		for _n in range(4):
+			if combat["round"] != 1 or combat["outcome"] != null:
+				break
+			var result: Dictionary = Combat.choose_move("guard")
+			for beat in result.get("beats", []):
+				if beat.get("actor", -1) == e and beat.has("crit"):
+					hits.append(beat["crit"])
+		assert_eq(hits, planned, "each enemy Strike lands its planned crit")
+		var rng := RandomNumberGenerator.new()
+		for crit in [true, false]:
+			var beats: Array = []
+			rng.seed = 1
+			combat["combatants"][CombatRounds.PLAYER_INDEX]["hp"] = 1000
+			combat["combatants"][CombatRounds.PLAYER_INDEX]["guard"] = CombatRounds.OPEN
+			CombatRounds._strike(combat, e, CombatRounds.PLAYER_INDEX, "strike", rng, beats, false, false, 0.0, crit)
+			assert_eq(_first(beats, "hit")["crit"], crit, "planned %s stands over the roll" % crit)
+	)
+
+	run_case("be_a_lady_crit_chance_applies_to_the_preroll", func():
+		GameState.reset()
+		var combat := _start_vs([_slow_mugger()], [[["strike", "strike"]]], [])
+		var e: int = CombatRounds.side_indices(combat, CombatRounds.SIDE_ENEMY)[0]
+		var enemy: Dictionary = combat["combatants"][e]
+		enemy["ladyCrit"] = 1.0
+		enemy["ladyUntil"] = 2
+		var plan: Array = [{ "move": "strike", "target": 0, "part": 0 }, { "move": "strike", "target": 0, "part": 0 }]
+		var rng := RandomNumberGenerator.new()
+		rng.seed = 3
+		CombatRounds._preroll_crits(combat, e, plan, 2, rng)
+		assert_eq(plan.map(func(a): return a["crit"]), [true, true], "Be a Lady's chance for its rounds")
+		var fx := CombatRounds.level_effects("strike")
+		var strike_bonus: float = float(fx["critBonus"]) if CombatRounds.move_level(enemy, "strike") >= int(fx["critLevel"]) else 0.0
+		assert_almost_eq(CombatRounds.crit_chance(enemy, false), float(GameData.COMBAT_ROUNDS["critChance"][enemy["level"]]) + strike_bonus, 0.0001, "base chance without Be a Lady")
+		enemy["ladyCrit"] = -1.0
+		rng.seed = 3
+		CombatRounds._preroll_crits(combat, e, plan, 2, rng)
+		assert_eq(plan.map(func(a): return a["crit"]), [false, false], "ladyCrit is the chance while it runs")
+	)
+
+	run_case("fate_lens_flags_read_critting_intents_past_the_combat_gate", func():
+		var start := func(sense: int, unread: Array) -> Dictionary:
+			GameState.reset()
+			var dial: Dictionary = Dial.new_dial("collective_brolly")
+			dial["lenses"] = [{ "ore": "fate", "tier": 2 }]
+			GameState.state["player"]["dial"] = dial
+			GameState.state["player"]["senseSkill"] = sense
+			var combat := _start_vs([_slow_mugger()], [[["strike", "strike"]]], [], 1, unread)
+			var e: int = CombatRounds.side_indices(combat, CombatRounds.SIDE_ENEMY)[0]
+			for action in combat["combatants"][e]["plan"]:
+				action["crit"] = true
+			combat["combatants"][e]["plan"][1]["crit"] = false
+			return combat
+		var gate := int(GameData.DIAL_LENS["senseGates"]["combat"])
+		var combat: Dictionary = start.call(gate, [])
+		var e: int = CombatRounds.side_indices(combat, CombatRounds.SIDE_ENEMY)[0]
+		var intents := CombatRounds.enemy_intents(combat, e)
+		assert_true(intents[0].get("crit", false), "a read critting Strike is flagged")
+		assert_true(not intents[1].has("crit"), "a non-crit isn't")
+		assert_true(CombatRoundsScreen._intent_text(combat, intents[0]).ends_with(str(GameData.DIAL_LENS["fateCritMark"])), "the strip shows the mark")
+		combat = start.call(gate - 1, [])
+		assert_true(not CombatRounds.enemy_intents(combat, e)[0].has("crit"), "below the Sense gate, no flag")
+		combat = start.call(gate, [[[true, false]]])
+		intents = CombatRounds.enemy_intents(combat, e)
+		assert_true(intents[0].get("unread", false) and not intents[0].has("crit"), "unread stays ?")
+		GameState.reset()
+		combat = _start_vs([_slow_mugger()], [[["strike", "strike"]]], [])
+		combat["combatants"][e]["plan"][0]["crit"] = true
+		assert_true(not CombatRounds.enemy_intents(combat, e)[0].has("crit"), "no Fate Lens, no flag")
+	)
+
 	run_case("fate_lens_adds_to_player_crit_and_leg_it_and_ally_crit_from_its_own_dial", func():
 		GameState.reset()
 		_recruit("james")
@@ -2163,9 +2262,12 @@ func run() -> void:
 		assert_eq(_fight_state(combat), before_first, "a tier 1 unit: back a round, to that round's plans, fog marks and RNG states")
 		assert_eq(GameState.state["player"]["loadout"]["slots"], [null, { "recipe": "rewind", "tier": 1 }], "only the paying unit is spent")
 		assert_eq(Combat.round_rewind_block_reason(), Combat.REASON_NOTHING_TO_UNDO, "the fight's start is as far as it goes")
-		# Move XP stays earned through the Rewind, so this second Guard reaches L2.
-		var replay: Array = Combat.choose_move("guard")["beats"].filter(func(b): return b["kind"] != "levelUp")
-		assert_eq(replay, first["beats"], "the same pick replays the same rolls")
+		# Move XP stays earned through the Rewind, so this second Guard reaches L2
+		# (its chip, so dmg/hpAfter/text, can differ); the rolls replay.
+		var rolls := func(beats: Array) -> Array:
+			return beats.filter(func(b): return b["kind"] != "levelUp").map(func(b): return [b["kind"], b["actor"], b["target"], b["move"], b.get("roll"), b.get("crit")])
+		var replay: Array = Combat.choose_move("guard")["beats"]
+		assert_eq(rolls.call(replay), rolls.call(first["beats"]), "the same pick replays the same rolls")
 	)
 
 	run_case("rewind_returns_units_spent_since_but_not_its_own", func():

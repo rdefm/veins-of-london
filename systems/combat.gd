@@ -1023,6 +1023,7 @@ static func _start_round_combat(context: String, vein_id, enemies: Array, log_li
 	fighter["loadout"] = _round_loadout(player["loadout"]["slots"])
 	fighter["dial"] = _round_dial("")
 	fighter["fateBonus"] = Lenses.fate_all_rolls_bonus("")
+	fighter["fateCritSight"] = Lenses.fate_crit_sight()
 	fighter["moveOwner"] = ""
 	fighter["moveLevels"] = MoveLevels.levels_of("")
 	CombatRounds.carry_in(fighter, ActiveEffects.prophets_breath_active(), ActiveEffects.lady_level())

@@ -84,6 +84,12 @@ static func emotion_standing_lines(faction_id: String) -> Array:
 	return lines
 
 
+# Fate Lens combat sight (R§1.4 Lenses): a loaded Fate Lens and Sense >=
+# senseGates.combat flags read enemy intents whose pre-rolled crit lands.
+static func fate_crit_sight() -> bool:
+	return has("fate") and sense_unlocked("combat")
+
+
 # Label for the Fate line in a mods breakdown.
 static func fate_label() -> String:
 	return str(GameData.DIAL_LENS["fateAllRollsLabel"])

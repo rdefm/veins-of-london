@@ -668,6 +668,9 @@ static func new_combatant(side: String, name: String, level: int, hp: int, hp_ma
 		# Fate Lens all-rolls bonus on its own Dial (R§1.4 Lenses): added to
 		# its crit chance, and to the player's Leg it chance.
 		"fateBonus": 0.0,
+		# Fate Lens combat sight (player): read enemy Strikes flag their
+		# pre-rolled crit (enemy_intents()).
+		"fateCritSight": false,
 		# Pan statuses (R§3.7b Table 4), counted down on the combatant's own
 		# resolved actions: Panic and Pan's Rapture turns still to play, and
 		# Panger/Pandemonium's anger (angerPct either way; fury turns its
@@ -722,10 +725,36 @@ static func _empty_player_plan(cp: Dictionary) -> Array:
 # with a target per offensive action.
 static func _roll_plan(cp: Dictionary, actor: int, round_no: int, rng: RandomNumberGenerator) -> Array:
 	var combatant: Dictionary = cp["combatants"][actor]
+	var plan: Array
 	if _has_override(combatant):
-		return _override_plan(cp, actor, round_no, rng)
-	var moves: Array = _pick_pattern(_data()["archetypes"][combatant["archetype"]]["patterns"], rng)["moves"]
-	return _plan_from(cp, actor, moves, rng)
+		plan = _override_plan(cp, actor, round_no, rng)
+	else:
+		var moves: Array = _pick_pattern(_data()["archetypes"][combatant["archetype"]]["patterns"], rng)["moves"]
+		plan = _plan_from(cp, actor, moves, rng)
+	_preroll_crits(cp, actor, plan, round_no, rng)
+	return plan
+
+
+# R§3.7b Damage, crit pre-roll: every action of enemy `actor`'s freshly rolled
+# plan for `round_no` stores `crit`, one roll each at its Strike crit chance
+# (Be a Lady as it stands for that round), lens or no lens. The Strike that
+# action resolves as (fury or a counter reply included) uses it.
+static func _preroll_crits(cp: Dictionary, actor: int, plan: Array, round_no: int, rng: RandomNumberGenerator) -> void:
+	var combatant: Dictionary = cp["combatants"][actor]
+	var chance := crit_chance(combatant, round_no <= int(combatant["ladyUntil"]))
+	for action in plan:
+		action["crit"] = rng.randf() < chance
+
+
+# `actor`'s Strike crit chance: its level's critChance (ladyCrit under Be a
+# Lady), plus Strike's critBonus from its critLevel, its Fate Lens fateBonus
+# and `bonus` (R§3.7b Damage).
+static func crit_chance(actor: Dictionary, lady: bool, bonus := 0.0) -> float:
+	var fx := level_effects(MOVE_STRIKE)
+	var chance: float = float(actor["ladyCrit"]) if lady else float(_data()["critChance"][actor["level"]])
+	if move_level(actor, MOVE_STRIKE) >= int(fx["critLevel"]):
+		chance += float(fx["critBonus"])
+	return chance + bonus + float(actor.get("fateBonus", 0.0))
 
 
 static func _has_override(combatant: Dictionary) -> bool:
@@ -1598,7 +1627,7 @@ static func _counter_pick(cp: Dictionary, index: int, move_id: String) -> void:
 		var reply := MOVE_GUARD
 		if not attack:
 			reply = MOVE_STRIKE if enemy["lastMove"] == MOVE_FEINT else MOVE_FEINT
-		plan[index] = { "move": reply, "target": e if reply == MOVE_GUARD else PLAYER_INDEX, "part": 0, "unread": plan[index].get("unread", false) }
+		plan[index] = { "move": reply, "target": e if reply == MOVE_GUARD else PLAYER_INDEX, "part": 0, "unread": plan[index].get("unread", false), "crit": plan[index].get("crit", false) }
 
 
 # ── Scripted fights (R§3.7b Scripted fights) ─────────────────────────────
@@ -1853,7 +1882,9 @@ static func _plan_of(cp: Dictionary, actor: int) -> Array:
 # isn't read (is_read()) is { move: "", name: "", unread: true }; a status
 # turn (status_turn()) reads { move: its status, name, status: true }; a
 # furious enemy's actions read as fury_move()'s, its Strike or Stun carrying
-# targetUnread in place of a target (R§3.7b Table 4).
+# targetUnread in place of a target (R§3.7b Table 4). A read damage action
+# whose pre-rolled crit lands adds crit: true while the player has
+# fateCritSight (Fate Lens combat sight).
 static func enemy_intents(cp: Dictionary, actor: int, next_round: bool = false) -> Array:
 	var sight := has_sight(cp)
 	if next_round and not sight:
@@ -1882,6 +1913,8 @@ static func enemy_intents(cp: Dictionary, actor: int, next_round: bool = false) 
 				var roll_range := damage_range(cp, actor)
 				intent["dmgMin"] = roll_range[0]
 				intent["dmgMax"] = roll_range[1]
+		if m["effect"] == EFFECT_DAMAGE and bool(action.get("crit", false)) and bool(cp["combatants"][PLAYER_INDEX].get("fateCritSight", false)):
+			intent["crit"] = true
 		result.append(intent)
 	return result
 
@@ -2226,7 +2259,7 @@ static func _resolve_action(cp: Dictionary, actor_idx: int, action: Dictionary, 
 			if target < 0:
 				target = _retarget(cp, actor_idx, int(action["target"]))
 			if target >= 0:
-				_strike(cp, actor_idx, _aim(cp, actor_idx, target), move_id, rng, beats)
+				_strike(cp, actor_idx, _aim(cp, actor_idx, target), move_id, rng, beats, false, false, 0.0, action.get("crit"))
 		EFFECT_OPEN:
 			var target := _retarget(cp, actor_idx, int(action["target"]))
 			if target >= 0:
@@ -2495,9 +2528,11 @@ static func _retarget(cp: Dictionary, actor: int, target: int) -> int:
 # target, round(roll × chipMultiplier) (min 1) on a Guarded one; a crit
 # doubles the final figure (R§3.7b Damage), then the attacker's anger scales
 # it (anger_factor()). Under Be a Lady the roll is the
-# attacker's max and the crit chance its ladyCrit (R§3.7b Damage). An
+# attacker's max and the crit chance its ladyCrit (R§3.7b Damage). A
+# non-null `planned_crit` (an enemy action's pre-rolled crit,
+# _preroll_crits()) decides the crit in place of a roll. An
 # evade (evade_chance()) misses outright, before any roll.
-static func _strike(cp: Dictionary, actor_idx: int, target_idx: int, move_id: String, rng: RandomNumberGenerator, beats: Array, free := false, behind := false, crit_bonus := 0.0) -> void:
+static func _strike(cp: Dictionary, actor_idx: int, target_idx: int, move_id: String, rng: RandomNumberGenerator, beats: Array, free := false, behind := false, crit_bonus := 0.0, planned_crit: Variant = null) -> void:
 	var combatants: Array = cp["combatants"]
 	var actor: Dictionary = combatants[actor_idx]
 	var target: Dictionary = combatants[target_idx]
@@ -2514,8 +2549,6 @@ static func _strike(cp: Dictionary, actor_idx: int, target_idx: int, move_id: St
 		return
 	var lady := has_lady(cp, actor)
 	var roll_range := damage_range(cp, actor_idx)
-	var fx := level_effects(MOVE_STRIKE)
-	var strike_level := move_level(actor, MOVE_STRIKE)
 	var roll := rng.randi_range(roll_range[0], roll_range[1])
 	if int(actor["lowRolls"]) > 0:
 		actor["lowRolls"] -= 1
@@ -2529,11 +2562,8 @@ static func _strike(cp: Dictionary, actor_idx: int, target_idx: int, move_id: St
 		dmg = GameState.round_epsilon(roll * (100 + int(target["feintPct"])) / 100.0)
 	if guarded:
 		dmg = maxi(1, GameState.round_epsilon(roll * chip_multiplier(actor, target)))
-	var crit_chance: float = float(actor["ladyCrit"]) if lady else float(_data()["critChance"][actor["level"]])
-	if strike_level >= int(fx["critLevel"]):
-		crit_chance += float(fx["critBonus"])
-	crit_chance += crit_bonus + float(actor.get("fateBonus", 0.0))
-	var crit := rng.randf() < crit_chance
+	var chance := crit_chance(actor, lady, crit_bonus)
+	var crit: bool = bool(planned_crit) if planned_crit != null else rng.randf() < chance
 	if actor_idx == PLAYER_INDEX and _pearl_crits(cp):
 		crit = true
 	if not forced.is_empty():
@@ -2550,7 +2580,7 @@ static func _strike(cp: Dictionary, actor_idx: int, target_idx: int, move_id: St
 		dmg *= 2
 	dmg = GameState.round_epsilon(dmg * anger_factor(actor, true))
 	_deal_damage(cp, actor_idx, target_idx, dmg, "chip" if guarded else "hit", move_id, beats, {
-		"roll": roll, "crit": crit, "guarded": guarded, "lady": lady, "critChance": crit_chance,
+		"roll": roll, "crit": crit, "guarded": guarded, "lady": lady, "critChance": chance,
 	})
 	_reflect_hit(cp, actor_idx, target_idx, move_id, beats)
 	_retaliate(cp, actor_idx, target_idx, rng, beats, free)

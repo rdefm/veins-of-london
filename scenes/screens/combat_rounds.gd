@@ -1046,7 +1046,8 @@ func _build_timeline_card(cp: Dictionary) -> Control:
 
 
 # An enemy intent: its move type, plus target and damage range under sight;
-# "?" while unread, and "→ ?" for a furious enemy's target.
+# "?" while unread, and "→ ?" for a furious enemy's target; a Fate Lens
+# crit flag (intent crit) appends lens.fateCritMark.
 static func _intent_text(cp: Dictionary, intent: Dictionary) -> String:
 	if intent.get("unread", false):
 		return UNREAD_TEXT
@@ -1057,6 +1058,8 @@ static func _intent_text(cp: Dictionary, intent: Dictionary) -> String:
 		text += " → %s" % CombatRounds.display_name(cp["combatants"][intent["target"]])
 	if intent.has("dmgMin"):
 		text += " (%d–%d)" % [intent["dmgMin"], intent["dmgMax"]]
+	if intent.get("crit", false):
+		text += str(GameData.DIAL_LENS["fateCritMark"])
 	return text
 
 
