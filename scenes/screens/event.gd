@@ -286,6 +286,11 @@ func _toggle_item_menu(anchor: Button) -> void:
 		var reveal := Observation.reveal_toggle()
 		if not reveal.is_empty() and reveal["held"]:
 			list.add_child(_build_reveal_toggle(reveal))
+		for ore in Observation.glimpse_ores():
+			var glimpse := UI.button(Lenses.glimpse_text("eventEntry") % String(ore).capitalize(), _on_glimpse_picked.bind(ore))
+			glimpse.name = "GlimpseEntry_%s" % ore
+			_style_action_button(glimpse)
+			list.add_child(glimpse)
 	var offer := Events.reveal_offer()
 	if not offer.is_empty():
 		var deja := UI.button(GameData.EVENT_CHECKS["revealButton"] % offer["name"], func(): _close_item_menu(); Events.reveal_card())
@@ -329,6 +334,18 @@ func _on_observe_picked() -> void:
 	if not _fade_options.is_empty():
 		_refresh()
 	_open_observation_sheet(rows)
+
+# Glimpse (R§1.4 Lenses): re-rolls one read ore, then shows the read.
+func _on_glimpse_picked(ore: String) -> void:
+	_close_item_menu()
+	var before := shown_options()
+	var result := Observation.glimpse(ore)
+	if not result["ok"]:
+		return
+	_fade_options = shown_options().filter(func(i: int) -> bool: return not before.has(i))
+	if not _fade_options.is_empty():
+		_refresh()
+	_open_observation_sheet(result["rows"])
 
 # Pick mode: the Observe sheet over the pick option's observation; a qualifying
 # row commits the option with that ore, closing without a pick commits nothing.

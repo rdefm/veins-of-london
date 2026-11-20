@@ -180,6 +180,9 @@ static func new_state() -> Dictionary:
 		# the fog rolls' own RNG state.
 		"fog": true,
 		"fogRngState": 0,
+		# Glimpse (R§1.4 Lenses): whether the player has it this fight, whether
+		# it's spent, and the enemy and round it reads (glimpse()).
+		"glimpseOffered": false, "glimpseUsed": false, "glimpseActor": -1, "glimpseRound": 0,
 		# Every resolved beat so far, oldest first (see _beat()).
 		"log": [],
 		# The fight's play-by-play, oldest first: the opening lines, each
@@ -294,6 +297,42 @@ static func has_lady(cp: Dictionary, combatant: Dictionary) -> bool:
 # Whether the player has Prophet's Breath sight this round.
 static func has_sight(cp: Dictionary) -> bool:
 	return int(cp["round"]) <= int(cp["combatants"][PLAYER_INDEX]["sightUntil"])
+
+
+# Whether the player's Glimpse reads enemy `actor`'s whole plan this round.
+static func has_glimpse(cp: Dictionary, actor: int) -> bool:
+	return bool(cp.get("glimpseUsed", false)) and int(cp.get("glimpseActor", -1)) == actor and int(cp.get("glimpseRound", 0)) == int(cp["round"])
+
+
+# Why the player can't Glimpse enemy `actor` now, or "": offered this fight
+# (glimpseOffered), not yet spent, at a player pause, on a living enemy, and
+# not in a countering fight (its plan only reads once resolved).
+static func glimpse_block_reason(cp: Dictionary, actor: int) -> String:
+	if not bool(cp.get("glimpseOffered", false)):
+		return Lenses.glimpse_text("reasonLocked") % Lenses.gate_level("glimpse")
+	if bool(cp.get("glimpseUsed", false)):
+		return Lenses.glimpse_text("reasonUsed")
+	if is_demo(cp) or decision_position(cp) < 0:
+		return Lenses.glimpse_text("reasonPause")
+	if actor < 0 or actor >= cp["combatants"].size() or cp["combatants"][actor]["side"] != SIDE_ENEMY or cp["combatants"][actor]["koed"]:
+		return Lenses.glimpse_text("reasonTarget")
+	if _counters(cp):
+		return Lenses.glimpse_text("reasonCounter")
+	return ""
+
+
+# Spends the fight's Glimpse on enemy `actor`: its whole plan reads this
+# round as under Prophet's Breath sight (enemy_intents(), is_read()). Free,
+# no pick and no snapshot; a Rewind to a frame before it gives it back.
+# Returns { ok } or { ok: false, reason }.
+static func glimpse(cp: Dictionary, actor: int) -> Dictionary:
+	var reason := glimpse_block_reason(cp, actor)
+	if reason != "":
+		return { "ok": false, "reason": reason }
+	cp["glimpseUsed"] = true
+	cp["glimpseActor"] = actor
+	cp["glimpseRound"] = int(cp["round"])
+	return { "ok": true }
 
 
 # Gives `combatant` Prophet's Breath sight and/or Be a Lady's max rolls,
@@ -1914,11 +1953,13 @@ static func _plan_of(cp: Dictionary, actor: int) -> Array:
 # whose pre-rolled crit lands adds crit: true while the player has
 # fateCritSight (Fate Lens combat sight); with emotionTargetSight (Emotion
 # Lens combat sight) every non-furious action carries its target, unread
-# ones too.
+# ones too. A Glimpse on `actor` reads this round's plan as under sight.
 static func enemy_intents(cp: Dictionary, actor: int, next_round: bool = false) -> Array:
 	var sight := has_sight(cp)
 	if next_round and not sight:
 		return []
+	if not next_round and has_glimpse(cp, actor):
+		sight = true
 	var emotion: bool = bool(cp["combatants"][PLAYER_INDEX].get("emotionTargetSight", false))
 	var result: Array = []
 	var plan: Array = cp["combatants"][actor]["nextPlan" if next_round else "plan"]
@@ -2005,7 +2046,7 @@ static func next_round_timeline(cp: Dictionary) -> Array:
 
 # Whether `viewer` (the player, or an ally's AI) can read `actor`'s action
 # `index` this round: always for the player and allies; for an enemy, unless
-# it rolled unread, while Prophet's Breath sight lasts, once the action has
+# it rolled unread, while Prophet's Breath sight lasts or a Glimpse is on it, once the action has
 # resolved, or where a status turn takes it; a countering fight's enemies
 # only once resolved. An ally reads all the player reads, plus an unread
 # action listing it in allyReads (its own Time Lens, _roll_fog()).
@@ -2016,7 +2057,7 @@ static func is_read(cp: Dictionary, actor: int, index: int, viewer: int = PLAYER
 	# A countering enemy's plan answers picks not yet made.
 	if _counters(cp):
 		return is_resolved(cp, actor, index)
-	if has_sight(cp):
+	if has_sight(cp) or has_glimpse(cp, actor):
 		return true
 	var plan: Array = combatant["plan"]
 	if index >= plan.size() or not plan[index].get("unread", false):

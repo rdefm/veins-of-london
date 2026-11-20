@@ -120,6 +120,19 @@
         "combat": "See who they're targeting."
       }
     },
+    "glimpse": {
+      "eventEntry": "Glimpse: %s",
+      "combatRow": "Glimpse: %s",
+      "combatRowNoTarget": "Glimpse",
+      "combatTooltip": "Once per fight, free: one enemy's whole plan, this round.",
+      "reasonLocked": "Needs Sense %d and a loaded Lens.",
+      "reasonUsed": "You've had your second look.",
+      "reasonNoLens": "No Lens of that ore loaded.",
+      "reasonUnread": "Nothing read there yet.",
+      "reasonTarget": "Tap an enemy to Glimpse.",
+      "reasonPause": "Wait for your move.",
+      "reasonCounter": "Their plan waits on yours. Nothing to see yet."
+    },
     "sharedEffects": {
       "glimpse": "Glimpse: once per event or fight, a second look.",
       "peripheral": "Lenses in your pocket still help, at half strength."

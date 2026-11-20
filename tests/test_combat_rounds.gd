@@ -3588,3 +3588,43 @@ func run() -> void:
 		var fold: Array = CombatRoundsScreen.beat_cues({ "kind": "wormhole", "actor": 1, "target": -1 })
 		assert_true(fold.any(func(c): return c["call"] == "vanish"), "wormhole still folds")
 	)
+
+	run_case("glimpse_reads_one_enemys_whole_plan_once_per_fight", func():
+		var gate := Lenses.gate_level("glimpse")
+		var start := func(sense: int, lens: bool) -> Dictionary:
+			GameState.reset()
+			if lens:
+				var dial: Dictionary = Dial.new_dial("collective_brolly")
+				dial["lenses"] = [{ "ore": "life", "tier": 1 }]
+				GameState.state["player"]["dial"] = dial
+			GameState.state["player"]["senseSkill"] = sense
+			return _start_vs([_slow_mugger(), _slow_mugger()], [[["strike", "strike"]], [["strike", "strike"]]], [], 1,
+				[[[true, true], [true, true]], [[true, true], [true, true]]])
+		var locked := Lenses.glimpse_text("reasonLocked") % gate
+		var combat: Dictionary = start.call(gate - 1, true)
+		var enemies: Array = CombatRounds.side_indices(combat, CombatRounds.SIDE_ENEMY)
+		assert_eq(CombatRounds.glimpse_block_reason(combat, enemies[0]), locked, "below the Sense gate")
+		combat = start.call(gate, false)
+		assert_eq(CombatRounds.glimpse_block_reason(combat, enemies[0]), locked, "no Lens loaded")
+		assert_true(not Combat.glimpse(enemies[0])["ok"], "refused")
+		combat = start.call(gate, true)
+		assert_eq(CombatRounds.glimpse_block_reason(combat, CombatRounds.PLAYER_INDEX), Lenses.glimpse_text("reasonTarget"), "only an enemy")
+		assert_true(CombatRounds.enemy_intents(combat, enemies[0])[0].get("unread", false), "unread before")
+		assert_true(Combat.glimpse(enemies[0])["ok"], "glimpsed")
+		var intents := CombatRounds.enemy_intents(combat, enemies[0])
+		for intent in intents:
+			assert_true(not intent.get("unread", false) and intent.has("target") and intent.has("dmgMin"), "whole plan reads as under sight")
+		assert_true(CombatRounds.is_read(combat, enemies[0], 1), "is_read on the glimpsed enemy")
+		assert_true(not CombatRounds.is_read(combat, enemies[1], 0), "the other enemy stays unread")
+		assert_eq(CombatRounds.enemy_intents(combat, enemies[0], true), [], "next round stays hidden")
+		assert_eq(CombatRounds.glimpse_block_reason(combat, enemies[1]), Lenses.glimpse_text("reasonUsed"), "once per fight")
+		assert_true(not Combat.glimpse(enemies[1])["ok"], "second refused")
+
+		combat = start.call(gate, true)
+		assert_true(Combat.choose_move(CombatRounds.MOVE_GUARD)["ok"], "a pick first")
+		assert_true(combat["outcome"] == null, "fight goes on")
+		assert_true(Combat.glimpse(enemies[0])["ok"], "glimpse after the pick")
+		assert_true(CombatRounds.rewind_pick(combat)["ok"], "rewind the pick")
+		assert_true(not bool(combat["glimpseUsed"]), "Rewind before the use gives it back")
+		assert_eq(CombatRounds.glimpse_block_reason(combat, enemies[0]), "", "usable again")
+	)

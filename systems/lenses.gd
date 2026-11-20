@@ -119,6 +119,18 @@ static func emotion_target_sight() -> bool:
 	return has("emotion") and sense_unlocked("combat")
 
 
+# Glimpse (R§1.4 Lenses): Sense >= senseGates.glimpse with at least one Lens
+# loaded. Player only. Once per event (Observation.glimpse()) and per fight
+# (CombatRounds.glimpse()).
+static func glimpse_ready() -> bool:
+	return not loaded().is_empty() and sense_unlocked("glimpse")
+
+
+# A Glimpse string from dial.json lens.glimpse.
+static func glimpse_text(key: String) -> String:
+	return str(GameData.DIAL_LENS["glimpse"][key])
+
+
 # Label for the Fate line in a mods breakdown.
 static func fate_label() -> String:
 	return str(GameData.DIAL_LENS["fateAllRollsLabel"])

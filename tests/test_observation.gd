@@ -546,3 +546,63 @@ func run() -> void:
 			assert_eq(with_variant[key], plain[key], "%s identical across variants" % key)
 		_cleanup()
 	)
+
+	run_case("glimpse_rerolls_one_lensed_read_ore_once_per_event", func():
+		var gate := Lenses.gate_level("glimpse")
+		var setup := func(sense: int) -> void:
+			GameState.reset()
+			GameState.state["player"]["inventory"]["rewind"] = { "1": 3 }
+			var dial: Dictionary = Dial.new_dial("collective_brolly")
+			dial["lenses"] = [{ "ore": "time", "tier": 1 }]
+			GameState.state["player"]["dial"] = dial
+			GameState.state["player"]["senseSkill"] = sense
+			var tiers := [
+				_tier("a", NEVER, 0.1, [{ "op": "add", "path": "player.cash", "value": 1 }]),
+				_tier("b", ALWAYS, 0.5, [{ "op": "add", "path": "player.cash", "value": 10 }]),
+			]
+			_install({ "o": { "blocks": {
+				"time": { "tiers": tiers, "miss": "m" },
+				"life": { "tiers": [_tier("l", ALWAYS)], "miss": "lm" },
+			} } }, [_card({ "observe": "o" }), _card(), _card()])
+		setup.call(gate - 1)
+		Observation.read()
+		assert_eq(Observation.glimpse_block_reason("time"), Lenses.glimpse_text("reasonLocked") % gate, "below the Sense gate")
+		assert_eq(Observation.glimpse_ores(), [], "nothing offered")
+		_cleanup()
+
+		setup.call(gate)
+		assert_eq(Observation.glimpse_block_reason("time"), Lenses.glimpse_text("reasonUnread"), "not before the read")
+		Observation.read()
+		assert_eq(Observation.glimpse_ores(), ["time"], "only the lensed ore")
+		assert_eq(Observation.glimpse_block_reason("life"), Lenses.glimpse_text("reasonNoLens"), "no Life Lens")
+		var stored: Dictionary = GameState.state["event"]["observations"]["o"]
+		stored["results"]["time"]["level"] = 2
+		stored["results"]["time"]["roll"] = 73
+		var life_before: Dictionary = stored["results"]["life"].duplicate(true)
+		var cash: int = GameState.state["player"]["cash"]
+		var result := Observation.glimpse("time")
+		assert_true(result["ok"], "glimpsed")
+		var by := _rows_by_ore(result["rows"])
+		assert_eq(by["time"]["level"], 2, "worse re-roll keeps the better level")
+		assert_true(by["time"]["rerolled"] and not by["time"]["improved"], "kept")
+		assert_eq(GameState.state["player"]["cash"], cash, "no effects for tiers already reached")
+		stored = GameState.state["event"]["observations"]["o"]
+		assert_eq(stored["results"]["life"], life_before, "other ores untouched")
+		assert_eq(stored["rollCount"], 2, "one roll")
+		assert_eq(Observation.glimpse_block_reason("time"), Lenses.glimpse_text("reasonUsed"), "once per event")
+		assert_true(not Observation.glimpse("time")["ok"], "second refused")
+		_cleanup()
+
+		setup.call(gate)
+		Observation.read()
+		Events.advance()
+		GameState.state["event"]["observations"]["o"]["results"]["time"]["level"] = 0
+		cash = GameState.state["player"]["cash"]
+		assert_true(Observation.glimpse("time")["ok"], "glimpse on a later card")
+		assert_eq(_rows_by_ore(Observation.rows("o"))["time"]["level"], 1, "better re-roll replaces")
+		assert_eq(GameState.state["player"]["cash"], cash + 10, "newly reached tier's effects run")
+		assert_true(Events.rewind()["ok"], "rewind")
+		assert_true(not GameState.state["event"].get("glimpseUsed", false), "Rewind before the use gives it back")
+		assert_eq(Observation.glimpse_block_reason("time"), "", "usable again")
+		_cleanup()
+	)

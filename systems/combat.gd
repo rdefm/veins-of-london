@@ -1000,6 +1000,7 @@ static func _start_round_combat(context: String, vein_id, enemies: Array, log_li
 		"dialRewindsPaid": 0,
 		"backdrop": { "context": context, "locationKey": location_key },
 		"fog": bool(config.get("fog", true)),
+		"glimpseOffered": Lenses.glimpse_ready(),
 		"transcript": log_lines.duplicate(),
 	}, true)
 	combat.merge(live, true)
@@ -1498,6 +1499,17 @@ static func _keep_paid(slots: Array, before: Array, used: Array, recipes: Array)
 			slots[i] = null
 			if not used.has(i):
 				used.append(i)
+
+
+# Spends the fight's Glimpse on enemy `actor` (CombatRounds.glimpse()).
+static func glimpse(actor: int) -> Dictionary:
+	var combat: Dictionary = GameState.state["combat"]
+	if not combat["active"]:
+		return { "ok": false, "reason": "Combat not active." }
+	var result := CombatRounds.glimpse(combat, actor)
+	if result["ok"]:
+		EventBus.mark_changed()
+	return result
 
 
 # Why the round fight's Rewind command can't run now, or "". `pay` is how it

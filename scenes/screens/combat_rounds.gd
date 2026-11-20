@@ -435,7 +435,7 @@ func _sync_fight(cp: Dictionary) -> void:
 		_dock.hide_deck()
 	elif skip_available(cp, _director.is_playing()):
 		_footer_holder.add_child(UI.button("Skip", _on_skip_pressed))
-		_dock.configure(moves, items, _move_row(cp, _LEG_IT), dial, _busy(), _pick_cast)
+		_dock.configure(moves, items, _move_row(cp, _LEG_IT), dial, _busy(), _pick_cast, _glimpse_rows(cp))
 	elif CombatRounds.is_demo(cp):
 		_dock.hide_deck()
 		_voiceover.offset_top = -dock_height
@@ -443,7 +443,7 @@ func _sync_fight(cp: Dictionary) -> void:
 		_voiceover_label.text = CombatRounds.demo_voiceover(cp)
 		_continue_button.disabled = _director.is_playing()
 	else:
-		_dock.configure(moves, items, _move_row(cp, _LEG_IT), dial, _busy(), _pick_cast)
+		_dock.configure(moves, items, _move_row(cp, _LEG_IT), dial, _busy(), _pick_cast, _glimpse_rows(cp))
 
 
 # Shows the carousel of `all_entries` (strip_entries() of `cp`) from the
@@ -945,6 +945,28 @@ func _loadout_rows(cp: Dictionary) -> Array:
 			"onExplain": _explain_block.bind(label, reason),
 		})
 	return rows
+
+
+# The Dial page's Glimpse row (R§1.4 Lenses) on the tapped enemy, disabled
+# with CombatRounds.glimpse_block_reason(); [] when the fight offers none.
+func _glimpse_rows(cp: Dictionary) -> Array:
+	if not bool(cp.get("glimpseOffered", false)):
+		return []
+	var target := _target if _is_target_valid(cp, _target) and cp["combatants"][_target]["side"] == CombatRounds.SIDE_ENEMY else -1
+	var reason := CombatRounds.glimpse_block_reason(cp, target)
+	var label := Lenses.glimpse_text("combatRow") % CombatRounds.display_name(cp["combatants"][target]) if target >= 0 else Lenses.glimpse_text("combatRowNoTarget")
+	return [{
+		"name": "GlimpseRow", "label": label,
+		"tooltip": Lenses.glimpse_text("combatTooltip"),
+		"disabled": reason != "", "disabledReason": reason,
+		"callback": _on_glimpse.bind(target),
+		"onExplain": _explain_block.bind(Lenses.glimpse_text("combatRowNoTarget"), reason),
+	}]
+
+
+func _on_glimpse(target: int) -> void:
+	if not _busy():
+		Combat.glimpse(target)
 
 
 # A coach-marked fight's allowed row gets a "▸" lead-in.

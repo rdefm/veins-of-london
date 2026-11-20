@@ -53,6 +53,8 @@ var _dial_selected_index: int = 0
 # The Dial cast (DialWidget's on_cast).
 var _on_dial_cast_callback: Callable = Callable()
 var _dial: Variant = null
+# Command rows under the Dial page's Complication readout (the Glimpse row).
+var _dial_rows: Array = []
 var _moves: Array = []
 var _items: Array = []
 var _leg_it: Dictionary = {}
@@ -116,10 +118,12 @@ func _init() -> void:
 # gets a "?" popover; a disabled row with an onExplain callable also gets a
 # red "!" calling it); `leg_it` is one such row, drawn as the menu's last
 # entry. The Dial page exists only when `dial` isn't null; `on_dial_cast`
-# (index) casts in place of the widget's own.
-func configure(moves: Array, items: Array, leg_it: Dictionary, dial: Variant = null, locked: bool = false, on_dial_cast: Callable = Callable()) -> void:
+# (index) casts in place of the widget's own; `dial_rows` are command rows
+# under its Complication readout.
+func configure(moves: Array, items: Array, leg_it: Dictionary, dial: Variant = null, locked: bool = false, on_dial_cast: Callable = Callable(), dial_rows: Array = []) -> void:
 	_locked = locked
 	_on_dial_cast_callback = on_dial_cast
+	_dial_rows = dial_rows
 	_moves = moves
 	_items = items
 	_leg_it = leg_it
@@ -228,7 +232,7 @@ func _rebuild() -> void:
 		var dial_row := UI.hbox(8)
 		UI.anchor_full_rect(dial_row)
 		dial_row.add_child(_build_dial_widget(_dial))
-		dial_row.add_child(_build_row_column(_build_complication_detail(_dial), []))
+		dial_row.add_child(_build_row_column(_build_complication_detail(_dial), _dial_rows))
 		_pages[VIEW_DIAL].add_child(dial_row)
 	_rebuild_menu()
 

@@ -126,6 +126,51 @@ static func is_armed() -> bool:
 	return id != "" and bool(_stored(id).get("armed", false))
 
 
+# ── Glimpse (R§1.4 Lenses, R§3.9d "Glimpse") ──
+
+# Ores of the observation in effect a Glimpse can re-roll now: read, with a
+# Lens of that ore loaded, while Lenses.glimpse_ready() and the event's
+# Glimpse is unspent (state.event.glimpseUsed). In oreOrder.
+static func glimpse_ores() -> Array:
+	var out: Array = []
+	var id := in_effect()
+	if id == "":
+		return out
+	for ore in GameData.OBSERVATION["oreOrder"]:
+		if _stored(id).get("results", {}).has(ore) and glimpse_block_reason(ore) == "":
+			out.append(ore)
+	return out
+
+
+# Why the player can't Glimpse `ore` of the observation in effect, or "".
+static func glimpse_block_reason(ore: String) -> String:
+	if not Lenses.glimpse_ready():
+		return Lenses.glimpse_text("reasonLocked") % Lenses.gate_level("glimpse")
+	var event_state: Variant = GameState.state["event"]
+	if event_state == null or bool(event_state.get("glimpseUsed", false)):
+		return Lenses.glimpse_text("reasonUsed")
+	if not Lenses.has(ore):
+		return Lenses.glimpse_text("reasonNoLens")
+	var id := in_effect()
+	if id == "" or not _stored(id).get("results", {}).has(ore):
+		return Lenses.glimpse_text("reasonUnread")
+	return ""
+
+
+# Spends the event's Glimpse re-rolling `ore` of the read in effect: the
+# Rewind re-roll's rules for that one ore (better level kept, Sense XP, tier
+# effects only for tiers newly reached); other ores and an armed flag stay.
+# Returns { ok, rows } or { ok: false, reason }.
+static func glimpse(ore: String) -> Dictionary:
+	var reason := glimpse_block_reason(ore)
+	if reason != "":
+		return { "ok": false, "reason": reason }
+	var id := in_effect()
+	GameState.state["event"]["glimpseUsed"] = true
+	_roll_all(id, ore)
+	return { "ok": true, "rows": rows(id) }
+
+
 # Re-arms every read observation of the live event for one more roll; returns
 # their ids. Called by Events.rewind() after the observations are carried over.
 static func rearm_read() -> Array:
@@ -511,7 +556,9 @@ static func _roll_value(id: String, ore: String, roll_count: int) -> float:
 	return Rng.stable_unit("%d|%s|%s|%s|%s|%d" % [int(GameState.state["world"]["rollSeed"]), event_state["eventId"], id, ore, Events.run_key(), roll_count])
 
 
-static func _roll_all(id: String) -> void:
+# Rolls every ore of observation `id`, or with `only_ore` just that one (the
+# rest keep their results, and an armed read stays armed).
+static func _roll_all(id: String, only_ore: String = "") -> void:
 	var def := _def(id)
 	var event_state: Dictionary = GameState.state["event"]
 	if not event_state.has("observations"):
@@ -524,6 +571,10 @@ static func _roll_all(id: String) -> void:
 	var tier_effects: Array = []
 	for ore in GameData.OBSERVATION["oreOrder"]:
 		if not def["blocks"].has(ore):
+			continue
+		if only_ore != "" and ore != only_ore:
+			if kept.has(ore):
+				results[ore] = kept[ore]
 			continue
 		var tiers: Array = def["blocks"][ore]["tiers"]
 		var mods := _mods(def, ore)
@@ -563,6 +614,8 @@ static func _roll_all(id: String) -> void:
 	event_state["observations"][id] = { "rollCount": roll_count + 1, "results": results }
 	if previous.get("wardRevealed", false):
 		event_state["observations"][id]["wardRevealed"] = true
+	if only_ore != "" and previous.get("armed", false):
+		event_state["observations"][id]["armed"] = true
 	Sense.award_xp(xp)
 	Events.apply_effects(tier_effects)
 
