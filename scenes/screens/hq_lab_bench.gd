@@ -1172,9 +1172,14 @@ func _add_result(content: VBoxContainer) -> void:
 		content.add_child(UI.label("The vessel cracked. No item, and the calc is lost."))
 		content.add_child(UI.muted_label("+%d XP" % _result["xp"]))
 	else:
-		if int(_result["ladyBonus"]) > 0:
-			# PROSE-REVIEW: Be A Lady score line.
-			content.add_child(UI.label("Score %d + %d (Lady) = %d → rank %d" % [_result["rawScore"], _result["ladyBonus"], _result["score"], _result["rank"]]))
+		if int(_result["ladyBonus"]) > 0 or int(_result.get("fateBonus", 0)) > 0:
+			# PROSE-REVIEW: Be A Lady / Fate Lens score line.
+			var line := "Score %d" % _result["rawScore"]
+			if int(_result["ladyBonus"]) > 0:
+				line += " + %d (Lady)" % _result["ladyBonus"]
+			if int(_result.get("fateBonus", 0)) > 0:
+				line += " + %d (%s)" % [_result["fateBonus"], Lenses.fate_label()]
+			content.add_child(UI.label("%s = %d → rank %d" % [line, _result["score"], _result["rank"]]))
 		else:
 			content.add_child(UI.label("Score %d → rank %d" % [_result["score"], _result["rank"]]))
 		# PROSE-REVIEW: run result lines.

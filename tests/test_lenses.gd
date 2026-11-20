@@ -209,6 +209,76 @@ func run() -> void:
 		assert_true(not Dial.swap_complication(0, "timePearl", 5)["ok"], "nothing at tier 5 to swap in")
 	)
 
+	run_case("fate_all_rolls_bonus_by_tier_per_owner", func():
+		_setup(2)
+		assert_almost_eq(Lenses.fate_all_rolls_bonus(), 0.0, 0.0001, "no lens, no bonus")
+		GameState.state["player"]["dial"]["lenses"] = [{ "ore": "time", "tier": 5 }]
+		assert_almost_eq(Lenses.fate_all_rolls_bonus(), 0.0, 0.0001, "another ore gives none")
+		var curve: Array = GameData.DIAL_LENS["fateAllRollsBonusByTier"]
+		for tier in range(1, 6):
+			GameState.state["player"]["dial"]["lenses"] = [{ "ore": "fate", "tier": tier }]
+			assert_almost_eq(Lenses.fate_all_rolls_bonus(), float(curve[tier]), 0.0001, "tier %d" % tier)
+		_give_contact_dial(2)
+		assert_almost_eq(Lenses.fate_all_rolls_bonus(CONTACT_ID), 0.0, 0.0001, "the player's lens is not the contact's")
+		GameState.state["contacts"][CONTACT_ID]["dial"]["lenses"] = [{ "ore": "fate", "tier": 2 }]
+		assert_almost_eq(Lenses.fate_all_rolls_bonus(CONTACT_ID), float(curve[2]), 0.0001, "contact's own lens")
+	)
+
+	run_case("fate_lens_adds_a_labelled_mod_to_checks_and_covers_inside_the_clamp", func():
+		_setup(1)
+		var check := { "base": 0.5, "mods": [] }
+		var plain := Events.odds_for(check)
+		assert_almost_eq(float(plain["probability"]), 0.5, 0.0001, "no lens")
+		assert_true(plain["mods"].is_empty(), "no Fate line without a lens")
+		GameState.state["player"]["dial"]["lenses"] = [{ "ore": "fate", "tier": 5 }]
+		var odds := Events.odds_for(check)
+		assert_almost_eq(float(odds["probability"]), 0.55, 0.0001, "+tier bonus")
+		assert_eq(odds["mods"].size(), 1, "one mod")
+		assert_eq(odds["mods"][0]["label"], Lenses.fate_label(), "labelled Fate Lens")
+		assert_almost_eq(float(Events.odds_for(check, [], false)["probability"]), 0.55, 0.0001, "cover rolls (lasting off) get it too")
+		var high := { "base": 0.94, "mods": [] }
+		assert_almost_eq(float(Events.odds_for(high)["probability"]), float(GameData.EVENT_CHECKS["defaultMax"]), 0.0001, "defaultMax still bounds it")
+		var boosted_max := float(GameData.EVENT_CHECKS["itemBoostedMax"])
+		assert_almost_eq(float(Events.odds_for({ "base": 0.95, "mods": [], "max": boosted_max })["probability"]), boosted_max, 0.0001, "itemBoostedMax still bounds it")
+	)
+
+	run_case("fate_lens_raises_craft_seed_and_lab_score", func():
+		_setup(1)
+		GameState.state["player"]["craftingSkill"] = 1
+		var lens_plain := Dial.lens_craft_chance(1)
+		var movement_plain := Dial.movement_craft_chance(Dial.MOVEMENT_ARCHETYPES[0], 1)
+		var lab_plain := Lab.fate_boosted_score(60)
+		GameState.state["player"]["dial"]["lenses"] = [{ "ore": "fate", "tier": 3 }]
+		assert_almost_eq(Dial.lens_craft_chance(1), lens_plain + 0.03, 0.0001, "lens craft +bonus")
+		assert_almost_eq(Dial.movement_craft_chance(Dial.MOVEMENT_ARCHETYPES[0], 1), movement_plain + 0.03, 0.0001, "movement craft +bonus")
+		assert_eq([lab_plain, Lab.fate_boosted_score(60), Lab.fate_boosted_score(99)], [60, 63, 100], "Lab score +3 points, capped at 100")
+		GameState.state["player"]["craftingSkill"] = 10
+		assert_almost_eq(Dial.lens_craft_chance(10), 0.95, 0.0001, "0.95 still caps craft chance")
+	)
+
+	run_case("fate_shifted_weights_moves_bonus_from_lowest_tiers_to_top", func():
+		var w := { "barren": 20.0, "poor": 30.0, "fair": 32.0, "rich": 14.0, "saturated": 4.0 }
+		assert_eq(Sites.fate_shifted_weights(w, 0.0), w, "no bonus, unchanged")
+		var shifted := Sites.fate_shifted_weights(w, 0.05)
+		assert_almost_eq(float(shifted["barren"]), 15.0, 0.0001, "barren gives up 5% of 100")
+		assert_almost_eq(float(shifted["saturated"]), 9.0, 0.0001, "saturated gains it")
+		assert_almost_eq(float(shifted["poor"]), 30.0, 0.0001, "middle untouched")
+		var thin := Sites.fate_shifted_weights({ "barren": 2.0, "poor": 48.0, "fair": 30.0, "rich": 16.0, "saturated": 4.0 }, 0.05)
+		assert_eq([float(thin["barren"]), float(thin["poor"]), float(thin["saturated"])], [0.0, 45.0, 9.0], "spills to the next tier up")
+		assert_almost_eq(float(w["barren"]), 20.0, 0.0001, "input not mutated")
+	)
+
+	run_case("fate_lens_raises_site_seed_chance_and_stacks_with_fate_attunement", func():
+		_setup(1)
+		var base := Sites.seed_success_chance(1, "poor")
+		GameState.state["player"]["dial"]["lenses"] = [{ "ore": "fate", "tier": 2 }]
+		var fate_bonus: float = float(GameData.DIAL_LENS["fateAllRollsBonusByTier"][2])
+		var attune: float = float(GameData.DIAL_ATTUNEMENT_BONUS_BY_TIER[2])
+		assert_almost_eq(Sites.seed_attempt_chance(1, "poor", "time"), minf(0.95, base + fate_bonus), 0.0001, "any ore +all-rolls bonus")
+		assert_almost_eq(Sites.seed_attempt_chance(1, "poor", "fate"), minf(0.95, base + fate_bonus + attune), 0.0001, "fate site stacks both")
+		assert_almost_eq(Sites.seed_attempt_chance(10, "saturated", "fate"), minf(0.95, Sites.seed_success_chance(10, "saturated") + fate_bonus + attune), 0.0001, "0.95 still bounds it")
+	)
+
 	run_case("effect_rows_lock_by_sense_for_player_and_collapse_for_contact", func():
 		_setup(1)
 		GameState.state["player"]["senseSkill"] = 2

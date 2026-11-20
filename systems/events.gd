@@ -872,6 +872,10 @@ static func odds_for(check: Dictionary, toggled: Array = [], lasting: bool = tru
 		if lady_delta != 0.0:
 			probability += lady_delta
 			applied.append({ "label": GameData.EVENT_CHECKS["ladyLabel"], "delta": lady_delta })
+	var fate_delta := Lenses.fate_all_rolls_bonus()
+	if fate_delta != 0.0:
+		probability += fate_delta
+		applied.append({ "label": Lenses.fate_label(), "delta": fate_delta })
 	for mod in check.get("mods", []):
 		if mod.has("effect") and mod["effect"].get("kind") == "autoSuccess" and toggled.has(mod.get("item", "")):
 			return { "probability": 1.0, "base": base, "mods": [{ "label": mod.get("label", ""), "delta": 1.0 - base }] }

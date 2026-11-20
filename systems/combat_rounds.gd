@@ -523,6 +523,15 @@ static func flee_chance(actor: Dictionary) -> float:
 	return float(level_effects("legIt")["chance"][move_level(actor, "legIt")])
 
 
+# The chance this Leg it rolls against: a pending Blast boost replaces the
+# level chance; the player then adds its Fate Lens fateBonus (max 1.0).
+static func leg_it_chance(actor_idx: int, actor: Dictionary) -> float:
+	var chance: float = float(actor["fleeBoost"]) if float(actor["fleeBoost"]) > 0.0 else flee_chance(actor)
+	if actor_idx == PLAYER_INDEX:
+		chance = minf(1.0, chance + float(actor.get("fateBonus", 0.0)))
+	return chance
+
+
 static func display_name(combatant: Dictionary) -> String:
 	if combatant["side"] == SIDE_PLAYER:
 		return "You"
@@ -656,6 +665,9 @@ static func new_combatant(side: String, name: String, level: int, hp: int, hp_ma
 		"invisibleUntil": 0,
 		# A Blast's one-use Leg it chance for the next Leg it (0.0 for none).
 		"fleeBoost": 0.0,
+		# Fate Lens all-rolls bonus on its own Dial (R§1.4 Lenses): added to
+		# its crit chance, and to the player's Leg it chance.
+		"fateBonus": 0.0,
 		# Pan statuses (R§3.7b Table 4), counted down on the combatant's own
 		# resolved actions: Panic and Pan's Rapture turns still to play, and
 		# Panger/Pandemonium's anger (angerPct either way; fury turns its
@@ -2226,10 +2238,9 @@ static func _resolve_action(cp: Dictionary, actor_idx: int, action: Dictionary, 
 			if target >= 0:
 				_stun(cp, actor_idx, _aim(cp, actor_idx, target), move_id, m, rng, beats)
 		EFFECT_FLEE:
-			var chance := flee_chance(actor)
+			var chance := leg_it_chance(actor_idx, actor)
 			var boosted: bool = float(actor["fleeBoost"]) > 0.0
 			if boosted:
-				chance = float(actor["fleeBoost"])
 				actor["fleeBoost"] = 0.0
 			# Before its Rewind a scripted fight's Leg it never gets away.
 			if rng.randf() < chance and not (actor_idx == PLAYER_INDEX and _script_pre(cp)):
@@ -2521,7 +2532,7 @@ static func _strike(cp: Dictionary, actor_idx: int, target_idx: int, move_id: St
 	var crit_chance: float = float(actor["ladyCrit"]) if lady else float(_data()["critChance"][actor["level"]])
 	if strike_level >= int(fx["critLevel"]):
 		crit_chance += float(fx["critBonus"])
-	crit_chance += crit_bonus
+	crit_chance += crit_bonus + float(actor.get("fateBonus", 0.0))
 	var crit := rng.randf() < crit_chance
 	if actor_idx == PLAYER_INDEX and _pearl_crits(cp):
 		crit = true

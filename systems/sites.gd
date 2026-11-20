@@ -165,7 +165,9 @@ static func better_tier(a: String, b: String) -> String:
 	return a if GameData.SITE_TIER_ORDER.find(a) >= GameData.SITE_TIER_ORDER.find(b) else b
 
 
-static func roll_tier(district_id: String) -> String:
+# fate_bonus (a prospect's Fate Lens all-rolls bonus): that share of the total
+# weight moves from the lowest tiers up to the top tier (fate_shifted_weights()).
+static func roll_tier(district_id: String, fate_bonus: float = 0.0) -> String:
 	var district: Dictionary = GameData.DISTRICTS[district_id]
 	var skill: int = GameState.state["player"]["cultivatingSkill"]
 	var weights := compute_tier_weights(district.get("siteQualityMod", 0.0), skill)
@@ -175,7 +177,7 @@ static func roll_tier(district_id: String) -> String:
 		weights["rich"] += 10
 		GameState.state["flags"]["greenwichTipOff"] = false
 
-	return roll_tier_from_weights(weights)
+	return roll_tier_from_weights(fate_shifted_weights(weights, fate_bonus))
 
 
 # Once a district is at siteCap, the site being rolled replaces land that's
@@ -186,8 +188,30 @@ static func compute_at_cap_tier_weights() -> Dictionary:
 	return _tier_weights_from_table(GameData.SITE_AT_CAP_TIER_WEIGHTS)
 
 
-static func roll_tier_at_cap() -> String:
-	return roll_tier_from_weights(compute_at_cap_tier_weights())
+static func roll_tier_at_cap(fate_bonus: float = 0.0) -> String:
+	return roll_tier_from_weights(fate_shifted_weights(compute_at_cap_tier_weights(), fate_bonus))
+
+
+# Moves `bonus` of the total weight to the top tier, taken from the lowest
+# tiers first (barren, then poor, ...), so the top tier's probability rises
+# by exactly `bonus` while weight is left to take. Returns a copy.
+static func fate_shifted_weights(weights: Dictionary, bonus: float) -> Dictionary:
+	var out := weights.duplicate()
+	if bonus <= 0.0:
+		return out
+	var order: Array = GameData.SITE_TIER_ORDER
+	var total := 0.0
+	for tier in order:
+		total += float(out[tier])
+	var left := bonus * total
+	for i in range(order.size() - 1):
+		var take := minf(left, float(out[order[i]]))
+		out[order[i]] = float(out[order[i]]) - take
+		out[order[-1]] = float(out[order[-1]]) + take
+		left -= take
+		if left <= 0.0:
+			break
+	return out
 
 
 # ── ore type roll (per district oreBias) ──────────────────────────────
@@ -341,9 +365,10 @@ static func _reroll_worst_unclaimed(district_id: String, forced_ore: String = ""
 # forced_ore (Des guaranteed find): the normal tier/ore rolls still run so the
 # Rng stream is unchanged, then the ore is overridden and the tier raised to fair.
 static func _create_site(district_id: String, at_cap: bool = false, forced_ore: String = "") -> Dictionary:
-	var tier := roll_tier_at_cap() if at_cap else roll_tier(district_id)
+	var fate := Lenses.fate_all_rolls_bonus()
+	var tier := roll_tier_at_cap(fate) if at_cap else roll_tier(district_id, fate)
 	if ActiveEffects.lady_active():
-		var second := roll_tier_at_cap() if at_cap else roll_tier(district_id)
+		var second := roll_tier_at_cap(fate) if at_cap else roll_tier(district_id, fate)
 		tier = better_tier(tier, second)
 	if forced_ore != "":
 		var min_tier: String = GameData.OBJECTIVES["col_a1_des_sites"]["params"]["minTier"]
@@ -406,6 +431,14 @@ static func spawn_unclaimed_site(district_id: String, tier: String, ore_type: St
 
 # ── seeding revamp ──────────────────────────────────────────────────────
 
+# The player's roll for seeding a site of `tier`/`ore_type`: seed_success_chance()
+# plus the Fate Lens all-rolls bonus and that ore's Lens attunement, under
+# apply_attunement()'s 0.95. A vein-seeding attempt has a real single ore type
+# (the site's), unlike Dial.attempt_seed()'s mixed five-ore-type cost (R§3.5).
+static func seed_attempt_chance(skill: int, tier: String, ore_type: String) -> float:
+	return Dial.apply_attunement(seed_success_chance(skill, tier) + Lenses.fate_all_rolls_bonus(), ore_type)
+
+
 static func seed_success_chance(skill: int, tier: String) -> float:
 	var tier_mod: float = GameData.SITE_SEED_TIER_MOD.get(tier, 0.0)
 	var lady_bonus: float = GameData.SITE_LADY_SEED_BONUS_PER_LEVEL * ActiveEffects.lady_level()
@@ -443,9 +476,7 @@ static func attempt_seed(site_id: String) -> Dictionary:
 	player["orichalchum"][ore_type] = have - GameData.SEED_ORE_COST
 
 	var skill: int = player["cultivatingSkill"]
-	# A vein-seeding attempt has a real single ore type (the site's), unlike
-	# Dial.attempt_seed()'s mixed five-ore-type cost (R§3.5), which has nothing for attunement to match against.
-	var success: bool = Rng.chance(Dial.apply_attunement(seed_success_chance(skill, site["tier"]), ore_type))
+	var success: bool = Rng.chance(seed_attempt_chance(skill, site["tier"], ore_type))
 
 	if success:
 		var district: String = site["district"]

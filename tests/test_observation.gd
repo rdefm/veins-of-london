@@ -95,6 +95,26 @@ func run() -> void:
 		_cleanup()
 	)
 
+	run_case("fate_lens_adds_a_labelled_mod_to_every_ore", func():
+		GameState.reset()
+		var dial: Dictionary = Dial.new_dial("collective_brolly")
+		dial["lenses"] = [{ "ore": "fate", "tier": 4 }]
+		GameState.state["player"]["dial"] = dial
+		var miss := { "tiers": [_tier("a", ALWAYS)], "miss": "m" }
+		_install({ "o": { "blocks": { "time": miss, "fate": miss } } }, [_card({ "observe": "o" })])
+		var rows := _rows_by_ore(Observation.read())
+		var bonus: float = float(GameData.DIAL_LENS["fateAllRollsBonusByTier"][4])
+		var attune: float = float(GameData.DIAL_ATTUNEMENT_BONUS_BY_TIER[4])
+		for ore in ["time", "fate"]:
+			var fate_mods: Array = rows[ore]["mods"].filter(func(m): return m["label"] == Lenses.fate_label())
+			assert_eq(fate_mods.size(), 1, "%s: one Fate Lens line" % ore)
+			assert_almost_eq(float(fate_mods[0]["delta"]), bonus, 0.0001, "%s: tier bonus" % ore)
+		var attune_mods: Array = rows["fate"]["mods"].filter(func(m): return m["label"] == GameData.OBSERVATION["attunementLabel"])
+		assert_almost_eq(float(attune_mods[0]["delta"]), attune, 0.0001, "fate ore also gets its attunement")
+		assert_true(not rows["time"]["mods"].any(func(m): return m["label"] == GameData.OBSERVATION["attunementLabel"]), "time gets no attunement")
+		_cleanup()
+	)
+
 	run_case("observation_replays_per_run_key_and_varies_by_day", func():
 		GameState.reset()
 		var obs := { "o": { "blocks": {} } }

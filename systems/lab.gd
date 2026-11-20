@@ -765,8 +765,10 @@ static func finish_run() -> Dictionary:
 	var scored := score_procedure(recipe_key, run["performed"])
 	var clues := notebook_clues(recipe_key, run["performed"])
 	_learn(recipe_key, clues)
-	var score := lady_boosted_score(int(scored["score"]))
-	var lady_bonus := score - clampi(int(scored["score"]), 0, 100)
+	var lady_score := lady_boosted_score(int(scored["score"]))
+	var lady_bonus := lady_score - clampi(int(scored["score"]), 0, 100)
+	var score := fate_boosted_score(lady_score)
+	var fate_bonus := score - lady_score
 	var rank := rank_for_score(score)
 	var prior_best := int(s["bestRanks"].get(recipe_key, 0))
 	var bonus := _roll_bonus(rank, prior_best)
@@ -792,7 +794,7 @@ static func finish_run() -> Dictionary:
 	_file(recipe_key, rank, extra_items, false, {}, 0)
 	var result := {
 		"ok": true, "recipe": recipe_key, "outcome": "finished", "score": score,
-		"rawScore": scored["score"], "ladyBonus": lady_bonus, "rank": rank,
+		"rawScore": scored["score"], "ladyBonus": lady_bonus, "fateBonus": fate_bonus, "rank": rank,
 		"items": 1 + extra_items, "xp": xp, "newBest": rank > prior_best, "steps": steps,
 		"clues": clues, "bonus": bonus if not bonus.is_empty() else null,
 		"refunded": refunded, "flavour": flavour, "insight": insight,
@@ -944,6 +946,12 @@ static func lady_boosted_score(raw: int) -> int:
 		return clampi(raw, 0, 100)
 	var pct: float = float(_data().get("ladyScorePctPerLevel", 0.0)) * int(effect["level"])
 	return clampi(roundi(raw * (1.0 + pct)), 0, 100)
+
+
+# A score after Be A Lady plus the Fate Lens all-rolls bonus as flat points
+# (bonus × 100: tier 1 +1 .. tier 5 +5), clamped 0..100.
+static func fate_boosted_score(score: int) -> int:
+	return clampi(score + roundi(Lenses.fate_all_rolls_bonus() * 100.0), 0, 100)
 
 
 # The active effects the bench's Use item control can start from the

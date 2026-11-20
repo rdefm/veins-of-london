@@ -25,6 +25,19 @@ static func has(ore: String, owner_id: String = "") -> bool:
 	return tier_for(ore, owner_id) > 0
 
 
+# A loaded Fate Lens's light bonus to every roll that Dial's owner makes
+# (R§1.4 Lenses): fateAllRollsBonusByTier at its tier, 0.0 with none. Each
+# roll's call site adds it before that roll's own clamp.
+static func fate_all_rolls_bonus(owner_id: String = "") -> float:
+	var curve: Array = GameData.DIAL_LENS["fateAllRollsBonusByTier"]
+	return float(curve[clampi(tier_for("fate", owner_id), 0, curve.size() - 1)])
+
+
+# Label for the Fate line in a mods breakdown.
+static func fate_label() -> String:
+	return str(GameData.DIAL_LENS["fateAllRollsLabel"])
+
+
 # Sense level a gate needs; 0 for "always" (no gate).
 static func gate_level(gate: String) -> int:
 	return int(GameData.DIAL_LENS["senseGates"].get(gate, 0))

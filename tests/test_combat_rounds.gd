@@ -59,6 +59,20 @@ func _start_with_allies(allies: Array, plan: Array, seed_value: int = 1, fog: bo
 	Combat._start_round_combat(Combat.CONTEXT_EVENT_MUGGING, null, [_mugger()], [], "", allies, null, config)
 
 
+# The crit chance one Strike from actor at an Open, sturdy target rolled against.
+func _strike_crit_chance(combat: Dictionary, actor_idx: int, target_idx: int) -> float:
+	combat["combatants"][target_idx]["hp"] = 1000
+	combat["combatants"][target_idx]["guard"] = CombatRounds.OPEN
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 1
+	var beats: Array = []
+	CombatRounds._strike(combat, actor_idx, target_idx, "strike", rng, beats)
+	for beat in beats:
+		if beat.has("critChance"):
+			return float(beat["critChance"])
+	return -1.0
+
+
 func _recruit(contact_id: String) -> void:
 	GameState.state["contacts"][contact_id]["recruited"] = true
 
@@ -1387,6 +1401,43 @@ func run() -> void:
 			assert_eq(ally["hp"], mini(power, int(ally["hpMax"])), "tier %d: revived at the tier's hp" % tier)
 			assert_eq(_first(beats, "revive")["amount"], ally["hp"])
 			assert_true(combat["combatants"][CombatRounds.PLAYER_INDEX]["loadout"][0]["used"], "spent")
+	)
+
+	run_case("fate_lens_adds_to_player_crit_and_leg_it_and_ally_crit_from_its_own_dial", func():
+		GameState.reset()
+		_recruit("james")
+		GameState.state["contacts"]["james"]["dial"] = Dial.new_dial("collective_brolly")
+		var player_dial: Dictionary = Dial.new_dial("collective_brolly")
+		player_dial["lenses"] = [{ "ore": "fate", "tier": 5 }]
+		GameState.state["player"]["dial"] = player_dial
+		_start_with_allies([_slow_james()], [["guard", "guard"]])
+		var combat: Dictionary = GameState.state["combat"]
+		var you: Dictionary = combat["combatants"][CombatRounds.PLAYER_INDEX]
+		var ally_idx: int = CombatRounds.side_indices(combat, CombatRounds.SIDE_ALLY).filter(func(i): return i != CombatRounds.PLAYER_INDEX)[0]
+		var ally: Dictionary = combat["combatants"][ally_idx]
+		var enemy_idx: int = CombatRounds.side_indices(combat, CombatRounds.SIDE_ENEMY)[0]
+		assert_almost_eq(float(you["fateBonus"]), 0.05, 0.0001, "player carries its Fate Lens bonus")
+		assert_almost_eq(float(ally["fateBonus"]), 0.0, 0.0001, "the player's Lens doesn't reach James")
+		assert_almost_eq(CombatRounds.leg_it_chance(CombatRounds.PLAYER_INDEX, you), CombatRounds.flee_chance(you) + 0.05, 0.0001, "Leg it +bonus")
+		you["fleeBoost"] = 0.99
+		assert_almost_eq(CombatRounds.leg_it_chance(CombatRounds.PLAYER_INDEX, you), 1.0, 0.0001, "Leg it capped at 1")
+		you["fleeBoost"] = 0.0
+		var crit_base := float(GameData.COMBAT_ROUNDS["critChance"][you["level"]])
+		assert_almost_eq(_strike_crit_chance(combat, CombatRounds.PLAYER_INDEX, enemy_idx), crit_base + 0.05, 0.0001, "player crit +bonus")
+		GameState.reset()
+		_recruit("james")
+		var james_dial: Dictionary = Dial.new_dial("collective_brolly")
+		james_dial["lenses"] = [{ "ore": "fate", "tier": 3 }]
+		GameState.state["contacts"]["james"]["dial"] = james_dial
+		_start_with_allies([_slow_james()], [["guard", "guard"]])
+		combat = GameState.state["combat"]
+		you = combat["combatants"][CombatRounds.PLAYER_INDEX]
+		ally = combat["combatants"][ally_idx]
+		assert_almost_eq(float(you["fateBonus"]), 0.0, 0.0001, "no player Lens, no player bonus")
+		assert_almost_eq(float(ally["fateBonus"]), 0.03, 0.0001, "James's own Fate Lens")
+		assert_almost_eq(CombatRounds.leg_it_chance(ally_idx, ally), CombatRounds.flee_chance(ally), 0.0001, "an ally's Leg it gets nothing")
+		var ally_base := float(GameData.COMBAT_ROUNDS["critChance"][ally["level"]])
+		assert_almost_eq(_strike_crit_chance(combat, ally_idx, enemy_idx), ally_base + 0.03, 0.0001, "ally crit +its bonus")
 	)
 
 	run_case("smelling_salts_never_targets_the_player_or_a_living_ally", func():

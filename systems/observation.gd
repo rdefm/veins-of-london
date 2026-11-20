@@ -458,7 +458,7 @@ static func _stored(id: String) -> Dictionary:
 
 # Σmods for one ore of an observation, as [{label, delta}] (zero deltas dropped):
 # Sense, the observation's own mods, then the kit (loaded-Lens ore-roll bonus,
-# Be A Lady, Prophet's Breath), then raid-factor mods.
+# Be A Lady, Fate Lens all-rolls bonus, Prophet's Breath), then raid-factor mods.
 static func _mods(def: Dictionary, ore: String) -> Array:
 	var out: Array = []
 	var sense: float = float(GameData.OBSERVATION["sensePerLevel"]) * (int(GameState.state["player"]["senseSkill"]) - 1)
@@ -468,6 +468,7 @@ static func _mods(def: Dictionary, ore: String) -> Array:
 		_add_mod(out, mod.get("label", ""), Events._mod_delta(mod))
 	_add_mod(out, GameData.OBSERVATION["attunementLabel"], Dial.attunement_bonus(ore))
 	_add_mod(out, GameData.EVENT_CHECKS["ladyLabel"], float(GameData.EVENT_CHECKS["ladyBonusPerLevel"]) * ActiveEffects.lady_level())
+	_add_mod(out, Lenses.fate_label(), Lenses.fate_all_rolls_bonus())
 	if ore == "time" and ActiveEffects.prophets_breath_active():
 		_add_mod(out, GameData.OBSERVATION["breathLabel"], float(GameData.OBSERVATION["breathBonus"]))
 	_add_mod(out, GameData.ACTIVE_EFFECTS[ActiveEffects.HAPPY_ACCIDENT]["label"], ActiveEffects.happy_observation_bonus())

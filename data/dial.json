@@ -68,6 +68,7 @@
     "xpReward": 30,
     "senseGates": { "world": 2, "combat": 3, "glimpse": 4, "peripheral": 5 },
     "fateAllRollsBonusByTier": [0, 0.01, 0.02, 0.03, 0.04, 0.05],
+    "fateAllRollsLabel": "Fate Lens",
     "fateRollRangeWidthByTier": [0, 40, 30, 20, 15, 10],
     "timeFogCutByTier": [0, 0.2, 0.3, 0.4, 0.5, 0.6],
     "physicsFlatByTier": [0, 1, 2, 3, 4, 5],

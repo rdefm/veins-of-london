@@ -159,8 +159,8 @@ const MOVEMENT_ARCHETYPES: Array[String] = GameData.CANONICAL_MOVEMENT_ARCHETYPE
 
 static func movement_craft_chance(archetype: String, skill: int) -> float:
 	var m: Dictionary = GameData.DIAL_MOVEMENTS[archetype]
-	# Same shape as Crafting.craft_chance(), keyed off the Movement's own baseSuccess.
-	return min(0.95, m["baseSuccess"] + (skill - 1) * 0.13 + Home.get_workshop_bonus())
+	# Same shape as Crafting.craft_chance(), keyed off the Movement's own baseSuccess, plus the Fate Lens all-rolls bonus.
+	return min(0.95, m["baseSuccess"] + (skill - 1) * 0.13 + Home.get_workshop_bonus() + Lenses.fate_all_rolls_bonus())
 
 
 # Total calc a Movement attempt costs, same shape as Crafting.calc_cost().
@@ -393,7 +393,7 @@ static func lens_slots(level: int) -> int:
 
 static func lens_craft_chance(skill: int) -> float:
 	# Same shape as movement_craft_chance(), keyed off the lens block's baseSuccess.
-	return min(0.95, GameData.DIAL_LENS["baseSuccess"] + (skill - 1) * 0.13 + Home.get_workshop_bonus())
+	return min(0.95, GameData.DIAL_LENS["baseSuccess"] + (skill - 1) * 0.13 + Home.get_workshop_bonus() + Lenses.fate_all_rolls_bonus())
 
 
 # Same shape as movement_calc_cost(): calc of the lens ore.
