@@ -2398,7 +2398,7 @@ func run() -> void:
 		GameState.reset()
 		_recruit("james")
 		Dial.grant_contact_dial("james")
-		var recharge := { "archetype": "recharge", "oreType": "time", "tier": 5 }
+		var recharge := { "archetype": "recharge", "tier": 5 }
 		var james_dial: Dictionary = Dial.dial_of("james")
 		james_dial["movement"] = recharge.duplicate()
 		james_dial["currentCharge"] = 0

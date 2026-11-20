@@ -274,11 +274,10 @@ func run() -> void:
 		assert_true(not result["ok"], "should refuse an unknown vein id")
 	)
 
-	# ── dial-device ticket 02 / cultivation-refining ticket 03: the seated ──
-	# Movement's attunement bonus no longer shifts a success chance (cultivate
-	# has none); it now multiplies the rolled gain by (1 + bonus) instead.
+	# A loaded Lens's ore-roll bonus multiplies the rolled gain by (1 + bonus)
+	# (cultivate has no chance to shift).
 
-	run_case("cultivate_gain_gets_a_matching_seated_movements_attunement_bonus", func():
+	run_case("cultivate_gain_gets_a_matching_loaded_lens_attunement_bonus", func():
 		for seed in range(50):
 			GameState.reset()
 			GameState.state["player"]["cultivatingSkill"] = 1
@@ -289,7 +288,7 @@ func run() -> void:
 			GameState.reset()
 			GameState.state["player"]["cultivatingSkill"] = 1
 			GameState.state["player"]["veins"] = [_vein(20)]
-			GameState.state["player"]["dial"] = { "level": 1, "xp": 0, "currentCharge": 0, "maxCharge": 0, "rechargeRate": 0, "capacityMax": 0, "movement": { "archetype": "impact", "oreType": "time", "tier": 5 }, "loadedComplications": [], "haftId": "collective_brolly" }
+			GameState.state["player"]["dial"] = { "level": 1, "xp": 0, "currentCharge": 0, "maxCharge": 0, "rechargeRate": 0, "capacityMax": 0, "movement": null, "loadedComplications": [], "lenses": [{ "ore": "time", "tier": 5 }], "haftId": "collective_brolly" }
 			Rng.set_seed(seed)
 			var with_attunement := Cultivating.cultivate("test_vein")
 
@@ -307,11 +306,11 @@ func run() -> void:
 			GameState.reset()
 			GameState.state["player"]["cultivatingSkill"] = 1
 			GameState.state["player"]["veins"] = [_vein(20)]
-			GameState.state["player"]["dial"] = { "level": 1, "xp": 0, "currentCharge": 0, "maxCharge": 0, "rechargeRate": 0, "capacityMax": 0, "movement": { "archetype": "impact", "oreType": "physics", "tier": 5 }, "loadedComplications": [], "haftId": "collective_brolly" }
+			GameState.state["player"]["dial"] = { "level": 1, "xp": 0, "currentCharge": 0, "maxCharge": 0, "rechargeRate": 0, "capacityMax": 0, "movement": null, "loadedComplications": [], "lenses": [{ "ore": "physics", "tier": 5 }], "haftId": "collective_brolly" }
 			Rng.set_seed(seed)
 			var mismatched := Cultivating.cultivate("test_vein")
 
-			assert_eq(mismatched["gain"], without["gain"], "seed %d: a mismatched-ore-type Movement must not change the gain" % seed)
+			assert_eq(mismatched["gain"], without["gain"], "seed %d: a mismatched-ore Lens must not change the gain" % seed)
 	)
 
 	# ── prune (spec §2.4, §11 item 3) ──────────────────────────────────

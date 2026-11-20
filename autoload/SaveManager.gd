@@ -4,7 +4,7 @@ extends Node
 # autosaves. autosave() is called from daily_tick, exit_combat, event
 # completion, and every successful cash purchase.
 
-const SAVE_VERSION := 16
+const SAVE_VERSION := 17
 # Oldest save version still loadable; older saves are refused.
 const MIN_SUPPORTED_VERSION := 16
 const SLOT_COUNT := 3
@@ -464,16 +464,38 @@ func _check_save_version(save: Dictionary) -> Dictionary:
 # Ordered, reusable migration hook: runs a per-version step for every version
 # N from the save's own up to SAVE_VERSION - 1, then stamps SAVE_VERSION. A
 # schema change that can be migrated adds one `match` arm; v16 (muscle) broke
-# compatibility, so no arms exist and everything older is refused.
+# compatibility, so everything older is refused.
 func _migrate_versions(save: Dictionary) -> void:
 	var meta: Dictionary = save.get("meta", {})
 	var version: int = int(meta.get("saveVersion", SAVE_VERSION))
 	for from_version in range(version, SAVE_VERSION):
 		match from_version:
+			16:
+				_drop_dials(save)
 			_:
 				pass
 	meta["saveVersion"] = SAVE_VERSION
 	save["meta"] = meta
+
+
+# v16 -> v17 (R§6): Movements carry no ore, so every Dial, contact Dial and
+# crafted Movement in the save is set to null / [] with no refund. Recurses
+# into event snapshots so an event Rewind restores no Dial either.
+func _drop_dials(state: Dictionary) -> void:
+	var player: Variant = state.get("player")
+	if player is Dictionary:
+		player["dial"] = null
+		player["movementInventory"] = []
+	var contacts: Variant = state.get("contacts")
+	if contacts is Dictionary:
+		for contact in contacts.values():
+			if contact is Dictionary and contact.has("dial"):
+				contact["dial"] = null
+	var event: Variant = state.get("event")
+	if event is Dictionary:
+		for snap in event.get("snapshots", []):
+			if snap is Dictionary:
+				_drop_dials(snap)
 
 
 # Fills any missing TOP-LEVEL keys from a fresh new_game_state() (R§6:

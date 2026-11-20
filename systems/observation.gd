@@ -457,7 +457,7 @@ static func _stored(id: String) -> Dictionary:
 
 
 # Σmods for one ore of an observation, as [{label, delta}] (zero deltas dropped):
-# Sense, the observation's own mods, then the kit (seated Movement attunement,
+# Sense, the observation's own mods, then the kit (loaded-Lens ore-roll bonus,
 # Be A Lady, Prophet's Breath), then raid-factor mods.
 static func _mods(def: Dictionary, ore: String) -> Array:
 	var out: Array = []

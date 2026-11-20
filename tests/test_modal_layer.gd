@@ -717,13 +717,13 @@ func run() -> void:
 		GameState.reset()
 		var player: Dictionary = GameState.state["player"]
 		player["dial"] = Dial.new_dial(GameData.DIAL_HAFTS.keys()[0])
-		player["movementInventory"] = [{ "archetype": "recharge", "oreType": "time", "tier": 1 }]
+		player["movementInventory"] = [{ "archetype": "recharge", "tier": 1 }]
 
 		Modal.open("movement_swap")
 		var layer := ModalLayer.new()
 		layer._ready()
 
-		_find_cost_button(layer, "↻Recharge Movement — attuned time, tier 1").pressed.emit()
+		_find_cost_button(layer, "↻Recharge Movement — tier 1").pressed.emit()
 
 		assert_eq(GameState.state["player"]["dial"]["movement"]["archetype"], "recharge", "movement_swap's row should seat via Dial.seat_movement")
 		assert_eq(GameState.state["player"]["movementInventory"], [], "the seated Movement should leave movementInventory")
@@ -759,7 +759,7 @@ func run() -> void:
 		GameState.reset()
 		var player: Dictionary = GameState.state["player"]
 		player["dial"] = Dial.new_dial(GameData.DIAL_HAFTS.keys()[0])
-		player["movementInventory"] = [{ "archetype": "recharge", "oreType": "time", "tier": 1 }]
+		player["movementInventory"] = [{ "archetype": "recharge", "tier": 1 }]
 
 		Modal.open("movement_swap")
 		var layer := ModalLayer.new()
@@ -838,7 +838,7 @@ func run() -> void:
 	# calc_cost/movement_craft_chance take the archetype and skill, not the
 	# ore type) move from that card's single label into a per-row label here.
 
-	run_case("movement_craft_modal_shows_the_archetypes_description_and_all_5_calc_types_with_cost_and_chance", func():
+	run_case("movement_craft_modal_shows_the_archetypes_description_five_ore_cost_and_chance", func():
 		GameState.reset()
 		GameState.state["player"]["craftingSkill"] = 1
 		Modal.open("movement_craft", { "archetype": "impact" })
@@ -847,92 +847,90 @@ func run() -> void:
 		layer._ready()
 
 		var m: Dictionary = GameData.DIAL_MOVEMENTS["impact"]
-		assert_true(NodeQuery.label_texts_with_symbols(layer).has(m["description"]), "the archetype's effect description renders in the modal")
-
-		var cost: int = Dial.movement_calc_cost("impact", 1)
-		var chance_pct: int = int(round(Dial.movement_craft_chance("impact", 1) * 100))
+		var texts: Array = NodeQuery.label_texts_with_symbols(layer)
+		assert_true(texts.has(m["description"]), "the archetype's effect description renders in the modal")
+		var cost: int = Dial.movement_calc_cost_per_ore("impact", 1)
+		var expected := "Costs"
 		for ore_type in GameData.ORE_TYPES.keys():
-			var ore: Dictionary = GameData.ORE_TYPES[ore_type]
-			var expected := "%s%s — %d calc, chance %d%%" % [ore["symbol"], ore["name"], cost, chance_pct]
-			assert_true(_find_cost_button(layer, expected) != null, "%s row must show its cost and chance" % ore_type)
+			expected += " %d %s" % [cost, GameData.ORE_TYPES[ore_type]["symbol"]]
+		assert_true(texts.has(expected), "the cost row lists every ore at the per-ore cost")
+		var chance_pct: int = int(round(Dial.movement_craft_chance("impact", 1) * 100))
+		var button := _find_cost_button(layer, "Craft — chance %d%%" % chance_pct)
+		assert_true(button != null and button.disabled, "Craft shows its chance and is disabled without the calc")
 
 		layer.free()
 	)
 
-	run_case("selecting_a_calc_type_in_the_movement_craft_modal_performs_the_same_craft_attempt_the_old_direct_button_did", func():
+	run_case("craft_in_the_movement_craft_modal_spends_every_ore_and_closes", func():
 		GameState.reset()
 		GameState.state["player"]["craftingSkill"] = 1
-		GameState.state["player"]["orichalchum"]["time"] = 999
+		for ore in GameData.ORE_TYPES:
+			GameState.state["player"]["orichalchum"][ore] = 999
 		Modal.open("movement_craft", { "archetype": "impact" })
 
 		var layer := ModalLayer.new()
 		layer._ready()
 
-		var cost: int = Dial.movement_calc_cost("impact", 1)
+		var cost: int = Dial.movement_calc_cost_per_ore("impact", 1)
 		var chance_pct: int = int(round(Dial.movement_craft_chance("impact", 1) * 100))
-		var ore: Dictionary = GameData.ORE_TYPES["time"]
-		var button := _find_cost_button(layer, "%s%s — %d calc, chance %d%%" % [ore["symbol"], ore["name"], cost, chance_pct])
-		assert_true(button != null, "time row must be present")
+		var button := _find_cost_button(layer, "Craft — chance %d%%" % chance_pct)
+		assert_true(button != null and not button.disabled, "Craft is enabled with the calc")
 		button.pressed.emit()
 		EventBus.flush_now()
 
-		assert_eq(GameState.state["player"]["orichalchum"]["time"], 999 - cost, "calc is spent on the attempt regardless of outcome, same as Dial.attempt_craft_movement always did")
+		for ore in GameData.ORE_TYPES:
+			assert_eq(GameState.state["player"]["orichalchum"][ore], 999 - cost, "%s spent on the attempt regardless of outcome" % ore)
 		assert_eq(GameState.state["modal"], null, "the modal closes once the attempt resolves")
 
 		layer.free()
 	)
 
-	run_case("a_successful_movement_craft_via_the_modal_lands_the_movement_in_inventory_same_as_the_old_direct_button_flow", func():
+	run_case("a_successful_movement_craft_via_the_modal_lands_the_movement_in_inventory", func():
 		var seed := -1
 		for candidate in range(200):
 			GameState.reset()
 			GameState.state["player"]["craftingSkill"] = 5
-			GameState.state["player"]["orichalchum"]["physics"] = 1000
+			for ore in GameData.ORE_TYPES:
+				GameState.state["player"]["orichalchum"][ore] = 1000
 			Modal.open("movement_craft", { "archetype": "capacitor" })
 
 			var layer := ModalLayer.new()
 			layer._ready()
-			var cost: int = Dial.movement_calc_cost("capacitor", 5)
 			var chance_pct: int = int(round(Dial.movement_craft_chance("capacitor", 5) * 100))
-			var ore: Dictionary = GameData.ORE_TYPES["physics"]
-			var button := _find_cost_button(layer, "%s%s — %d calc, chance %d%%" % [ore["symbol"], ore["name"], cost, chance_pct])
+			var button := _find_cost_button(layer, "Craft — chance %d%%" % chance_pct)
 			Rng.set_seed(candidate)
 			button.pressed.emit()
 			EventBus.flush_now()
 			layer.free()
 
-			var inventory: Array = GameState.state["player"]["movementInventory"]
-			if inventory.size() == 1:
+			if GameState.state["player"]["movementInventory"].size() == 1:
 				seed = candidate
 				break
 		assert_true(seed != -1, "should find a successful Movement craft within 200 tries")
 
 		var inventory: Array = GameState.state["player"]["movementInventory"]
-		assert_eq(inventory[0]["archetype"], "capacitor", "archetype matches what was picked in the modal")
-		assert_eq(inventory[0]["oreType"], "physics", "the calc type picked in the modal becomes the Movement's attunement")
-		assert_eq(inventory[0]["tier"], 5, "tier is set from crafting skill at craft time, unchanged from the old direct-button flow")
+		assert_eq(inventory[0], { "archetype": "capacitor", "tier": 5 }, "archetype as picked, tier from crafting skill, no ore")
 
 		var notifications: Array = GameState.state["notifications"]
 		var last: Dictionary = notifications[notifications.size() - 1]
 		var m: Dictionary = GameData.DIAL_MOVEMENTS["capacitor"]
-		assert_eq(last["text"], "Movement crafted: %s (tier %d)." % [m["name"], 5], "same success notification text the old direct-button flow pushed")
-		assert_eq(last["category"], Notify.CATEGORY_SUCCESS, "same success category the old direct-button flow pushed")
+		assert_eq(last["text"], "Movement crafted: %s (tier %d)." % [m["name"], 5], "success notification")
+		assert_eq(last["category"], Notify.CATEGORY_SUCCESS, "success category")
 	)
 
-	run_case("a_failed_movement_craft_via_the_modal_gives_the_same_failure_feedback_the_old_direct_button_flow_did", func():
+	run_case("a_failed_movement_craft_via_the_modal_gives_failure_feedback", func():
 		var seed := -1
 		for candidate in range(200):
 			GameState.reset()
 			GameState.state["player"]["craftingSkill"] = 1
-			GameState.state["player"]["orichalchum"]["time"] = 1000
+			for ore in GameData.ORE_TYPES:
+				GameState.state["player"]["orichalchum"][ore] = 1000
 			Modal.open("movement_craft", { "archetype": "impact" })
 
 			var layer := ModalLayer.new()
 			layer._ready()
-			var cost: int = Dial.movement_calc_cost("impact", 1)
 			var chance_pct: int = int(round(Dial.movement_craft_chance("impact", 1) * 100))
-			var ore: Dictionary = GameData.ORE_TYPES["time"]
-			var button := _find_cost_button(layer, "%s%s — %d calc, chance %d%%" % [ore["symbol"], ore["name"], cost, chance_pct])
+			var button := _find_cost_button(layer, "Craft — chance %d%%" % chance_pct)
 			Rng.set_seed(candidate)
 			button.pressed.emit()
 			EventBus.flush_now()
@@ -943,12 +941,12 @@ func run() -> void:
 				break
 		assert_true(seed != -1, "should find a failed Movement craft within 200 tries")
 
-		assert_eq(GameState.state["player"]["movementInventory"], [], "a failed craft leaves no partial Movement in inventory, unchanged from the old direct-button flow")
+		assert_eq(GameState.state["player"]["movementInventory"], [], "a failed craft leaves no partial Movement in inventory")
 
 		var notifications: Array = GameState.state["notifications"]
 		var last: Dictionary = notifications[notifications.size() - 1]
-		assert_eq(last["text"], "Movement-crafting failed — calc spent, no Movement gained.", "same failure notification text the old direct-button flow pushed")
-		assert_eq(last["category"], Notify.CATEGORY_DANGER, "same failure category the old direct-button flow pushed")
+		assert_eq(last["text"], "Movement-crafting failed — calc spent, no Movement gained.", "failure notification")
+		assert_eq(last["category"], Notify.CATEGORY_DANGER, "failure category")
 	)
 
 	# ── hq-diorama ticket 02: HQ zone destination modals ───────────────────

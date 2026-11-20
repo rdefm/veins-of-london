@@ -1128,10 +1128,10 @@ func run() -> void:
 
 	# ── James's ally Dial (constants.json contacts.james.grantDial) ──────
 
-	run_case("ally_dial_movement_does_not_feed_player_attunement", func():
+	run_case("ally_dial_lens_does_not_feed_player_attunement", func():
 		_james_ally()
-		assert_eq(GameState.state["contacts"]["james"]["dial"]["movement"]["oreType"], "time")
-		assert_eq(Dial.attunement_bonus("time"), 0.0, "player has no Dial -- James's Movement attunes nothing for them")
+		assert_eq(Lenses.tier_for("time", "james"), 1)
+		assert_eq(Dial.attunement_bonus("time"), 0.0, "player has no Dial -- James's Lens attunes nothing for them")
 	)
 
 

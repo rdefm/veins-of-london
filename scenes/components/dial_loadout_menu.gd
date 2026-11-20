@@ -37,13 +37,18 @@ static func build(owner_id: String = "", with_complication_rows: bool = true) ->
 	var movement: Variant = dial["movement"]
 	if movement != null:
 		var m: Dictionary = GameData.DIAL_MOVEMENTS[movement["archetype"]]
-		content.add_child(UI.symbol_row([{ "symbol": m["symbol"], "fallback": SymbolGlyph.generic_fallback() }, "%s (seated) — attuned %s, tier %d" % [m["name"], movement["oreType"], movement["tier"]]]))
+		content.add_child(UI.symbol_row([{ "symbol": m["symbol"], "fallback": SymbolGlyph.generic_fallback() }, "%s (seated) — tier %d" % [m["name"], movement["tier"]]]))
 		content.add_child(MapCardStyle.text_button("Unseat", func(): Dial.unseat_movement(owner_id)))
 		var cost: int = Dial.winding_cost_per_charge(movement["archetype"], movement["tier"])
-		var have: int = player["orichalchum"].get(movement["oreType"], 0)
-		var wind_button := MapCardStyle.symbol_text_button(["Wind +1 (%d " % cost, { "symbol": GameData.ORE_TYPES[movement["oreType"]]["symbol"], "fallback": SymbolGlyph.ore_fallback(movement["oreType"]) }, ")"], func(): Dial.wind(1, owner_id), dial["currentCharge"] >= dial["maxCharge"] or have < cost)
-		wind_button.custom_minimum_size = Vector2(0, ROW_HEIGHT)
-		content.add_child(wind_button)
+		var lenses: Array = Lenses.loaded(owner_id)
+		if lenses.is_empty():
+			content.add_child(UI.muted_label("No Lens loaded — nothing to wind with."))
+		for lens in lenses:
+			var ore: String = lens["ore"]
+			var have: int = player["orichalchum"].get(ore, 0)
+			var wind_button := MapCardStyle.symbol_text_button(["Wind +1 (%d " % cost, { "symbol": GameData.ORE_TYPES[ore]["symbol"], "fallback": SymbolGlyph.ore_fallback(ore) }, ")"], func(): Dial.wind(1, owner_id, ore), dial["currentCharge"] >= dial["maxCharge"] or have < cost)
+			wind_button.custom_minimum_size = Vector2(0, ROW_HEIGHT)
+			content.add_child(wind_button)
 	else:
 		content.add_child(UI.muted_label("No Movement seated — the Dial is inert."))
 

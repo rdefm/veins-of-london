@@ -232,7 +232,7 @@ func run() -> void:
 
 	run_case("observation_kit_mods_attunement_lady_breath_items", func():
 		GameState.reset()
-		GameState.state["player"]["dial"] = { "movement": { "oreType": "life", "tier": 3 } }
+		GameState.state["player"]["dial"] = { "movement": null, "lenses": [{ "ore": "life", "tier": 3 }] }
 		GameState.state["player"]["activeEffects"] = [
 			{ "item": ActiveEffects.LADY, "level": 2, "expiresAtBlock": 999 },
 			{ "item": ActiveEffects.PROPHETS_BREATH, "level": 1, "expiresAtBlock": 999 },

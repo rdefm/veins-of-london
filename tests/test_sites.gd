@@ -645,9 +645,9 @@ func run() -> void:
 		assert_eq(natural_bonuses, ["vigour", "wildCeiling", "yield"], "mutating the seeded vein's bonuses must not leak into the sibling natural vein")
 	)
 
-	# ── dial-device ticket 02: seated-Movement attunement bonus ─────────
+	# ── loaded-Lens ore-roll bonus ─────────
 
-	run_case("attempt_seed_gets_a_matching_seated_movements_attunement_bonus", func():
+	run_case("attempt_seed_gets_a_matching_loaded_lens_attunement_bonus", func():
 		var flipped := false
 		for seed in range(500):
 			GameState.reset()
@@ -661,7 +661,7 @@ func run() -> void:
 			GameState.state["world"]["sites"] = [_make_site("s1", "shoreditch", "fair", 1, false, false, "time")]
 			GameState.state["player"]["orichalchum"]["time"] = 1000
 			GameState.state["player"]["cultivatingSkill"] = 1
-			GameState.state["player"]["dial"] = { "level": 1, "xp": 0, "currentCharge": 0, "maxCharge": 0, "rechargeRate": 0, "capacityMax": 0, "movement": { "archetype": "impact", "oreType": "time", "tier": 5 }, "loadedComplications": [], "haftId": "collective_brolly" }
+			GameState.state["player"]["dial"] = { "level": 1, "xp": 0, "currentCharge": 0, "maxCharge": 0, "rechargeRate": 0, "capacityMax": 0, "movement": null, "loadedComplications": [], "lenses": [{ "ore": "time", "tier": 5 }], "haftId": "collective_brolly" }
 			Rng.set_seed(seed)
 			var with_attunement := Sites.attempt_seed("s1")
 
@@ -684,11 +684,11 @@ func run() -> void:
 			GameState.state["world"]["sites"] = [_make_site("s1", "shoreditch", "fair", 1, false, false, "time")]
 			GameState.state["player"]["orichalchum"]["time"] = 1000
 			GameState.state["player"]["cultivatingSkill"] = 1
-			GameState.state["player"]["dial"] = { "level": 1, "xp": 0, "currentCharge": 0, "maxCharge": 0, "rechargeRate": 0, "capacityMax": 0, "movement": { "archetype": "impact", "oreType": "physics", "tier": 5 }, "loadedComplications": [], "haftId": "collective_brolly" }
+			GameState.state["player"]["dial"] = { "level": 1, "xp": 0, "currentCharge": 0, "maxCharge": 0, "rechargeRate": 0, "capacityMax": 0, "movement": null, "loadedComplications": [], "lenses": [{ "ore": "physics", "tier": 5 }], "haftId": "collective_brolly" }
 			Rng.set_seed(seed)
 			var mismatched := Sites.attempt_seed("s1")
 
-			assert_eq(mismatched["success"], without["success"], "seed %d: a mismatched-ore-type Movement must not change the outcome" % seed)
+			assert_eq(mismatched["success"], without["success"], "seed %d: a mismatched-ore Lens must not change the outcome" % seed)
 	)
 
 	# ── NPC claim curve (adr/0002, retuned by bugfixes-73/adr/0004) ──

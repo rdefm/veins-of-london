@@ -829,7 +829,7 @@ func run() -> void:
 		player["dial"] = {
 			"level": 1, "xp": 0, "currentCharge": 5, "maxCharge": 20, "rechargeRate": 2.0,
 			"combatRegenTurnCounter": 0, "lastRegenDay": GameState.state["world"]["day"] - 1,
-			"capacityMax": 4, "movement": { "archetype": "recharge", "oreType": "time", "tier": 1 },
+			"capacityMax": 4, "movement": { "archetype": "recharge", "tier": 1 },
 			"loadedComplications": [], "haftId": "collective_brolly",
 		}
 		TimeSystem.daily_tick()

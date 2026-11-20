@@ -175,7 +175,7 @@ func new_game_state() -> Dictionary:
 			# maxCharge, rechargeRate, lastRegenDay, combatRegenTurnCounter,
 			# capacityMax, movement, loadedComplications, lenses, haftId }.
 			"dial": null,
-			# Crafted-but-unseated Movements ({ archetype, oreType, tier }) --
+			# Crafted-but-unseated Movements ({ archetype, tier }) --
 			# moved out on Dial.seat_movement(), back in on unseat_movement().
 			"movementInventory": [],
 			# Crafted-but-unloaded Lenses ({ ore, tier }) -- moved out on

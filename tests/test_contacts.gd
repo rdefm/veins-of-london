@@ -299,7 +299,8 @@ func run() -> void:
 		var dial: Dictionary = GameState.state["contacts"]["james"]["dial"]
 		assert_eq(dial["level"], 2)
 		assert_eq(dial["movement"]["archetype"], "recharge")
-		assert_eq(dial["movement"]["tier"], 1)
+		assert_eq(dial["movement"], { "archetype": "recharge", "tier": 1 }, "the Movement carries no ore")
+		assert_eq(dial["lenses"], [{ "ore": "time", "tier": 1 }], "a tier-1 time Lens is loaded")
 		assert_eq(dial["loadedComplications"].size(), 2)
 		assert_eq(dial["loadedComplications"][0]["recipeKey"], "timePearl")
 		assert_eq(dial["loadedComplications"][0]["tier"], 3)
@@ -329,7 +330,8 @@ func run() -> void:
 		var dial: Dictionary = GameState.state["contacts"]["james"]["dial"]
 		dial["currentCharge"] = 0.0
 		GameState.state["player"]["orichalchum"]["time"] = 100
-		var result := Dial.wind(2, "james")
+		assert_true(not Dial.wind(2, "james", "life")["ok"], "James has no life Lens to wind with")
+		var result := Dial.wind(2, "james", "time")
 		assert_true(result["ok"])
 		assert_eq(dial["currentCharge"], 2.0)
 		assert_true(GameState.state["player"]["orichalchum"]["time"] < 100, "calc comes from the player")

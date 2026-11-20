@@ -19,7 +19,13 @@ static func _fund_seed_cost(multiplier: int = 1) -> void:
 # ticket 02 fixtures.
 
 static func _dial_no_movement() -> Dictionary:
-	return { "level": 1, "xp": 0, "currentCharge": 0, "maxCharge": 0, "rechargeRate": 0, "combatRegenTurnCounter": 0, "lastRegenDay": 1, "capacityMax": 0, "movement": null, "loadedComplications": [], "haftId": HAFT_ID }
+	return { "level": 1, "xp": 0, "currentCharge": 0, "maxCharge": 0, "rechargeRate": 0, "combatRegenTurnCounter": 0, "lastRegenDay": 1, "capacityMax": 0, "movement": null, "loadedComplications": [], "lenses": [], "haftId": HAFT_ID }
+
+
+static func _fund_all_ores(qty: int) -> void:
+	for ore in GameData.ORE_TYPES:
+		GameState.state["player"]["orichalchum"][ore] = qty
+
 
 func run() -> void:
 	run_case("attempt_seed_refuses_with_no_gift_flag", func():
@@ -160,54 +166,54 @@ func run() -> void:
 
 	run_case("attempt_craft_movement_refuses_an_unknown_archetype", func():
 		GameState.reset()
-		var result := Dial.attempt_craft_movement("not_a_real_archetype", "time")
+		var result := Dial.attempt_craft_movement("not_a_real_archetype")
 		assert_true(not result["ok"], "an unknown archetype should be refused")
 	)
 
-	run_case("attempt_craft_movement_refuses_an_unknown_ore_type", func():
+	run_case("attempt_craft_movement_refuses_when_any_one_ore_is_short", func():
 		GameState.reset()
-		var result := Dial.attempt_craft_movement("impact", "not_a_real_ore")
-		assert_true(not result["ok"], "an unknown ore type should be refused")
+		_fund_all_ores(100)
+		GameState.state["player"]["orichalchum"]["fate"] = 1
+		var result := Dial.attempt_craft_movement("impact")
+		assert_true(not result["ok"], "one ore short of the per-ore cost should refuse the craft")
+		assert_eq(GameState.state["player"]["orichalchum"]["time"], 100, "a refused craft spends nothing")
 	)
 
-	run_case("attempt_craft_movement_refuses_without_enough_calc", func():
+	run_case("movement_calc_cost_per_ore_is_the_total_split_across_five_ores", func():
 		GameState.reset()
-		GameState.state["player"]["orichalchum"]["time"] = 5
-		var result := Dial.attempt_craft_movement("impact", "time")
-		assert_true(not result["ok"], "insufficient calc should be refused")
+		assert_eq(Dial.movement_calc_cost_per_ore("impact", 1), 4, "ingredientBase 20 split five ways at skill 1")
 	)
 
-	run_case("attempt_craft_movement_deducts_ingredient_regardless_of_outcome", func():
+	run_case("attempt_craft_movement_spends_the_per_ore_cost_of_every_ore_regardless_of_outcome", func():
 		GameState.reset()
 		GameState.state["player"]["craftingSkill"] = 1
-		GameState.state["player"]["orichalchum"]["time"] = 100
-		Dial.attempt_craft_movement("impact", "time")
-		assert_eq(GameState.state["player"]["orichalchum"]["time"], 80, "ingredientBase 20 deducted regardless of success/fail, at skill 1")
+		_fund_all_ores(100)
+		Dial.attempt_craft_movement("impact")
+		for ore in GameData.ORE_TYPES:
+			assert_eq(GameState.state["player"]["orichalchum"][ore], 96, "%s: 4 spent regardless of success/fail" % ore)
 	)
 
-	run_case("attempt_craft_movement_success_records_the_chosen_ore_type_as_attunement_and_tier_from_skill", func():
+	run_case("attempt_craft_movement_success_carries_no_ore_and_tier_from_skill", func():
 		var seed := SeedSearch.find_seed_for(200, func():
 			GameState.reset()
 			GameState.state["player"]["craftingSkill"] = 5
-			GameState.state["player"]["orichalchum"]["physics"] = 1000
-			var result := Dial.attempt_craft_movement("capacitor", "physics")
+			_fund_all_ores(1000)
+			var result := Dial.attempt_craft_movement("capacitor")
 			return result.get("success", false)
 		)
 		assert_true(seed != -1, "should find a successful Movement craft within 200 tries")
 
 		var inventory: Array = GameState.state["player"]["movementInventory"]
 		assert_eq(inventory.size(), 1, "one crafted Movement lands in movementInventory")
-		assert_eq(inventory[0]["archetype"], "capacitor", "archetype matches what was crafted")
-		assert_eq(inventory[0]["oreType"], "physics", "the chosen ore type becomes the Movement's attunement")
-		assert_eq(inventory[0]["tier"], 5, "tier is set from crafting skill at craft time")
+		assert_eq(inventory[0], { "archetype": "capacitor", "tier": 5 }, "a Movement is archetype + tier only, no ore")
 	)
 
 	run_case("attempt_craft_movement_failure_leaves_no_partial_movement", func():
 		var seed := SeedSearch.find_seed_for(200, func():
 			GameState.reset()
 			GameState.state["player"]["craftingSkill"] = 1
-			GameState.state["player"]["orichalchum"]["time"] = 1000
-			var result := Dial.attempt_craft_movement("recharge", "time")
+			_fund_all_ores(1000)
+			var result := Dial.attempt_craft_movement("recharge")
 			return not result.get("success", true)
 		)
 		assert_true(seed != -1, "should find a failed Movement craft within 200 tries")
@@ -218,7 +224,7 @@ func run() -> void:
 
 	run_case("seat_movement_refuses_with_no_dial", func():
 		GameState.reset()
-		GameState.state["player"]["movementInventory"] = [{ "archetype": "impact", "oreType": "time", "tier": 1 }]
+		GameState.state["player"]["movementInventory"] = [{ "archetype": "impact", "tier": 1 }]
 		var result := Dial.seat_movement(0)
 		assert_true(not result["ok"], "seating with no Dial should be refused")
 	)
@@ -233,24 +239,24 @@ func run() -> void:
 	run_case("seat_movement_moves_it_out_of_inventory_and_into_the_dial", func():
 		GameState.reset()
 		GameState.state["player"]["dial"] = _dial_no_movement()
-		GameState.state["player"]["movementInventory"] = [{ "archetype": "impact", "oreType": "time", "tier": 3 }]
+		GameState.state["player"]["movementInventory"] = [{ "archetype": "impact", "tier": 3 }]
 
 		var result := Dial.seat_movement(0)
 		assert_true(result["ok"], "seating a valid inventory index should succeed")
 		assert_eq(GameState.state["player"]["movementInventory"], [], "the seated Movement leaves movementInventory")
-		assert_eq(GameState.state["player"]["dial"]["movement"], { "archetype": "impact", "oreType": "time", "tier": 3 }, "the Movement is now seated on the dial")
+		assert_eq(GameState.state["player"]["dial"]["movement"], { "archetype": "impact", "tier": 3 }, "the Movement is now seated on the dial")
 	)
 
 	run_case("seat_movement_swaps_the_previously_seated_movement_back_into_inventory", func():
 		GameState.reset()
 		var dial := _dial_no_movement()
-		dial["movement"] = { "archetype": "recharge", "oreType": "life", "tier": 2 }
+		dial["movement"] = { "archetype": "recharge", "tier": 2 }
 		GameState.state["player"]["dial"] = dial
-		GameState.state["player"]["movementInventory"] = [{ "archetype": "impact", "oreType": "time", "tier": 3 }]
+		GameState.state["player"]["movementInventory"] = [{ "archetype": "impact", "tier": 3 }]
 
 		Dial.seat_movement(0)
-		assert_eq(GameState.state["player"]["dial"]["movement"], { "archetype": "impact", "oreType": "time", "tier": 3 }, "the newly chosen Movement is now seated")
-		assert_eq(GameState.state["player"]["movementInventory"], [{ "archetype": "recharge", "oreType": "life", "tier": 2 }], "the previously seated Movement returns to inventory intact, not destroyed")
+		assert_eq(GameState.state["player"]["dial"]["movement"], { "archetype": "impact", "tier": 3 }, "the newly chosen Movement is now seated")
+		assert_eq(GameState.state["player"]["movementInventory"], [{ "archetype": "recharge", "tier": 2 }], "the previously seated Movement returns to inventory intact, not destroyed")
 	)
 
 	run_case("unseat_movement_refuses_with_no_dial", func():
@@ -269,13 +275,13 @@ func run() -> void:
 	run_case("unseat_movement_returns_it_to_inventory_intact", func():
 		GameState.reset()
 		var dial := _dial_no_movement()
-		dial["movement"] = { "archetype": "spread", "oreType": "fate", "tier": 4 }
+		dial["movement"] = { "archetype": "spread", "tier": 4 }
 		GameState.state["player"]["dial"] = dial
 
 		var result := Dial.unseat_movement()
 		assert_true(result["ok"], "unseating a seated Movement should succeed")
 		assert_eq(GameState.state["player"]["dial"]["movement"], null, "the dial has no Movement seated afterward")
-		assert_eq(GameState.state["player"]["movementInventory"], [{ "archetype": "spread", "oreType": "fate", "tier": 4 }], "the unseated Movement returns to inventory intact, not destroyed")
+		assert_eq(GameState.state["player"]["movementInventory"], [{ "archetype": "spread", "tier": 4 }], "the unseated Movement returns to inventory intact, not destroyed")
 	)
 
 	# ── ticket 02: attunement bonus ──────────────────────────────────────
@@ -285,56 +291,55 @@ func run() -> void:
 		assert_eq(Dial.attunement_bonus("time"), 0.0, "no Dial means no attunement bonus")
 	)
 
-	run_case("attunement_bonus_is_zero_with_a_dial_but_no_movement_seated", func():
+	run_case("attunement_bonus_is_zero_with_a_dial_but_no_lens_loaded", func():
+		GameState.reset()
+		var dial := _dial_no_movement()
+		dial["movement"] = { "archetype": "impact", "tier": 5 }
+		GameState.state["player"]["dial"] = dial
+		assert_eq(Dial.attunement_bonus("time"), 0.0, "a seated Movement alone grants no attunement bonus")
+	)
+
+	run_case("attunement_bonus_is_zero_on_an_ore_with_no_lens_loaded", func():
+		GameState.reset()
+		var dial := _dial_no_movement()
+		dial["lenses"] = [{ "ore": "physics", "tier": 3 }]
+		GameState.state["player"]["dial"] = dial
+		assert_eq(Dial.attunement_bonus("time"), 0.0, "an ore without a loaded Lens must not receive the bonus")
+	)
+
+	run_case("attunement_bonus_matches_the_loaded_lens_tier_on_its_ore", func():
+		GameState.reset()
+		var dial := _dial_no_movement()
+		dial["lenses"] = [{ "ore": "physics", "tier": 3 }, { "ore": "time", "tier": 1 }]
+		GameState.state["player"]["dial"] = dial
+		assert_almost_eq(Dial.attunement_bonus("physics"), GameData.DIAL_ATTUNEMENT_BONUS_BY_TIER[3], 0.0001, "physics gets the physics Lens's tier-3 bonus")
+		assert_almost_eq(Dial.attunement_bonus("time"), GameData.DIAL_ATTUNEMENT_BONUS_BY_TIER[1], 0.0001, "time gets the time Lens's tier-1 bonus")
+	)
+
+	run_case("attunement_bonus_disappears_once_the_lens_is_unloaded", func():
+		GameState.reset()
+		var dial := _dial_no_movement()
+		dial["lenses"] = [{ "ore": "time", "tier": 5 }]
+		GameState.state["player"]["dial"] = dial
+		assert_true(Dial.attunement_bonus("time") > 0.0, "a loaded time Lens should grant a nonzero bonus")
+
+		Dial.unload_lens(0)
+		assert_eq(Dial.attunement_bonus("time"), 0.0, "the bonus disappears once the Lens is unloaded")
+	)
+
+	run_case("attunement_bonus_ignores_a_contacts_lens", func():
 		GameState.reset()
 		GameState.state["player"]["dial"] = _dial_no_movement()
-		assert_eq(Dial.attunement_bonus("time"), 0.0, "an inert Dial grants no attunement bonus")
-	)
-
-	run_case("attunement_bonus_is_zero_on_a_mismatched_ore_type", func():
-		GameState.reset()
-		var dial := _dial_no_movement()
-		dial["movement"] = { "archetype": "impact", "oreType": "physics", "tier": 3 }
-		GameState.state["player"]["dial"] = dial
-		assert_eq(Dial.attunement_bonus("time"), 0.0, "a mismatched ore type must not receive the bonus")
-	)
-
-	run_case("attunement_bonus_matches_the_tier_indexed_curve_on_a_matching_ore_type", func():
-		GameState.reset()
-		var dial := _dial_no_movement()
-		dial["movement"] = { "archetype": "impact", "oreType": "physics", "tier": 3 }
-		GameState.state["player"]["dial"] = dial
-		assert_almost_eq(Dial.attunement_bonus("physics"), GameData.DIAL_ATTUNEMENT_BONUS_BY_TIER[3], 0.0001, "a matching ore type gets exactly the seated Movement's tier-indexed bonus")
-	)
-
-	run_case("attunement_bonus_changes_immediately_when_a_different_movement_is_seated", func():
-		GameState.reset()
-		var dial := _dial_no_movement()
-		dial["movement"] = { "archetype": "impact", "oreType": "time", "tier": 1 }
-		GameState.state["player"]["dial"] = dial
-		var before: float = Dial.attunement_bonus("time")
-
-		GameState.state["player"]["movementInventory"] = [{ "archetype": "capacitor", "oreType": "time", "tier": 5 }]
-		Dial.seat_movement(0)
-		var after: float = Dial.attunement_bonus("time")
-		assert_true(after > before, "reseating a higher-tier Movement should raise the bonus immediately")
-	)
-
-	run_case("attunement_bonus_disappears_once_unseated", func():
-		GameState.reset()
-		var dial := _dial_no_movement()
-		dial["movement"] = { "archetype": "impact", "oreType": "time", "tier": 5 }
-		GameState.state["player"]["dial"] = dial
-		assert_true(Dial.attunement_bonus("time") > 0.0, "a seated matching Movement should grant a nonzero bonus")
-
-		Dial.unseat_movement()
-		assert_eq(Dial.attunement_bonus("time"), 0.0, "the bonus disappears once no Movement is seated")
+		var james_dial := _dial_no_movement()
+		james_dial["lenses"] = [{ "ore": "time", "tier": 5 }]
+		GameState.state["contacts"]["james"]["dial"] = james_dial
+		assert_eq(Dial.attunement_bonus("time"), 0.0, "only the player's own Lenses feed the player's rolls")
 	)
 
 	run_case("attunement_bonus_is_unaffected_by_loadedComplications", func():
 		GameState.reset()
 		var dial := _dial_no_movement()
-		dial["movement"] = { "archetype": "impact", "oreType": "time", "tier": 3 }
+		dial["lenses"] = [{ "ore": "time", "tier": 3 }]
 		dial["loadedComplications"] = [{ "recipeKey": "blast", "tier": 5, "detent": 0 }]
 		GameState.state["player"]["dial"] = dial
 		assert_almost_eq(Dial.attunement_bonus("time"), GameData.DIAL_ATTUNEMENT_BONUS_BY_TIER[3], 0.0001, "loadedComplications must never affect the attunement bonus")
@@ -361,7 +366,7 @@ func run() -> void:
 		var dial := _dial_no_movement()
 		dial["capacityMax"] = 7
 		GameState.state["player"]["dial"] = dial
-		GameState.state["player"]["movementInventory"] = [{ "archetype": "capacitor", "oreType": "physics", "tier": 5 }]
+		GameState.state["player"]["movementInventory"] = [{ "archetype": "capacitor", "tier": 5 }]
 
 		Dial.seat_movement(0)
 		assert_eq(GameState.state["player"]["dial"]["capacityMax"], 7, "seating a Movement (even a high-tier one) must not change capacityMax")
@@ -533,7 +538,7 @@ func run() -> void:
 	run_case("seat_movement_activates_the_charge_pool_sized_by_archetype_and_tier", func():
 		GameState.reset()
 		GameState.state["player"]["dial"] = _dial_no_movement()
-		GameState.state["player"]["movementInventory"] = [{ "archetype": "recharge", "oreType": "time", "tier": 3 }]
+		GameState.state["player"]["movementInventory"] = [{ "archetype": "recharge", "tier": 3 }]
 
 		Dial.seat_movement(0)
 		var dial: Dictionary = GameState.state["player"]["dial"]
@@ -548,7 +553,7 @@ func run() -> void:
 	run_case("seat_movement_biases_capacitor_toward_maxCharge_over_rechargeRate", func():
 		GameState.reset()
 		GameState.state["player"]["dial"] = _dial_no_movement()
-		GameState.state["player"]["movementInventory"] = [{ "archetype": "capacitor", "oreType": "physics", "tier": 3 }]
+		GameState.state["player"]["movementInventory"] = [{ "archetype": "capacitor", "tier": 3 }]
 
 		Dial.seat_movement(0)
 		var dial: Dictionary = GameState.state["player"]["dial"]
@@ -562,7 +567,7 @@ func run() -> void:
 	run_case("tier_5_capacitor_movement_sets_natural_rechargeRate_to_zero", func():
 		GameState.reset()
 		GameState.state["player"]["dial"] = _dial_no_movement()
-		GameState.state["player"]["movementInventory"] = [{ "archetype": "capacitor", "oreType": "physics", "tier": 5 }]
+		GameState.state["player"]["movementInventory"] = [{ "archetype": "capacitor", "tier": 5 }]
 
 		Dial.seat_movement(0)
 		assert_eq(GameState.state["player"]["dial"]["rechargeRate"], 0.0, "tier-5 Capacitor's defining trait: zero natural rechargeRate")
@@ -572,7 +577,7 @@ func run() -> void:
 	run_case("unseat_movement_deactivates_the_charge_pool", func():
 		GameState.reset()
 		var dial := _dial_no_movement()
-		dial["movement"] = { "archetype": "capacitor", "oreType": "physics", "tier": 5 }
+		dial["movement"] = { "archetype": "capacitor", "tier": 5 }
 		dial["maxCharge"] = 52
 		dial["rechargeRate"] = 0
 		dial["currentCharge"] = 30
@@ -588,12 +593,12 @@ func run() -> void:
 	run_case("reseating_a_different_movement_starts_the_charge_pool_fresh_not_inheriting_the_previous_reserve", func():
 		GameState.reset()
 		var dial := _dial_no_movement()
-		dial["movement"] = { "archetype": "recharge", "oreType": "time", "tier": 3 }
+		dial["movement"] = { "archetype": "recharge", "tier": 3 }
 		dial["maxCharge"] = 16
 		dial["rechargeRate"] = 2.7
 		dial["currentCharge"] = 12
 		GameState.state["player"]["dial"] = dial
-		GameState.state["player"]["movementInventory"] = [{ "archetype": "capacitor", "oreType": "physics", "tier": 3 }]
+		GameState.state["player"]["movementInventory"] = [{ "archetype": "capacitor", "tier": 3 }]
 
 		Dial.seat_movement(0)
 		assert_eq(GameState.state["player"]["dial"]["currentCharge"], 0, "reseating a different Movement should not carry over the previous reserve")
@@ -610,37 +615,66 @@ func run() -> void:
 	run_case("wind_refuses_with_no_movement_seated", func():
 		GameState.reset()
 		GameState.state["player"]["dial"] = _dial_no_movement()
-		var result := Dial.wind(1)
+		var result := Dial.wind(1, "", "time")
 		assert_true(not result["ok"], "winding with no Movement seated should be refused")
 	)
 
-	run_case("wind_adds_charge_and_spends_the_seated_movements_attuned_ore_type", func():
+	run_case("wind_refuses_with_no_lens_loaded", func():
 		GameState.reset()
 		var dial := _dial_no_movement()
-		dial["movement"] = { "archetype": "recharge", "oreType": "life", "tier": 2 }
+		dial["movement"] = { "archetype": "recharge", "tier": 2 }
+		dial["maxCharge"] = 10
+		GameState.state["player"]["dial"] = dial
+		_fund_all_ores(100)
+		var result := Dial.wind(1, "", "time")
+		assert_true(not result["ok"], "winding with no Lens loaded should be refused")
+		assert_eq(GameState.state["player"]["orichalchum"]["time"], 100, "a refused wind spends nothing")
+	)
+
+	run_case("wind_refuses_an_ore_with_no_lens_loaded", func():
+		GameState.reset()
+		var dial := _dial_no_movement()
+		dial["movement"] = { "archetype": "recharge", "tier": 2 }
+		dial["lenses"] = [{ "ore": "life", "tier": 1 }]
+		dial["maxCharge"] = 10
+		GameState.state["player"]["dial"] = dial
+		_fund_all_ores(100)
+		var result := Dial.wind(1, "", "time")
+		assert_true(not result["ok"], "winding with an unloaded ore should be refused")
+		assert_eq(GameState.state["player"]["dial"]["currentCharge"], 0, "a refused wind adds no charge")
+	)
+
+	run_case("wind_adds_charge_and_spends_the_chosen_loaded_lens_ore", func():
+		GameState.reset()
+		var dial := _dial_no_movement()
+		dial["movement"] = { "archetype": "recharge", "tier": 2 }
+		dial["lenses"] = [{ "ore": "life", "tier": 1 }, { "ore": "fate", "tier": 1 }]
+		dial["level"] = 3
 		dial["maxCharge"] = 10
 		dial["currentCharge"] = 0
 		dial["rechargeRate"] = 1
 		GameState.state["player"]["dial"] = dial
-		GameState.state["player"]["orichalchum"]["life"] = 100
+		_fund_all_ores(100)
 
 		var cost: int = Dial.winding_cost_per_charge("recharge", 2)
-		var result := Dial.wind(1)
+		var result := Dial.wind(1, "", "fate")
 		assert_true(result["ok"], "winding with enough calc and headroom should succeed")
 		assert_eq(GameState.state["player"]["dial"]["currentCharge"], 1, "winding should add exactly the requested charge")
-		assert_eq(GameState.state["player"]["orichalchum"]["life"], 100 - cost, "winding should spend the seated Movement's attuned ore type at its cost-per-charge")
+		assert_eq(GameState.state["player"]["orichalchum"]["fate"], 100 - cost, "winding spends the chosen Lens's ore at its cost-per-charge")
+		assert_eq(GameState.state["player"]["orichalchum"]["life"], 100, "the other loaded Lens's ore is untouched")
 	)
 
 	run_case("wind_refuses_without_enough_calc", func():
 		GameState.reset()
 		var dial := _dial_no_movement()
-		dial["movement"] = { "archetype": "capacitor", "oreType": "emotion", "tier": 1 }
+		dial["movement"] = { "archetype": "capacitor", "tier": 1 }
+		dial["lenses"] = [{ "ore": "emotion", "tier": 1 }]
 		dial["maxCharge"] = 10
 		dial["currentCharge"] = 0
 		GameState.state["player"]["dial"] = dial
 		GameState.state["player"]["orichalchum"]["emotion"] = 0
 
-		var result := Dial.wind(1)
+		var result := Dial.wind(1, "", "emotion")
 		assert_true(not result["ok"], "winding without enough calc should be refused")
 		assert_eq(GameState.state["player"]["dial"]["currentCharge"], 0, "a refused wind must not add charge")
 	)
@@ -648,53 +682,57 @@ func run() -> void:
 	run_case("wind_refuses_when_charge_is_already_full", func():
 		GameState.reset()
 		var dial := _dial_no_movement()
-		dial["movement"] = { "archetype": "recharge", "oreType": "time", "tier": 1 }
+		dial["movement"] = { "archetype": "recharge", "tier": 1 }
+		dial["lenses"] = [{ "ore": "time", "tier": 1 }]
 		dial["maxCharge"] = 5
 		dial["currentCharge"] = 5
 		GameState.state["player"]["dial"] = dial
 		GameState.state["player"]["orichalchum"]["time"] = 1000
 
-		var result := Dial.wind(1)
+		var result := Dial.wind(1, "", "time")
 		assert_true(not result["ok"], "winding a full charge pool should be refused")
 	)
 
 	run_case("wind_has_no_time_block_cost", func():
 		GameState.reset()
 		var dial := _dial_no_movement()
-		dial["movement"] = { "archetype": "recharge", "oreType": "time", "tier": 1 }
+		dial["movement"] = { "archetype": "recharge", "tier": 1 }
+		dial["lenses"] = [{ "ore": "time", "tier": 1 }]
 		dial["maxCharge"] = 5
 		dial["currentCharge"] = 0
 		GameState.state["player"]["dial"] = dial
 		GameState.state["player"]["orichalchum"]["time"] = 1000
 		var blocks_before: Array = GameState.state["world"]["timeBlocksDone"].duplicate()
 
-		Dial.wind(1)
+		Dial.wind(1, "", "time")
 		assert_eq(GameState.state["world"]["timeBlocksDone"], blocks_before, "winding must not consume a time block")
 	)
 
 	run_case("winding_cost_per_charge_is_independent_of_dial_level_and_maxCharge", func():
 		GameState.reset()
 		var dial := _dial_no_movement()
-		dial["movement"] = { "archetype": "impact", "oreType": "fate", "tier": 3 }
+		dial["movement"] = { "archetype": "impact", "tier": 3 }
+		dial["lenses"] = [{ "ore": "fate", "tier": 1 }]
 		dial["level"] = 1
 		dial["capacityMax"] = 4
 		dial["maxCharge"] = 5
 		dial["currentCharge"] = 0
 		GameState.state["player"]["dial"] = dial
 		GameState.state["player"]["orichalchum"]["fate"] = 1000
-		Dial.wind(1)
+		Dial.wind(1, "", "fate")
 		var spent_low_level: int = 1000 - GameState.state["player"]["orichalchum"]["fate"]
 
 		GameState.reset()
 		dial = _dial_no_movement()
-		dial["movement"] = { "archetype": "impact", "oreType": "fate", "tier": 3 }
+		dial["movement"] = { "archetype": "impact", "tier": 3 }
+		dial["lenses"] = [{ "ore": "fate", "tier": 1 }]
 		dial["level"] = 5
 		dial["capacityMax"] = 16
 		dial["maxCharge"] = 500  # a much bigger pool, simulating heavy dial-level growth
 		dial["currentCharge"] = 0
 		GameState.state["player"]["dial"] = dial
 		GameState.state["player"]["orichalchum"]["fate"] = 1000
-		Dial.wind(1)
+		Dial.wind(1, "", "fate")
 		var spent_high_level: int = 1000 - GameState.state["player"]["orichalchum"]["fate"]
 
 		assert_eq(spent_low_level, spent_high_level, "winding cost-per-charge must be unaffected by dial level/maxCharge at a fixed archetype/tier")
@@ -824,7 +862,7 @@ func run() -> void:
 		var dial := _dial_no_movement()
 		dial["maxCharge"] = 10
 		dial["currentCharge"] = 5
-		dial["movement"] = { "archetype": "impact", "oreType": "physics", "tier": 5 }
+		dial["movement"] = { "archetype": "impact", "tier": 5 }
 		dial["loadedComplications"] = [{ "recipeKey": "blast", "tier": 4, "detent": 0 }]
 		GameState.state["player"]["dial"] = dial
 
@@ -840,7 +878,7 @@ func run() -> void:
 		var dial := _dial_no_movement()
 		dial["maxCharge"] = 10
 		dial["currentCharge"] = 5
-		dial["movement"] = { "archetype": "spread", "oreType": "physics", "tier": 3 }
+		dial["movement"] = { "archetype": "spread", "tier": 3 }
 		dial["loadedComplications"] = [{ "recipeKey": "blast", "tier": 4, "detent": 0 }]
 		GameState.state["player"]["dial"] = dial
 
@@ -859,7 +897,7 @@ func run() -> void:
 	)
 
 	run_case("amplify_cast_composes_impact_and_level_with_a_single_rounding", func():
-		var movement := { "archetype": "impact", "oreType": "physics", "tier": 1 }
+		var movement := { "archetype": "impact", "tier": 1 }
 		var result := Dial._amplify_cast(10, movement, 2, "blast")
 		assert_eq(result["power"], GameState.round_epsilon(10.0 * 1.15 * 1.5), "Impact and level multiply, rounded once")
 		assert_eq(result["turnPower"], GameState.round_epsilon(10.0 * 1.15), "turnPower carries Impact only")
@@ -893,7 +931,7 @@ func run() -> void:
 		var dial := _dial_no_movement()
 		dial["maxCharge"] = 10
 		dial["currentCharge"] = 5
-		dial["movement"] = { "archetype": "capacitor", "oreType": "physics", "tier": 5 }
+		dial["movement"] = { "archetype": "capacitor", "tier": 5 }
 		dial["loadedComplications"] = [{ "recipeKey": "blast", "tier": 4, "detent": 0 }]
 		GameState.state["player"]["dial"] = dial
 
@@ -920,7 +958,7 @@ func run() -> void:
 	run_case("combat_turn_tick_is_a_no_op_for_a_below_tier_5_recharge_movement", func():
 		GameState.reset()
 		var dial := _dial_no_movement()
-		dial["movement"] = { "archetype": "recharge", "oreType": "time", "tier": 4 }
+		dial["movement"] = { "archetype": "recharge", "tier": 4 }
 		dial["maxCharge"] = 20
 		dial["currentCharge"] = 0
 		GameState.state["player"]["dial"] = dial
@@ -933,7 +971,7 @@ func run() -> void:
 	run_case("combat_turn_tick_is_a_no_op_for_a_tier_5_non_recharge_movement", func():
 		GameState.reset()
 		var dial := _dial_no_movement()
-		dial["movement"] = { "archetype": "capacitor", "oreType": "physics", "tier": 5 }
+		dial["movement"] = { "archetype": "capacitor", "tier": 5 }
 		dial["maxCharge"] = 20
 		dial["currentCharge"] = 0
 		GameState.state["player"]["dial"] = dial
@@ -946,7 +984,7 @@ func run() -> void:
 	run_case("combat_turn_tick_regenerates_charge_every_n_turns_for_a_tier_5_recharge_movement", func():
 		GameState.reset()
 		var dial := _dial_no_movement()
-		dial["movement"] = { "archetype": "recharge", "oreType": "time", "tier": 5 }
+		dial["movement"] = { "archetype": "recharge", "tier": 5 }
 		dial["maxCharge"] = 20
 		dial["currentCharge"] = 0
 		GameState.state["player"]["dial"] = dial
@@ -967,7 +1005,7 @@ func run() -> void:
 	run_case("combat_turn_tick_caps_at_maxCharge", func():
 		GameState.reset()
 		var dial := _dial_no_movement()
-		dial["movement"] = { "archetype": "recharge", "oreType": "time", "tier": 5 }
+		dial["movement"] = { "archetype": "recharge", "tier": 5 }
 		dial["maxCharge"] = GameData.DIAL_RECHARGE_COMBAT_REGEN_AMOUNT
 		dial["currentCharge"] = GameData.DIAL_RECHARGE_COMBAT_REGEN_AMOUNT
 		GameState.state["player"]["dial"] = dial
@@ -994,7 +1032,7 @@ func run() -> void:
 	run_case("dial_level_2_at_50_xp_updates_capacityMax_and_maxCharge_from_the_level_2_lookup", func():
 		GameState.reset()
 		var dial := _dial_no_movement()
-		dial["movement"] = { "archetype": "recharge", "oreType": "time", "tier": 1 }
+		dial["movement"] = { "archetype": "recharge", "tier": 1 }
 		var m: Dictionary = GameData.DIAL_MOVEMENTS["recharge"]
 		dial["capacityMax"] = GameData.DIAL_CAPACITY_BY_LEVEL[1]
 		dial["maxCharge"] = int(GameData.DIAL_BASE_MAX_CHARGE - m["downside"][1])
@@ -1021,7 +1059,7 @@ func run() -> void:
 	run_case("leveling_up_never_changes_the_seated_movement_or_its_attunement", func():
 		GameState.reset()
 		var dial := _dial_no_movement()
-		var seated := { "archetype": "impact", "oreType": "physics", "tier": 2 }
+		var seated := { "archetype": "impact", "tier": 2 }
 		dial["movement"] = seated
 		dial["capacityMax"] = GameData.DIAL_CAPACITY_BY_LEVEL[1]
 		var m: Dictionary = GameData.DIAL_MOVEMENTS["impact"]
@@ -1035,13 +1073,13 @@ func run() -> void:
 			Dial.cast_complication(0)
 
 		assert_eq(dial["level"], 2, "should have levelled up once within 5 casts")
-		assert_eq(dial["movement"], { "archetype": "impact", "oreType": "physics", "tier": 2 }, "levelling up must never change which Movement is seated or its attunement")
+		assert_eq(dial["movement"], { "archetype": "impact", "tier": 2 }, "levelling up must never change which Movement is seated or its attunement")
 	)
 
 	run_case("dial_xp_ladder_grows_maxCharge_and_capacityMax_on_the_primary_curve_and_rechargeRate_on_a_sparser_curve", func():
 		GameState.reset()
 		GameState.state["player"]["dial"] = _dial_no_movement()
-		GameState.state["player"]["movementInventory"] = [{ "archetype": "recharge", "oreType": "time", "tier": 1 }]
+		GameState.state["player"]["movementInventory"] = [{ "archetype": "recharge", "tier": 1 }]
 		Dial.seat_movement(0)
 		GameState.state["player"]["dial"]["capacityMax"] = GameData.DIAL_CAPACITY_BY_LEVEL[1]
 		Crafting.inventory_add("blast", 1, 1)

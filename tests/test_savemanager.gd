@@ -1320,13 +1320,47 @@ func run() -> void:
 		assert_true(result["reason"].contains("incompatible version"), "the rejection reason should be clear about why")
 	)
 
-	run_case("loading_the_previous_version_save_is_refused_with_the_standard_message", func():
+	run_case("loading_a_save_below_min_supported_is_refused_with_the_standard_message", func():
 		GameState.reset()
 		var save: Dictionary = GameState.deep_copy(GameState.state)
-		save["meta"]["saveVersion"] = SaveManager.SAVE_VERSION - 1
+		save["meta"]["saveVersion"] = SaveManager.MIN_SUPPORTED_VERSION - 1
 		var result := SaveManager.import_string(JSON.stringify(save))
 		assert_true(not result["ok"], "a pre-muscle save must be refused")
 		assert_true(result["reason"].contains("incompatible version"), "standard message")
+	)
+
+	run_case("loading_a_v16_save_drops_every_dial_and_crafted_movement", func():
+		GameState.reset()
+		var save: Dictionary = GameState.deep_copy(GameState.state)
+		save["meta"]["saveVersion"] = 16
+		save["flags"]["dialGiftGranted"] = true
+		var old_dial := Dial.new_dial(GameData.DIAL_HAFTS.keys()[0])
+		old_dial["movement"] = { "archetype": "recharge", "oreType": "time", "tier": 2 }
+		save["player"]["dial"] = old_dial
+		save["player"]["movementInventory"] = [{ "archetype": "impact", "oreType": "fate", "tier": 1 }]
+		save["contacts"]["james"]["dial"] = old_dial.duplicate(true)
+		var cash_before: int = save["player"]["cash"]
+		var result := SaveManager.import_string(JSON.stringify(save))
+		assert_true(result["ok"], "a v16 save still loads")
+		assert_eq(GameState.state["meta"]["saveVersion"], SaveManager.SAVE_VERSION, "stamped current")
+		assert_eq(GameState.state["player"]["dial"], null, "player Dial dropped")
+		assert_eq(GameState.state["player"]["movementInventory"], [], "crafted Movements dropped")
+		assert_eq(GameState.state["contacts"]["james"]["dial"], null, "contact Dial dropped")
+		assert_eq(GameState.state["player"]["cash"], cash_before, "no refund")
+		assert_true(GameState.state["flags"]["dialGiftGranted"], "the gift stays")
+	)
+
+	run_case("a_current_save_round_trips_loaded_and_owned_lenses", func():
+		GameState.reset()
+		var dial := Dial.new_dial(GameData.DIAL_HAFTS.keys()[0])
+		dial["lenses"] = [{ "ore": "time", "tier": 2 }]
+		GameState.state["player"]["dial"] = dial
+		GameState.state["player"]["lensInventory"] = [{ "ore": "fate", "tier": 4 }]
+		var result := SaveManager.import_string(SaveManager.export_string())
+		assert_true(result["ok"], "current save loads")
+		assert_eq(GameState.state["player"]["dial"]["lenses"], [{ "ore": "time", "tier": 2 }], "loaded lens survives")
+		assert_eq(typeof(GameState.state["player"]["dial"]["lenses"][0]["tier"]), TYPE_INT, "lens tier restored as int")
+		assert_eq(GameState.state["player"]["lensInventory"], [{ "ore": "fate", "tier": 4 }], "owned lens survives")
 	)
 
 	run_case("loading_a_save_with_no_meta_saveVersion_is_treated_as_current_and_succeeds", func():

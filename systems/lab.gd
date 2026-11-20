@@ -333,7 +333,7 @@ static func band_half_width(recipe_key: String) -> float:
 
 # The player's existing craft bonuses, each converted by its
 # benchBonusFactors entry: the Home workshop/library bonus, the Guild perk's
-# craft bonus, a running Happy Accident, and the seated Movement's attunement when its ore is one of
+# craft bonus, a running Happy Accident, and the loaded-Lens ore-roll bonus when its ore is one of
 # the recipe's ingredients.
 static func bench_bonus(recipe_key: String) -> float:
 	var factors: Dictionary = _data().get("benchBonusFactors", {})

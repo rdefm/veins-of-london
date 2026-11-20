@@ -133,7 +133,7 @@ func run() -> void:
 		GameState.reset()
 		var player: Dictionary = GameState.state["player"]
 		player["dial"] = _fresh_dial()
-		player["movementInventory"] = [{ "archetype": "recharge", "oreType": "time", "tier": 1 }]
+		player["movementInventory"] = [{ "archetype": "recharge", "tier": 1 }]
 
 		var screen := HqDialScreen.new()
 		screen._ready()
@@ -150,7 +150,7 @@ func run() -> void:
 		GameState.reset()
 		var player: Dictionary = GameState.state["player"]
 		var dial := _fresh_dial()
-		dial["movement"] = { "archetype": "recharge", "oreType": "time", "tier": 1 }
+		dial["movement"] = { "archetype": "recharge", "tier": 1 }
 		player["dial"] = dial
 
 		var screen := HqDialScreen.new()

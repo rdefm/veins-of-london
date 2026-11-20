@@ -108,7 +108,7 @@ static func dial_with_loaded(recipe_key: String, tier: int, charge: int) -> Dict
 	return {
 		"level": 1, "xp": 0, "currentCharge": charge, "maxCharge": 20, "rechargeRate": 2.0,
 		"combatRegenTurnCounter": 0, "lastRegenDay": GameState.state["world"]["day"],
-		"capacityMax": 4, "movement": { "archetype": "impact", "oreType": "time", "tier": 1 },
+		"capacityMax": 4, "movement": { "archetype": "impact", "tier": 1 },
 		"loadedComplications": [{ "recipeKey": recipe_key, "tier": tier, "detent": 0 }],
 		"haftId": "collective_brolly",
 	}

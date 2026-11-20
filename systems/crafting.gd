@@ -22,7 +22,7 @@ static func _craft_chance(recipe_key: String, skill: int, bonus: float) -> float
 
 
 # A recipe can have more than one ingredient ore type -- these are what
-# Dial.attunement_bonus() matches a seated Movement's attunement against.
+# Dial.attunement_bonus() matches a loaded Lens's ore against.
 static func recipe_ore_types(recipe_key: String) -> Array:
 	var r: Dictionary = GameData.RECIPES[recipe_key]
 	return r["ingredients"].keys()

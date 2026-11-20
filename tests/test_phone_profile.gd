@@ -35,7 +35,8 @@ func run() -> void:
 		player["orichalchum"]["time"] = 50
 		player["inventory"]["timePearl"] = { "1": 1 }
 		Dial.load_complication("timePearl", 1)
-		dial["movement"] = { "archetype": "recharge", "oreType": "time", "tier": 1 }
+		dial["movement"] = { "archetype": "recharge", "tier": 1 }
+		dial["lenses"] = [{ "ore": "time", "tier": 1 }]
 		var world_before: Dictionary = GameState.state["world"].duplicate(true)
 
 		GameState.state["phoneNav"]["app"] = "profile"
@@ -124,7 +125,7 @@ func run() -> void:
 	run_case("profile_shows_the_seated_dial_read_only", func():
 		GameState.reset()
 		var player: Dictionary = GameState.state["player"]
-		player["dial"] = { "level": 2, "xp": 60, "currentCharge": 5, "maxCharge": 20, "rechargeRate": 2.0, "combatRegenTurnCounter": 0, "lastRegenDay": 0, "capacityMax": 6, "movement": { "archetype": "recharge", "oreType": "time", "tier": 2 }, "loadedComplications": [], "haftId": "collective_brolly" }
+		player["dial"] = { "level": 2, "xp": 60, "currentCharge": 5, "maxCharge": 20, "rechargeRate": 2.0, "combatRegenTurnCounter": 0, "lastRegenDay": 0, "capacityMax": 6, "movement": { "archetype": "recharge", "tier": 2 }, "loadedComplications": [], "haftId": "collective_brolly" }
 		GameState.state["phoneNav"]["app"] = "profile"
 
 		var phone := PhoneScreen.new()

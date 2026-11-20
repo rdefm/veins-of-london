@@ -113,15 +113,17 @@ static func new_dial(haft_id: String, day: int = -1) -> Dictionary:
 
 
 # A contact's granted Dial from constants.json's grantDial spec ({haft, level,
-# movement: {archetype, oreType, tier}, complications: [{recipe, tier}]}): level,
-# seated Movement and loaded Complications as specced, charge full. Pure --
-# touches no state, so the save migration can call it too.
+# movement: {archetype, tier}, lenses: [{ore, tier}], complications: [{recipe, tier}]}):
+# level, seated Movement, loaded Lenses and Complications as specced, charge
+# full. Pure -- touches no state, so the save migration can call it too.
 static func build_granted_dial(spec: Dictionary, day: int) -> Dictionary:
 	var dial: Dictionary = new_dial(str(spec["haft"]), day)
 	dial["level"] = int(spec["level"])
 	dial["capacityMax"] = capacity_max(dial["level"])
 	var seated: Dictionary = spec["movement"]
-	dial["movement"] = _new_movement(seated["archetype"], seated["oreType"], int(seated["tier"]))
+	dial["movement"] = _new_movement(seated["archetype"], int(seated["tier"]))
+	for lens in spec.get("lenses", []):
+		dial["lenses"].append({ "ore": str(lens["ore"]), "tier": int(lens["tier"]) })
 	_apply_level_charge_bonus(dial)
 	dial["currentCharge"] = dial["maxCharge"]
 	for entry in spec["complications"]:
@@ -139,7 +141,8 @@ static func grant_contact_dial(contact_id: String) -> void:
 	contacts[contact_id]["dial"] = build_granted_dial(spec, GameState.state["world"]["day"])
 
 
-# Movement crafting/seating/attunement (R§3.5). Movements are a Dial-only
+# Movement crafting/seating (R§3.5). Movements carry no ore; ore focus comes
+# only from loaded Lenses. Movements are a Dial-only
 # craftable in their own data table (data/dial.json's "movements"), not
 # GameData.RECIPES -- but follow the same contract: ingredients always spent, a
 # chance formula gates success, tier set at craft time.
@@ -154,58 +157,63 @@ static func movement_craft_chance(archetype: String, skill: int) -> float:
 	return min(0.95, m["baseSuccess"] + (skill - 1) * 0.13 + Home.get_workshop_bonus())
 
 
-# Same shape as Crafting.calc_cost(), but keyed on the player's chosen attunement ore rather than a recipe's ingredients dict.
+# Total calc a Movement attempt costs, same shape as Crafting.calc_cost().
 static func movement_calc_cost(archetype: String, skill: int) -> int:
 	var m: Dictionary = GameData.DIAL_MOVEMENTS[archetype]
 	return maxi(1, GameState.round_epsilon(m["ingredientBase"] - (skill - 1) * 0.8))
 
 
-static func can_craft_movement(archetype: String, ore_type: String) -> bool:
+# movement_calc_cost() split evenly across all five ores (R§3.5).
+static func movement_calc_cost_per_ore(archetype: String, skill: int) -> int:
+	return maxi(1, GameState.round_epsilon(float(movement_calc_cost(archetype, skill)) / float(GameData.ORE_TYPES.size())))
+
+
+static func can_craft_movement(archetype: String) -> bool:
 	if not MOVEMENT_ARCHETYPES.has(archetype):
 		return false
-	if not GameData.ORE_TYPES.has(ore_type):
-		return false
-	var skill: int = GameState.state["player"]["craftingSkill"]
-	var cost: int = movement_calc_cost(archetype, skill)
+	var cost: int = movement_calc_cost_per_ore(archetype, GameState.state["player"]["craftingSkill"])
 	var orichalchum: Dictionary = GameState.state["player"]["orichalchum"]
-	return orichalchum.get(ore_type, 0) >= cost
+	for ore_type in GameData.ORE_TYPES:
+		if orichalchum.get(ore_type, 0) < cost:
+			return false
+	return true
 
 
-# Ingredients spent regardless of outcome; success lands the Movement unseated
-# in player.movementInventory with the chosen ore as attunement, tier = crafting skill at craft time (R§3.5).
-static func attempt_craft_movement(archetype: String, ore_type: String) -> Dictionary:
+# Ingredients (movement_calc_cost_per_ore() of every ore) spent regardless of
+# outcome; success lands the Movement unseated in player.movementInventory,
+# tier = crafting skill at craft time (R§3.5).
+static func attempt_craft_movement(archetype: String) -> Dictionary:
 	if not MOVEMENT_ARCHETYPES.has(archetype):
 		return { "ok": false, "reason": "Unknown Movement archetype." }
-	if not GameData.ORE_TYPES.has(ore_type):
-		return { "ok": false, "reason": "Unknown ore type." }
-	if not can_craft_movement(archetype, ore_type):
+	if not can_craft_movement(archetype):
 		return { "ok": false, "reason": "Not enough calc." }
 
 	var player: Dictionary = GameState.state["player"]
 	var skill: int = player["craftingSkill"]
-	var cost: int = movement_calc_cost(archetype, skill)
+	var cost: int = movement_calc_cost_per_ore(archetype, skill)
 	var m: Dictionary = GameData.DIAL_MOVEMENTS[archetype]
 
-	player["orichalchum"][ore_type] = maxi(0, player["orichalchum"].get(ore_type, 0) - cost)
+	for ore_type in GameData.ORE_TYPES:
+		player["orichalchum"][ore_type] = player["orichalchum"].get(ore_type, 0) - cost
 
 	var success: bool = Rng.chance(movement_craft_chance(archetype, skill))
 	if success:
 		# Tier is the crafting skill at craft time -- Movements have no
 		# GameData.RECIPES entry and no Lab rank.
 		var tier: int = skill
-		var movement := _new_movement(archetype, ore_type, tier)
+		var movement := _new_movement(archetype, tier)
 		player["movementInventory"].append(movement)
 		Crafting.award_crafting_xp(m["xpReward"], true)
 		EventBus.mark_changed()
-		return { "ok": true, "success": true, "archetype": archetype, "oreType": ore_type, "tier": tier }
+		return { "ok": true, "success": true, "archetype": archetype, "tier": tier }
 	else:
 		Crafting.award_crafting_xp(int(floor(float(m["xpReward"]) / 3.0)), true)
 		EventBus.mark_changed()
 		return { "ok": true, "success": false }
 
 
-static func _new_movement(archetype: String, ore_type: String, tier: int) -> Dictionary:
-	return { "archetype": archetype, "oreType": ore_type, "tier": tier }
+static func _new_movement(archetype: String, tier: int) -> Dictionary:
+	return { "archetype": archetype, "tier": tier }
 
 
 # Swaps in the Movement at inventory_index; whatever was seated returns to
@@ -251,25 +259,19 @@ static func unseat_movement(owner_id: String = "") -> Dictionary:
 	return { "ok": true }
 
 
-# Flat additive bonus from the seated Movement only (never loadedComplications),
-# applied when ore_type matches its attunement; magnitude scales with tier per
-# data/dial.json's attunementBonusByTier (R§3.5). Callers (Lab.bench_bonus(),
+# The ore-roll bonus (R§3.5): flat additive, applied when the player's Dial has
+# a Lens of ore_type loaded; magnitude by that Lens's tier per data/dial.json's
+# attunementBonusByTier. Callers (Lab.bench_bonus(),
 # Sites.attempt_seed()) add this on top of their own chance formula.
 # Cultivating.cultivate() instead multiplies its rolled gain by (1 + this
 # bonus), since that action has no chance to shift (R§3.4). Never baked in,
 # since NPC contacts roll those same formulas without a Dial.
 static func attunement_bonus(ore_type: String) -> float:
-	var dial: Variant = GameState.state["player"]["dial"]
-	if dial == null:
-		return 0.0
-	var movement: Variant = dial["movement"]
-	if movement == null:
-		return 0.0
-	if movement["oreType"] != ore_type:
+	var tier: int = Lenses.tier_for(ore_type)
+	if tier <= 0:
 		return 0.0
 	var curve: Array = GameData.DIAL_ATTUNEMENT_BONUS_BY_TIER
-	var tier: int = clampi(movement["tier"], 0, curve.size() - 1)
-	return curve[tier]
+	return curve[clampi(tier, 0, curve.size() - 1)]
 
 
 # Shared 0.95 ceiling for single-ore-type chance actions (Sites.attempt_seed()).
@@ -534,9 +536,10 @@ static func winding_cost_per_charge(archetype: String, tier: int) -> int:
 	return m["windingCostPerCharge"][t]
 
 
-# Instant, calc-only -- doesn't spend a time block. amount clamps to headroom
-# under maxCharge so calc is never spent on charge that would be discarded at the cap.
-static func wind(amount: int = 1, owner_id: String = "") -> Dictionary:
+# Instant, calc-only -- doesn't spend a time block. Pays calc of `ore`, which
+# must be a Lens loaded on that Dial (R§3.5). amount clamps to headroom under
+# maxCharge so calc is never spent on charge that would be discarded at the cap.
+static func wind(amount: int = 1, owner_id: String = "", ore: String = "") -> Dictionary:
 	var player: Dictionary = GameState.state["player"]
 	var dial_v: Variant = dial_of(owner_id)
 	if dial_v == null:
@@ -544,6 +547,10 @@ static func wind(amount: int = 1, owner_id: String = "") -> Dictionary:
 	var dial: Dictionary = dial_v
 	if dial["movement"] == null:
 		return { "ok": false, "reason": "No Movement seated." }
+	if Lenses.loaded(owner_id).is_empty():
+		return { "ok": false, "reason": "No Lens loaded." }
+	if not Lenses.has(ore, owner_id):
+		return { "ok": false, "reason": "No Lens of that ore loaded." }
 	if amount <= 0:
 		return { "ok": false, "reason": "Nothing to wind." }
 	if dial["currentCharge"] >= dial["maxCharge"]:
@@ -555,12 +562,11 @@ static func wind(amount: int = 1, owner_id: String = "") -> Dictionary:
 	var movement: Dictionary = dial["movement"]
 	var cost_per_charge: int = winding_cost_per_charge(movement["archetype"], movement["tier"])
 	var total_cost: int = cost_per_charge * actual_amount
-	var ore_type: String = movement["oreType"]
 	var orichalchum: Dictionary = player["orichalchum"]
-	if orichalchum.get(ore_type, 0) < total_cost:
+	if orichalchum.get(ore, 0) < total_cost:
 		return { "ok": false, "reason": "Not enough calc." }
 
-	orichalchum[ore_type] -= total_cost
+	orichalchum[ore] -= total_cost
 	dial["currentCharge"] = minf(dial["maxCharge"], dial["currentCharge"] + actual_amount)
 
 	EventBus.mark_changed()

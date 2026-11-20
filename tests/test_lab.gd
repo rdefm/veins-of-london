@@ -447,9 +447,9 @@ func _register_run_cases() -> void:
 		var perk := Perks.craft_chance_bonus() * float(factors["perk"])
 		assert_true(perk > 0.0, "guild perk gives a bonus")
 		assert_almost_eq(Lab.band_half_width("healingBurst"), skilled * (1.0 + home + perk), 0.0001, "perk bonus")
-		player["dial"] = { "level": 1, "xp": 0, "currentCharge": 0, "maxCharge": 0, "rechargeRate": 0, "capacityMax": 0, "movement": { "archetype": "impact", "oreType": "fate", "tier": 5 }, "loadedComplications": [], "haftId": "collective_brolly" }
+		player["dial"] = { "level": 1, "xp": 0, "currentCharge": 0, "maxCharge": 0, "rechargeRate": 0, "capacityMax": 0, "movement": null, "loadedComplications": [], "lenses": [{ "ore": "fate", "tier": 5 }], "haftId": "collective_brolly" }
 		assert_almost_eq(Lab.band_half_width("healingBurst"), skilled * (1.0 + home + perk), 0.0001, "non-ingredient attunement ignored")
-		player["dial"]["movement"]["oreType"] = "time"
+		player["dial"]["lenses"] = [{ "ore": "time", "tier": 5 }]
 		var attunement := Dial.attunement_bonus("time") * float(factors["attunement"])
 		assert_almost_eq(Lab.band_half_width("healingBurst"), skilled * (1.0 + home + perk + attunement), 0.0001, "second-ingredient attunement counts")
 	)

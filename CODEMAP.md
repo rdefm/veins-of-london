@@ -51,7 +51,7 @@ Data file per system: see `data/*.json` below.
 | debug_start.gd | Maximal-unlock debug state; `apply(model)` keeps a picked `player.model` through its reset |
 | timing_log.gd | Debug-build-only log of real seconds + in-game day/block per event and fight (begin/end hooks in events.gd, combat.gd); static vars outside state; CSV export to `user://prologue_timing.csv` |
 | debug_tools.gd | Debug phone-app state adjusters; `learn_recipe()`/`learn_all_recipes()` grant rungs exact via RecipeKnowledge; `fire_event()` preps any event (state-path veins/sites, contacts, raid/reveal site context, raid security profile) then starts it; `board_*` jump-to-meeting/choose/skip/judge; `skip_to_sunday_evening()` ticks to Sunday evening; `add_item()` grants any recipe item |
-| dial.gd | Per-owner Dial mechanic (`dial_of(owner_id)`: player or contact): Movements, Lens craft/load/unload, charge economy, Complications (single or multi-target variant), casts/XP; `build_granted_dial`/`grant_contact_dial` for contact grants |
+| dial.gd | Per-owner Dial mechanic (`dial_of(owner_id)`: player or contact): ore-less Movements (craft costs all five ores), Lens craft/load/unload, lens-keyed attunement bonus, charge economy (wind pays a loaded Lens's ore), Complications (single or multi-target variant), casts/XP; `build_granted_dial`/`grant_contact_dial` for contact grants |
 | diplomacy.gd | Diplomacy (R§3.10 "Favours", "Gifts"): faction favour requests as key-member pending messages; accept (goods favours sign a contract via Offers; `event` favours start their `eventId`, settled by `favour_kept`/`favour_failed` ops), decline, guard/sit-out watches; cash/item gifts to key members; `ask_aid`/`aid_chance` call-for-aid (R§3.1e) + owed-favour debt |
 | partners.gd | Partners (R§3.10 "Partners"): partner trouble asks (sell/contract/buy/send) as pending messages; partner-faction discounted trades; warnings of planned moves; faction raid warned-odds cut; intel leaks |
 | overlaps.gd | Overlap detector (district, crafting, producing, provocation; thresholds in constants.json `overlap`) feeding the Partner and Defuse (clashKinds) ladders; resolves `$overlap`/`$clash` faction; drives the rival-move, weather-or-soften, Partner and debrief spine beats |
@@ -151,7 +151,7 @@ overlays; hides the top board on title/intro/combat and the nav dock per screen.
 | factions.gd | Factions tab |
 | hq.gd | HQ tab: renders the home tier's room plate (bedsit fallback), routes zone taps to sub-screens |
 | hq_dial.gd | HQ Dial sub-view: embeds DialLoadoutMenu (no complication rows) above the device art with flanking Complication sockets |
-| dial_loadout_menu.gd | `DialLoadoutMenu.build(owner_id, with_complication_rows)`: shared Dial loadout card (readouts, seat/unseat/swap, wind, load/unload); null when owner has no Dial (owner = "" player or a contact id, e.g. James). Used by Profile and HQ Dial |
+| dial_loadout_menu.gd | `DialLoadoutMenu.build(owner_id, with_complication_rows)`: shared Dial loadout card (readouts, seat/unseat/swap, one Wind button per loaded Lens, load/unload); null when owner has no Dial (owner = "" player or a contact id, e.g. James). Used by Profile and HQ Dial |
 | hq_door.gd | Security zone (lock/cameras/door/alarm/ward); guard tile = HQ headcount readout + Manage › to security (hint, no link without the Security Office); HQ kit row opens the HQ stocking sheet; Guard kits row opens hq_guard_kit |
 | security.gd | Security screen (from the Security Office tile): header (‹ HQ, title, Hire ›), summary strip (guards/posted/ready/out/Mon bill), underlined tab row; Posts tab (see security_posts.gd), Guards tab (filter chips, level-sorted GuardWidgets rows, Hire, row opens detail), Costs tab (see security_costs.gd) |
 | security_posts.gd | Security Posts tab: HQ / vein place cards (band-coloured score, hardware/guards split bar, slot tiles to the post cap, n/cap · wage footer, Kit link at ≥1 guard), veins by value, guardless non-top veins fold to a row, Reserve tray above the cards (tap a ready chip, then a "+ Post X here" slot; selection is screen-local) |
@@ -253,7 +253,7 @@ overlays; hides the top board on title/intro/combat and the nav dock per screen.
 | sell_vein_quote_modal.gd | Single-vein sale confirmation card |
 | apply_vein_item_modal.gd | Bag-stack picker for Root Feed / Good Year / Deadweight on one vein |
 | craft_components_menu_modal.gd | Movement-archetype picker; Craft hands off to movement_craft |
-| movement_craft_modal.gd | Pick a calc type to attempt a Movement craft; pushes success/fail notices |
+| movement_craft_modal.gd | Shows a Movement's five-ore cost and chance; Craft attempts it and pushes success/fail notices |
 | movement_swap_modal.gd | Seat a Movement from movementInventory into the Dial |
 | dial_load_complication_modal.gd | Load a crafted complication into the Dial |
 | combat_setup_modal.gd | Debug combat setup: fight type, location override (`location_options()`), fight-only player level, player slot picks (written to real slots via `Loadout.debug_grant()`), enemy count/level + per-enemy template/archetype, contact toggles, 0–2 debug allies (level + slots); requests `CombatPrep.KIND_DEBUG` → `Combat.start_debug_combat()` |
