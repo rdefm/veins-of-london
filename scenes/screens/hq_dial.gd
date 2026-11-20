@@ -10,6 +10,11 @@ const NEEDLE_ATLAS_REGION := Rect2(3.0, 1.0, 45.0, 37.0)
 const NEEDLE_HUB_NATIVE := Vector2(13.0, 26.0)
 const NEEDLE_MIN_DEG := -60.0
 const NEEDLE_MAX_DEG := 120.0
+const SEED_LENS_PROMPT := "It needs a first lens. Pick the ore it looks through."
+const SEED_ORE_BUTTON_SIZE := 56.0
+
+# Lens ore picked on the unseeded screen; UI-local, passed to Dial.attempt_seed().
+var _seed_ore := ""
 
 func _ready() -> void:
 	UI.anchor_full_rect(self)
@@ -99,21 +104,53 @@ func _build_unseeded(content: VBoxContainer, player: Dictionary) -> void:
 	if GameState.state["flags"].get("dialGiftGranted", false):
 		content.add_child(UI.label("You've been given something rare. It wants a name."))
 		content.add_child(UI.muted_label(UI.format_cost_label(GameData.DIAL_SEED_COST, player["orichalchum"])))
+		content.add_child(UI.label(SEED_LENS_PROMPT))
+		content.add_child(_build_seed_ore_row())
 		for haft_id in GameData.DIAL_HAFTS.keys():
 			var haft: Dictionary = GameData.DIAL_HAFTS[haft_id]
 			var captured_haft_id: String = haft_id
-			content.add_child(MapCardStyle.text_button("Seed as \"%s\"" % haft["name"], func(): _on_seed_pressed(captured_haft_id)))
+			content.add_child(MapCardStyle.text_button("Seed as \"%s\"" % haft["name"], func(): _on_seed_pressed(captured_haft_id), _seed_ore == ""))
 	else:
 		content.add_child(UI.muted_label(NO_DIAL_TEXT))
 func _on_seed_pressed(haft_id: String) -> void:
 	var haft: Dictionary = GameData.DIAL_HAFTS[haft_id]
-	var result := Dial.attempt_seed(haft_id)
+	var result := Dial.attempt_seed(haft_id, _seed_ore)
 	if not result["ok"]:
 		Notify.push(result["reason"], Notify.CATEGORY_WARNING)
 	elif result["success"]:
 		Notify.push("Dial seeded as \"%s\"." % haft["name"], Notify.CATEGORY_SUCCESS)
 	else:
 		Notify.push("Seeding failed — calc spent, no Dial gained.", Notify.CATEGORY_DANGER)
+
+# Five ore-glyph buttons (SeedOre_<ore>); the picked one is full strength, the rest dimmed.
+func _build_seed_ore_row() -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	for ore in GameData.ORE_TYPES.keys():
+		var captured_ore: String = ore
+		var b := Button.new()
+		b.name = "SeedOre_%s" % ore
+		b.tooltip_text = str(GameData.ORE_TYPES[ore].get("name", ore))
+		b.custom_minimum_size = Vector2(SEED_ORE_BUTTON_SIZE, SEED_ORE_BUTTON_SIZE)
+		b.toggle_mode = true
+		b.button_pressed = ore == _seed_ore
+		b.modulate.a = 1.0 if ore == _seed_ore or _seed_ore == "" else 0.55
+		b.pressed.connect(func(): _on_seed_ore_pressed(captured_ore))
+		var glyph := SymbolGlyph.new()
+		# Empty symbol forces OreGlyphs.draw(), the same silhouettes as MapCanvas.
+		glyph.symbol = ""
+		glyph.draw_fallback = SymbolGlyph.ore_fallback(ore)
+		glyph.color = MapPalette.ore_colour(ore)
+		glyph.glyph_radius = SEED_ORE_BUTTON_SIZE * 0.3
+		glyph.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		b.add_child(glyph)
+		glyph.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		row.add_child(b)
+	return row
+
+func _on_seed_ore_pressed(ore: String) -> void:
+	_seed_ore = ore
+	_refresh()
 
 func _build_device_art(dial: Dictionary) -> Control:
 	var wrap := Control.new()

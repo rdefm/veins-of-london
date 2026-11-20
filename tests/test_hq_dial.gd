@@ -40,7 +40,24 @@ func run() -> void:
 
 		for haft_id in GameData.DIAL_HAFTS.keys():
 			var haft: Dictionary = GameData.DIAL_HAFTS[haft_id]
-			assert_true(NodeQuery.find_button_by_effective_text(screen, "Seed as \"%s\"" % haft["name"]) != null, "a Seed button must render for haft %s" % haft_id)
+			var seed_button := NodeQuery.find_button_by_effective_text(screen, "Seed as \"%s\"" % haft["name"])
+			assert_true(seed_button != null, "a Seed button must render for haft %s" % haft_id)
+			assert_true(seed_button.disabled, "Seed is disabled until a lens ore is picked")
+		for ore in GameData.ORE_TYPES.keys():
+			assert_true(screen.find_child("SeedOre_%s" % ore, true, false) is Button, "an ore choice must render for %s" % ore)
+
+		screen.free()
+	)
+
+	run_case("hq_dial_screen_ore_choice_picks_the_seed_lens_ore", func():
+		GameState.reset()
+		GameState.state["flags"]["dialGiftGranted"] = true
+
+		var screen := HqDialScreen.new()
+		screen._ready()
+		(screen.find_child("SeedOre_life", true, false) as Button).pressed.emit()
+		assert_eq(screen._seed_ore, "life", "pressing an ore glyph picks that lens ore")
+		assert_true(GameState.state["player"]["dial"] == null, "picking an ore seeds nothing")
 
 		screen.free()
 	)
@@ -73,6 +90,7 @@ func run() -> void:
 				GameState.state["player"]["orichalchum"][ore_type] = GameData.DIAL_SEED_COST[ore_type]
 
 			var screen := HqDialScreen.new()
+			screen._seed_ore = "fate"
 			screen._ready()
 			NodeQuery.find_button_by_effective_text(screen, "Seed as \"%s\"" % haft["name"]).pressed.emit()
 			screen.free()
@@ -84,6 +102,7 @@ func run() -> void:
 				GameState.state = snapshot
 
 		assert_true(success, "should find a successful seed within 2000 tries at high combined skill")
+		assert_eq(GameState.state["player"]["dial"]["lenses"][0]["ore"], "fate", "the seeded Dial carries the picked lens ore")
 	)
 
 	run_case("hq_dial_screen_shows_level_charge_and_capacity_readouts_once_a_dial_is_seeded", func():

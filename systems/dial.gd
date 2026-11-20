@@ -26,8 +26,10 @@ static func seed_success_chance() -> float:
 
 
 # Same shape as Sites.attempt_seed(): full cost spent regardless of outcome, one
-# roll (R§3.5). Refused if player.dial is already non-null or the gift flag isn't set.
-static func attempt_seed(haft_id: String) -> Dictionary:
+# roll (R§3.5). Refused if player.dial is already non-null, the gift flag isn't
+# set, or lens_ore isn't an ore type. Success loads a lens of lens_ore in slot 1,
+# tier = crafting skill at seed (R§1.4 Lenses).
+static func attempt_seed(haft_id: String, lens_ore: String) -> Dictionary:
 	var player: Dictionary = GameState.state["player"]
 	if player["dial"] != null:
 		return { "ok": false, "reason": "You already have a Dial." }
@@ -35,6 +37,8 @@ static func attempt_seed(haft_id: String) -> Dictionary:
 		return { "ok": false, "reason": "You don't have the gift." }
 	if not GameData.DIAL_HAFTS.has(haft_id):
 		return { "ok": false, "reason": "Unknown haft." }
+	if not GameData.ORE_TYPES.has(lens_ore):
+		return { "ok": false, "reason": "Choose a lens ore." }
 
 	var cost: Dictionary = GameData.DIAL_SEED_COST
 	var orichalchum: Dictionary = player["orichalchum"]
@@ -47,7 +51,9 @@ static func attempt_seed(haft_id: String) -> Dictionary:
 
 	var success: bool = Rng.chance(seed_success_chance())
 	if success:
-		player["dial"] = new_dial(haft_id)
+		var dial: Dictionary = new_dial(haft_id)
+		dial["lenses"].append({ "ore": lens_ore, "tier": int(player["craftingSkill"]) })
+		player["dial"] = dial
 
 	EventBus.mark_changed()
 	return { "ok": true, "success": success }

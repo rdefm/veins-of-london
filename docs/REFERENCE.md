@@ -131,7 +131,7 @@ Descriptions (verbatim):
 
 **Loadout menu:** one shared `DialLoadoutMenu` (owner id; "" = player, an owner without a Dial renders nothing) is the only UI for seating/unseating Movements, loading/unloading Complications (units move to/from shared inventory) and winding; Profile and the HQ Dial screen both embed it, so state is identical. Winding keeps its §3.5 cost and never advances a time block. Dials are per-owner: `Dial.dial_of(owner_id)` reads `player.dial` ("") or `contacts.<id>.dial`; every Dial function takes an `owner_id`, and stock/calc/Movements always come from the player. Profile shows a card per contact Dial (James).
 
-**Seeding** (`Dial.attempt_seed(haftId)`) — single-roll risk model, same shape as `Sites.attempt_seed`: pay the full cost, roll once, fail = cost gone, no partial progress.
+**Seeding** (`Dial.attempt_seed(haftId, lensOre)`) — single-roll risk model, same shape as `Sites.attempt_seed`: pay the full cost, roll once, fail = cost gone, no partial progress, no lens. Refused (nothing spent) unless `lensOre` is one of the five ores. Success loads a first lens `{ ore: lensOre, tier: craftingSkill }` into `dial.lenses[0]`.
 
 | field | value |
 |---|---|

@@ -9,6 +9,7 @@ const SeedSearch := preload("res://tests/support/seed_search.gd")
 # seeds until the desired success/failure outcome is observed.
 
 const HAFT_ID := "collective_brolly"
+const LENS_ORE := "fate"
 
 static func _fund_seed_cost(multiplier: int = 1) -> void:
 	var orichalchum: Dictionary = GameState.state["player"]["orichalchum"]
@@ -31,7 +32,7 @@ func run() -> void:
 	run_case("attempt_seed_refuses_with_no_gift_flag", func():
 		GameState.reset()
 		_fund_seed_cost(10)
-		var result := Dial.attempt_seed(HAFT_ID)
+		var result := Dial.attempt_seed(HAFT_ID, LENS_ORE)
 		assert_true(not result["ok"], "seeding should be refused with no gift flag")
 		assert_eq(GameState.state["player"]["dial"], null, "no dial should be created")
 	)
@@ -39,7 +40,7 @@ func run() -> void:
 	run_case("attempt_seed_refuses_without_enough_calc", func():
 		GameState.reset()
 		GameState.state["flags"]["dialGiftGranted"] = true
-		var result := Dial.attempt_seed(HAFT_ID)
+		var result := Dial.attempt_seed(HAFT_ID, LENS_ORE)
 		assert_true(not result["ok"], "seeding should be refused without the full mixed cost on hand")
 	)
 
@@ -47,7 +48,7 @@ func run() -> void:
 		GameState.reset()
 		GameState.state["flags"]["dialGiftGranted"] = true
 		_fund_seed_cost(10)
-		var result := Dial.attempt_seed("not_a_real_haft")
+		var result := Dial.attempt_seed("not_a_real_haft", LENS_ORE)
 		assert_true(not result["ok"], "seeding should be refused for a haft not in the whitelist")
 		assert_eq(GameState.state["player"]["dial"], null, "no dial should be created")
 	)
@@ -64,7 +65,7 @@ func run() -> void:
 		while not success and seed < 2000:
 			var snapshot: Dictionary = GameState.deep_copy(GameState.state)
 			Rng.set_seed(seed)
-			var result := Dial.attempt_seed(HAFT_ID)
+			var result := Dial.attempt_seed(HAFT_ID, LENS_ORE)
 			seed += 1
 			if result["success"]:
 				success = true
@@ -89,13 +90,14 @@ func run() -> void:
 			GameState.state["player"]["dial"] = null
 			_fund_seed_cost(1)
 			Rng.set_seed(seed)
-			var result := Dial.attempt_seed(HAFT_ID)
+			var result := Dial.attempt_seed(HAFT_ID, LENS_ORE)
 			seed += 1
 			if not result["success"]:
 				found_failure = true
 				for ore_type in GameData.DIAL_SEED_COST:
 					assert_eq(GameState.state["player"]["orichalchum"][ore_type], 0, "%s should be fully spent even on a failed seed" % ore_type)
 				assert_eq(GameState.state["player"]["dial"], null, "a failed seed must leave no partial dial state")
+				assert_eq(GameState.state["player"]["lensInventory"], [], "a failed seed grants no lens")
 
 		assert_true(found_failure, "should find a failed seed within 2000 tries at low combined skill")
 	)
@@ -112,7 +114,7 @@ func run() -> void:
 		while not success and seed < 2000:
 			var snapshot: Dictionary = GameState.deep_copy(GameState.state)
 			Rng.set_seed(seed)
-			var result := Dial.attempt_seed(HAFT_ID)
+			var result := Dial.attempt_seed(HAFT_ID, LENS_ORE)
 			seed += 1
 			if result["success"]:
 				success = true
@@ -131,6 +133,20 @@ func run() -> void:
 		assert_eq(dial["level"], 1, "a freshly-seeded dial starts at level 1")
 		assert_eq(dial["xp"], 0, "a freshly-seeded dial starts at 0 xp")
 		assert_eq(dial["haftId"], HAFT_ID, "the seeded dial records the chosen haft")
+		assert_eq(dial["lenses"], [{ "ore": LENS_ORE, "tier": 5 }], "a seeded dial loads the chosen-ore lens in slot 1 at the seed-time crafting skill")
+		assert_eq(GameState.state["player"]["lensInventory"], [], "the first lens is loaded, not added to inventory")
+	)
+
+	run_case("attempt_seed_refuses_an_invalid_lens_ore_and_spends_nothing", func():
+		GameState.reset()
+		GameState.state["flags"]["dialGiftGranted"] = true
+		_fund_seed_cost(1)
+		for bad_ore in ["", "void"]:
+			var result := Dial.attempt_seed(HAFT_ID, bad_ore)
+			assert_true(not result["ok"], "seeding should be refused for lens ore '%s'" % bad_ore)
+		assert_eq(GameState.state["player"]["dial"], null, "no dial should be created")
+		for ore_type in GameData.DIAL_SEED_COST:
+			assert_eq(GameState.state["player"]["orichalchum"][ore_type], GameData.DIAL_SEED_COST[ore_type], "%s should be untouched by a refused seed" % ore_type)
 	)
 
 	run_case("attempt_seed_refuses_outright_once_a_dial_already_exists", func():
@@ -139,7 +155,7 @@ func run() -> void:
 		GameState.state["player"]["dial"] = { "level": 1, "xp": 0, "currentCharge": 0, "maxCharge": 0, "rechargeRate": 0, "capacityMax": 0, "movement": null, "loadedComplications": [], "haftId": HAFT_ID }
 		_fund_seed_cost(10)
 
-		var result := Dial.attempt_seed(HAFT_ID)
+		var result := Dial.attempt_seed(HAFT_ID, LENS_ORE)
 		assert_true(not result["ok"], "seeding a second dial should be refused outright")
 	)
 
@@ -387,7 +403,7 @@ func run() -> void:
 		while not success and seed < 2000:
 			var snapshot: Dictionary = GameState.deep_copy(GameState.state)
 			Rng.set_seed(seed)
-			var result := Dial.attempt_seed(HAFT_ID)
+			var result := Dial.attempt_seed(HAFT_ID, LENS_ORE)
 			seed += 1
 			if result["success"]:
 				success = true
