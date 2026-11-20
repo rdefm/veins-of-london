@@ -98,7 +98,7 @@
       "eventUsable": true,
       "eventProfile": { "tags": ["discovery"], "label": "Prophet's Breath", "placeholder": true, "effect": { "kind": "bonus", "add": 0.5 } },
       "description": "Two lungfuls buys you a few seconds of foresight. Enough to flinch correctly.",
-      "effectText": "Ambushes stop finding you."
+      "effectText": "Ambushes stop finding you, and tomorrow's prices show through."
     },
     "beALady": {
       "name": "Be a Lady",

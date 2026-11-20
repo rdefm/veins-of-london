@@ -89,7 +89,7 @@ Data file per system: see `data/*.json` below.
 | soho.gd | Soho Marketplace (R§3.13): buys/sells ore and tiered items against London stock; sell/buy fee ladders by whole-cart order value; pure `fee_rows` (rung, rate, fee, net, next rung, ladder, Archie comparison) match what `trade` charges |
 | market.gd | London market (R§3.13): per-good quote/history, item stock by tier, conserved elastic flows (`_plan_day`), `availability`, `tier_price`, legacy migration, flow + move recording, daily reprice (⑥.6; also above-trigger days, `outside_craft_eligible`), tomorrow's projection (`projected_quotes`), story rises, annotations, sales history, delivery log, Stock Market reads |
 | lucky_price.gd | Fate Lens lucky buyer (R§3.13 Lucky price): eligibility, hit chance, one roll per Trade-menu trade, sale bonus / buy discount, result line |
-| market_insight.gd | Market row `!` reads (R§3.13 Insight): merges sources' lines + notable flag per good off `Market.projected_quotes`; Fate gut-feeling source |
+| market_insight.gd | Market row `!` reads (R§3.13 Insight): merges sources' lines + notable flag per good off `Market.projected_quotes`; Fate gut-feeling and Prophet's Breath £-band sources |
 | map_hit_test.gd | Tap-hit geometry, Network diagram |
 | map_layout.gd | Resolves stops vs. live sites/veins |
 | map_nav.gd | Map drill-down nav (list → panel → site sheet or vein detail panel, mutually exclusive) |
@@ -186,7 +186,7 @@ overlays; hides the top board on title/intro/combat and the nav dock per screen.
 | contact_cards.gd | Shared contact/faction card builders (incl. membership actions, faction Benefits tier ladder, handler card, Owen card, Targets/Sourcing, Nadia's ledger + "Go with Nadia", key-member card, recipe-seller Trade door, pending-message actions (lowball, peace offer, favour)), inline Contacts action-row layout, Phone-OS chrome repaint (text-only for card-chrome apps) |
 | contract_card.gd | Draggable BizBrief Sales card |
 | line_chart.gd | `_draw` line chart (palette-id or app accent colour, optional overlaid series on a shared scale, max label, first/last day, optional counted event markers); opt-in touch/drag history-point inspection for Ticker, compact chart for BizBrief Stats |
-| market_insight_icon.gd | The `!` on Ticker Stock Market and Trade sheet rows: grey/untappable when silent, red + pulsing when notable, tap → bubble of every line |
+| market_insight_icon.gd | The `!` on Ticker Stock Market and Trade sheet rows: grey/untappable when silent, light red when spoken, red + pulsing when notable, tap → bubble of every line |
 | price_move.gd | ▲/▼ + £ delta text and colour for a Market day move (Stock Market rows, sell lanes) |
 | floorplan_view.gd | Estate-agent plan for a home tier from floorplans.json; static, or with tappable slot overlays showing current use |
 | departure_board_casing.gd | Top board's sign housing: code-drawn metal frame, corner bolts, recessed bezel; optional nine-patch `assets/ui/departure_board_frame.png` slot |

@@ -2,11 +2,13 @@ class_name MarketInsightIcon
 extends Button
 
 # The market row `!` (R§3.13 "Insight") on the Ticker's Stock Market rows and
-# Trade sheet rows. Grey and untappable while no source speaks; ui_action_red
-# and pulsing when any source flags the good notable. A tap shows every
+# Trade sheet rows. Grey and untappable while no source speaks; light red and
+# tappable when a source speaks; ui_action_red and pulsing when any source
+# flags the good notable. A tap shows every
 # source's lines together in one bubble. Presentation only.
 
 const IDLE_ID := "neutral_light"
+const SPOKEN_ID := "ui_action_red_light"
 const NOTABLE_ID := "ui_action_red"
 const PULSE_SECONDS := 0.6
 const PULSE_ALPHA := 0.35
@@ -29,7 +31,8 @@ static func make(read: Dictionary) -> MarketInsightIcon:
 	icon.disabled = icon.lines.is_empty()
 	icon.mouse_filter = Control.MOUSE_FILTER_STOP if not icon.disabled else Control.MOUSE_FILTER_IGNORE
 	icon.accessibility_name = "Market insight" if not icon.disabled else "No market insight"
-	var colour: Color = GameData.PALETTE.get(NOTABLE_ID if icon.notable else IDLE_ID, Color.GRAY)
+	var colour_id := NOTABLE_ID if icon.notable else (IDLE_ID if icon.disabled else SPOKEN_ID)
+	var colour: Color = GameData.PALETTE.get(colour_id, Color.GRAY)
 	for font_colour in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_disabled_color"]:
 		icon.add_theme_color_override(font_colour, colour)
 	icon.add_theme_font_size_override("font_size", 18)

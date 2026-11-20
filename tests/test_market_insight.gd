@@ -42,6 +42,14 @@ static func _lines(reads: Dictionary, kind: String, good_type: String) -> Array:
 	return MarketInsight.read_for(reads, kind, good_type)["lines"]
 
 
+# A running Prophet's Breath at `level`, `blocks_left` blocks from expiry
+# (negative: already expired).
+static func _breathe(level: int, blocks_left: int = 3) -> void:
+	var effects: Array = GameState.state["player"]["activeEffects"]
+	effects.clear()
+	effects.append({ "item": ActiveEffects.PROPHETS_BREATH, "level": level, "expiresAtBlock": ActiveEffects.absolute_block() + blocks_left })
+
+
 static func _quotes() -> Dictionary:
 	var quotes := {}
 	for kind in Market.KINDS:
@@ -144,6 +152,72 @@ func run() -> void:
 		assert_eq(_lines(reads, "ore", "time"), [], "third not read at tier 3")
 	)
 
+	# ── Prophet's Breath source ──
+
+	run_case("breath_silent_when_not_running", func():
+		_setup(0)
+		assert_eq(MarketInsight._breath_reads(_projected({ "ore/time": 0.3 })), {}, "no Breath: silent")
+		_breathe(3, -1)
+		assert_eq(MarketInsight._breath_reads(_projected({ "ore/time": 0.3 })), {}, "expired Breath: silent")
+		assert_eq(MarketInsight.read_for(MarketInsight.reads(), "ore", "time")["lines"], [], "reads(): no Breath lines")
+	)
+
+	run_case("breath_reads_every_good_with_a_band_round_the_projection", func():
+		var widths: Array = GameData.ACTIVE_EFFECTS["prophetsBreath"]["marketBandByLevel"]
+		for level in range(1, 6):
+			_setup(0)
+			_breathe(level)
+			var projected := _projected({ "ore/time": 0.3 })
+			var reads := MarketInsight._breath_reads(projected)
+			for kind in projected:
+				for good_type in projected[kind]:
+					assert_eq(_lines(reads, kind, good_type).size(), 1, "lvl %d %s/%s reads" % [level, kind, good_type])
+			var p := int(projected["consumable"]["blast"])
+			var band := MarketInsight.breath_band(p)
+			assert_true(int(band[0]) <= p and p <= int(band[1]), "lvl %d band contains projection" % level)
+			assert_eq(band, [GameState.round_epsilon(p * (1.0 - float(widths[level]))), GameState.round_epsilon(p * (1.0 + float(widths[level])))], "lvl %d width" % level)
+			var line: String = GameData.ACTIVE_EFFECTS["prophetsBreath"]["marketLine"]
+			assert_eq(_lines(reads, "consumable", "blast"), [line % ("£%d–£%d" % band)], "lvl %d item line" % level)
+			var ore_band := MarketInsight.breath_band(int(projected["ore"]["time"]))
+			assert_eq(_lines(reads, "ore", "time"), [line % ("£%d–£%d/%d" % [ore_band[0], ore_band[1], Market.price_lot("ore")])], "lvl %d ore line per lot" % level)
+		_setup(0)
+		_breathe(1)
+		var wide := MarketInsight.breath_band_width()
+		_breathe(5)
+		assert_true(MarketInsight.breath_band_width() < wide, "higher level narrower band")
+	)
+
+	run_case("breath_notable_follows_threshold", func():
+		_setup(0)
+		_breathe(2)
+		var reads := MarketInsight._breath_reads(_projected({ "ore/time": 0.06, "ore/life": 0.02 }))
+		assert_true(MarketInsight.read_for(reads, "ore", "time")["notable"], "6% notable")
+		assert_true(not MarketInsight.read_for(reads, "ore", "life")["notable"], "2% spoken, not notable")
+	)
+
+	run_case("breath_and_fate_lines_sit_together", func():
+		_setup(5)
+		_breathe(2)
+		var market: Dictionary = GameState.state["market"]
+		market["goods"]["ore"]["fate"]["stock"] = 40
+		var projected := Market.projected_quotes()
+		assert_true(MarketInsight.is_notable(projected, "ore", "fate"), "setup: fate ore notable")
+		var merged := MarketInsight.read_for(MarketInsight.reads(), "ore", "fate")
+		assert_eq(merged["lines"].size(), 2, "Fate + Breath lines both present")
+		assert_true(merged["notable"], "notable")
+		var quiet := MarketInsight.read_for(MarketInsight.reads(), "consumable", "blast")
+		assert_true(quiet["lines"].size() >= 1, "Breath speaks on every row")
+	)
+
+	run_case("breath_reads_write_no_state", func():
+		_setup(5)
+		_breathe(3)
+		Market.record_supply("ore", "life", 50, "player")
+		var before: Dictionary = GameState.deep_copy(GameState.state)
+		MarketInsight.reads()
+		assert_eq(GameState.state, before, "state deep-equal before/after")
+	)
+
 	# ── insight slot ──
 
 	run_case("reads_merge_sources_and_default_is_silent", func():
@@ -167,6 +241,10 @@ func run() -> void:
 		var loud := MarketInsightIcon.make({ "lines": ["x"], "notable": true })
 		assert_true(not loud.disabled, "notable icon tappable")
 		assert_eq(loud.get_theme_color("font_color"), GameData.PALETTE[MarketInsightIcon.NOTABLE_ID], "red")
+		var spoken := MarketInsightIcon.make({ "lines": ["x"], "notable": false })
+		assert_true(not spoken.disabled, "spoken icon tappable")
+		assert_eq(spoken.get_theme_color("font_color"), GameData.PALETTE[MarketInsightIcon.SPOKEN_ID], "light red")
+		spoken.free()
 		var tree := Engine.get_main_loop() as SceneTree
 		var before := tree.get_processed_tweens().size()
 		tree.root.add_child(quiet)

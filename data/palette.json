@@ -60,6 +60,7 @@
     { "id": "ore_emotion",       "hex": "#b85a82", "group": "ore" },
 
     { "id": "ui_action_red",     "hex": "#c8102e", "group": "ui_action" },
+    { "id": "ui_action_red_light", "hex": "#e8848f", "group": "ui_action" },
 
     { "id": "register_oxide",     "hex": "#e47a50", "group": "register" },
     { "id": "register_graphite",  "hex": "#2b2724", "group": "register" },
