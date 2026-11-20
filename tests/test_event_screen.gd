@@ -1023,6 +1023,40 @@ func run() -> void:
 		screen.free()
 	)
 
+	run_case("glimpse_button_sits_on_the_lensed_ore_row_and_rerolls_once", func():
+		GameState.reset()
+		var original_events: Dictionary = GameData.EVENTS
+		GameData.EVENTS = GameData.EVENTS.duplicate()
+		GameData.EVENTS["test_screen_glimpse"] = {
+			"id": "test_screen_glimpse",
+			"cards": [{ "type": "narration", "label": null, "speaker": null, "text": "One.", "observe": "o" }],
+			"observations": { "o": { "blocks": {
+				"time": { "tiers": [{ "base": 1.0, "min": 1.0, "max": 1.0, "text": "Time hit." }], "miss": "m" },
+				"physics": { "tiers": [{ "base": 1.0, "min": 1.0, "max": 1.0, "text": "Phys hit." }], "miss": "pm" },
+			} } },
+			"on_complete": [],
+		}
+		var dial: Dictionary = Dial.new_dial("collective_brolly")
+		dial["lenses"] = [{ "ore": "time", "tier": 1 }]
+		GameState.state["player"]["dial"] = dial
+		GameState.state["player"]["senseSkill"] = Lenses.gate_level("glimpse")
+		Events.start_event("test_screen_glimpse")
+		var screen := _fresh_screen()
+		screen._on_observe_picked()
+		var sheet: Control = screen._obs_sheet
+		var time_row: Node = sheet.find_child("ObsRow_time", true, false)
+		var glimpse: Button = time_row.find_child("GlimpseButton_time", true, false)
+		assert_true(glimpse != null, "re-roll button on the lensed ore's row")
+		assert_true(sheet.find_child("GlimpseButton_physics", true, false) == null, "none without that ore's Lens")
+		glimpse.pressed.emit()
+		assert_true(GameState.state["event"]["glimpseUsed"], "spent")
+		assert_eq(int(GameState.state["event"]["observations"]["o"]["rollCount"]), 2, "re-rolled")
+		assert_true(screen._obs_sheet.find_child("GlimpseButton_time", true, false) == null, "gone once used")
+		GameData.EVENTS = original_events
+		GameState.state["event"] = null
+		screen.free()
+	)
+
 	run_case("read_unlocks_fade_in_with_ore_glyph", func():
 		GameState.reset()
 		var original_events: Dictionary = GameData.EVENTS

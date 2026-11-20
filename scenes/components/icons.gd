@@ -101,6 +101,23 @@ static func _draw_arrow(target: Object, center: Vector2, direction: float, colou
 	target.draw_colored_polygon(points, colour)
 
 
+# A clockwise circular arrow (re-roll).
+static func draw_reroll(target: CanvasItem, center: Vector2, colour: Color, scale: float = 1.0) -> void:
+	var radius := 6.0 * scale
+	var start := -PI * 0.3
+	var end := start + TAU * 0.8
+	target.draw_arc(center, radius, start, end, 24, colour, 2.0 * scale, true)
+	var tip := center + Vector2(cos(end), sin(end)) * radius
+	var along := Vector2(-sin(end), cos(end))
+	var out := Vector2(cos(end), sin(end))
+	var s := 3.5 * scale
+	target.draw_colored_polygon(PackedVector2Array([
+		tip + along * s,
+		tip - along * s * 0.4 + out * s,
+		tip - along * s * 0.4 - out * s,
+	]), colour)
+
+
 static func draw_prospect(target: CanvasItem, center: Vector2, colour: Color, scale: float = 1.0) -> void:
 	var s := 7.0 * scale
 	target.draw_line(center + Vector2(-s * 0.7, s), center + Vector2(s * 0.55, -s * 0.75), colour, 2.0 * scale, true)

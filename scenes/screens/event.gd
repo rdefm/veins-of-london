@@ -286,11 +286,6 @@ func _toggle_item_menu(anchor: Button) -> void:
 		var reveal := Observation.reveal_toggle()
 		if not reveal.is_empty() and reveal["held"]:
 			list.add_child(_build_reveal_toggle(reveal))
-		for ore in Observation.glimpse_ores():
-			var glimpse := UI.button(Lenses.glimpse_text("eventEntry") % String(ore).capitalize(), _on_glimpse_picked.bind(ore))
-			glimpse.name = "GlimpseEntry_%s" % ore
-			_style_action_button(glimpse)
-			list.add_child(glimpse)
 	var offer := Events.reveal_offer()
 	if not offer.is_empty():
 		var deja := UI.button(GameData.EVENT_CHECKS["revealButton"] % offer["name"], func(): _close_item_menu(); Events.reveal_card())
@@ -335,9 +330,8 @@ func _on_observe_picked() -> void:
 		_refresh()
 	_open_observation_sheet(rows)
 
-# Glimpse (R§1.4 Lenses): re-rolls one read ore, then shows the read.
+# Glimpse (R§1.4 Lenses): re-rolls one read ore, then reopens the read.
 func _on_glimpse_picked(ore: String) -> void:
-	_close_item_menu()
 	var before := shown_options()
 	var result := Observation.glimpse(ore)
 	if not result["ok"]:
@@ -408,10 +402,16 @@ func _open_observation_sheet(rows: Array) -> void:
 	_reveal_steps.clear()
 	var obs_id := Observation.in_effect()
 	var pick_ores: Array = []
+	var glimpse_ores: Array = Observation.glimpse_ores()
 	if _pick_choice >= 0:
-		pick_ores = Observation.pick_ores(Events.current_card()["choices"][_pick_choice])
+		var pick_choice: Dictionary = Events.current_card()["choices"][_pick_choice]
+		pick_ores = Observation.pick_ores(pick_choice)
+		if String(pick_choice["pick"]["observation"]) != obs_id:
+			glimpse_ores = []
 	for row in rows:
 		var row_node := _build_observation_row(row, _row_is_new(obs_id, row))
+		if glimpse_ores.has(row["ore"]):
+			row_node.add_child(_build_glimpse_button(row["ore"]))
 		if _pick_choice >= 0:
 			_style_pick_row(row_node, row["ore"], pick_ores.has(row["ore"]))
 		content.add_child(row_node)
@@ -427,6 +427,24 @@ func _open_observation_sheet(rows: Array) -> void:
 	_obs_sheet.add_child(sheet)
 	add_child(_obs_sheet)
 	_play_reveal()
+
+# Round re-roll button on a row a Glimpse can re-roll (Observation.glimpse_ores()).
+func _build_glimpse_button(ore: String) -> Button:
+	var b := UI.button("", _on_glimpse_picked.bind(ore))
+	b.name = "GlimpseButton_%s" % ore
+	b.tooltip_text = Lenses.glimpse_text("eventReroll")
+	b.custom_minimum_size = Vector2(CONTEXT_BUTTON_SIZE, CONTEXT_BUTTON_SIZE)
+	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_style_action_button(b)
+	for state in ["normal", "hover", "pressed", "disabled"]:
+		var style := b.get_theme_stylebox(state) as StyleBoxFlat
+		style.set_corner_radius_all(int(CONTEXT_BUTTON_SIZE / 2.0))
+		style.set_content_margin_all(0.0)
+	var icon := UI.icon_glyph_control(Icons.draw_reroll, UI.ICON_GLYPH_SCALE, UI.action_colour())
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	UI.anchor_full_rect(icon)
+	b.add_child(icon)
+	return b
 
 # A qualifying row gains a pick button under its text; the others grey out.
 func _style_pick_row(row_node: Control, ore: String, qualifies: bool) -> void:
