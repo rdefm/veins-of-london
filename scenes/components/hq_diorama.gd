@@ -16,6 +16,8 @@ var _background_fill: ColorRect
 var _region_sprites: Dictionary = {}
 var _debug_overlay_enabled: bool = false
 var _captions: Array[Label] = []
+var _zone_labels: Dictionary = {}
+var _zone_labels_visible: bool = false
 
 
 func _init() -> void:
@@ -51,6 +53,9 @@ func build(plate: Dictionary) -> void:
 	for caption in _captions:
 		caption.free()
 	_captions.clear()
+	for label in _zone_labels.values():
+		label.free()
+	_zone_labels.clear()
 	for sprite in _region_sprites.values():
 		sprite.queue_free()
 	_region_sprites.clear()
@@ -113,7 +118,57 @@ func build(plate: Dictionary) -> void:
 		add_child(caption)
 		_captions.append(caption)
 
+
+	for region_id in regions:
+		var region: Dictionary = regions[region_id]
+		if region.has("caption") or not region.has("label"):
+			continue
+		_zone_labels[region_id] = _make_zone_label(region)
+
 	queue_redraw()
+
+
+# Regions whose purpose can be named on the plate: always-on caption or
+# the region's data label.
+static func labelled_region_ids(plate: Dictionary) -> Array[String]:
+	var ids: Array[String] = []
+	var regions: Dictionary = plate.get("regions", {})
+	for region_id in regions:
+		if regions[region_id].has("caption") or regions[region_id].has("label"):
+			ids.append(region_id)
+	return ids
+
+
+func set_zone_labels_visible(enabled: bool) -> void:
+	_zone_labels_visible = enabled
+	for label in _zone_labels.values():
+		label.visible = enabled
+
+
+func zone_label_ids() -> Array[String]:
+	var ids: Array[String] = []
+	for region_id in _zone_labels:
+		ids.append(region_id)
+	for region_id in _plate.get("regions", {}):
+		if _plate["regions"][region_id].has("caption") and not ids.has(region_id):
+			ids.append(region_id)
+	return ids
+
+
+func _make_zone_label(region: Dictionary) -> Label:
+	var label := UI.label(region["label"])
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var band := caption_rect(region, label.get_minimum_size().y)
+	label.position = band.position
+	label.size.x = band.size.x
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.add_theme_color_override("font_color", Color.WHITE)
+	label.add_theme_color_override("font_shadow_color", Color.BLACK)
+	label.add_theme_constant_override("shadow_offset_x", 1)
+	label.add_theme_constant_override("shadow_offset_y", 1)
+	label.visible = _zone_labels_visible
+	add_child(label)
+	return label
 
 
 func set_debug_overlay_enabled(enabled: bool) -> void:

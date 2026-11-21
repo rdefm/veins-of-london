@@ -195,7 +195,7 @@ overlays; hides the top board on title/intro/combat and the nav dock per screen.
 | dot_matrix_board.gd | Amber-on-black dot-matrix board renderer |
 | dot_matrix_font.gd | Bitmap font for dot_matrix_board.gd |
 | haptics.gd | Adapter over `Input.vibrate_handheld()` |
-| hq_diorama.gd | Generic plate/region artwork renderer; outlines regions flagged `selected`; owns the region hit rule (`zone_at`/`regions_at`: traced polygon else rect), the debug hit-shape overlay, and caption placement (polygon-centred for traced regions) |
+| hq_diorama.gd | Generic plate/region artwork renderer; outlines regions flagged `selected`; owns the region hit rule (`zone_at`/`regions_at`: traced polygon else rect), the debug hit-shape overlay, toggleable per-region `label` captions (`set_zone_labels_visible`), and caption placement (polygon-centred for traced regions) |
 | icons.gd | 16 drawn icon glyphs (incl. left/right arrows) |
 | move_book.gd | MoveBook: Profile's per-owner Move Book from `MoveLevels.book()` — owner tabs, collapsible move rows (badge, mini track, teaser), open detail (level track, Feint word row, Lv3/Lv5 unlock cards, XP line) |
 | skill_wheel.gd | SkillWheel: Profile's 3-segment Body/Mind/Soul wheel from `SkillTree.project()`; tap rotates the segment to the bottom (tween) and opens the bucket's sub-skills as Move Book-style rows (badge, XP bar, teaser; open: XP line + feat cards); re-tap collapses; durations/colours from `skill_feats.json` `wheel` |

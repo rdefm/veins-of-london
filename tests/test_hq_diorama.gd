@@ -19,6 +19,23 @@ func run() -> void:
 		diorama.free()
 	)
 
+	run_case("zone_labels_cover_exactly_the_tappable_regions_on_every_tier_plate", func():
+		var plates: Array = GameData.HQ_VISUALS["rooms"].values()
+		for plate in plates:
+			var diorama := HqDiorama.new()
+			diorama.build(plate.duplicate(true))
+			var labelled := diorama.zone_label_ids()
+			labelled.sort()
+			var tappable: Array = plate["regions"].keys()
+			tappable.sort()
+			assert_eq(labelled, tappable, "labelled set == region set")
+			diorama.set_zone_labels_visible(true)
+			assert_true(diorama._zone_labels.values().all(func(l): return l.visible), "labels show when toggled on")
+			diorama.set_zone_labels_visible(false)
+			assert_true(diorama._zone_labels.values().all(func(l): return not l.visible), "labels hide when toggled off")
+			diorama.free()
+	)
+
 	run_case("region_rects_returns_every_region_generically_no_hardcoded_roster", func():
 		var plate: Dictionary = {
 			"image": "",

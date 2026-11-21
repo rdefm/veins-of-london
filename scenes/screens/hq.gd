@@ -3,6 +3,8 @@ extends Control
 
 var _diorama: HqDiorama
 var _debug_overlay_enabled: bool = false
+# UI-local, session-wide: survives HQ re-entry, never saved.
+static var _zone_labels_enabled: bool = false
 
 func _ready() -> void:
 	UI.anchor_full_rect(self)
@@ -61,6 +63,7 @@ func _build_room_view() -> void:
 	_diorama = HqDiorama.new()
 	_diorama.build(plate)
 	_diorama.set_debug_overlay_enabled(_debug_overlay_enabled)
+	_diorama.set_zone_labels_visible(_zone_labels_enabled)
 	_diorama.position = Vector2(0.0, UI.top_bar_clearance())
 	_diorama.gui_input.connect(_on_diorama_gui_input)
 	add_child(_diorama)
@@ -73,6 +76,10 @@ func _build_room_view() -> void:
 	var meditate_button := MapCardStyle.chip_button("Meditate", func(): Modal.open("hq_meditate"))
 	meditate_button.position = Vector2(4.0, UI.top_bar_clearance() + 84.0)
 	add_child(meditate_button)
+	var help_button := MapCardStyle.chip_button("? ✓" if _zone_labels_enabled else "?", _on_zone_labels_toggle_pressed)
+	help_button.position = Vector2(4.0, UI.top_bar_clearance() + 124.0)
+	add_child(help_button)
+
 func _security_lock_installed_plate(plate: Dictionary, home: Dictionary) -> Dictionary:
 	if not home["security"].has("lock"):
 		return plate
@@ -83,6 +90,10 @@ func _security_lock_installed_plate(plate: Dictionary, home: Dictionary) -> Dict
 	var installed_plate: Dictionary = plate.duplicate(true)
 	installed_plate["regions"]["security"]["image"] = installed_image
 	return installed_plate
+
+func _on_zone_labels_toggle_pressed() -> void:
+	_zone_labels_enabled = not _zone_labels_enabled
+	_refresh()
 
 func _on_debug_toggle_pressed() -> void:
 	_debug_overlay_enabled = not _debug_overlay_enabled
