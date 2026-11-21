@@ -54,9 +54,8 @@ Small overlays and hand-made pieces:
 | `movement_<archetype>.png` | 4 (recharge, capacitor, impact, spread) | 4-frame strip, 96 × 24 | centre of frame | Frame 0 = still; frames 1–3 = spin, for Wind. Motifs: recharge = mainspring spiral; capacitor = stacked barrel plates; impact = hammer and escapement; spread = star wheel |
 | `movement_tier_<n>.png` | 5, hand-made | 24 × 24 | centre | Tier jewels on the rim |
 | `comp_label_<recipeKey>.png` | one per recipe with an icon in `assets/combat/icons/` | 10 × 10 | centre | **No prompt.** A nearest downscale of the 32 px combat icon, redrawn by hand. A seated Complication is its label icon sitting in the chamber, and the icon is what drops in when loading |
-| `float_shadow_s.png` / `_m.png` | 2 | 12 × 4 / 24 × 6 | centre | Dithered ellipse under a hovering component |
 
-A hovering component gets the shadow below it and a 1-px bob. A seated Complication sits flat in its chamber with no shadow. In the side list, components are shown at the section's zoom scale.
+A hovering component has a 1-px bob and no shadow (floor shadows are deferred, see ticket 13). A seated Complication sits flat in its chamber. In the side list, components are shown at the section's zoom scale.
 
 ### 2.3 Anchors (in data at 09, measured from the cut sprites)
 
@@ -110,9 +109,9 @@ All timings in seconds, stored in data (09). Easing is cubic-out unless stated. 
    - Movement: the seated Movement slides up out of the grip's top lip (0.3) and hovers.
    - Lenses: each loaded Lens slides up out of the collar's top lip, staggered 0.05 left to right (0.3), and hovers. Ghost slots fade in for locked slots.
    - Complications: the canopy drops 40 px away from the collar (0.3, ease in-out), showing the cut face. Chambers that can take a Complication pulse (`chamber_ring`). Loaded chambers show their label icon; blank covers show on chambers above `capacityMax`.
-4. **Hover:** whole-pixel ±1 bob on every hovering component (about 1.2 s period, phases offset per component), with the shadow.
-5. **Info tag** (tap a list item, a hovering part or a loaded chamber): the tag swings in on its string from the item, scaling 0.8 → 1 and fading in (0.12), with a 1-px settle.
-6. **Load** (drag to a socket, or Fit): the component lifts with a shadow and travels in an arc to the section. Lens or Movement: it descends into the lip until clipped, then re-emerges to hover (0.25), with a glow on the lip (0.2, ore colour for a Lens). Complication: its label icon drops into the chosen chamber (0.25), the chamber flashes for 2 frames, and the matching face stud lights.
+4. **Hover:** whole-pixel ±1 bob on every hovering component (about 1.2 s period, phases offset per component).
+5. **Info tag** (tap a list item, a hovering part or a loaded chamber): the existing code-built tag panel (`MapCardStyle`), scaling 0.8 → 1 and fading in (0.12). It has no custom art.
+6. **Load** (drag to a socket, or Fit): the component lifts and travels in an arc to the section. Lens or Movement: it descends into the lip until clipped, then re-emerges to hover (0.25), with a glow on the lip (0.2, ore colour for a Lens). Complication: its label icon drops into the chosen chamber (0.25), the chamber flashes for 2 frames, and the matching face stud lights.
 7. **Swap** (drop on a filled socket): the old component pops out 8 px and floats back to its list row (0.25). The incoming one starts 0.08 later.
 8. **Unload** (drag a part off the device): when released, it floats to its list row (0.2). The socket shows empty.
 9. **Wind** (Movement section, tap the intake; the ore choice comes first when 2+ Lenses are loaded): the intake glows in the paid ore's colour (0.15). The Movement plays its spin strip (about 8 fps, 0.5). The needle sweeps up to the new charge (0.4).
@@ -136,13 +135,10 @@ Each prompt below attaches the **exploded master** (not a new assembled image) s
 **P2 — Movements** (one prompt per archetype, run P2a first and attach it to b–d) → `movement_recharge`, `movement_capacitor`, `movement_impact`, `movement_spread`
 > Attach: the exploded master (and P2a for b–d). A 4-frame horizontal sprite strip, 96x24 total, each frame a 24x24 circular clockwork watch movement in gunmetal and blued steel with tiny jewel bearings, seen from the same high angle as it would sit in the grip's open top. Frame 1 is still; frames 2–4 show its wheels turning a little further each frame, for a looping spin. Consistent identity across all frames. Motif: [a] a coiled mainspring spiral in the centre / [b] stacked barrel plates like a capacitor / [c] a heavy hammer striking an escapement / [d] a many-pointed star wheel.
 
-**P3 — tag** → `dial_tag`, `dial_tag_string`
-> A small cream paper luggage tag, 24x24, slightly worn edges, a punched hole with a steel eyelet on the left, plain blank face for text; plus a separate 4x16 vertical tile of thin twine. Flat, front-facing, for 9-slice stretching: the edges are uniform except the hole corner. (Ignore the camera-angle line of the tail for this one.)
-
-**P4 — bench backdrop** → `dial_bench.png`
+**P3 — bench backdrop (DEFERRED, ticket 13)** → `dial_bench.png`
 > Opaque, edge to edge, 195x422: a dark oxblood leather watchmaker's mat on a workbench, seen from the same high angle, a faint stitched grid, one or two tiny tool marks, a soft vignette made of dithering. No objects on it. Background: opaque (replaces the transparent tail line).
 
-**P5 — floor shadows** → `float_shadow_s`, `float_shadow_m`
+**P4 — floor shadows (DEFERRED, ticket 13)** → `float_shadow_s`, `float_shadow_m`
 > A 12x4 and a 24x6 dithered dark shadow ellipse, side by side, transparent background, clear space between them.
 
 ## 6. Not in this spec

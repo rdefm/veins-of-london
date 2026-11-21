@@ -20,19 +20,13 @@ Later: physics `#b8562f`, life `#5a8f4f`, fate `#7a5a9e`, emotion `#b85a82`. Sam
 
 Later: capacitor (stacked barrel plates like a capacitor), impact (a heavy hammer striking an escapement), spread (a many-pointed star wheel). Attach the finished recharge strip to each so the style carries over.
 
-## P3 — Tag (DEFERRED — not needed for the proof pass) → `dial_tag`, `dial_tag_string`
-
-Ignore the camera-angle line of the tail for this one.
-
-> A small cream paper luggage tag, 24x24, slightly worn edges, a punched hole with a steel eyelet on the left, plain blank face for text; plus a separate 4x16 vertical tile of thin twine. Flat, front-facing, for 9-slice stretching: the edges are uniform except the hole corner.
-
-## P4 — Bench backdrop (DEFERRED — not needed for the proof pass) → `dial_bench.png`
+## P3 — Bench backdrop (DEFERRED, ticket 13) → `dial_bench.png`
 
 Replace the tail's "Background: transparent" with opaque.
 
 > Opaque, edge to edge, 195x422: a dark oxblood leather watchmaker's mat on a workbench, seen from the same high angle, a faint stitched grid, one or two tiny tool marks, a soft vignette made of dithering. No objects on it.
 
-## P5 — Floor shadows (DEFERRED — not needed for the proof pass) → `float_shadow_s`, `float_shadow_m`
+## P4 — Floor shadows (DEFERRED, ticket 13) → `float_shadow_s`, `float_shadow_m`
 
 > A 12x4 and a 24x6 dithered dark shadow ellipse, side by side, transparent background, clear space between them.
 
