@@ -11,9 +11,7 @@ export.cfg
 export_credentials.cfg
 
 # Local Godot editor/headless binaries (fetch per-machine; see scripts/setup_godot.sh)
-Godot_v4.4-stable_win64.exe
-Godot_v4.4-stable_win64_console.exe
-Godot_v4.4-stable_linux.x86_64
+Godot_v*-stable_*
 
 # Scratch/debug output
 scratch_*.log

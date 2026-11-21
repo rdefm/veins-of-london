@@ -4421,6 +4421,7 @@
 		"muscle.guards",
 		"muscle.nextId",
 		"muscle.responders",
+		"nextBankId",
 		"notifications",
 		"objectives",
 		"objectives.biz_a1_apprentice",

@@ -78,6 +78,7 @@ func new_game_state() -> Dictionary:
 		# Reynard's transaction log -- every player.cash mutation logs here
 		# via Bank.record(), same evict-from-front shape as notifications.
 		"bankLog": [],
+		"nextBankId": 1,
 		# latest is one completed daily tick's compact account;
 		# autoOpenedDay is the once-only presentation receipt -- both
 		# persist so reopening never reruns daily processing.

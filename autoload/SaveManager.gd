@@ -517,6 +517,8 @@ func backfill_defaults(save: Dictionary) -> Dictionary:
 	if not result.has("market"):
 		result["market"] = Market.new_state()
 	Market.migrate_legacy(result["market"])
+	if not result.has("nextBankId"):
+		result["nextBankId"] = Bank.next_id_after(result.get("bankLog", []))
 	for key in defaults.keys():
 		if not result.has(key):
 			result[key] = defaults[key]
@@ -948,6 +950,7 @@ func _restore_int_types(state: Dictionary) -> void:
 		_int_key(entry, "expiredDay")
 	for notification in state.get("notifications", []):
 		_int_key(notification, "day")
+	_int_key(state, "nextBankId")
 	for bank_entry in state.get("bankLog", []):
 		_int_key(bank_entry, "amount")
 		_int_key(bank_entry, "day")
