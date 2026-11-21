@@ -202,11 +202,20 @@ static func begin_raid(vein: Dictionary, ally_ids: Array = [], muscle: bool = fa
 		return travel
 
 	TimeSystem.advance_time_block()
-	var context := { "site_id": vein["siteId"], "ally_ids": ally_ids, "securityProfile": security_profile(vein) }
+	var context := { "site_id": vein["siteId"], "ally_ids": ally_ids, "securityProfile": security_profile(vein), "raidOre": raid_ore(vein) }
 	if is_wary(String(vein["siteId"])):
 		context["startAlert"] = int(GameData.RAID_SECURITY["wary"]["startAlert"])
 	Events.start_event(raid_event_id(vein), _with_muscle(context, muscle))
 	return { "ok": true }
+
+
+# The raided vein's ore (its site's oreType, else the vein's own), carried in
+# the event context as `raidOre` so card art can follow it (ADR 0005).
+static func raid_ore(vein: Dictionary) -> String:
+	var site: Variant = Sites.find_site(String(vein.get("siteId", "")))
+	if site != null and String(site.get("oreType", "")) != "":
+		return String(site["oreType"])
+	return String(vein.get("oreType", ""))
 
 
 # A vein raid's security profile (R§3.12 "Security profile"): pure data from

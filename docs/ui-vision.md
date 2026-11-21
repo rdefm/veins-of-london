@@ -750,7 +750,10 @@ schema — added by this pass to support inline illustration on some events
 - **Asset path convention:**
   `res://assets/events/<event_id>/<event_id>_card<n>.<extension>`, where
   `<n>` is the one-based card index and `<extension>` is lowercase `png`,
-  `jpg`, `jpeg`, or `webp`. Explicit JSON `image` values remain supported,
+  `jpg`, `jpeg`, or `webp`. During a vein raid,
+  `<event_id>_card<n>_<ore>.<extension>` (`<ore>` = the raided vein's ore
+  type) is tried first, then the plain file; other events ignore suffixed
+  files. Explicit JSON `image` values remain supported,
   matching the existing per-domain folder convention (`assets/combat/
   <enemy_id>/`, `assets/hq/regions/`, `assets/hq/dial/`).
 

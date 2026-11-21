@@ -291,12 +291,13 @@ static func current_image_path() -> Variant:
 	var event_id: String = event_state["eventId"]
 	var cards: Array = live_cards()
 	var choice_results: Dictionary = event_state["choiceResults"]
+	var raid_ore: String = String(event_state.get("context", {}).get("raidOre", ""))
 	for i in _visited_indices():
 		var card: Dictionary = cards[i]
 		if card.has("image"):
 			result = card["image"]
 		else:
-			var discovered_path: Variant = _convention_image_path(event_id, i + 1)
+			var discovered_path: Variant = _convention_image_path(event_id, i + 1, raid_ore)
 			if discovered_path != null:
 				result = discovered_path
 		if choice_results.has(str(i)):
@@ -307,14 +308,23 @@ static func current_image_path() -> Variant:
 
 
 # Convention-based event art: one-based card numbers map directly to
-# assets/events/<event_id>/<event_id>_card<n>.<extension>. Explicit card image
-# keys remain authoritative, including null (clear).
-static func _convention_image_path(event_id: String, card_number: int) -> Variant:
+# assets/events/<event_id>/<event_id>_card<n>.<extension>. During a vein raid
+# (`ore` = the context's raidOre) <event_id>_card<n>_<ore> is tried first.
+# Explicit card image keys remain authoritative, including null (clear).
+# `convention_asset_exists` is the file probe (tests swap it).
+static var convention_asset_exists: Callable = func(path: String) -> bool: return ResourceLoader.exists(path)
+
+
+static func _convention_image_path(event_id: String, card_number: int, ore: String = "") -> Variant:
 	var stem := "res://assets/events/%s/%s_card%d" % [event_id, event_id, card_number]
-	for extension in ["png", "jpg", "jpeg", "webp"]:
-		var path := "%s.%s" % [stem, extension]
-		if ResourceLoader.exists(path):
-			return path
+	var stems: Array[String] = [stem]
+	if ore != "":
+		stems.push_front("%s_%s" % [stem, ore])
+	for candidate in stems:
+		for extension in ["png", "jpg", "jpeg", "webp"]:
+			var path := "%s.%s" % [candidate, extension]
+			if convention_asset_exists.call(path):
+				return path
 	return null
 
 

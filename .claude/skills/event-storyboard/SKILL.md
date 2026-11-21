@@ -74,6 +74,7 @@ Pixel cleanup is **optional** until the user says otherwise: offer raw and clean
 ## Phase 5 — Place (only on explicit ask)
 
 1. Copy each approved composite from `.scratch/plate-compositor/` (or raw/clean draft, as chosen) to `assets/events/<id>/<id>_card<n>.png`, where `n` = the 1-based position of the shot's first card in the live event (key `cN` → `n` = N). Discovery handles HOLD; no JSON edit needed. Explicit `image` keys in the event JSON beat discovery — check with the digest that none shadow a new file. Choice-result shots need an explicit `image` on that choice: that IS a JSON edit, so ask first.
+   Per-ore shots in a vein raid event (one lit vein colour per ore) go under `<id>_card<n>_<ore>.png` (`time`/`physics`/`life`/`fate`/`emotion`); discovery picks the raided vein's ore, else the plain `<id>_card<n>` file (ADR 0005).
 2. `godot --headless --import` (generates `.import` files), then `scripts/run_tests.sh` once.
 3. Set board `phase: "done"`; report the placed files plus one short on-device checklist (each new card on a small and a tall phone; holds read correctly; choice/resolution images).
 4. Commit per the repo's rules only when asked.

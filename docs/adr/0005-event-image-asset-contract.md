@@ -122,3 +122,17 @@ This supersedes the original path, numbering, PNG-only, and JSON-wiring rollout
 decisions above. Existing explicit paths remain valid.
 
 **Status:** accepted (2026-09-13, user direction; pilot: `buyer`).
+
+## Amendment: ore-suffixed raid card art
+
+During a vein raid, discovery first tries
+`res://assets/events/<event_id>/<event_id>_card<n>_<ore>.<extension>`, where
+`<ore>` is the raided vein's ore type (`time`, `physics`, `life`, `fate`,
+`emotion`), then falls back to the plain `<event_id>_card<n>` file.
+`Raiding.begin_raid` records the ore as `raidOre` in the event context (pure
+data, so save and Rewind restore it). Events without `raidOre` never pick a
+suffixed file. Explicit `image` keys (including `null`) still win over both.
+Choice-result images stay explicit and have no per-ore form.
+
+**Status:** accepted (2026-11-21, `ore-card-images` ticket 01; pilot:
+`raid_shop` cellar cards).
