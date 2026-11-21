@@ -1,20 +1,13 @@
 class_name HqDialScreen
 extends Control
 const NO_DIAL_TEXT := "No Dial. Nothing's offered you the gift yet."
-const DEVICE_DISPLAY_SIZE := 370.0
-const DEVICE_NATIVE_SIZE := 500.0
-const DEVICE_SCALE := DEVICE_DISPLAY_SIZE / DEVICE_NATIVE_SIZE
-const DEVICE_BOTTOM_MARGIN := 16.0
-const FACE_CENTER_NATIVE := Vector2(250.0, 101.0)
-const NEEDLE_ATLAS_REGION := Rect2(3.0, 1.0, 45.0, 37.0)
-const NEEDLE_HUB_NATIVE := Vector2(13.0, 26.0)
-const NEEDLE_MIN_DEG := -60.0
-const NEEDLE_MAX_DEG := 120.0
 const SEED_LENS_PROMPT := "It needs a first lens. Pick the ore it looks through."
 const SEED_ORE_BUTTON_SIZE := 56.0
 
 # Lens ore picked on the unseeded screen; UI-local, passed to Dial.attempt_seed().
 var _seed_ore := ""
+# The seeded Dial menu persists across state changes (it refreshes itself), so its zoom survives.
+var _menu: DialMenu
 
 func _ready() -> void:
 	UI.anchor_full_rect(self)
@@ -24,15 +17,18 @@ func _ready() -> void:
 func _refresh() -> void:
 	if is_queued_for_deletion():
 		return
+	var player: Dictionary = GameState.state["player"]
+	if player["dial"] != null and _menu != null and is_instance_valid(_menu):
+		return
 	for child in get_children():
 		child.queue_free()
-
-	var player: Dictionary = GameState.state["player"]
-	var dial: Variant = player["dial"]
-	if dial == null:
+	_menu = null
+	if player["dial"] == null:
 		_build_unseeded_screen(player)
 	else:
-		_build_seeded_screen(player, dial)
+		_menu = DialMenu.new()
+		_menu.name = "DialMenu"
+		add_child(_menu)
 
 func _build_unseeded_screen(player: Dictionary) -> void:
 	var sc := UI.scroll_container()
@@ -52,77 +48,7 @@ func _build_unseeded_screen(player: Dictionary) -> void:
 	content.add_child(UI.back_button("hq"))
 	content.add_child(UI.heading("Dial"))
 	_build_unseeded(content, player)
-func _build_seeded_screen(player: Dictionary, dial: Dictionary) -> void:
-	var screen := Vector2(390.0, 844.0)
-	var safe_top: float = UI.safe_area_top_inset()
-	var device_x: float = (screen.x - DEVICE_DISPLAY_SIZE) / 2.0
-	var device_bottom: float = screen.y - DEVICE_BOTTOM_MARGIN
-	var device_top: float = device_bottom - DEVICE_DISPLAY_SIZE
-	var chrome_top: float = safe_top + 16.0
-	var chrome_scroll := TouchScrollContainer.new()
-	chrome_scroll.position = Vector2(16.0, chrome_top)
-	chrome_scroll.custom_minimum_size = Vector2(screen.x - 32.0, device_top - EYEPIECE_OVERHANG - chrome_top)
-	chrome_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	add_child(chrome_scroll)
 
-	var chrome := UI.vbox(8)
-	chrome.custom_minimum_size = Vector2(screen.x - 32.0, 0.0)
-	chrome_scroll.add_child(chrome)
-
-	chrome.add_child(UI.back_button("hq"))
-	chrome.add_child(UI.heading("Dial"))
-	_build_top_block(chrome)
-	chrome.add_child(MapCardStyle.text_button("Craft Components", func(): Nav.go_to("hq_lab_bench")))
-	var device_wrap := _build_device_art(dial)
-	device_wrap.position = Vector2(device_x, device_top)
-	add_child(device_wrap)
-
-	_build_flanking_sockets(device_wrap, dial)
-	_build_eyepieces(device_wrap, dial)
-const SOCKET_TILE_WIDTH := 80.0
-const SOCKET_TILE_HEIGHT := 44.0
-const CLOCK_FACE_RADIUS_NATIVE := 90.0
-func _socket_positions() -> Array[Vector2]:
-	var center: Vector2 = FACE_CENTER_NATIVE * DEVICE_SCALE
-	var radius: float = CLOCK_FACE_RADIUS_NATIVE * DEVICE_SCALE
-	var half := Vector2(SOCKET_TILE_WIDTH, SOCKET_TILE_HEIGHT) / 2.0
-	var dx: float = radius * sin(deg_to_rad(60.0))
-	var dy: float = radius * cos(deg_to_rad(60.0))
-	return [
-		center + Vector2(-dx, -dy) - half,
-		center + Vector2(dx, -dy) - half,
-		center + Vector2(-dx, dy) - half,
-		center + Vector2(dx, dy) - half,
-	]
-func _build_flanking_sockets(wrap: Control, dial: Dictionary) -> void:
-	var positions := _socket_positions()
-	for i in range(dial["capacityMax"]):
-		var tile := DialLoadoutMenu.socket_button("complication", i)
-		tile.custom_minimum_size = Vector2(SOCKET_TILE_WIDTH, SOCKET_TILE_HEIGHT)
-		tile.position = positions[i]
-		wrap.add_child(tile)
-
-# Lens sockets as eyepieces in a centred row on the Dial's crown, above the face.
-const EYEPIECE_WIDTH := 56.0
-const EYEPIECE_HEIGHT := 40.0
-const EYEPIECE_GAP := 6.0
-const EYEPIECE_CENTER_Y := -14.0
-const EYEPIECE_OVERHANG := EYEPIECE_HEIGHT / 2.0 - EYEPIECE_CENTER_Y
-func _eyepiece_positions(count: int) -> Array[Vector2]:
-	var row_width: float = count * EYEPIECE_WIDTH + maxi(count - 1, 0) * EYEPIECE_GAP
-	var x0: float = FACE_CENTER_NATIVE.x * DEVICE_SCALE - row_width / 2.0
-	var out: Array[Vector2] = []
-	for i in range(count):
-		out.append(Vector2(x0 + i * (EYEPIECE_WIDTH + EYEPIECE_GAP), EYEPIECE_CENTER_Y - EYEPIECE_HEIGHT / 2.0))
-	return out
-func _build_eyepieces(wrap: Control, dial: Dictionary) -> void:
-	var count: int = Dial.lens_slots(dial["level"])
-	var positions := _eyepiece_positions(count)
-	for i in range(count):
-		var eyepiece := DialLoadoutMenu.socket_button("lens", i)
-		eyepiece.custom_minimum_size = Vector2(EYEPIECE_WIDTH, EYEPIECE_HEIGHT)
-		eyepiece.position = positions[i]
-		wrap.add_child(eyepiece)
 func _build_unseeded(content: VBoxContainer, player: Dictionary) -> void:
 	if GameState.state["flags"].get("dialGiftGranted", false):
 		content.add_child(UI.label("You've been given something rare. It wants a name."))
@@ -174,45 +100,3 @@ func _build_seed_ore_row() -> HBoxContainer:
 func _on_seed_ore_pressed(ore: String) -> void:
 	_seed_ore = ore
 	_refresh()
-
-func _build_device_art(dial: Dictionary) -> Control:
-	var wrap := Control.new()
-	wrap.custom_minimum_size = Vector2(DEVICE_DISPLAY_SIZE, DEVICE_DISPLAY_SIZE)
-
-	var base := TextureRect.new()
-	base.texture = load("res://assets/hq/dial/dial_device_base.png")
-	base.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	base.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	base.size = Vector2(DEVICE_DISPLAY_SIZE, DEVICE_DISPLAY_SIZE)
-	base.stretch_mode = TextureRect.STRETCH_SCALE
-	wrap.add_child(base)
-
-	var needle := TextureRect.new()
-	var atlas := AtlasTexture.new()
-	atlas.atlas = load("res://assets/hq/dial/dial-needle.png")
-	atlas.region = NEEDLE_ATLAS_REGION
-	needle.texture = atlas
-	needle.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	needle.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	needle.stretch_mode = TextureRect.STRETCH_SCALE
-	var needle_size: Vector2 = NEEDLE_ATLAS_REGION.size * DEVICE_SCALE
-	needle.size = needle_size
-	var hub_offset: Vector2 = NEEDLE_HUB_NATIVE * DEVICE_SCALE
-	needle.pivot_offset = hub_offset
-	needle.position = FACE_CENTER_NATIVE * DEVICE_SCALE - hub_offset
-	needle.rotation_degrees = _needle_rotation_degrees(dial)
-	wrap.add_child(needle)
-
-	return wrap
-
-func _needle_rotation_degrees(dial: Dictionary) -> float:
-	var max_charge: float = dial["maxCharge"]
-	if max_charge <= 0.0:
-		return NEEDLE_MIN_DEG
-	var fraction: float = clampf(dial["currentCharge"] / max_charge, 0.0, 1.0)
-	return lerpf(NEEDLE_MIN_DEG, NEEDLE_MAX_DEG, fraction)
-func _build_top_block(content: VBoxContainer) -> void:
-	# Lenses sit as eyepieces and Complications in the flanking sockets on the device art.
-	var card := DialLoadoutMenu.build("", true)
-	if card != null:
-		content.add_child(card)

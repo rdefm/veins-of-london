@@ -105,163 +105,154 @@ func run() -> void:
 		assert_eq(GameState.state["player"]["dial"]["lenses"][0]["ore"], "fate", "the seeded Dial carries the picked lens ore")
 	)
 
-	run_case("hq_dial_screen_shows_level_charge_and_capacity_readouts_once_a_dial_is_seeded", func():
-		GameState.reset()
-		var dial := _fresh_dial()
-		dial["currentCharge"] = 3
-		dial["maxCharge"] = 10
-		GameState.state["player"]["dial"] = dial
-
-		var screen := HqDialScreen.new()
-		screen._ready()
-
-		assert_true(NodeQuery.label_texts_with_symbols(screen).any(func(t: String): return t.begins_with("Level %d Dial" % dial["level"])), "the Dial's level/haft heading must render")
-		assert_true(NodeQuery.label_texts_with_symbols(screen).has("Charge 3/10 (regen 0/day)"), "the Dial's charge stat must render off the device readout, not a bar")
-		assert_true(NodeQuery.label_texts_with_symbols(screen).has("Capacity %d/%d" % [Dial.capacity_used(dial), dial["capacityMax"]]), "the Dial's capacity stat must render")
-		assert_true(NodeQuery.find_button_by_effective_text(screen, DialLoadoutMenu.CRAFT_TEXT) != null, "must expose a Craft component button in the top block")
-
-		screen.free()
-	)
-
-	run_case("hq_dial_screen_craft_component_hands_off_to_the_craft_components_menu_modal", func():
+	# Dial menu (ui-previews-dial 07): overview + Lens section. DialMenu is built via
+	# _ready() directly (no live tree), so tweens snap to their end state.
+	run_case("hq_dial_screen_seeded_hosts_the_dial_menu_overview_with_three_bands", func():
 		GameState.reset()
 		GameState.state["player"]["dial"] = _fresh_dial()
 
 		var screen := HqDialScreen.new()
 		screen._ready()
-
-		NodeQuery.find_button_by_effective_text(screen, DialLoadoutMenu.CRAFT_TEXT).pressed.emit()
-		assert_eq(GameState.state["modal"]["type"], "craft_components_menu", "Craft component must open the Movement | Lens craft menu")
+		var menu: DialMenu = screen._menu
+		assert_true(menu != null, "a seeded Dial shows the Dial menu")
+		menu._ready()
+		assert_eq(menu.section, "", "opens on the overview")
+		for s in ["movement", "lenses", "complications"]:
+			assert_true(menu.find_child("Band_%s" % s, true, false) != null, "band %s" % s)
+		assert_eq(menu._canvas.scale, Vector2(2, 2), "overview is x2")
+		assert_true(NodeQuery.find_button_by_effective_text(menu, "Craft Components") != null, "Craft Components stays reachable")
 
 		screen.free()
 	)
 
-	run_case("hq_dial_screen_movement_socket_opens_picker_when_empty_and_menu_when_filled", func():
+	run_case("dial_menu_section_zoom_snaps_to_spec_rect_dims_others_and_back_reverses", func():
 		GameState.reset()
-		var dial := _fresh_dial()
-		GameState.state["player"]["dial"] = dial
+		GameState.state["player"]["dial"] = _fresh_dial()
+		var menu := DialMenu.new()
+		menu._ready()
 
-		var screen := HqDialScreen.new()
-		screen._ready()
-		(screen.find_child("Socket_movement_0", true, false) as Button).pressed.emit()
-		assert_eq(GameState.state["modal"]["data"]["mode"], "pick", "empty Movement socket opens the picker")
-		screen.free()
+		menu.open_section("lenses")
+		var spec: Dictionary = DialMenu.SECTIONS["lenses"]
+		assert_eq(menu._canvas.scale, Vector2(4, 4), "lenses zoom at integer x4")
+		assert_eq(menu._canvas.position, DialMenu.zoom_position(spec["rect"], 4.0), "canvas pans to the spec rect")
+		assert_eq(menu._groups["head"].position, Vector2(-12, -40), "head moves to its exploded offset")
+		assert_true(is_equal_approx(menu._groups["head"].modulate.a, DialMenu.DIM_ALPHA), "non-target parts dim")
+		assert_eq(menu._groups["collar"].modulate.a, 1.0, "the target stays bright")
 
-		dial["movement"] = { "archetype": "recharge", "tier": 1 }
-		screen = HqDialScreen.new()
-		screen._ready()
-		(screen.find_child("Socket_movement_0", true, false) as Button).pressed.emit()
-		assert_eq(GameState.state["modal"]["type"], "dial_socket", "socket modal")
-		assert_eq(GameState.state["modal"]["data"]["mode"], "filled", "filled Movement socket opens Details / Swap / Remove")
-		screen.free()
+		menu.close_section()
+		assert_eq(menu._canvas.scale, Vector2(2, 2), "Back zooms out")
+		assert_eq(menu._groups["head"].position, Vector2.ZERO, "parts reassemble")
+		assert_eq(menu._groups["head"].modulate.a, 1.0, "dim clears")
+
+		menu.free()
 	)
 
-	run_case("hq_dial_screen_lens_eyepieces_render_per_lens_slot_and_tap_like_sockets", func():
+	run_case("dial_menu_lens_ports_open_unlocked_and_plug_the_rest", func():
 		GameState.reset()
 		var dial := _fresh_dial()
 		dial["level"] = 3
 		dial["lenses"] = [{ "ore": "time", "tier": 2 }]
 		GameState.state["player"]["dial"] = dial
+		var slots: int = Dial.lens_slots(3)
+		var menu := DialMenu.new()
+		menu._ready()
 
-		var screen := HqDialScreen.new()
-		screen._ready()
-		var eyepieces := screen.find_children("Socket_lens_*", "Button", true, false)
-		assert_eq(eyepieces.size(), Dial.lens_slots(3), "one eyepiece per lens slot")
-		(screen.find_child("Socket_lens_1", true, false) as Button).pressed.emit()
-		assert_eq(GameState.state["modal"]["data"], { "owner": "", "kind": "lens", "slot": 1, "mode": "pick" }, "empty eyepiece opens the lens picker")
-		(screen.find_child("Socket_lens_0", true, false) as Button).pressed.emit()
-		assert_eq(GameState.state["modal"]["data"]["mode"], "filled", "loaded eyepiece opens its menu")
-		screen.free()
+		menu.open_section("lenses")
+		for p in range(3):
+			assert_eq(menu._plugs[p].visible, p >= slots, "port %d plugged only above lens_slots" % p)
+			if p < slots:
+				assert_true(menu._irises[p].scale.x < 0.01, "unlocked port %d shutter is open" % p)
+		assert_true(menu._seated[0].visible, "the loaded Lens sits in port 0")
+		assert_true(not (menu._seated[1].visible), "empty ports show no Lens")
+		menu.close_section()
+		assert_eq(menu._irises[0].scale, Vector2.ONE, "Back closes the shutters")
+
+		menu.free()
 	)
 
-	run_case("hq_dial_screen_tapping_an_empty_housing_opens_the_complication_picker", func():
+	run_case("dial_menu_drop_on_port_loads_swaps_and_unload_via_dial_system", func():
 		GameState.reset()
-		GameState.state["player"]["dial"] = _fresh_dial()
-
-		var screen := HqDialScreen.new()
-		screen._ready()
-
-		(screen.find_child("Socket_complication_0", true, false) as Button).pressed.emit()
-		assert_eq(GameState.state["modal"]["type"], "dial_socket", "tapping an empty housing opens the socket picker")
-		assert_eq(GameState.state["modal"]["data"]["kind"], "complication", "for Complications")
-		assert_eq(GameState.state["modal"]["data"]["mode"], "pick", "in pick mode")
-
-		screen.free()
-	)
-
-	run_case("hq_dial_screen_loaded_complication_shows_in_a_socket_tile_and_the_rest_stay_empty", func():
-		GameState.reset()
-		var player: Dictionary = GameState.state["player"]
 		var dial := _fresh_dial()
-		dial["capacityMax"] = 4
-		player["dial"] = dial
-		player["inventory"]["timePearl"] = { "1": 1 }
-		Dial.load_complication("timePearl", 1)
+		dial["level"] = 5
+		GameState.state["player"]["dial"] = dial
+		GameState.state["player"]["lensInventory"] = [{ "ore": "time", "tier": 1 }, { "ore": "fate", "tier": 2 }]
+		var menu := DialMenu.new()
+		menu._ready()
+		menu.open_section("lenses")
 
-		var screen := HqDialScreen.new()
-		screen._ready()
+		assert_true(menu.can_drop_on_port(0, { "type": "held_lens", "inv": 0 }), "a held Lens can drop on an unlocked port")
+		assert_true(not (menu.can_drop_on_port(0, { "type": "seated_lens", "slot": 0 })), "a seated Lens can't drop on a port")
+		assert_true(menu.drop_lens_on_port(0, 0)["ok"], "drop on an empty port loads")
+		assert_eq(dial["lenses"][0]["ore"], "time", "time Lens loaded")
+		assert_eq(GameState.state["player"]["lensInventory"].size(), 1, "it left the held list")
 
-		assert_true(NodeQuery.label_texts_with_symbols(screen).any(func(t: String): return t.begins_with("⧖Time Pearl T1")), "a loaded Complication must show in its housing tile")
-		var empties := screen.find_children("Socket_complication_*", "Button", true, false).filter(func(b): return (b as Button).text == DialLoadoutMenu.EMPTY_SOCKET_TEXT)
-		assert_eq(empties.size(), 3, "the remaining 3 housings must show empty")
-		(screen.find_child("Socket_complication_0", true, false) as Button).pressed.emit()
-		assert_eq(GameState.state["modal"]["data"]["mode"], "filled", "a loaded housing opens Details / Swap / Remove")
+		assert_true(menu.drop_lens_on_port(0, 0)["ok"], "drop on a filled port swaps")
+		assert_eq(dial["lenses"][0]["ore"], "fate", "fate Lens now seated")
+		assert_eq(GameState.state["player"]["lensInventory"][0]["ore"], "time", "the old Lens returns to the held list")
 
-		screen.free()
+		assert_true(menu.unload_lens(0)["ok"], "unload returns the seated Lens")
+		assert_eq(dial["lenses"].size(), 0, "port empty")
+		assert_eq(GameState.state["player"]["lensInventory"].size(), 2, "both held again")
+
+		assert_true(menu.fit_lens(0)["ok"], "Fit loads into the first empty port")
+		assert_eq(dial["lenses"].size(), 1, "one Lens seated")
+
+		menu.free()
 	)
 
-	run_case("hq_dial_screen_renders_exactly_capacity_max_housings_no_separate_display_cap", func():
+	run_case("dial_menu_plugged_port_rejects_drops", func():
 		GameState.reset()
-		var player: Dictionary = GameState.state["player"]
 		var dial := _fresh_dial()
-		dial["capacityMax"] = 2
-		player["dial"] = dial
+		GameState.state["player"]["dial"] = dial
+		GameState.state["player"]["lensInventory"] = [{ "ore": "time", "tier": 1 }]
+		var menu := DialMenu.new()
+		menu._ready()
+		menu.open_section("lenses")
 
-		var screen := HqDialScreen.new()
-		screen._ready()
+		var plugged: int = Dial.lens_slots(1)
+		assert_true(not (menu.can_drop_on_port(plugged, { "type": "held_lens", "inv": 0 })), "plugged port refuses the drag")
+		assert_true(not (menu.drop_lens_on_port(0, plugged)["ok"]), "plugged port refuses the handler")
+		assert_eq(GameState.state["player"]["lensInventory"].size(), 1, "nothing moved")
 
-		assert_eq(screen.find_children("Socket_complication_*", "Button", true, false).size(), 2, "exactly capacityMax housings should render")
-
-		screen.free()
+		menu.free()
 	)
 
-	# hq-diorama ticket 17: "Craft Components" (recipes.json Complications,
-	# distinct from Movements) has no other affordance on this screen once
-	# the bottom tray/dock is gone.
-	run_case("hq_dial_screen_craft_components_goes_to_the_lab", func():
+	run_case("dial_menu_lens_list_item_opens_info_tag_with_effects_and_fit", func():
 		GameState.reset()
-		GameState.state["player"]["dial"] = _fresh_dial()
+		var dial := _fresh_dial()
+		GameState.state["player"]["dial"] = dial
+		GameState.state["player"]["lensInventory"] = [{ "ore": "life", "tier": 1 }]
+		var menu := DialMenu.new()
+		menu._ready()
+		menu.open_section("lenses")
 
-		var screen := HqDialScreen.new()
-		screen._ready()
+		var item := menu.find_child("LensItem_0", true, false) as Button
+		assert_true(item != null, "held Lens listed")
+		item.pressed.emit()
+		var tag := menu.find_child("InfoTag", true, false)
+		assert_true(tag != null, "tapping a list item shows the info tag")
+		assert_true(tag.find_child("LensEffect_always_on", true, false) is Label, "tag lists the Lens's effects")
+		NodeQuery.find_button_by_effective_text(tag, "Fit").pressed.emit()
+		assert_eq(dial["lenses"][0]["ore"], "life", "Fit loads the Lens")
+		assert_true(menu.find_child("InfoTag", true, false) == null, "tag closes after loading")
 
-		NodeQuery.find_button_by_effective_text(screen, "Craft Components").pressed.emit()
-		assert_eq(GameState.state["currentScreen"], "hq_lab_bench", "Craft Components must open the Lab")
+		menu.show_seated_tag(0)
+		assert_true(menu.find_child("InfoTag", true, false) != null, "a seated Lens shows its tag")
 
-		screen.free()
+		menu.free()
 	)
 
-	run_case("hq_dial_screen_needle_rotation_reflects_current_charge_fraction", func():
-		GameState.reset()
-		var screen := HqDialScreen.new()
-
+	run_case("dial_menu_needle_rotation_reflects_current_charge_fraction", func():
 		var dial := _fresh_dial()
 		dial["currentCharge"] = 0
 		dial["maxCharge"] = 10
-		assert_eq(screen._needle_rotation_degrees(dial), HqDialScreen.NEEDLE_MIN_DEG, "empty charge should point the needle to its minimum")
-
+		assert_eq(DialMenu.needle_rotation_degrees(dial), DialMenu.NEEDLE_MIN_DEG, "empty -> min")
 		dial["currentCharge"] = 5
-		var midpoint := (HqDialScreen.NEEDLE_MIN_DEG + HqDialScreen.NEEDLE_MAX_DEG) / 2.0
-		assert_eq(screen._needle_rotation_degrees(dial), midpoint, "half charge should point the needle to the midpoint between min and max")
-
+		assert_eq(DialMenu.needle_rotation_degrees(dial), (DialMenu.NEEDLE_MIN_DEG + DialMenu.NEEDLE_MAX_DEG) / 2.0, "half -> midpoint")
 		dial["currentCharge"] = 10
-		assert_eq(screen._needle_rotation_degrees(dial), HqDialScreen.NEEDLE_MAX_DEG, "full charge should point the needle to its maximum")
-
-		dial["currentCharge"] = 3
+		assert_eq(DialMenu.needle_rotation_degrees(dial), DialMenu.NEEDLE_MAX_DEG, "full -> max")
 		dial["maxCharge"] = 0
-		assert_eq(screen._needle_rotation_degrees(dial), HqDialScreen.NEEDLE_MIN_DEG, "a Dial with no maxCharge yet should not divide by zero, and should read as empty")
-
-		screen.free()
+		assert_eq(DialMenu.needle_rotation_degrees(dial), DialMenu.NEEDLE_MIN_DEG, "no maxCharge reads empty")
 	)
 
 	run_case("hq_dial_screen_back_button_returns_to_hq", func():
