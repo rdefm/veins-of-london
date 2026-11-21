@@ -212,7 +212,7 @@ func _build_plate(area: Rect2, docked: bool = false) -> float:
 		return floor_top
 	_add_status_line(Rect2(0.0, floor_top, full.x, maxf(full.y - floor_top, _STATUS_MIN_HEIGHT)))
 
-	var back := UI.back_button("hq")
+	var back := UI.back_button("hq_dial" if DialMenu.craft_return != "" else "hq")
 	back.position = Vector2(_INSET, UI.safe_area_top_inset() + _INSET)
 	add_child(back)
 

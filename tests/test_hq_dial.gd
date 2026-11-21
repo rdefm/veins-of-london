@@ -242,6 +242,163 @@ func run() -> void:
 		menu.free()
 	)
 
+	run_case("dial_menu_movement_section_frames_face_with_grip_and_opens_hatch", func():
+		GameState.reset()
+		GameState.state["player"]["dial"] = _fresh_dial()
+		var menu := DialMenu.new()
+		menu._ready()
+
+		menu.open_section("movement")
+		assert_eq(menu._canvas.scale, Vector2(3, 3), "movement zooms at x3")
+		assert_eq(menu._groups["head"].modulate.a, 1.0, "face stays bright")
+		assert_eq(menu._groups["grip"].modulate.a, 1.0, "grip stays bright")
+		assert_true(menu._hatch.scale.x < 0.5, "the hatch swings open")
+		assert_true(menu._charge_label.visible, "charge readout shows")
+		assert_true(menu._list_scroll.visible and menu._section_craft.visible, "list and Craft show")
+		menu.close_section()
+		assert_eq(menu._hatch.scale, Vector2.ONE, "Back shuts the hatch")
+
+		menu.free()
+	)
+
+	run_case("dial_menu_movement_load_swap_unload_via_dial_system", func():
+		GameState.reset()
+		var dial := _fresh_dial()
+		GameState.state["player"]["dial"] = dial
+		GameState.state["player"]["movementInventory"] = [{ "archetype": "recharge", "tier": 1 }, { "archetype": "capacitor", "tier": 2 }]
+		var menu := DialMenu.new()
+		menu._ready()
+		menu.open_section("movement")
+
+		assert_true(menu.can_drop_on_seat({ "type": "held_movement", "inv": 0 }), "held Movement can drop on the seat")
+		assert_true(not (menu.can_drop_on_seat({ "type": "held_lens", "inv": 0 })), "a Lens can't")
+		menu.drop_on_seat({ "type": "held_movement", "inv": 0 })
+		assert_eq(dial["movement"]["archetype"], "recharge", "seated")
+		menu._refresh()
+		assert_true(menu._seat_glass.visible, "seat shows it")
+		menu.drop_on_seat({ "type": "held_movement", "inv": 0 })
+		assert_eq(dial["movement"]["archetype"], "capacitor", "drop on a filled seat swaps")
+		assert_eq(GameState.state["player"]["movementInventory"][0]["archetype"], "recharge", "old one returns to the list")
+		assert_true(menu.unload_movement()["ok"], "unload")
+		assert_true(dial["movement"] == null, "seat empty")
+		assert_eq(GameState.state["player"]["movementInventory"].size(), 2, "both held")
+
+		var item := menu.find_child("MovementItem_0", true, false) as Button
+		item.pressed.emit()
+		var tag := menu.find_child("InfoTag", true, false)
+		assert_true(tag != null, "list item opens a tag")
+		NodeQuery.find_button_by_effective_text(tag, "Fit").pressed.emit()
+		assert_true(dial["movement"] != null, "Fit seats it")
+
+		menu.free()
+	)
+
+	run_case("dial_menu_wind_pays_the_single_lens_and_choice_opens_with_two", func():
+		GameState.reset()
+		var dial := _fresh_dial()
+		dial["level"] = 5
+		dial["movement"] = { "archetype": "recharge", "tier": 1 }
+		Dial._activate_charge_pool(dial)
+		dial["currentCharge"] = 0
+		dial["lenses"] = [{ "ore": "time", "tier": 1 }]
+		GameState.state["player"]["dial"] = dial
+		GameState.state["player"]["orichalchum"]["time"] = 500
+		var menu := DialMenu.new()
+		menu._ready()
+		menu.open_section("movement")
+
+		var before: int = GameState.state["player"]["orichalchum"]["time"]
+		var result := menu.wind()
+		assert_true(result["ok"], "wind with one Lens pays directly")
+		assert_eq(dial["currentCharge"], 1.0, "charge up by one")
+		assert_true(GameState.state["player"]["orichalchum"]["time"] < before, "calc spent")
+		menu._refresh()
+		assert_true(is_equal_approx(menu._needle.rotation_degrees, DialMenu.needle_rotation_degrees(dial)), "needle follows the charge")
+
+		dial["lenses"].append({ "ore": "fate", "tier": 1 })
+		var choice := menu.wind()
+		assert_true(choice.get("choice", false), "2+ Lenses: ore choice comes first")
+		assert_eq(dial["currentCharge"], 1.0, "no charge until the ore is chosen")
+		Modal.close()
+
+		dial["lenses"] = []
+		assert_true(not (menu.wind()["ok"]), "no Lens: refused")
+		dial["movement"] = null
+		assert_true(not (menu.wind()["ok"]), "no Movement: refused")
+
+		menu.free()
+	)
+
+	run_case("dial_menu_complications_chambers_block_above_capacity_and_light_studs", func():
+		GameState.reset()
+		var dial := _fresh_dial()
+		dial["level"] = 3
+		dial["capacityMax"] = 2
+		GameState.state["player"]["dial"] = dial
+		var recipe_key: String = GameData.RECIPES.keys()[0]
+		Crafting.inventory_add(Crafting.inventory_key(recipe_key, false), 1, 3)
+		var menu := DialMenu.new()
+		menu._ready()
+		menu.open_section("complications")
+
+		assert_eq(menu._groups["canopy"].position, Vector2(0, 40), "canopy drops away")
+		assert_eq(menu._groups["canopy"].modulate.a, 1.0, "canopy cut face not dimmed")
+		assert_eq(menu._chambers.size(), 4, "four chambers")
+		for i in range(4):
+			assert_eq(menu._blanks[i].visible, i >= 2, "chamber %d blanked only above capacityMax" % i)
+		assert_true(not (menu.can_drop_on_chamber(2, { "type": "held_complication", "held": 0 })), "blanked chamber refuses the drag")
+		assert_true(not (menu.drop_complication_on_chamber(0, 3)["ok"]), "blanked chamber refuses the handler")
+
+		assert_true(menu.drop_complication_on_chamber(0, 0)["ok"], "drop on an empty chamber loads")
+		assert_eq(dial["loadedComplications"].size(), 1, "loaded")
+		menu._refresh()
+		assert_true(menu._cartridges[0].visible, "cartridge seated in chamber 0")
+		assert_eq(menu._studs[0].color, DialMenu.STUD_LIT, "stud 0 lit = chamber 0 loaded")
+		assert_eq(menu._studs[1].color, DialMenu.COL_STEEL_DARK, "stud 1 stays dark")
+		assert_true(menu.drop_complication_on_chamber(0, 0)["ok"], "drop on a filled chamber swaps")
+		assert_eq(dial["loadedComplications"].size(), 1, "still one loaded")
+		assert_true(menu.fit_complication(0)["ok"], "Fit loads the next chamber")
+		assert_true(not (menu.fit_complication(0)["ok"]), "full dial refuses")
+		assert_true(menu.unload_complication(0)["ok"], "unload")
+		assert_eq(dial["loadedComplications"].size(), 1, "one left")
+
+		menu.show_seated_complication_tag(0)
+		assert_true(menu.find_child("InfoTag", true, false) != null, "seated cartridge shows its tag")
+
+		menu.free()
+	)
+
+	run_case("dial_menu_section_craft_opens_modal_tab_or_lab_bench_and_back_returns", func():
+		GameState.reset()
+		GameState.state["currentScreen"] = "hq_dial"
+		GameState.state["player"]["dial"] = _fresh_dial()
+		var menu := DialMenu.new()
+		menu._ready()
+
+		menu.open_section("movement")
+		menu.craft_section()
+		assert_eq(GameState.state["modal"]["type"], "craft_components_menu", "Movement Craft opens the craft modal")
+		assert_eq(GameState.state["modal"]["data"].get("tab"), "movement", "on the Movement tab")
+		Modal.close()
+		menu.open_section("lenses")
+		menu.craft_section()
+		assert_eq(GameState.state["modal"]["data"].get("tab"), "lens", "Lenses Craft opens the Lens tab")
+		Modal.close()
+		assert_eq(menu.section, "lenses", "the section is kept after the modal")
+
+		menu.open_section("complications")
+		menu.craft_section()
+		assert_eq(GameState.state["currentScreen"], "hq_lab_bench", "Complications Craft goes to the lab bench")
+		assert_eq(DialMenu.craft_return, "complications", "remembering the section")
+		menu.free()
+
+		var again := DialMenu.new()
+		again._ready()
+		assert_eq(again.section, "complications", "coming back reopens the same section")
+		assert_eq(DialMenu.craft_return, "", "consumed")
+		again.free()
+	)
+
 	run_case("dial_menu_needle_rotation_reflects_current_charge_fraction", func():
 		var dial := _fresh_dial()
 		dial["currentCharge"] = 0
