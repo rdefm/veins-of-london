@@ -8,6 +8,31 @@ Steps, in order:
 2. **Wire the layers.** Assemble by anchor (`seat` into the next module's `top_lip`, overlap `seat_depth`). Hide the old placeholder rects, the hatch tween and the iris shutters.
 3. **Beats.** Section split, hover bob, emerge and re-enter (clipped at the lip's `clip_y`), canopy drop, chamber pulse and icon drop, load / swap / unload, Wind, Back (art spec §4). Reduced motion becomes a 0.1 s crossfade with no hover.
 
+## Progress (2026-11-21)
+
+**Done**
+- Exploded master saved: `assets/hq/dial/dial_exploded_source.png`. Pixelised at x3 (`.scratch/ui-previews-dial/Disassembled Steampunk Umbrella Modules_pixel_x3.png`).
+- Four module layers cut at native size, transparent, lossless: `assets/hq/dial/dial_head.png` (86x78), `dial_grip.png` (120x135), `dial_lens_collar.png` (83x70), `dial_canopy.png` (72x153).
+- Anchors measured into `data/dial_art.json` (seats, top-lip ovals + `clip_y`, face/studs, intake, ports, chambers, assembled origins, hover offsets, component sizes). An assembled preview checked: the layers stack and the seams close. Anchors were eyeballed from gridded enlargements, so expect small tweaks on screen.
+- Spec and prompts revised (`dial-art-spec.md`, `dial-image-prompts.md`); sizes rescaled to the real modules (Lens 20x20, Movement frame 40x40, icon 12x12, chamber 22x8).
+
+**Outstanding, needs the human (arriving next session)**
+Pixelise each generated image at the same scale as the sheet (x3) and give me the file paths. I will place them.
+- `lens_time` (20x20) from prompt P1 in `dial-image-prompts.md`.
+- `movement_recharge` (4-frame strip, 160x40) from prompt P2.
+- Only one of each for the proof pass. The other four Lenses and three Movements are in ticket 13.
+
+**Outstanding, agent (needs no human art)**
+- Make the small overlays as native-grid PNGs by script, for the human to review: `dial_stud_lit`, `slot_ghost_lens`, `chamber_blank`, `chamber_ring`, `dial_glow`, `lens_tier_<n>`, `movement_tier_<n>`.
+- Make `comp_label_<recipeKey>` (12x12) by downscaling the `assets/combat/icons/` art, for the human to review.
+- Place the Lens and Movement sprites under `assets/hq/dial/components/`.
+- Wire the layers and beats in `DialMenu` (steps 2 and 3 above); remove the placeholder rects, hatch tween and iris code; update tests and CODEMAP.
+
+**Decisions still open**
+- Vertical vs horizontal layout (human, before the work is finished). The spec's vertical numbers are the default.
+- A 12x12 icon sits above a 22x8 chamber, so it stands on the chamber rather than inside it. Check on device and adjust.
+- Zoom scales: the modules are about 1.4x the size the spec assumed, so Lenses and Complications probably zoom at x2 or x3, not x4. Set in `data/dial_art.json` once on screen.
+
 **Blocked by:** 06 — Dial menu art brainstorm; 08 — New Dial menu: Movement and Complication sections, Craft
 
 **Relevant files:**
