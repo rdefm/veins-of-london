@@ -53,7 +53,7 @@ Magnitudes scale with **lens tier**. Sense level gates which columns are live.
 | Lens | Always (loaded) | Sense L2 — world | Sense L3 — combat |
 |---|---|---|---|
 | **Time** | Ore-roll bonus (time) | Ambush forewarning | Fewer unread enemy intents |
-| **Physics** | Ore-roll bonus (physics) | Raid site sheet shows guard kit + ward; +1 intel level on vein security | Flat +damage dealt / −damage taken |
+| **Physics** | Ore-roll bonus (physics) | Sharpens scouting (see 21); no intel-level read | Flat +damage dealt / −damage taken |
 | **Life** | Ore-roll bonus (life) | Prospect weights shift to higher site tiers; vein drift forecast | Enemy HP shown as numbers |
 | **Fate** | Light bonus to **all** rolls | Event check rolls shown as a range; gut feeling on notable market moves (market `!`) | Pre-rolled enemy crits flagged on intents |
 | **Emotion** | Ore-roll bonus (emotion) | Exact faction Threat + grudge countdown; exact contact relation | Shows each enemy action's target |
@@ -66,7 +66,7 @@ Magnitudes scale with **lens tier**. Sense level gates which columns are live.
 ### Sense L2 — world sight
 Each one shows something the sim already computes, leads to a decision, and appears on a screen the player already visits.
 - **Time — ambush forewarning.** A morning notification naming the district where an ambush is due today. Ambush rolls are already keyed stable values per (day, block, district), made identically lens or not, so `Ambush.due_today()` reads today's three block rolls without touching the RNG stream; the lens changes knowledge only (§3.1d). Shown as one Urgent BizBrief Today row; Prophet's Breath empties it.
-- **Physics — security read.** Raid site sheet shows the vein's guard kit and ward type before committing. Implemented as +1 intel level on the vein-security track (does not bypass the intel meter).
+- **Physics — security read.** Removed: vein security comes only from scouting (ticket 20). Its replacement sharpens scouting (ticket 21).
 - **Life — prospect + drift.** `Sites.prospect` site-tier weights shift toward higher tiers (`lifeProspectShiftByTier`, placeholder); stacks with Be A Lady's best-of-two. Vein sheet shows tonight's drift range / collapse risk.
 - **Fate — roll range.** A shown check option's `?` modal and button show the d100 as a band, e.g. "Roll 40–60 · need 55+". The band always contains the real roll at a seeded offset (`Rng.stable_unit`, not centred). Width by tier, placeholder `[0, 40, 30, 20, 15, 10]`. Recomputed live from `check_roll(i)` like `revealed_roll` (toggles shift it). Dejà Vu stays the exact reveal. Market: a gut-feeling source in the market row `!` (08a, REFERENCE §3.13 Insight) — notable projected moves only (≥ 5%), direction only: held goods "sell soon"/"hold on", plus the N biggest unheld moves by tier (`fateMarketReadsByTier`). Lucky buyer (08b, REFERENCE §3.13 Lucky price): one roll per Trade-menu trade (Soho, Archie, faction shop/contact), chance `fateLuckyPrice.chanceByTier` placeholder `[0, 0.05, 0.08, 0.11, 0.14, 0.18]` + all-rolls bonus; hit = sale +5% / buy −5%. Not contracts, fixed-price offers or auto-sell.
 - **Emotion — standing.** Exact Threat toward the player and grudge window remaining on the faction screens; exact contact relation number in contact cards.
@@ -118,7 +118,7 @@ One layout everywhere (Profile card, HQ Dial view, combat-prep Change loadout), 
 | Movement attunement | Moved onto lenses (above) |
 | Prophet's Breath sight vs Time combat lens | Fine: Breath = total and temporary; lens = partial and permanent |
 | Dejà Vu vs Fate roll range | Fine: Fate = permanent band; Dejà Vu = exact, paid |
-| Physics security read vs intel meter | Adjusted: +1 intel level, not a bypass |
+| Physics security read vs intel meter | Superseded: vein security is scout-only |
 | Be A Lady (all-ore obs, prospect best-of-two) vs Fate / Life | Fine: stacks |
 | Body attack / Stiff Upper Lip vs Physics flat | Fine: stacks |
 

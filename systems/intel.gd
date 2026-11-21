@@ -8,7 +8,6 @@ extends RefCounted
 # the meter; it decays daily; a stockpile relocation drops every observer
 # below the stockpile-location level.
 
-const VEIN_SECURITY := "veinSecurity"
 const HOLDINGS := "holdings"
 const STOCKPILE_LOCATION := "stockpileLocation"
 const STOCKPILE_SECURITY := "stockpileSecurity"
@@ -79,24 +78,16 @@ static func level_at(level_id: String) -> int:
 
 
 static func knows(observer: String, target: String, level_id: String) -> bool:
-	return meter(observer, target) >= level_at(level_id) or (level_id == VEIN_SECURITY and physics_read(observer))
-
-
-# Physics Lens security read (R§1.4 Lenses): the player with a loaded Physics
-# Lens at Sense >= senseGates.world reads one intel level higher on the
-# vein-security track only, so knows every faction's vein security from meter
-# 0. The stored meter is unchanged.
-static func physics_read(observer: String) -> bool:
-	return observer == Shares.PLAYER and Lenses.has("physics") and Lenses.sense_unlocked("world")
+	return meter(observer, target) >= level_at(level_id)
 
 
 # The highest level observer has reached on target ({ id, at, name }), or {}
-# below the first; at least vein security under physics_read().
+# below the first.
 static func level(observer: String, target: String) -> Dictionary:
 	var reached := {}
 	var value := meter(observer, target)
 	for entry in _cfg()["levels"]:
-		if value >= int(entry["at"]) or (entry["id"] == VEIN_SECURITY and physics_read(observer)):
+		if value >= int(entry["at"]):
 			reached = entry
 	return reached
 
@@ -257,11 +248,10 @@ static func score_raid_options(observer: String, target: String, options: Array)
 
 
 # Raid site sheet security read for a faction vein: the rows of
-# security_read() over all of the vein's security_facts() at the player's
-# vein-security level, else over its fresh scouted facts.
+# security_read() over its fresh scouted facts only (R§3.1 "Scouting a
+# faction vein"); intel level never reveals vein security.
 static func vein_security_read(vein: Dictionary) -> Array:
-	var known := knows(Shares.PLAYER, String(vein.get("factionId", "")), VEIN_SECURITY)
-	return security_read(security_facts(vein) if known else fresh_scouted_facts(String(vein["id"])))
+	return security_read(fresh_scouted_facts(String(vein["id"])))
 
 
 # ── Scouted security ────────────────────────────────────────────────────
@@ -417,10 +407,17 @@ static func _guards_text(facts: Dictionary, words: Dictionary) -> String:
 	return " · ".join(parts)
 
 
-# faction_id's site veins counted per security label, e.g. { "Hired Guard": 2 }.
-static func vein_security_counts(faction_id: String) -> Dictionary:
-	var counts := {}
-	for site in Sites.sites_with_faction_vein(faction_id):
-		var label := Cultivating.security_label(site["factionVein"])
-		counts[label] = int(counts.get(label, 0)) + 1
-	return counts
+# True when the player holds at least one fresh scouted fact on vein_id.
+static func has_fresh_scout(vein_id: String) -> bool:
+	return not fresh_scouted_facts(vein_id).is_empty()
+
+
+# faction_id's site veins: { scouted, total }, scouted counting those with at
+# least one fresh scouted fact.
+static func scouted_vein_counts(faction_id: String) -> Dictionary:
+	var sites := Sites.sites_with_faction_vein(faction_id)
+	var scouted := 0
+	for site in sites:
+		if has_fresh_scout(String(site["factionVein"]["id"])):
+			scouted += 1
+	return { "scouted": scouted, "total": sites.size() }

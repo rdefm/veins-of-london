@@ -125,6 +125,7 @@ func run() -> void:
 		texts = NodeQuery.label_texts(phone)
 		var held := texts.filter(func(t): return t.begins_with("Ore held"))
 		assert_true(not held.is_empty(), "holdings at max intel")
+		assert_true(texts.has("Veins scouted: 0 of %d" % Sites.sites_with_faction_vein("guild").size()), "scouted vein line")
 		_button_with_text(phone, "Intel ▸").pressed.emit()
 		assert_true(_button_with_text(phone, "Intel ▾") != null, "intel opens in one tap")
 		phone.free()

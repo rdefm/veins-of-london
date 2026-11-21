@@ -1073,12 +1073,8 @@ func _build_intel(faction_id: String) -> Control:
 	var reached := Intel.level(Shares.PLAYER, faction_id)
 	box.add_child(_wrap("Intel · %s · %d/%d" % [reached.get("name", "None"), Intel.meter(Shares.PLAYER, faction_id), int(GameData.INTEL["max"])], 12, _muted()))
 	var holdings: Dictionary = GameState.state["factions"][faction_id]["holdings"]
-	if Intel.knows(Shares.PLAYER, faction_id, Intel.VEIN_SECURITY):
-		var counts := Intel.vein_security_counts(faction_id)
-		var parts: Array[String] = []
-		for security in counts:
-			parts.append("%d %s" % [counts[security], security])
-		box.add_child(_wrap("Veins: %s" % (", ".join(parts) if not parts.is_empty() else "none"), 12, _ink()))
+	var veins := Intel.scouted_vein_counts(faction_id)
+	box.add_child(_wrap("Veins scouted: %d of %d" % [veins["scouted"], veins["total"]], 12, _ink()))
 	if Intel.knows(Shares.PLAYER, faction_id, Intel.HOLDINGS):
 		var ores: Array[String] = []
 		for ore_type in GameData.CANONICAL_ORE_TYPES:

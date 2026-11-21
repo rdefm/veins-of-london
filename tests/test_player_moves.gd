@@ -11,9 +11,15 @@ static func _fresh(intel: int = 100) -> void:
 	Fixtures.seed_faction_vein("fv", 40, "firm")
 
 
+# One fresh scouted fact on fv, found on `day`.
+static func _scout_fv(day: int) -> void:
+	GameState.state["scoutedSecurity"]["fv"] = { Intel.FACT_WARD: { "value": "", "day": day } }
+
+
 func run() -> void:
 	run_case("complaint freezes the vein, charges, hostile, drops relation", func():
 		_fresh()
+		_scout_fv(int(GameState.state["world"]["day"]))
 		var rel_before: int = GameState.state["factions"]["firm"]["relation"]
 		var blocks_before := TimeSystem.blocks_left()
 		var result := PlayerMoves.perform(PlayerMoves.MOVE_COMPLAINT, "firm", "site_fv")
@@ -22,6 +28,19 @@ func run() -> void:
 		assert_eq(GameState.state["player"]["cash"], 850)
 		assert_eq(TimeSystem.blocks_left(), blocks_before - 1)
 		assert_true(GameState.state["factions"]["firm"]["relation"] < rel_before, "relation dropped")
+	)
+	run_case("complaint needs a fresh scouted fact on the vein, not intel", func():
+		_fresh()
+		var today := int(GameState.state["world"]["day"])
+		var result := PlayerMoves.perform(PlayerMoves.MOVE_COMPLAINT, "firm", "site_fv")
+		assert_true(not result["ok"], "unscouted refused at max intel")
+		assert_eq(result["reason"], "Scout that vein first.")
+		assert_eq(GameState.state["player"]["cash"], 1000, "no charge")
+		_scout_fv(today - int(GameData.INTEL["scout"]["freshDays"]))
+		assert_true(not PlayerMoves.perform(PlayerMoves.MOVE_COMPLAINT, "firm", "site_fv")["ok"], "stale facts refused")
+		_fresh(0)
+		_scout_fv(today)
+		assert_true(PlayerMoves.perform(PlayerMoves.MOVE_COMPLAINT, "firm", "site_fv")["ok"], "one fresh fact allows it at 0 intel")
 	)
 	run_case("intel gate blocks, no charge", func():
 		_fresh(0)

@@ -45,7 +45,7 @@ func run() -> void:
 		assert_eq(Intel.level(Shares.PLAYER, "firm"), {})
 		_set_meter(Shares.PLAYER, "firm", 45)
 		assert_eq(Intel.level(Shares.PLAYER, "firm")["id"], Intel.HOLDINGS)
-		assert_true(Intel.knows(Shares.PLAYER, "firm", Intel.VEIN_SECURITY))
+		assert_true(Intel.knows(Shares.PLAYER, "firm", Intel.HOLDINGS))
 		assert_true(not Intel.knows(Shares.PLAYER, "firm", Intel.STOCKPILE_LOCATION), "location hidden below its level")
 		_set_meter(Shares.PLAYER, "firm", 100)
 		assert_eq(Intel.level(Shares.PLAYER, "firm")["id"], Intel.STASH)
@@ -244,25 +244,11 @@ func run() -> void:
 		assert_eq(int(GameState.state["player"]["cash"]), 100000, "nothing charged")
 	)
 
-	run_case("a_physics_lens_at_sense_two_reads_vein_security_from_meter_zero", func():
+	run_case("a_physics_lens_no_longer_raises_any_intel_level", func():
 		_fresh()
 		_load_lens("physics", 2)
-		assert_true(Intel.knows(Shares.PLAYER, "firm", Intel.VEIN_SECURITY), "vein security known one level early")
-		assert_true(not Intel.knows(Shares.PLAYER, "firm", Intel.HOLDINGS), "other levels unchanged")
-		assert_eq(Intel.level(Shares.PLAYER, "firm")["id"], Intel.VEIN_SECURITY)
-		assert_eq(Intel.meter(Shares.PLAYER, "firm"), 0, "stored meter not raised")
-		assert_true(not Intel.knows("guild", "firm", Intel.VEIN_SECURITY), "factions don't read through the player's lens")
-		_set_meter(Shares.PLAYER, "firm", 45)
-		assert_eq(Intel.level(Shares.PLAYER, "firm")["id"], Intel.HOLDINGS, "a higher real level still wins")
-	)
-
-	run_case("no_security_read_without_the_physics_lens_or_below_sense_two", func():
-		_fresh()
-		_load_lens("physics", 1)
-		assert_true(not Intel.knows(Shares.PLAYER, "firm", Intel.VEIN_SECURITY), "Sense 1 too low")
-		_load_lens("time", 2)
-		assert_true(not Intel.knows(Shares.PLAYER, "firm", Intel.VEIN_SECURITY), "wrong lens")
 		assert_eq(Intel.level(Shares.PLAYER, "firm"), {})
+		assert_true(not Intel.knows(Shares.PLAYER, "firm", Intel.HOLDINGS))
 	)
 
 	run_case("the_raid_site_security_read_shows_alarms_ward_and_guards_or_unknown", func():
@@ -274,8 +260,8 @@ func run() -> void:
 		var hidden := Intel.vein_security_read(vein)
 		assert_eq(hidden.map(func(r): return r["label"]), [words["alarms"], words["ward"], words["guards"]])
 		for row in hidden:
-			assert_eq(row["text"], words["unknown"], "%s unknown below the level" % row["label"])
-		_load_lens("physics", 2)
+			assert_eq(row["text"], words["unknown"], "%s unknown unscouted" % row["label"])
+		_scout_all(vein)
 		var shown := Intel.vein_security_read(vein)
 		assert_eq(shown[0]["text"], "%s, %s" % [words["alarm"], words["cameras"] % 2])
 		assert_eq(shown[1]["text"], GameData.WARDS["types"]["time"]["name"])
@@ -284,20 +270,34 @@ func run() -> void:
 		vein["guards"] = counts
 		vein["kit"] = { "blast": 3 }
 		GameState.state["factions"]["firm"]["holdings"]["items"]["blast"] = { "1": 2 }
+		_scout_all(vein)
 		var guards_text := String(Intel.vein_security_read(vein)[2]["text"])
 		var expected := " · ".join([String(words["guardsCount"]) % 2, Muscle.strength_word(counts), String(words["kit"]) % ("%s ×2" % GameData.RECIPES["blast"]["name"])])
 		assert_eq(guards_text, expected, "count, strength, kit capped by held")
 	)
 
-	run_case("the_vein_security_level_knows_all_five_security_facts", func():
+	run_case("max_intel_without_a_scout_reads_every_security_row_unknown", func():
 		_fresh()
 		var vein := Fixtures.seed_faction_vein("fv_facts", 40, "firm")
 		var facts := Intel.security_facts(vein)
 		for fact in Intel.SECURITY_FACTS:
-			assert_true(facts.has(fact), "%s known" % fact)
+			assert_true(facts.has(fact), "%s present" % fact)
 		assert_eq(facts.size(), Intel.SECURITY_FACTS.size())
-		_set_meter(Shares.PLAYER, "firm", Intel.level_at(Intel.VEIN_SECURITY))
-		assert_eq(Intel.vein_security_read(vein), Intel.security_read(facts))
+		_set_meter(Shares.PLAYER, "firm", int(GameData.INTEL["max"]))
+		assert_eq(Intel.level(Shares.PLAYER, "firm")["id"], Intel.STASH, "higher levels unlock as before")
+		for row in Intel.vein_security_read(vein):
+			assert_eq(row["text"], GameData.INTEL["securityRead"]["unknown"], "%s reads ?" % row["label"])
+	)
+
+	run_case("scouted_vein_counts_counts_veins_with_a_fresh_fact", func():
+		_fresh()
+		var vein := Fixtures.seed_faction_vein("fv_counted", 40, "firm")
+		var total := Sites.sites_with_faction_vein("firm").size()
+		assert_eq(Intel.scouted_vein_counts("firm"), { "scouted": 0, "total": total })
+		_scout_all(vein)
+		assert_eq(Intel.scouted_vein_counts("firm"), { "scouted": 1, "total": total })
+		GameState.state["world"]["day"] = int(GameState.state["world"]["day"]) + int(GameData.INTEL["scout"]["freshDays"])
+		assert_eq(Intel.scouted_vein_counts("firm")["scouted"], 0, "stale facts don't count")
 	)
 
 	run_case("the_security_read_marks_each_unknown_fact", func():
@@ -389,7 +389,6 @@ func _run_scout_cases() -> void:
 		for fact in Intel.SECURITY_FACTS:
 			assert_eq(stored[fact]["value"], facts[fact], fact)
 			assert_eq(int(stored[fact]["day"]), day, "%s day" % fact)
-		assert_true(Intel.meter(Shares.PLAYER, "firm") < Intel.level_at(Intel.VEIN_SECURITY), "below the level")
 		assert_eq(Intel.vein_security_read(vein), Intel.security_read(facts), "sheet shows scouted facts")
 	)
 
@@ -478,6 +477,16 @@ func _run_scout_cases() -> void:
 
 
 # Loads a tier-1 Lens of `ore` on a fresh player Dial at Sense `sense`.
+# Stores every current security fact on vein as scouted today.
+static func _scout_all(vein: Dictionary) -> void:
+	var day := int(GameState.state["world"]["day"])
+	var facts := Intel.security_facts(vein)
+	var entry := {}
+	for fact in facts:
+		entry[fact] = { "value": facts[fact], "day": day }
+	GameState.state["scoutedSecurity"][String(vein["id"])] = entry
+
+
 static func _load_lens(ore: String, sense: int) -> void:
 	var player: Dictionary = GameState.state["player"]
 	player["senseSkill"] = sense

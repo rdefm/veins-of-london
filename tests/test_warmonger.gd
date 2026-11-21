@@ -41,6 +41,7 @@ func run() -> void:
 		GameState.state["player"]["cash"] = 100000
 		GameState.state["intel"] = { Shares.PLAYER: { "firm": 100 } }
 		Fixtures.seed_faction_vein("fv", 40, "firm")
+		GameState.state["scoutedSecurity"]["fv"] = { Intel.FACT_WARD: { "value": "", "day": int(GameState.state["world"]["day"]) } }
 		for move_id in [PlayerMoves.MOVE_COMPLAINT, PlayerMoves.MOVE_POLICE, PlayerMoves.MOVE_LEAK]:
 			PlayerMoves.perform(move_id, "firm", "site_fv" if move_id == PlayerMoves.MOVE_COMPLAINT else "")
 		assert_eq(Warmonger.score(), 0.0)

@@ -8,7 +8,7 @@
       "description": "Paperwork against a faction vein. Its security upgrades stall for a few days.",
       "needsVein": true,
       "cost": { "cash": 150, "blocks": 1 },
-      "intelGate": "veinSecurity",
+      "needsScout": true,
       "durationDays": 5,
       "log": "Complaint filed. %s will be tied up in paperwork."
     },

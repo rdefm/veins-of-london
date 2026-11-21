@@ -41,7 +41,7 @@ static func block_reason(move_id: String, faction_id: String, site_id: String = 
 	var m := move(move_id)
 	if not GameData.FACTIONS.has(faction_id):
 		return "Not a target."
-	if not Intel.knows(Shares.PLAYER, faction_id, String(m["intelGate"])):
+	if m.has("intelGate") and not Intel.knows(Shares.PLAYER, faction_id, String(m["intelGate"])):
 		return "Need more intel on them."
 	if int(GameState.state["player"]["cash"]) < int(m["cost"]["cash"]):
 		return "Not enough cash."
@@ -51,6 +51,8 @@ static func block_reason(move_id: String, faction_id: String, site_id: String = 
 		var site: Variant = Sites.find_site(site_id)
 		if site == null or site["factionVein"] == null or site["factionVein"]["factionId"] != faction_id:
 			return "Pick one of their veins."
+		if bool(m.get("needsScout", false)) and not Intel.has_fresh_scout(String(site["factionVein"]["id"])):
+			return "Scout that vein first."
 		if not NetworkHandler.is_vulnerable(site_id, NetworkHandler.EFFECT_SECURITY_FREEZE):
 			return "Nothing left to stall there."
 		if NetworkHandler.is_security_frozen(site_id):

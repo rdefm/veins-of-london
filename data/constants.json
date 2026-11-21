@@ -505,7 +505,6 @@
     "max": 100,
     "securityRead": { "alarms": "Alarms", "ward": "Ward", "guards": "Guards", "unknown": "?", "none": "None", "alarm": "alarm line", "camera": "%d camera", "cameras": "%d cameras", "guardCount": "%d guard", "guardsCount": "%d guards", "guardsUnknown": "? guards", "kit": "kit: %s" },
     "levels": [
-      { "id": "veinSecurity", "at": 20, "name": "Vein security" },
       { "id": "holdings", "at": 40, "name": "Holdings" },
       { "id": "stockpileLocation", "at": 60, "name": "Stockpile location" },
       { "id": "stockpileSecurity", "at": 80, "name": "Stockpile security" },
