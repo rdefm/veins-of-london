@@ -1425,6 +1425,10 @@ class StageSlot extends Control:
 	func set_status_icons(value: Array, animate: bool) -> void:
 		_icon_row.set_icons(value, animate)
 
+	# Statuses the armed action would add, as faded pulsing chips; [] clears.
+	func set_status_preview(value: Array) -> void:
+		_icon_row.set_preview_icons(value)
+
 	# Stun hold-open actions still to pass: the Open guard marker's count pip (0 hides it).
 	var open_left: int = 0
 

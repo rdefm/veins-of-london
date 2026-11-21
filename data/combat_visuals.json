@@ -29,6 +29,15 @@
     "glowAlpha": 0.6,
     "glowPx": 3.0
   },
+  "healPreview": {
+    "_note": "Armed-action heal slice past the HP fill on a turn-order card (same fields as damagePreview), plus ghostAlpha/pulseHz for the faded pulsing ghost chip a predicted status shows on the stage status row.",
+    "colour": "#7ee08a",
+    "glowColour": "#4fd66a",
+    "glowAlpha": 0.6,
+    "glowPx": 3.0,
+    "ghostAlpha": 0.55,
+    "pulseHz": 1.5
+  },
   "cardFrames": {
     "_note": "Street-sign nine-slice frames for turn-order cards (scenes/components/turn_order_strip.gd), keyed by damage tier. margin: nine-slice margin in px on all four sides; see assets/combat/combat-cards/README.md.",
     "clean": { "image": "res://assets/combat/combat-cards/street_sign_frame.png", "margin": 6 },

@@ -310,6 +310,31 @@ func run() -> void:
 		assert_true(not CombatRounds.project_round(combat, { "move": "nonsense", "target": 1 })["ok"], "an unplayable pick refuses")
 	)
 
+	run_case("project_round_previews_a_heal_capped_at_max_and_a_status", func():
+		GameState.reset()
+		_recruit("archie")
+		GameState.state["contacts"]["archie"]["combatHp"] = 10
+		GameState.state["player"]["loadout"]["slots"][0] = { "recipe": "healingBurst", "tier": 2 }
+		_start_with_allies([Contacts.build_combat_ally("archie")], [["guard", "guard"]])
+		var combat: Dictionary = GameState.state["combat"]
+		var archie: Dictionary = combat["combatants"][1]
+		var before := var_to_str(combat)
+		var heal := CombatRounds.project_round(combat, { "slot": 0, "target": 1 })
+		assert_eq(var_to_str(combat), before, "projecting changes nothing")
+		assert_true(heal["ok"] and heal["heals"][1] > 0 and heal["heals"][1] <= 8, "heal ghosts on archie")
+		archie["hp"] = int(archie["hpMax"]) - 1
+		var capped := CombatRounds.project_round(combat, { "slot": 0, "target": 1 })
+		assert_eq(capped["heals"][1], 1, "heal capped at max hp")
+		var none := CombatRounds.project_round(combat)
+		assert_true(none["heals"].is_empty() and none["statuses"].is_empty(), "nothing armed, nothing gained")
+		GameState.reset()
+		combat = _start_vs([_slow_mugger(200)], [_strikes_at_player()], [], 1)
+		combat["combatants"][1]["guard"] = CombatRounds.OPEN
+		var stun := CombatRounds.project_round(combat, { "move": "stun", "target": 1 })
+		assert_true(stun["statuses"].has(1) and stun["statuses"][1].any(func(i): return i["id"] == "stunned"), "stun previews a stunned chip on the target")
+		assert_true(not stun["statuses"].has(CombatRounds.PLAYER_INDEX), "the player gains no status")
+	)
+
 	run_case("street_mugging_from_prep_opens_a_round_fight_on_the_real_player", func():
 		GameState.reset()
 		var player: Dictionary = GameState.state["player"]

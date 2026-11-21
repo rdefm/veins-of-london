@@ -453,6 +453,8 @@ func _sync_fight(cp: Dictionary) -> void:
 # with the armed action in place); cleared while a round plays.
 func _sync_damage_preview() -> void:
 	var previews := {}
+	var heals := {}
+	var statuses := {}
 	if not _busy() and _cp()["outcome"] == null:
 		var cp: Dictionary = _cp()
 		var projection := CombatRounds.project_round(cp, _dock.armed_pick())
@@ -464,7 +466,18 @@ func _sync_damage_preview() -> void:
 				var hp_delta: int = projection["changes"][index]["hpDelta"]
 				if hp_delta < 0:
 					previews[TurnOrderStrip.card_key_string(_stage_target(roster, int(index)))] = int(cp["combatants"][index]["hp"]) + hp_delta
+			for index in projection["heals"]:
+				var unit: Dictionary = cp["combatants"][index]
+				heals[TurnOrderStrip.card_key_string(_stage_target(roster, int(index)))] = mini(int(unit["hpMax"]), int(unit["hp"]) + int(projection["heals"][index]))
+			for index in projection["statuses"]:
+				statuses[int(index)] = projection["statuses"][index]
 	_strip.set_damage_preview(previews)
+	_strip.set_heal_preview(heals)
+	var stage_roster_now := stage_roster(_cp(), -1)
+	for i in range(_cp()["combatants"].size()):
+		var slot := _stage.resolve_target_slot(_stage_target(stage_roster_now, i))
+		if slot != null:
+			slot.set_status_preview(statuses.get(i, []))
 
 
 func _on_arm_changed(_key: String) -> void:

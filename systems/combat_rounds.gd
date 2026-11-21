@@ -1538,8 +1538,10 @@ static func project_pick(cp: Dictionary, action: Dictionary) -> Dictionary:
 # (is_read(), so fog, Glimpse and sight apply) or a furious one
 # (targetUnread) tallies nothing, though it still plays. An unpicked player
 # slot does nothing. Returns { ok, changes } as project_pick() does (losses
-# only); { ok: false } for a demo, a fight that isn't paused on a pick, or an
-# `action` that can't be played. Crits are hidden as project_pick()'s.
+# only) plus heals { combatant index: hp gained, capped at max hp } and
+# statuses { combatant index: [{ id, count }] newly gained }; { ok: false } for
+# a demo, a fight that isn't paused on a pick, or an `action` that can't be
+# played. Crits are hidden as project_pick()'s.
 static func project_round(cp: Dictionary, action: Dictionary = {}) -> Dictionary:
 	if is_demo(cp) or decision_position(cp) < 0:
 		return { "ok": false, "reason": "not paused" }
@@ -1566,6 +1568,8 @@ static func project_round(cp: Dictionary, action: Dictionary = {}) -> Dictionary
 	sim["projectRound"] = true
 	sim["projectHidden"] = hidden
 	sim["projectTotals"] = {}
+	sim["projectHeals"] = {}
+	sim["projectStatuses"] = {}
 	sim["projectHideCrit"] = not bool(cp["combatants"][PLAYER_INDEX].get("fateCritSight", false))
 	if not action.is_empty():
 		var entry = _normalize_action(sim, action)
@@ -1579,7 +1583,7 @@ static func project_round(cp: Dictionary, action: Dictionary = {}) -> Dictionary
 	var rng := RandomNumberGenerator.new()
 	rng.state = sim["rngState"]
 	_advance(sim, rng, [])
-	return { "ok": true, "changes": sim["projectTotals"] }
+	return { "ok": true, "changes": sim["projectTotals"], "heals": sim["projectHeals"], "statuses": sim["projectStatuses"] }
 
 
 # Adds the losses `actor`'s action `index` caused since `before` (a
@@ -1591,6 +1595,16 @@ static func _project_tally(cp: Dictionary, actor: int, index: int, before: Array
 	var totals: Dictionary = cp["projectTotals"]
 	for i in range(before.size()):
 		var c: Dictionary = cp["combatants"][i]
+		var gain: int = int(c["hp"]) - int(before[i]["hp"])
+		if gain > 0:
+			cp["projectHeals"][i] = int(cp["projectHeals"].get(i, 0)) + gain
+		var seen: Array = before[i]["icons"]
+		for icon in status_icons(cp, i):
+			if not seen.has(icon["id"]):
+				var gained: Array = cp["projectStatuses"].get(i, [])
+				if not gained.any(func(g: Dictionary) -> bool: return g["id"] == icon["id"]):
+					gained.append(icon)
+				cp["projectStatuses"][i] = gained
 		var hp_delta := mini(0, int(c["hp"]) - int(before[i]["hp"]))
 		var shield_delta := mini(0, int(c["shield"]) - int(before[i]["shield"]))
 		if hp_delta == 0 and shield_delta == 0:
@@ -1601,8 +1615,12 @@ static func _project_tally(cp: Dictionary, actor: int, index: int, before: Array
 		totals[i] = total
 
 
-static func _hp_shield_snapshot(combatants: Array) -> Array:
-	return combatants.map(func(c: Dictionary) -> Dictionary: return { "hp": c["hp"], "shield": c["shield"] })
+static func _hp_shield_snapshot(cp: Dictionary) -> Array:
+	var out: Array = []
+	for i in range(cp["combatants"].size()):
+		var c: Dictionary = cp["combatants"][i]
+		out.append({ "hp": c["hp"], "shield": c["shield"], "icons": status_icons(cp, i).map(func(icon: Dictionary) -> String: return icon["id"]) })
+	return out
 
 
 # Why the raw pick `action` ({ move, target } or { slot, target }) can't be
@@ -2289,8 +2307,8 @@ static func _advance(cp: Dictionary, rng: RandomNumberGenerator, beats: Array, r
 		var fleeing: bool = move(fury_move(cp, actor, action["move"]))["effect"] == EFFECT_FLEE
 		var projecting: bool = actor == PLAYER_INDEX and cp.get("projectStop", false)
 		if projecting:
-			cp["projectBefore"] = _hp_shield_snapshot(combatants)
-		var round_before: Array = _hp_shield_snapshot(combatants) if round_projecting else []
+			cp["projectBefore"] = _hp_shield_snapshot(cp)
+		var round_before: Array = _hp_shield_snapshot(cp) if round_projecting else []
 		var flee_failed := _resolve_action(cp, actor, action, rng, beats)
 		if round_projecting:
 			_project_tally(cp, actor, entry["index"], round_before)

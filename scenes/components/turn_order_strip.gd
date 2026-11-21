@@ -69,6 +69,7 @@ class NameplateCard extends Control:
 
 	var ghost_hp: Variant = null
 	var preview_hp: Variant = null  # predicted hp after the armed action, or null
+	var heal_hp: Variant = null  # predicted hp after healing (capped at max), or null
 	var hp_label: Label = null
 
 	func set_hp(value: int) -> void:
@@ -106,6 +107,8 @@ class NameplateCard extends Control:
 
 		if preview_hp != null and int(preview_hp) < hp:
 			_draw_damage_preview(frac, bar_y)
+		if heal_hp != null and int(heal_hp) > hp:
+			_draw_heal_preview(frac, bar_y)
 
 	# The predicted-damage slice: the end of the current fill back to the
 	# predicted hp, lighter, with a soft glow (combat_visuals.json damagePreview).
@@ -114,6 +117,17 @@ class NameplateCard extends Control:
 		var preview_frac: float = clampf(float(preview_hp) / float(maxi(1, hp_max)), 0.0, 1.0)
 		var bar_w: float = size.x - 16.0
 		var slice := Rect2(Vector2(8.0 + bar_w * preview_frac, bar_y), Vector2(bar_w * (frac - preview_frac), TurnOrderStrip.HP_BAR_HEIGHT))
+		_draw_glow_slice(slice, look)
+
+	# The predicted-heal slice: the end of the current fill out to the healed hp
+	# (combatant max at most), in green (combat_visuals.json healPreview).
+	func _draw_heal_preview(frac: float, bar_y: float) -> void:
+		var look: Dictionary = GameData.COMBAT_VISUALS["healPreview"]
+		var heal_frac: float = clampf(float(heal_hp) / float(maxi(1, hp_max)), 0.0, 1.0)
+		var bar_w: float = size.x - 16.0
+		_draw_glow_slice(Rect2(Vector2(8.0 + bar_w * frac, bar_y), Vector2(bar_w * (heal_frac - frac), TurnOrderStrip.HP_BAR_HEIGHT)), look)
+
+	func _draw_glow_slice(slice: Rect2, look: Dictionary) -> void:
 		var glow_colour := Color(str(look["glowColour"]))
 		var glow_px: float = float(look["glowPx"])
 		var steps := 3
@@ -372,6 +386,7 @@ var _ghost_hp_by_key: Dictionary = {}
 var _shown_hp_by_key: Dictionary = {}
 # combatant key string -> predicted hp after the armed action (set_damage_preview()).
 var _preview_hp_by_key: Dictionary = {}
+var _heal_hp_by_key: Dictionary = {}
 var _advance_tween: Tween = null
 var _deal_tween: Tween = null
 # True while a round plays back (advance_to() until the next configure()):
@@ -578,6 +593,8 @@ func _build_card(entry: Dictionary, is_focused: bool, card_size: Vector2) -> Nam
 		card.ghost_hp = _ghost_hp_by_key[key_string]
 	if _preview_hp_by_key.has(key_string):
 		card.preview_hp = _preview_hp_by_key[key_string]
+	if _heal_hp_by_key.has(key_string):
+		card.heal_hp = _heal_hp_by_key[key_string]
 	return card
 
 
@@ -588,6 +605,16 @@ func set_damage_preview(hp_by_key: Dictionary) -> void:
 	for key_string in _cards_by_key.keys():
 		for card: NameplateCard in _cards_by_key[key_string]:
 			card.preview_hp = _preview_hp_by_key.get(key_string)
+			card.queue_redraw()
+
+
+# The round's predicted hp after healing per combatant key string (all else
+# clears), drawn as a green slice past the current fill; {} clears it.
+func set_heal_preview(hp_by_key: Dictionary) -> void:
+	_heal_hp_by_key = hp_by_key.duplicate()
+	for key_string in _cards_by_key.keys():
+		for card: NameplateCard in _cards_by_key[key_string]:
+			card.heal_hp = _heal_hp_by_key.get(key_string)
 			card.queue_redraw()
 
 

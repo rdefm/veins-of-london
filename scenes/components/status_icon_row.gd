@@ -48,6 +48,8 @@ var _icons: Array = []
 var _anims: Dictionary = {}  # icon id -> { kind: "pop" | "tick", t }
 var _ghosts: Array = []  # { icon, x, t } icons that just expired
 var _time: float = 0.0
+var _preview: Array = []  # { id, count } statuses the armed action would add, drawn as faded pulsing chips
+var _ghost_alpha: float = 1.0  # multiplies every chip colour while a preview chip draws
 
 
 # `animate` false sets the row outright (Rewind restore, KO, first sync).
@@ -111,7 +113,7 @@ func _has_spinner() -> bool:
 
 
 func _sync_processing() -> void:
-	set_process(not _anims.is_empty() or not _ghosts.is_empty() or _has_spinner())
+	set_process(not _anims.is_empty() or not _ghosts.is_empty() or _has_spinner() or not _preview.is_empty())
 
 
 func _process(delta: float) -> void:
@@ -131,8 +133,9 @@ func _process(delta: float) -> void:
 
 
 func _draw() -> void:
-	var count := _slot_count(_icons)
-	var shown := _shown(_icons)
+	var layout: Array = _icons + _fresh_preview()
+	var count := _slot_count(layout)
+	var shown := _shown(layout)
 	for i in range(shown.size()):
 		var icon: Dictionary = shown[i]
 		var origin := Vector2(_slot_x(i, count), ROW_TOP)
@@ -148,9 +151,12 @@ func _draw() -> void:
 		elif anim.get("kind", "") == "tick":
 			digit_dy = -2.0
 			nudge = 1.0
+		if i >= _icons.size():
+			_draw_preview_chip(icon, origin)
+			continue
 		_draw_chip(icon, origin + Vector2(0.0, nudge), scale, flash, digit_dy)
-	if shown.size() < _icons.size():
-		_draw_overflow(Vector2(_slot_x(shown.size(), count), ROW_TOP), _icons.size() - shown.size())
+	if shown.size() < layout.size():
+		_draw_overflow(Vector2(_slot_x(shown.size(), count), ROW_TOP), layout.size() - shown.size())
 	var expire: float = maxf(0.001, float(_tuning().get("expireSeconds", 0.12)))
 	for ghost in _ghosts:
 		_draw_expiring(ghost["icon"], Vector2(ghost["x"], ROW_TOP), ghost["t"] / expire)
@@ -165,13 +171,13 @@ func _draw_chip(icon: Dictionary, origin: Vector2, scale: float, flash: bool, di
 	draw_set_transform(origin + Vector2(CHIP, CHIP) / 2.0, 0.0, Vector2(scale, scale) * GLYPH_SCALE)
 	var outer: Array[Vector2] = BUFF_OUTER if buff else DEBUFF_OUTER
 	var inner: Array[Vector2] = BUFF_INNER if buff else DEBUFF_INNER
-	draw_colored_polygon(_shift(outer, -centre), BUFF_RIM if buff else DEBUFF_RIM)
-	draw_colored_polygon(_shift(inner, -centre), Color.WHITE if flash else (BUFF_FILL if buff else DEBUFF_FILL))
-	_draw_glyph(cfg, -centre + Vector2.ONE, _colour(cfg))
+	draw_colored_polygon(_shift(outer, -centre), _fade(BUFF_RIM if buff else DEBUFF_RIM))
+	draw_colored_polygon(_shift(inner, -centre), _fade(Color.WHITE if flash else (BUFF_FILL if buff else DEBUFF_FILL)))
+	_draw_glyph(cfg, -centre + Vector2.ONE, _fade(_colour(cfg)))
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	var n := int(icon["count"])
 	if n > 0 and scale >= 0.8:
-		draw_digit(self, mini(n, 9), origin + Vector2(CHIP - 3.0, CHIP - 5.0) + Vector2(0.0, digit_dy), _colour(cfg))
+		draw_digit(self, mini(n, 9), origin + Vector2(CHIP - 3.0, CHIP - 5.0) + Vector2(0.0, digit_dy), _fade(_colour(cfg)))
 
 
 func _draw_overflow(origin: Vector2, extra: int) -> void:
@@ -202,7 +208,7 @@ func _draw_glyph(cfg: Dictionary, origin: Vector2, colour: Color) -> void:
 	if image != "":
 		var texture := _texture(image)
 		if texture != null:
-			draw_texture_rect(texture, Rect2(origin, Vector2(GLYPH_CELLS, GLYPH_CELLS)), false)
+			draw_texture_rect(texture, Rect2(origin, Vector2(GLYPH_CELLS, GLYPH_CELLS)), false, _fade(Color.WHITE))
 			return
 	var glyph: Variant = cfg.get("glyph", [])
 	if glyph is String:
@@ -255,3 +261,30 @@ static func _draw_pixels_on(canvas: CanvasItem, rows: String, pos: Vector2, colo
 			if row[x] == "#":
 				canvas.draw_rect(Rect2(pos + Vector2(x, y), Vector2.ONE), colour)
 		y += 1
+
+
+# The statuses the armed action / round would add ([{ id, count }]); `[]` clears.
+func set_preview_icons(icons: Array) -> void:
+	if icons == _preview:
+		return
+	_preview = icons.duplicate(true)
+	_sync_processing()
+	queue_redraw()
+
+
+# Preview statuses the row doesn't already show.
+func _fresh_preview() -> Array:
+	return _preview.filter(func(p: Dictionary) -> bool: return not _icons.any(func(i: Dictionary) -> bool: return i["id"] == p["id"]))
+
+
+# A preview chip: the real chip, faded and pulsing (combat_visuals.json healPreview).
+func _draw_preview_chip(icon: Dictionary, origin: Vector2) -> void:
+	var look: Dictionary = GameData.COMBAT_VISUALS.get("healPreview", {})
+	var pulse: float = 0.5 + 0.5 * sin(_time * TAU * float(look.get("pulseHz", 1.5)))
+	_ghost_alpha = float(look.get("ghostAlpha", 0.55)) * lerpf(0.55, 1.0, pulse)
+	_draw_chip(icon, origin, 1.0, false, 0.0)
+	_ghost_alpha = 1.0
+
+
+func _fade(c: Color) -> Color:
+	return Color(c.r, c.g, c.b, c.a * _ghost_alpha)
