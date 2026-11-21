@@ -232,6 +232,7 @@ static func daily_tick() -> void:
 	FactionAI.run_positions()            # ⑥.5g5 Conclave positions, before ⑥.5h so its push cooldown gates tickerPush; trades land in ⑥.6, pushes at the next ①
 	FactionAI.apply_escalation()         # ⑥.5h after ⑥.5g so bands read today's stances; raids it queues resolve at the next ⑤c/⑤d
 	NetworkHandler.faction_purchases()   # ⑥.5h2 faction intel purchases, after ⑥.5h so bands and the Network's gouges are today's
+	Intel.weekly_scouts()                # ⑥.5h3 Monday free scouts from player intel, after ⑥.5h2; before ⑥.5i so decay doesn't eat the week's intel
 	Intel.decay()                        # ⑥.5i intel decay, after ⑥.5h2
 	Perks.sync_lore()                    # Sworn Conclave's Deep Vein lore flag
 	Perks.daily_intel()                  # ⑥.5i1 Friendly Network passive intel on the watched faction, after decay

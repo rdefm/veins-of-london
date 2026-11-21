@@ -286,10 +286,10 @@ static func scout_chance(fact: String) -> float:
 
 
 # One stable roll per security fact for a scout opening on day/block: the
-# fact ids that hit, in SECURITY_FACTS order. Keyed off rollSeed, so a
-# Rewound scout replays the same hits.
-static func scout_rolls(vein_id: String, day: int, block: int) -> Array[String]:
-	var key := "%d|%s|%d|%d|scout" % [int(GameState.state["world"]["rollSeed"]), vein_id, day, block]
+# fact ids that hit, in SECURITY_FACTS order. Keyed off rollSeed and tag, so
+# a Rewound scout replays the same hits.
+static func scout_rolls(vein_id: String, day: int, block: int, tag: String = SOURCE_SCOUT) -> Array[String]:
+	var key := "%d|%s|%d|%d|%s" % [int(GameState.state["world"]["rollSeed"]), vein_id, day, block, tag]
 	var hits: Array[String] = []
 	for fact in SECURITY_FACTS:
 		if Rng.stable_unit("%s|%s" % [key, fact]) < scout_chance(fact):
@@ -309,20 +309,9 @@ static func scout(vein: Dictionary) -> Dictionary:
 	var day := int(world["day"])
 	var block := int(world["timeBlock"])
 	TimeSystem.advance_time_block()
-	var vein_id := String(vein["id"])
 	var faction_id := String(vein["factionId"])
-	var hits := scout_rolls(vein_id, day, block)
-	var facts := security_facts(vein)
-	var store: Dictionary = GameState.state["scoutedSecurity"]
-	if not hits.is_empty() and not store.has(vein_id):
-		store[vein_id] = {}
-	var names: Array[String] = []
-	for fact in hits:
-		var value: Variant = facts[fact]
-		if value is Dictionary:
-			value = (value as Dictionary).duplicate(true)
-		store[vein_id][fact] = { "value": value, "day": day }
-		names.append(String(_scout_cfg()["factNames"][fact]))
+	var hits := scout_rolls(String(vein["id"]), day, block)
+	var names := _record_hits(vein, hits, day)
 	gain(Shares.PLAYER, faction_id, SOURCE_SCOUT)
 	var faction_name := String(GameData.FACTIONS[faction_id]["name"])
 	var district_name := String(GameData.DISTRICTS[String(vein["district"])]["name"])
@@ -331,6 +320,78 @@ static func scout(vein: Dictionary) -> Dictionary:
 	else:
 		Notify.push(String(_scout_cfg()["found"]) % [faction_name, district_name, ", ".join(names)], Notify.CATEGORY_SUCCESS)
 	return { "ok": true, "hits": hits }
+
+
+# Stores each hit fact's current security_facts value and day in
+# state.scoutedSecurity, replacing earlier entries; returns the hits'
+# factNames in order.
+static func _record_hits(vein: Dictionary, hits: Array[String], day: int) -> Array[String]:
+	var names: Array[String] = []
+	if hits.is_empty():
+		return names
+	var vein_id := String(vein["id"])
+	var facts := security_facts(vein)
+	var store: Dictionary = GameState.state["scoutedSecurity"]
+	if not store.has(vein_id):
+		store[vein_id] = {}
+	for fact in hits:
+		var value: Variant = facts[fact]
+		if value is Dictionary:
+			value = (value as Dictionary).duplicate(true)
+		store[vein_id][fact] = { "value": value, "day": day }
+		names.append(String(_scout_cfg()["factNames"][fact]))
+	return names
+
+
+# Rollover step ⑥.5h3, Mondays only (R§3.1 "Weekly scouting"): per faction,
+# floor(player intel ÷ weekly.pointsPerScout) free scouts, each on a random
+# vein of that faction (repeats allowed), rolled and stored as a manual
+# scout but with no block spent and no intel gain. Target picks and rolls
+# are keyed off rollSeed, so Rewind replays them. One notification sums up
+# the finds per faction; none when nothing was found. Returns { factionId:
+# [veinId per scout] }, {} off Mondays.
+static func weekly_scouts() -> Dictionary:
+	var targets := {}
+	var day := _day()
+	if not Calendar.is_monday(day):
+		return targets
+	var weekly: Dictionary = _scout_cfg()["weekly"]
+	var per_scout := int(weekly["pointsPerScout"])
+	var roll_seed := int(GameState.state["world"]["rollSeed"])
+	var faction_lines: Array[String] = []
+	for faction_id in GameData.FACTIONS:
+		var count := meter(Shares.PLAYER, faction_id) / per_scout
+		var sites := Sites.sites_with_faction_vein(faction_id)
+		if count <= 0 or sites.is_empty():
+			continue
+		targets[faction_id] = []
+		# veinId -> { district, names }, names unique in first-found order.
+		var found := {}
+		var order: Array[String] = []
+		for i in range(count):
+			var pick := Rng.stable_unit("%d|%s|%d|%d|weeklyTarget" % [roll_seed, faction_id, day, i])
+			var vein: Dictionary = sites[mini(int(pick * sites.size()), sites.size() - 1)]["factionVein"]
+			var vein_id := String(vein["id"])
+			targets[faction_id].append(vein_id)
+			var names := _record_hits(vein, scout_rolls(vein_id, day, i, "weekly"), day)
+			if names.is_empty():
+				continue
+			if not found.has(vein_id):
+				found[vein_id] = { "district": String(vein["district"]), "names": [] }
+				order.append(vein_id)
+			for fact_name in names:
+				if not found[vein_id]["names"].has(fact_name):
+					found[vein_id]["names"].append(fact_name)
+		if order.is_empty():
+			continue
+		var vein_parts: Array[String] = []
+		for vein_id in order:
+			var district_name := String(GameData.DISTRICTS[found[vein_id]["district"]]["name"])
+			vein_parts.append(String(weekly["vein"]) % [district_name, ", ".join(found[vein_id]["names"])])
+		faction_lines.append(String(weekly["faction"]) % [String(GameData.FACTIONS[faction_id]["name"]), "; ".join(vein_parts)])
+	if not faction_lines.is_empty():
+		Notify.push(String(weekly["found"]) % ". ".join(faction_lines), Notify.CATEGORY_SUCCESS)
+	return targets
 
 
 # Every security fact about a faction vein, keyed by SECURITY_FACTS id:

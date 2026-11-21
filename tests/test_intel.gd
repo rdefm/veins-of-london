@@ -351,7 +351,103 @@ static func _scout_vein(id: String) -> Dictionary:
 	return vein
 
 
+static func _to_monday() -> int:
+	var day := Calendar.next_weekday_after(int(GameState.state["world"]["day"]), 0)
+	GameState.state["world"]["day"] = day
+	return day
+
+
+static func _per_scout() -> int:
+	return int(GameData.INTEL["scout"]["weekly"]["pointsPerScout"])
+
+
+func _run_weekly_scout_cases() -> void:
+	run_case("weekly_scouts_give_one_free_scout_per_points_of_intel_on_mondays_only", func():
+		var vein := _scout_vein("fv_weekly_count")
+		Fixtures.seed_faction_vein("fv_weekly_count_b", 40, "firm")
+		_set_meter(Shares.PLAYER, "firm", _per_scout() * 4 + _per_scout() - 1)
+		_set_meter(Shares.PLAYER, "guild", _per_scout() - 1)
+		var monday := _to_monday()
+		GameState.state["world"]["day"] = monday + 1
+		assert_eq(Intel.weekly_scouts(), {}, "not a Monday")
+		GameState.state["world"]["day"] = monday
+		var targets := Intel.weekly_scouts()
+		assert_eq((targets["firm"] as Array).size(), 4, "intel 4×+rest → 4 scouts")
+		assert_true(not targets.has("guild"), "below one scout's worth gets none")
+		for vein_id in targets["firm"]:
+			assert_true(vein_id in [vein["id"], "fv_weekly_count_b"], "targets a firm vein")
+	)
+
+	run_case("weekly_scouts_can_land_on_the_same_vein_and_skip_factions_without_veins", func():
+		var vein := _scout_vein("fv_weekly_repeat")
+		_set_meter(Shares.PLAYER, "firm", _per_scout() * 3)
+		_set_meter(Shares.PLAYER, "guild", _per_scout() * 3)
+		_to_monday()
+		var targets := Intel.weekly_scouts()
+		assert_eq(targets["firm"], [vein["id"], vein["id"], vein["id"]], "one vein takes every scout")
+		assert_true(not targets.has("guild"), "no veins, no scouts")
+	)
+
+	run_case("weekly_scouts_store_snapshots_free_of_blocks_and_intel_and_notify_once", func():
+		var vein := _scout_vein("fv_weekly_free")
+		_set_meter(Shares.PLAYER, "firm", _per_scout() * 2)
+		var day := _to_monday()
+		var left := TimeSystem.blocks_left()
+		var notes := (GameState.state["notifications"] as Array).size()
+		var original := _scout_chances(1.0)
+		Intel.weekly_scouts()
+		_restore_chances(original)
+		assert_eq(TimeSystem.blocks_left(), left, "no block spent")
+		assert_eq(Intel.meter(Shares.PLAYER, "firm"), _per_scout() * 2, "no intel gain")
+		var stored: Dictionary = GameState.state["scoutedSecurity"][vein["id"]]
+		for fact in Intel.SECURITY_FACTS:
+			assert_eq(int(stored[fact]["day"]), day, "%s found today" % fact)
+		assert_eq(Intel.fresh_scouted_facts(vein["id"]).size(), Intel.SECURITY_FACTS.size(), "fresh like a manual scout")
+		var notifications: Array = GameState.state["notifications"]
+		assert_eq(notifications.size(), notes + 1, "one notification")
+		assert_true(String(notifications[-1]["text"]).contains(String(GameData.FACTIONS["firm"]["name"])), "names the faction")
+	)
+
+	run_case("weekly_scouts_that_find_nothing_push_no_notification", func():
+		var vein := _scout_vein("fv_weekly_nothing")
+		_set_meter(Shares.PLAYER, "firm", _per_scout() * 3)
+		_to_monday()
+		var notes := (GameState.state["notifications"] as Array).size()
+		var original := _scout_chances(0.0)
+		Intel.weekly_scouts()
+		_restore_chances(original)
+		assert_eq((GameState.state["notifications"] as Array).size(), notes, "nothing found, no notification")
+		assert_true(not GameState.state["scoutedSecurity"].has(vein["id"]), "nothing stored")
+	)
+
+	run_case("weekly_scouts_replay_the_same_targets_and_hits_after_a_rewind", func():
+		_scout_vein("fv_weekly_rewind_a")
+		Fixtures.seed_faction_vein("fv_weekly_rewind_b", 40, "firm")
+		Fixtures.seed_faction_vein("fv_weekly_rewind_c", 40, "firm")
+		_set_meter(Shares.PLAYER, "firm", _per_scout() * 6)
+		_to_monday()
+		var before: Dictionary = GameState.state.duplicate(true)
+		var first := Intel.weekly_scouts()
+		var first_found: Dictionary = GameState.state["scoutedSecurity"].duplicate(true)
+		GameState.state = before
+		Rng.randf()
+		assert_eq(Intel.weekly_scouts(), first, "same targets")
+		assert_eq(GameState.state["scoutedSecurity"], first_found, "same hits")
+	)
+
+	run_case("the_monday_rollover_runs_weekly_scouts_before_decay", func():
+		var vein := _scout_vein("fv_weekly_rollover")
+		_set_meter(Shares.PLAYER, "firm", _per_scout())
+		_to_monday()
+		var original := _scout_chances(1.0)
+		TimeSystem.daily_tick()
+		_restore_chances(original)
+		assert_true(GameState.state["scoutedSecurity"].has(vein["id"]), "intel at exactly one scout's worth still scouts")
+	)
+
+
 func _run_scout_cases() -> void:
+	_run_weekly_scout_cases()
 	run_case("scouting_spends_one_block_and_is_refused_without_one", func():
 		var vein := _scout_vein("fv_scout_block")
 		var left := TimeSystem.blocks_left()

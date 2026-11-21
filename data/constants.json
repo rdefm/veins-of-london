@@ -517,7 +517,13 @@
       "factNames": { "alarms": "alarms", "guardCount": "guard count", "guardStrength": "guard strength", "guardKit": "guard kit", "ward": "ward" },
       "action": "Scout",
       "found": "You watch %s's vein in %s for a while. Learned: %s.",
-      "nothing": "You watch %s's vein in %s for a while. Nothing new."
+      "nothing": "You watch %s's vein in %s for a while. Nothing new.",
+      "weekly": {
+        "pointsPerScout": 5,
+        "found": "Your contacts sent word over the weekend. %s.",
+        "faction": "%s — %s",
+        "vein": "%s: %s"
+      }
     },
     "dailyDecay": 1,
     "raid": { "oddsBonus": 0.15, "overestimatePenalty": 0.15 }
