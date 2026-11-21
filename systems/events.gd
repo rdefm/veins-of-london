@@ -328,6 +328,53 @@ static func _convention_image_path(event_id: String, card_number: int, ore: Stri
 	return null
 
 
+# The stills the event screen may show after the current card (its background
+# prefetch): the image of the next card and of every card the current card's or
+# its options' (and outcomes') gotos name, plus each option's and outcome's own
+# image. Distinct path strings, in no fixed order; [] with no live event. A pure
+# read -- state.event is untouched.
+static func next_image_paths() -> Array:
+	var event_state: Variant = GameState.state["event"]
+	if event_state == null:
+		return []
+	var cards: Array = live_cards()
+	var here: int = int(event_state["cardIndex"])
+	var card: Dictionary = current_card()
+	var gotos: Array = []
+	var card_goto: Variant = card.get("goto")
+	if card_goto is Array:
+		for entry in card_goto:
+			if entry is Dictionary:
+				gotos.append(entry.get("card"))
+	else:
+		gotos.append(card_goto)
+	var paths: Array = []
+	for choice in card.get("choices", []):
+		if not choice is Dictionary:
+			continue
+		var sources: Array = [choice, choice.get("success"), choice.get("fail")]
+		sources.append_array(choice.get("bySuccesses", {}).values())
+		for source in sources:
+			if source is Dictionary:
+				gotos.append(source.get("goto"))
+				paths.append(source.get("image"))
+	var targets: Array = [here + 1]
+	for goto in gotos:
+		targets.append(_goto_index(goto, cards))
+	var event_id: String = event_state["eventId"]
+	var raid_ore: String = String(event_state.get("context", {}).get("raidOre", ""))
+	for target in targets:
+		if target < 0 or target >= cards.size() or target == here:
+			continue
+		var target_card: Dictionary = cards[target]
+		paths.append(target_card["image"] if target_card.has("image") else _convention_image_path(event_id, target + 1, raid_ore))
+	var distinct: Array = []
+	for path in paths:
+		if path is String and path != "" and not distinct.has(path):
+			distinct.append(path)
+	return distinct
+
+
 # True when Continue on the current card finishes the event: the final card,
 # or one marked `end: true` whose resolution (if any) has no goto of its own.
 static func is_last_card() -> bool:

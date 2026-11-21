@@ -92,3 +92,50 @@ func run() -> void:
 		Events.convention_asset_exists = original_probe
 		GameData.EVENTS = original_events
 	)
+
+	run_case("next_image_paths_names_the_next_cards_still_without_touching_state", func():
+		GameState.reset()
+		assert_eq(Events.next_image_paths(), [], "no live event, nothing to prefetch")
+		var original_events := _install_art_event()
+		var original_probe := _fake_files(["%s1.png" % STEM, "%s2.png" % STEM, "%s3.png" % STEM])
+		Events.start_event("test_art_event")
+		var before: Dictionary = GameState.state["event"].duplicate(true)
+		assert_eq(Events.next_image_paths(), ["%s2.png" % STEM], "card 1 reaches only card 2")
+		assert_eq(GameState.state["event"], before, "a pure read")
+		Events.convention_asset_exists = original_probe
+		GameData.EVENTS = original_events
+	)
+
+	run_case("next_image_paths_covers_option_and_outcome_gotos_and_images", func():
+		GameState.reset()
+		var original_events: Dictionary = GameData.EVENTS
+		GameData.EVENTS = GameData.EVENTS.duplicate()
+		var choice_card := {
+			"type": "choice", "key": "pick", "label": null, "speaker": null, "text": "Pick",
+			"choices": [
+				{ "label": "Look", "effects": [], "result_text": "Seen.", "image": "res://look.png" },
+				{ "label": "Run", "effects": [], "result_text": "Gone.", "goto": "far" },
+				{ "label": "Try", "effects": [], "check": { "ore": "fate", "dc": 1 },
+					"success": { "result_text": "Yes.", "goto": 3, "image": "res://win.png" },
+					"fail": { "result_text": "No.", "image": "res://look.png" } },
+			],
+		}
+		GameData.EVENTS["test_art_event"] = {
+			"id": "test_art_event",
+			"cards": [
+				choice_card,
+				{ "type": "narration", "key": "next", "label": null, "speaker": null, "text": "Next", "image": null },
+				{ "type": "narration", "key": "far", "label": null, "speaker": null, "text": "Far", "image": "res://far.png" },
+				{ "type": "narration", "key": "won", "label": null, "speaker": null, "text": "Won" },
+			],
+		}
+		var original_probe := _fake_files(["%s4.png" % STEM])
+		Events.start_event("test_art_event")
+		var paths: Array = Events.next_image_paths()
+		paths.sort()
+		var expected: Array = ["res://far.png", "res://look.png", "res://win.png", "%s4.png" % STEM]
+		expected.sort()
+		assert_eq(paths, expected, "option images, goto targets' stills, distinct; a null image is skipped")
+		Events.convention_asset_exists = original_probe
+		GameData.EVENTS = original_events
+	)

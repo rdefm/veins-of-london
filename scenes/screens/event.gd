@@ -44,6 +44,7 @@ var _context_modal: Control
 var _pick_choice := -1  # pick option the Observe sheet is open for, -1 when it's a plain read
 var _shown_rolls := {}  # "card|option" -> last revealed roll built, to pulse a change
 var _context_choice := -1 # option index whose ? modal is open, -1 when closed
+var _still_requests := {}  # still path -> true while its threaded load is uncollected
 
 func _ready() -> void:
 	UI.anchor_full_rect(self)
@@ -983,13 +984,43 @@ func _refresh_vn_frame() -> void:
 	_vn_frame.offset_right = 0.0
 	_vn_frame.offset_top = top
 	_vn_frame.offset_bottom = -bottom_inset
+
+# The card still: a prefetched one collected from its threaded request, else a
+# synchronous load.
+func _still(path: String) -> Texture2D:
+	if _still_requests.erase(path):
+		if ResourceLoader.load_threaded_get_status(path) != ResourceLoader.THREAD_LOAD_INVALID_RESOURCE:
+			var prefetched := ResourceLoader.load_threaded_get(path) as Texture2D
+			if prefetched != null:
+				return prefetched
+	return load(path) as Texture2D
+
+# Starts background loads of the stills the next tap can reach, so a card
+# change doesn't stall on a still's first load.
+func _prefetch_next_stills() -> void:
+	for path in Events.next_image_paths():
+		if _still_requests.has(path) or ResourceLoader.has_cached(path) or not ResourceLoader.exists(path):
+			continue
+		if ResourceLoader.load_threaded_request(path) == OK:
+			_still_requests[path] = true
+
+# Collects every uncollected prefetch so no threaded request outlives the screen.
+func _notification(what: int) -> void:
+	if what != NOTIFICATION_PREDELETE:
+		return
+	for path in _still_requests:
+		if ResourceLoader.load_threaded_get_status(path) != ResourceLoader.THREAD_LOAD_INVALID_RESOURCE:
+			ResourceLoader.load_threaded_get(path)
+	_still_requests.clear()
+
 func _refresh_vn_card() -> void:
 	for child in _vn_card_box.get_children():
 		child.queue_free()
 
 	var image_path: Variant = Events.current_image_path()
 	var showing: bool = image_path != null and typeof(image_path) == TYPE_STRING and ResourceLoader.exists(image_path)
-	_vn_texture.texture = load(image_path) if showing else null
+	_vn_texture.texture = _still(image_path) if showing else null
+	_prefetch_next_stills()
 	_vn_blank_tag.visible = not showing
 	_vn_blank_tag.text = "%s · card %d" % [GameState.state["event"]["eventId"], int(GameState.state["event"]["cardIndex"]) + 1]
 
