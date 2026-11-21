@@ -37,6 +37,7 @@ const MENU_GAP := 6.0
 const MENU_ENTRY_COUNT := 4
 # PROSE-REVIEW: the Dial menu entry's reason when the player carries none.
 const REASON_NO_DIAL := "No Dial."
+const ARMED_DIAL_MODULATE := Color(1.3, 1.25, 0.9)
 
 const VIEW_FIGHT := "fight"
 const VIEW_ITEM := "item"
@@ -61,6 +62,11 @@ var _leg_it: Dictionary = {}
 # True while a round's beats play out: every command is dimmed and inert
 # (moving between pages still works).
 var _locked := false
+# The armed row's key (_row_key(): "<view>/<button name>"); screen-local.
+var _armed_key := ""
+
+# Emitted with the armed key ("" when disarmed).
+signal arm_changed(key: String)
 
 
 func _init() -> void:
@@ -122,6 +128,8 @@ func _init() -> void:
 # under its Complication readout.
 func configure(moves: Array, items: Array, leg_it: Dictionary, dial: Variant = null, locked: bool = false, on_dial_cast: Callable = Callable(), dial_rows: Array = []) -> void:
 	_locked = locked
+	if locked:
+		_set_armed("")
 	_on_dial_cast_callback = on_dial_cast
 	_dial_rows = dial_rows
 	_moves = moves
@@ -173,8 +181,13 @@ func show_view(view: String) -> void:
 		return
 	var outgoing := _view
 	_view = view
+	var was_armed := _armed_key != ""
+	_set_armed("")
 	_apply_height()
-	_rebuild_menu()
+	if was_armed:
+		_rebuild()
+	else:
+		_rebuild_menu()
 	if not is_inside_tree():
 		_place_pages()
 		return
@@ -225,14 +238,15 @@ func _place_pages(only: String = "") -> void:
 func _rebuild() -> void:
 	for page in _pages.values():
 		for child in page.get_children():
+			page.remove_child(child)
 			child.queue_free()
-	_pages[VIEW_FIGHT].add_child(_build_row_column(null, _moves))
-	_pages[VIEW_ITEM].add_child(_build_row_column(null, _items))
+	_pages[VIEW_FIGHT].add_child(_build_row_column(null, _moves, VIEW_FIGHT))
+	_pages[VIEW_ITEM].add_child(_build_row_column(null, _items, VIEW_ITEM))
 	if _dial != null:
 		var dial_row := UI.hbox(8)
 		UI.anchor_full_rect(dial_row)
 		dial_row.add_child(_build_dial_widget(_dial))
-		dial_row.add_child(_build_row_column(_build_complication_detail(_dial), _dial_rows))
+		dial_row.add_child(_build_row_column(_build_complication_detail(_dial), _dial_rows, VIEW_DIAL))
 		_pages[VIEW_DIAL].add_child(dial_row)
 	_rebuild_menu()
 
@@ -278,7 +292,11 @@ func _build_menu_button(row: Dictionary, locked: bool, selected: bool) -> Button
 			style.bg_color = Color(accent, UI.COMMAND_ROW_PRESSED_ALPHA)
 		button.add_theme_stylebox_override(state, style)
 	button.set_meta("selected", selected)
-	_connect_press(button, row)
+	var armable: bool = row == _leg_it and not disabled
+	var key := _row_key("menu", str(button.name))
+	if armable and _armed_key == key:
+		_style_armed(button, accent)
+	_connect_press(button, row, armable, key)
 
 	var content := _build_row_content(_build_row_icon(row.get("iconKind", ""), accent), row.get("label", ""), accent)
 	content.offset_left = UI.COMMAND_ROW_MARGIN_H
@@ -293,7 +311,9 @@ func _build_menu_button(row: Dictionary, locked: bool, selected: bool) -> Button
 
 func _build_dial_widget(dial: Dictionary) -> Control:
 	var widget := DialWidget.new()
-	widget.configure(dial, _dial_selected_index, _on_dial_selection_changed, _on_dial_cast_callback)
+	widget.configure(dial, _dial_selected_index, _on_dial_selection_changed, _on_dial_trigger)
+	if _armed_key == _dial_cast_key(_dial_selected_index):
+		widget.modulate = ARMED_DIAL_MODULATE
 	if _locked:
 		widget.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		widget.modulate = UI.ACTION_DISABLED_MODULATE
@@ -339,7 +359,7 @@ func _build_complication_detail(dial: Variant) -> Control:
 # Flat command rows (docs/combat-animation-vision.md §2.5, combat-refining
 # amendment): the header (Complication readout) if any, then each row --
 # equal height, 1px rules between, no per-row panel or emphasis.
-func _build_row_column(header: Control, rows: Array) -> Control:
+func _build_row_column(header: Control, rows: Array, view: String) -> Control:
 	var col := UI.vbox(0)
 	UI.anchor_full_rect(col)
 	col.alignment = BoxContainer.ALIGNMENT_END
@@ -347,7 +367,7 @@ func _build_row_column(header: Control, rows: Array) -> Control:
 	if header != null:
 		controls.append(header)
 	for i in rows.size():
-		controls.append(_build_command_row(rows[i], "RowButton_%d" % i, _locked))
+		controls.append(_build_command_row(rows[i], "RowButton_%d" % i, _locked, view))
 	for i in controls.size():
 		if i > 0:
 			col.add_child(UI.command_row_rule())
@@ -383,7 +403,7 @@ static func _action_icon_draw_fn(icon_kind: String) -> Callable:
 
 # The whole row is the Button (full-width hit area); icon + caption sit
 # inside it with mouse ignored so taps land on the Button itself.
-func _build_command_row(row: Dictionary, default_name: String, locked: bool) -> Control:
+func _build_command_row(row: Dictionary, default_name: String, locked: bool, view: String) -> Control:
 	var disabled: bool = locked or row.get("disabled", false)
 	var accent: Color = UI.ACTION_DISABLED_COLOUR if disabled else UI.action_colour()
 
@@ -395,7 +415,13 @@ func _build_command_row(row: Dictionary, default_name: String, locked: bool) -> 
 	button.custom_minimum_size.y = UI.COMMAND_ROW_HEIGHT
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	UI.style_command_row(button, accent)
-	_connect_press(button, row)
+	var key := _row_key(view, str(button.name))
+	if _armed_key == key:
+		if disabled:
+			_set_armed("")
+		else:
+			_style_armed(button, accent)
+	_connect_press(button, row, not disabled, key)
 
 	var content := _build_row_content(_build_row_icon(row.get("iconKind", ""), accent), row.get("label", ""), accent)
 	content.offset_left = UI.COMMAND_ROW_MARGIN_H
@@ -419,7 +445,7 @@ func _build_command_row(row: Dictionary, default_name: String, locked: bool) -> 
 
 # Connects the row's callback; a row with a `peek` { title, effects, next }
 # also shows it on a long press, and the release that ends a peek isn't a tap.
-func _connect_press(button: Button, row: Dictionary) -> void:
+func _connect_press(button: Button, row: Dictionary, armable: bool = false, key: String = "") -> void:
 	var callback: Callable = row.get("callback", Callable())
 	var peek: Dictionary = row.get("peek", {})
 	if not peek.is_empty():
@@ -429,8 +455,63 @@ func _connect_press(button: Button, row: Dictionary) -> void:
 		button.pressed.connect(func() -> void:
 			if button.get_meta("peeked", false):
 				button.set_meta("peeked", false)
+			elif armable:
+				_tap_armable(key, callback)
 			else:
 				callback.call())
+
+
+# Arm-then-commit: the first tap arms `key`, a tap on the armed key commits
+# (clearing the arm first), a tap on another key re-arms.
+func _tap_armable(key: String, commit: Callable, args: Array = []) -> void:
+	if _locked:
+		return
+	if _armed_key == key:
+		_armed_key = ""
+		arm_changed.emit(_armed_key)
+		commit.callv(args)
+		return
+	_set_armed(key)
+	_rebuild()
+
+
+func armed_key() -> String:
+	return _armed_key
+
+
+# Clears the arm (empty-space tap, playback, Rewind); rows redraw unhighlighted.
+func disarm() -> void:
+	if _armed_key == "":
+		return
+	_set_armed("")
+	_rebuild()
+
+
+func _set_armed(key: String) -> void:
+	if key == _armed_key:
+		return
+	_armed_key = key
+	arm_changed.emit(_armed_key)
+
+
+# The armed row's highlight: the pressed fill and the focus border.
+func _style_armed(button: Button, accent: Color) -> void:
+	for state in ["normal", "hover", "pressed", "hover_pressed"]:
+		button.add_theme_stylebox_override(state, UI.command_row_style(accent, UI.COMMAND_ROW_PRESSED_ALPHA, UI.COMMAND_ROW_FOCUS_BORDER))
+
+
+# Page-scoped, since row names repeat across the Fight/Item/Dial pages.
+static func _row_key(view: String, row_name: String) -> String:
+	return "%s/%s" % [view, row_name]
+
+
+func _dial_cast_key(index: int) -> String:
+	return _row_key(VIEW_DIAL, "DialCast_%d" % index)
+
+
+func _on_dial_trigger(index: int) -> void:
+	if _on_dial_cast_callback.is_valid():
+		_tap_armable(_dial_cast_key(index), _on_dial_cast_callback, [index])
 
 
 func _on_peek_input(event: InputEvent, button: Button, peek: Dictionary) -> void:

@@ -73,6 +73,8 @@ func run() -> void:
 		var fight_names: Array = _buttons(_page(dock, "fight")).map(func(b): return String(b.name))
 		assert_eq(fight_names, ["RowButton_0"], "the moves only, no Back")
 		_button_named(_page(dock, "fight"), "RowButton_0").pressed.emit()
+		assert_eq(pressed, [], "the first tap only arms")
+		_button_named(_page(dock, "fight"), "RowButton_0").pressed.emit()
 
 		_button_named(dock, "MenuItem").pressed.emit()
 		assert_eq(dock.current_view(), CombatCommandDock.VIEW_ITEM)
@@ -89,8 +91,34 @@ func run() -> void:
 		assert_true(_page(dock, "dial").find_child("ComplicationRow", true, false) != null, "with its readout")
 
 		_button_named(dock, "LegIt").pressed.emit()
+		_button_named(dock, "LegIt").pressed.emit()
 		assert_eq(dock.current_view(), CombatCommandDock.VIEW_DIAL, "Leg it opens no panel")
 		assert_eq(pressed, ["strike", "legIt"], "each row forwards to its own callback")
+		dock.free()
+	)
+
+	run_case("arm_then_commit_arms_rearms_and_disarms_without_committing", func():
+		GameState.reset()
+		var pressed: Array = []
+		var dock := CombatCommandDock.new()
+		dock.configure(
+			[{ "label": "Strike", "callback": func(): pressed.append("strike") }, { "label": "Guard", "callback": func(): pressed.append("guard") }],
+			[], _leg_it(), Fixtures.dial(["blast"]))
+		var fight := _page(dock, "fight")
+		_button_named(fight, "RowButton_0").pressed.emit()
+		assert_eq(dock.armed_key(), "fight/RowButton_0", "first tap arms")
+		_button_named(fight, "RowButton_1").pressed.emit()
+		assert_eq(dock.armed_key(), "fight/RowButton_1", "another row re-arms")
+		dock.disarm()
+		assert_eq(dock.armed_key(), "", "empty-space tap disarms")
+		assert_eq(pressed, [], "nothing committed")
+		_button_named(fight, "RowButton_1").pressed.emit()
+		dock.show_view(CombatCommandDock.VIEW_ITEM)
+		assert_eq(dock.armed_key(), "", "a panel switch disarms")
+		_button_named(_page(dock, "fight"), "RowButton_0").pressed.emit()
+		dock.configure([{ "label": "Strike", "callback": func(): pressed.append("strike") }], [], _leg_it(), null, true)
+		assert_eq(dock.armed_key(), "", "playback (locked) disarms")
+		assert_eq(pressed, [])
 		dock.free()
 	)
 

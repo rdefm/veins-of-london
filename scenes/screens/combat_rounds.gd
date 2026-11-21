@@ -336,6 +336,7 @@ func _build_fight_layout() -> void:
 	_transcript.offset_left = _TRANSCRIPT_SIDE_INSET
 	_transcript.offset_right = -_TRANSCRIPT_SIDE_INSET
 	_fight_body.add_child(_transcript)
+	_transcript.gui_input.connect(_on_transcript_gui_input)
 	_round_label = _transcript.heading_label
 	_hp_label = _transcript.hp_label
 	_refusal_label = _transcript.note_label
@@ -710,6 +711,8 @@ func _on_strip_selection_changed(key: Dictionary) -> void:
 func _on_rewind_pressed(pay: String = Combat.REWIND_PAY_ANY) -> void:
 	if _busy():
 		return
+	if _dock != null:
+		_dock.disarm()
 	_refusal = ""
 	var beats := begin_rewind_playback(pay)
 	if not beats.is_empty() and is_inside_tree():
@@ -985,11 +988,25 @@ func _explain_block(action: String, reason: String) -> void:
 	Modal.open("combat_block_reason", { "action": action, "reason": reason })
 
 
-func _on_stage_gui_input(event: InputEvent) -> void:
-	if not _director.is_playing() or TouchInput.is_emulated_mouse(event):
+func _on_transcript_gui_input(event: InputEvent) -> void:
+	if TouchInput.is_emulated_mouse(event):
 		return
 	if (event is InputEventScreenTouch and event.pressed) or (event is InputEventMouseButton and event.pressed):
+		_dock.disarm()
+
+
+func _on_stage_gui_input(event: InputEvent) -> void:
+	if TouchInput.is_emulated_mouse(event):
+		return
+	var pressed: bool = (event is InputEventScreenTouch and event.pressed) or (event is InputEventMouseButton and event.pressed)
+	if not pressed:
+		return
+	if _director.is_playing():
 		_director.fast_forward_current_beat()
+	else:
+		# Subject slots consume their own taps (retarget, arm stays), so this
+		# is a tap on empty stage.
+		_dock.disarm()
 
 
 # A sprite tap fast-forwards during playback, else targets that combatant.

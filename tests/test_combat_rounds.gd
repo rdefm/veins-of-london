@@ -223,6 +223,22 @@ func _row(screen: CombatRoundsScreen, row_name: String) -> Button:
 	return found
 
 
+# Arm-then-commit: the first tap arms the row, the second (on the rebuilt
+# row) commits.
+func _commit(screen: CombatRoundsScreen, row_name: String) -> void:
+	_row(screen, row_name).pressed.emit()
+	assert_true(screen._dock.armed_key().ends_with("/" + row_name), "%s armed by the first tap" % row_name)
+	_row(screen, row_name).pressed.emit()
+
+
+func _live_dial_widget(screen: CombatRoundsScreen) -> DialWidget:
+	var found: DialWidget = null
+	for n in screen._dock.find_children("*", "", true, false):
+		if n is DialWidget and not n.is_queued_for_deletion():
+			found = n
+	return found
+
+
 func run() -> void:
 	run_case("street_mugging_from_prep_opens_a_round_fight_on_the_real_player", func():
 		GameState.reset()
@@ -849,7 +865,7 @@ func run() -> void:
 		assert_true(_row(screen, "ItemRow_1") != null, "empty slot shown")
 		assert_eq(Combat.round_item_block_reason(0), Combat.REASON_SLOT_REWIND)
 		assert_eq(Combat.round_item_block_reason(1), Combat.REASON_SLOT_EMPTY)
-		_row(screen, "MoveRow_strike").pressed.emit()
+		_commit(screen, "MoveRow_strike")
 		assert_eq(GameState.state["combat"]["outcome"], "win", "the pick resolves")
 		var buttons: Array = screen._footer_holder.find_children("*", "Button", true, false).filter(func(b): return not b.is_queued_for_deletion())
 		assert_true(buttons.any(func(b): return b.text == "✅ They've legged it"), "outcome button")
@@ -1827,7 +1843,7 @@ func run() -> void:
 		screen._ready()
 		var item := _row(screen, "ItemRow_0")
 		assert_true(item != null and not item.disabled, "usable row")
-		item.pressed.emit()
+		_commit(screen, "ItemRow_0")
 		assert_eq(GameState.state["combat"]["outcome"], "win", "the blast drops the 4-hp mugger")
 		assert_eq(Loadout.slot(0), null, "real unit spent")
 		host.free()
@@ -2749,6 +2765,8 @@ func run() -> void:
 		assert_eq(widgets.size(), 1, "the Dial in the dock")
 		assert_eq(live_nodes.filter(func(n): return n.name == "ComplicationRow").size(), 1, "its readout heads the rows")
 		widgets[0].handle_trigger()
+		assert_eq(GameState.state["player"]["dial"]["currentCharge"], 3, "first trigger only arms")
+		_live_dial_widget(screen).handle_trigger()
 		assert_eq(GameState.state["player"]["dial"]["currentCharge"], 2, "cast through the round engine")
 		assert_eq(CombatRounds.decision_position(GameState.state["combat"]), 1, "it took the first action")
 		host.free()
@@ -2764,17 +2782,18 @@ func run() -> void:
 		var slot := _row(screen, "ItemRow_0")
 		assert_true(slot.disabled, "nothing to undo yet")
 		assert_eq(slot.tooltip_text, Combat.REASON_NOTHING_TO_UNDO, "the Rewind command's reason")
-		_row(screen, "MoveRow_guard").pressed.emit()
+		_commit(screen, "MoveRow_guard")
 		slot = _row(screen, "ItemRow_0")
 		assert_true(not slot.disabled, "a pick to undo")
-		slot.pressed.emit()
+		_commit(screen, "ItemRow_0")
 		assert_eq(Loadout.slot(0), null, "the slot paid for the Rewind")
 		assert_eq(CombatRounds.decision_position(GameState.state["combat"]), 0, "the pick undone")
 
 		GameState.state["player"]["dial"] = Fixtures.dial_with_loaded("rewind", 1, 3)
-		_row(screen, "MoveRow_guard").pressed.emit()
-		var widgets: Array = screen._dock.find_children("*", "", true, false).filter(func(n): return n is DialWidget and not n.is_queued_for_deletion())
-		widgets[0].handle_trigger()
+		_commit(screen, "MoveRow_guard")
+		_live_dial_widget(screen).handle_trigger()
+		assert_eq(screen._dock.armed_key(), "dial/DialCast_0", "the first trigger arms the cast")
+		_live_dial_widget(screen).handle_trigger()
 		assert_eq(GameState.state["player"]["dial"]["currentCharge"], 2, "the Dial paid for the Rewind")
 		assert_true(Loadout.slot(1) != null, "the equipped rewind unit untouched")
 		assert_eq(CombatRounds.decision_position(GameState.state["combat"]), 0, "the pick undone")
