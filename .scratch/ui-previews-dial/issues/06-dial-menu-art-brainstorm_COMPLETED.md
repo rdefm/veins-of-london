@@ -22,8 +22,12 @@ Output: an asset spec in this feature folder (part list, file names, sizes, anch
 
 **Status:** ready-for-human
 
-- [ ] Parts breakdown + exploded layouts agreed with human
-- [ ] Animation beat list agreed
-- [ ] Asset spec written (names, sizes, anchors)
-- [ ] One generation prompt per asset
-- [ ] Human sign-off recorded under ## Comments
+- [x] Parts breakdown + exploded layouts agreed with human
+- [x] Animation beat list agreed
+- [x] Asset spec written (names, sizes, anchors) — `.scratch/ui-previews-dial/dial-art-spec.md`
+- [x] One generation prompt per asset (one per generated sheet; hand-made assets marked)
+- [x] Human sign-off recorded under ## Comments
+
+## Comments
+
+- 2026-11-21 — Human signed off on `dial-art-spec.md` and asked for this ticket to be marked complete.

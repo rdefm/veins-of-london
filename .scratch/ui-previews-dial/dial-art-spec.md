@@ -1,6 +1,6 @@
 # Dial menu — art spec (ticket 06)
 
-Status: **PROPOSED, awaiting human sign-off.** Used by 07/08 (placeholder slices) and 09 (real art).
+Status: **APPROVED** (human sign-off 2026-11-21). Used by 07/08 (placeholder slices) and 09 (real art).
 
 ## 0. Decisions already made (human, 2026-11-21)
 
@@ -154,4 +154,4 @@ Fixed tail appended to every prompt below (ART-BIBLE §5):
 
 ## Comments
 
-<!-- Human sign-off goes here. -->
+- 2026-11-21 — Human signed off.
