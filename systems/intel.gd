@@ -14,6 +14,14 @@ const STOCKPILE_LOCATION := "stockpileLocation"
 const STOCKPILE_SECURITY := "stockpileSecurity"
 const STASH := "stash"
 
+# Vein security fact ids (security_facts / security_read).
+const FACT_ALARMS := "alarms"
+const FACT_GUARD_COUNT := "guardCount"
+const FACT_GUARD_STRENGTH := "guardStrength"
+const FACT_GUARD_KIT := "guardKit"
+const FACT_WARD := "ward"
+const SECURITY_FACTS: Array[String] = [FACT_ALARMS, FACT_GUARD_COUNT, FACT_GUARD_STRENGTH, FACT_GUARD_KIT, FACT_WARD]
+
 const SOURCE_SCOUT := "scout"
 const SOURCE_RAID := "raid"
 const SOURCE_FAVOUR := "favour"
@@ -248,47 +256,89 @@ static func score_raid_options(observer: String, target: String, options: Array)
 		option["score"] = chance * lerpf(mean, float(option["value"]), sight)
 
 
-# Raid site sheet security read for a faction vein: Alarms, Ward and Guards
-# rows ({ label, text }) from Raiding.security_profile() and the vein's kit
-# allocation capped by the faction's held units (as Combat.event_fight_kit),
-# each text the unknown mark below the player's vein-security level.
+# Raid site sheet security read for a faction vein: the rows of
+# security_read() over all of the vein's security_facts() at the player's
+# vein-security level, else over none.
 static func vein_security_read(vein: Dictionary) -> Array:
-	var words: Dictionary = _cfg()["securityRead"]
 	var known := knows(Shares.PLAYER, String(vein.get("factionId", "")), VEIN_SECURITY)
-	var texts := [String(words["unknown"]), String(words["unknown"]), String(words["unknown"])]
-	if known:
-		var profile := Raiding.security_profile(vein)
-		var alarms: Array[String] = []
-		if bool(profile["alarm"]):
-			alarms.append(String(words["alarm"]))
-		var cameras := int(profile["cameras"])
-		if cameras > 0:
-			alarms.append(String(words["camera" if cameras == 1 else "cameras"]) % cameras)
-		texts[0] = ", ".join(alarms) if not alarms.is_empty() else String(words["none"])
-		var ward_type := String(profile["wardType"])
-		texts[1] = String(GameData.WARDS["types"][ward_type]["name"]) if GameData.WARDS["types"].has(ward_type) else String(words["none"])
-		texts[2] = _guards_text(vein, int(profile["guards"]), String(profile["strength"]), words)
-	return [
-		{ "label": String(words["alarms"]), "text": texts[0] },
-		{ "label": String(words["ward"]), "text": texts[1] },
-		{ "label": String(words["guards"]), "text": texts[2] },
-	]
+	return security_read(security_facts(vein) if known else {})
 
 
-static func _guards_text(vein: Dictionary, count: int, strength: String, words: Dictionary) -> String:
-	if count <= 0:
-		return String(words["none"])
-	var parts: Array[String] = [String(words["guardCount" if count == 1 else "guardsCount"]) % count]
-	if strength != "":
-		parts.append(strength)
-	var kit: Array[String] = []
+# Every security fact about a faction vein, keyed by SECURITY_FACTS id:
+# alarms { alarm, cameras } and ward type from Raiding.security_profile(),
+# guard count, guard strength word, and guard kit (recipe key → units: the
+# vein's kit allocation capped by the faction's held units, as
+# Combat.event_fight_kit).
+static func security_facts(vein: Dictionary) -> Dictionary:
+	var profile := Raiding.security_profile(vein)
+	var kit := {}
 	var allocation: Dictionary = vein.get("kit", {})
 	var stock: Dictionary = GameState.state["factions"][String(vein["factionId"])]["holdings"]["items"]
 	for recipe_key in allocation:
 		var units := mini(int(allocation[recipe_key]), GuardKit.unit_count({ recipe_key: stock.get(recipe_key, {}) }))
 		if units > 0 and GameData.RECIPES.has(recipe_key):
-			kit.append("%s ×%d" % [GameData.RECIPES[recipe_key]["name"], units])
-	if not kit.is_empty():
+			kit[String(recipe_key)] = units
+	return {
+		FACT_ALARMS: { "alarm": bool(profile["alarm"]), "cameras": int(profile["cameras"]) },
+		FACT_GUARD_COUNT: int(profile["guards"]),
+		FACT_GUARD_STRENGTH: String(profile["strength"]),
+		FACT_GUARD_KIT: kit,
+		FACT_WARD: String(profile["wardType"]),
+	}
+
+
+# Alarms, Ward and Guards rows ({ label, text }) from a subset of
+# security_facts(): a fact absent from `facts` is unknown and reads as the
+# unknown mark.
+static func security_read(facts: Dictionary) -> Array:
+	var words: Dictionary = _cfg()["securityRead"]
+	var unknown := String(words["unknown"])
+	var alarms_text := unknown
+	if facts.has(FACT_ALARMS):
+		var alarms: Array[String] = []
+		if bool(facts[FACT_ALARMS]["alarm"]):
+			alarms.append(String(words["alarm"]))
+		var cameras := int(facts[FACT_ALARMS]["cameras"])
+		if cameras > 0:
+			alarms.append(String(words["camera" if cameras == 1 else "cameras"]) % cameras)
+		alarms_text = ", ".join(alarms) if not alarms.is_empty() else String(words["none"])
+	var ward_text := unknown
+	if facts.has(FACT_WARD):
+		var ward_type := String(facts[FACT_WARD])
+		ward_text = String(GameData.WARDS["types"][ward_type]["name"]) if GameData.WARDS["types"].has(ward_type) else String(words["none"])
+	return [
+		{ "label": String(words["alarms"]), "text": alarms_text },
+		{ "label": String(words["ward"]), "text": ward_text },
+		{ "label": String(words["guards"]), "text": _guards_text(facts, words) },
+	]
+
+
+# Guards row: None when the count is known and 0; the unknown mark when count,
+# strength and kit are all unknown; else count · strength · kit, each unknown
+# part as its unknown form.
+static func _guards_text(facts: Dictionary, words: Dictionary) -> String:
+	var unknown := String(words["unknown"])
+	var has_count := facts.has(FACT_GUARD_COUNT)
+	if has_count and int(facts[FACT_GUARD_COUNT]) <= 0:
+		return String(words["none"])
+	if not has_count and not facts.has(FACT_GUARD_STRENGTH) and not facts.has(FACT_GUARD_KIT):
+		return unknown
+	var parts: Array[String] = []
+	if has_count:
+		var count := int(facts[FACT_GUARD_COUNT])
+		parts.append(String(words["guardCount" if count == 1 else "guardsCount"]) % count)
+	else:
+		parts.append(String(words["guardsUnknown"]))
+	if not facts.has(FACT_GUARD_STRENGTH):
+		parts.append(unknown)
+	elif String(facts[FACT_GUARD_STRENGTH]) != "":
+		parts.append(String(facts[FACT_GUARD_STRENGTH]))
+	if not facts.has(FACT_GUARD_KIT):
+		parts.append(String(words["kit"]) % unknown)
+	elif not (facts[FACT_GUARD_KIT] as Dictionary).is_empty():
+		var kit: Array[String] = []
+		for recipe_key in facts[FACT_GUARD_KIT]:
+			kit.append("%s ×%d" % [GameData.RECIPES[recipe_key]["name"], int(facts[FACT_GUARD_KIT][recipe_key])])
 		parts.append(String(words["kit"]) % ", ".join(kit))
 	return " · ".join(parts)
 

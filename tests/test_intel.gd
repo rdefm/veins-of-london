@@ -289,6 +289,45 @@ func run() -> void:
 		assert_eq(guards_text, expected, "count, strength, kit capped by held")
 	)
 
+	run_case("the_vein_security_level_knows_all_five_security_facts", func():
+		_fresh()
+		var vein := Fixtures.seed_faction_vein("fv_facts", 40, "firm")
+		var facts := Intel.security_facts(vein)
+		for fact in Intel.SECURITY_FACTS:
+			assert_true(facts.has(fact), "%s known" % fact)
+		assert_eq(facts.size(), Intel.SECURITY_FACTS.size())
+		_set_meter(Shares.PLAYER, "firm", Intel.level_at(Intel.VEIN_SECURITY))
+		assert_eq(Intel.vein_security_read(vein), Intel.security_read(facts))
+	)
+
+	run_case("the_security_read_marks_each_unknown_fact", func():
+		_fresh()
+		var words: Dictionary = GameData.INTEL["securityRead"]
+		var unknown := String(words["unknown"])
+		var read := Intel.security_read({ Intel.FACT_ALARMS: { "alarm": false, "cameras": 1 } })
+		assert_eq(read.map(func(r): return r["text"]), [String(words["camera"]) % 1, unknown, unknown], "only alarms known")
+		read = Intel.security_read({ Intel.FACT_WARD: "time" })
+		assert_eq(read.map(func(r): return r["text"]), [unknown, GameData.WARDS["types"]["time"]["name"], unknown], "only ward known")
+	)
+
+	run_case("the_guards_row_joins_known_and_unknown_parts", func():
+		_fresh()
+		var words: Dictionary = GameData.INTEL["securityRead"]
+		var unknown := String(words["unknown"])
+		var kit_unknown := String(words["kit"]) % unknown
+		var guards := func(facts: Dictionary) -> String: return String(Intel.security_read(facts)[2]["text"])
+		assert_eq(guards.call({ Intel.FACT_GUARD_COUNT: 0 }), String(words["none"]), "known zero count is None")
+		assert_eq(guards.call({ Intel.FACT_GUARD_COUNT: 0, Intel.FACT_GUARD_STRENGTH: "Strong", Intel.FACT_GUARD_KIT: {} }), String(words["none"]))
+		assert_eq(guards.call({}), unknown, "all three unknown")
+		assert_eq(guards.call({ Intel.FACT_ALARMS: { "alarm": true, "cameras": 0 }, Intel.FACT_WARD: "" }), unknown, "non-guard facts don't count")
+		assert_eq(guards.call({ Intel.FACT_GUARD_COUNT: 2 }), " · ".join([String(words["guardsCount"]) % 2, unknown, kit_unknown]))
+		assert_eq(guards.call({ Intel.FACT_GUARD_STRENGTH: "Strong" }), " · ".join([String(words["guardsUnknown"]), "Strong", kit_unknown]))
+		var kit_text := String(words["kit"]) % ("%s ×3" % GameData.RECIPES["blast"]["name"])
+		assert_eq(guards.call({ Intel.FACT_GUARD_KIT: { "blast": 3 } }), " · ".join([String(words["guardsUnknown"]), unknown, kit_text]))
+		assert_eq(guards.call({ Intel.FACT_GUARD_COUNT: 1, Intel.FACT_GUARD_STRENGTH: "", Intel.FACT_GUARD_KIT: {} }), String(words["guardCount"]) % 1, "known-empty strength and kit add nothing")
+		assert_eq(guards.call({ Intel.FACT_GUARD_COUNT: 1, Intel.FACT_GUARD_KIT: {} }), " · ".join([String(words["guardCount"]) % 1, unknown]))
+	)
+
 
 # Loads a tier-1 Lens of `ore` on a fresh player Dial at Sense `sense`.
 static func _load_lens(ore: String, sense: int) -> void:
