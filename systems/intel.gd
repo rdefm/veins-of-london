@@ -279,15 +279,20 @@ static func fresh_scouted_facts(vein_id: String) -> Dictionary:
 	return out
 
 
+# The player's chance to find `fact` on a scout: chances[fact] plus the
+# Physics Lens scout bonus (R§1.4 Lenses), capped at 1.0.
+static func scout_chance(fact: String) -> float:
+	return minf(1.0, float(_scout_cfg()["chances"][fact]) + Lenses.physics_scout_bonus())
+
+
 # One stable roll per security fact for a scout opening on day/block: the
 # fact ids that hit, in SECURITY_FACTS order. Keyed off rollSeed, so a
 # Rewound scout replays the same hits.
 static func scout_rolls(vein_id: String, day: int, block: int) -> Array[String]:
-	var chances: Dictionary = _scout_cfg()["chances"]
 	var key := "%d|%s|%d|%d|scout" % [int(GameState.state["world"]["rollSeed"]), vein_id, day, block]
 	var hits: Array[String] = []
 	for fact in SECURITY_FACTS:
-		if Rng.stable_unit("%s|%s" % [key, fact]) < float(chances[fact]):
+		if Rng.stable_unit("%s|%s" % [key, fact]) < scout_chance(fact):
 			hits.append(fact)
 	return hits
 

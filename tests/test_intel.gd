@@ -377,6 +377,43 @@ func _run_scout_cases() -> void:
 		assert_eq(Intel.scout_rolls(vein["id"], 3, 1), Intel.scout_rolls(vein["id"], 3, 1), "same key, same hits")
 	)
 
+	run_case("a_physics_lens_at_world_sight_raises_every_scout_chance_by_its_tier", func():
+		_fresh()
+		var chances: Dictionary = GameData.INTEL["scout"]["chances"]
+		var curve: Array = GameData.DIAL_LENS["physicsScoutBonusByTier"]
+		var world := int(GameData.DIAL_LENS["senseGates"]["world"])
+		for fact in Intel.SECURITY_FACTS:
+			assert_eq(Intel.scout_chance(fact), float(chances[fact]), "%s: no lens, base chance" % fact)
+		_load_lens("physics", world - 1, 3)
+		for fact in Intel.SECURITY_FACTS:
+			assert_eq(Intel.scout_chance(fact), float(chances[fact]), "%s: below Sense gate, base" % fact)
+		_load_lens("time", world, 3)
+		for fact in Intel.SECURITY_FACTS:
+			assert_eq(Intel.scout_chance(fact), float(chances[fact]), "%s: other ore, base" % fact)
+		_load_lens("physics", world, 3)
+		for fact in Intel.SECURITY_FACTS:
+			assert_almost_eq(Intel.scout_chance(fact), minf(1.0, float(chances[fact]) + float(curve[3])), 0.0001, "%s: tier 3 bonus" % fact)
+		var original := _scout_chances(0.9)
+		_load_lens("physics", world, 5)
+		for fact in Intel.SECURITY_FACTS:
+			assert_eq(Intel.scout_chance(fact), 1.0, "%s: capped at 100%%" % fact)
+		_restore_chances(original)
+	)
+
+	run_case("a_physics_lens_scout_finds_more_facts", func():
+		var vein := _scout_vein("fv_scout_lens")
+		var original := _scout_chances(0.0)
+		_load_lens("physics", int(GameData.DIAL_LENS["senseGates"]["world"]), 5)
+		var bonus := float(GameData.DIAL_LENS["physicsScoutBonusByTier"][5])
+		var hits := 0
+		var n := 2000
+		for day in range(n):
+			hits += Intel.scout_rolls(vein["id"], day, 0).size()
+		_restore_chances(original)
+		var rate := float(hits) / float(n * Intel.SECURITY_FACTS.size())
+		assert_true(absf(rate - bonus) < 0.03, "hit rate %.3f vs bonus %.2f" % [rate, bonus])
+	)
+
 	run_case("a_hit_stores_the_fact_and_day_and_shows_on_the_sheet", func():
 		var vein := _scout_vein("fv_scout_hit")
 		var original := _scout_chances(1.0)
@@ -487,13 +524,13 @@ static func _scout_all(vein: Dictionary) -> void:
 	GameState.state["scoutedSecurity"][String(vein["id"])] = entry
 
 
-static func _load_lens(ore: String, sense: int) -> void:
+static func _load_lens(ore: String, sense: int, tier: int = 1) -> void:
 	var player: Dictionary = GameState.state["player"]
 	player["senseSkill"] = sense
 	GameState.state["flags"]["dialGiftGranted"] = true
 	var dial: Dictionary = Dial.new_dial("collective_brolly")
 	dial["level"] = 5
-	dial["lenses"] = [{ "ore": ore, "tier": 1 }]
+	dial["lenses"] = [{ "ore": ore, "tier": tier }]
 	player["dial"] = dial
 
 

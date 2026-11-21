@@ -56,6 +56,16 @@ static func life_prospect_shift() -> float:
 	return float(curve[clampi(tier_for("life"), 0, curve.size() - 1)])
 
 
+# Physics Lens world sight (R§1.4 Lenses): added to every scout fact chance,
+# physicsScoutBonusByTier at the loaded Physics Lens's tier while Sense >=
+# senseGates.world; 0.0 otherwise. Player only.
+static func physics_scout_bonus() -> float:
+	if not sense_unlocked("world"):
+		return 0.0
+	var curve: Array = GameData.DIAL_LENS["physicsScoutBonusByTier"]
+	return float(curve[clampi(tier_for("physics"), 0, curve.size() - 1)])
+
+
 # Life Lens world sight on the vein sheet: a loaded Life Lens and Sense >= senseGates.world.
 static func life_drift_sight() -> bool:
 	return has("life") and sense_unlocked("world")

@@ -93,6 +93,7 @@
     },
     "timeFogCutByTier":[0, 0.2, 0.3, 0.4, 0.5, 0.6],
     "physicsFlatByTier": [0, 1, 2, 3, 4, 5],
+    "physicsScoutBonusByTier": [0, 0.05, 0.10, 0.15, 0.20, 0.25],
     "effects": {
       "time": {
         "always": "An edge on time calc: reading, crafting, cultivating, seeding.",
@@ -101,7 +102,7 @@
       },
       "physics": {
         "always": "An edge on physics calc: reading, crafting, cultivating, seeding.",
-        "world": "Raid sheets show the guard kit and the ward.",
+        "world": "Scouting a faction vein turns up more of its security.",
         "combat": "You hit a little harder and take a little less."
       },
       "life": {
