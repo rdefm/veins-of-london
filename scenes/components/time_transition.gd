@@ -30,12 +30,15 @@ func _ready() -> void:
 	destination.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(destination)
 	EventBus.time_advanced.connect(_capture)
+	EventBus.state_replaced.connect(_sync_session)
+	set_process(false)
 
 
 func _capture(source: Dictionary, target: Dictionary) -> void:
 	_sync_session()
 	pending.append({ "source": source.duplicate(), "destination": target.duplicate() })
 	safe_elapsed = 0.0
+	set_process(true)
 
 
 func _sync_session() -> void:
@@ -48,6 +51,7 @@ func _sync_session() -> void:
 	current = {}
 	frame = {}
 	safe_elapsed = 0.0
+	set_process(false)
 
 
 # open_modals: modal types that don't hold playback (the action's own menu,
@@ -60,8 +64,8 @@ static func outcome_finished(open_modals: Array = []) -> bool:
 		and state.get("currentScreen") not in ["event", "combat", "combat_prep", "title", "intro"]
 
 
+# Runs only while a transition is active or queued.
 func _process(delta: float) -> void:
-	_sync_session()
 	var step := minf(delta, 0.1)
 	if active:
 		elapsed += step
@@ -72,11 +76,13 @@ func _process(delta: float) -> void:
 			active = false
 			visible = false
 			safe_elapsed = 0.0
+			set_process(not pending.is_empty())
 			# A Monday meeting plays first; its on_complete opens the accounts.
 			if was_overnight and not BoardMeetings.maybe_start_meeting():
 				MorningAccountsSystem.open_after_transition(completed_target["day"])
 			return
 	if pending.is_empty():
+		set_process(active)
 		return
 	if not outcome_finished(GameData.DAILY_CYCLE["playsOverModals"]):
 		safe_elapsed = 0.0

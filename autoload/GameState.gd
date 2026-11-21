@@ -19,6 +19,7 @@ func reset() -> void:
 	# checkpoint (data/objectives.json's activateFlag: null case) -- it must
 	# read as active before any other action-boundary caller has run.
 	Objectives.refresh()
+	EventBus.state_replaced.emit()
 
 
 func new_game_state() -> Dictionary:

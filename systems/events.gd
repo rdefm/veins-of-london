@@ -2106,6 +2106,7 @@ static func rewind(source: String = "") -> Dictionary:
 		Dial.cast_complication(rewind_index)
 
 	Notify.push("⟲ Time unspools. The moment resets. Only you remember.")
+	EventBus.state_replaced.emit()
 	EventBus.mark_changed()
 	return { "ok": true, "rearmed": rearmed }
 

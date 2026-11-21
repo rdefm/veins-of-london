@@ -21,6 +21,8 @@ func _ready() -> void:
 	known_ids = _current_ids()
 	EventBus.state_changed.connect(_check_for_new_alarms)
 	EventBus.day_ticked.connect(_on_day_ticked)
+	EventBus.state_replaced.connect(_sync_session)
+	set_process(false)
 
 
 func _sync_session() -> void:
@@ -30,6 +32,7 @@ func _sync_session() -> void:
 	known_ids = _current_ids()
 	pending_open = false
 	safe_elapsed = 0.0
+	set_process(false)
 
 
 func _current_ids() -> Dictionary:
@@ -56,16 +59,19 @@ func _check_for_new_alarms() -> void:
 	EventBus.alarm_arrived.emit()
 	pending_open = true
 	safe_elapsed = 0.0
+	set_process(true)
 
 
 func _on_day_ticked(_day: int) -> void:
 	pending_open = false
 	safe_elapsed = 0.0
+	set_process(false)
 
 
+# Runs only while an auto-open is pending.
 func _process(delta: float) -> void:
-	_sync_session()
 	if not pending_open:
+		set_process(false)
 		return
 	if not _safe_to_open():
 		safe_elapsed = 0.0
@@ -75,6 +81,7 @@ func _process(delta: float) -> void:
 		return
 	pending_open = false
 	safe_elapsed = 0.0
+	set_process(false)
 	Nav.go_to("phone")
 	RaidAlarmsSystem.open()
 

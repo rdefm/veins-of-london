@@ -151,8 +151,13 @@ class ChargeHalo:
 	const PERIOD := 1.2
 	var _t := 0.0
 
+	# Pulses only while the Map is on screen.
 	func _ready() -> void:
-		set_process(true)
+		set_process(is_visible_in_tree())
+
+	func _notification(what: int) -> void:
+		if what == NOTIFICATION_VISIBILITY_CHANGED:
+			set_process(is_visible_in_tree())
 
 	func _process(delta: float) -> void:
 		_t = fmod(_t + delta, PERIOD)

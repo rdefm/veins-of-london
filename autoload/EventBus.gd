@@ -5,6 +5,9 @@ extends Node
 # consistent with state purity.
 
 signal state_changed
+# The whole state tree was swapped for a new Dictionary (new game/reset, save
+# load/import, Rewind restore). Fires after the swap is fully patched.
+signal state_replaced
 signal screen_changed(screen: String)
 
 var _dirty: bool = false
