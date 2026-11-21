@@ -30,6 +30,13 @@ const STAGE_WIDTH := 390.0
 # In a live tree the screen sizes the stage to its region.
 const STAGE_HEIGHT := 362.0
 const STAGE_DEFAULT_FILL := Color(0.07, 0.07, 0.09)
+const STUN_BOB_SHADER := preload("res://shaders/stun_bob.gdshader")
+const VCR_PAUSE_SHADER := preload("res://shaders/vcr_pause.gdshader")
+const VHS_REWIND_SHADER := preload("res://shaders/vhs_rewind.gdshader")
+const BLACK_HOLE_PINCH_SHADER := preload("res://shaders/black_hole_pinch.gdshader")
+# Every template pose the stage loads at build (_load_default_animations and
+# the per-template idle/action loads).
+const SPRITE_POSES := ["idle", "attack", "hit", "ko", "cast", "throw"]
 # Receding staging (vision §2.2): friendlies near the viewer (lower, larger),
 # enemies farther back (higher, smaller). Each group's front slot sits on the
 # outer side; back slots step toward the stage centre, up and smaller.
@@ -428,7 +435,7 @@ class StageSlot extends Control:
 	static func _build_stun_material() -> ShaderMaterial:
 		var fx_data: Dictionary = CombatStage.removal_fx().get("stun", {})
 		var mat := ShaderMaterial.new()
-		mat.shader = load("res://shaders/stun_bob.gdshader")
+		mat.shader = STUN_BOB_SHADER
 		mat.set_shader_parameter("shear_px", float(fx_data.get("shearPx", 3.0)))
 		mat.set_shader_parameter("period", maxf(CombatStage.fx_seconds(float(fx_data.get("bobSeconds", 0.8))), 0.05))
 		return mat
@@ -466,7 +473,7 @@ class StageSlot extends Control:
 	static func _build_freeze_material() -> ShaderMaterial:
 		var fx_data: Dictionary = GameData.COMBAT_VISUALS.get("pacing", {}).get("freezeFx", {})
 		var mat := ShaderMaterial.new()
-		mat.shader = load("res://shaders/vcr_pause.gdshader")
+		mat.shader = VCR_PAUSE_SHADER
 		for pair in [["shiverPx", "shiver_px"], ["shiverHz", "shiver_hz"], ["flickerEvery", "flicker_every"], ["bandPeriod", "band_period"], ["bandHeight", "band_height"], ["bandShearPx", "band_shear_px"], ["bandBrighten", "band_brighten"], ["bandNoise", "band_noise"], ["desaturate", "desaturate"], ["scanlineStrength", "scanline_strength"], ["scanlinePeriodPx", "scanline_period_px"]]:
 			if fx_data.has(pair[0]):
 				mat.set_shader_parameter(pair[1], float(fx_data[pair[0]]))
@@ -2168,7 +2175,7 @@ func is_rewind_effect_active() -> bool:
 static func _rewind_material() -> ShaderMaterial:
 	var fx_data: Dictionary = GameData.COMBAT_VISUALS.get("pacing", {}).get("rewindEffect", {})
 	var mat := ShaderMaterial.new()
-	mat.shader = load("res://shaders/vhs_rewind.gdshader")
+	mat.shader = VHS_REWIND_SHADER
 	for pair in [["scanlineStrength", "scanline_strength"], ["scanlinePeriodPx", "scanline_period_px"], ["wobblePx", "wobble_px"], ["tearPx", "tear_px"], ["tearSpeed", "tear_speed"], ["tearHeight", "tear_height"], ["bleedPx", "bleed_px"], ["noiseStrength", "noise_strength"]]:
 		if fx_data.has(pair[0]):
 			mat.set_shader_parameter(pair[1], float(fx_data[pair[0]]))
@@ -2230,6 +2237,7 @@ func sync(combat: Dictionary, player: Dictionary, frozen_roster: Dictionary) -> 
 		_build()
 
 	_sync_backdrop(combat["context"], combat.get("locationKey", ""))
+	TexturePrefetch.release_all()
 
 	var enemies: Array = frozen_roster.get("enemies", combat["enemies"])
 	var allies: Array = frozen_roster.get("allies", combat["allies"])
@@ -2681,7 +2689,7 @@ func _build() -> void:
 	_pinch_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_pinch_rect.visible = false
 	_pinch_rect.material = ShaderMaterial.new()
-	(_pinch_rect.material as ShaderMaterial).shader = load("res://shaders/black_hole_pinch.gdshader")
+	(_pinch_rect.material as ShaderMaterial).shader = BLACK_HOLE_PINCH_SHADER
 	_stage_shake_layer.add_child(_pinch_rect)
 
 	_slot_layer = Control.new()
@@ -2773,14 +2781,13 @@ func _load_sheet_frames(entry: Dictionary) -> Dictionary:
 	var empty: Array[Texture2D] = []
 	if entry.has("images"):
 		var posed: Array[Texture2D] = []
-		for path in entry["images"]:
-			if ResourceLoader.exists(path):
-				posed.append(load(path))
+		for path in sheet_paths(entry):
+			posed.append(TexturePrefetch.take(path))
 		return { "frames": posed, "fps": entry.get("fps", 0.0) }
-	if image_path.is_empty() or frame_count < 1 or not ResourceLoader.exists(image_path):
+	if sheet_paths(entry).is_empty():
 		return { "frames": empty, "fps": entry.get("fps", 0.0) }
 
-	var sheet: Texture2D = load(image_path)
+	var sheet: Texture2D = TexturePrefetch.take(image_path)
 	var frame_width := sheet.get_width() / frame_count
 	var frame_height := sheet.get_height()
 	var frames: Array[Texture2D] = []
@@ -2799,19 +2806,61 @@ func _load_effect_animations() -> void:
 			_effect_frames_by_key[key] = _load_sheet_frames(effects[key])
 
 
+# The loadable files an animation entry draws from: its posed `images`, or its
+# one sheet `image` when frameCount >= 1. Missing files are left out.
+static func sheet_paths(entry: Dictionary) -> Array:
+	var paths: Array = []
+	if entry.has("images"):
+		for path in entry["images"]:
+			if ResourceLoader.exists(path):
+				paths.append(path)
+		return paths
+	var image_path: String = entry.get("image", "")
+	if not image_path.is_empty() and int(entry.get("frameCount", 0)) >= 1 and ResourceLoader.exists(image_path):
+		paths.append(image_path)
+	return paths
+
+
+# Vision §2.1 backdrop image: the location plate, else the context plate;
+# "" when neither loads (the palette fill shows).
+static func backdrop_path(context: String, location_key: String) -> String:
+	var image_path: String = GameData.COMBAT_VISUALS.get("locationBackdrops", {}).get(location_key, {}).get("image", "")
+	if image_path.is_empty() or not ResourceLoader.exists(image_path):
+		image_path = GameData.COMBAT_VISUALS.get("backdrops", {}).get(context, {}).get("image", "")
+	return image_path if not image_path.is_empty() and ResourceLoader.exists(image_path) else ""
+
+
+# Starts background loads of everything the stage loads when it builds -- every
+# template pose and effect sheet -- plus the backdrop each context would show
+# at any of `location_keys`. The stage collects them through TexturePrefetch.
+static func prefetch_art(location_keys: Array) -> void:
+	var paths: Array = []
+	var templates: Dictionary = GameData.combat_templates()
+	for template_key in templates:
+		for pose in SPRITE_POSES:
+			var entry: Dictionary = templates[template_key].get(pose, {})
+			for variant in entry.get("variants", []):
+				paths.append_array(sheet_paths(variant))
+			paths.append_array(sheet_paths(entry))
+	var effects: Dictionary = GameData.COMBAT_VISUALS.get("effects", {})
+	for key in effects:
+		if not str(key).begins_with("_"):
+			paths.append_array(sheet_paths(effects[key]))
+	for context in GameData.COMBAT_VISUALS.get("backdrops", {}):
+		for location_key in location_keys:
+			paths.append(backdrop_path(str(context), str(location_key)))
+	TexturePrefetch.request(paths)
+
+
 # Vision §2.1 lookup: location plate -> context plate -> palette fill.
 func _sync_backdrop(context: String, location_key: String) -> void:
-	var location_backdrops: Dictionary = GameData.COMBAT_VISUALS.get("locationBackdrops", {})
-	var backdrops: Dictionary = GameData.COMBAT_VISUALS.get("backdrops", {})
-	var entry: Dictionary = backdrops.get(context, {})
-	var image_path: String = location_backdrops.get(location_key, {}).get("image", "")
-	if image_path.is_empty() or not ResourceLoader.exists(image_path):
-		image_path = entry.get("image", "")
-	if not image_path.is_empty() and ResourceLoader.exists(image_path):
-		_backdrop_texture.texture = load(image_path)
+	var image_path := backdrop_path(context, location_key)
+	if not image_path.is_empty():
+		_backdrop_texture.texture = TexturePrefetch.take(image_path)
 		_backdrop_texture.visible = true
 		_backdrop_fill.visible = false
 	else:
+		var entry: Dictionary = GameData.COMBAT_VISUALS.get("backdrops", {}).get(context, {})
 		_backdrop_fill.color = GameData.PALETTE.get(entry.get("fallbackColor", ""), STAGE_DEFAULT_FILL)
 		_backdrop_fill.visible = true
 		_backdrop_texture.visible = false

@@ -18,6 +18,10 @@ static func has_plan(tier_id: String) -> bool:
 	return GameData.FLOORPLANS.has(tier_id)
 
 
+static func texture_path(tier_id: String) -> String:
+	return GameData.FLOORPLANS[tier_id]["texture"]
+
+
 static func slot_node_name(slot: int) -> String:
 	return "FloorplanSlot%d" % slot
 
@@ -42,7 +46,7 @@ static func build(tier_id: String, on_slot_pressed: Callable = Callable(), selec
 	center.add_child(canvas)
 
 	var tex := TextureRect.new()
-	tex.texture = load(plan["texture"])
+	tex.texture = TexturePrefetch.take(texture_path(tier_id))
 	tex.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	tex.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	tex.mouse_filter = Control.MOUSE_FILTER_IGNORE

@@ -145,7 +145,7 @@ overlays; hides the top board on title/intro/combat and the nav dock per screen.
 
 | File | Renders |
 |---|---|
-| combat_prep.gd | Preparation sheet (screen `combat_prep`) on the Trade sheet chrome: empty-slot warning + Change loadout, recruit picker (tick + ▲▼ order), spar practice-rack slot picker (tap a slot for a list of rack items + own/empty), participants with equipped units, opposition, Cancel (planned only) / Fight footer |
+| combat_prep.gd | Preparation sheet (screen `combat_prep`) on the Trade sheet chrome: empty-slot warning + Change loadout, recruit picker (tick + ▲▼ order), spar practice-rack slot picker (tap a slot for a list of rack items + own/empty), participants with equipped units, opposition, Cancel (planned only) / Fight footer; prefetches the stage art on entry |
 | combat.gd | CombatScreen (screen `combat`): hosts CombatRoundsScreen; static `context_label()` and `outcome_button()` (hands off to `Combat.exit_combat()`) |
 | combat_rounds.gd | CombatRoundsScreen: the round fight on state.combat via Combat (move + real loadout rows, Dial casts, Rewind playing undone beats in reverse, outcome). CombatStage (tap targets, hold = move-level peek), strip, CombatTranscript, CommandDock grid/pages with block reasons (rewind slot/Dial run Rewind), opening intro, CombatDirector beats, demo hp line + voiceover/Continue |
 | contacts.gd | Contacts app inside PhoneDeviceShell; directory of unlocked contacts by display name (`Contacts.directory_ids`) with inline flag-gated actions; generic key-member card |
@@ -178,6 +178,7 @@ overlays; hides the top board on title/intro/combat and the nav dock per screen.
 | combat_director.gd | Combat beat-queue playback director; holds a data-driven pause (combat_visuals pacing.turnPause) between combatants' turns and plays a Rewind back pacing.rewindSpeed times faster; an optional per-beat hold override (multi-target land stagger); emits `playing_changed` so screens lock commands during playback; reads the persisted pacing mode (set in the Settings app) |
 | combat_transcript.gd | Fight play-by-play between stage and dock, event-card text styling: heading + demo hp above, one line per state.combat.transcript entry pinned to the newest, refusal/prompt/coach note below; append/remove-by-text for beat playback and Rewind |
 | combat_stage.gd | Combat pixel stage: backdrop, slots, one-shots, icons, Rewind VHS, freeze/stun-bob/run-off, intro. Item fx (`effects`, `itemFx`): spark (multi split), ring, Shield, hit-stop, disarm, Leg it, Powder, Lady, Heal, Black Hole, Pan items, Prophet's Breath, Stutter blink; enemy steel palette. Save fx (`pacing.saveFx`, `wormholeFx`): silhouette, ⚑, glow, VHS, lens tear. |
+| texture_prefetch.gd | TexturePrefetch: shared threaded texture loads — `request` paths, `take` one (sync fallback), `release_all` the rest |
 | status_icon_row.gd | StatusIconRow: slot's row of 9×9 status chips from `CombatRounds.status_icons()` (buff rounded / debuff notched, ore colour, count digit, max 3 + `+N`, buffering spinner); pop/tick/expire animations, none when set outright. Look from combat_visuals `statusIcons` (image overrides glyph) |
 | shaders/stun_bob.gdshader | Stunned head-bob: vertex shear of the sprite top, feet fixed |
 | shaders/black_hole_pinch.gdshader | Black Hole warp: re-samples the screen behind it, pulled toward a centre point |

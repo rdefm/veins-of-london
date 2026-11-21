@@ -59,6 +59,24 @@ static func request(kind: String, args: Dictionary = {}) -> void:
 	MapEvents.abandon_playback()
 
 
+# Every combat.locationKey the prep's fight could open with (Combat.location_key_for
+# over the args the entry paths pass it): the current district, home, the
+# vein's district when args name one, a debug override, and "" (no location
+# plate). A pure read, for the screen's art prefetch.
+static func likely_location_keys(prep: Dictionary) -> Array:
+	var args: Dictionary = prep.get("args", {})
+	var keys: Array = ["", Combat.location_key_for(Combat.CONTEXT_MUGGING, null), Combat.location_key_for(Combat.CONTEXT_HOME_RAID, null)]
+	if args.has("veinId"):
+		keys.append(Combat.location_key_for(Combat.CONTEXT_RAID, args["veinId"]))
+	if args.has("locationKey"):
+		keys.append(str(args["locationKey"]))
+	var distinct: Array = []
+	for key in keys:
+		if not distinct.has(key):
+			distinct.append(key)
+	return distinct
+
+
 # Planned encounter only. Returns false for a forced prep or when none is pending.
 static func cancel() -> bool:
 	var prep := pending()

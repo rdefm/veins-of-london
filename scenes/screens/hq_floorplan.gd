@@ -11,8 +11,16 @@ var _selected_slot: int = -1
 
 func _ready() -> void:
 	UI.anchor_full_rect(self)
+	var tier_id: String = GameState.state["home"]["tier"]
+	if FloorplanView.has_plan(tier_id):
+		TexturePrefetch.request([FloorplanView.texture_path(tier_id)])
 	EventBus.state_changed.connect(_refresh)
 	_refresh()
+
+
+# A plan the screen never drew (the tier changed under it) is collected here.
+func _exit_tree() -> void:
+	TexturePrefetch.release_all()
 
 func _refresh() -> void:
 	if is_queued_for_deletion():

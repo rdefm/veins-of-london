@@ -22,6 +22,15 @@ func _ready() -> void:
 	offset_top = UI.top_bar_clearance() + 8
 	EventBus.state_changed.connect(_render)
 	_render()
+	var prep := CombatPrep.pending()
+	if not prep.is_empty():
+		CombatStage.prefetch_art(CombatPrep.likely_location_keys(prep))
+
+
+# A prep left without a fight collects its art prefetch; on Fight the stage does.
+func _exit_tree() -> void:
+	if not _committing:
+		TexturePrefetch.release_all()
 
 
 func _render() -> void:

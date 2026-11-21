@@ -33,6 +33,20 @@ func _init() -> void:
 	add_child(_background_texture)
 
 
+# The plate's backdrop image and every region sprite, "" entries left out.
+static func plate_paths(plate: Dictionary) -> Array:
+	var paths: Array = []
+	var image_path: String = plate.get("image", "")
+	if not image_path.is_empty():
+		paths.append(image_path)
+	var regions: Dictionary = plate.get("regions", {})
+	for region_id in regions:
+		var sprite_path: String = regions[region_id].get("image", "")
+		if not sprite_path.is_empty():
+			paths.append(sprite_path)
+	return paths
+
+
 func build(plate: Dictionary) -> void:
 	for caption in _captions:
 		caption.free()
@@ -46,8 +60,9 @@ func build(plate: Dictionary) -> void:
 	custom_minimum_size = plate_size
 	size = plate_size
 
+	TexturePrefetch.request(plate_paths(plate))
 	var image_path: String = plate.get("image", "")
-	var background_texture: Texture2D = load(image_path) if not image_path.is_empty() else null
+	var background_texture: Texture2D = TexturePrefetch.take(image_path) if not image_path.is_empty() else null
 	if background_texture != null:
 		_background_texture.texture = background_texture
 		_background_texture.position = Vector2.ZERO
@@ -67,7 +82,7 @@ func build(plate: Dictionary) -> void:
 		var sprite_path: String = region.get("image", "")
 		if sprite_path.is_empty():
 			continue
-		var texture: Texture2D = load(sprite_path)
+		var texture: Texture2D = TexturePrefetch.take(sprite_path)
 		if texture == null:
 			continue
 		var sprite := TextureRect.new()
