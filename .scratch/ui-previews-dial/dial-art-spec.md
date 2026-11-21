@@ -40,24 +40,26 @@ Small overlays and hand-made pieces:
 |---|---|---|
 | `dial_needle.png` | 6 × 18 | Already exists; the one sprite rotated in code. Pivot on the face centre |
 | `dial_stud_lit.png` | 6 × 6 | Overlay on a stud when that chamber is loaded. Studs are baked off in the head |
-| `slot_ghost_lens.png` | 12 × 12 | Dithered outline. Marks a Lens slot the Dial's level hasn't unlocked, in the hover row |
-| `chamber_blank.png` | 26 × 19 | Hand-made steel cover over a chamber above `capacityMax` |
-| `chamber_ring.png` | 26 × 19 | Hand-made bright rim. Pulses on a chamber that can take a Complication |
+| `slot_ghost_lens.png` | 20 × 20 | Dithered outline. Marks a Lens slot the Dial's level hasn't unlocked, in the hover row |
+| `chamber_blank.png` | 22 × 8 | Hand-made steel cover over a chamber above `capacityMax` |
+| `chamber_ring.png` | 22 × 8 | Hand-made bright rim. Pulses on a chamber that can take a Complication |
 | `dial_glow.png` | 16 × 16 | Greyscale mask, tinted by ore. Seated Lens glow, and the intake during Wind |
 
 ### 2.2 Components
 
 | File (`assets/hq/dial/components/`) | Count | Native | Pivot | Notes |
 |---|---|---|---|---|
-| `lens_<ore>.png` | 5 (time, physics, life, fate, emotion) | 12 × 12 | centre | Round glass in a steel bezel, facing the viewer, glass tinted with the ore colour |
-| `lens_tier_<n>.png` | 5, hand-made | 12 × 12 | centre | 1–5 notches on the bezel, overlaid |
-| `movement_<archetype>.png` | 4 (recharge, capacitor, impact, spread) | 4-frame strip, 96 × 24 | centre of frame | Frame 0 = still; frames 1–3 = spin, for Wind. Motifs: recharge = mainspring spiral; capacitor = stacked barrel plates; impact = hammer and escapement; spread = star wheel |
-| `movement_tier_<n>.png` | 5, hand-made | 24 × 24 | centre | Tier jewels on the rim |
-| `comp_label_<recipeKey>.png` | one per recipe with an icon in `assets/combat/icons/` | 10 × 10 | centre | **No prompt.** A nearest downscale of the 32 px combat icon, redrawn by hand. A seated Complication is its label icon sitting in the chamber, and the icon is what drops in when loading |
+| `lens_<ore>.png` | 5 (time, physics, life, fate, emotion) | 20 × 20 | centre | Round glass in a steel bezel, facing the viewer, glass tinted with the ore colour |
+| `lens_tier_<n>.png` | 5, hand-made | 20 × 20 | centre | 1–5 notches on the bezel, overlaid |
+| `movement_<archetype>.png` | 4 (recharge, capacitor, impact, spread) | 4-frame strip, 160 × 40 | centre of frame | Frame 0 = still; frames 1–3 = spin, for Wind. Motifs: recharge = mainspring spiral; capacitor = stacked barrel plates; impact = hammer and escapement; spread = star wheel |
+| `movement_tier_<n>.png` | 5, hand-made | 40 × 40 | centre | Tier jewels on the rim |
+| `comp_label_<recipeKey>.png` | one per recipe with an icon in `assets/combat/icons/` | 12 × 12 | centre | **No prompt.** A nearest downscale of the 32 px combat icon, redrawn by hand. A seated Complication is its label icon sitting in the chamber, and the icon is what drops in when loading |
 
 A hovering component has a 1-px bob and no shadow (floor shadows are deferred, see ticket 13). A seated Complication sits flat in its chamber. In the side list, components are shown at the section's zoom scale.
 
-### 2.3 Anchors (in data at 09, measured from the cut sprites)
+### 2.3 Anchors (measured; values in `data/dial_art.json`)
+
+The cut modules are 86 × 78 (head), 120 × 135 (grip with strap), 83 × 70 (collar) and 72 × 153 (canopy). The assembled Dial is about 122 × 313 native. Sizes elsewhere in this spec that assumed a 72-px-wide Dial have been scaled to match.
 
 | Anchor | Where | Used for |
 |---|---|---|
@@ -66,7 +68,7 @@ A hovering component has a 1-px bob and no shadow (floor shadows are deferred, s
 | `face_centre`, `stud[0..3]` | On the head | The needle hub; stud overlays (N, E, S, W = chamber 0–3) |
 | `intake_mouth` | On the grip | The Wind tap target and glow |
 | `chamber[0..3]` | On the canopy's cut face | Chamber 0–3 clockwise from NW; icon drop target, overlays, taps |
-| `lens_hover[0..2]`, `movement_hover` | Above the collar and grip lips | Where the emerged components hover |
+| `hover.lens_offsets[0..2]`, `hover.movement_offset` | Above the collar and grip lips | Where the emerged components hover |
 
 **Assembly rule.** The assembled Dial is the four layers stacked head, grip, collar, canopy with each upper module's bottom overlapping the lower one's top lip by `seat_depth`, which hides the hollow tops. There is no assembled image.
 

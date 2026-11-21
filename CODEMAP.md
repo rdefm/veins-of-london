@@ -317,6 +317,7 @@ overlays; hides the top board on title/intro/combat and the nav dock per screen.
 | constants.json (faction politics) | factions.gd (factionRivalry), faction_sim.gd (factionFloor), faction_ai.gd (factionStances/Pressure/Escalation/War/Conclave), intel.gd (intel), raiding.gd (stockpileRaid, raidSecurity), network_handler.gd (networkMenu), diplomacy.gd (factionFavours, factionGifts, callForAid), partners.gd (partners), barometer.gd (factionEscalation) |
 | daily_cycle.json | time_transition.gd (circle layout, sky clips, colours, timing) |
 | dial.json | dial.gd; `lens` (slots, craft, senseGates, peripheralShare, per-tier effect tables) → dial.gd/lenses.gd; `fateMarketReadsByTier`/`fateMarket` → market_insight.gd; `fateLuckyPrice` → lucky_price.gd; `jamesQuest` (gate, repair attempts/ore, summons texts) → james_dial.gd |
+| dial_art.json | Dial menu art anchors measured from `assets/hq/dial/` module sprites: per-module seat, top-lip ovals, face/studs, intake, ports, chambers; assembled origins; hover offsets; component sizes. Not yet read by code (wired at ticket 09) |
 | districts.json | widely read (sites, economy, factions, raiding) |
 | enemies.json | combat.gd |
 | faction_trade.json | economy.gd |

@@ -4,7 +4,7 @@
 
 Steps, in order:
 
-1. **Prepare the sprites (with the human).** Run the exploded sheet through the pixelizer (`tools/pixelizer.html`, or `.claude/skills/event-storyboard/scripts/pixelize.py`) as a whole, snap to the palette, remove the background, and cut the four module PNGs. Hand-make `dial_stud_lit`, `slot_ghost_lens`, `chamber_blank`, `chamber_ring`, `dial_glow`, the tier overlays and the `comp_label_*` icons. Generate the Lens (P1) and Movement (P2) sprites, each pixelised. The info tag keeps the existing code-built panel, and the bench backdrop and floor shadows are deferred (ticket 13). Measure the anchors from the cut sprites (art spec §2.3) into data.
+1. **Prepare the sprites (with the human).** Run the exploded sheet through the pixelizer (`tools/pixelizer.html`, or `.claude/skills/event-storyboard/scripts/pixelize.py`) as a whole, snap to the palette, remove the background, and cut the four module PNGs. Hand-make `dial_stud_lit`, `slot_ghost_lens`, `chamber_blank`, `chamber_ring`, `dial_glow`, the tier overlays and the `comp_label_*` icons. Generate the Lens (P1) and Movement (P2) sprites, each pixelised. The info tag keeps the existing code-built panel, and the bench backdrop and floor shadows are deferred (ticket 13). Anchors are already measured into `data/dial_art.json`; re-check them against the final sprites.
 2. **Wire the layers.** Assemble by anchor (`seat` into the next module's `top_lip`, overlap `seat_depth`). Hide the old placeholder rects, the hatch tween and the iris shutters.
 3. **Beats.** Section split, hover bob, emerge and re-enter (clipped at the lip's `clip_y`), canopy drop, chamber pulse and icon drop, load / swap / unload, Wind, Back (art spec §4). Reduced motion becomes a 0.1 s crossfade with no hover.
 
@@ -20,7 +20,7 @@ Steps, in order:
 
 **Status:** ready-for-agent
 
-- [ ] Four module layers cut from the pixelised master, each transparent and on the native grid; anchors measured into data
+- [ ] Four module layers cut from the pixelised master (done: `assets/hq/dial/dial_{head,grip,lens_collar,canopy}.png`) and anchors measured into `data/dial_art.json` (done); the final check remains
 - [ ] The Dial assembles from the layers by anchor; no placeholder shapes, hatch tween or iris code left
 - [ ] Movement and Lenses emerge from the lips and hover (whole-pixel bob, no shadow); locked Lens slots show a ghost
 - [ ] Complications: canopy drops, chambers pulse when they can take one, a loading icon drops into the chosen chamber, blanks cover chambers above `capacityMax`, studs light per loaded chamber

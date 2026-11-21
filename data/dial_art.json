@@ -1,0 +1,228 @@
+{
+ "_comment": "Dial menu art anchors, native px in each module's own sprite; measured from assets/hq/dial/*.png (cut from dial_exploded_source.png, pixelised x3). Read by the Dial menu at ticket 09.",
+ "seat_overlap": 2,
+ "draw_order": [
+  "canopy",
+  "collar",
+  "grip",
+  "head"
+ ],
+ "stack_order": [
+  "head",
+  "grip",
+  "collar",
+  "canopy"
+ ],
+ "assembled_origin": {
+  "grip": [
+   0,
+   0
+  ],
+  "head": [
+   -2,
+   -47
+  ],
+  "collar": [
+   0,
+   71
+  ],
+  "canopy": [
+   5,
+   113
+  ]
+ },
+ "modules": {
+  "head": {
+   "file": "dial_head.png",
+   "size": [
+    86,
+    78
+   ],
+   "axis_x": 43,
+   "seat": [
+    43,
+    77
+   ],
+   "face_centre": [
+    43,
+    20
+   ],
+   "studs": [
+    [
+     43,
+     5
+    ],
+    [
+     71,
+     20
+    ],
+    [
+     43,
+     34
+    ],
+    [
+     14,
+     20
+    ]
+   ]
+  },
+  "grip": {
+   "file": "dial_grip.png",
+   "size": [
+    120,
+    135
+   ],
+   "axis_x": 41,
+   "seat": [
+    41,
+    97
+   ],
+   "top_lip": {
+    "centre": [
+     41,
+     16
+    ],
+    "outer_rx": 41,
+    "outer_ry": 16,
+    "inner_centre": [
+     41,
+     17
+    ],
+    "inner_rx": 34,
+    "inner_ry": 12,
+    "clip_y": 16
+   },
+   "intake_mouth": [
+    66,
+    55
+   ],
+   "strap_eyelet": [
+    85,
+    32
+   ]
+  },
+  "collar": {
+   "file": "dial_lens_collar.png",
+   "size": [
+    83,
+    70
+   ],
+   "axis_x": 41,
+   "seat": [
+    41,
+    68
+   ],
+   "top_lip": {
+    "centre": [
+     41,
+     14
+    ],
+    "outer_rx": 40,
+    "outer_ry": 14,
+    "inner_centre": [
+     41,
+     15
+    ],
+    "inner_rx": 33,
+    "inner_ry": 8,
+    "clip_y": 14
+   },
+   "ports": [
+    [
+     15,
+     42
+    ],
+    [
+     41,
+     43
+    ],
+    [
+     68,
+     42
+    ]
+   ],
+   "port_radius": 12
+  },
+  "canopy": {
+   "file": "dial_canopy.png",
+   "size": [
+    72,
+    153
+   ],
+   "axis_x": 36,
+   "seat": null,
+   "top_lip": {
+    "centre": [
+     36,
+     15
+    ],
+    "outer_rx": 28,
+    "outer_ry": 13,
+    "inner_centre": [
+     36,
+     15
+    ],
+    "inner_rx": 24,
+    "inner_ry": 10,
+    "clip_y": 15
+   },
+   "chambers": [
+    [
+     24,
+     10
+    ],
+    [
+     48,
+     10
+    ],
+    [
+     48,
+     20
+    ],
+    [
+     24,
+     20
+    ]
+   ],
+   "chamber_size": [
+    22,
+    8
+   ]
+  }
+ },
+ "hover": {
+  "lens_offsets": [
+   [
+    -26,
+    -34
+   ],
+   [
+    0,
+    -34
+   ],
+   [
+    26,
+    -34
+   ]
+  ],
+  "movement_offset": [
+   0,
+   -44
+  ],
+  "bob_px": 1
+ },
+ "component_sizes": {
+  "lens": [
+   20,
+   20
+  ],
+  "movement_frame": [
+   40,
+   40
+  ],
+  "complication_icon": [
+   12,
+   12
+  ]
+ }
+}

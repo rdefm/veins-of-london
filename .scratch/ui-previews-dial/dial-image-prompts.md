@@ -10,13 +10,13 @@ Source of truth: `dial-art-spec.md` §5. This file is the pasteable subset for t
 
 ## P1 — Lens (time) → `lens_time`
 
-> Attach: the exploded master. A single 12x12 round lens facing the viewer: a disc of slate blue (#4d78a8) tinted glass in a thin gunmetal bezel, with a small specular highlight upper left. Transparent background, nothing else in frame.
+> Attach: the exploded master. A single 20x20 round lens facing the viewer: a disc of slate blue (#4d78a8) tinted glass in a thin gunmetal bezel, with a small specular highlight upper left. Transparent background, nothing else in frame.
 
 Later: physics `#b8562f`, life `#5a8f4f`, fate `#7a5a9e`, emotion `#b85a82`. Same prompt, change only the glass colour.
 
 ## P2 — Movement (recharge) → `movement_recharge`
 
-> Attach: the exploded master. A 4-frame horizontal sprite strip, 96x24 total, each frame a 24x24 circular clockwork watch movement in gunmetal and blued steel with tiny jewel bearings, seen from the same high angle as it would sit in the open top of the attached grip. Frame 1 is still; frames 2–4 show its wheels turning a little further each frame, for a looping spin. Consistent identity across all frames. Motif: a coiled mainspring spiral in the centre.
+> Attach: the exploded master. A 4-frame horizontal sprite strip, 160x40 total, each frame a 40x40 circular clockwork watch movement in gunmetal and blued steel with tiny jewel bearings, seen from the same high angle as it would sit in the open top of the attached grip. Frame 1 is still; frames 2–4 show its wheels turning a little further each frame, for a looping spin. Consistent identity across all frames. Motif: a coiled mainspring spiral in the centre.
 
 Later: capacitor (stacked barrel plates like a capacitor), impact (a heavy hammer striking an escapement), spread (a many-pointed star wheel). Attach the finished recharge strip to each so the style carries over.
 
