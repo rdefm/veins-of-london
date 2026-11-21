@@ -267,6 +267,49 @@ func run() -> void:
 		assert_true(crits_hidden > 0, "some seed crits")
 	)
 
+	run_case("project_round_ghosts_only_the_attacks_the_player_can_read", func():
+		GameState.reset()
+		var player_idx := CombatRounds.PLAYER_INDEX
+		var combat := _start_vs([_slow_mugger(200)], [_strikes_at_player()], [], 1)
+		var before := var_to_str(combat)
+		var open := CombatRounds.project_round(combat)
+		assert_eq(var_to_str(combat), before, "projecting changes nothing")
+		assert_true(open["ok"] and open["changes"][player_idx]["hpDelta"] < 0, "a read enemy strike ghosts on the player")
+		assert_true(not open["changes"].has(1), "nobody else is due damage")
+		GameState.reset()
+		combat = _start_vs([_slow_mugger(200)], [_strikes_at_player()], [], 1, [[[true, true]]])
+		assert_true(CombatRounds.project_round(combat)["changes"].is_empty(), "fog: unread intents ghost nothing")
+		combat["combatants"][player_idx]["sightUntil"] = int(combat["round"])
+		assert_true(CombatRounds.project_round(combat)["changes"].has(player_idx), "sight reads them")
+		combat["combatants"][player_idx]["sightUntil"] = 0
+		combat["combatants"][player_idx]["emotionTargetSight"] = true
+		assert_true(CombatRounds.project_round(combat)["changes"].is_empty(), "Emotion sight reads a target, not a move: no ghost")
+		combat["glimpseUsed"] = true
+		combat["glimpseActor"] = 1
+		combat["glimpseRound"] = int(combat["round"])
+		assert_true(CombatRounds.project_round(combat)["changes"].has(player_idx), "a Glimpse on the attacker reads it")
+		combat["combatants"][1]["anger"] = 1
+		var furious := CombatRounds.project_round(combat)
+		if CombatRounds._is_furious(combat, 1):
+			assert_true(furious["changes"].is_empty(), "furious strikes ghost nothing")
+	)
+
+	run_case("project_round_armed_guard_shrinks_and_armed_stun_removes_incoming", func():
+		GameState.reset()
+		var player_idx := CombatRounds.PLAYER_INDEX
+		var combat := _start_vs([_slow_mugger(200)], [_strikes_at_player()], [], 1)
+		combat["combatants"][player_idx]["guard"] = CombatRounds.OPEN
+		var open: int = CombatRounds.project_round(combat)["changes"][player_idx]["hpDelta"]
+		var guarded := CombatRounds.project_round(combat, { "move": "guard", "target": -1 })
+		assert_true(guarded["ok"] and guarded["changes"][player_idx]["hpDelta"] > open, "Guard lets less through")
+		var stun := CombatRounds.project_round(combat, { "move": "stun", "target": 1 })
+		assert_true(stun["ok"], "stun projects")
+		assert_true(not stun["changes"].has(player_idx) or stun["changes"][player_idx]["hpDelta"] > open, "a stunned attacker ghosts less or nothing")
+		var strike := CombatRounds.project_round(combat, { "move": "strike", "target": 1 })
+		assert_true(strike["changes"].has(1) and strike["changes"].has(player_idx), "the armed attack's ghost adds to the incoming")
+		assert_true(not CombatRounds.project_round(combat, { "move": "nonsense", "target": 1 })["ok"], "an unplayable pick refuses")
+	)
+
 	run_case("street_mugging_from_prep_opens_a_round_fight_on_the_real_player", func():
 		GameState.reset()
 		var player: Dictionary = GameState.state["player"]

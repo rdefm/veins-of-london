@@ -1530,6 +1530,81 @@ static func project_pick(cp: Dictionary, action: Dictionary) -> Dictionary:
 	return { "ok": true, "changes": changes }
 
 
+# The damage the rest of this round is due to deal, as the player can see it:
+# the paused fight plays on a copy to the round's end with `action` (a raw
+# pick, or {} for none) in the player's slot, and each combatant's hp/shield
+# loss from actions the player can read (allies', the player's, enemies' read
+# and not furious) is summed. An enemy action the player can't read
+# (is_read(), so fog, Glimpse and sight apply) or a furious one
+# (targetUnread) tallies nothing, though it still plays. An unpicked player
+# slot does nothing. Returns { ok, changes } as project_pick() does (losses
+# only); { ok: false } for a demo, a fight that isn't paused on a pick, or an
+# `action` that can't be played. Crits are hidden as project_pick()'s.
+static func project_round(cp: Dictionary, action: Dictionary = {}) -> Dictionary:
+	if is_demo(cp) or decision_position(cp) < 0:
+		return { "ok": false, "reason": "not paused" }
+	if not action.is_empty():
+		var reason := _pick_block_reason(cp, action)
+		if reason != "":
+			return { "ok": false, "reason": reason }
+	var hidden := {}
+	for i in range(cp["combatants"].size()):
+		var c: Dictionary = cp["combatants"][i]
+		if c["side"] != SIDE_ENEMY:
+			continue
+		var plan: Array = c["plan"]
+		for index in range(plan.size()):
+			var planned = plan[index]
+			if planned == null:
+				continue
+			var furious: bool = _is_furious(cp, i) and move(fury_move(cp, i, planned["move"]))["effect"] in [EFFECT_DAMAGE, EFFECT_STUN]
+			if furious or not is_read(cp, i, index):
+				hidden["%d:%d" % [i, index]] = true
+	var sim := _round_start_copy(cp)
+	for c in sim["combatants"]:
+		c["moveOwner"] = null
+	sim["projectRound"] = true
+	sim["projectHidden"] = hidden
+	sim["projectTotals"] = {}
+	sim["projectHideCrit"] = not bool(cp["combatants"][PLAYER_INDEX].get("fateCritSight", false))
+	if not action.is_empty():
+		var entry = _normalize_action(sim, action)
+		var position := decision_position(sim)
+		_counter_pick(sim, position, entry["move"])
+		for part in range(move_cost(entry["move"])):
+			var filled: Dictionary = entry.duplicate()
+			filled["part"] = part
+			sim["playerPlan"][position + part] = filled
+	sim["cursor"]["pause"] = -1
+	var rng := RandomNumberGenerator.new()
+	rng.state = sim["rngState"]
+	_advance(sim, rng, [])
+	return { "ok": true, "changes": sim["projectTotals"] }
+
+
+# Adds the losses `actor`'s action `index` caused since `before` (a
+# _hp_shield_snapshot()) to the round projection's totals, unless the player
+# can't read it.
+static func _project_tally(cp: Dictionary, actor: int, index: int, before: Array) -> void:
+	if cp["projectHidden"].has("%d:%d" % [actor, index]):
+		return
+	var totals: Dictionary = cp["projectTotals"]
+	for i in range(before.size()):
+		var c: Dictionary = cp["combatants"][i]
+		var hp_delta := mini(0, int(c["hp"]) - int(before[i]["hp"]))
+		var shield_delta := mini(0, int(c["shield"]) - int(before[i]["shield"]))
+		if hp_delta == 0 and shield_delta == 0:
+			continue
+		var total: Dictionary = totals.get(i, { "hpDelta": 0, "shieldDelta": 0 })
+		total["hpDelta"] += hp_delta
+		total["shieldDelta"] += shield_delta
+		totals[i] = total
+
+
+static func _hp_shield_snapshot(combatants: Array) -> Array:
+	return combatants.map(func(c: Dictionary) -> Dictionary: return { "hp": c["hp"], "shield": c["shield"] })
+
+
 # Why the raw pick `action` ({ move, target } or { slot, target }) can't be
 # played at the paused position, or "".
 static func _pick_block_reason(cp: Dictionary, action: Dictionary) -> String:
@@ -2178,6 +2253,8 @@ static func _advance(cp: Dictionary, rng: RandomNumberGenerator, beats: Array, r
 		cp["playerPlan"].resize(maxi(cp["playerPlan"].size(), actions_this_round(cp, PLAYER_INDEX)))
 		var entry := _next_entry(cp)
 		if entry.is_empty() or _awaiting_enemy_reserves(cp):
+			if cp.get("projectRound", false):
+				break
 			_end_round(cp, rng, beats)
 			cursor = cp["cursor"]
 			if cp.get("playerKoed", false):
@@ -2186,10 +2263,15 @@ static func _advance(cp: Dictionary, rng: RandomNumberGenerator, beats: Array, r
 		var actor: int = entry["actor"]
 		var combatant: Dictionary = combatants[actor]
 		var action = _plan_of(cp, actor)[entry["index"]]
+		var round_projecting: bool = cp.get("projectRound", false)
 		if not cursor["done"].has(actor) and combatant["actionsLost"] == 0 and action == null:
+			if round_projecting:
+				cursor["index"] = entry["index"]
+				cursor["actor"] = actor
+				continue
 			cursor["pause"] = entry["index"]
 			return
-		if _awaits_counter_pick(cp, actor, entry["index"]):
+		if not round_projecting and _awaits_counter_pick(cp, actor, entry["index"]):
 			cursor["pause"] = entry["index"]
 			return
 		cursor["index"] = entry["index"]
@@ -2207,8 +2289,11 @@ static func _advance(cp: Dictionary, rng: RandomNumberGenerator, beats: Array, r
 		var fleeing: bool = move(fury_move(cp, actor, action["move"]))["effect"] == EFFECT_FLEE
 		var projecting: bool = actor == PLAYER_INDEX and cp.get("projectStop", false)
 		if projecting:
-			cp["projectBefore"] = combatants.map(func(c: Dictionary) -> Dictionary: return { "hp": c["hp"], "shield": c["shield"] })
+			cp["projectBefore"] = _hp_shield_snapshot(combatants)
+		var round_before: Array = _hp_shield_snapshot(combatants) if round_projecting else []
 		var flee_failed := _resolve_action(cp, actor, action, rng, beats)
+		if round_projecting:
+			_project_tally(cp, actor, entry["index"], round_before)
 		if projecting:
 			break
 		if fleeing and not (flee_failed and move_level(combatant, fury_move(cp, actor, action["move"])) >= int(level_effects("legIt")["keepActionsLevel"])):
@@ -2686,7 +2771,7 @@ static func _strike(cp: Dictionary, actor_idx: int, target_idx: int, move_id: St
 		dmg = maxi(1, GameState.round_epsilon(roll * chip_multiplier(actor, target)))
 	var chance := crit_chance(actor, lady, crit_bonus)
 	var crit: bool = bool(planned_crit) if planned_crit != null else rng.randf() < chance
-	if actor_idx == PLAYER_INDEX and cp.get("projectHideCrit", false):
+	if cp.get("projectHideCrit", false):
 		crit = false
 	if actor_idx == PLAYER_INDEX and _pearl_crits(cp):
 		crit = true

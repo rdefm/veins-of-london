@@ -449,14 +449,15 @@ func _sync_fight(cp: Dictionary) -> void:
 	_sync_damage_preview()
 
 
-# The armed action's predicted hp loss on the strip's cards (CombatRounds.project_pick());
-# cleared when nothing is armed or a round plays.
+# The round's predicted hp loss on every strip card (CombatRounds.project_round(),
+# with the armed action in place); cleared while a round plays.
 func _sync_damage_preview() -> void:
 	var previews := {}
-	var pick: Dictionary = _dock.armed_pick()
-	if not pick.is_empty() and not _busy() and _cp()["outcome"] == null:
+	if not _busy() and _cp()["outcome"] == null:
 		var cp: Dictionary = _cp()
-		var projection := CombatRounds.project_pick(cp, pick)
+		var projection := CombatRounds.project_round(cp, _dock.armed_pick())
+		if not projection["ok"]:
+			projection = CombatRounds.project_round(cp)
 		if projection["ok"]:
 			var roster := stage_roster(cp, -1)
 			for index in projection["changes"]:
