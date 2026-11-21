@@ -328,6 +328,154 @@ func run() -> void:
 		assert_eq(guards.call({ Intel.FACT_GUARD_COUNT: 1, Intel.FACT_GUARD_KIT: {} }), " · ".join([String(words["guardCount"]) % 1, unknown]))
 	)
 
+	_run_scout_cases()
+
+
+static func _scout_chances(p: float) -> Dictionary:
+	var chances: Dictionary = GameData.INTEL["scout"]["chances"]
+	var original := chances.duplicate()
+	for fact in chances:
+		chances[fact] = p
+	return original
+
+
+static func _restore_chances(original: Dictionary) -> void:
+	GameData.INTEL["scout"]["chances"].merge(original, true)
+
+
+static func _scout_vein(id: String) -> Dictionary:
+	_fresh()
+	var vein := Fixtures.seed_faction_vein(id, 40, "firm")
+	vein["security"] = Cultivating.WARDED_TIER_ID
+	vein["features"] = { "alarm": true, "cameras": 2, "ward": "time" }
+	return vein
+
+
+func _run_scout_cases() -> void:
+	run_case("scouting_spends_one_block_and_is_refused_without_one", func():
+		var vein := _scout_vein("fv_scout_block")
+		var left := TimeSystem.blocks_left()
+		assert_true(Intel.scout(vein)["ok"])
+		assert_eq(TimeSystem.blocks_left(), left - 1, "one block")
+		GameState.state["world"]["timeBlocksDone"] = GameData.TIME_BLOCKS.duplicate()
+		var intel := Intel.meter(Shares.PLAYER, "firm")
+		assert_true(not Intel.scout(vein)["ok"], "refused with no block")
+		assert_eq(Intel.meter(Shares.PLAYER, "firm"), intel, "nothing gained")
+	)
+
+	run_case("each_fact_rolls_independently_at_its_chance", func():
+		var vein := _scout_vein("fv_scout_odds")
+		var chances: Dictionary = GameData.INTEL["scout"]["chances"]
+		var hits := {}
+		var n := 2000
+		for day in range(n):
+			for fact in Intel.scout_rolls(vein["id"], day, 0):
+				hits[fact] = int(hits.get(fact, 0)) + 1
+		for fact in Intel.SECURITY_FACTS:
+			var rate := float(hits.get(fact, 0)) / float(n)
+			assert_true(absf(rate - float(chances[fact])) < 0.05, "%s rate %.3f vs %.2f" % [fact, rate, float(chances[fact])])
+		assert_eq(Intel.scout_rolls(vein["id"], 3, 1), Intel.scout_rolls(vein["id"], 3, 1), "same key, same hits")
+	)
+
+	run_case("a_hit_stores_the_fact_and_day_and_shows_on_the_sheet", func():
+		var vein := _scout_vein("fv_scout_hit")
+		var original := _scout_chances(1.0)
+		var day := int(GameState.state["world"]["day"])
+		var result := Intel.scout(vein)
+		_restore_chances(original)
+		assert_eq(result["hits"], Intel.SECURITY_FACTS)
+		var stored: Dictionary = GameState.state["scoutedSecurity"][vein["id"]]
+		var facts := Intel.security_facts(vein)
+		for fact in Intel.SECURITY_FACTS:
+			assert_eq(stored[fact]["value"], facts[fact], fact)
+			assert_eq(int(stored[fact]["day"]), day, "%s day" % fact)
+		assert_true(Intel.meter(Shares.PLAYER, "firm") < Intel.level_at(Intel.VEIN_SECURITY), "below the level")
+		assert_eq(Intel.vein_security_read(vein), Intel.security_read(facts), "sheet shows scouted facts")
+	)
+
+	run_case("a_miss_never_erases_and_a_rehit_refreshes", func():
+		var vein := _scout_vein("fv_scout_refresh")
+		var original := _scout_chances(1.0)
+		Intel.scout(vein)
+		_scout_chances(0.0)
+		var before: Dictionary = GameState.deep_copy(GameState.state["scoutedSecurity"])
+		Intel.scout(vein)
+		assert_eq(GameState.state["scoutedSecurity"], before, "misses keep what's known")
+		vein["features"]["cameras"] = 5
+		GameState.state["world"]["day"] = int(GameState.state["world"]["day"]) + 3
+		GameState.state["world"]["timeBlocksDone"] = []
+		GameState.state["world"]["timeBlock"] = 0
+		GameData.INTEL["scout"]["chances"][Intel.FACT_ALARMS] = 1.0
+		Intel.scout(vein)
+		_restore_chances(original)
+		var alarms: Dictionary = GameState.state["scoutedSecurity"][vein["id"]][Intel.FACT_ALARMS]
+		assert_eq(int(alarms["value"]["cameras"]), 5, "value refreshed")
+		assert_eq(int(alarms["day"]), int(GameState.state["world"]["day"]), "clock refreshed")
+		assert_eq(int(GameState.state["scoutedSecurity"][vein["id"]][Intel.FACT_WARD]["day"]), int(before[vein["id"]][Intel.FACT_WARD]["day"]), "unhit fact keeps its day")
+	)
+
+	run_case("a_snapshot_keeps_its_value_and_goes_stale_after_fresh_days", func():
+		var vein := _scout_vein("fv_scout_stale")
+		var original := _scout_chances(1.0)
+		var day := int(GameState.state["world"]["day"])
+		Intel.scout(vein)
+		_restore_chances(original)
+		var counts := Muscle.empty_counts()
+		counts[0] = 3
+		vein["guards"] = counts
+		vein["features"]["cameras"] = 0
+		var fresh := Intel.fresh_scouted_facts(vein["id"])
+		assert_eq(int(fresh[Intel.FACT_ALARMS]["cameras"]), 2, "old value kept")
+		assert_eq(int(fresh[Intel.FACT_GUARD_COUNT]), 0, "old guard count kept")
+		var fresh_days := int(GameData.INTEL["scout"]["freshDays"])
+		GameState.state["world"]["day"] = day + fresh_days - 1
+		assert_eq(Intel.fresh_scouted_facts(vein["id"]).size(), Intel.SECURITY_FACTS.size(), "fresh on the last day")
+		GameState.state["world"]["day"] = day + fresh_days
+		assert_eq(Intel.fresh_scouted_facts(vein["id"]), {}, "stale from day found + freshDays")
+		for row in Intel.vein_security_read(vein):
+			assert_eq(row["text"], GameData.INTEL["securityRead"]["unknown"], "%s reads ?" % row["label"])
+	)
+
+	run_case("scouting_raises_intel_by_the_scout_gain_and_starts_no_fight", func():
+		var vein := _scout_vein("fv_scout_intel")
+		assert_eq(_gain(Intel.SOURCE_SCOUT), 2)
+		var notes := (GameState.state["notifications"] as Array).size()
+		Intel.scout(vein)
+		assert_eq(Intel.meter(Shares.PLAYER, "firm"), 2)
+		assert_eq(GameState.state["event"], null, "no ambush event")
+		assert_true(not GameState.state["combat"]["active"], "no fight")
+		assert_eq((GameState.state["notifications"] as Array).size(), notes + 1, "one notification")
+	)
+
+	run_case("rewind_after_a_scout_restores_the_prior_state", func():
+		var vein := _scout_vein("fv_scout_rewind")
+		Crafting.inventory_add("rewind", 1, 1)
+		var original := _scout_chances(1.0)
+		Intel.scout(vein)
+		_restore_chances(original)
+		assert_true(GameState.state["scoutedSecurity"].has(vein["id"]))
+		assert_true(Rewind.rewind_to_block_start()["ok"])
+		assert_eq(GameState.state["scoutedSecurity"], {}, "scouted facts undone")
+		assert_eq(Intel.meter(Shares.PLAYER, "firm"), 0, "intel undone")
+	)
+
+	run_case("scouted_facts_survive_save_load_and_an_old_save_has_none", func():
+		var vein := _scout_vein("fv_scout_save")
+		var original := _scout_chances(1.0)
+		Intel.scout(vein)
+		_restore_chances(original)
+		var before: Dictionary = GameState.deep_copy(GameState.state["scoutedSecurity"])
+		assert_true(SaveManager.import_string(SaveManager.export_string())["ok"])
+		assert_eq(GameState.state["scoutedSecurity"], before, "round-trips")
+		assert_true(GameState.state["scoutedSecurity"][vein["id"]][Intel.FACT_GUARD_COUNT]["value"] is int, "count as int")
+		assert_true(GameState.state["scoutedSecurity"][vein["id"]][Intel.FACT_ALARMS]["day"] is int, "day as int")
+		GameState.state.erase("scoutedSecurity")
+		GameState.state["meta"]["saveVersion"] = 17
+		assert_true(SaveManager.import_string(SaveManager.export_string())["ok"])
+		assert_eq(GameState.state["scoutedSecurity"], {}, "old save: none scouted")
+		assert_eq(int(GameState.state["meta"]["saveVersion"]), SaveManager.SAVE_VERSION)
+	)
+
 
 # Loads a tier-1 Lens of `ore` on a fresh player Dial at Sense `sense`.
 static func _load_lens(ore: String, sense: int) -> void:

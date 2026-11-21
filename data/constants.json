@@ -511,7 +511,15 @@
       { "id": "stockpileSecurity", "at": 80, "name": "Stockpile security" },
       { "id": "stash", "at": 100, "name": "Stash detail" }
     ],
-    "gain": { "scout": 8, "raid": 12, "favour": 10 },
+    "gain": { "scout": 2, "raid": 12, "favour": 10 },
+    "scout": {
+      "chances": { "alarms": 0.8, "guardCount": 0.5, "guardStrength": 0.4, "guardKit": 0.3, "ward": 0.25 },
+      "freshDays": 7,
+      "factNames": { "alarms": "alarms", "guardCount": "guard count", "guardStrength": "guard strength", "guardKit": "guard kit", "ward": "ward" },
+      "action": "Scout",
+      "found": "You watch %s's vein in %s for a while. Learned: %s.",
+      "nothing": "You watch %s's vein in %s for a while. Nothing new."
+    },
     "dailyDecay": 1,
     "raid": { "oddsBonus": 0.15, "overestimatePenalty": 0.15 }
   },

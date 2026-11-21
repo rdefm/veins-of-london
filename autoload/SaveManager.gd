@@ -4,7 +4,7 @@ extends Node
 # autosaves. autosave() is called from daily_tick, exit_combat, event
 # completion, and every successful cash purchase.
 
-const SAVE_VERSION := 17
+const SAVE_VERSION := 18
 # Oldest save version still loadable; older saves are refused.
 const MIN_SUPPORTED_VERSION := 16
 const SLOT_COUNT := 3
@@ -1217,6 +1217,13 @@ func _restore_int_types(state: Dictionary) -> void:
 	_int_dict_values(intel_timers.get("raidWarnings", {}))
 	for entry in intel_timers.get("disinformation", []):
 		_int_key(entry, "untilDay")
+	for scouted in state.get("scoutedSecurity", {}).values():
+		for entry in scouted.values():
+			_int_key(entry, "day")
+			if entry.get("value") is Dictionary:
+				_int_dict_values(entry["value"])
+			elif typeof(entry.get("value")) == TYPE_FLOAT:
+				entry["value"] = int(entry["value"])
 	for entry in state.get("pendingMessages", []):
 		if entry.get("kind", "") == Diplomacy.FAVOUR_KIND:
 			_int_key(entry.get("payload", {}), "expiresDay")

@@ -258,10 +258,84 @@ static func score_raid_options(observer: String, target: String, options: Array)
 
 # Raid site sheet security read for a faction vein: the rows of
 # security_read() over all of the vein's security_facts() at the player's
-# vein-security level, else over none.
+# vein-security level, else over its fresh scouted facts.
 static func vein_security_read(vein: Dictionary) -> Array:
 	var known := knows(Shares.PLAYER, String(vein.get("factionId", "")), VEIN_SECURITY)
-	return security_read(security_facts(vein) if known else {})
+	return security_read(security_facts(vein) if known else fresh_scouted_facts(String(vein["id"])))
+
+
+# ── Scouted security ────────────────────────────────────────────────────
+# R§3.1 "Scouting a faction vein": the player's snapshots of a faction
+# vein's security facts. state.scoutedSecurity: { veinId: { factId:
+# { value, day } } }, value as security_facts() gave it on the day found.
+
+static func new_scouted() -> Dictionary:
+	return {}
+
+
+static func _scout_cfg() -> Dictionary:
+	return _cfg()["scout"]
+
+
+# vein_id's scouted facts still fresh today (found within freshDays), keyed
+# by fact id to the snapshot value.
+static func fresh_scouted_facts(vein_id: String) -> Dictionary:
+	var out := {}
+	var fresh_days := int(_scout_cfg()["freshDays"])
+	var scouted: Dictionary = GameState.state["scoutedSecurity"].get(vein_id, {})
+	for fact in scouted:
+		if _day() < int(scouted[fact]["day"]) + fresh_days:
+			out[fact] = scouted[fact]["value"]
+	return out
+
+
+# One stable roll per security fact for a scout opening on day/block: the
+# fact ids that hit, in SECURITY_FACTS order. Keyed off rollSeed, so a
+# Rewound scout replays the same hits.
+static func scout_rolls(vein_id: String, day: int, block: int) -> Array[String]:
+	var chances: Dictionary = _scout_cfg()["chances"]
+	var key := "%d|%s|%d|%d|scout" % [int(GameState.state["world"]["rollSeed"]), vein_id, day, block]
+	var hits: Array[String] = []
+	for fact in SECURITY_FACTS:
+		if Rng.stable_unit("%s|%s" % [key, fact]) < float(chances[fact]):
+			hits.append(fact)
+	return hits
+
+
+# Scout action on a faction vein: travels there and spends 1 block, then
+# rolls each fact; a hit stores (or refreshes) its current value and today.
+# Raises the player's intel on the faction by gain.scout and pushes one
+# notification. { ok, hits } or { ok: false, reason }.
+static func scout(vein: Dictionary) -> Dictionary:
+	var travel := Travel.ensure_district(String(vein["district"]))
+	if not travel["ok"]:
+		return travel
+	var world: Dictionary = GameState.state["world"]
+	var day := int(world["day"])
+	var block := int(world["timeBlock"])
+	TimeSystem.advance_time_block()
+	var vein_id := String(vein["id"])
+	var faction_id := String(vein["factionId"])
+	var hits := scout_rolls(vein_id, day, block)
+	var facts := security_facts(vein)
+	var store: Dictionary = GameState.state["scoutedSecurity"]
+	if not hits.is_empty() and not store.has(vein_id):
+		store[vein_id] = {}
+	var names: Array[String] = []
+	for fact in hits:
+		var value: Variant = facts[fact]
+		if value is Dictionary:
+			value = (value as Dictionary).duplicate(true)
+		store[vein_id][fact] = { "value": value, "day": day }
+		names.append(String(_scout_cfg()["factNames"][fact]))
+	gain(Shares.PLAYER, faction_id, SOURCE_SCOUT)
+	var faction_name := String(GameData.FACTIONS[faction_id]["name"])
+	var district_name := String(GameData.DISTRICTS[String(vein["district"])]["name"])
+	if names.is_empty():
+		Notify.push(String(_scout_cfg()["nothing"]) % [faction_name, district_name])
+	else:
+		Notify.push(String(_scout_cfg()["found"]) % [faction_name, district_name, ", ".join(names)], Notify.CATEGORY_SUCCESS)
+	return { "ok": true, "hits": hits }
 
 
 # Every security fact about a faction vein, keyed by SECURITY_FACTS id:

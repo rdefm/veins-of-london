@@ -264,6 +264,9 @@ func new_game_state() -> Dictionary:
 		"intel": Intel.new_state(),
 		# Privacy, raid-warning and disinformation timers (Intel.new_timers()).
 		"intelTimers": Intel.new_timers(),
+		# The player's scouted faction-vein security snapshots, veinId -> factId
+		# -> { value, day } (Intel.new_scouted(), R§3.1 "Scouting a faction vein").
+		"scoutedSecurity": Intel.new_scouted(),
 		# Best observation tier per ore from completed events
 		# ({ eventId: { obsId: { ore: level } } }, R§3.9d "Memory").
 		"observationMemory": {},

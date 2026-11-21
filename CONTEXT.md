@@ -106,6 +106,10 @@ A signed ceasefire between two parties for a set number of days: no moves betwee
 How much one side knows about another, read from an intel meter (0–100) held for every observer → target pair: the player on each faction, and each faction on the player and on each other. Levels unlock in order: vein security, holdings, stockpile location, stockpile security, stash detail. Scouting and raiding the target raise the meter; it fades slowly each day; a stockpile relocation drops everyone below stockpile location. What a level doesn't reach stays hidden.
 _Avoid_: "intel" for the Network's timed per-site tips (those are site intel).
 
+**Scouted security**:
+What the player has seen of one faction vein's security by scouting it: alarms/cameras, guard count, guard strength, guard kit, ward, each found separately. Each is a snapshot as it stood on the day found, so it can go wrong if the faction changes things, and it goes back to unknown after a week. Player only, per vein.
+_Avoid_: "site intel" (the Network's bought per-site tips); "intel level" (the faction-wide meter).
+
 **Key member**:
 A named person in a faction the player can message and gift to: Lusk for the Firm, Ingram for the Guild, Fairweather for the Conclave, Nadia, Des and Hakim for the Collective, the handler for the Network. One key member per faction is its speaker (Nadia for the Collective): every faction message to the player comes from the speaker, never from the faction as a faceless whole.
 
