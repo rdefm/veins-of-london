@@ -395,8 +395,7 @@ Run `set_lossy_imports.sh` after a fresh clone: .import files are gitignored, so
 `storyboard.html` "Prose packs" button: editor for `data/board_prose/*` (add/duplicate/delete cards and replies, fields, event cards, `_comments`; Save writes the files) plus a meeting sandbox (facts, seed, phone playback, why-it-fired, unfilled `{tokens}`). Pure section tested by `test_storyboard.js` against `tests/fixtures/board_prose_golden.json` (from `scripts/export_board_prose_golden.gd`).
 `run_tests.sh` runs the headless suite. `setup_godot.sh`/`setup_godot_ai.sh` set up the headless
 binary and the godot-ai MCP server; `soak.sh` repeats the playthrough test.
-`diagnose_115_timing.gd` is a hang-timing probe; `verify_map_camera_persistence.gd` is a
-live-tree check. `sim_combat_balance.gd` (+ `_impl.gd`) is the seeded live-`Combat` balance sim
+`verify_map_camera_persistence.gd` is a live-tree check. `sim_combat_balance.gd` (+ `_impl.gd`) is the seeded live-`Combat` balance sim
 (fights via `Combat.start_debug_combat()`, naive vs reader policy over a matchup grid, fog on and off; not in run_tests.sh). `sim_ai_guard.gd` (+ `_impl.gd`) is the seeded Archie-vs-archetype sim of per-side Strike/Guard/Feint share and ally guard reasons (not in run_tests.sh).
 
 ## tools/*.py, *.html, *.js — asset/content pipeline tooling

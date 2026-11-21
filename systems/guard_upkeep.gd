@@ -36,11 +36,6 @@ static func hire_advance() -> int:
 	return Business.prorated_wage(weekly_wage(), days_left_in_week(GameState.state["world"]["day"]))
 
 
-# "£357 today, then £500/week" for a guard hire button.
-static func hire_cost_text() -> String:
-	return "£%d today, then £%d/week" % [hire_advance(), weekly_wage()]
-
-
 # "£1000/week" for a security row, or "" with no guards.
 static func weekly_cost_text(guard_count: int) -> String:
 	if guard_count <= 0:

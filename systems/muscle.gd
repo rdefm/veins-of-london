@@ -290,15 +290,11 @@ static func post_repel_weight_sum(post_id: String) -> float:
 
 # ── Security score ────────────────────────────────────────────────────
 
-# 0-100 readout (spec §Security score): hardware share plus repel share.
-# `hardware` / `max_hardware` are the place's lock/ward resist or installed
-# HQ raidReduction; `repel` is the pre-kit repel chance.
-static func security_score(hardware: float, max_hardware: float, repel: float) -> int:
-	return int(security_score_parts(hardware, max_hardware, repel)["score"])
-
-
-# The score split for display: { score, hardware, guards, hardwareMax,
-# guardsMax }. hardware + guards == score.
+# 0-100 readout (spec §Security score): hardware share plus repel share,
+# split for display: { score, hardware, guards, hardwareMax, guardsMax };
+# hardware + guards == score. `hardware` / `max_hardware` are the place's
+# lock/ward resist or installed HQ raidReduction; `repel` is the pre-kit
+# repel chance.
 static func security_score_parts(hardware: float, max_hardware: float, repel: float) -> Dictionary:
 	var cfg: Dictionary = GameData.MUSCLE["score"]
 	var hw_share := clampf(hardware / max_hardware, 0.0, 1.0) if max_hardware > 0.0 else 0.0
@@ -345,11 +341,7 @@ static func vein_score_parts(vein: Dictionary) -> Dictionary:
 	return security_score_parts(float(Cultivating.vein_tier_resist(vein)), max_hw, repel)
 
 
-# Security score of HQ: installed hardware raidReduction (guards excluded).
-static func hq_security_score() -> int:
-	return int(hq_score_parts()["score"])
-
-
+# Security score split of HQ: installed hardware raidReduction plus guard repel.
 static func hq_score_parts() -> Dictionary:
 	var have := 0.0
 	var max_hw := 0.0
@@ -960,12 +952,8 @@ static func faction_reserve(faction_id: String) -> Array:
 	return faction_state(faction_id)["reserve"]
 
 
-# Every guard the faction pays: its veins' posts, stockpile and Reserve.
-static func faction_total(faction_id: String) -> int:
-	return counts_total(faction_all_counts(faction_id))
-
-
-# Level counts across every place the faction keeps guards.
+# Level counts across every place the faction keeps guards: its veins'
+# posts, stockpile, Reserve and injured.
 static func faction_all_counts(faction_id: String) -> Array:
 	var all := empty_counts()
 	for counts in _faction_places(faction_id):

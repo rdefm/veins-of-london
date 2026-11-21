@@ -137,11 +137,6 @@ static func active_turf(district_id: String) -> Array:
 	return result
 
 
-# Turf perks for a player site/vein record (its district).
-static func active_turf_for_site(site: Dictionary) -> Array:
-	return active_turf(String(site.get("district", "")))
-
-
 static func turf_scale(district_id: String, faction_id: String) -> float:
 	match Turf.tier(district_id, faction_id):
 		Turf.TIER_CONTROL:

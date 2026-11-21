@@ -39,11 +39,6 @@ static func set_data(key: String, value: Variant) -> void:
 	EventBus.mark_changed()
 
 
-# Parks a return target on the open modal; Modal.close() reopens it. Caller checks a modal is open.
-static func set_return(type: String, data: Dictionary = {}) -> void:
-	GameState.state["modal"]["data"]["returnTo"] = { "type": type, "data": data }
-
-
 static func has_follow_event() -> bool:
 	return _follow_event() != null
 

@@ -348,15 +348,6 @@ static func _signed_delta(before: Dictionary, after: Dictionary) -> Dictionary:
 	return result
 
 
-static func _positive_delta(before: Dictionary, after: Dictionary) -> Dictionary:
-	var result := {}
-	for key in before:
-		var change: int = after.get(key, 0) - before[key]
-		if change > 0:
-			result[key] = change
-	return result
-
-
 static func _negative_delta(before: Dictionary, after: Dictionary) -> Dictionary:
 	var result := {}
 	for key in before:

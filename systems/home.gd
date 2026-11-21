@@ -205,11 +205,6 @@ static func bill_base_for(tier_id: String, tenure: String) -> int:
 	return int(GameData.HOME_TIERS[tier_id]["dailyCost"])
 
 
-static func current_bill_base() -> int:
-	var home: Dictionary = GameState.state["home"]
-	return bill_base_for(home["tier"], home["tenure"])
-
-
 # A week's bill before barometer scaling: the per-day base × days per week.
 static func weekly_bill_for(tier_id: String, tenure: String) -> int:
 	return bill_base_for(tier_id, tenure) * Calendar.days_per_week()
