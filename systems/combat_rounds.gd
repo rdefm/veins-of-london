@@ -1492,6 +1492,44 @@ static func play_pick(cp: Dictionary, action: Dictionary, stack_id: String) -> D
 	return { "ok": true, "beats": beats, "outcome": cp["outcome"] }
 
 
+# What playing the raw pick `action` at the paused position would do to each
+# combatant's hp and shield, without touching `cp`: the pick plays out on a
+# copy (its pre-seeded rng, so the figures match the real resolution) until
+# the player's action has resolved. Returns { ok, changes } with changes
+# { combatant index: { hpDelta, shieldDelta } } (negative = lost) for each
+# combatant the action moved, or { ok: false, reason }. The player's crit is
+# hidden (the non-crit figure) unless Fate Lens combat sight reads it.
+static func project_pick(cp: Dictionary, action: Dictionary) -> Dictionary:
+	var reason := _pick_block_reason(cp, action)
+	if reason != "":
+		return { "ok": false, "reason": reason }
+	var sim := _round_start_copy(cp)
+	for c in sim["combatants"]:
+		c["moveOwner"] = null
+	sim["projectStop"] = true
+	sim["projectHideCrit"] = not bool(cp["combatants"][PLAYER_INDEX].get("fateCritSight", false))
+	var entry = _normalize_action(sim, action)
+	var position := decision_position(sim)
+	_counter_pick(sim, position, entry["move"])
+	for part in range(move_cost(entry["move"])):
+		var filled: Dictionary = entry.duplicate()
+		filled["part"] = part
+		sim["playerPlan"][position + part] = filled
+	sim["cursor"]["pause"] = -1
+	var rng := RandomNumberGenerator.new()
+	rng.state = sim["rngState"]
+	_advance(sim, rng, [])
+	var changes := {}
+	var before: Array = sim.get("projectBefore", [])
+	for i in range(before.size()):
+		var c: Dictionary = sim["combatants"][i]
+		var hp_delta: int = int(c["hp"]) - int(before[i]["hp"])
+		var shield_delta: int = int(c["shield"]) - int(before[i]["shield"])
+		if hp_delta != 0 or shield_delta != 0:
+			changes[i] = { "hpDelta": hp_delta, "shieldDelta": shield_delta }
+	return { "ok": true, "changes": changes }
+
+
 # Why the raw pick `action` ({ move, target } or { slot, target }) can't be
 # played at the paused position, or "".
 static func _pick_block_reason(cp: Dictionary, action: Dictionary) -> String:
@@ -2167,7 +2205,12 @@ static func _advance(cp: Dictionary, rng: RandomNumberGenerator, beats: Array, r
 			beats[-1]["marks"] = stage_marks(cp)
 			continue
 		var fleeing: bool = move(fury_move(cp, actor, action["move"]))["effect"] == EFFECT_FLEE
+		var projecting: bool = actor == PLAYER_INDEX and cp.get("projectStop", false)
+		if projecting:
+			cp["projectBefore"] = combatants.map(func(c: Dictionary) -> Dictionary: return { "hp": c["hp"], "shield": c["shield"] })
 		var flee_failed := _resolve_action(cp, actor, action, rng, beats)
+		if projecting:
+			break
 		if fleeing and not (flee_failed and move_level(combatant, fury_move(cp, actor, action["move"])) >= int(level_effects("legIt")["keepActionsLevel"])):
 			cursor["done"].append(actor)
 	cursor["pause"] = -1
@@ -2643,6 +2686,8 @@ static func _strike(cp: Dictionary, actor_idx: int, target_idx: int, move_id: St
 		dmg = maxi(1, GameState.round_epsilon(roll * chip_multiplier(actor, target)))
 	var chance := crit_chance(actor, lady, crit_bonus)
 	var crit: bool = bool(planned_crit) if planned_crit != null else rng.randf() < chance
+	if actor_idx == PLAYER_INDEX and cp.get("projectHideCrit", false):
+		crit = false
 	if actor_idx == PLAYER_INDEX and _pearl_crits(cp):
 		crit = true
 	if not forced.is_empty():

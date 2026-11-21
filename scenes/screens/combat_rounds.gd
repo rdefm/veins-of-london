@@ -344,6 +344,7 @@ func _build_fight_layout() -> void:
 
 	_dock = CombatCommandDock.new()
 	_fight_body.add_child(_dock)
+	_dock.arm_changed.connect(_on_arm_changed)
 
 	_voiceover = UI.vbox(12)
 	_voiceover.name = "DemoVoiceover"
@@ -445,6 +446,28 @@ func _sync_fight(cp: Dictionary) -> void:
 		_continue_button.disabled = _director.is_playing()
 	else:
 		_dock.configure(moves, items, _move_row(cp, _LEG_IT), dial, _busy(), _pick_cast, _glimpse_rows(cp))
+	_sync_damage_preview()
+
+
+# The armed action's predicted hp loss on the strip's cards (CombatRounds.project_pick());
+# cleared when nothing is armed or a round plays.
+func _sync_damage_preview() -> void:
+	var previews := {}
+	var pick: Dictionary = _dock.armed_pick()
+	if not pick.is_empty() and not _busy() and _cp()["outcome"] == null:
+		var cp: Dictionary = _cp()
+		var projection := CombatRounds.project_pick(cp, pick)
+		if projection["ok"]:
+			var roster := stage_roster(cp, -1)
+			for index in projection["changes"]:
+				var hp_delta: int = projection["changes"][index]["hpDelta"]
+				if hp_delta < 0:
+					previews[TurnOrderStrip.card_key_string(_stage_target(roster, int(index)))] = int(cp["combatants"][index]["hp"]) + hp_delta
+	_strip.set_damage_preview(previews)
+
+
+func _on_arm_changed(_key: String) -> void:
+	_sync_damage_preview()
 
 
 # Shows the carousel of `all_entries` (strip_entries() of `cp`) from the
@@ -904,7 +927,7 @@ func _move_row(cp: Dictionary, move_id: String) -> Dictionary:
 		"name": "MoveRow_%s" % move_id, "iconKind": icons.get(move_id, ""),
 		"label": _coach_label(cp, move_id, move_name), "badge": "L%d" % level if MoveLevels.move_ids().has(move_id) else "",
 		"disabled": reason != "", "disabledReason": reason,
-		"callback": _pick.bind(move_id, target),
+		"callback": _pick.bind(move_id, target), "pick": { "move": move_id, "target": target },
 		"tooltip": _coach_tooltip(cp, move_id, GameData.COMBAT_ROUNDS["tooltips"].get(move_id, "")),
 		"onExplain": _explain_block.bind(move_name, reason),
 		"peek": MoveLevels.peek(move_id) if MoveLevels.move_ids().has(move_id) else {},
@@ -945,6 +968,7 @@ func _loadout_rows(cp: Dictionary) -> Array:
 			"tooltip": _coach_tooltip(cp, recipe_id, GameData.COMBAT_ROUNDS["tooltips"].get(recipe_id, "")) if unit != null else "",
 			"disabled": reason != "", "disabledReason": reason,
 			"callback": _on_rewind_pressed.bind(Combat.REWIND_PAY_LOADOUT) if is_rewind else _pick_item.bind(slot, target),
+			"pick": {} if is_rewind or unit == null else { "slot": slot, "target": target },
 			"onExplain": _explain_block.bind(label, reason),
 		})
 	return rows

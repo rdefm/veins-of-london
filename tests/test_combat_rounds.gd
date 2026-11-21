@@ -240,6 +240,33 @@ func _live_dial_widget(screen: CombatRoundsScreen) -> DialWidget:
 
 
 func run() -> void:
+	run_case("project_pick_matches_the_real_strike_and_leaves_the_fight_untouched", func():
+		var crits_hidden := 0
+		for guard in [CombatRounds.OPEN, CombatRounds.GUARDED]:
+			for seed_value in range(1, 80):
+				GameState.reset()
+				var combat := _start_vs([_slow_mugger(200)], [[["strike", "strike"]]], [], seed_value)
+				combat["combatants"][1]["guard"] = guard
+				var pick := { "move": "strike", "target": 1 }
+				var before := var_to_str(combat)
+				var hidden := CombatRounds.project_pick(combat, pick)
+				combat["combatants"][CombatRounds.PLAYER_INDEX]["fateCritSight"] = true
+				var seen := CombatRounds.project_pick(combat, pick)
+				combat["combatants"][CombatRounds.PLAYER_INDEX]["fateCritSight"] = false
+				assert_eq(var_to_str(combat), before, "projecting changes nothing")
+				var hp_before: int = combat["combatants"][1]["hp"]
+				var result := CombatRounds.play_pick(combat, pick, Combat.ROUND_SNAPSHOT_STACK)
+				var real: int = combat["combatants"][1]["hp"] - hp_before
+				var hit := _first(result["beats"], "hit" if guard == CombatRounds.OPEN else "chip")
+				assert_eq(seen["changes"][1]["hpDelta"], real, "sight projection equals the real outcome (%s, seed %d)" % [guard, seed_value])
+				if bool(hit.get("crit", false)):
+					crits_hidden += 1
+					assert_true(hidden["changes"][1]["hpDelta"] > real, "crit stays hidden without sight")
+				else:
+					assert_eq(hidden["changes"][1]["hpDelta"], real, "no crit: hidden equals real")
+		assert_true(crits_hidden > 0, "some seed crits")
+	)
+
 	run_case("street_mugging_from_prep_opens_a_round_fight_on_the_real_player", func():
 		GameState.reset()
 		var player: Dictionary = GameState.state["player"]

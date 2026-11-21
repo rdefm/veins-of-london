@@ -64,6 +64,8 @@ var _leg_it: Dictionary = {}
 var _locked := false
 # The armed row's key (_row_key(): "<view>/<button name>"); screen-local.
 var _armed_key := ""
+# Row key -> the raw pick its row carries (set while rows build).
+var _row_picks: Dictionary = {}
 
 # Emitted with the armed key ("" when disarmed).
 signal arm_changed(key: String)
@@ -416,6 +418,8 @@ func _build_command_row(row: Dictionary, default_name: String, locked: bool, vie
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	UI.style_command_row(button, accent)
 	var key := _row_key(view, str(button.name))
+	if row.has("pick"):
+		_row_picks[key] = row["pick"]
 	if _armed_key == key:
 		if disabled:
 			_set_armed("")
@@ -477,6 +481,12 @@ func _tap_armable(key: String, commit: Callable, args: Array = []) -> void:
 
 func armed_key() -> String:
 	return _armed_key
+
+
+# The armed row's raw pick ({ move, target } / { slot, target }); {} when
+# nothing is armed or the row carries none.
+func armed_pick() -> Dictionary:
+	return _row_picks.get(_armed_key, {})
 
 
 # Clears the arm (empty-space tap, playback, Rewind); rows redraw unhighlighted.

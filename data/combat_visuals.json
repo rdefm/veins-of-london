@@ -22,6 +22,13 @@
       "entryDuration": 0.35
     }
   },
+  "damagePreview": {
+    "_note": "Armed-action outgoing damage slice on a turn-order card's HP bar (TurnOrderStrip.NameplateCard): colour fills the predicted-loss slice; glow* is the soft halo around it (hex, alpha 0-1 total, px reach).",
+    "colour": "#fff4c2",
+    "glowColour": "#ffe680",
+    "glowAlpha": 0.6,
+    "glowPx": 3.0
+  },
   "cardFrames": {
     "_note": "Street-sign nine-slice frames for turn-order cards (scenes/components/turn_order_strip.gd), keyed by damage tier. margin: nine-slice margin in px on all four sides; see assets/combat/combat-cards/README.md.",
     "clean": { "image": "res://assets/combat/combat-cards/street_sign_frame.png", "margin": 6 },
