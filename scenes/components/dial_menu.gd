@@ -28,6 +28,20 @@ const SECTION_CRAFT_TABS := { "movement": "movement", "lenses": "lens" }
 const COL_CREAM := Color("e8dfc8")
 const OWNER_TITLE := "%s — Dial"
 const OWNER_TITLE_X := 112.0
+const LEVEL_TEXT := "Level %d"
+const XP_TEXT := "%d/%d XP"
+const XP_MAX_TEXT := "%d XP"
+const XP_HOW_TEXT := "+%d XP per cast"
+const NEXT_TITLE := "Next level"
+const MAX_LEVEL_TEXT := "Max level"
+const GAIN_CHAMBER := "+%d chamber"
+const GAIN_LENS := "+%d Lens slot"
+const GAIN_CAST := "Casts ×%.2f"
+const GAIN_BLACK_HOLE := "Black Hole +%d turn"
+const PANEL_FONT_SIZE := 12
+const PANEL_GAP := 8.0
+## Gap below the MOVEMENT band label before the Next level panel starts.
+const NEXT_PANEL_DROP := 32.0
 
 enum Motion { SNAP, REDUCED, FULL }
 
@@ -73,6 +87,12 @@ var _tag: PanelContainer
 var _section_craft: Button
 var _charge_label: Label
 var _face_charge: Label
+var _level_panel: VBoxContainer
+var _level_label: Label
+var _xp_bar: ProgressBar
+var _xp_text: Label
+var _xp_how: Label
+var _next_panel: VBoxContainer
 var _needle_tween: Tween
 var _pulse_tween: Tween
 var _tween: Tween
@@ -363,6 +383,8 @@ func _build() -> void:
 	_face_charge.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_face_charge)
 
+	_build_level_panels()
+
 	_section_craft = MapCardStyle.text_button("Craft", craft_section)
 	_section_craft.name = "SectionCraft"
 	_section_craft.position = Vector2(LIST_X, SCREEN.y - UI.nav_bar_clearance() - CRAFT_HEIGHT - 8.0)
@@ -379,6 +401,90 @@ func _build() -> void:
 	_list_box.custom_minimum_size = Vector2(LIST_WIDTH, 0.0)
 	_list_scroll.add_child(_list_box)
 	add_child(_list_scroll)
+
+
+## Overview's right column: Level / XP bar / how XP is earned above the MOVEMENT band label,
+## the Next level gains (Dial.level_progress) below it.
+func _build_level_panels() -> void:
+	_level_panel = UI.vbox(2)
+	_level_panel.name = "LevelPanel"
+	_level_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_level_label = UI.label("")
+	_level_label.name = "LevelLabel"
+	_level_panel.add_child(_level_label)
+	_xp_bar = UI.bar(0.0, 1.0)
+	_xp_bar.name = "XpBar"
+	_xp_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_level_panel.add_child(_xp_bar)
+	_xp_text = _panel_label("XpText", true)
+	_level_panel.add_child(_xp_text)
+	_xp_how = _panel_label("XpHow", true)
+	_level_panel.add_child(_xp_how)
+	add_child(_level_panel)
+
+	_next_panel = UI.vbox(2)
+	_next_panel.name = "NextLevelPanel"
+	_next_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_next_panel)
+
+
+func _panel_label(node_name: String, muted: bool) -> Label:
+	var l := UI.muted_label("") if muted else UI.label("")
+	l.name = node_name
+	l.add_theme_font_size_override("font_size", PANEL_FONT_SIZE)
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.custom_minimum_size = Vector2(_panel_width(), 0.0)
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return l
+
+
+static func _panel_x() -> float:
+	return overview_position().x + canvas_size().x * overview_scale() + PANEL_GAP
+
+
+static func _panel_width() -> float:
+	return SCREEN.x - _panel_x() - PANEL_GAP
+
+
+## Gain lines for the Next level panel: non-zero deltas only; the cast multiplier always shows.
+static func next_level_lines(progress: Dictionary) -> Array:
+	if progress["isMax"]:
+		return [MAX_LEVEL_TEXT]
+	var n: Dictionary = progress["next"]
+	var out: Array = []
+	if int(n["capacity"]) > 0:
+		out.append(GAIN_CHAMBER % int(n["capacity"]))
+	if int(n["lensSlots"]) > 0:
+		out.append(GAIN_LENS % int(n["lensSlots"]))
+	out.append(GAIN_CAST % float(n["castMult"]))
+	if int(n["blackHoleFreeze"]) > 0:
+		out.append(GAIN_BLACK_HOLE % int(n["blackHoleFreeze"]))
+	return out
+
+
+func _refresh_level_panels(dial: Dictionary) -> void:
+	var p := Dial.level_progress(dial, owner_id)
+	_level_label.text = LEVEL_TEXT % int(p["level"])
+	if p["isMax"]:
+		_xp_bar.max_value = 1.0
+		_xp_bar.value = 1.0
+		_xp_text.text = XP_MAX_TEXT % int(p["xp"])
+	else:
+		_xp_bar.max_value = maxf(float(p["nextXp"] - p["levelXp"]), 0.0001)
+		_xp_bar.value = float(p["xp"] - p["levelXp"])
+		_xp_text.text = XP_TEXT % [int(p["xp"]), int(p["nextXp"])]
+	_xp_how.text = XP_HOW_TEXT % int(p["xpPerCast"])
+	for c in _next_panel.get_children():
+		_next_panel.remove_child(c)
+		c.queue_free()
+	if not p["isMax"]:
+		var title := _panel_label("NextTitle", false)
+		title.text = NEXT_TITLE
+		_next_panel.add_child(title)
+	for line in next_level_lines(p):
+		var l := _panel_label("Gain", true)
+		l.text = line
+		_next_panel.add_child(l)
 
 
 func _build_head(head: Control) -> void:
@@ -544,6 +650,7 @@ func _refresh() -> void:
 	_charge_label.visible = in_movement
 	_charge_label.text = "Charge %s (regen %s/day)" % [charge_text(dial), str(dial["rechargeRate"])]
 	_face_charge.text = charge_text(dial)
+	_refresh_level_panels(dial)
 
 	var chambers_open: bool = section == "complications"
 	var comps: Array = dial["loadedComplications"]
@@ -754,6 +861,12 @@ func _apply_view(animate: bool) -> void:
 		(_band_labels[s] as Label).position = overview_position() + Vector2(canvas_size().x * overview_scale() + 8.0, (band.get_center().y) * overview_scale() - 12.0)
 	_face_charge.visible = not in_section
 	_face_charge.position = face_charge_position()
+	_level_panel.visible = not in_section
+	_level_panel.position = Vector2(_panel_x(), overview_position().y)
+	_level_panel.custom_minimum_size.x = _panel_width()
+	_next_panel.visible = not in_section
+	_next_panel.position = Vector2(_panel_x(), (_band_labels["movement"] as Label).position.y + NEXT_PANEL_DROP)
+	_next_panel.custom_minimum_size.x = _panel_width()
 	_section_craft.visible = in_section and craft_enabled
 	var mode := _motion() if animate else Motion.SNAP
 	if mode == Motion.FULL:

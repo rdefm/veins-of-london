@@ -1016,6 +1016,59 @@ func run() -> void:
 		assert_eq(GameState.state["player"]["dial"]["xp"], 10, "casting should award 10 Dial XP, mirroring the old device-activation XP award")
 	)
 
+	run_case("level_progress_at_level_1_projects_the_level_2_threshold_and_gains_from_data", func():
+		GameState.reset()
+		var dial := _dial_no_movement()
+		var p := Dial.level_progress(dial)
+		assert_eq(p["level"], 1, "level 1")
+		assert_eq(p["xp"], 0, "no xp yet")
+		assert_true(not p["isMax"], "level 1 is not max")
+		assert_eq(p["levelXp"], GameData.DIAL_XP_LEVELS[1], "floor is xpLevels[1]")
+		assert_eq(p["nextXp"], GameData.DIAL_XP_LEVELS[2], "next threshold is xpLevels[2]")
+		assert_eq(p["xpPerCast"], Dial.cast_xp(), "xp per cast matches what a cast awards")
+		var n: Dictionary = p["next"]
+		assert_eq(n["capacity"], GameData.DIAL_CAPACITY_BY_LEVEL[2] - GameData.DIAL_CAPACITY_BY_LEVEL[1], "capacity delta from capacityByLevel")
+		var slots: Array = GameData.DIAL_LENS["lensSlotsByLevel"]
+		assert_eq(n["lensSlots"], int(slots[2]) - int(slots[1]), "lens slot delta from lensSlotsByLevel")
+		assert_eq(n["castMult"], 1.0 + 2 * GameData.DIAL_CAST_MAGNITUDE_PER_LEVEL, "next cast multiplier")
+		var bh: Array = GameData.DIAL_CAST_BLACK_HOLE_FREEZE_BONUS_BY_LEVEL
+		assert_eq(n["blackHoleFreeze"], int(bh[2]) - int(bh[1]), "black hole delta")
+	)
+
+	run_case("level_progress_mid_level_reports_xp_and_the_next_levels_deltas", func():
+		GameState.reset()
+		var dial := _dial_no_movement()
+		dial["level"] = 2
+		dial["xp"] = 70
+		var p := Dial.level_progress(dial)
+		assert_eq(p["xp"], 70, "current xp")
+		assert_eq(p["levelXp"], GameData.DIAL_XP_LEVELS[2], "floor is xpLevels[2]")
+		assert_eq(p["nextXp"], GameData.DIAL_XP_LEVELS[3], "next threshold is xpLevels[3]")
+		var bh: Array = GameData.DIAL_CAST_BLACK_HOLE_FREEZE_BONUS_BY_LEVEL
+		assert_eq(p["next"]["blackHoleFreeze"], int(bh[3]) - int(bh[2]), "black hole delta into level 3")
+		assert_eq(p["next"]["castMultDelta"], GameData.DIAL_CAST_MAGNITUDE_PER_LEVEL, "one level's cast multiplier step")
+	)
+
+	run_case("level_progress_at_max_level_has_no_next_threshold_or_gains", func():
+		GameState.reset()
+		var dial := _dial_no_movement()
+		var max_level: int = GameData.DIAL_XP_LEVELS.size() - 1
+		dial["level"] = max_level
+		dial["xp"] = int(GameData.DIAL_XP_LEVELS[max_level]) + 40
+		var p := Dial.level_progress(dial)
+		assert_true(p["isMax"], "max level")
+		assert_eq(p["maxLevel"], max_level, "max level from xpLevels")
+		assert_eq(p["nextXp"], -1, "no next threshold")
+		assert_true(p["next"].is_empty(), "no next-level gains")
+	)
+
+	run_case("level_progress_on_a_contact_dial_uses_the_flat_cast_xp", func():
+		GameState.reset()
+		var dial := _dial_no_movement()
+		var p := Dial.level_progress(dial, "james")
+		assert_eq(p["xpPerCast"], GameData.DIAL_CAST_XP, "contact Dials take flat castXp, no Soul multiplier")
+	)
+
 	run_case("dial_level_2_at_50_xp_updates_capacityMax_and_maxCharge_from_the_level_2_lookup", func():
 		GameState.reset()
 		var dial := _dial_no_movement()

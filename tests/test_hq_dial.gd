@@ -525,6 +525,50 @@ func run() -> void:
 		menu.free()
 	)
 
+	run_case("dial_menu_overview_shows_level_xp_and_next_level_gains_and_max_level", func():
+		GameState.reset()
+		var dial := _fresh_dial()
+		dial["level"] = 2
+		dial["xp"] = 70
+		GameState.state["player"]["dial"] = dial
+		var menu := DialMenu.new()
+		menu._ready()
+		var level: Label = menu.get_node("LevelPanel/LevelLabel")
+		assert_eq(level.text, "Level 2", "overview shows the Dial level")
+		assert_eq((menu.get_node("LevelPanel/XpText") as Label).text, "70/%d XP" % int(GameData.DIAL_XP_LEVELS[3]), "XP X/Y toward the next threshold")
+		var bar: ProgressBar = menu.get_node("LevelPanel/XpBar")
+		assert_eq(bar.value, 70.0 - float(GameData.DIAL_XP_LEVELS[2]), "bar fills from the current level's floor")
+		assert_true((menu.get_node("LevelPanel/XpHow") as Label).text.contains("per cast"), "says how XP is earned")
+		var next: Node = menu.get_node("NextLevelPanel")
+		var lines := DialMenu.next_level_lines(Dial.level_progress(dial))
+		assert_eq(next.get_child_count(), lines.size() + 1, "Next level title plus one row per gain")
+		assert_eq((next.get_child(0) as Label).text, "Next level", "panel titled Next level")
+		assert_true(menu._level_panel.visible and menu._next_panel.visible, "panels show on the overview")
+		menu.open_section("movement")
+		assert_true(not menu._level_panel.visible and not menu._next_panel.visible, "panels hide inside a section")
+		menu.close_section()
+		dial["level"] = GameData.DIAL_XP_LEVELS.size() - 1
+		dial["xp"] = int(GameData.DIAL_XP_LEVELS[dial["level"]])
+		menu._refresh()
+		var shown: Array = []
+		for c in menu._next_panel.get_children():
+			if not c.is_queued_for_deletion():
+				shown.append((c as Label).text)
+		assert_eq(shown, ["Max level"], "max level shows Max level only")
+		menu.free()
+	)
+
+	run_case("dial_menu_overview_level_panel_reads_the_contacts_dial", func():
+		GameState.reset()
+		Dial.grant_contact_dial("james")
+		var menu := DialMenu.new()
+		menu.owner_id = "james"
+		menu._ready()
+		var lvl: int = int(Dial.dial_of("james")["level"])
+		assert_eq((menu.get_node("LevelPanel/LevelLabel") as Label).text, "Level %d" % lvl, "contact Dial's own level")
+		menu.free()
+	)
+
 	run_case("dial_menu_section_back_button_returns_to_overview_not_host", func():
 		GameState.reset()
 		GameState.state["player"]["dial"] = _fresh_dial()

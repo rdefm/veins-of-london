@@ -138,6 +138,7 @@
     "contactNoEffect": "Sets the winding ore. Nothing more: a contact has no Sight."
   },
   "xpLevels": [0, 0, 50, 150, 400, 1000],
+  "castXp": 10,
   "maxChargeBonusByLevel": [0, 0, 5, 12, 22, 35],
   "rechargeRateBonusByLevel": [0, 0, 0, 0, 0.5, 1.0],
   "castMagnitudePerLevel": 0.25,

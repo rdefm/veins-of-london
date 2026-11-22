@@ -61,6 +61,7 @@ var DIAL_LENS: Dictionary = {}
 # on top of the seated Movement's stats; rechargeRateBonusByLevel is
 # sparser -- bigger reserve now, faster refill later.
 var DIAL_XP_LEVELS: Array = []
+var DIAL_CAST_XP: int = 0
 var DIAL_MAX_CHARGE_BONUS_BY_LEVEL: Array = []
 var DIAL_RECHARGE_RATE_BONUS_BY_LEVEL: Array = []
 var DIAL_CAST_MAGNITUDE_PER_LEVEL: float = 0.0
@@ -449,6 +450,7 @@ const MANIFEST: Array[Dictionary] = [
 		{"field": "DIAL_CAPACITY_BY_LEVEL", "key": "capacityByLevel", "type": TYPE_ARRAY},
 		{"field": "DIAL_LENS", "key": "lens", "type": TYPE_DICTIONARY},
 		{"field": "DIAL_XP_LEVELS", "key": "xpLevels", "type": TYPE_ARRAY},
+		{"field": "DIAL_CAST_XP", "key": "castXp", "type": TYPE_INT},
 		{"field": "DIAL_MAX_CHARGE_BONUS_BY_LEVEL", "key": "maxChargeBonusByLevel", "type": TYPE_ARRAY},
 		{"field": "DIAL_RECHARGE_RATE_BONUS_BY_LEVEL", "key": "rechargeRateBonusByLevel", "type": TYPE_ARRAY},
 		{"field": "DIAL_CAST_MAGNITUDE_PER_LEVEL", "key": "castMagnitudePerLevel", "type": TYPE_FLOAT},

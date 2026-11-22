@@ -658,22 +658,60 @@ static func cast_complication(index: int, owner_id: String = "") -> Dictionary:
 
 	dial["currentCharge"] -= 1
 
-	# +10 XP per cast (Progression.award_xp()). Leveling up grows capacityMax
+	# cast_xp() per cast (Progression.award_xp()). Leveling up grows capacityMax
 	# unconditionally and, if a Movement is seated, re-derives maxCharge/rechargeRate via _apply_level_charge_bonus().
 	var on_level_up := func():
 		dial["capacityMax"] = capacity_max(dial["level"])
 		_apply_level_charge_bonus(dial)
 		var who: String = "Your" if owner_id == "" else "%s's" % Contacts.display_name(owner_id)
 		Notify.push("%s Dial has levelled up — now level %d." % [who, dial["level"]], Notify.CATEGORY_SUCCESS)
-	var xp_gain := 10
-	if owner_id == "":
-		xp_gain = GameState.round_epsilon(10 * Soul.dial_xp_mult())
+	var xp_gain := cast_xp(owner_id)
 	Progression.award_xp(dial, "xp", "level", GameData.DIAL_XP_LEVELS, xp_gain, on_level_up)
 	if owner_id == "":
 		Progression.award_bucket_share("soul", xp_gain)
 
 	EventBus.mark_changed()
 	return { "ok": true, "recipeKey": recipe_key, "power": amplified["power"], "targets": amplified["targets"], "turnPower": amplified["turnPower"], "turnBonus": amplified["turnBonus"], "tier": int(entry["tier"]), "magnitudeMult": amplified["magnitudeMult"], "multi": bool(entry.get("multi", false)) }
+
+
+# Dial XP one cast awards: data/dial.json castXp, x Soul.dial_xp_mult() on the
+# player's Dial only (contact Dials take the flat value, R§3.7a).
+static func cast_xp(owner_id: String = "") -> int:
+	if owner_id == "":
+		return GameState.round_epsilon(GameData.DIAL_CAST_XP * Soul.dial_xp_mult())
+	return GameData.DIAL_CAST_XP
+
+
+# Read-only projection of `dial`'s progression for the overview, all from data:
+# { level, xp, maxLevel, isMax, levelXp (xpLevels[level]), nextXp (xpLevels[level+1],
+#   -1 at max), xpPerCast, next } where next is {} at max, else the next level's
+# { capacity, lensSlots, castMult, castMultDelta, blackHoleFreeze } -- capacity /
+# lensSlots / blackHoleFreeze as deltas over the current level, castMult the new multiplier.
+static func level_progress(dial: Dictionary, owner_id: String = "") -> Dictionary:
+	var levels: Array = GameData.DIAL_XP_LEVELS
+	var max_level: int = levels.size() - 1
+	var level: int = clampi(int(dial["level"]), 0, max_level)
+	var is_max: bool = level >= max_level
+	var out := {
+		"level": level,
+		"xp": int(dial["xp"]),
+		"maxLevel": max_level,
+		"isMax": is_max,
+		"levelXp": int(levels[level]),
+		"nextXp": -1 if is_max else int(levels[level + 1]),
+		"xpPerCast": cast_xp(owner_id),
+		"next": {},
+	}
+	if not is_max:
+		var n: int = level + 1
+		out["next"] = {
+			"capacity": capacity_max(n) - capacity_max(level),
+			"lensSlots": lens_slots(n) - lens_slots(level),
+			"castMult": cast_level_multiplier(n),
+			"castMultDelta": cast_level_multiplier(n) - cast_level_multiplier(level),
+			"blackHoleFreeze": cast_black_hole_freeze_bonus(n) - cast_black_hole_freeze_bonus(level),
+		}
+	return out
 
 
 # What casting `dial`'s loaded `entry` would amount to now, spending nothing:
