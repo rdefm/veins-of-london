@@ -8,12 +8,15 @@ Writes into assets/hq/dial/ and assets/hq/dial/components/ (art spec
   - dial_stud_lit, slot_ghost_lens, chamber_blank, chamber_ring, dial_glow,
     lens_tier_<n>, movement_tier_<n>: drawn from code in palette colours;
   - comp_label_<recipeKey> (12x12): box downscale of assets/combat/icons/<recipeKey>.png,
-    plus comp_label_placeholder for recipes with no icon.
+    plus comp_label_placeholder for recipes with no icon;
+  - dial_needle.png: the raw dial-needle.png art turned tip-up and box-downscaled to
+    `components.needle_size`.
 Every output has hard alpha (0 or 255), no soft edges.
 
 Usage (repo root): python tools/dial_art_build.py
 """
 import json
+import math
 import os
 
 from PIL import Image
@@ -152,6 +155,40 @@ def build_overlays():
         draw(MOVEMENT, MOVEMENT, cells).save(os.path.join(COMP, "movement_tier_%d.png" % n))
 
 
+def build_needle():
+    """dial_needle.png at `needle_size`, tip up, from the raw dial-needle.png art.
+
+    The raw needle lies diagonally; its long axis (principal axis of the opaque pixels)
+    is rotated to vertical, tip up (the narrow end), then box-downscaled to the native
+    size. Prints the hub row band (the widest rows) to measure `needle_pivot` from.
+    """
+    with open(os.path.join(ROOT, "data", "dial_art.json"), encoding="utf-8") as f:
+        w, h = json.load(f)["components"]["needle_size"]
+    raw = Image.open(os.path.join(OUT, "dial-needle.png")).convert("RGBA")
+    raw = raw.crop(raw.getbbox())
+    pts = [(x, y) for y in range(raw.height) for x in range(raw.width) if raw.getpixel((x, y))[3] > 128]
+    cx = sum(p[0] for p in pts) / len(pts)
+    cy = sum(p[1] for p in pts) / len(pts)
+    sxx = sum((p[0] - cx) ** 2 for p in pts)
+    syy = sum((p[1] - cy) ** 2 for p in pts)
+    sxy = sum((p[0] - cx) * (p[1] - cy) for p in pts)
+    axis = math.degrees(0.5 * math.atan2(2 * sxy, sxx - syy))
+    up = raw.rotate(axis + 90, resample=Image.BICUBIC, expand=True)
+    up = up.crop(hard_alpha(up).getbbox())
+    widths = [sum(1 for x in range(up.width) if up.getpixel((x, y))[3] >= 128) for y in range(up.height)]
+    if sum(widths[:len(widths) // 3]) > sum(widths[-(len(widths) // 3):]):
+        up = up.rotate(180)
+    pad_w = round(up.height * w / h)
+    padded = Image.new("RGBA", (pad_w, up.height), CLEAR)
+    padded.paste(up, ((pad_w - up.width) // 2, 0))
+    out = hard_alpha(padded.resize((w, h), Image.BOX))
+    out.save(os.path.join(OUT, "dial_needle.png"))
+    rows = [sum(1 for x in range(w) if out.getpixel((x, y))[3]) for y in range(h)]
+    widest = max(rows)
+    band = [y for y, n in enumerate(rows) if n == widest]
+    print("needle hub rows %d-%d (pivot y = %.1f)" % (band[0], band[-1], (band[0] + band[-1] + 1) / 2.0))
+
+
 def build_labels():
     with open(os.path.join(ROOT, "data", "recipes.json"), encoding="utf-8") as f:
         recipes = json.load(f)["recipes"]
@@ -167,4 +204,5 @@ if __name__ == "__main__":
     build_components()
     build_overlays()
     build_labels()
+    build_needle()
     print("dial art built ->", os.path.relpath(OUT, ROOT))

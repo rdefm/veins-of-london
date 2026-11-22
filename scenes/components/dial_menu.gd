@@ -23,7 +23,6 @@ const FLY_ARC_PX := 24.0
 const EMPTY_LIST_TEXTS := { "movement": "No Movement held.", "lenses": "No Lens held.", "complications": "No Complication held." }
 const SECTION_CRAFT_TABS := { "movement": "movement", "lenses": "lens" }
 const COL_CREAM := Color("e8dfc8")
-const COL_NEEDLE := Color("14120f")
 const OWNER_TITLE := "%s — Dial"
 const OWNER_TITLE_X := 112.0
 
@@ -45,7 +44,7 @@ var _groups: Dictionary = {}
 var _base: Dictionary = {}
 var _clips: Dictionary = {}
 var _glows: Dictionary = {}
-var _needle: ColorRect
+var _needle: TextureRect
 var _bands: Dictionary = {}
 var _band_labels: Dictionary = {}
 var _ports: Array[Control] = []
@@ -70,6 +69,7 @@ var _list_box: VBoxContainer
 var _tag: PanelContainer
 var _section_craft: Button
 var _charge_label: Label
+var _face_charge: Label
 var _needle_tween: Tween
 var _pulse_tween: Tween
 var _tween: Tween
@@ -229,6 +229,19 @@ static func needle_rotation_degrees(dial: Dictionary) -> float:
 	return lerpf(NEEDLE_MIN_DEG, NEEDLE_MAX_DEG, clampf(dial["currentCharge"] / max_charge, 0.0, 1.0))
 
 
+static func charge_text(dial: Dictionary) -> String:
+	return "%d/%d" % [int(dial["currentCharge"]), int(dial["maxCharge"])]
+
+
+## Overview spot for the "X/Y" charge: just right of the head, level with the face centre.
+static func face_charge_position() -> Vector2:
+	var head := module("head")
+	var origin: Vector2 = assembled_origins()["head"]
+	var right: float = (origin.x + v2(head["size"]).x) * overview_scale() + 8.0
+	var face_y: float = (origin.y + v2(head["face_centre"]).y) * overview_scale() - 12.0
+	return overview_position() + Vector2(right, face_y)
+
+
 static func _tex(path: String) -> Texture2D:
 	return load(path) as Texture2D if ResourceLoader.exists(path) else null
 
@@ -341,6 +354,11 @@ func _build() -> void:
 	_charge_label.position = CHARGE_LABEL_POS
 	add_child(_charge_label)
 
+	_face_charge = UI.label("")
+	_face_charge.name = "FaceCharge"
+	_face_charge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_face_charge)
+
 	_section_craft = MapCardStyle.text_button("Craft", craft_section)
 	_section_craft.name = "SectionCraft"
 	_section_craft.position = Vector2(LIST_X, SCREEN.y - UI.nav_bar_clearance() - CRAFT_HEIGHT - 8.0)
@@ -366,15 +384,10 @@ func _build_head(head: Control) -> void:
 		var stud := _sprite(head, "StudLit_%d" % i, _tex(ART_DIR + "dial_stud_lit.png"), (v2(spec["studs"][i]) - stud_size / 2.0).round(), stud_size)
 		stud.visible = false
 		_studs.append(stud)
-	var needle_size := v2(art()["components"]["needle_size"])
-	_needle = ColorRect.new()
-	_needle.name = "Needle"
-	_needle.color = COL_NEEDLE
-	_needle.size = needle_size
-	_needle.position = v2(spec["face_centre"]) - Vector2(needle_size.x / 2.0, needle_size.y)
-	_needle.pivot_offset = Vector2(needle_size.x / 2.0, needle_size.y)
-	_needle.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	head.add_child(_needle)
+	# Art spec §2.1: one tip-up sprite, its hub (needle_pivot) on the face centre, rotated in code.
+	var pivot := v2(art()["components"]["needle_pivot"])
+	_needle = _sprite(head, "Needle", _tex(ART_DIR + "dial_needle.png"), v2(spec["face_centre"]) - pivot, v2(art()["components"]["needle_size"]))
+	_needle.pivot_offset = pivot
 
 
 ## A hovering component: holder (moved by emerge / retract) > Bob (whole-pixel bob) > sprites.
@@ -525,7 +538,8 @@ func _refresh() -> void:
 	_seat.mouse_filter = Control.MOUSE_FILTER_STOP if in_movement else Control.MOUSE_FILTER_IGNORE
 	_intake.mouse_filter = Control.MOUSE_FILTER_STOP if in_movement else Control.MOUSE_FILTER_IGNORE
 	_charge_label.visible = in_movement
-	_charge_label.text = "Charge %s/%s (regen %s/day)" % [str(int(dial["currentCharge"])), str(int(dial["maxCharge"])), str(dial["rechargeRate"])]
+	_charge_label.text = "Charge %s (regen %s/day)" % [charge_text(dial), str(dial["rechargeRate"])]
+	_face_charge.text = charge_text(dial)
 
 	var chambers_open: bool = section == "complications"
 	var comps: Array = dial["loadedComplications"]
@@ -734,6 +748,8 @@ func _apply_view(animate: bool) -> void:
 		(_band_labels[s] as Label).visible = not in_section
 		var band := band_rect(s)
 		(_band_labels[s] as Label).position = overview_position() + Vector2(canvas_size().x * overview_scale() + 8.0, (band.get_center().y) * overview_scale() - 12.0)
+	_face_charge.visible = not in_section
+	_face_charge.position = face_charge_position()
 	_section_craft.visible = in_section and craft_enabled
 	var mode := _motion() if animate else Motion.SNAP
 	if mode == Motion.FULL:

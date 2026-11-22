@@ -464,6 +464,27 @@ func run() -> void:
 		assert_eq(DialMenu.needle_rotation_degrees(dial), DialMenu.NEEDLE_MIN_DEG, "no maxCharge reads empty")
 	)
 
+	run_case("dial_menu_needle_is_the_sprite_pivoting_on_the_face_and_overview_shows_charge", func():
+		GameState.reset()
+		var dial := _fresh_dial()
+		dial["currentCharge"] = 3
+		dial["maxCharge"] = 8
+		GameState.state["player"]["dial"] = dial
+		var menu := DialMenu.new()
+		menu._ready()
+		var comps: Dictionary = DialMenu.art()["components"]
+		var needle: TextureRect = menu._needle
+		assert_true(needle.texture != null, "needle draws the dial_needle sprite")
+		assert_eq(needle.size, DialMenu.v2(comps["needle_size"]), "native needle size from dial_art.json")
+		assert_eq(needle.position + needle.pivot_offset, DialMenu.v2(DialMenu.module("head")["face_centre"]), "pivot sits on the face centre")
+		var face: Label = menu.get_node("FaceCharge")
+		assert_eq(face.text, "3/8", "overview shows X/Y charge")
+		assert_true(face.visible, "charge number shows on the overview")
+		menu.open_section("lenses")
+		assert_true(not face.visible, "face charge hides inside a section")
+		menu.free()
+	)
+
 	run_case("dial_menu_section_back_button_returns_to_overview_not_host", func():
 		GameState.reset()
 		GameState.state["player"]["dial"] = _fresh_dial()

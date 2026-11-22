@@ -408,8 +408,12 @@
    6
   ],
   "needle_size": [
-   2,
-   11
+   6,
+   18
+  ],
+  "needle_pivot": [
+   3,
+   12
   ],
   "intake_tap_size": [
    14,
