@@ -963,7 +963,9 @@ func _on_caption_input(ev: InputEvent) -> void:
 
 func _apply_caption_clamp() -> void:
 	_vn_caption_label.max_lines_visible = -1 if _caption_expanded else CAPTION_CLAMP_LINES
-	_vn_caption.reset_size()
+	# Collapse height only; reset_size() would also shrink the width to the
+	# autowrap label's ~0 min width, wrapping one glyph per line.
+	_vn_caption.offset_top = _vn_caption.offset_bottom
 
 func _refresh_caption(card: Dictionary) -> void:
 	var text := caption_text(card, Events.is_choosing())
