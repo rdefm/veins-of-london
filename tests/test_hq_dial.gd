@@ -249,6 +249,46 @@ func run() -> void:
 		menu.free()
 	)
 
+	run_case("dial_menu_info_tag_stays_inside_the_screen_gutter", func():
+		var screen := DialMenu.SCREEN
+		var g := DialMenu.TAG_GUTTER
+		var tag_size := Vector2(DialMenu.tag_width(screen), 180.0)
+		var inside := func(p: Vector2) -> bool:
+			return p.x >= g and p.y >= g and p.x + tag_size.x <= screen.x - g and p.y + tag_size.y <= screen.y - g
+		var anchors := {
+			"left edge": Rect2(0.0, 300.0, 40.0, 40.0),
+			"right edge": Rect2(screen.x - 30.0, 300.0, 30.0, 40.0),
+			"top edge": Rect2(150.0, 0.0, 40.0, 10.0),
+			"bottom edge": Rect2(150.0, screen.y - 20.0, 40.0, 20.0),
+			"list item": Rect2(DialMenu.LIST_X, 700.0, DialMenu.LIST_WIDTH, 44.0),
+		}
+		for key in anchors:
+			assert_true(inside.call(DialMenu.tag_position(anchors[key], tag_size, screen)), "tag inside gutter near the %s" % key)
+		var low: Rect2 = anchors["bottom edge"]
+		assert_true(DialMenu.tag_position(low, tag_size, screen).y + tag_size.y <= low.position.y, "near the bottom the tag flips above its anchor")
+		var mid := Rect2(150.0, 200.0, 40.0, 40.0)
+		assert_eq(DialMenu.tag_position(mid, tag_size, screen).y, mid.end.y + DialMenu.TAG_GAP, "with room the tag sits below its anchor")
+		assert_true(DialMenu.tag_width(Vector2(240.0, 844.0)) <= 240.0 - 2.0 * g, "width capped on a narrow screen")
+
+		GameState.reset()
+		GameState.state["player"]["dial"] = _fresh_dial()
+		GameState.state["player"]["lensInventory"] = [{ "ore": "emotion", "tier": 3 }]
+		var menu := DialMenu.new()
+		menu._ready()
+		menu.open_section("lenses")
+		menu.show_held_tag(0)
+		var tag := menu.find_child("InfoTag", true, false) as PanelContainer
+		assert_eq(tag.custom_minimum_size.x, DialMenu.tag_width(screen), "tag width capped")
+		var title := tag.find_child("InfoTagTitle", true, false) as Label
+		assert_eq(title.autowrap_mode, TextServer.AUTOWRAP_WORD_SMART, "title wraps")
+		assert_eq(title.get_theme_font_size("font_size"), DialMenu.TAG_TITLE_SIZE, "title uses the small tag size")
+		var effect := tag.find_child("LensEffect_always_on", true, false) as Label
+		assert_eq(effect.get_theme_font_size("font_size"), DialMenu.TAG_BODY_SIZE, "body uses the small tag size")
+		assert_eq(effect.custom_minimum_size.x, 0.0, "body text doesn't force the tag wider")
+		assert_true(tag.position.x >= g and tag.position.x + tag.custom_minimum_size.x <= screen.x - g, "held-list tag inside the side gutters")
+		menu.free()
+	)
+
 	run_case("dial_menu_movement_section_frames_face_with_grip_and_movement_hovers", func():
 		GameState.reset()
 		var dial := _fresh_dial()

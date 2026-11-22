@@ -12,8 +12,11 @@ extends Control
 const SCREEN := Vector2(390.0, 844.0)
 const LIST_X := 256.0
 const LIST_WIDTH := 126.0
-const TAG_POS := Vector2(8.0, 560.0)
 const TAG_WIDTH := 240.0
+const TAG_GUTTER := 16.0
+const TAG_GAP := 8.0
+const TAG_TITLE_SIZE := 15
+const TAG_BODY_SIZE := 13
 const CHARGE_LABEL_POS := Vector2(16.0, 680.0)
 const CRAFT_HEIGHT := 48.0
 const NEEDLE_MIN_DEG := -60.0
@@ -74,6 +77,7 @@ var _needle_tween: Tween
 var _pulse_tween: Tween
 var _tween: Tween
 var _tag_check := Callable()
+var _tag_anchor: Control
 var _backdrop: Control
 var _sigs: Dictionary = {}
 var _time := 0.0
@@ -1045,6 +1049,7 @@ func _refresh_rings() -> void:
 
 func _close_tag() -> void:
 	_tag_check = Callable()
+	_tag_anchor = null
 	if _tag != null:
 		remove_child(_tag)
 		_tag.queue_free()
@@ -1056,6 +1061,7 @@ func show_held_tag(inv_index: int) -> void:
 	if inv_index < 0 or inv_index >= inventory.size():
 		return
 	var lens: Dictionary = inventory[inv_index]
+	_tag_anchor = _list_item(inv_index)
 	_open_tag(_lens_title(lens), _lens_body(lens["ore"], owner_id), [MapCardStyle.text_button("Fit", func(): fit_lens(inv_index))], func() -> bool: return inv_index < GameState.state["player"]["lensInventory"].size())
 
 
@@ -1064,6 +1070,7 @@ func show_seated_tag(slot: int) -> void:
 	if slot < 0 or slot >= loaded.size():
 		return
 	var lens: Dictionary = loaded[slot]
+	_tag_anchor = _ports[slot] if slot < _ports.size() else null
 	_open_tag(_lens_title(lens), _lens_body(lens["ore"], owner_id), [MapCardStyle.text_button("Unload", func(): unload_lens(slot))], func() -> bool: return slot < (_dial() as Dictionary).get("lenses", []).size())
 
 
@@ -1071,6 +1078,7 @@ func show_held_movement_tag(inv_index: int) -> void:
 	var inventory: Array = GameState.state["player"]["movementInventory"]
 	if inv_index < 0 or inv_index >= inventory.size():
 		return
+	_tag_anchor = _list_item(inv_index)
 	_open_tag(_movement_title(inventory[inv_index]), _movement_body(inventory[inv_index]), [MapCardStyle.text_button("Fit", func(): fit_movement(inv_index))], func() -> bool: return inv_index < GameState.state["player"]["movementInventory"].size())
 
 
@@ -1078,6 +1086,7 @@ func show_seated_movement_tag() -> void:
 	var movement: Variant = (_dial() as Dictionary)["movement"]
 	if movement == null:
 		return
+	_tag_anchor = _seat
 	_open_tag(_movement_title(movement), _movement_body(movement), [MapCardStyle.text_button("Unload", func(): unload_movement())], func() -> bool: return (_dial() as Dictionary)["movement"] != null)
 
 
@@ -1086,6 +1095,7 @@ func show_held_complication_tag(held_index: int) -> void:
 	if held_index < 0 or held_index >= held.size():
 		return
 	var h: Dictionary = held[held_index]
+	_tag_anchor = _list_item(held_index)
 	_open_tag(_complication_title(h), _complication_body(h["recipeKey"]), [MapCardStyle.text_button("Fit", func(): fit_complication(held_index))], func() -> bool: return held_index < held_complications().size())
 
 
@@ -1094,6 +1104,7 @@ func show_seated_complication_tag(slot: int) -> void:
 	if slot < 0 or slot >= loaded.size():
 		return
 	var entry: Dictionary = loaded[slot]
+	_tag_anchor = _chambers[slot] if slot < _chambers.size() else null
 	_open_tag(_complication_title(entry), _complication_body(entry["recipeKey"]), [MapCardStyle.text_button("Unload", func(): unload_complication(slot))], func() -> bool: return slot < (_dial() as Dictionary)["loadedComplications"].size())
 
 
@@ -1108,8 +1119,7 @@ static func _lens_body(ore: String, owner: String = "") -> Array:
 		var text := "%s: %s" % [prefix, row["text"]]
 		var l: Label = UI.label(text) if row["unlocked"] else UI.muted_label(text)
 		l.name = "LensEffect_%s_%s" % [row["gate"], "on" if row["unlocked"] else "locked"]
-		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		body.append(l)
+		body.append(_tag_text(l))
 	return body
 
 
@@ -1122,9 +1132,7 @@ static func _movement_body(movement: Dictionary) -> Array:
 	var lines: Array = [str(GameData.DIAL_MOVEMENTS[movement["archetype"]].get("description", "")), "Winding: %d calc per charge." % cost]
 	var body: Array = []
 	for text in lines:
-		var l := UI.label(text)
-		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		body.append(l)
+		body.append(_tag_text(UI.label(text)))
 	return body
 
 
@@ -1133,25 +1141,88 @@ static func _complication_title(entry: Dictionary) -> String:
 
 
 static func _complication_body(recipe_key: String) -> Array:
-	var l := UI.label(str(GameData.RECIPES[recipe_key].get("effectText", "")))
+	return [_tag_text(UI.label(str(GameData.RECIPES[recipe_key].get("effectText", ""))))]
+
+
+## A tag line: wraps at the tag's width (no intrinsic min width) in the tag's small body size.
+static func _tag_text(l: Label, font_size: int = TAG_BODY_SIZE) -> Label:
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	return [l]
+	l.custom_minimum_size.x = 0.0
+	l.add_theme_font_size_override("font_size", font_size)
+	return l
+
+
+## Tag width: TAG_WIDTH, capped to the screen minus a gutter each side.
+static func tag_width(screen: Vector2) -> float:
+	return minf(TAG_WIDTH, screen.x - 2.0 * TAG_GUTTER)
+
+
+## Top-left for a tag of `tag_size` beside `anchor` on `screen`: centred under the anchor,
+## flipped above when it would run off the bottom, then clamped inside the gutter on every edge.
+static func tag_position(anchor: Rect2, tag_size: Vector2, screen: Vector2) -> Vector2:
+	var x := anchor.get_center().x - tag_size.x / 2.0
+	var y := anchor.end.y + TAG_GAP
+	if y + tag_size.y > screen.y - TAG_GUTTER:
+		var above := anchor.position.y - TAG_GAP - tag_size.y
+		y = above if above >= TAG_GUTTER else screen.y - TAG_GUTTER - tag_size.y
+	x = clampf(x, TAG_GUTTER, maxf(TAG_GUTTER, screen.x - TAG_GUTTER - tag_size.x))
+	y = clampf(y, TAG_GUTTER, maxf(TAG_GUTTER, screen.y - TAG_GUTTER - tag_size.y))
+	return Vector2(x, y)
+
+
+func _list_item(index: int) -> Control:
+	return _list_box.find_child("%sItem_%d" % [_item_prefix(), index], false, false) as Control if _list_box != null else null
+
+
+func _screen_size() -> Vector2:
+	return size if size.x > 0.0 and size.y > 0.0 else SCREEN
+
+
+## `control`'s rect in this menu's local space (walks parent transforms, so it works off-tree).
+func _rect_in_menu(control: Control) -> Rect2:
+	var xf := Transform2D.IDENTITY
+	var node: Node = control
+	while node != null and node != self:
+		if node is CanvasItem:
+			xf = (node as CanvasItem).get_transform() * xf
+		node = node.get_parent()
+	if node != self:
+		return Rect2(_screen_size() / 2.0, Vector2.ZERO)
+	return xf * Rect2(Vector2.ZERO, control.size)
+
+
+func _place_tag() -> void:
+	if _tag == null:
+		return
+	var screen := _screen_size()
+	var anchor := _rect_in_menu(_tag_anchor) if is_instance_valid(_tag_anchor) else Rect2(Vector2(screen.x / 2.0, screen.y * 0.66), Vector2.ZERO)
+	var tag_size := Vector2(tag_width(screen), maxf(_tag.size.y, _tag.get_combined_minimum_size().y))
+	_tag.size = Vector2(tag_size.x, _tag.size.y)
+	_tag.position = tag_position(anchor, tag_size, screen)
+	_tag.pivot_offset = Vector2(tag_size.x / 2.0, 0.0)
 
 
 func _open_tag(title: String, body: Array, buttons: Array, check: Callable) -> void:
+	var anchor := _tag_anchor
 	_close_tag()
 	_tag_check = check
+	_tag_anchor = anchor
 	_tag = PanelContainer.new()
 	_tag.name = "InfoTag"
-	_tag.position = TAG_POS
-	_tag.custom_minimum_size = Vector2(TAG_WIDTH, 0.0)
+	var width := tag_width(_screen_size())
+	_tag.custom_minimum_size = Vector2(width, 0.0)
+	_tag.size = Vector2(width, 0.0)
 	var box := UI.vbox(4)
 	_tag.add_child(box)
-	box.add_child(UI.heading(title, 18))
+	var heading := _tag_text(UI.heading(title), TAG_TITLE_SIZE)
+	heading.name = "InfoTagTitle"
+	box.add_child(heading)
 	for line in body:
 		box.add_child(line)
 	box.add_child(MapCardStyle.footer(buttons))
 	add_child(_tag)
+	_tag.resized.connect(_place_tag)
+	_place_tag()
 	var mode := _motion()
 	if mode == Motion.SNAP:
 		return
