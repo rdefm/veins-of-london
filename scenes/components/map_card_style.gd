@@ -331,6 +331,7 @@ static func quantity_slider(caption: String, qty: int, max_qty: int, on_change: 
 static func chip_button(text: String, callback: Callable, disabled: bool = false) -> Button:
 	var b := UI.button(text, callback)
 	b.disabled = disabled
+	b.custom_minimum_size.x = UI.text_button_width(text, _chip_style(paper()))
 	return style_chip(b)
 
 

@@ -233,15 +233,18 @@ static func button(text: String, callback: Callable) -> Button:
 	b.clip_text = true
 	b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	b.pressed.connect(callback)
+	b.custom_minimum_size.x = text_button_width(text, _THEME.get_stylebox("normal", "Button"))
+	return b
 
-	var style := _THEME.get_stylebox("normal", "Button")
+
+# Minimum width a clip_text button needs to show `text` whole inside `style`'s
+# padding, capped at MAX_BUTTON_TEXT_WIDTH.
+static func text_button_width(text: String, style: StyleBox) -> float:
 	var font: Font = _THEME.get_font("font", "Button")
 	if font == null:
 		font = ThemeDB.fallback_font
 	var text_width: float = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, _THEME.default_font_size).x
-	b.custom_minimum_size.x = minf(text_width + style.get_minimum_size().x, MAX_BUTTON_TEXT_WIDTH)
-
-	return b
+	return minf(text_width + style.get_minimum_size().x, MAX_BUTTON_TEXT_WIDTH)
 
 
 const SEGMENT_HEIGHT := 40.0

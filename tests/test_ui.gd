@@ -97,6 +97,20 @@ func run() -> void:
 		b.free()
 	)
 
+	# A chip's own stylebox pads wider than the theme Button's, so its width
+	# must be reserved against the chip padding, or a one-glyph "?" chip
+	# ellipsizes to nothing.
+	run_case("chip_button_reserves_its_text_width_inside_chip_padding", func():
+		var theme: Theme = preload("res://theme/main_theme.tres")
+		var font: Font = theme.get_font("font", "Button")
+		for text in ["?", "? ✓", "Study"]:
+			var b := MapCardStyle.chip_button(text, func(): pass)
+			var padding: float = b.get_theme_stylebox("normal").get_minimum_size().x
+			var text_width: float = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, theme.default_font_size).x
+			assert_true(b.get_combined_minimum_size().x - padding >= text_width, "chip \"%s\" leaves room for its whole text" % text)
+			b.free()
+	)
+
 	run_case("short_button_label_is_not_needlessly_capped", func():
 		var b := UI.button("Travel", func(): pass)
 		assert_true(b.custom_minimum_size.x < UI.MAX_BUTTON_TEXT_WIDTH, "an ordinary short label should get its own natural width, not be stretched out to the cap")
