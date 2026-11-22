@@ -63,7 +63,9 @@ func new_game_state() -> Dictionary:
 			# open expanded (PhoneNav.open_move_book()), consumed on build.
 			# securityTab is the Security screen tab a deep link asked for
 			# (PhoneNav.open_guard_costs()), consumed on build.
-		"phoneNav": { "app": "home", "selectedAxis": null, "selectedContactId": null, "selectedFaction": null, "confirmingNewGame": false, "revealFromIndex": null, "bizbriefView": null, "moveBookTarget": null, "securityTab": null },
+			# dialOwner is the owner ("" = player) whose Dial menu Profile
+			# opened on hq_dial (PhoneNav.open_dial()); null = HQ's own.
+		"phoneNav": { "app": "home", "selectedAxis": null, "selectedContactId": null, "selectedFaction": null, "confirmingNewGame": false, "revealFromIndex": null, "bizbriefView": null, "moveBookTarget": null, "securityTab": null, "dialOwner": null },
 		# The one exception above: survives save/load (SaveManager restores
 		# scrollX/scrollY as ints), so camera position persists. everOpened
 		# gates MapCanvas's one-shot auto-focus, false until first map open.

@@ -24,11 +24,20 @@ const EMPTY_LIST_TEXTS := { "movement": "No Movement held.", "lenses": "No Lens 
 const SECTION_CRAFT_TABS := { "movement": "movement", "lenses": "lens" }
 const COL_CREAM := Color("e8dfc8")
 const COL_NEEDLE := Color("14120f")
+const OWNER_TITLE := "%s — Dial"
+const OWNER_TITLE_X := 112.0
 
 enum Motion { SNAP, REDUCED, FULL }
 
 ## Section to reopen when the player comes back from the lab bench (Complications craft).
 static var craft_return := ""
+
+## Set by the host before add_child. owner_id "" is the player, else a contact (Dial.dial_of);
+## held stock is always the player's. on_back runs when Back is tapped on the overview
+## (default: HQ). craft_enabled false hides both Craft buttons.
+var owner_id := ""
+var on_back := Callable()
+var craft_enabled := true
 
 var section := ""
 var _canvas: Control
@@ -321,6 +330,11 @@ func _build() -> void:
 	_back = UI.button("‹ Back", _on_back)
 	_back.position = Vector2(16.0, UI.safe_area_top_inset() + 16.0)
 	add_child(_back)
+	if owner_id != "":
+		var owner_label := UI.label(OWNER_TITLE % Contacts.display_name(owner_id))
+		owner_label.name = "OwnerTitle"
+		owner_label.position = Vector2(OWNER_TITLE_X, UI.safe_area_top_inset() + 24.0)
+		add_child(owner_label)
 
 	_craft = MapCardStyle.text_button("Craft Components", func(): Nav.go_to("hq_lab_bench"))
 	_craft.position = Vector2(16.0, SCREEN.y - UI.nav_bar_clearance() - 56.0)
@@ -453,7 +467,7 @@ static func _is_tap(ev: InputEvent) -> bool:
 # ---------------------------------------------------------------- refresh
 
 func _dial() -> Variant:
-	return GameState.state["player"]["dial"]
+	return Dial.dial_of(owner_id)
 
 
 static func _lens_sig(lens: Dictionary) -> String:
@@ -666,7 +680,10 @@ func close_section() -> void:
 
 func _on_back() -> void:
 	if section == "":
-		Nav.go_to("hq")
+		if on_back.is_valid():
+			on_back.call()
+		else:
+			Nav.go_to("hq")
 	else:
 		close_section()
 
@@ -721,8 +738,8 @@ func _apply_view(animate: bool) -> void:
 		(_band_labels[s] as Label).visible = not in_section
 		var band := band_rect(s)
 		(_band_labels[s] as Label).position = overview_position() + Vector2(canvas_size().x * overview_scale() + 8.0, (band.get_center().y) * overview_scale() - 12.0)
-	_section_craft.visible = in_section
-	_craft.visible = not in_section
+	_section_craft.visible = in_section and craft_enabled
+	_craft.visible = not in_section and craft_enabled
 	var mode := _motion() if animate else Motion.SNAP
 	if mode == Motion.FULL:
 		if in_section:
@@ -1028,7 +1045,7 @@ func show_held_tag(inv_index: int) -> void:
 	if inv_index < 0 or inv_index >= inventory.size():
 		return
 	var lens: Dictionary = inventory[inv_index]
-	_open_tag(_lens_title(lens), _lens_body(lens["ore"]), [MapCardStyle.text_button("Fit", func(): fit_lens(inv_index))], func() -> bool: return inv_index < GameState.state["player"]["lensInventory"].size())
+	_open_tag(_lens_title(lens), _lens_body(lens["ore"], owner_id), [MapCardStyle.text_button("Fit", func(): fit_lens(inv_index))], func() -> bool: return inv_index < GameState.state["player"]["lensInventory"].size())
 
 
 func show_seated_tag(slot: int) -> void:
@@ -1036,7 +1053,7 @@ func show_seated_tag(slot: int) -> void:
 	if slot < 0 or slot >= loaded.size():
 		return
 	var lens: Dictionary = loaded[slot]
-	_open_tag(_lens_title(lens), _lens_body(lens["ore"]), [MapCardStyle.text_button("Unload", func(): unload_lens(slot))], func() -> bool: return slot < (_dial() as Dictionary).get("lenses", []).size())
+	_open_tag(_lens_title(lens), _lens_body(lens["ore"], owner_id), [MapCardStyle.text_button("Unload", func(): unload_lens(slot))], func() -> bool: return slot < (_dial() as Dictionary).get("lenses", []).size())
 
 
 func show_held_movement_tag(inv_index: int) -> void:
@@ -1073,9 +1090,9 @@ static func _lens_title(lens: Dictionary) -> String:
 	return "%s Lens — tier %d" % [str(lens["ore"]).capitalize(), int(lens["tier"])]
 
 
-static func _lens_body(ore: String) -> Array:
+static func _lens_body(ore: String, owner: String = "") -> Array:
 	var body: Array = []
-	for row in Lenses.effect_rows(ore):
+	for row in Lenses.effect_rows(ore, owner):
 		var prefix: String = "Always" if int(row["level"]) == 0 else "Sense %d" % int(row["level"])
 		var text := "%s: %s" % [prefix, row["text"]]
 		var l: Label = UI.label(text) if row["unlocked"] else UI.muted_label(text)
@@ -1153,17 +1170,17 @@ func drop_lens_on_port(inv_index: int, port: int) -> Dictionary:
 	if dial == null or port < 0 or port >= Dial.lens_slots(dial["level"]):
 		return { "ok": false, "reason": "That port is plugged." }
 	if port < dial.get("lenses", []).size():
-		return _apply(Dial.swap_lens(port, inv_index))
-	return _apply(Dial.load_lens(inv_index))
+		return _apply(Dial.swap_lens(port, inv_index, owner_id))
+	return _apply(Dial.load_lens(inv_index, owner_id))
 
 
 ## Fit button: first empty port.
 func fit_lens(inv_index: int) -> Dictionary:
-	return _apply(Dial.load_lens(inv_index))
+	return _apply(Dial.load_lens(inv_index, owner_id))
 
 
 func unload_lens(slot: int) -> Dictionary:
-	return _apply(Dial.unload_lens(slot))
+	return _apply(Dial.unload_lens(slot, owner_id))
 
 
 func can_drop_on_port(port: int, data: Variant) -> bool:
@@ -1176,11 +1193,11 @@ func drop_on_port(port: int, data: Variant) -> void:
 
 ## Movement: a drop on the seat seats it (a seated one returns to the list).
 func fit_movement(inv_index: int) -> Dictionary:
-	return _apply(Dial.seat_movement(inv_index))
+	return _apply(Dial.seat_movement(inv_index, owner_id))
 
 
 func unload_movement() -> Dictionary:
-	return _apply(Dial.unseat_movement())
+	return _apply(Dial.unseat_movement(owner_id))
 
 
 func can_drop_on_seat(data: Variant) -> bool:
@@ -1196,14 +1213,14 @@ func wind() -> Dictionary:
 	var dial: Variant = _dial()
 	if dial == null or dial["movement"] == null:
 		return _apply({ "ok": false, "reason": "No Movement seated." })
-	var lenses: Array = Lenses.loaded("")
+	var lenses: Array = Lenses.loaded(owner_id)
 	if lenses.is_empty():
 		return _apply({ "ok": false, "reason": "No Lens loaded." })
 	if lenses.size() > 1:
-		Modal.open("dial_wind", { "owner": "" })
+		Modal.open("dial_wind", { "owner": owner_id })
 		return { "ok": true, "choice": true }
 	var ore: String = lenses[0]["ore"]
-	var result := _apply(Dial.wind(1, "", ore))
+	var result := _apply(Dial.wind(1, owner_id, ore))
 	if result["ok"]:
 		play_wind(ore)
 	return result
@@ -1232,8 +1249,8 @@ func drop_complication_on_chamber(held_index: int, chamber: int) -> Dictionary:
 		return { "ok": false, "reason": "Nothing to load." }
 	var h: Dictionary = held[held_index]
 	if chamber < dial["loadedComplications"].size():
-		return _apply(Dial.swap_complication(chamber, h["recipeKey"], h["tier"], "", h["multi"]))
-	return _apply(Dial.load_complication(h["recipeKey"], h["tier"], "", h["multi"]))
+		return _apply(Dial.swap_complication(chamber, h["recipeKey"], h["tier"], owner_id, h["multi"]))
+	return _apply(Dial.load_complication(h["recipeKey"], h["tier"], owner_id, h["multi"]))
 
 
 func fit_complication(held_index: int) -> Dictionary:
@@ -1241,11 +1258,11 @@ func fit_complication(held_index: int) -> Dictionary:
 	if held_index < 0 or held_index >= held.size():
 		return { "ok": false, "reason": "Nothing to load." }
 	var h: Dictionary = held[held_index]
-	return _apply(Dial.load_complication(h["recipeKey"], h["tier"], "", h["multi"]))
+	return _apply(Dial.load_complication(h["recipeKey"], h["tier"], owner_id, h["multi"]))
 
 
 func unload_complication(slot: int) -> Dictionary:
-	return _apply(Dial.unload_complication(slot))
+	return _apply(Dial.unload_complication(slot, owner_id))
 
 
 func can_drop_on_chamber(chamber: int, data: Variant) -> bool:

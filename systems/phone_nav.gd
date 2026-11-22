@@ -113,6 +113,23 @@ static func open_move_book(owner: String, move_id: String) -> void:
 	EventBus.mark_changed()
 
 
+# Profile's full-screen Dial menu for `owner` ("" = the player), hosted on hq_dial.
+static func open_dial(owner: String) -> void:
+	GameState.state["phoneNav"]["dialOwner"] = owner
+	Nav.go_to("hq_dial")
+
+
+# The owner whose Dial Profile opened, or null when hq_dial is HQ's own.
+static func dial_owner() -> Variant:
+	return GameState.state["phoneNav"].get("dialOwner")
+
+
+# Back from the Dial menu to Profile (and its Preparation focus, if editing a loadout).
+static func close_dial() -> void:
+	GameState.state["phoneNav"]["dialOwner"] = null
+	Nav.go_to("phone")
+
+
 # The pending { owner, move } target (null if none), cleared as it is read; no
 # state_changed, since it is called while the Profile app is mid-build.
 static func take_move_book_target() -> Variant:

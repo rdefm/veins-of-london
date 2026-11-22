@@ -22,7 +22,6 @@ static var REGISTRY: Dictionary = {
 	"craft_components_menu": CraftComponentsMenuModal,
 	"network_reference": NetworkReferenceModal,
 	"movement_craft": MovementCraftModal,
-	"dial_socket": DialSocketModal,
 	"dial_wind": DialWindModal,
 	"combat_setup": CombatSetupModal,
 	"combat_block_reason": CombatBlockReasonModal,

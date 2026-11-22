@@ -221,6 +221,39 @@ func run() -> void:
 		assert_eq(GameState.state["combatPrep"], before, "same pending encounter")
 	)
 
+	run_case("change_loadout_dial_menu_hides_craft_and_back_keeps_the_prep_round_trip", func():
+		GameState.reset()
+		GameState.state["player"]["dial"] = Dial.new_dial("collective_brolly")
+		GameState.state["currentScreen"] = "map"
+		CombatPrep.request(CombatPrep.KIND_MUGGING)
+		var before: Dictionary = GameState.state["combatPrep"].duplicate(true)
+		CombatPrep.change_loadout()
+		var phone := PhoneScreen.new()
+		phone._ready()
+		var open := phone.find_child("OpenDial_player", true, false) as Button
+		assert_true(open != null, "the prep loadout view offers the player's Dial")
+		open.pressed.emit()
+		phone.free()
+		assert_eq(GameState.state["currentScreen"], "hq_dial")
+
+		var screen := HqDialScreen.new()
+		screen._ready()
+		var menu: DialMenu = screen._menu
+		menu._ready()
+		assert_true(not menu.craft_enabled and not menu._craft.visible, "no Craft mid-Preparation")
+		menu.open_section("lenses")
+		assert_true(not menu._section_craft.visible, "no section Craft either")
+		menu.close_section()
+		menu._on_back()
+		screen.free()
+		assert_eq(GameState.state["currentScreen"], "phone")
+		assert_true(CombatPrep.is_editing_loadout(), "still editing the pending encounter's loadout")
+
+		CombatPrep.finish_loadout_edit()
+		assert_eq(GameState.state["currentScreen"], CombatPrep.SCREEN)
+		assert_eq(GameState.state["combatPrep"], before, "same pending encounter")
+	)
+
 	run_case("recruit_pool_offers_only_eligible_combat_recruits", func():
 		GameState.reset()
 		for id in ["archie", "james"]:

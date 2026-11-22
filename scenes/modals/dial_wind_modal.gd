@@ -17,7 +17,7 @@ static func build(container: VBoxContainer, data: Dictionary) -> void:
 		for lens in Lenses.loaded(owner_id):
 			var ore: String = lens["ore"]
 			var have: int = GameState.state["player"]["orichalchum"].get(ore, 0)
-			var row := MapCardStyle.symbol_option_row(["Pay %d " % cost, DialLoadoutMenu.ore_glyph(ore), " (have %d)" % have], func(): _wind(owner_id, ore), full or have < cost)
+			var row := MapCardStyle.symbol_option_row(["Pay %d " % cost, SymbolGlyph.ore_glyph(ore), " (have %d)" % have], func(): _wind(owner_id, ore), full or have < cost)
 			row.name = "WindOre_%s" % ore
 			container.add_child(row)
 	container.add_child(MapCardStyle.footer([MapCardStyle.text_button("Cancel", func(): Modal.close())]))

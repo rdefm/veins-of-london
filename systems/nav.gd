@@ -7,11 +7,16 @@ extends RefCounted
 # player at the bench: only it and the title screen are reachable.
 
 const LESSON_SCREENS: Array[String] = ["hq_lab_bench", "title"]
+# Screens a Profile-opened Dial menu (phoneNav.dialOwner) survives: the menu and
+# the lab bench its Complications Craft returns from. Anywhere else clears it.
+const DIAL_OWNER_SCREENS: Array[String] = ["hq_dial", "hq_lab_bench"]
 
 
 static func go_to(screen_id: String) -> void:
 	if LessonSession.is_open() and not LESSON_SCREENS.has(screen_id):
 		return
+	if not DIAL_OWNER_SCREENS.has(screen_id) and GameState.state.has("phoneNav"):
+		GameState.state["phoneNav"]["dialOwner"] = null
 	GameState.state["currentScreen"] = screen_id
 	EventBus.screen_changed.emit(screen_id)
 	EventBus.mark_changed()

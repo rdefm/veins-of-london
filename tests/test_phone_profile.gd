@@ -18,59 +18,67 @@ static func _dial() -> Dictionary:
 
 
 func run() -> void:
-	run_case("profile_dial_menu_absent_without_a_dial_and_for_non_player_owners", func():
+	run_case("profile_dial_cards_appear_only_for_owners_with_a_dial", func():
 		GameState.reset()
-		assert_true(DialLoadoutMenu.build() == null, "no Dial -> no menu")
-		GameState.state["player"]["dial"] = _dial()
-		assert_true(DialLoadoutMenu.build() != null, "player with Dial -> menu")
-		assert_true(DialLoadoutMenu.build("some_recruit") == null, "owner without a Dial -> no menu")
-	)
-
-	run_case("profile_dial_menu_wind_works_and_sockets_render", func():
-		GameState.reset()
-		var player: Dictionary = GameState.state["player"]
-		var dial := _dial()
-		dial["maxCharge"] = 10
-		player["dial"] = dial
-		player["orichalchum"]["time"] = 50
-		player["inventory"]["timePearl"] = { "1": 1 }
-		Dial.load_complication("timePearl", 1)
-		dial["movement"] = { "archetype": "recharge", "tier": 1 }
-		dial["lenses"] = [{ "ore": "time", "tier": 1 }]
-		var world_before: Dictionary = GameState.state["world"].duplicate(true)
-
 		GameState.state["phoneNav"]["app"] = "profile"
 		var phone := PhoneScreen.new()
 		phone._ready()
-		var wind_btn := _button_starting_with(phone, "Wind +1 (")
-		assert_true(wind_btn != null, "Profile shows Wind")
-		if wind_btn != null:
-			wind_btn.pressed.emit()
-		assert_eq(GameState.state["player"]["dial"]["currentCharge"], 1, "wind adds 1 charge")
-		assert_eq(GameState.state["world"], world_before, "wind never advances time")
+		assert_true(phone.find_child("OpenDial_player", true, false) == null, "no Dial -> no card")
 		phone.free()
 
+		GameState.state["player"]["dial"] = _dial()
+		Dial.grant_contact_dial("james")
 		phone = PhoneScreen.new()
 		phone._ready()
-		for socket in ["Socket_movement_0", "Socket_lens_0", "Socket_complication_0"]:
-			assert_true(phone.find_child(socket, true, false) is Button, "Profile renders %s" % socket)
-		(phone.find_child("Socket_complication_0", true, false) as Button).pressed.emit()
-		assert_eq(GameState.state["modal"]["data"], { "owner": "", "kind": "complication", "slot": 0, "mode": "filled" }, "a filled socket opens its menu")
+		assert_true(phone.find_child("OpenDial_player", true, false) is Button, "player's Dial card opens the menu")
+		assert_true(phone.find_child("OpenDial_james", true, false) is Button, "James's Dial gets its own card")
 		phone.free()
 	)
 
-	run_case("profile_contact_dial_card_gets_all_three_socket_rows", func():
+	run_case("profile_open_dial_hosts_the_dial_menu_for_that_owner_and_back_returns_to_profile", func():
 		GameState.reset()
-		GameState.state["player"]["dial"] = _dial()
+		var player: Dictionary = GameState.state["player"]
+		player["dial"] = _dial()
 		Dial.grant_contact_dial("james")
-		var card: Control = DialLoadoutMenu.build("james")
-		assert_true(card != null, "James's Dial gets a card")
-		assert_true(card.find_child("Socket_lens_0", true, false) is Button, "James's card has a lens row")
-		assert_true(card.find_child("Socket_complication_0", true, false) is Button, "James's card has a complication row")
-		assert_true(card.find_child("Socket_movement_0", true, false) is Button, "James's card has a movement row")
-		(card.find_child("Socket_lens_0", true, false) as Button).pressed.emit()
-		assert_eq(GameState.state["modal"]["data"]["owner"], "james", "socket modal targets James's Dial")
-		card.free()
+		GameState.state["currentScreen"] = "phone"
+		GameState.state["phoneNav"]["app"] = "profile"
+		var phone := PhoneScreen.new()
+		phone._ready()
+		(phone.find_child("OpenDial_james", true, false) as Button).pressed.emit()
+		phone.free()
+		assert_eq(GameState.state["currentScreen"], "hq_dial", "Open Dial goes to the full-screen Dial menu")
+		assert_eq(PhoneNav.dial_owner(), "james")
+
+		var screen := HqDialScreen.new()
+		screen._ready()
+		var menu: DialMenu = screen._menu
+		assert_true(menu != null and menu.owner_id == "james", "the menu edits James's Dial")
+		menu._ready()
+		assert_true(menu.find_child("OwnerTitle", true, false) != null, "a contact's Dial is titled with their name")
+		assert_true(menu._craft.visible, "Craft stays outside Preparation")
+		assert_true(menu.unload_lens(0)["ok"], "James's Lens unloads")
+		assert_true(Dial.dial_of("james")["lenses"].is_empty(), "off James's Dial")
+		assert_eq(player["lensInventory"], [{ "ore": "time", "tier": 1 }], "into the player's shared stock")
+		assert_true(menu.fit_lens(0)["ok"], "and fits back")
+		assert_eq(Dial.dial_of("james")["lenses"].size(), 1, "loaded on James's Dial")
+		assert_eq(player["lensInventory"].size(), 0, "from the shared stock")
+		assert_true(player["dial"].get("lenses", []).is_empty(), "player's Dial untouched")
+
+		menu._on_back()
+		assert_eq(GameState.state["currentScreen"], "phone", "Back returns to the phone")
+		assert_eq(GameState.state["phoneNav"]["app"], "profile", "on Profile")
+		assert_eq(PhoneNav.dial_owner(), null, "owner cleared")
+		screen.free()
+	)
+
+	run_case("profile_opened_dial_owner_clears_when_navigating_elsewhere", func():
+		GameState.reset()
+		PhoneNav.open_dial("")
+		assert_eq(PhoneNav.dial_owner(), "")
+		Nav.go_to("hq_lab_bench")
+		assert_eq(PhoneNav.dial_owner(), "", "survives the Craft round-trip to the bench")
+		Nav.go_to("map")
+		assert_eq(PhoneNav.dial_owner(), null, "any other screen clears it")
 	)
 
 	run_case("profile_shows_hp_and_hp_bar_for_a_fresh_game", func():
@@ -221,11 +229,3 @@ func run() -> void:
 
 		phone.free()
 	)
-
-
-static func _button_starting_with(root: Node, prefix: String) -> Button:
-	for b in root.find_children("", "Button", true, false):
-		var btn := b as Button
-		if btn.get_child_count() > 0 and NodeQuery.effective_text(btn.get_child(0) as Control).begins_with(prefix):
-			return btn
-	return null

@@ -57,6 +57,11 @@ static func ore_fallback(ore_type: String) -> Callable:
 		OreGlyphs.draw(target, center, ore_type, colour, radius)
 
 
+## An ore's glyph part for UI.symbol_row / symbol_button: its symbol, with the ore silhouette as fallback.
+static func ore_glyph(ore: String) -> Dictionary:
+	return { "symbol": GameData.ORE_TYPES[ore]["symbol"], "fallback": ore_fallback(ore) }
+
+
 static func generic_fallback() -> Callable:
 	return func(target: Object, center: Vector2, colour: Color, radius: float) -> void:
 		target.draw_colored_polygon(PackedVector2Array([

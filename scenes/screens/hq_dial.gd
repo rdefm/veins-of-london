@@ -18,16 +18,24 @@ func _refresh() -> void:
 	if is_queued_for_deletion():
 		return
 	var player: Dictionary = GameState.state["player"]
-	if player["dial"] != null and _menu != null and is_instance_valid(_menu):
+	var opened: Variant = PhoneNav.dial_owner()
+	var owner_id: String = "" if opened == null else str(opened)
+	var dial: Variant = Dial.dial_of(owner_id)
+	if dial != null and _menu != null and is_instance_valid(_menu) and _menu.owner_id == owner_id:
 		return
 	for child in get_children():
 		child.queue_free()
 	_menu = null
-	if player["dial"] == null:
+	if dial == null:
 		_build_unseeded_screen(player)
 	else:
+		# Profile-opened: Back returns to Profile, and no Craft mid-Preparation.
 		_menu = DialMenu.new()
 		_menu.name = "DialMenu"
+		_menu.owner_id = owner_id
+		if opened != null:
+			_menu.on_back = PhoneNav.close_dial
+			_menu.craft_enabled = not CombatPrep.is_editing_loadout()
 		add_child(_menu)
 
 func _build_unseeded_screen(player: Dictionary) -> void:

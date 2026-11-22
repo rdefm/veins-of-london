@@ -69,7 +69,7 @@ func run() -> void:
 		for type_id in ["seed_result",
 				"sale_result", "archie_deal_result", "james_job_offer", "james_job_short",
 				"james_job_complete", "sell_menu", "guard_kit", "nadia_supply", "sell_vein_quote",
-				"craft_components_menu", "network_reference", "movement_craft", "dial_socket",
+				"craft_components_menu", "network_reference", "movement_craft",
 				"dial_wind", "combat_setup", "combat_block_reason", "hq_ore_readout", "hq_gym",
 				"contract_cancel"]:
 			assert_true(ModalRegistry.REGISTRY.has(type_id), "%s is registered" % type_id)
@@ -728,118 +728,6 @@ func run() -> void:
 		EventBus.flush_now()
 		assert_eq(GameState.state["modal"], null)
 		assert_true(Contracts.active_contracts().is_empty(), "Confirm cancels it")
-		layer.free()
-	)
-
-	run_case("dial_socket_movement_picker_seats_via_dial_system_and_closes", func():
-		GameState.reset()
-		var player: Dictionary = GameState.state["player"]
-		player["dial"] = Dial.new_dial(GameData.DIAL_HAFTS.keys()[0])
-		player["movementInventory"] = [{ "archetype": "recharge", "tier": 1 }]
-
-		Modal.open("dial_socket", { "owner": "", "kind": "movement", "slot": 0, "mode": "pick" })
-		var layer := ModalLayer.new()
-		layer._ready()
-		assert_true(NodeQuery.label_texts_with_symbols(layer).has(GameData.DIAL_MOVEMENTS["recharge"]["description"]), "each option shows its one-line effect")
-		_find_cost_button(layer, "↻Recharge Movement — tier 1").pressed.emit()
-
-		assert_eq(GameState.state["player"]["dial"]["movement"]["archetype"], "recharge", "picking seats via Dial.seat_movement")
-		assert_eq(GameState.state["player"]["movementInventory"], [], "the seated Movement leaves movementInventory")
-		assert_eq(GameState.state["modal"], null, "picking closes the modal")
-		layer.free()
-	)
-
-	run_case("dial_socket_complication_picker_loads_and_shows_empty_stock_text", func():
-		GameState.reset()
-		var player: Dictionary = GameState.state["player"]
-		player["dial"] = Dial.new_dial(GameData.DIAL_HAFTS.keys()[0])
-
-		Modal.open("dial_socket", { "owner": "", "kind": "complication", "slot": 0, "mode": "pick" })
-		var layer := ModalLayer.new()
-		layer._ready()
-		assert_true(NodeQuery.label_texts_with_symbols(layer).has(DialSocketModal.EMPTY_STOCK_TEXT), "empty-stock message when nothing fits")
-		layer.free()
-
-		player["inventory"]["timePearl"] = { "1": 1 }
-		Modal.open("dial_socket", { "owner": "", "kind": "complication", "slot": 0, "mode": "pick" })
-		layer = ModalLayer.new()
-		layer._ready()
-		_find_cost_button(layer, "⧖Time Pearl tier 1 (1)").pressed.emit()
-		assert_eq(GameState.state["player"]["dial"]["loadedComplications"].size(), 1, "picking loads via Dial.load_complication")
-		assert_eq(Crafting.inventory_qty("timePearl"), 0, "the unit leaves inventory")
-		assert_eq(GameState.state["modal"], null, "picking closes the modal")
-		layer.free()
-	)
-
-	run_case("dial_socket_filled_swap_and_remove_go_through_dial_system", func():
-		GameState.reset()
-		var player: Dictionary = GameState.state["player"]
-		player["dial"] = Dial.new_dial(GameData.DIAL_HAFTS.keys()[0])
-		player["dial"]["lenses"] = [{ "ore": "time", "tier": 1 }]
-		player["lensInventory"] = [{ "ore": "fate", "tier": 2 }]
-
-		Modal.open("dial_socket", { "owner": "", "kind": "lens", "slot": 0, "mode": "filled" })
-		var layer := ModalLayer.new()
-		layer._ready()
-		for text in ["Details", "Swap", "Remove"]:
-			assert_true(_find_cost_button(layer, text) != null, "filled socket offers %s" % text)
-		_find_cost_button(layer, "Swap").pressed.emit()
-		layer.free()
-		assert_eq(GameState.state["modal"]["data"]["mode"], "pick", "Swap opens the picker for that slot")
-
-		layer = ModalLayer.new()
-		layer._ready()
-		_find_cost_button(layer, "%sFate Lens — tier 2" % GameData.ORE_TYPES["fate"]["symbol"]).pressed.emit()
-		layer.free()
-		assert_eq(Lenses.loaded(), [{ "ore": "fate", "tier": 2 }], "swap puts the picked lens in the slot")
-		assert_eq(player["lensInventory"], [{ "ore": "time", "tier": 1 }], "old lens back in inventory")
-
-		Modal.open("dial_socket", { "owner": "", "kind": "lens", "slot": 0, "mode": "filled" })
-		layer = ModalLayer.new()
-		layer._ready()
-		_find_cost_button(layer, "Remove").pressed.emit()
-		layer.free()
-		assert_eq(Lenses.loaded(), [], "Remove unloads via Dial.unload_lens")
-		assert_eq(GameState.state["modal"], null, "Remove closes the modal")
-	)
-
-	run_case("dial_socket_lens_details_grey_locked_gates_by_current_sense", func():
-		GameState.reset()
-		var player: Dictionary = GameState.state["player"]
-		player["dial"] = Dial.new_dial(GameData.DIAL_HAFTS.keys()[0])
-		player["dial"]["lenses"] = [{ "ore": "emotion", "tier": 1 }]
-		player["senseSkill"] = 2
-
-		Modal.open("dial_socket", { "owner": "", "kind": "lens", "slot": 0, "mode": "details" })
-		var layer := ModalLayer.new()
-		layer._ready()
-		for node_name in ["LensEffect_always_on", "LensEffect_world_on", "LensEffect_combat_locked", "LensEffect_glimpse_locked", "LensEffect_peripheral_locked"]:
-			assert_true(layer.find_child(node_name, true, false) != null, "%s renders at Sense 2" % node_name)
-		var combat: Label = layer.find_child("LensEffect_combat_locked", true, false)
-		assert_eq(combat.text, "Sense %d: %s" % [GameData.DIAL_LENS["senseGates"]["combat"], GameData.DIAL_LENS["effects"]["emotion"]["combat"]], "locked row names the Sense level needed")
-		layer.free()
-
-		player["senseSkill"] = 3
-		layer = ModalLayer.new()
-		layer._ready()
-		assert_true(layer.find_child("LensEffect_combat_on", true, false) != null, "Sense 3 unlocks the combat row")
-		layer.free()
-	)
-
-	run_case("dial_socket_picker_disables_a_lens_whose_ore_is_already_loaded_elsewhere", func():
-		GameState.reset()
-		var player: Dictionary = GameState.state["player"]
-		var dial: Dictionary = Dial.new_dial(GameData.DIAL_HAFTS.keys()[0])
-		dial["level"] = 3
-		dial["lenses"] = [{ "ore": "time", "tier": 1 }]
-		player["dial"] = dial
-		player["lensInventory"] = [{ "ore": "time", "tier": 3 }]
-
-		Modal.open("dial_socket", { "owner": "", "kind": "lens", "slot": 1, "mode": "pick" })
-		var layer := ModalLayer.new()
-		layer._ready()
-		assert_true(_find_cost_button(layer, "%sTime Lens — tier 3" % GameData.ORE_TYPES["time"]["symbol"]).disabled, "duplicate ore disabled")
-		assert_true(NodeQuery.label_texts_with_symbols(layer).has("That ore already has a Lens."), "the system's reason shows")
 		layer.free()
 	)
 

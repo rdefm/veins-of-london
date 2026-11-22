@@ -39,9 +39,9 @@ static func _build_lens_tab(container: VBoxContainer) -> void:
 	var chance_pct: int = int(round(Dial.lens_craft_chance(skill) * 100))
 	for ore in GameData.ORE_TYPES.keys():
 		var block := UI.vbox(4)
-		block.add_child(UI.symbol_row([DialLoadoutMenu.ore_glyph(ore), "%s Lens" % ore.capitalize()]))
+		block.add_child(UI.symbol_row([SymbolGlyph.ore_glyph(ore), "%s Lens" % ore.capitalize()]))
 		block.add_child(UI.muted_label(Lenses.one_line(ore)))
-		block.add_child(UI.symbol_row(["Costs %d " % cost, DialLoadoutMenu.ore_glyph(ore), " · chance %d%%" % chance_pct], { "muted": true }))
+		block.add_child(UI.symbol_row(["Costs %d " % cost, SymbolGlyph.ore_glyph(ore), " · chance %d%%" % chance_pct], { "muted": true }))
 		var captured_ore: String = ore
 		var craft := MapCardStyle.text_button("Craft", func(): _on_craft_lens(captured_ore), player["orichalchum"].get(ore, 0) < cost)
 		craft.name = "CraftLens_%s" % ore

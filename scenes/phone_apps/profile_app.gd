@@ -1,6 +1,8 @@
 class_name ProfileApp
 extends PhoneApp
 
+const OPEN_DIAL_TEXT := "Open Dial"
+
 var _book_owner := ""
 var _open_owner := ""
 var _open_move := ""
@@ -25,13 +27,10 @@ func build(content: VBoxContainer) -> void:
 	content.add_child(_build_moves_card())
 	content.add_child(_build_equipment_card())
 	content.add_child(_build_loadout_card())
-	var dial_card: Variant = DialLoadoutMenu.build()
-	if dial_card != null:
-		content.add_child(dial_card)
-	for contact_id in DialLoadoutMenu.contact_owner_ids():
-		var ally_dial_card: Variant = DialLoadoutMenu.build(contact_id)
-		if ally_dial_card != null:
-			content.add_child(ally_dial_card)
+	for owner_id in [""] + _contact_dial_owner_ids():
+		var dial_card: Variant = _build_dial_card(owner_id)
+		if dial_card != null:
+			content.add_child(dial_card)
 	for contact_id in Loadout.recruit_ids():
 		content.add_child(_build_loadout_card(contact_id))
 
@@ -43,9 +42,35 @@ func _build_prep_focus(content: VBoxContainer) -> void:
 	content.add_child(UI.heading("Loadout"))
 	for owner_id in CombatPrep.loadout_owner_ids(CombatPrep.pending()):
 		content.add_child(_build_loadout_card(owner_id))
-		var dial_card: Variant = DialLoadoutMenu.build(owner_id)
+		var dial_card: Variant = _build_dial_card(owner_id)
 		if dial_card != null:
 			content.add_child(dial_card)
+
+
+# Contact ids holding a Dial of their own, each shown as a card after the player's.
+static func _contact_dial_owner_ids() -> Array:
+	var out: Array = []
+	for contact_id in GameState.state["contacts"]:
+		if Dial.dial_of(contact_id) != null:
+			out.append(contact_id)
+	return out
+
+
+# A Dial summary card whose Open Dial button opens the full-screen Dial menu for
+# that owner ("" = the player); null when the owner has no Dial.
+func _build_dial_card(owner_id: String) -> Control:
+	var dial: Variant = Dial.dial_of(owner_id)
+	if dial == null:
+		return null
+	var c := MapCardStyle.card()
+	var content: VBoxContainer = c["content"]
+	content.add_child(UI.heading("Dial" if owner_id == "" else "%s — Dial" % Contacts.display_name(owner_id), 14))
+	content.add_child(UI.label("Level %d Dial · %s" % [dial["level"], Dial.haft_name(dial)]))
+	content.add_child(UI.muted_label("Charge %s/%d (regen %s/day)" % [str(int(dial["currentCharge"])), dial["maxCharge"], str(dial["rechargeRate"])]))
+	var open := MapCardStyle.text_button(OPEN_DIAL_TEXT, func(): PhoneNav.open_dial(owner_id))
+	open.name = "OpenDial_%s" % ("player" if owner_id == "" else owner_id)
+	content.add_child(MapCardStyle.footer([open]))
+	return c["panel"]
 
 
 func _build_stats_card() -> Control:
