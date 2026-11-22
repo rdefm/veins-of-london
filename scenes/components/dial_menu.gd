@@ -26,16 +26,15 @@ const COL_CREAM := Color("e8dfc8")
 const COL_NEEDLE := Color("14120f")
 const OWNER_TITLE := "%s — Dial"
 const OWNER_TITLE_X := 112.0
-const OVERVIEW_RETURN := "overview"
 
 enum Motion { SNAP, REDUCED, FULL }
 
-## Section (or OVERVIEW_RETURN) to reopen when the player comes back from the lab bench.
+## Section to reopen when the player comes back from the lab bench.
 static var craft_return := ""
 
 ## Set by the host before add_child. owner_id "" is the player, else a contact (Dial.dial_of);
 ## held stock is always the player's. on_back runs when Back is tapped on the overview
-## (default: HQ). craft_enabled false hides both Craft buttons.
+## (default: HQ). craft_enabled false hides the section Craft button.
 var owner_id := ""
 var on_back := Callable()
 var craft_enabled := true
@@ -66,7 +65,6 @@ var _rings: Array[TextureRect] = []
 var _labels: Array[TextureRect] = []
 var _blanks: Array[TextureRect] = []
 var _back: Button
-var _craft: Button
 var _list_scroll: TouchScrollContainer
 var _list_box: VBoxContainer
 var _tag: PanelContainer
@@ -337,10 +335,6 @@ func _build() -> void:
 		owner_label.name = "OwnerTitle"
 		owner_label.position = Vector2(OWNER_TITLE_X, UI.top_bar_clearance() + 16.0)
 		add_child(owner_label)
-
-	_craft = MapCardStyle.text_button("Craft Components", craft_components)
-	_craft.position = Vector2(16.0, SCREEN.y - UI.nav_bar_clearance() - 56.0)
-	add_child(_craft)
 
 	_charge_label = UI.label("")
 	_charge_label.name = "ChargeLabel"
@@ -741,7 +735,6 @@ func _apply_view(animate: bool) -> void:
 		var band := band_rect(s)
 		(_band_labels[s] as Label).position = overview_position() + Vector2(canvas_size().x * overview_scale() + 8.0, (band.get_center().y) * overview_scale() - 12.0)
 	_section_craft.visible = in_section and craft_enabled
-	_craft.visible = not in_section and craft_enabled
 	var mode := _motion() if animate else Motion.SNAP
 	if mode == Motion.FULL:
 		if in_section:
@@ -1283,14 +1276,6 @@ func craft_section() -> void:
 		Nav.go_to("hq_lab_bench")
 	elif SECTION_CRAFT_TABS.has(section):
 		Modal.open("craft_components_menu", { "tab": SECTION_CRAFT_TABS[section] })
-
-
-## Overview Craft Components: the lab bench. A Profile-opened menu (on_back set) has the
-## bench's Back return to this overview; HQ's own returns to HQ.
-func craft_components() -> void:
-	if on_back.is_valid():
-		craft_return = OVERVIEW_RETURN
-	Nav.go_to("hq_lab_bench")
 
 
 func _can_drop_unload(_at: Vector2, data: Variant) -> bool:

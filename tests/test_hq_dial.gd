@@ -117,7 +117,11 @@ func run() -> void:
 		for s in ["movement", "lenses", "complications"]:
 			assert_true(menu.find_child("Band_%s" % s, true, false) != null, "band %s" % s)
 		assert_eq(menu._canvas.scale, Vector2(2, 2), "overview is x2")
-		assert_true(NodeQuery.find_button_by_effective_text(menu, "Craft Components") != null, "Craft Components stays reachable")
+		assert_true(NodeQuery.find_button_by_effective_text(menu, "Craft Components") == null, "no Craft Components on the overview")
+		assert_true(not menu._section_craft.visible, "no Craft on the overview")
+		menu.open_section("movement")
+		assert_true(menu._section_craft.visible, "the section offers Craft")
+		menu.close_section()
 
 		screen.free()
 	)

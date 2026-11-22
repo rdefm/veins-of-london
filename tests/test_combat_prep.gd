@@ -240,7 +240,7 @@ func run() -> void:
 		screen._ready()
 		var menu: DialMenu = screen._menu
 		menu._ready()
-		assert_true(not menu.craft_enabled and not menu._craft.visible, "no Craft mid-Preparation")
+		assert_true(not menu.craft_enabled, "no Craft mid-Preparation")
 		menu.open_section("lenses")
 		assert_true(not menu._section_craft.visible, "no section Craft either")
 		menu.close_section()
