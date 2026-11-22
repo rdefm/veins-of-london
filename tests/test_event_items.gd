@@ -5,7 +5,7 @@ extends "res://tests/test_base.gd"
 
 
 func _load_dial_rewind(charge: int) -> void:
-	var dial: Dictionary = Dial.new_dial("test_haft")
+	var dial: Dictionary = Dial.new_dial()
 	dial["currentCharge"] = charge
 	dial["maxCharge"] = maxi(charge, 1)
 	dial["loadedComplications"] = [{ "recipeKey": "rewind", "tier": 1, "detent": 0 }]

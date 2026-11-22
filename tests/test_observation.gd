@@ -97,7 +97,7 @@ func run() -> void:
 
 	run_case("fate_lens_adds_a_labelled_mod_to_every_ore", func():
 		GameState.reset()
-		var dial: Dictionary = Dial.new_dial("collective_brolly")
+		var dial: Dictionary = Dial.new_dial()
 		dial["lenses"] = [{ "ore": "fate", "tier": 4 }]
 		GameState.state["player"]["dial"] = dial
 		var miss := { "tiers": [_tier("a", ALWAYS)], "miss": "m" }
@@ -552,7 +552,7 @@ func run() -> void:
 		var setup := func(sense: int) -> void:
 			GameState.reset()
 			GameState.state["player"]["inventory"]["rewind"] = { "1": 3 }
-			var dial: Dictionary = Dial.new_dial("collective_brolly")
+			var dial: Dictionary = Dial.new_dial()
 			dial["lenses"] = [{ "ore": "time", "tier": 1 }]
 			GameState.state["player"]["dial"] = dial
 			GameState.state["player"]["senseSkill"] = sense

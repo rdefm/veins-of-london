@@ -9,7 +9,7 @@ const CONTACT_ID := "james"
 static func _setup(level: int = 1) -> void:
 	GameState.reset()
 	GameState.state["flags"]["dialGiftGranted"] = true
-	var dial: Dictionary = Dial.new_dial(HAFT_ID)
+	var dial: Dictionary = Dial.new_dial()
 	dial["level"] = level
 	GameState.state["player"]["dial"] = dial
 
@@ -19,7 +19,7 @@ static func _give(ore: String, tier: int) -> void:
 
 
 static func _give_contact_dial(level: int) -> void:
-	var dial: Dictionary = Dial.new_dial(HAFT_ID)
+	var dial: Dictionary = Dial.new_dial()
 	dial["level"] = level
 	GameState.state["contacts"][CONTACT_ID]["dial"] = dial
 

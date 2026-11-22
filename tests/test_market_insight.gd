@@ -18,7 +18,7 @@ static func _setup(tier: int, sense: int = 2) -> void:
 	player["stash"]["inventory"] = {}
 	player["senseSkill"] = sense
 	GameState.state["flags"]["dialGiftGranted"] = true
-	var dial: Dictionary = Dial.new_dial(HAFT_ID)
+	var dial: Dictionary = Dial.new_dial()
 	dial["level"] = 5
 	dial["lenses"] = [] if tier <= 0 else [{ "ore": "fate", "tier": tier }]
 	player["dial"] = dial

@@ -835,7 +835,7 @@ func run() -> void:
 
 	run_case("item_popup_rewinds_via_a_loaded_dial_rewind_charge", func():
 		GameState.reset()
-		var dial: Dictionary = Dial.new_dial("test_haft")
+		var dial: Dictionary = Dial.new_dial()
 		dial["currentCharge"] = 2
 		dial["maxCharge"] = 2
 		dial["loadedComplications"] = [{ "recipeKey": "rewind", "tier": 1, "detent": 0 }]
@@ -1036,7 +1036,7 @@ func run() -> void:
 			} } },
 			"on_complete": [],
 		}
-		var dial: Dictionary = Dial.new_dial("collective_brolly")
+		var dial: Dictionary = Dial.new_dial()
 		dial["lenses"] = [{ "ore": "time", "tier": 1 }]
 		GameState.state["player"]["dial"] = dial
 		GameState.state["player"]["senseSkill"] = Lenses.gate_level("glimpse")

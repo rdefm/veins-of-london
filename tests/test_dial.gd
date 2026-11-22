@@ -32,7 +32,7 @@ func run() -> void:
 	run_case("attempt_seed_refuses_with_no_gift_flag", func():
 		GameState.reset()
 		_fund_seed_cost(10)
-		var result := Dial.attempt_seed(HAFT_ID, LENS_ORE)
+		var result := Dial.attempt_seed(LENS_ORE)
 		assert_true(not result["ok"], "seeding should be refused with no gift flag")
 		assert_eq(GameState.state["player"]["dial"], null, "no dial should be created")
 	)
@@ -40,17 +40,8 @@ func run() -> void:
 	run_case("attempt_seed_refuses_without_enough_calc", func():
 		GameState.reset()
 		GameState.state["flags"]["dialGiftGranted"] = true
-		var result := Dial.attempt_seed(HAFT_ID, LENS_ORE)
+		var result := Dial.attempt_seed(LENS_ORE)
 		assert_true(not result["ok"], "seeding should be refused without the full mixed cost on hand")
-	)
-
-	run_case("attempt_seed_refuses_an_unknown_haft", func():
-		GameState.reset()
-		GameState.state["flags"]["dialGiftGranted"] = true
-		_fund_seed_cost(10)
-		var result := Dial.attempt_seed("not_a_real_haft", LENS_ORE)
-		assert_true(not result["ok"], "seeding should be refused for a haft not in the whitelist")
-		assert_eq(GameState.state["player"]["dial"], null, "no dial should be created")
 	)
 
 	run_case("attempt_seed_consumes_the_full_mixed_cost_on_success", func():
@@ -65,7 +56,7 @@ func run() -> void:
 		while not success and seed < 2000:
 			var snapshot: Dictionary = GameState.deep_copy(GameState.state)
 			Rng.set_seed(seed)
-			var result := Dial.attempt_seed(HAFT_ID, LENS_ORE)
+			var result := Dial.attempt_seed(LENS_ORE)
 			seed += 1
 			if result["success"]:
 				success = true
@@ -90,7 +81,7 @@ func run() -> void:
 			GameState.state["player"]["dial"] = null
 			_fund_seed_cost(1)
 			Rng.set_seed(seed)
-			var result := Dial.attempt_seed(HAFT_ID, LENS_ORE)
+			var result := Dial.attempt_seed(LENS_ORE)
 			seed += 1
 			if not result["success"]:
 				found_failure = true
@@ -114,7 +105,7 @@ func run() -> void:
 		while not success and seed < 2000:
 			var snapshot: Dictionary = GameState.deep_copy(GameState.state)
 			Rng.set_seed(seed)
-			var result := Dial.attempt_seed(HAFT_ID, LENS_ORE)
+			var result := Dial.attempt_seed(LENS_ORE)
 			seed += 1
 			if result["success"]:
 				success = true
@@ -132,7 +123,7 @@ func run() -> void:
 		assert_eq(dial["loadedComplications"], [], "a freshly-seeded dial has no loaded Complications")
 		assert_eq(dial["level"], 1, "a freshly-seeded dial starts at level 1")
 		assert_eq(dial["xp"], 0, "a freshly-seeded dial starts at 0 xp")
-		assert_eq(dial["haftId"], HAFT_ID, "the seeded dial records the chosen haft")
+		assert_true(not dial.has("haftId"), "a seeded dial stores no haft")
 		assert_eq(dial["lenses"], [{ "ore": LENS_ORE, "tier": 5 }], "a seeded dial loads the chosen-ore lens in slot 1 at the seed-time crafting skill")
 		assert_eq(GameState.state["player"]["lensInventory"], [], "the first lens is loaded, not added to inventory")
 	)
@@ -142,7 +133,7 @@ func run() -> void:
 		GameState.state["flags"]["dialGiftGranted"] = true
 		_fund_seed_cost(1)
 		for bad_ore in ["", "void"]:
-			var result := Dial.attempt_seed(HAFT_ID, bad_ore)
+			var result := Dial.attempt_seed(bad_ore)
 			assert_true(not result["ok"], "seeding should be refused for lens ore '%s'" % bad_ore)
 		assert_eq(GameState.state["player"]["dial"], null, "no dial should be created")
 		for ore_type in GameData.DIAL_SEED_COST:
@@ -155,7 +146,7 @@ func run() -> void:
 		GameState.state["player"]["dial"] = { "level": 1, "xp": 0, "currentCharge": 0, "maxCharge": 0, "rechargeRate": 0, "capacityMax": 0, "movement": null, "loadedComplications": [], "haftId": HAFT_ID }
 		_fund_seed_cost(10)
 
-		var result := Dial.attempt_seed(HAFT_ID, LENS_ORE)
+		var result := Dial.attempt_seed(LENS_ORE)
 		assert_true(not result["ok"], "seeding a second dial should be refused outright")
 	)
 
@@ -403,7 +394,7 @@ func run() -> void:
 		while not success and seed < 2000:
 			var snapshot: Dictionary = GameState.deep_copy(GameState.state)
 			Rng.set_seed(seed)
-			var result := Dial.attempt_seed(HAFT_ID, LENS_ORE)
+			var result := Dial.attempt_seed(LENS_ORE)
 			seed += 1
 			if result["success"]:
 				success = true

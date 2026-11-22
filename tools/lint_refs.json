@@ -1946,7 +1946,7 @@
 					"c4"
 				],
 				"kind": "code",
-				"sha": "32d5f9f5a234615119ffd5bcadfe9d6f4ce70875cc73c5b0188ee995e4417f56"
+				"sha": "d1b6e72a02d39809f183d809c1f29a95f85a0a465af03b680c6f8988d3ad49b2"
 			}
 		],
 		"james_experiment": [
@@ -2048,7 +2048,7 @@
 					"stand"
 				],
 				"kind": "code",
-				"sha": "32d5f9f5a234615119ffd5bcadfe9d6f4ce70875cc73c5b0188ee995e4417f56"
+				"sha": "d1b6e72a02d39809f183d809c1f29a95f85a0a465af03b680c6f8988d3ad49b2"
 			},
 			{
 				"file": "tests/test_event_content_lint.gd",
@@ -2080,7 +2080,7 @@
 					"c4"
 				],
 				"kind": "code",
-				"sha": "32d5f9f5a234615119ffd5bcadfe9d6f4ce70875cc73c5b0188ee995e4417f56"
+				"sha": "d1b6e72a02d39809f183d809c1f29a95f85a0a465af03b680c6f8988d3ad49b2"
 			},
 			{
 				"file": "tests/test_event_content_lint.gd",

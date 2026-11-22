@@ -63,19 +63,18 @@ func _build_unseeded(content: VBoxContainer, player: Dictionary) -> void:
 		content.add_child(UI.muted_label(UI.format_cost_label(GameData.DIAL_SEED_COST, player["orichalchum"])))
 		content.add_child(UI.label(SEED_LENS_PROMPT))
 		content.add_child(_build_seed_ore_row())
-		for haft_id in GameData.DIAL_HAFTS.keys():
-			var haft: Dictionary = GameData.DIAL_HAFTS[haft_id]
-			var captured_haft_id: String = haft_id
-			content.add_child(MapCardStyle.text_button("Seed as \"%s\"" % haft["name"], func(): _on_seed_pressed(captured_haft_id), _seed_ore == ""))
+		var seed_btn := MapCardStyle.text_button("Seed", _on_seed_pressed, _seed_ore == "")
+		seed_btn.name = "SeedButton"
+		content.add_child(seed_btn)
 	else:
 		content.add_child(UI.muted_label(NO_DIAL_TEXT))
-func _on_seed_pressed(haft_id: String) -> void:
-	var haft: Dictionary = GameData.DIAL_HAFTS[haft_id]
-	var result := Dial.attempt_seed(haft_id, _seed_ore)
+
+func _on_seed_pressed() -> void:
+	var result := Dial.attempt_seed(_seed_ore)
 	if not result["ok"]:
 		Notify.push(result["reason"], Notify.CATEGORY_WARNING)
 	elif result["success"]:
-		Notify.push("Dial seeded as \"%s\"." % haft["name"], Notify.CATEGORY_SUCCESS)
+		Notify.push("Dial seeded.", Notify.CATEGORY_SUCCESS)
 	else:
 		Notify.push("Seeding failed — calc spent, no Dial gained.", Notify.CATEGORY_DANGER)
 

@@ -38,11 +38,12 @@ func run() -> void:
 		var screen := HqDialScreen.new()
 		screen._ready()
 
+		var seed_button := NodeQuery.find_button_by_effective_text(screen, "Seed")
+		assert_true(seed_button != null, "a single Seed button must render")
+		assert_true(seed_button.disabled, "Seed is disabled until a lens ore is picked")
 		for haft_id in GameData.DIAL_HAFTS.keys():
-			var haft: Dictionary = GameData.DIAL_HAFTS[haft_id]
-			var seed_button := NodeQuery.find_button_by_effective_text(screen, "Seed as \"%s\"" % haft["name"])
-			assert_true(seed_button != null, "a Seed button must render for haft %s" % haft_id)
-			assert_true(seed_button.disabled, "Seed is disabled until a lens ore is picked")
+			var haft_button := NodeQuery.find_button_by_effective_text(screen, "Seed as \"%s\"" % GameData.DIAL_HAFTS[haft_id]["name"])
+			assert_true(haft_button == null, "no per-haft seed button for %s" % haft_id)
 		for ore in GameData.ORE_TYPES.keys():
 			assert_true(screen.find_child("SeedOre_%s" % ore, true, false) is Button, "an ore choice must render for %s" % ore)
 
@@ -78,9 +79,6 @@ func run() -> void:
 		GameState.state["flags"]["dialGiftGranted"] = true
 		GameState.state["player"]["craftingSkill"] = 5
 		GameState.state["player"]["cultivatingSkill"] = 5
-		var haft_id: String = GameData.DIAL_HAFTS.keys()[0]
-		var haft: Dictionary = GameData.DIAL_HAFTS[haft_id]
-
 		var success := false
 		var seed := 0
 		while not success and seed < 2000:
@@ -92,7 +90,9 @@ func run() -> void:
 			var screen := HqDialScreen.new()
 			screen._seed_ore = "fate"
 			screen._ready()
-			NodeQuery.find_button_by_effective_text(screen, "Seed as \"%s\"" % haft["name"]).pressed.emit()
+			var seed_button := NodeQuery.find_button_by_effective_text(screen, "Seed")
+			assert_true(not seed_button.disabled, "Seed is enabled once a lens ore is picked")
+			seed_button.pressed.emit()
 			screen.free()
 
 			seed += 1
@@ -103,6 +103,7 @@ func run() -> void:
 
 		assert_true(success, "should find a successful seed within 2000 tries at high combined skill")
 		assert_eq(GameState.state["player"]["dial"]["lenses"][0]["ore"], "fate", "the seeded Dial carries the picked lens ore")
+		assert_true(not GameState.state["player"]["dial"].has("haftId"), "the seeded Dial stores no haft")
 	)
 
 	# Dial menu (ui-previews-dial 07): overview + Lens section. DialMenu is built via

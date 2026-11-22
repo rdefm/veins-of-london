@@ -1528,7 +1528,7 @@ func run() -> void:
 		GameState.reset()
 		var without: Array = crits.call()
 		GameState.reset()
-		var dial: Dictionary = Dial.new_dial("collective_brolly")
+		var dial: Dictionary = Dial.new_dial()
 		dial["lenses"] = [{ "ore": "fate", "tier": 5 }]
 		GameState.state["player"]["dial"] = dial
 		GameState.state["player"]["senseSkill"] = int(GameData.DIAL_LENS["senseGates"]["combat"])
@@ -1585,7 +1585,7 @@ func run() -> void:
 	run_case("fate_lens_flags_read_critting_intents_past_the_combat_gate", func():
 		var start := func(sense: int, unread: Array) -> Dictionary:
 			GameState.reset()
-			var dial: Dictionary = Dial.new_dial("collective_brolly")
+			var dial: Dictionary = Dial.new_dial()
 			dial["lenses"] = [{ "ore": "fate", "tier": 2 }]
 			GameState.state["player"]["dial"] = dial
 			GameState.state["player"]["senseSkill"] = sense
@@ -1619,7 +1619,7 @@ func run() -> void:
 			for seed_value in range(1, 21):
 				GameState.reset()
 				if lens_tier > 0:
-					var dial: Dictionary = Dial.new_dial("collective_brolly")
+					var dial: Dictionary = Dial.new_dial()
 					dial["lenses"] = [{ "ore": "time", "tier": lens_tier }]
 					GameState.state["player"]["dial"] = dial
 				GameState.state["player"]["senseSkill"] = sense
@@ -1648,7 +1648,7 @@ func run() -> void:
 	run_case("an_ally_time_lens_cuts_only_that_allys_ai_reads", func():
 		GameState.reset()
 		_recruit("james")
-		var james_dial: Dictionary = Dial.new_dial("collective_brolly")
+		var james_dial: Dictionary = Dial.new_dial()
 		james_dial["lenses"] = [{ "ore": "time", "tier": 5 }]
 		GameState.state["contacts"]["james"]["dial"] = james_dial
 		_start_with_allies([_slow_james()], [["strike", "strike"]], 1, true)
@@ -1677,7 +1677,7 @@ func run() -> void:
 	run_case("life_lens_shows_enemy_hp_numbers_on_every_card_past_the_combat_gate", func():
 		var exact := func(ore: String, sense: int) -> Array:
 			GameState.reset()
-			var dial: Dictionary = Dial.new_dial("collective_brolly")
+			var dial: Dictionary = Dial.new_dial()
 			dial["lenses"] = [{ "ore": ore, "tier": 1 }]
 			GameState.state["player"]["dial"] = dial
 			GameState.state["player"]["senseSkill"] = sense
@@ -1697,7 +1697,7 @@ func run() -> void:
 	run_case("emotion_lens_shows_unread_targets_past_the_combat_gate", func():
 		var start := func(ore: String, sense: int) -> Dictionary:
 			GameState.reset()
-			var dial: Dictionary = Dial.new_dial("collective_brolly")
+			var dial: Dictionary = Dial.new_dial()
 			dial["lenses"] = [{ "ore": ore, "tier": 1 }]
 			GameState.state["player"]["dial"] = dial
 			GameState.state["player"]["senseSkill"] = sense
@@ -1720,7 +1720,7 @@ func run() -> void:
 	run_case("physics_lens_adds_flat_to_strikes_dealt_and_cuts_strikes_taken_after_crit_before_shield", func():
 		var start := func(ore: String, tier: int, sense: int) -> Dictionary:
 			GameState.reset()
-			var dial: Dictionary = Dial.new_dial("collective_brolly")
+			var dial: Dictionary = Dial.new_dial()
 			dial["lenses"] = [{ "ore": ore, "tier": tier }]
 			GameState.state["player"]["dial"] = dial
 			GameState.state["player"]["senseSkill"] = sense
@@ -1765,7 +1765,7 @@ func run() -> void:
 	run_case("a_contact_physics_lens_applies_to_that_ally_only", func():
 		GameState.reset()
 		_recruit("james")
-		var james_dial: Dictionary = Dial.new_dial("collective_brolly")
+		var james_dial: Dictionary = Dial.new_dial()
 		james_dial["lenses"] = [{ "ore": "physics", "tier": 2 }]
 		GameState.state["contacts"]["james"]["dial"] = james_dial
 		_start_with_allies([_slow_james()], [["strike", "strike"]])
@@ -1778,8 +1778,8 @@ func run() -> void:
 	run_case("fate_lens_adds_to_player_crit_and_leg_it_and_ally_crit_from_its_own_dial", func():
 		GameState.reset()
 		_recruit("james")
-		GameState.state["contacts"]["james"]["dial"] = Dial.new_dial("collective_brolly")
-		var player_dial: Dictionary = Dial.new_dial("collective_brolly")
+		GameState.state["contacts"]["james"]["dial"] = Dial.new_dial()
+		var player_dial: Dictionary = Dial.new_dial()
 		player_dial["lenses"] = [{ "ore": "fate", "tier": 5 }]
 		GameState.state["player"]["dial"] = player_dial
 		_start_with_allies([_slow_james()], [["guard", "guard"]])
@@ -1798,7 +1798,7 @@ func run() -> void:
 		assert_almost_eq(_strike_crit_chance(combat, CombatRounds.PLAYER_INDEX, enemy_idx), crit_base + 0.05, 0.0001, "player crit +bonus")
 		GameState.reset()
 		_recruit("james")
-		var james_dial: Dictionary = Dial.new_dial("collective_brolly")
+		var james_dial: Dictionary = Dial.new_dial()
 		james_dial["lenses"] = [{ "ore": "fate", "tier": 3 }]
 		GameState.state["contacts"]["james"]["dial"] = james_dial
 		_start_with_allies([_slow_james()], [["guard", "guard"]])
@@ -3708,7 +3708,7 @@ func run() -> void:
 		var start := func(sense: int, lens: bool) -> Dictionary:
 			GameState.reset()
 			if lens:
-				var dial: Dictionary = Dial.new_dial("collective_brolly")
+				var dial: Dictionary = Dial.new_dial()
 				dial["lenses"] = [{ "ore": "life", "tier": 1 }]
 				GameState.state["player"]["dial"] = dial
 			GameState.state["player"]["senseSkill"] = sense

@@ -29,14 +29,12 @@ static func seed_success_chance() -> float:
 # roll (R§3.5). Refused if player.dial is already non-null, the gift flag isn't
 # set, or lens_ore isn't an ore type. Success loads a lens of lens_ore in slot 1,
 # tier = crafting skill at seed (R§1.4 Lenses).
-static func attempt_seed(haft_id: String, lens_ore: String) -> Dictionary:
+static func attempt_seed(lens_ore: String) -> Dictionary:
 	var player: Dictionary = GameState.state["player"]
 	if player["dial"] != null:
 		return { "ok": false, "reason": "You already have a Dial." }
 	if not GameState.state["flags"].get("dialGiftGranted", false):
 		return { "ok": false, "reason": "You don't have the gift." }
-	if not GameData.DIAL_HAFTS.has(haft_id):
-		return { "ok": false, "reason": "Unknown haft." }
 	if not GameData.ORE_TYPES.has(lens_ore):
 		return { "ok": false, "reason": "Choose a lens ore." }
 
@@ -51,7 +49,7 @@ static func attempt_seed(haft_id: String, lens_ore: String) -> Dictionary:
 
 	var success: bool = Rng.chance(seed_success_chance())
 	if success:
-		var dial: Dictionary = new_dial(haft_id)
+		var dial: Dictionary = new_dial()
 		dial["lenses"].append({ "ore": lens_ore, "tier": int(player["craftingSkill"]) })
 		player["dial"] = dial
 
@@ -73,7 +71,8 @@ static func set_haft(haft_id: String) -> Dictionary:
 
 
 static func haft_name(dial: Dictionary) -> String:
-	return GameData.DIAL_HAFTS.get(dial["haftId"], {}).get("name", dial["haftId"])
+	var haft_id: String = str(dial.get("haftId", ""))
+	return GameData.DIAL_HAFTS.get(haft_id, {}).get("name", haft_id)
 
 
 # Used by combat.gd's round_rewind() and events.gd's rewind() as a fallback when
@@ -98,7 +97,7 @@ static func find_loaded_complication_index(recipe_key: String) -> int:
 # Freshly seeded: no Movement, zero charge/regen; capacityMax is populated from
 # level 1 regardless (R§3.5). Public: DebugStart.apply() seeds a bare Dial
 # directly, bypassing attempt_seed()'s gate/cost/roll.
-static func new_dial(haft_id: String, day: int = -1) -> Dictionary:
+static func new_dial(day: int = -1) -> Dictionary:
 	return {
 		"level": 1,
 		"xp": 0,
@@ -114,7 +113,6 @@ static func new_dial(haft_id: String, day: int = -1) -> Dictionary:
 		"loadedComplications": [],
 		# Loaded Lenses ({ ore, tier }), at most lens_slots(level), one per ore (R§1.4 Lenses).
 		"lenses": [],
-		"haftId": haft_id,
 	}
 
 
@@ -123,7 +121,9 @@ static func new_dial(haft_id: String, day: int = -1) -> Dictionary:
 # level, seated Movement, loaded Lenses and Complications as specced, charge
 # full. Pure -- touches no state, so the save migration can call it too.
 static func build_granted_dial(spec: Dictionary, day: int) -> Dictionary:
-	var dial: Dictionary = new_dial(str(spec["haft"]), day)
+	var dial: Dictionary = new_dial(day)
+	if spec.has("haft"):
+		dial["haftId"] = str(spec["haft"])
 	dial["level"] = int(spec["level"])
 	dial["capacityMax"] = capacity_max(dial["level"])
 	var seated: Dictionary = spec["movement"]

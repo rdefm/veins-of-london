@@ -166,7 +166,7 @@ func run() -> void:
 		assert_eq(dial["level"], 1, "seeded Dial is level 1")
 		assert_eq(dial["movement"], null, "seeded Dial has no Movement seated")
 		assert_eq(dial["loadedComplications"], [], "seeded Dial has no loaded Complications")
-		assert_true(GameData.DIAL_HAFTS.has(dial["haftId"]), "seeded Dial has a valid haftId")
+		assert_true(not dial.has("haftId"), "seeded Dial stores no haft")
 		assert_eq(dial["currentCharge"], 0, "seeded Dial has no charge")
 		assert_eq(dial["capacityMax"], Dial.capacity_max(1), "seeded Dial's capacity matches the level-1 lookup")
 	)

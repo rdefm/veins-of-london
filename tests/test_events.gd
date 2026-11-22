@@ -83,7 +83,7 @@ func _install_item_check_event(p: float, consume: bool) -> Dictionary:
 
 
 func _load_dial_complication(recipe: String, tier: int, charge: int) -> void:
-	var dial: Dictionary = Dial.new_dial("test_haft")
+	var dial: Dictionary = Dial.new_dial()
 	dial["currentCharge"] = charge
 	dial["maxCharge"] = charge
 	dial["loadedComplications"] = [{ "recipeKey": recipe, "tier": tier, "detent": 0 }]
@@ -1184,7 +1184,7 @@ func run() -> void:
 		var original_events := _install_item_check_event(0.4, true)
 		Events.start_event("test_check_event")
 		Events.advance()
-		var dial: Dictionary = Dial.new_dial("test_haft")
+		var dial: Dictionary = Dial.new_dial()
 		GameState.state["player"]["dial"] = dial
 		GameState.state["player"]["senseSkill"] = Lenses.gate_level("world")
 		assert_eq(Events.roll_range(0), {}, "no Fate Lens, no band")

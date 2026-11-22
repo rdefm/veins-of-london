@@ -734,7 +734,7 @@ func run() -> void:
 	run_case("dial_wind_lists_each_loaded_lens_ore_and_winds_with_the_chosen_one", func():
 		GameState.reset()
 		var player: Dictionary = GameState.state["player"]
-		var dial: Dictionary = Dial.new_dial(GameData.DIAL_HAFTS.keys()[0])
+		var dial: Dictionary = Dial.new_dial()
 		dial["level"] = 3
 		dial["lenses"] = [{ "ore": "time", "tier": 1 }, { "ore": "life", "tier": 1 }]
 		player["dial"] = dial

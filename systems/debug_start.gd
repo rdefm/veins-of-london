@@ -47,7 +47,7 @@ static func apply(model: String = "") -> void:
 	# Dial.new_dial()'s bare inert shape (no Movement, no Complications),
 	# skipping attempt_seed()'s gift-gate/cost/roll like everything else in
 	# this file. The player still crafts/seats a Movement themselves.
-	player["dial"] = Dial.new_dial("guild_cane")
+	player["dial"] = Dial.new_dial()
 
 	# Each debug vein gets its own claimed site in shoreditch, since
 	# MapLayout.build_stop_items only renders a vein as a Map stop when its

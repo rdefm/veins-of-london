@@ -1334,7 +1334,7 @@ func run() -> void:
 		var save: Dictionary = GameState.deep_copy(GameState.state)
 		save["meta"]["saveVersion"] = 16
 		save["flags"]["dialGiftGranted"] = true
-		var old_dial := Dial.new_dial(GameData.DIAL_HAFTS.keys()[0])
+		var old_dial := Dial.new_dial()
 		old_dial["movement"] = { "archetype": "recharge", "oreType": "time", "tier": 2 }
 		save["player"]["dial"] = old_dial
 		save["player"]["movementInventory"] = [{ "archetype": "impact", "oreType": "fate", "tier": 1 }]
@@ -1352,7 +1352,7 @@ func run() -> void:
 
 	run_case("a_current_save_round_trips_loaded_and_owned_lenses", func():
 		GameState.reset()
-		var dial := Dial.new_dial(GameData.DIAL_HAFTS.keys()[0])
+		var dial := Dial.new_dial()
 		dial["lenses"] = [{ "ore": "time", "tier": 2 }]
 		GameState.state["player"]["dial"] = dial
 		GameState.state["player"]["lensInventory"] = [{ "ore": "fate", "tier": 4 }]

@@ -223,7 +223,7 @@ func run() -> void:
 
 	run_case("change_loadout_dial_menu_hides_craft_and_back_keeps_the_prep_round_trip", func():
 		GameState.reset()
-		GameState.state["player"]["dial"] = Dial.new_dial("collective_brolly")
+		GameState.state["player"]["dial"] = Dial.new_dial()
 		GameState.state["currentScreen"] = "map"
 		CombatPrep.request(CombatPrep.KIND_MUGGING)
 		var before: Dictionary = GameState.state["combatPrep"].duplicate(true)

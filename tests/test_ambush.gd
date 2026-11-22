@@ -25,7 +25,7 @@ static func _load_time_lens(sense: int) -> void:
 	var player: Dictionary = GameState.state["player"]
 	player["senseSkill"] = sense
 	GameState.state["flags"]["dialGiftGranted"] = true
-	var dial: Dictionary = Dial.new_dial("collective_brolly")
+	var dial: Dictionary = Dial.new_dial()
 	dial["level"] = 5
 	dial["lenses"] = [{ "ore": "time", "tier": 1 }]
 	player["dial"] = dial
