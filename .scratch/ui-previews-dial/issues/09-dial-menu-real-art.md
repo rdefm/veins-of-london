@@ -43,12 +43,19 @@ Pixelise each generated image at the same scale as the sheet (x3) and give me th
 - `scenes/screens/hq_dial.gd`
 - `docs/ui-vision.md`, `docs/ART-BIBLE.md`
 
+## Done (2026-11-22)
+
+- Human art in: `lens_time` (20x20) and `movement_recharge` (4 frames, 160x40; the frames are near-identical, so the spin is wired but barely visible). Sources kept in `.scratch/ui-previews-dial/sources/`; `tools/dial_art_build.py` grid-locks them and draws every overlay, tier mark and `comp_label_*` (19 from combat icons + placeholder fallback).
+- `DialMenu` rebuilt on the module sprites; anchors, framing, offsets and timings in `data/dial_art.json` (`GameData.DIAL_ART`). Vertical layout. Missing Lens ores fall back to `lens_time` tinted; missing Movements to `movement_recharge`.
+- Needle stays code-drawn (`dial-needle.png` is 666x375, not the 6x18 sprite the spec assumes).
+- Wind via the 2+ Lens ore-choice modal skips the spin beat (only the direct one-Lens Wind plays it).
+
 **Status:** ready-for-agent
 
-- [ ] Four module layers cut from the pixelised master (done: `assets/hq/dial/dial_{head,grip,lens_collar,canopy}.png`) and anchors measured into `data/dial_art.json` (done); the final check remains
-- [ ] The Dial assembles from the layers by anchor; no placeholder shapes, hatch tween or iris code left
-- [ ] Movement and Lenses emerge from the lips and hover (whole-pixel bob, no shadow); locked Lens slots show a ghost
-- [ ] Complications: canopy drops, chambers pulse when they can take one, a loading icon drops into the chosen chamber, blanks cover chambers above `capacityMax`, studs light per loaded chamber
-- [ ] Beats match the spec; reduced motion crossfades with no hover; timings, offsets and anchors in data
-- [ ] Orientation decision recorded in the spec
+- [x] Four module layers cut from the pixelised master (done: `assets/hq/dial/dial_{head,grip,lens_collar,canopy}.png`) and anchors measured into `data/dial_art.json` (done); the final check remains
+- [x] The Dial assembles from the layers by anchor; no placeholder shapes, hatch tween or iris code left
+- [x] Movement and Lenses emerge from the lips and hover (whole-pixel bob, no shadow); locked Lens slots show a ghost
+- [x] Complications: canopy drops, chambers pulse when they can take one, a loading icon drops into the chosen chamber, blanks cover chambers above `capacityMax`, studs light per loaded chamber
+- [x] Beats match the spec; reduced motion crossfades with no hover; timings, offsets and anchors in data
+- [x] Orientation decision recorded in the spec
 - [ ] Human on-device check of every section's zoom in/out

@@ -12,7 +12,8 @@ Status: **APPROVED**, revised 2026-11-21 (human). Used by 08 (placeholder slices
 - **Angle: high 3/4 for the whole Dial** (the render's). Top rims and lips read as squashed ovals; fronts are flat-on.
 - **Opening = separating and emerging.** Selecting a section separates the modules (§3). Movement and Lenses are shown as the component **sliding out of the top lip** of its module and hovering above it. Complications are different: the canopy's cut face with its 4 quadrant chambers is already drawn in the master, so it needs no new art. The UI marks the chambers that can take a Complication, and loading plays a small icon dropping into the chosen chamber.
 - True pixel grid with integer zoom. The component side list is a **right column**.
-- Prompts are written for the **vertical** layout. Both orientations are specced (§3). The orientation choice is made at 09.
+- Prompts are written for the **vertical** layout. Both orientations are specced (§3). **09 built vertical** (the default; `layout.orientation` in `data/dial_art.json`). Horizontal stays open if the on-device check asks for it.
+- 09 re-tuned the §3.1 numbers to the real sprites (values live in `data/dial_art.json` `sections`): Movement ×2 with the head lifted (0, −80) so the Movement hovers between head and grip; Lenses ×3 with head and grip at (−12, −100); Complications ×3.
 
 ## 1. Pixel scale and source processing
 

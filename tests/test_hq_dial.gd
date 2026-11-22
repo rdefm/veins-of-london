@@ -132,22 +132,23 @@ func run() -> void:
 		menu._ready()
 
 		menu.open_section("lenses")
-		var spec: Dictionary = DialMenu.SECTIONS["lenses"]
-		assert_eq(menu._canvas.scale, Vector2(4, 4), "lenses zoom at integer x4")
-		assert_eq(menu._canvas.position, DialMenu.zoom_position(spec["rect"], 4.0), "canvas pans to the spec rect")
-		assert_eq(menu._groups["head"].position, Vector2(-12, -40), "head moves to its exploded offset")
-		assert_true(is_equal_approx(menu._groups["head"].modulate.a, DialMenu.DIM_ALPHA), "non-target parts dim")
+		var spec: Dictionary = DialMenu.sections()["lenses"]
+		var sc: float = float(spec["scale"])
+		assert_eq(menu._canvas.scale, Vector2(sc, sc), "lenses zoom at the data's integer scale")
+		assert_eq(menu._canvas.position, DialMenu.zoom_position(DialMenu.section_frame("lenses"), sc), "canvas pans to the section frame")
+		assert_eq(menu._groups["head"].position, menu._base["head"] + DialMenu.v2(spec["offsets"]["head"]), "head moves to its exploded offset")
+		assert_true(is_equal_approx(menu._groups["head"].modulate.a, float(DialMenu.layout("dim_alpha"))), "non-target parts dim")
 		assert_eq(menu._groups["collar"].modulate.a, 1.0, "the target stays bright")
 
 		menu.close_section()
 		assert_eq(menu._canvas.scale, Vector2(2, 2), "Back zooms out")
-		assert_eq(menu._groups["head"].position, Vector2.ZERO, "parts reassemble")
+		assert_eq(menu._groups["head"].position, menu._base["head"], "parts reassemble")
 		assert_eq(menu._groups["head"].modulate.a, 1.0, "dim clears")
 
 		menu.free()
 	)
 
-	run_case("dial_menu_lens_ports_open_unlocked_and_plug_the_rest", func():
+	run_case("dial_menu_lenses_emerge_and_hover_ghosts_mark_locked_slots", func():
 		GameState.reset()
 		var dial := _fresh_dial()
 		dial["level"] = 3
@@ -157,15 +158,20 @@ func run() -> void:
 		var menu := DialMenu.new()
 		menu._ready()
 
+		var size := DialMenu.v2(GameData.DIAL_ART["component_sizes"]["lens"])
+		assert_eq(menu._seated[0].position, menu._hidden_position("collar", size, 0), "in the overview the Lens sits inside the collar")
 		menu.open_section("lenses")
 		for p in range(3):
-			assert_eq(menu._plugs[p].visible, p >= slots, "port %d plugged only above lens_slots" % p)
-			if p < slots:
-				assert_true(menu._irises[p].scale.x < 0.01, "unlocked port %d shutter is open" % p)
-		assert_true(menu._seated[0].visible, "the loaded Lens sits in port 0")
-		assert_true(not (menu._seated[1].visible), "empty ports show no Lens")
+			assert_eq(menu._ghosts[p].visible, p >= slots, "slot %d ghosted only above lens_slots" % p)
+		assert_true(menu._seated[0].visible, "the loaded Lens shows")
+		assert_eq(menu._seated[0].position, menu._hover_in_clip("collar", size, 0), "it hovers above the collar lip")
+		assert_true(menu._seated[0].position.y + size.y <= menu._clips["collar"].size.y, "hovering above the clip line")
+		assert_true(menu._lens_glass[0].texture != null, "the Lens sprite loads")
+		assert_true(not (menu._seated[1].visible), "empty slots show no Lens")
 		menu.close_section()
-		assert_eq(menu._irises[0].scale, Vector2.ONE, "Back closes the shutters")
+		assert_eq(menu._seated[0].position, menu._hidden_position("collar", size, 0), "Back slides it back into the lip")
+		for p in range(3):
+			assert_true(not menu._ghosts[p].visible, "ghosts hide on Back")
 
 		menu.free()
 	)
@@ -242,21 +248,30 @@ func run() -> void:
 		menu.free()
 	)
 
-	run_case("dial_menu_movement_section_frames_face_with_grip_and_opens_hatch", func():
+	run_case("dial_menu_movement_section_frames_face_with_grip_and_movement_hovers", func():
 		GameState.reset()
-		GameState.state["player"]["dial"] = _fresh_dial()
+		var dial := _fresh_dial()
+		dial["movement"] = { "archetype": "recharge", "tier": 2 }
+		GameState.state["player"]["dial"] = dial
 		var menu := DialMenu.new()
 		menu._ready()
 
+		var size := DialMenu.v2(GameData.DIAL_ART["component_sizes"]["movement_frame"])
 		menu.open_section("movement")
-		assert_eq(menu._canvas.scale, Vector2(3, 3), "movement zooms at x3")
+		var sc: float = float(DialMenu.sections()["movement"]["scale"])
+		assert_eq(menu._canvas.scale, Vector2(sc, sc), "movement zooms at the data's integer scale")
 		assert_eq(menu._groups["head"].modulate.a, 1.0, "face stays bright")
 		assert_eq(menu._groups["grip"].modulate.a, 1.0, "grip stays bright")
-		assert_true(menu._hatch.scale.x < 0.5, "the hatch swings open")
+		assert_eq(menu._movement_holder.position, menu._hover_in_clip("grip", size), "the Movement hovers above the grip lip")
+		assert_eq(menu._movement_atlas.region, Rect2(Vector2.ZERO, size), "frame 0 (still) shows")
+		assert_true(menu._movement_atlas.atlas != null, "the Movement strip loads")
+		var head_bottom: float = menu._groups["head"].position.y + menu._groups["head"].size.y
+		var movement_top: float = menu._groups["grip"].position.y + menu._clips["grip"].position.y + menu._movement_holder.position.y
+		assert_true(head_bottom <= movement_top, "the head lifts clear of the hovering Movement")
 		assert_true(menu._charge_label.visible, "charge readout shows")
 		assert_true(menu._list_scroll.visible and menu._section_craft.visible, "list and Craft show")
 		menu.close_section()
-		assert_eq(menu._hatch.scale, Vector2.ONE, "Back shuts the hatch")
+		assert_eq(menu._movement_holder.position, menu._hidden_position("grip", size), "Back slides it back into the lip")
 
 		menu.free()
 	)
@@ -275,7 +290,7 @@ func run() -> void:
 		menu.drop_on_seat({ "type": "held_movement", "inv": 0 })
 		assert_eq(dial["movement"]["archetype"], "recharge", "seated")
 		menu._refresh()
-		assert_true(menu._seat_glass.visible, "seat shows it")
+		assert_true(menu._movement_holder.visible, "seat shows it")
 		menu.drop_on_seat({ "type": "held_movement", "inv": 0 })
 		assert_eq(dial["movement"]["archetype"], "capacitor", "drop on a filled seat swaps")
 		assert_eq(GameState.state["player"]["movementInventory"][0]["archetype"], "recharge", "old one returns to the list")
@@ -341,20 +356,22 @@ func run() -> void:
 		menu._ready()
 		menu.open_section("complications")
 
-		assert_eq(menu._groups["canopy"].position, Vector2(0, 40), "canopy drops away")
+		assert_eq(menu._groups["canopy"].position, menu._base["canopy"] + Vector2(0, 40), "canopy drops away")
 		assert_eq(menu._groups["canopy"].modulate.a, 1.0, "canopy cut face not dimmed")
 		assert_eq(menu._chambers.size(), 4, "four chambers")
 		for i in range(4):
 			assert_eq(menu._blanks[i].visible, i >= 2, "chamber %d blanked only above capacityMax" % i)
+			assert_eq(menu._rings[i].visible, i < 2, "chamber %d marked only when it can take one" % i)
 		assert_true(not (menu.can_drop_on_chamber(2, { "type": "held_complication", "held": 0 })), "blanked chamber refuses the drag")
 		assert_true(not (menu.drop_complication_on_chamber(0, 3)["ok"]), "blanked chamber refuses the handler")
 
 		assert_true(menu.drop_complication_on_chamber(0, 0)["ok"], "drop on an empty chamber loads")
 		assert_eq(dial["loadedComplications"].size(), 1, "loaded")
 		menu._refresh()
-		assert_true(menu._cartridges[0].visible, "cartridge seated in chamber 0")
-		assert_eq(menu._studs[0].color, DialMenu.STUD_LIT, "stud 0 lit = chamber 0 loaded")
-		assert_eq(menu._studs[1].color, DialMenu.COL_STEEL_DARK, "stud 1 stays dark")
+		assert_true(menu._labels[0].visible and menu._labels[0].texture != null, "label icon seated in chamber 0")
+		assert_true(not menu._rings[0].visible, "a filled chamber is no longer marked")
+		assert_true(menu._studs[0].visible, "stud 0 lit = chamber 0 loaded")
+		assert_true(not menu._studs[1].visible, "stud 1 stays dark")
 		assert_true(menu.drop_complication_on_chamber(0, 0)["ok"], "drop on a filled chamber swaps")
 		assert_eq(dial["loadedComplications"].size(), 1, "still one loaded")
 		assert_true(menu.fit_complication(0)["ok"], "Fit loads the next chamber")
@@ -397,6 +414,40 @@ func run() -> void:
 		assert_eq(again.section, "complications", "coming back reopens the same section")
 		assert_eq(DialMenu.craft_return, "", "consumed")
 		again.free()
+	)
+
+	run_case("dial_menu_assembles_module_sprites_from_anchors", func():
+		var origins := DialMenu.assembled_origins()
+		var measured: Dictionary = GameData.DIAL_ART["assembled_origin"]
+		var lo := Vector2(INF, INF)
+		for m in measured.keys():
+			lo = Vector2(minf(lo.x, measured[m][0]), minf(lo.y, measured[m][1]))
+		for m in measured.keys():
+			assert_eq(origins[m], DialMenu.v2(measured[m]) - lo, "%s seats where the measured assembly put it" % m)
+		GameState.reset()
+		GameState.state["player"]["dial"] = _fresh_dial()
+		var menu := DialMenu.new()
+		menu._ready()
+		for m in ["head", "grip", "collar", "canopy"]:
+			var sprite := menu._groups[m].get_node("Sprite_%s" % m) as TextureRect
+			assert_true(sprite.texture != null, "%s sprite loads" % m)
+			assert_eq(menu._groups[m].position, origins[m], "%s assembled in the overview" % m)
+		assert_eq(menu._canvas.size, DialMenu.canvas_size(), "canvas spans the assembled Dial")
+		menu.free()
+	)
+
+	run_case("dial_menu_wind_spin_frames_and_hover_bob_are_whole_steps", func():
+		assert_eq(DialMenu.spin_frame_at(-0.1), 0, "still before the spin")
+		assert_eq(DialMenu.spin_frame_at(0.0), 1, "spin starts on frame 1")
+		var fps: float = DialMenu.timing("wind_spin_fps")
+		assert_eq(DialMenu.spin_frame_at(1.0 / fps), 2, "advances at wind_spin_fps")
+		assert_eq(DialMenu.spin_frame_at(3.0 / fps), 1, "frames 1-3 loop")
+		assert_eq(DialMenu.spin_frame_at(DialMenu.timing("wind_spin")), 0, "still again when the spin ends")
+		var bob_px: int = int(GameData.DIAL_ART["hover"]["bob_px"])
+		for i in range(24):
+			assert_true(absi(DialMenu.bob_offset(i * 0.05, 0.0)) <= bob_px, "bob stays within bob_px")
+		assert_true(DialMenu.lens_texture("emotion") != null, "a Lens without its own sprite falls back")
+		assert_true(DialMenu.label_texture("nearMiss") != null, "a Complication without an icon falls back")
 	)
 
 	run_case("dial_menu_needle_rotation_reflects_current_charge_fraction", func():

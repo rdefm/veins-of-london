@@ -47,6 +47,10 @@ var DIAL_RECHARGE_COMBAT_REGEN_AMOUNT: int = 0
 var DIAL_MOVEMENTS: Dictionary = {}
 var DIAL_ATTUNEMENT_BONUS_BY_TIER: Array = []
 
+# data/dial_art.json: Dial menu module anchors, section framing, exploded
+# offsets and beat timings (read by DialMenu).
+var DIAL_ART: Dictionary = {}
+
 # Dial.capacity_max()'s lookup, independent of which Movement is seated.
 var DIAL_CAPACITY_BY_LEVEL: Array = []
 
@@ -626,6 +630,9 @@ const MANIFEST: Array[Dictionary] = [
 	]},
 	{"table": "collective_barks", "file": "res://data/collective_barks.json", "fields": [
 		{"field": "COLLECTIVE_BARKS", "key": "", "type": TYPE_DICTIONARY},
+	]},
+	{"table": "dial_art", "file": "res://data/dial_art.json", "fields": [
+		{"field": "DIAL_ART", "key": "", "type": TYPE_DICTIONARY},
 	]},
 	{"table": "map_palette", "file": "res://data/map_palette.json", "fields": [
 		{"field": "MAP_PALETTE", "key": "", "type": TYPE_DICTIONARY},

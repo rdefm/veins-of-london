@@ -1,78 +1,31 @@
 class_name DialMenu
 extends Control
-## The Dial menu: a placeholder umbrella on the art spec's 72 x 352 native canvas
-## (.scratch/ui-previews-dial/dial-art-spec.md §1-§4). Opens on an overview with three
-## tappable bands (Movement, Lenses, Complications); a band tap zooms to that section.
-## Each section has a right-hand list of held components, an info tag, and drag / Fit to
-## load, drop on a filled socket to swap, drag off the device to unload: Lenses (ports),
-## Movement (grip seat; the intake winds) and Complications (4 canopy chambers).
-## Every change goes through Dial.*; this view never mutates state.
+## The Dial menu (.scratch/ui-previews-dial/dial-art-spec.md). The four module sprites (head,
+## grip, lens collar, canopy) are assembled in code from the anchors in data/dial_art.json.
+## Opens on an overview with three tappable bands; a band tap splits the modules and zooms to
+## that section. Movement and Lenses rise out of their module's top lip and hover; Complications
+## show the canopy's cut face with its 4 chambers. Each section has a right-hand list of held
+## components, an info tag, and drag / Fit to load, drop on a filled socket to swap, drag off
+## the device to unload. Every change goes through Dial.*; this view never mutates state.
+## Beats follow the art spec §4; with reduced motion each becomes a short crossfade, no hover.
 
 const SCREEN := Vector2(390.0, 844.0)
-const CANVAS := Vector2(72.0, 352.0)
-const OVERVIEW_SCALE := 2.0
-const OVERVIEW_BOTTOM_PAD := 16.0
-const DIM_ALPHA := 0.35
 const LIST_X := 256.0
 const LIST_WIDTH := 126.0
-const ZOOM_CENTER := Vector2(125.0, 422.0)
 const TAG_POS := Vector2(8.0, 560.0)
 const TAG_WIDTH := 240.0
-const CHARGE_LABEL_POS := Vector2(16.0, 644.0)
-const SEAT_RECT := Rect2(24, 86, 24, 24)
-const INTAKE_RECT := Rect2(52, 92, 8, 8)
-const HATCH_OPEN_SCALE := 0.15
-const HATCH_SECS := 0.2
-const NEEDLE_SECS := 0.4
-const INTAKE_FLASH_SECS := 0.15
-const CHAMBER_CENTER := Vector2(36.0, 168.0)
-const CHAMBER_OFFSETS: Array[Vector2] = [Vector2(-13, -9), Vector2(13, -9), Vector2(13, 9), Vector2(-13, 9)]
-const CHAMBER_SIZE := Vector2(26.0, 19.0)
+const CHARGE_LABEL_POS := Vector2(16.0, 680.0)
 const CRAFT_HEIGHT := 48.0
-const STUD_LIT := Color("f4efe0")
-const PORT_SIZE := 12.0
-const PORT_CENTERS: Array[Vector2] = [Vector2(21.0, 150.0), Vector2(36.0, 150.0), Vector2(51.0, 150.0)]
-const FACE_CENTER := Vector2(36.0, 26.0)
 const NEEDLE_MIN_DEG := -60.0
 const NEEDLE_MAX_DEG := 120.0
-const SPLIT_SECS := 0.12
-const ZOOM_SECS := 0.35
-const IRIS_SECS := 0.2
-const IRIS_STAGGER := 0.05
-const TAG_SECS := 0.12
+const ART_DIR := "res://assets/hq/dial/"
+const FLY_ARC_PX := 24.0
 const EMPTY_LIST_TEXTS := { "movement": "No Movement held.", "lenses": "No Lens held.", "complications": "No Complication held." }
 const SECTION_CRAFT_TABS := { "movement": "movement", "lenses": "lens" }
-const COL_FABRIC := Color("1c1c20")
-const COL_STEEL := Color("5a6672")
-const COL_STEEL_DARK := Color("2e353c")
 const COL_CREAM := Color("e8dfc8")
-const COL_SOCKET := Color("0e0f12")
+const COL_NEEDLE := Color("14120f")
 
-## Per section: native zoom rect, integer scale, exploded offsets by part group, target groups.
-const SECTIONS := {
-	"movement": {
-		"label": "Movement", "rect": Rect2(0, 0, 72, 140), "scale": 3.0,
-		"offsets": { "head": Vector2(0, 0), "grip": Vector2(0, 0), "collar": Vector2(-8, 24), "canopy": Vector2(-8, 40) },
-		"targets": ["head", "grip"],
-	},
-	"lenses": {
-		"label": "Lenses", "rect": Rect2(6, 120, 60, 60), "scale": 4.0,
-		"offsets": { "head": Vector2(-12, -40), "grip": Vector2(-12, -40), "collar": Vector2(0, 0), "canopy": Vector2(-12, 40) },
-		"targets": ["collar"],
-	},
-	"complications": {
-		"label": "Complications", "rect": Rect2(6, 178, 60, 60), "scale": 4.0,
-		"offsets": { "head": Vector2(-12, -48), "grip": Vector2(-12, -48), "collar": Vector2(-12, -48), "canopy": Vector2(0, 40) },
-		"targets": ["canopy"],
-	},
-}
-const GROUPS: Array[String] = ["canopy", "collar", "grip", "head"]
-## Overview band rects (native), handle to tip.
-const BANDS := {
-	"movement": Rect2(6, 64, 60, 68),
-	"lenses": Rect2(6, 132, 60, 36),
-	"complications": Rect2(6, 168, 60, 136),
-}
+enum Motion { SNAP, REDUCED, FULL }
 
 ## Section to reopen when the player comes back from the lab bench (Complications craft).
 static var craft_return := ""
@@ -80,13 +33,28 @@ static var craft_return := ""
 var section := ""
 var _canvas: Control
 var _groups: Dictionary = {}
+var _base: Dictionary = {}
+var _clips: Dictionary = {}
+var _glows: Dictionary = {}
 var _needle: ColorRect
 var _bands: Dictionary = {}
 var _band_labels: Dictionary = {}
 var _ports: Array[Control] = []
-var _plugs: Array[ColorRect] = []
-var _irises: Array[ColorRect] = []
 var _seated: Array[Control] = []
+var _lens_glass: Array[TextureRect] = []
+var _lens_tiers: Array[TextureRect] = []
+var _ghosts: Array[TextureRect] = []
+var _seat: Control
+var _movement_holder: Control
+var _movement_atlas: AtlasTexture
+var _movement_tier: TextureRect
+var _intake: Control
+var _intake_glow: TextureRect
+var _studs: Array[TextureRect] = []
+var _chambers: Array[Control] = []
+var _rings: Array[TextureRect] = []
+var _labels: Array[TextureRect] = []
+var _blanks: Array[TextureRect] = []
 var _back: Button
 var _craft: Button
 var _list_scroll: TouchScrollContainer
@@ -94,18 +62,13 @@ var _list_box: VBoxContainer
 var _tag: PanelContainer
 var _section_craft: Button
 var _charge_label: Label
-var _hatch: ColorRect
-var _seat: Control
-var _seat_glass: ColorRect
-var _intake: ColorRect
-var _studs: Array[ColorRect] = []
-var _chambers: Array[Control] = []
-var _blanks: Array[ColorRect] = []
-var _cartridges: Array[ColorRect] = []
 var _needle_tween: Tween
+var _pulse_tween: Tween
+var _tween: Tween
 var _tag_check := Callable()
 var _backdrop: Control
-var _tween: Tween
+var _sigs: Dictionary = {}
+var _time := 0.0
 
 
 func _ready() -> void:
@@ -113,11 +76,13 @@ func _ready() -> void:
 	_build()
 	EventBus.state_changed.connect(_refresh)
 	if craft_return != "":
-		if SECTIONS.has(craft_return):
+		if sections().has(craft_return):
 			section = craft_return
 		craft_return = ""
-	_apply_view(false)
 	_refresh()
+	_apply_view(false)
+	if section == "" and _motion() == Motion.FULL:
+		_play_open()
 
 
 func _exit_tree() -> void:
@@ -125,21 +90,187 @@ func _exit_tree() -> void:
 		EventBus.state_changed.disconnect(_refresh)
 
 
+func _process(delta: float) -> void:
+	_time += delta
+	var hover: bool = _motion() == Motion.FULL
+	for p in range(_seated.size()):
+		_bob(_seated[p], hover and section == "lenses", 1.3 * p)
+	_bob(_movement_holder, hover and section == "movement", 0.0)
+
+
+func _bob(holder: Control, on: bool, phase: float) -> void:
+	var inner: Control = holder.get_node("Bob")
+	inner.position.y = float(bob_offset(_time, phase)) if on else 0.0
+
+
+# ---------------------------------------------------------------- data (data/dial_art.json)
+
+static func art() -> Dictionary:
+	return GameData.DIAL_ART
+
+
+static func sections() -> Dictionary:
+	return art()["sections"]
+
+
+static func timing(key: String) -> float:
+	return float(art()["timings"][key])
+
+
+static func layout(key: String) -> Variant:
+	return art()["layout"][key]
+
+
+static func v2(a: Array) -> Vector2:
+	return Vector2(float(a[0]), float(a[1]))
+
+
+static func r2(a: Array) -> Rect2:
+	return Rect2(float(a[0]), float(a[1]), float(a[2]), float(a[3]))
+
+
+static func module(m: String) -> Dictionary:
+	return art()["modules"][m]
+
+
+## Module origins on the canvas: each module's `seat` sits in the next one's top lip,
+## `seat_overlap` px above the lip's front edge (art spec §2.3); normalised to start at 0, 0.
+static func assembled_origins() -> Dictionary:
+	var order: Array = art()["stack_order"]
+	var overlap: float = float(art()["seat_overlap"])
+	var out: Dictionary = { order[0]: Vector2.ZERO }
+	for i in range(1, order.size()):
+		var upper: Dictionary = module(order[i - 1])
+		var lip: Dictionary = module(order[i])["top_lip"]
+		var socket: Vector2 = v2(lip["centre"]) + Vector2(0.0, float(lip["outer_ry"]) - overlap)
+		out[order[i]] = out[order[i - 1]] + v2(upper["seat"]) - socket
+	var lo := Vector2(INF, INF)
+	for m in out.keys():
+		lo = Vector2(minf(lo.x, out[m].x), minf(lo.y, out[m].y))
+	for m in out.keys():
+		out[m] -= lo
+	return out
+
+
+static func canvas_size() -> Vector2:
+	var origins := assembled_origins()
+	var hi := Vector2.ZERO
+	for m in origins.keys():
+		var corner: Vector2 = origins[m] + v2(module(m)["size"])
+		hi = Vector2(maxf(hi.x, corner.x), maxf(hi.y, corner.y))
+	return hi
+
+
+## Native canvas rect the section zooms to: its frame rect in the framing module's space.
+static func section_frame(s: String) -> Rect2:
+	var spec: Dictionary = sections()[s]
+	var m: String = spec["frame"]["module"]
+	var r := r2(spec["frame"]["rect"])
+	r.position += assembled_origins()[m] + v2(spec["offsets"][m])
+	return r
+
+
+static func band_rect(s: String) -> Rect2:
+	var origins := assembled_origins()
+	var out := Rect2()
+	var first := true
+	for part in art()["bands"][s]:
+		var r := r2(part["rect"])
+		r.position += origins[part["module"]]
+		out = r if first else out.merge(r)
+		first = false
+	return out
+
+
+static func overview_scale() -> float:
+	return float(layout("overview_scale"))
+
+
+static func overview_position() -> Vector2:
+	var size: Vector2 = canvas_size() * overview_scale()
+	return Vector2(float(layout("overview_left")), roundf(SCREEN.y - float(layout("overview_bottom_pad")) - size.y))
+
+
+## Canvas position that centres native rect `rect` at the layout's zoom centre on scale `s`.
+static func zoom_position(rect: Rect2, s: float) -> Vector2:
+	return (v2(layout("zoom_center")) - rect.get_center() * s).round()
+
+
+## Module-local top-left of a hovering component of `size` whose centre sits `offset` from the lip centre.
+static func hover_position(m: String, offset: Vector2, size: Vector2) -> Vector2:
+	return (v2(module(m)["top_lip"]["centre"]) + offset - size / 2.0).round()
+
+
+## Wind spin strip frame at `t` s into the spin: frames 1.. loop at wind_spin_fps, 0 (still) outside.
+static func spin_frame_at(t: float) -> int:
+	if t < 0.0 or t >= timing("wind_spin"):
+		return 0
+	var frames: int = int(art()["components"]["movement_frames"])
+	return 1 + int(t * timing("wind_spin_fps")) % maxi(frames - 1, 1)
+
+
+## Whole-pixel hover bob at time `t` (art spec §4.4).
+static func bob_offset(t: float, phase: float) -> int:
+	return roundi(sin(TAU * t / timing("hover_period") + phase)) * int(art()["hover"]["bob_px"])
+
+
+static func needle_rotation_degrees(dial: Dictionary) -> float:
+	var max_charge: float = dial["maxCharge"]
+	if max_charge <= 0.0:
+		return NEEDLE_MIN_DEG
+	return lerpf(NEEDLE_MIN_DEG, NEEDLE_MAX_DEG, clampf(dial["currentCharge"] / max_charge, 0.0, 1.0))
+
+
+static func _tex(path: String) -> Texture2D:
+	return load(path) as Texture2D if ResourceLoader.exists(path) else null
+
+
+static func _component_path(file: String) -> String:
+	return "%s%s.png" % [art()["components"]["lens_dir"], file]
+
+
+static func lens_texture(ore: String) -> Texture2D:
+	var t := _tex(_component_path("lens_%s" % ore))
+	return t if t != null else _tex(_component_path(art()["components"]["lens_fallback"]))
+
+
+static func movement_texture(archetype: String) -> Texture2D:
+	var t := _tex(_component_path("movement_%s" % archetype))
+	return t if t != null else _tex(_component_path(art()["components"]["movement_fallback"]))
+
+
+static func label_texture(recipe_key: String) -> Texture2D:
+	var t := _tex(_component_path("comp_label_%s" % recipe_key))
+	return t if t != null else _tex(_component_path(art()["components"]["complication_label_fallback"]))
+
+
 # ---------------------------------------------------------------- build
 
-func _rect(parent: Node, name: String, r: Rect2, colour: Color) -> ColorRect:
-	var c := ColorRect.new()
-	c.name = name
+func _sprite(parent: Node, node_name: String, tex: Texture2D, pos: Vector2, size: Vector2) -> TextureRect:
+	var t := TextureRect.new()
+	t.name = node_name
+	t.texture = tex
+	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	t.stretch_mode = TextureRect.STRETCH_SCALE
+	t.position = pos
+	t.size = size
+	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	parent.add_child(t)
+	return t
+
+
+func _box(parent: Node, node_name: String, r: Rect2) -> Control:
+	var c := Control.new()
+	c.name = node_name
 	c.position = r.position
 	c.size = r.size
-	c.color = colour
 	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	parent.add_child(c)
 	return c
 
 
 func _build() -> void:
-	# Backdrop: dropping a seated Lens anywhere off the device unloads it.
+	# Backdrop: dropping a seated part anywhere off the device unloads it.
 	_backdrop = Control.new()
 	_backdrop.name = "Backdrop"
 	UI.anchor_full_rect(_backdrop)
@@ -148,52 +279,40 @@ func _build() -> void:
 
 	_canvas = Control.new()
 	_canvas.name = "DialCanvas"
-	_canvas.size = CANVAS
+	_canvas.size = canvas_size()
+	_canvas.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	_canvas.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_canvas)
-	for g in GROUPS:
-		var group := Control.new()
-		group.name = "Part_%s" % g
-		group.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		_canvas.add_child(group)
+	_base = assembled_origins()
+	for g in art()["draw_order"]:
+		var spec := module(g)
+		var group := _box(_canvas, "Part_%s" % g, Rect2(_base[g], v2(spec["size"])))
+		_sprite(group, "Sprite_%s" % g, _tex(ART_DIR + str(spec["file"])), Vector2.ZERO, v2(spec["size"]))
+		if spec.get("top_lip") != null:
+			var lip: Dictionary = spec["top_lip"]
+			var clip: Dictionary = layout("emerge_clip")
+			var margin: float = float(clip["margin"])
+			var c := _box(group, "Emerge_%s" % g, Rect2(-margin, float(lip["clip_y"]) - float(clip["height"]), v2(spec["size"]).x + 2.0 * margin, float(clip["height"])))
+			c.clip_contents = true
+			_clips[g] = c
+			var glow_size := v2(art()["components"]["glow_size"])
+			var glow := _sprite(group, "LipGlow_%s" % g, _tex(ART_DIR + "dial_glow.png"), (v2(lip["centre"]) - glow_size / 2.0).round(), glow_size)
+			glow.modulate.a = 0.0
+			_glows[g] = glow
 		_groups[g] = group
 
-	var canopy: Control = _groups["canopy"]
-	_rect(canopy, "Canopy", Rect2(10, 147, 52, 157), COL_FABRIC)
-	_rect(canopy, "Tip", Rect2(30, 304, 12, 48), COL_STEEL_DARK)
-	_build_chambers(canopy)
+	_build_head(_groups["head"])
+	_build_movement(_groups["grip"])
+	_build_lenses(_groups["collar"])
+	_build_chambers(_groups["canopy"])
 
-	var collar: Control = _groups["collar"]
-	_rect(collar, "Collar", Rect2(6, 132, 60, 36), COL_STEEL)
-	_build_ports(collar)
-
-	var grip: Control = _groups["grip"]
-	_rect(grip, "Grip", Rect2(14, 64, 44, 68), COL_STEEL_DARK)
-	_build_seat(grip)
-	_hatch = _rect(grip, "Hatch", SEAT_RECT, COL_STEEL)
-	_hatch.pivot_offset = Vector2(0.0, SEAT_RECT.size.y / 2.0)
-	_rect(grip, "Strap", Rect2(58, 70, 4, 40), COL_FABRIC)
-	_build_intake(grip)
-
-	var head: Control = _groups["head"]
-	_rect(head, "Cap", Rect2(6, 0, 60, 64), COL_STEEL)
-	_rect(head, "Face", Rect2(20, 13, 32, 26), COL_CREAM)
-	for stud_pos in [Vector2(34, 8), Vector2(52, 24), Vector2(34, 40), Vector2(16, 24)]:
-		_studs.append(_rect(head, "Stud", Rect2(stud_pos, Vector2(4, 4)), COL_STEEL_DARK))
-	_needle = _rect(head, "Needle", Rect2(FACE_CENTER.x - 1.0, FACE_CENTER.y - 12.0, 2, 12), COL_FABRIC)
-	_needle.pivot_offset = Vector2(1, 12)
-
-	for s in SECTIONS.keys():
-		var band := Control.new()
-		band.name = "Band_%s" % s
-		var r: Rect2 = BANDS[s]
-		band.position = r.position
-		band.size = r.size
+	for s in sections().keys():
+		var band := _box(_canvas, "Band_%s" % s, band_rect(s))
+		band.mouse_filter = Control.MOUSE_FILTER_STOP
 		var captured: String = s
 		band.gui_input.connect(func(ev: InputEvent): if _is_tap(ev): open_section(captured))
-		_canvas.add_child(band)
 		_bands[s] = band
-		var label := UI.label(str(SECTIONS[s]["label"]))
+		var label := UI.label(str(sections()[s]["label"]))
 		label.name = "BandLabel_%s" % s
 		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		add_child(label)
@@ -230,74 +349,101 @@ func _build() -> void:
 	add_child(_list_scroll)
 
 
-func _build_seat(grip: Control) -> void:
-	_seat = Control.new()
-	_seat.name = "MovementSeat"
-	_seat.position = SEAT_RECT.position
-	_seat.size = SEAT_RECT.size
-	_seat.mouse_filter = Control.MOUSE_FILTER_IGNORE
+func _build_head(head: Control) -> void:
+	var spec := module("head")
+	var stud_size := v2(art()["components"]["stud_lit_size"])
+	for i in range(spec["studs"].size()):
+		var stud := _sprite(head, "StudLit_%d" % i, _tex(ART_DIR + "dial_stud_lit.png"), (v2(spec["studs"][i]) - stud_size / 2.0).round(), stud_size)
+		stud.visible = false
+		_studs.append(stud)
+	var needle_size := v2(art()["components"]["needle_size"])
+	_needle = ColorRect.new()
+	_needle.name = "Needle"
+	_needle.color = COL_NEEDLE
+	_needle.size = needle_size
+	_needle.position = v2(spec["face_centre"]) - Vector2(needle_size.x / 2.0, needle_size.y)
+	_needle.pivot_offset = Vector2(needle_size.x / 2.0, needle_size.y)
+	_needle.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	head.add_child(_needle)
+
+
+## A hovering component: holder (moved by emerge / retract) > Bob (whole-pixel bob) > sprites.
+func _holder(parent: Control, node_name: String, size: Vector2) -> Control:
+	var holder := _box(parent, node_name, Rect2(Vector2.ZERO, size))
+	_box(holder, "Bob", Rect2(Vector2.ZERO, size))
+	return holder
+
+
+func _build_movement(grip: Control) -> void:
+	var size := v2(art()["component_sizes"]["movement_frame"])
+	_movement_holder = _holder(_clips["grip"], "Movement", size)
+	_movement_atlas = AtlasTexture.new()
+	_sprite(_movement_holder.get_node("Bob"), "Frame", _movement_atlas, Vector2.ZERO, size)
+	_movement_tier = _sprite(_movement_holder.get_node("Bob"), "Tier", null, Vector2.ZERO, size)
+	_movement_holder.position = _hidden_position("grip", size)
+
+	var lip: Dictionary = module("grip")["top_lip"]
+	var hover := hover_position("grip", v2(art()["hover"]["movement_offset"]), size)
+	var top: float = hover.y
+	var bottom: float = float(lip["centre"][1]) + float(lip["outer_ry"])
+	_seat = _box(grip, "MovementSeat", Rect2(float(lip["centre"][0]) - float(lip["outer_rx"]), top, 2.0 * float(lip["outer_rx"]), bottom - top))
 	_seat.set_drag_forwarding(func(_at: Vector2) -> Variant: return _seated_movement_drag(), func(_at: Vector2, data: Variant) -> bool: return can_drop_on_seat(data), func(_at: Vector2, data: Variant) -> void: drop_on_seat(data))
 	_seat.gui_input.connect(func(ev: InputEvent): if _is_tap(ev): show_seated_movement_tag())
-	grip.add_child(_seat)
-	_rect(_seat, "Socket", Rect2(Vector2.ZERO, SEAT_RECT.size), COL_SOCKET)
-	_seat_glass = _rect(_seat, "Glass", Rect2(Vector2(4, 4), SEAT_RECT.size - Vector2(8, 8)), COL_CREAM)
 
-
-func _build_intake(grip: Control) -> void:
-	_intake = _rect(grip, "Intake", INTAKE_RECT, COL_SOCKET)
+	var tap := v2(art()["components"]["intake_tap_size"])
+	_intake = _box(grip, "Intake", Rect2((v2(module("grip")["intake_mouth"]) - tap / 2.0).round(), tap))
 	_intake.gui_input.connect(func(ev: InputEvent): if _is_tap(ev): wind())
+	var glow_size := v2(art()["components"]["glow_size"])
+	_intake_glow = _sprite(_intake, "IntakeGlow", _tex(ART_DIR + "dial_glow.png"), ((tap - glow_size) / 2.0).round(), glow_size)
+	_intake_glow.modulate.a = 0.0
+
+
+func _build_lenses(collar: Control) -> void:
+	var size := v2(art()["component_sizes"]["lens"])
+	var offsets: Array = art()["hover"]["lens_offsets"]
+	for p in range(offsets.size()):
+		var holder := _holder(_clips["collar"], "Seated_%d" % p, size)
+		_lens_glass.append(_sprite(holder.get_node("Bob"), "Glass", null, Vector2.ZERO, size))
+		_lens_tiers.append(_sprite(holder.get_node("Bob"), "Tier", null, Vector2.ZERO, size))
+		holder.position = _hidden_position("collar", size, p)
+		holder.visible = false
+		_seated.append(holder)
+		var hover := hover_position("collar", v2(offsets[p]), size)
+		var ghost := _sprite(collar, "Ghost_%d" % p, _tex(ART_DIR + "slot_ghost_lens.png"), hover, size)
+		ghost.visible = false
+		_ghosts.append(ghost)
+		var port := _box(collar, "Port_%d" % p, Rect2(hover, size))
+		var slot: int = p
+		port.set_drag_forwarding(func(_at: Vector2) -> Variant: return _seated_drag(slot), func(_at: Vector2, data: Variant) -> bool: return can_drop_on_port(slot, data), func(_at: Vector2, data: Variant) -> void: drop_on_port(slot, data))
+		port.gui_input.connect(func(ev: InputEvent): if _is_tap(ev): show_seated_tag(slot))
+		_ports.append(port)
 
 
 func _build_chambers(canopy: Control) -> void:
-	for i in range(CHAMBER_OFFSETS.size()):
-		var chamber := Control.new()
-		chamber.name = "Chamber_%d" % i
-		chamber.position = (CHAMBER_CENTER + CHAMBER_OFFSETS[i] - Vector2(CHAMBER_SIZE.x / 2.0, 9.0)).round()
-		chamber.size = CHAMBER_SIZE
-		chamber.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var spec := module("canopy")
+	var size := v2(spec["chamber_size"])
+	var icon := v2(art()["component_sizes"]["complication_icon"])
+	var lift := v2(art()["components"]["complication_label_lift"])
+	for i in range(spec["chambers"].size()):
+		var chamber := _box(canopy, "Chamber_%d" % i, Rect2((v2(spec["chambers"][i]) - size / 2.0).round(), size))
 		var slot: int = i
 		chamber.set_drag_forwarding(func(_at: Vector2) -> Variant: return _seated_complication_drag(slot), func(_at: Vector2, data: Variant) -> bool: return can_drop_on_chamber(slot, data), func(_at: Vector2, data: Variant) -> void: drop_on_chamber(slot, data))
 		chamber.gui_input.connect(func(ev: InputEvent): if _is_tap(ev): show_seated_complication_tag(slot))
-		canopy.add_child(chamber)
-		_rect(chamber, "Socket", Rect2(Vector2.ZERO, CHAMBER_SIZE), COL_SOCKET)
-		_cartridges.append(_rect(chamber, "Cartridge", Rect2(Vector2(5, 3), Vector2(16, 13)), COL_CREAM))
-		_blanks.append(_rect(chamber, "Blank", Rect2(Vector2.ZERO, CHAMBER_SIZE), COL_STEEL))
+		_rings.append(_sprite(chamber, "Ring", _tex(ART_DIR + "chamber_ring.png"), Vector2.ZERO, size))
+		_labels.append(_sprite(chamber, "Label", null, lift, icon))
+		_blanks.append(_sprite(chamber, "Blank", _tex(ART_DIR + "chamber_blank.png"), Vector2.ZERO, size))
 		chamber.visible = false
 		_chambers.append(chamber)
 
 
-func _build_ports(collar: Control) -> void:
-	for p in range(PORT_CENTERS.size()):
-		var top_left: Vector2 = PORT_CENTERS[p] - Vector2(PORT_SIZE, PORT_SIZE) / 2.0
-		var port := Control.new()
-		port.name = "Port_%d" % p
-		port.position = top_left
-		port.size = Vector2(PORT_SIZE, PORT_SIZE)
-		port.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var slot: int = p
-		port.set_drag_forwarding(Callable(), func(_at: Vector2, data: Variant) -> bool: return can_drop_on_port(slot, data), func(_at: Vector2, data: Variant) -> void: drop_on_port(slot, data))
-		collar.add_child(port)
-		_rect(port, "Socket", Rect2(Vector2.ZERO, port.size), COL_SOCKET)
-		var seated := Control.new()
-		seated.name = "Seated_%d" % p
-		seated.size = Vector2(8, 8)
-		seated.position = Vector2(2, 2)
-		seated.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		seated.set_drag_forwarding(func(_at: Vector2) -> Variant: return _seated_drag(slot), func(_at: Vector2, data: Variant) -> bool: return can_drop_on_port(slot, data), func(_at: Vector2, data: Variant) -> void: drop_on_port(slot, data))
-		seated.gui_input.connect(func(ev: InputEvent): if _is_tap(ev): show_seated_tag(slot))
-		var glass := ColorRect.new()
-		glass.name = "Glass"
-		glass.size = seated.size
-		glass.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		seated.add_child(glass)
-		port.add_child(seated)
-		var plug := _rect(port, "Plug", Rect2(Vector2.ZERO, port.size), COL_STEEL_DARK)
-		var iris := _rect(port, "Iris", Rect2(Vector2.ZERO, port.size), COL_STEEL)
-		iris.pivot_offset = port.size / 2.0
-		_ports.append(port)
-		_seated.append(seated)
-		_plugs.append(plug)
-		_irises.append(iris)
+## Holder position inside module `m`'s emerge clip: hovering, or just below the clip line.
+func _hover_in_clip(m: String, size: Vector2, slot: int = 0) -> Vector2:
+	var offset: Vector2 = v2(art()["hover"]["movement_offset"]) if m == "grip" else v2(art()["hover"]["lens_offsets"][slot])
+	return hover_position(m, offset, size) - (_clips[m] as Control).position
+
+
+func _hidden_position(m: String, size: Vector2, slot: int = 0) -> Vector2:
+	return Vector2(_hover_in_clip(m, size, slot).x, (_clips[m] as Control).size.y)
 
 
 static func _is_tap(ev: InputEvent) -> bool:
@@ -310,31 +456,67 @@ func _dial() -> Variant:
 	return GameState.state["player"]["dial"]
 
 
+static func _lens_sig(lens: Dictionary) -> String:
+	return "%s:%d" % [lens["ore"], int(lens["tier"])]
+
+
+static func _movement_sig(movement: Dictionary) -> String:
+	return "%s:%d" % [movement["archetype"], int(movement["tier"])]
+
+
+static func _complication_sig(entry: Dictionary) -> String:
+	return "%s:%d:%s" % [entry["recipeKey"], int(entry["tier"]), str(entry.get("multi", false))]
+
+
+func _current_sigs(dial: Dictionary) -> Dictionary:
+	var lenses: Array = []
+	var loaded: Array = dial.get("lenses", [])
+	for p in range(_seated.size()):
+		lenses.append(_lens_sig(loaded[p]) if p < loaded.size() else "")
+	var comps: Array = []
+	for i in range(_chambers.size()):
+		comps.append(_complication_sig(dial["loadedComplications"][i]) if i < dial["loadedComplications"].size() else "")
+	return { "movement": [_movement_sig(dial["movement"]) if dial["movement"] != null else ""], "lenses": lenses, "complications": comps }
+
+
 func _refresh() -> void:
 	if is_queued_for_deletion() or _canvas == null:
 		return
 	var dial: Variant = _dial()
 	if dial == null:
 		return
-	_set_needle(needle_rotation_degrees(dial))
+	_set_needle(needle_rotation_degrees(dial), 0.0)
+	var sigs := _current_sigs(dial)
+	var old := _sigs
+	_sigs = sigs
+
 	var slots: int = Dial.lens_slots(dial["level"])
 	var loaded: Array = dial.get("lenses", [])
-	for p in range(_ports.size()):
-		var plugged: bool = p >= slots
-		_plugs[p].visible = plugged
-		_irises[p].visible = not plugged
-		var has_lens: bool = p < loaded.size() and not plugged
-		_seated[p].visible = has_lens and section == "lenses"
-		_seated[p].mouse_filter = Control.MOUSE_FILTER_STOP if has_lens else Control.MOUSE_FILTER_IGNORE
+	var in_lenses: bool = section == "lenses"
+	for p in range(_seated.size()):
+		var unlocked: bool = p < slots
+		var has_lens: bool = p < loaded.size() and unlocked
+		_seated[p].visible = has_lens
 		if has_lens:
-			(_seated[p].get_node("Glass") as ColorRect).color = MapPalette.ore_colour(loaded[p]["ore"])
-		_ports[p].mouse_filter = Control.MOUSE_FILTER_STOP if (section == "lenses" and not plugged) else Control.MOUSE_FILTER_IGNORE
+			var ore: String = loaded[p]["ore"]
+			_lens_glass[p].texture = lens_texture(ore)
+			_lens_glass[p].self_modulate = Color.WHITE if _tex(_component_path("lens_%s" % ore)) != null else MapPalette.ore_colour(ore).lightened(0.4)
+			_lens_tiers[p].texture = _tex(_component_path("lens_tier_%d" % clampi(int(loaded[p]["tier"]), 1, 5)))
+		_ghosts[p].visible = in_lenses and not unlocked
+		_ports[p].mouse_filter = Control.MOUSE_FILTER_STOP if (in_lenses and unlocked) else Control.MOUSE_FILTER_IGNORE
+
 	var in_movement: bool = section == "movement"
+	var movement: Variant = dial["movement"]
+	_movement_holder.visible = movement != null
+	if movement != null:
+		_movement_atlas.atlas = movement_texture(movement["archetype"])
+		_set_movement_frame(0)
+		_movement_tier.texture = _tex(_component_path("movement_tier_%d" % clampi(int(movement["tier"]), 1, 5)))
 	_seat.mouse_filter = Control.MOUSE_FILTER_STOP if in_movement else Control.MOUSE_FILTER_IGNORE
-	_seat_glass.visible = dial["movement"] != null
 	_intake.mouse_filter = Control.MOUSE_FILTER_STOP if in_movement else Control.MOUSE_FILTER_IGNORE
 	_charge_label.visible = in_movement
 	_charge_label.text = "Charge %s/%s (regen %s/day)" % [str(int(dial["currentCharge"])), str(int(dial["maxCharge"])), str(dial["rechargeRate"])]
+
 	var chambers_open: bool = section == "complications"
 	var comps: Array = dial["loadedComplications"]
 	for i in range(_chambers.size()):
@@ -343,21 +525,50 @@ func _refresh() -> void:
 		_chambers[i].visible = chambers_open
 		_chambers[i].mouse_filter = Control.MOUSE_FILTER_STOP if (chambers_open and not locked) else Control.MOUSE_FILTER_IGNORE
 		_blanks[i].visible = locked
-		_cartridges[i].visible = filled
-		_studs[i].color = STUD_LIT if filled else COL_STEEL_DARK
+		_labels[i].visible = filled
+		if filled:
+			_labels[i].texture = label_texture(comps[i]["recipeKey"])
+		_rings[i].visible = chambers_open and not locked and not filled
+		_studs[i].visible = filled
+
+	if not old.is_empty() and _motion() != Motion.SNAP:
+		_play_changes(old, sigs)
+	elif _tween == null or not _tween.is_valid():
+		_place_holders()
 	_rebuild_list()
+	_restart_pulse()
 	if _tag != null and not (_tag_check.is_valid() and _tag_check.call()):
 		_close_tag()
 
 
-func _set_needle(target: float) -> void:
+func _set_needle(target: float, delay: float) -> void:
 	if _needle_tween != null and _needle_tween.is_valid():
 		_needle_tween.kill()
-	if _animate() and not is_equal_approx(_needle.rotation_degrees, target):
+	if _motion() == Motion.FULL and not is_equal_approx(_needle.rotation_degrees, target):
 		_needle_tween = create_tween()
-		_needle_tween.tween_property(_needle, "rotation_degrees", target, NEEDLE_SECS).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		_needle_tween.tween_property(_needle, "rotation_degrees", target, timing("needle")).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT).set_delay(delay)
 	else:
 		_needle.rotation_degrees = target
+
+
+func _set_movement_frame(frame: int) -> void:
+	var size := v2(art()["component_sizes"]["movement_frame"])
+	_movement_atlas.region = Rect2(Vector2(size.x * frame, 0.0), size)
+
+
+func _set_spin_time(t: float) -> void:
+	_set_movement_frame(spin_frame_at(t))
+
+
+## Holders hover when their section is open and they hold a part, else sit hidden below the lip.
+func _place_holders() -> void:
+	var size := v2(art()["component_sizes"]["lens"])
+	for p in range(_seated.size()):
+		_seated[p].position = _hover_in_clip("collar", size, p) if section == "lenses" else _hidden_position("collar", size, p)
+		_seated[p].modulate.a = 1.0
+	var msize := v2(art()["component_sizes"]["movement_frame"])
+	_movement_holder.position = _hover_in_clip("grip", msize) if section == "movement" else _hidden_position("grip", msize)
+	_movement_holder.modulate.a = 1.0
 
 
 ## Held components for the open section, as { text, color, tag, drag } rows.
@@ -429,34 +640,19 @@ static func held_complications() -> Array:
 
 # ---------------------------------------------------------------- view / zoom
 
-static func needle_rotation_degrees(dial: Dictionary) -> float:
-	var max_charge: float = dial["maxCharge"]
-	if max_charge <= 0.0:
-		return NEEDLE_MIN_DEG
-	return lerpf(NEEDLE_MIN_DEG, NEEDLE_MAX_DEG, clampf(dial["currentCharge"] / max_charge, 0.0, 1.0))
-
-
-static func overview_position() -> Vector2:
-	var size: Vector2 = CANVAS * OVERVIEW_SCALE
-	return Vector2(roundf((SCREEN.x - size.x) / 2.0), roundf(SCREEN.y - OVERVIEW_BOTTOM_PAD - size.y - 60.0))
-
-
-## Canvas position that centres native rect `rect` at ZOOM_CENTER on scale `s`.
-static func zoom_position(rect: Rect2, s: float) -> Vector2:
-	return (ZOOM_CENTER - rect.get_center() * s).round()
-
-
-func _animate() -> bool:
-	return is_inside_tree() and not CombatStage.reduced_motion()
+func _motion() -> Motion:
+	if not is_inside_tree():
+		return Motion.SNAP
+	return Motion.REDUCED if CombatStage.reduced_motion() else Motion.FULL
 
 
 func open_section(s: String) -> void:
-	if not SECTIONS.has(s) or _dial() == null:
+	if not sections().has(s) or _dial() == null:
 		return
 	section = s
 	_close_tag()
-	_apply_view(true)
 	_refresh()
+	_apply_view(true)
 
 
 func close_section() -> void:
@@ -464,8 +660,8 @@ func close_section() -> void:
 		return
 	section = ""
 	_close_tag()
-	_apply_view(true)
 	_refresh()
+	_apply_view(true)
 
 
 func _on_back() -> void:
@@ -475,50 +671,347 @@ func _on_back() -> void:
 		close_section()
 
 
-## Moves canvas, parts, iris shutters and side panels to the state `section` names.
+## Group position for section `s`; `opened` includes the target modules' own offsets
+## (applied as the section opens, after the zoom lands).
+func _group_target(g: String, s: String, opened: bool) -> Vector2:
+	if s == "":
+		return _base[g]
+	var spec: Dictionary = sections()[s]
+	if not opened and g in spec["targets"]:
+		return _base[g]
+	return _base[g] + v2(spec["offsets"][g])
+
+
+func _group_alpha(g: String, s: String) -> float:
+	if s == "" or g in sections()[s]["targets"]:
+		return 1.0
+	return float(layout("dim_alpha"))
+
+
+func _split_position(g: String) -> Vector2:
+	var order: Array = art()["stack_order"]
+	var i: int = order.find(g)
+	return _base[g] + Vector2(0.0, roundf((i - (order.size() - 1) / 2.0) * float(layout("split_px"))))
+
+
+func _canvas_target(s: String) -> Array:
+	if s == "":
+		return [Vector2.ONE * overview_scale(), overview_position()]
+	var sc: float = float(sections()[s]["scale"])
+	return [Vector2(sc, sc), zoom_position(section_frame(s), sc)]
+
+
+func _list_shown_x() -> float:
+	return LIST_X
+
+
+func _list_hidden_x() -> float:
+	return LIST_X + float(layout("list_hidden_dx"))
+
+
+## Moves canvas, modules, hovering parts and side panels to the state `section` names.
 func _apply_view(animate: bool) -> void:
 	if _tween != null and _tween.is_valid():
 		_tween.kill()
-	var go: bool = animate and _animate()
-	_tween = create_tween().set_parallel(true) if go else null
+	_tween = null
 	var in_section: bool = section != ""
-	var spec: Dictionary = SECTIONS.get(section, {})
-	var target_scale: float = float(spec["scale"]) if in_section else OVERVIEW_SCALE
-	var target_pos: Vector2 = zoom_position(spec["rect"], target_scale) if in_section else overview_position()
-	_to(_canvas, "scale", Vector2(target_scale, target_scale), ZOOM_SECS)
-	_to(_canvas, "position", target_pos, ZOOM_SECS)
-	for g in GROUPS:
-		var offset: Vector2 = spec["offsets"][g] if in_section else Vector2.ZERO
-		var dim: bool = in_section and not (g in spec["targets"])
-		_to(_groups[g], "position", offset, ZOOM_SECS)
-		_to(_groups[g], "modulate:a", DIM_ALPHA if dim else 1.0, ZOOM_SECS)
-	var lenses_open: bool = section == "lenses"
-	var slots: int = Dial.lens_slots(_dial()["level"]) if _dial() != null else 0
-	for p in range(_irises.size()):
-		var open: bool = lenses_open and p < slots
-		var iris: ColorRect = _irises[p]
-		if go:
-			_tween.tween_property(iris, "scale", Vector2.ZERO if open else Vector2.ONE, IRIS_SECS).set_delay(ZOOM_SECS + IRIS_STAGGER * p if open else 0.0)
-		else:
-			iris.scale = Vector2.ZERO if open else Vector2.ONE
 	for s in _bands.keys():
 		(_bands[s] as Control).visible = not in_section
 		(_bands[s] as Control).mouse_filter = Control.MOUSE_FILTER_STOP if not in_section else Control.MOUSE_FILTER_IGNORE
 		(_band_labels[s] as Label).visible = not in_section
-		var band: Rect2 = BANDS[s]
-		var op := overview_position()
-		(_band_labels[s] as Label).position = op + Vector2(CANVAS.x * OVERVIEW_SCALE + 8.0, (band.position.y + band.size.y / 2.0) * OVERVIEW_SCALE - 12.0)
-	_to(_hatch, "scale", Vector2(HATCH_OPEN_SCALE, 1.0) if section == "movement" else Vector2.ONE, HATCH_SECS)
-	_list_scroll.visible = in_section
+		var band := band_rect(s)
+		(_band_labels[s] as Label).position = overview_position() + Vector2(canvas_size().x * overview_scale() + 8.0, (band.get_center().y) * overview_scale() - 12.0)
 	_section_craft.visible = in_section
 	_craft.visible = not in_section
+	var mode := _motion() if animate else Motion.SNAP
+	if mode == Motion.FULL:
+		if in_section:
+			_play_zoom_in()
+		else:
+			_play_back()
+		return
+	_snap_view()
+	if mode == Motion.REDUCED:
+		_canvas.modulate.a = 0.0
+		_tween = create_tween()
+		_tween.tween_property(_canvas, "modulate:a", 1.0, timing("reduced_fade"))
 
 
-func _to(node: Object, prop: String, value: Variant, secs: float) -> void:
-	if _tween != null:
-		_tween.tween_property(node, prop, value, secs).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	else:
-		node.set_indexed(NodePath(prop), value)
+func _snap_view() -> void:
+	var c := _canvas_target(section)
+	_canvas.scale = c[0]
+	_canvas.position = c[1]
+	_canvas.modulate.a = 1.0
+	for g in _groups.keys():
+		(_groups[g] as Control).position = _group_target(g, section, true)
+		(_groups[g] as Control).modulate.a = _group_alpha(g, section)
+	_list_scroll.visible = section != ""
+	_list_scroll.position.x = _list_shown_x()
+	_place_holders()
+
+
+## Adds `items` ([node, prop, value, secs, delay, trans, ease]) to `tw` as one parallel step.
+func _step(tw: Tween, items: Array) -> void:
+	var first := true
+	for it in items:
+		var tweener: PropertyTweener = tw.tween_property(it[0], it[1], it[2], it[3]) if first else tw.parallel().tween_property(it[0], it[1], it[2], it[3])
+		tweener.set_delay(it[4]).set_trans(it[5]).set_ease(it[6])
+		first = false
+
+
+static func _t(node: Object, prop: String, value: Variant, secs: float, delay: float = 0.0, trans: Tween.TransitionType = Tween.TRANS_CUBIC, ease_type: Tween.EaseType = Tween.EASE_OUT) -> Array:
+	return [node, prop, value, secs, delay, trans, ease_type]
+
+
+## §4.1: the assembled Dial rises from the bottom, then the needle sweeps up to the charge.
+func _play_open() -> void:
+	var dial: Variant = _dial()
+	if dial == null:
+		return
+	var home: Vector2 = overview_position()
+	_canvas.position = home + Vector2(0.0, SCREEN.y - home.y)
+	_tween = create_tween()
+	_tween.tween_property(_canvas, "position", home, timing("open_rise")).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	_needle.rotation_degrees = NEEDLE_MIN_DEG
+	_set_needle(needle_rotation_degrees(dial), timing("open_rise"))
+
+
+## §4.2-4.3: split, zoom (others drift and dim), then the section opens with the list.
+func _play_zoom_in() -> void:
+	var s := section
+	_tween = create_tween()
+	var split: Array = []
+	for g in _groups.keys():
+		split.append(_t(_groups[g], "position", _split_position(g), timing("split")))
+	_step(_tween, split)
+	var c := _canvas_target(s)
+	var zoom: Array = [_t(_canvas, "scale", c[0], timing("zoom")), _t(_canvas, "position", c[1], timing("zoom"))]
+	for g in _groups.keys():
+		zoom.append(_t(_groups[g], "position", _group_target(g, s, false), timing("zoom")))
+		zoom.append(_t(_groups[g], "modulate:a", _group_alpha(g, s), timing("zoom")))
+	_step(_tween, zoom)
+
+	_list_scroll.visible = true
+	_list_scroll.position.x = _list_hidden_x()
+	var open: Array = [_t(_list_scroll, "position:x", _list_shown_x(), timing("list_slide"))]
+	var items := _list_box.get_children()
+	for i in range(items.size()):
+		(items[i] as CanvasItem).modulate.a = 0.0
+		open.append(_t(items[i], "modulate:a", 1.0, timing("list_slide"), timing("list_stagger") * i))
+	for g in sections()[s]["targets"]:
+		if _group_target(g, s, true) != _base[g]:
+			var drop: bool = g == "canopy"
+			open.append(_t(_groups[g], "position", _group_target(g, s, true), timing("canopy_drop") if drop else timing("emerge"), 0.0, Tween.TRANS_CUBIC, Tween.EASE_IN_OUT if drop else Tween.EASE_OUT))
+	if s == "lenses":
+		var size := v2(art()["component_sizes"]["lens"])
+		for p in range(_seated.size()):
+			_seated[p].position = _hidden_position("collar", size, p)
+			open.append(_t(_seated[p], "position", _hover_in_clip("collar", size, p), timing("emerge"), timing("lens_stagger") * p))
+			_ghosts[p].modulate.a = 0.0
+			open.append(_t(_ghosts[p], "modulate:a", 1.0, timing("emerge")))
+	elif s == "movement":
+		var msize := v2(art()["component_sizes"]["movement_frame"])
+		_movement_holder.position = _hidden_position("grip", msize)
+		open.append(_t(_movement_holder, "position", _hover_in_clip("grip", msize), timing("emerge")))
+	_step(_tween, open)
+
+
+## §4.10: list out and parts retract, zoom out with modules drifting home split, then snap shut.
+func _play_back() -> void:
+	_tween = create_tween()
+	var retract: Array = [_t(_list_scroll, "position:x", _list_hidden_x(), timing("back_list"))]
+	var lsize := v2(art()["component_sizes"]["lens"])
+	for p in range(_seated.size()):
+		retract.append(_t(_seated[p], "position", _hidden_position("collar", lsize, p), timing("back_retract")))
+	retract.append(_t(_movement_holder, "position", _hidden_position("grip", v2(art()["component_sizes"]["movement_frame"])), timing("back_retract")))
+	for g in _groups.keys():
+		var settle := _settle_target(g)
+		if settle != (_groups[g] as Control).position:
+			retract.append(_t(_groups[g], "position", settle, timing("back_retract")))
+	_step(_tween, retract)
+	_tween.tween_callback(func(): _list_scroll.visible = false)
+	var c := _canvas_target("")
+	var zoom: Array = [_t(_canvas, "scale", c[0], timing("back_zoom")), _t(_canvas, "position", c[1], timing("back_zoom"))]
+	for g in _groups.keys():
+		zoom.append(_t(_groups[g], "position", _split_position(g), timing("back_zoom")))
+		zoom.append(_t(_groups[g], "modulate:a", 1.0, timing("back_zoom")))
+	_step(_tween, zoom)
+	var overshoot: float = float(layout("snap_overshoot_px"))
+	var snap_a: Array = []
+	var snap_b: Array = []
+	for g in _groups.keys():
+		var past: Vector2 = _base[g] + (_base[g] - _split_position(g)).normalized() * overshoot if _base[g] != _split_position(g) else _base[g]
+		snap_a.append(_t(_groups[g], "position", past.round(), timing("back_snap") * 0.7))
+		snap_b.append(_t(_groups[g], "position", _base[g], timing("back_snap") * 0.3))
+	_step(_tween, snap_a)
+	_step(_tween, snap_b)
+
+
+## Where a module rests while hovering parts retract on Back: its pre-open (zoom) position.
+func _settle_target(g: String) -> Vector2:
+	var pos: Vector2 = (_groups[g] as Control).position
+	for s in sections().keys():
+		if g in sections()[s]["targets"] and pos == _group_target(g, s, true):
+			return _group_target(g, s, false)
+	return pos
+
+
+func _restart_pulse() -> void:
+	if _pulse_tween != null and _pulse_tween.is_valid():
+		_pulse_tween.kill()
+	_pulse_tween = null
+	for r in _rings:
+		r.modulate.a = 1.0
+	if section != "complications" or _motion() != Motion.FULL or held_complications().is_empty():
+		return
+	_pulse_tween = create_tween().set_loops()
+	var half: float = timing("chamber_pulse") / 2.0
+	var down: Array = []
+	var up: Array = []
+	for r in _rings:
+		down.append(_t(r, "modulate:a", 0.3, half, 0.0, Tween.TRANS_SINE, Tween.EASE_IN_OUT))
+		up.append(_t(r, "modulate:a", 1.0, half, 0.0, Tween.TRANS_SINE, Tween.EASE_IN_OUT))
+	_step(_pulse_tween, down)
+	_step(_pulse_tween, up)
+
+
+# ---------------------------------------------------------------- load / swap / unload beats (§4.6-4.8)
+
+func _play_changes(old: Dictionary, now: Dictionary) -> void:
+	for kind in ["movement", "lenses", "complications"]:
+		var a: Array = old.get(kind, [])
+		var b: Array = now[kind]
+		for slot in range(b.size()):
+			var was: String = a[slot] if slot < a.size() else ""
+			if was == b[slot]:
+				continue
+			if was != "":
+				_beat_out(kind, slot, was, b[slot] != "")
+			if b[slot] != "":
+				_beat_in(kind, slot, timing("swap_delay") if was != "" else 0.0)
+
+
+func _sig_texture(kind: String, sig: String) -> Texture2D:
+	var key: String = sig.split(":")[0]
+	match kind:
+		"lenses":
+			return lens_texture(key)
+		"movement":
+			var at := AtlasTexture.new()
+			at.atlas = movement_texture(key)
+			at.region = Rect2(Vector2.ZERO, v2(art()["component_sizes"]["movement_frame"]))
+			return at
+	return label_texture(key)
+
+
+func _socket_node(kind: String, slot: int) -> Control:
+	match kind:
+		"lenses":
+			return _ports[slot]
+		"movement":
+			return _seat
+	return _chambers[slot]
+
+
+func _native_size(kind: String) -> Vector2:
+	match kind:
+		"lenses":
+			return v2(art()["component_sizes"]["lens"])
+		"movement":
+			return v2(art()["component_sizes"]["movement_frame"])
+	return v2(art()["component_sizes"]["complication_icon"])
+
+
+func _list_point() -> Vector2:
+	return Vector2(LIST_X + LIST_WIDTH / 2.0, _list_scroll.position.y + 22.0)
+
+
+func _to_self(node: Control, local: Vector2) -> Vector2:
+	return get_global_transform().affine_inverse() * (node.get_global_transform() * local)
+
+
+## A part flying between the list and a socket, at the canvas scale, on a shallow arc.
+func _fly(tex: Texture2D, size: Vector2, from: Vector2, to: Vector2, secs: float, delay: float, pop: float, fade: bool) -> void:
+	if tex == null or _motion() != Motion.FULL:
+		return
+	var f := _sprite(self, "Flyer", tex, from - size * _canvas.scale / 2.0, size * _canvas.scale)
+	f.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	var tw := create_tween()
+	if delay > 0.0:
+		tw.tween_interval(delay)
+	if pop > 0.0:
+		tw.tween_property(f, "position:y", f.position.y - pop * _canvas.scale.y, 0.08)
+	var start: Vector2 = f.position - Vector2(0.0, pop * _canvas.scale.y)
+	var end: Vector2 = to - f.size / 2.0
+	tw.tween_method(func(t: float): f.position = start.lerp(end, t) - Vector2(0.0, sin(PI * t) * FLY_ARC_PX), 0.0, 1.0, secs)
+	if fade:
+		tw.parallel().tween_property(f, "modulate:a", 0.0, secs)
+	tw.tween_callback(f.queue_free)
+
+
+## The part leaving `slot`: swapped out (pops, floats to its row) or unloaded (floats to its row).
+func _beat_out(kind: String, slot: int, sig: String, swapped: bool) -> void:
+	var socket := _socket_node(kind, slot)
+	var from := _to_self(socket, socket.size / 2.0)
+	var secs: float = timing("swap") if swapped else timing("unload")
+	_fly(_sig_texture(kind, sig), _native_size(kind), from, _list_point(), secs, 0.0, float(timing("swap_pop_px")) if swapped else 0.0, true)
+
+
+## The part arriving in `slot`: flies from the list, then Lens / Movement re-emerge from the lip
+## with a glow, or the Complication's icon drops into its chamber and the chamber flashes.
+func _beat_in(kind: String, slot: int, delay: float) -> void:
+	if section != kind:
+		_place_holders()
+		return
+	var reduced: bool = _motion() == Motion.REDUCED
+	var fly: float = 0.0 if reduced else timing("load")
+	var socket := _socket_node(kind, slot)
+	_fly(_sig_texture(kind, _sigs[kind][slot]), _native_size(kind), _list_point(), _to_self(socket, socket.size / 2.0), fly, delay, 0.0, false)
+	var tw := create_tween()
+	if kind == "complications":
+		var label := _labels[slot]
+		var rest := v2(art()["components"]["complication_label_lift"])
+		if reduced:
+			label.position = rest
+			label.modulate.a = 0.0
+			tw.tween_property(label, "modulate:a", 1.0, timing("reduced_fade"))
+			return
+		label.position = rest - Vector2(0.0, _native_size(kind).y)
+		label.modulate.a = 0.0
+		tw.tween_interval(delay + fly)
+		tw.tween_property(label, "position", rest, timing("icon_drop")).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		tw.parallel().tween_property(label, "modulate:a", 1.0, timing("icon_drop") / 2.0)
+		var ring := _rings[slot]
+		tw.tween_callback(func(): ring.visible = true; ring.modulate.a = 1.0)
+		tw.tween_interval(float(art()["components"]["chamber_flash_frames"]) / 60.0)
+		tw.tween_callback(func(): _refresh_rings())
+		return
+	var holder: Control = _seated[slot] if kind == "lenses" else _movement_holder
+	var m: String = "collar" if kind == "lenses" else "grip"
+	var size := _native_size(kind)
+	var hover := _hover_in_clip(m, size, slot)
+	if reduced:
+		holder.position = hover
+		holder.modulate.a = 0.0
+		tw.tween_property(holder, "modulate:a", 1.0, timing("reduced_fade"))
+		return
+	holder.position = _hidden_position(m, size, slot)
+	tw.tween_interval(delay + fly)
+	tw.tween_property(holder, "position", hover, timing("load")).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	var glow: TextureRect = _glows[m]
+	glow.modulate = (MapPalette.ore_colour(str(_sigs[kind][slot]).split(":")[0]) if kind == "lenses" else COL_CREAM)
+	glow.modulate.a = 0.0
+	tw.parallel().tween_property(glow, "modulate:a", 1.0, timing("lip_glow") / 2.0)
+	tw.tween_property(glow, "modulate:a", 0.0, timing("lip_glow") / 2.0)
+
+
+func _refresh_rings() -> void:
+	var dial: Variant = _dial()
+	if dial == null:
+		return
+	for i in range(_rings.size()):
+		_rings[i].visible = section == "complications" and i < int(dial["capacityMax"]) and i >= dial["loadedComplications"].size()
+
 
 # ---------------------------------------------------------------- tag
 
@@ -631,12 +1124,17 @@ func _open_tag(title: String, body: Array, buttons: Array, check: Callable) -> v
 		box.add_child(line)
 	box.add_child(MapCardStyle.footer(buttons))
 	add_child(_tag)
-	if _animate():
-		_tag.modulate.a = 0.0
-		_tag.scale = Vector2(0.8, 0.8)
-		var tw := create_tween().set_parallel(true)
-		tw.tween_property(_tag, "modulate:a", 1.0, TAG_SECS)
-		tw.tween_property(_tag, "scale", Vector2.ONE, TAG_SECS)
+	var mode := _motion()
+	if mode == Motion.SNAP:
+		return
+	_tag.modulate.a = 0.0
+	var tw := create_tween().set_parallel(true)
+	if mode == Motion.REDUCED:
+		tw.tween_property(_tag, "modulate:a", 1.0, timing("reduced_fade"))
+		return
+	_tag.scale = Vector2(0.8, 0.8)
+	tw.tween_property(_tag, "modulate:a", 1.0, timing("tag"))
+	tw.tween_property(_tag, "scale", Vector2.ONE, timing("tag"))
 
 
 # ---------------------------------------------------------------- loading (via Dial)
@@ -707,16 +1205,21 @@ func wind() -> Dictionary:
 	var ore: String = lenses[0]["ore"]
 	var result := _apply(Dial.wind(1, "", ore))
 	if result["ok"]:
-		_flash_intake(ore)
+		play_wind(ore)
 	return result
 
 
-func _flash_intake(ore: String) -> void:
-	_intake.color = MapPalette.ore_colour(ore)
-	if _animate():
-		create_tween().tween_property(_intake, "color", COL_SOCKET, INTAKE_FLASH_SECS)
-	else:
-		_intake.color = COL_SOCKET
+## §4.9: the intake glows in the paid ore's colour and the Movement plays its spin strip.
+func play_wind(ore: String) -> void:
+	var mode := _motion()
+	_intake_glow.modulate = MapPalette.ore_colour(ore)
+	if mode == Motion.SNAP:
+		_intake_glow.modulate.a = 0.0
+		return
+	var secs: float = timing("reduced_fade") if mode == Motion.REDUCED else timing("wind_glow")
+	create_tween().tween_property(_intake_glow, "modulate:a", 0.0, secs)
+	if mode == Motion.FULL:
+		create_tween().tween_method(_set_spin_time, 0.0, timing("wind_spin"), timing("wind_spin"))
 
 
 ## Complications: chamber i is loadedComplications[i]; chambers past capacityMax are blanked.
@@ -777,14 +1280,17 @@ func _drop_unload(_at: Vector2, data: Variant) -> void:
 			unload_complication(int(data["slot"]))
 
 
-func _drag_preview(colour: Color) -> void:
-	var swatch := ColorRect.new()
-	swatch.custom_minimum_size = Vector2(32, 32)
-	swatch.size = Vector2(32, 32)
-	swatch.color = colour
+## Drag preview: the part's sprite at x2, centred on the finger.
+func _drag_preview(tex: Texture2D, size: Vector2) -> void:
 	var holder := Control.new()
-	holder.add_child(swatch)
-	swatch.position = -swatch.size / 2.0
+	var t := TextureRect.new()
+	t.texture = tex
+	t.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	t.stretch_mode = TextureRect.STRETCH_SCALE
+	t.size = size * 2.0
+	t.position = -t.size / 2.0
+	holder.add_child(t)
 	set_drag_preview(holder)
 
 
@@ -792,7 +1298,7 @@ func _held_drag(inv_index: int) -> Variant:
 	var inventory: Array = GameState.state["player"]["lensInventory"]
 	if inv_index >= inventory.size():
 		return null
-	_drag_preview(MapPalette.ore_colour(inventory[inv_index]["ore"]))
+	_drag_preview(lens_texture(inventory[inv_index]["ore"]), _native_size("lenses"))
 	return { "type": "held_lens", "inv": inv_index }
 
 
@@ -800,33 +1306,37 @@ func _seated_drag(slot: int) -> Variant:
 	var loaded: Array = (_dial() as Dictionary).get("lenses", [])
 	if slot >= loaded.size():
 		return null
-	_drag_preview(MapPalette.ore_colour(loaded[slot]["ore"]))
+	_drag_preview(lens_texture(loaded[slot]["ore"]), _native_size("lenses"))
 	return { "type": "seated_lens", "slot": slot }
 
 
 func _held_movement_drag(inv_index: int) -> Variant:
-	if inv_index >= GameState.state["player"]["movementInventory"].size():
+	var inventory: Array = GameState.state["player"]["movementInventory"]
+	if inv_index >= inventory.size():
 		return null
-	_drag_preview(COL_CREAM)
+	_drag_preview(_sig_texture("movement", _movement_sig(inventory[inv_index])), _native_size("movement"))
 	return { "type": "held_movement", "inv": inv_index }
 
 
 func _seated_movement_drag() -> Variant:
-	if (_dial() as Dictionary)["movement"] == null:
+	var movement: Variant = (_dial() as Dictionary)["movement"]
+	if movement == null:
 		return null
-	_drag_preview(COL_CREAM)
+	_drag_preview(_sig_texture("movement", _movement_sig(movement)), _native_size("movement"))
 	return { "type": "seated_movement" }
 
 
 func _held_complication_drag(held_index: int) -> Variant:
-	if held_index >= held_complications().size():
+	var held := held_complications()
+	if held_index >= held.size():
 		return null
-	_drag_preview(COL_CREAM)
+	_drag_preview(label_texture(held[held_index]["recipeKey"]), _native_size("complications"))
 	return { "type": "held_complication", "held": held_index }
 
 
 func _seated_complication_drag(slot: int) -> Variant:
-	if slot >= (_dial() as Dictionary)["loadedComplications"].size():
+	var loaded: Array = (_dial() as Dictionary)["loadedComplications"]
+	if slot >= loaded.size():
 		return null
-	_drag_preview(COL_CREAM)
+	_drag_preview(label_texture(loaded[slot]["recipeKey"]), _native_size("complications"))
 	return { "type": "seated_complication", "slot": slot }

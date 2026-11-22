@@ -1,5 +1,5 @@
 {
- "_comment": "Dial menu art anchors, native px in each module's own sprite; measured from assets/hq/dial/*.png (cut from dial_exploded_source.png, pixelised x3). Read by the Dial menu at ticket 09.",
+ "_comment": "Dial menu art: anchors in native px in each module's own sprite, measured from assets/hq/dial/*.png (cut from dial_exploded_source.png, pixelised x3); layout, section framing, exploded offsets and beat timings (art spec .scratch/ui-previews-dial/dial-art-spec.md §2.3-§4). Read by DialMenu via GameData.DIAL_ART.",
  "seat_overlap": 2,
  "draw_order": [
   "canopy",
@@ -224,5 +224,229 @@
    12,
    12
   ]
+ },
+ "layout": {
+  "orientation": "vertical",
+  "overview_scale": 2,
+  "overview_left": 16,
+  "overview_bottom_pad": 76,
+  "zoom_center": [
+   125,
+   400
+  ],
+  "dim_alpha": 0.35,
+  "split_px": 4,
+  "snap_overshoot_px": 1,
+  "emerge_clip": {
+   "height": 80,
+   "margin": 24
+  },
+  "list_hidden_dx": 140
+ },
+ "bands": {
+  "movement": [
+   {
+    "module": "head",
+    "rect": [
+     0,
+     0,
+     86,
+     78
+    ]
+   },
+   {
+    "module": "grip",
+    "rect": [
+     0,
+     0,
+     84,
+     97
+    ]
+   }
+  ],
+  "lenses": [
+   {
+    "module": "collar",
+    "rect": [
+     0,
+     26,
+     83,
+     42
+    ]
+   }
+  ],
+  "complications": [
+   {
+    "module": "canopy",
+    "rect": [
+     0,
+     26,
+     72,
+     127
+    ]
+   }
+  ]
+ },
+ "sections": {
+  "movement": {
+   "label": "Movement",
+   "frame": {
+    "module": "grip",
+    "rect": [
+     -2,
+     -127,
+     124,
+     262
+    ]
+   },
+   "scale": 2,
+   "offsets": {
+    "head": [
+     0,
+     -80
+    ],
+    "grip": [
+     0,
+     0
+    ],
+    "collar": [
+     -8,
+     24
+    ],
+    "canopy": [
+     -8,
+     40
+    ]
+   },
+   "targets": [
+    "head",
+    "grip"
+   ]
+  },
+  "lenses": {
+   "label": "Lenses",
+   "frame": {
+    "module": "collar",
+    "rect": [
+     0,
+     -34,
+     83,
+     106
+    ]
+   },
+   "scale": 3,
+   "offsets": {
+    "head": [
+     -12,
+     -100
+    ],
+    "grip": [
+     -12,
+     -100
+    ],
+    "collar": [
+     0,
+     0
+    ],
+    "canopy": [
+     -12,
+     40
+    ]
+   },
+   "targets": [
+    "collar"
+   ]
+  },
+  "complications": {
+   "label": "Complications",
+   "frame": {
+    "module": "canopy",
+    "rect": [
+     0,
+     -4,
+     72,
+     36
+    ]
+   },
+   "scale": 3,
+   "offsets": {
+    "head": [
+     -12,
+     -48
+    ],
+    "grip": [
+     -12,
+     -48
+    ],
+    "collar": [
+     -12,
+     -48
+    ],
+    "canopy": [
+     0,
+     40
+    ]
+   },
+   "targets": [
+    "canopy"
+   ]
+  }
+ },
+ "components": {
+  "lens_dir": "res://assets/hq/dial/components/",
+  "lens_fallback": "lens_time",
+  "movement_fallback": "movement_recharge",
+  "movement_frames": 4,
+  "complication_label_fallback": "comp_label_placeholder",
+  "complication_label_lift": [
+   5,
+   -8
+  ],
+  "chamber_flash_frames": 2,
+  "stud_lit_size": [
+   6,
+   6
+  ],
+  "needle_size": [
+   2,
+   11
+  ],
+  "intake_tap_size": [
+   14,
+   14
+  ],
+  "glow_size": [
+   16,
+   16
+  ]
+ },
+ "timings": {
+  "open_rise": 0.25,
+  "needle": 0.4,
+  "split": 0.12,
+  "zoom": 0.35,
+  "list_slide": 0.25,
+  "list_stagger": 0.04,
+  "emerge": 0.3,
+  "lens_stagger": 0.05,
+  "canopy_drop": 0.3,
+  "hover_period": 1.2,
+  "tag": 0.12,
+  "load": 0.25,
+  "lip_glow": 0.2,
+  "icon_drop": 0.25,
+  "swap_pop_px": 8,
+  "swap": 0.25,
+  "swap_delay": 0.08,
+  "unload": 0.2,
+  "wind_glow": 0.15,
+  "wind_spin_fps": 8,
+  "wind_spin": 0.5,
+  "back_list": 0.2,
+  "back_retract": 0.3,
+  "back_zoom": 0.35,
+  "back_snap": 0.1,
+  "chamber_pulse": 0.6,
+  "reduced_fade": 0.1
  }
 }
