@@ -45,7 +45,7 @@ Pixelise each generated image at the same scale as the sheet (x3) and give me th
 
 ## Done (2026-11-22)
 
-- Human art in: `lens_time` (20x20) and `movement_recharge` (4 frames, 160x40; the frames are near-identical, so the spin is wired but barely visible). Sources kept in `.scratch/ui-previews-dial/sources/`; `tools/dial_art_build.py` grid-locks them and draws every overlay, tier mark and `comp_label_*` (19 from combat icons + placeholder fallback).
+- Human art in: `lens_time` (64x64) and `movement_recharge` (4 frames, 256x64; each sized to fill its module's inner lip, Lenses stacked above the collar; the frames are near-identical, so the spin is wired but barely visible). Sources kept in `.scratch/ui-previews-dial/sources/`; `tools/dial_art_build.py` grid-locks them and draws every overlay, tier mark and `comp_label_*` (19 from combat icons + placeholder fallback).
 - `DialMenu` rebuilt on the module sprites; anchors, framing, offsets and timings in `data/dial_art.json` (`GameData.DIAL_ART`). Vertical layout. Missing Lens ores fall back to `lens_time` tinted; missing Movements to `movement_recharge`.
 - Needle stays code-drawn (`dial-needle.png` is 666x375, not the 6x18 sprite the spec assumes).
 - Wind via the 2+ Lens ore-choice modal skips the spin beat (only the direct one-Lens Wind plays it).

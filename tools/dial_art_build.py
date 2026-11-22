@@ -2,8 +2,9 @@
 
 Writes into assets/hq/dial/ and assets/hq/dial/components/ (art spec
 .scratch/ui-previews-dial/dial-art-spec.md §2.1-§2.2):
-  - lens_time.png (20x20) and movement_recharge.png (4-frame strip, 160x40), grid-locked
-    from the generated sources in .scratch/ui-previews-dial/sources/;
+  - lens_time.png and movement_recharge.png (4-frame horizontal strip), grid-locked from the
+    generated sources in .scratch/ui-previews-dial/sources/ at the `component_sizes` in
+    data/dial_art.json (each sized to fill its module's inner top lip);
   - dial_stud_lit, slot_ghost_lens, chamber_blank, chamber_ring, dial_glow,
     lens_tier_<n>, movement_tier_<n>: drawn from code in palette colours;
   - comp_label_<recipeKey> (12x12): box downscale of assets/combat/icons/<recipeKey>.png,
@@ -30,7 +31,14 @@ def palette():
     return {c["id"]: tuple(int(c["hex"][i:i + 2], 16) for i in (1, 3, 5)) + (255,) for c in data["colors"]}
 
 
+def component_sizes():
+    with open(os.path.join(ROOT, "data", "dial_art.json"), encoding="utf-8") as f:
+        sizes = json.load(f)["component_sizes"]
+    return sizes["lens"][0], sizes["movement_frame"][0]
+
+
 P = palette()
+LENS, MOVEMENT = component_sizes()
 CLEAR = (0, 0, 0, 0)
 LIT = (0xF4, 0xEF, 0xE0, 255)
 
@@ -73,7 +81,7 @@ def alpha_runs(img):
 def build_components():
     os.makedirs(COMP, exist_ok=True)
     lens = Image.open(os.path.join(SRC, "lens_time_gen.png")).convert("RGBA")
-    fit_square(lens, lens.getbbox(), 20).save(os.path.join(COMP, "lens_time.png"))
+    fit_square(lens, lens.getbbox(), LENS).save(os.path.join(COMP, "lens_time.png"))
 
     strip = Image.open(os.path.join(SRC, "movement_recharge_gen.png")).convert("RGBA")
     runs = alpha_runs(strip)
@@ -81,10 +89,10 @@ def build_components():
     frames = []
     for x0, x1 in runs:
         bbox = strip.crop((x0, 0, x1, strip.height)).getbbox()
-        frames.append(fit_square(strip, (x0, bbox[1], x1, bbox[3]), 40))
-    out = Image.new("RGBA", (160, 40), CLEAR)
+        frames.append(fit_square(strip, (x0, bbox[1], x1, bbox[3]), MOVEMENT))
+    out = Image.new("RGBA", (MOVEMENT * len(frames), MOVEMENT), CLEAR)
     for i, f in enumerate(frames):
-        out.paste(f, (i * 40, 0))
+        out.paste(f, (i * MOVEMENT, 0))
     out.save(os.path.join(COMP, "movement_recharge.png"))
 
 
@@ -107,8 +115,8 @@ def build_overlays():
     inside, edge = ellipse_cells(6, 6)
     draw(6, 6, {c: (P["highlight_warm"] if c in edge else LIT) for c in inside}).save(os.path.join(OUT, "dial_stud_lit.png"))
 
-    inside, edge = ellipse_cells(20, 20)
-    draw(20, 20, {c: P["slate_pale"] for c in edge if (c[0] + c[1]) % 2 == 0}).save(os.path.join(OUT, "slot_ghost_lens.png"))
+    inside, edge = ellipse_cells(LENS, LENS)
+    draw(LENS, LENS, {c: P["slate_pale"] for c in edge if (c[0] + c[1]) % 2 == 0}).save(os.path.join(OUT, "slot_ghost_lens.png"))
 
     inside, edge = ellipse_cells(22, 8)
     blank = {c: (P["outline_black"] if c in edge else P["slate_mid"]) for c in inside}
@@ -131,16 +139,17 @@ def build_overlays():
     for n in range(1, 6):
         cells = {}
         for i in range(n):
-            x = 10 - n + i * 2
-            cells[(x, 0)] = LIT
-            cells[(x, 1)] = P["neutral_light"]
-        draw(20, 20, cells).save(os.path.join(COMP, "lens_tier_%d.png" % n))
+            x = LENS // 2 - 2 * n + i * 4
+            for dx in (0, 1):
+                cells[(x + dx, 1)] = LIT
+                cells[(x + dx, 2)] = P["neutral_light"]
+        draw(LENS, LENS, cells).save(os.path.join(COMP, "lens_tier_%d.png" % n))
         cells = {}
         for i in range(n):
-            x = 20 - n * 2 + i * 4
+            x = MOVEMENT // 2 - n * 3 + i * 6
             for dx, dy, col in ((0, 0, P["brick_lit"]), (1, 0, P["brick_mid"]), (0, 1, P["brick_mid"]), (1, 1, P["brick_deep"])):
-                cells[(x + dx, 37 + dy)] = col
-        draw(40, 40, cells).save(os.path.join(COMP, "movement_tier_%d.png" % n))
+                cells[(x + dx, MOVEMENT - 5 + dy)] = col
+        draw(MOVEMENT, MOVEMENT, cells).save(os.path.join(COMP, "movement_tier_%d.png" % n))
 
 
 def build_labels():

@@ -193,32 +193,32 @@
  "hover": {
   "lens_offsets": [
    [
-    -26,
-    -34
+    0,
+    -36
    ],
    [
     0,
-    -34
+    -102
    ],
    [
-    26,
-    -34
+    0,
+    -168
    ]
   ],
   "movement_offset": [
    0,
-   -44
+   -36
   ],
   "bob_px": 1
  },
  "component_sizes": {
   "lens": [
-   20,
-   20
+   64,
+   64
   ],
   "movement_frame": [
-   40,
-   40
+   64,
+   64
   ],
   "complication_icon": [
    12,
@@ -238,7 +238,7 @@
   "split_px": 4,
   "snap_overshoot_px": 1,
   "emerge_clip": {
-   "height": 80,
+   "height": 240,
    "margin": 24
   },
   "list_hidden_dx": 140
@@ -294,16 +294,16 @@
     "module": "grip",
     "rect": [
      -2,
-     -127,
+     -151,
      124,
-     262
+     286
     ]
    },
    "scale": 2,
    "offsets": {
     "head": [
      0,
-     -80
+     -104
     ],
     "grip": [
      0,
@@ -329,20 +329,20 @@
     "module": "collar",
     "rect": [
      0,
-     -34,
+     -204,
      83,
-     106
+     274
     ]
    },
-   "scale": 3,
+   "scale": 2,
    "offsets": {
     "head": [
      -12,
-     -100
+     -280
     ],
     "grip": [
      -12,
-     -100
+     -280
     ],
     "collar": [
      0,

@@ -13,7 +13,7 @@ Status: **APPROVED**, revised 2026-11-21 (human). Used by 08 (placeholder slices
 - **Opening = separating and emerging.** Selecting a section separates the modules (§3). Movement and Lenses are shown as the component **sliding out of the top lip** of its module and hovering above it. Complications are different: the canopy's cut face with its 4 quadrant chambers is already drawn in the master, so it needs no new art. The UI marks the chambers that can take a Complication, and loading plays a small icon dropping into the chosen chamber.
 - True pixel grid with integer zoom. The component side list is a **right column**.
 - Prompts are written for the **vertical** layout. Both orientations are specced (§3). **09 built vertical** (the default; `layout.orientation` in `data/dial_art.json`). Horizontal stays open if the on-device check asks for it.
-- 09 re-tuned the §3.1 numbers to the real sprites (values live in `data/dial_art.json` `sections`): Movement ×2 with the head lifted (0, −80) so the Movement hovers between head and grip; Lenses ×3 with head and grip at (−12, −100); Complications ×3.
+- 09 re-tuned the §3.1 numbers to the real sprites (values live in `data/dial_art.json` `sections`): Movement ×2, a 64-px Movement, head lifted (0, −104) so the Movement hovers between head and grip; Lenses ×2, the three 64-px Lenses stacked above the collar lip, head and grip at (−12, −280); Complications ×3.
 
 ## 1. Pixel scale and source processing
 
@@ -41,7 +41,7 @@ Small overlays and hand-made pieces:
 |---|---|---|
 | `dial_needle.png` | 6 × 18 | Already exists; the one sprite rotated in code. Pivot on the face centre |
 | `dial_stud_lit.png` | 6 × 6 | Overlay on a stud when that chamber is loaded. Studs are baked off in the head |
-| `slot_ghost_lens.png` | 20 × 20 | Dithered outline. Marks a Lens slot the Dial's level hasn't unlocked, in the hover row |
+| `slot_ghost_lens.png` | 64 × 64 | Dithered outline. Marks a Lens slot the Dial's level hasn't unlocked, in the hover row |
 | `chamber_blank.png` | 22 × 8 | Hand-made steel cover over a chamber above `capacityMax` |
 | `chamber_ring.png` | 22 × 8 | Hand-made bright rim. Pulses on a chamber that can take a Complication |
 | `dial_glow.png` | 16 × 16 | Greyscale mask, tinted by ore. Seated Lens glow, and the intake during Wind |
@@ -50,10 +50,10 @@ Small overlays and hand-made pieces:
 
 | File (`assets/hq/dial/components/`) | Count | Native | Pivot | Notes |
 |---|---|---|---|---|
-| `lens_<ore>.png` | 5 (time, physics, life, fate, emotion) | 20 × 20 | centre | Round glass in a steel bezel, facing the viewer, glass tinted with the ore colour |
-| `lens_tier_<n>.png` | 5, hand-made | 20 × 20 | centre | 1–5 notches on the bezel, overlaid |
-| `movement_<archetype>.png` | 4 (recharge, capacitor, impact, spread) | 4-frame strip, 160 × 40 | centre of frame | Frame 0 = still; frames 1–3 = spin, for Wind. Motifs: recharge = mainspring spiral; capacitor = stacked barrel plates; impact = hammer and escapement; spread = star wheel |
-| `movement_tier_<n>.png` | 5, hand-made | 40 × 40 | centre | Tier jewels on the rim |
+| `lens_<ore>.png` | 5 (time, physics, life, fate, emotion) | 64 × 64 (fills the collar's inner lip) | centre | Round glass in a steel bezel, facing the viewer, glass tinted with the ore colour |
+| `lens_tier_<n>.png` | 5, hand-made | 64 × 64 | centre | 1–5 notches on the bezel, overlaid |
+| `movement_<archetype>.png` | 4 (recharge, capacitor, impact, spread) | 4-frame strip, 256 × 64 (each frame fills the grip's inner lip) | centre of frame | Frame 0 = still; frames 1–3 = spin, for Wind. Motifs: recharge = mainspring spiral; capacitor = stacked barrel plates; impact = hammer and escapement; spread = star wheel |
+| `movement_tier_<n>.png` | 5, hand-made | 64 × 64 | centre | Tier jewels on the rim |
 | `comp_label_<recipeKey>.png` | one per recipe with an icon in `assets/combat/icons/` | 12 × 12 | centre | **No prompt.** A nearest downscale of the 32 px combat icon, redrawn by hand. A seated Complication is its label icon sitting in the chamber, and the icon is what drops in when loading |
 
 A hovering component has a 1-px bob and no shadow (floor shadows are deferred, see ticket 13). A seated Complication sits flat in its chamber. In the side list, components are shown at the section's zoom scale.
