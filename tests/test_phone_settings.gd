@@ -26,13 +26,13 @@ func run() -> void:
 		phone.free()
 	)
 
-	run_case("profile_keeps_stats_skills_equipment_but_no_preferences", func():
+	run_case("profile_keeps_stats_skills_loadout_but_no_preferences", func():
 		GameState.reset()
 		PhoneNav.open_app("profile")
 		var phone := PhoneScreen.new()
 		phone._ready()
 		assert_eq(phone.find_children("", "CheckButton", true, false).size(), 0, "preferences moved out of Profile")
 		var texts := NodeQuery.symbol_row_texts(phone)
-		assert_true(texts.has("Skills") and texts.has("Equipment"), "Profile content remains")
+		assert_true(texts.has("Skills") and texts.has("Loadout"), "Profile content remains")
 		phone.free()
 	)

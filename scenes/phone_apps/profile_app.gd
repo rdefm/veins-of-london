@@ -25,7 +25,6 @@ func build(content: VBoxContainer) -> void:
 	content.add_child(_build_stats_card())
 	content.add_child(_build_skills_card())
 	content.add_child(_build_moves_card())
-	content.add_child(_build_equipment_card())
 	content.add_child(_build_loadout_card())
 	for owner_id in [""] + _contact_dial_owner_ids():
 		var dial_card: Variant = _build_dial_card(owner_id)
@@ -56,21 +55,54 @@ static func _contact_dial_owner_ids() -> Array:
 	return out
 
 
-# A Dial summary card whose Open Dial button opens the full-screen Dial menu for
-# that owner ("" = the player); null when the owner has no Dial.
+# A Dial card: level, XP bar (Dial.level_progress), charge/regen, seated Movement,
+# loaded Lenses, and Open Dial into the full-screen Dial menu for that owner
+# ("" = the player); null when the owner has no Dial.
 func _build_dial_card(owner_id: String) -> Control:
 	var dial: Variant = Dial.dial_of(owner_id)
 	if dial == null:
 		return null
+	var p := Dial.level_progress(dial, owner_id)
 	var c := MapCardStyle.card()
 	var content: VBoxContainer = c["content"]
 	content.add_child(UI.heading("Dial" if owner_id == "" else "%s — Dial" % Contacts.display_name(owner_id), 14))
-	content.add_child(UI.label("Level %d Dial" % dial["level"]))
+	content.add_child(UI.label(DialMenu.LEVEL_TEXT % int(p["level"])))
+	if p["isMax"]:
+		content.add_child(UI.bar(1.0, 1.0))
+		content.add_child(UI.muted_label(DialMenu.XP_MAX_TEXT % int(p["xp"])))
+	else:
+		content.add_child(UI.bar(float(p["xp"] - p["levelXp"]), maxf(float(p["nextXp"] - p["levelXp"]), 0.0001)))
+		content.add_child(UI.muted_label(DialMenu.XP_TEXT % [int(p["xp"]), int(p["nextXp"])]))
 	content.add_child(UI.muted_label("Charge %s/%d (regen %s/day)" % [str(int(dial["currentCharge"])), dial["maxCharge"], str(dial["rechargeRate"])]))
+	content.add_child(_movement_row(dial))
+	content.add_child(UI.symbol_row(_lens_parts(dial)))
 	var open := MapCardStyle.text_button(OPEN_DIAL_TEXT, func(): PhoneNav.open_dial(owner_id))
 	open.name = "OpenDial_%s" % ("player" if owner_id == "" else owner_id)
 	content.add_child(MapCardStyle.footer([open]))
 	return c["panel"]
+
+
+static func _movement_row(dial: Dictionary) -> Control:
+	var movement: Variant = dial["movement"]
+	if movement == null:
+		return UI.muted_label("Movement: none seated (inert)")
+	var m: Dictionary = GameData.DIAL_MOVEMENTS[movement["archetype"]]
+	return UI.symbol_row(["Movement: ", { "symbol": m["symbol"], "fallback": SymbolGlyph.generic_fallback() }, " %s" % m["name"]])
+
+
+# symbol_row parts listing the loaded Lenses as "<ore glyph> <Ore> T<n>", comma-separated.
+static func _lens_parts(dial: Dictionary) -> Array:
+	var lenses: Array = dial.get("lenses", [])
+	if lenses.is_empty():
+		return ["Lenses: none"]
+	var parts: Array = ["Lenses: "]
+	for i in lenses.size():
+		var lens: Dictionary = lenses[i]
+		if i > 0:
+			parts.append(", ")
+		parts.append(SymbolGlyph.ore_glyph(lens["ore"]))
+		parts.append(" %s T%d" % [str(GameData.ORE_TYPES[lens["ore"]]["name"]).get_slice(" ", 0), int(lens["tier"])])
+	return parts
 
 
 func _build_stats_card() -> Control:
@@ -144,14 +176,6 @@ func _on_book_toggle(move_id: String, owner: String) -> void:
 	refresh()
 
 
-func _build_equipment_card() -> Control:
-	var player: Dictionary = GameState.state["player"]
-	var c := UI.card()
-	c["content"].add_child(UI.heading("Equipment", 14))
-	c["content"].add_child(_dial_summary_label(player))
-	return c["panel"]
-
-
 func _build_loadout_card(contact_id: String = "") -> Control:
 	var c := UI.card()
 	c["content"].add_child(UI.heading("Loadout" if contact_id == "" else "%s — Loadout" % Contacts.display_name(contact_id), 14))
@@ -176,14 +200,3 @@ func _on_equip(index: int, recipe_key: String, tier: int, contact_id: String, mu
 
 func _on_unequip(index: int, contact_id: String) -> void:
 	Loadout.unequip(index, contact_id)
-
-
-func _dial_summary_label(player: Dictionary) -> Control:
-	var dial: Variant = player["dial"]
-	if dial == null:
-		return UI.muted_label("Dial: none")
-	var movement: Variant = dial["movement"]
-	if movement == null:
-		return UI.label("Dial: Lv%d — no Movement seated (inert)" % dial["level"])
-	var m: Dictionary = GameData.DIAL_MOVEMENTS[movement["archetype"]]
-	return UI.symbol_row(["Dial: Lv%d — " % dial["level"], { "symbol": m["symbol"], "fallback": SymbolGlyph.generic_fallback() }, " %s, charge %d/%d" % [m["name"], int(dial["currentCharge"]), dial["maxCharge"]]])

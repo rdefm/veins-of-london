@@ -34,6 +34,34 @@ func run() -> void:
 		phone.free()
 	)
 
+	run_case("profile_shows_one_dial_card_with_level_xp_charge_movement_lenses", func():
+		GameState.reset()
+		var dial := _dial()
+		dial["xp"] = 3
+		dial["movement"] = { "archetype": GameData.DIAL_MOVEMENTS.keys()[0], "tier": 1 }
+		dial["lenses"] = [{ "ore": "time", "tier": 2 }]
+		GameState.state["player"]["dial"] = dial
+		GameState.state["phoneNav"]["app"] = "profile"
+		var phone := PhoneScreen.new()
+		phone._ready()
+		var texts := NodeQuery.symbol_row_texts(phone)
+		assert_true(not texts.has("Equipment"), "no Equipment card")
+		assert_true(not texts.any(func(t): return t.begins_with("Dial: ")), "no Dial line outside the Dial card")
+		assert_eq(texts.count("Dial"), 1, "one Dial card for the player")
+		var p := Dial.level_progress(dial)
+		assert_true(texts.has(DialMenu.LEVEL_TEXT % int(p["level"])), "level shown")
+		assert_true(texts.has(DialMenu.XP_TEXT % [int(p["xp"]), int(p["nextXp"])]), "XP shown")
+		var card := (phone.find_child("OpenDial_player", true, false) as Node)
+		while card != null and not (card is PanelContainer):
+			card = card.get_parent()
+		assert_true(card != null and card.find_children("", "ProgressBar", true, false).size() == 1, "Dial card has an XP bar")
+		var m_name: String = GameData.DIAL_MOVEMENTS[dial["movement"]["archetype"]]["name"]
+		assert_true(texts.any(func(t): return t.begins_with("Movement:") and t.contains(m_name)), "seated Movement shown")
+		assert_true(texts.any(func(t): return t.begins_with("Lenses:") and t.contains("T2")), "loaded Lens shown")
+		assert_true(texts.any(func(t): return t.begins_with("Charge ")), "charge/regen shown")
+		phone.free()
+	)
+
 	run_case("profile_open_dial_hosts_the_dial_menu_for_that_owner_and_back_returns_to_profile", func():
 		GameState.reset()
 		var player: Dictionary = GameState.state["player"]
@@ -155,7 +183,7 @@ func run() -> void:
 
 		var texts := NodeQuery.symbol_row_texts(phone)
 		assert_true(not texts.has("Weapon: none equipped"), "no weapon row at all")
-		assert_true(texts.has("Dial: none"), "no Dial seeded on a fresh game")
+		assert_true(not texts.has("Dial"), "no Dial card on a fresh game")
 
 		phone.free()
 	)
@@ -170,8 +198,10 @@ func run() -> void:
 		phone._ready()
 
 		var m: Dictionary = GameData.DIAL_MOVEMENTS["recharge"]
-		var expected := "Dial: Lv%d — %s %s, charge %d/%d" % [2, m["symbol"], m["name"], 5, 20]
-		assert_true(NodeQuery.symbol_row_texts(phone).has(expected), "seated Dial summary reads from GameData.DIAL_MOVEMENTS, including current/max charge")
+		var texts := NodeQuery.symbol_row_texts(phone)
+		assert_true(texts.has("Movement: %s %s" % [m["symbol"], m["name"]]), "seated Movement reads from GameData.DIAL_MOVEMENTS")
+		assert_true(texts.has("Charge 5/20 (regen %s/day)" % str(2.0)), "current/max charge and regen")
+		assert_true(texts.has("Lenses: none"), "no Lens loaded")
 
 		phone.free()
 	)
