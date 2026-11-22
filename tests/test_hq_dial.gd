@@ -460,6 +460,30 @@ func run() -> void:
 		assert_eq(DialMenu.needle_rotation_degrees(dial), DialMenu.NEEDLE_MIN_DEG, "no maxCharge reads empty")
 	)
 
+	run_case("dial_menu_section_back_button_returns_to_overview_not_host", func():
+		GameState.reset()
+		GameState.state["player"]["dial"] = _fresh_dial()
+		var menu := DialMenu.new()
+		var exits := [0]
+		menu.on_back = func(): exits[0] += 1
+		menu._ready()
+
+		var back := NodeQuery.find_button_by_effective_text(menu, "‹ Back")
+		assert_true(back.position.y >= UI.top_bar_clearance(), "Back sits below the TopBar, not under it")
+		for s in DialMenu.sections().keys():
+			menu.open_section(s)
+			assert_true(back.visible, "%s shows Back" % s)
+			back.pressed.emit()
+			assert_eq(menu.section, "", "%s Back returns to the overview" % s)
+			assert_eq(menu._canvas.scale, Vector2.ONE * DialMenu.overview_scale(), "%s Back zooms out" % s)
+			assert_true(menu._bands[s].visible, "%s band is tappable again" % s)
+		assert_eq(exits[0], 0, "section Back never exits the Dial")
+		back.pressed.emit()
+		assert_eq(exits[0], 1, "overview Back exits to the host")
+
+		menu.free()
+	)
+
 	run_case("hq_dial_screen_back_button_returns_to_hq", func():
 		GameState.reset()
 		GameState.state["currentScreen"] = "hq_dial"

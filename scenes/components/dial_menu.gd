@@ -329,12 +329,13 @@ func _build() -> void:
 		_band_labels[s] = label
 
 	_back = UI.button("‹ Back", _on_back)
-	_back.position = Vector2(16.0, UI.safe_area_top_inset() + 16.0)
+	# Header sits below the TopBar, which Main draws over every screen.
+	_back.position = Vector2(16.0, UI.top_bar_clearance() + 8.0)
 	add_child(_back)
 	if owner_id != "":
 		var owner_label := UI.label(OWNER_TITLE % Contacts.display_name(owner_id))
 		owner_label.name = "OwnerTitle"
-		owner_label.position = Vector2(OWNER_TITLE_X, UI.safe_area_top_inset() + 24.0)
+		owner_label.position = Vector2(OWNER_TITLE_X, UI.top_bar_clearance() + 16.0)
 		add_child(owner_label)
 
 	_craft = MapCardStyle.text_button("Craft Components", craft_components)
@@ -355,7 +356,7 @@ func _build() -> void:
 	_list_scroll = TouchScrollContainer.new()
 	_list_scroll.name = "LensList"
 	_list_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	_list_scroll.position = Vector2(LIST_X, UI.safe_area_top_inset() + 64.0)
+	_list_scroll.position = Vector2(LIST_X, UI.top_bar_clearance() + 56.0)
 	_list_scroll.custom_minimum_size = Vector2(LIST_WIDTH, SCREEN.y - _list_scroll.position.y - UI.nav_bar_clearance() - CRAFT_HEIGHT - 24.0)
 	_list_scroll.size = _list_scroll.custom_minimum_size
 	_list_box = UI.vbox(6)
