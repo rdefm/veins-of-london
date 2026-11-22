@@ -26,10 +26,11 @@ const COL_CREAM := Color("e8dfc8")
 const COL_NEEDLE := Color("14120f")
 const OWNER_TITLE := "%s — Dial"
 const OWNER_TITLE_X := 112.0
+const OVERVIEW_RETURN := "overview"
 
 enum Motion { SNAP, REDUCED, FULL }
 
-## Section to reopen when the player comes back from the lab bench (Complications craft).
+## Section (or OVERVIEW_RETURN) to reopen when the player comes back from the lab bench.
 static var craft_return := ""
 
 ## Set by the host before add_child. owner_id "" is the player, else a contact (Dial.dial_of);
@@ -336,7 +337,7 @@ func _build() -> void:
 		owner_label.position = Vector2(OWNER_TITLE_X, UI.safe_area_top_inset() + 24.0)
 		add_child(owner_label)
 
-	_craft = MapCardStyle.text_button("Craft Components", func(): Nav.go_to("hq_lab_bench"))
+	_craft = MapCardStyle.text_button("Craft Components", craft_components)
 	_craft.position = Vector2(16.0, SCREEN.y - UI.nav_bar_clearance() - 56.0)
 	add_child(_craft)
 
@@ -1281,6 +1282,14 @@ func craft_section() -> void:
 		Nav.go_to("hq_lab_bench")
 	elif SECTION_CRAFT_TABS.has(section):
 		Modal.open("craft_components_menu", { "tab": SECTION_CRAFT_TABS[section] })
+
+
+## Overview Craft Components: the lab bench. A Profile-opened menu (on_back set) has the
+## bench's Back return to this overview; HQ's own returns to HQ.
+func craft_components() -> void:
+	if on_back.is_valid():
+		craft_return = OVERVIEW_RETURN
+	Nav.go_to("hq_lab_bench")
 
 
 func _can_drop_unload(_at: Vector2, data: Variant) -> bool:
