@@ -177,7 +177,7 @@ func new_game_state() -> Dictionary:
 			# null until Dial.attempt_seed() succeeds (refuses outright
 			# once non-null). Seeded shape: { level, xp, currentCharge,
 			# maxCharge, rechargeRate, lastRegenDay, combatRegenTurnCounter,
-			# capacityMax, movement, loadedComplications, lenses, haftId }.
+			# capacityMax, movement, loadedComplications, lenses }.
 			"dial": null,
 			# Crafted-but-unseated Movements ({ archetype, tier }) --
 			# moved out on Dial.seat_movement(), back in on unseat_movement().

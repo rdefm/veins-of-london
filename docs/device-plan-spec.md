@@ -13,7 +13,7 @@ The device is a small, rare, calibrated instrument that is fitted to a large, co
 - **Dial** — the device itself, and the only rare part. A round calibrated collar, machined, that seats around the top of a haft's handle and turns under the thumb. Everything valuable, gift-made, and registered is the Dial. Chosen over "tally" (too England/Exchequer-specific for a millennia-old, non-London-bound phenomenon) and "obol"/"stater" (ancient-coin names risk reading as a second currency alongside cash/ore).
 - **Movement** — the swappable core inside the Dial (real horology term: a watch's internal mechanism). A Dial with no Movement seated is inert — can't hold or regenerate charge, no attunement. Chosen over generic "core" to stay in the register of real repurposed vocabulary (orichalchum, terroir, growth).
 - **Complications** — the loaded-effect slots (real horology term: additional watch functions beyond timekeeping, each occupying mechanical space). Capacity budget = "complication capacity"; one loaded unit = "a complication." Physically, one complication sits at one detent on the Dial.
-- **Haft** — the mundane object the Dial is fitted to. Umbrella, walking stick, telescopic baton, snooker cue. Provides the barrel (below). Cosmetic and replaceable; carries no stats and no narrative weight.
+- **Haft** — the mundane object the Dial is fitted to. Umbrella, walking stick, telescopic baton, snooker cue. Provides the barrel (below). Cosmetic and replaceable; carries no stats and no narrative weight. In game there is no haft data, choice or state: every Dial, the player's and contacts', is drawn on the umbrella.
 - **Barrel** — the straight rigid channel running the length of the haft, down which a discharge travels before release. A minimum length gate, not a stat — see §Hafts.
 - **Ferrule** — the far end of the barrel. The muzzle. Real umbrella/cane term.
 - **Catch** — the release. Turn the Dial to select a complication, press the catch to fire. Sits where an umbrella's spring catch already sits.
@@ -64,7 +64,7 @@ If the player can make Dials, why can they only ever have one, and why don't the
 
 - Exactly one Dial per player, ever. No second Dial craftable once one is seeded successfully. (See §The supply problem for the fiction that justifies this.)
 - One Movement slot for the Dial's lifetime, v1. A second Movement slot is an acknowledged late-game stretch goal (not in scope now) — earned, not default.
-- Hafts are not owned in the singular. A Dial comes off one haft and goes onto another freely (§Hafts).
+- Hafts are not owned or tracked; the Dial is always shown on the umbrella (§Hafts).
 
 ## Creation (the Dial itself)
 
@@ -130,7 +130,7 @@ Because every practitioner needs at least a forearm's length of rigid channel, e
 
 ### Faction hafts
 
-Cosmetic identity only. Drives art, not maths.
+Fiction only, not represented in game — every Dial is drawn on the umbrella.
 
 | Faction | Haft | The tell |
 |---|---|---|
@@ -179,7 +179,7 @@ The widget's satisfaction rests almost entirely on per-detent haptic feedback. G
 
 - HQ is being restructured into three sub-sections: **Lab** (crafting/recipes/experimenting), **Facilities** (rooms/security/property tier — old `property`), **Practice** (skill training [not yet built] + houses the Dial). "Practice" chosen over "Discipline"/"Conditioning" (too martial/gym-only) or "Development" (reads corporate-HR, risks a wink) — a real trade word covering both ongoing training and instrument upkeep.
 - **Creation** (seeding the Dial, crafting a Movement) lives in HQ → Practice — a workbench-style, deliberate action, matching how big one-time crafting investments already work.
-- **Day-to-day management** (swapping Movements, loading/unloading Complications, changing haft) is available from **both** the global BagDrawer (matches existing weapon-equip / old device build-attempt-abandon pattern, reachable mid-run from anywhere) **and** HQ → Practice (so a new player can load Complications immediately after crafting, without leaving HQ). Both surfaces render the same Collar widget in Load mode and call the same underlying system functions — no duplicated logic.
+- **Day-to-day management** (swapping Movements, loading/unloading Complications) is available from **both** the global BagDrawer (matches existing weapon-equip / old device build-attempt-abandon pattern, reachable mid-run from anywhere) **and** HQ → Practice (so a new player can load Complications immediately after crafting, without leaving HQ). Both surfaces render the same Collar widget in Load mode and call the same underlying system functions — no duplicated logic.
 - **Onboarding is narrative, not a standalone tutorial event**: Dial-seeding is built into **The Collective Act 2** questline, not a generic post-tutorial unlock. Archie points the player to James for an edge against The Firm; reaching a James-relation threshold (exact number owned by the Act 2 quest spec, not this doc) unlocks asking him about it; James finally says what he noticed in the tutorial (§The gift), teaches Dials, and helps seed the player's first one. No separate `dialUnlocked`-style onboarding event needed outside that quest.
 
 ## Movement archetypes (v1 launch set: four)
@@ -223,5 +223,4 @@ The four archetypes map onto real watch movement types closely enough to drive n
 - Exact winding calc-cost-per-charge numbers per archetype/tier.
 - Exact Spread extra-target count by tier.
 - Exact seeding base-cost numbers (the multi-ore-type, life-weighted mix) and Movement recipe ingredient costs.
-- Minimum barrel length as a concrete value, if it is ever expressed numerically rather than as a haft whitelist.
-- State schema: how `player.equipment.device` and `devicesInProgress`/`devicesCompleted` get replaced — almost certainly a single `player.device: {...} | null` object (Dial), plus its seated Movement, `loadedComplications` list, and a cosmetic `haftId`, but not yet drafted field-by-field. Deferred to implementation-planning time, not a design question.
+- State schema: how `player.equipment.device` and `devicesInProgress`/`devicesCompleted` get replaced — almost certainly a single `player.device: {...} | null` object (Dial), plus its seated Movement, `loadedComplications` list, but not yet drafted field-by-field. Deferred to implementation-planning time, not a design question.

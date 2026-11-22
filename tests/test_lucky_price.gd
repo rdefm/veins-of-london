@@ -4,7 +4,6 @@ extends "res://tests/test_base.gd"
 # player Trade-menu trade; a hit is +saleBonus on a sale, -buyDiscount on a buy.
 
 const SeedSearch := preload("res://tests/support/seed_search.gd")
-const HAFT_ID := "collective_brolly"
 
 var _cfg_defaults: Dictionary = {}
 var _fate_bonus_defaults: Array = []

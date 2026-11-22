@@ -27,7 +27,7 @@ func _run() -> void:
 		player["dial"] = {
 			"level": 1, "xp": 0, "currentCharge": 1, "maxCharge": 13, "rechargeRate": 2.0,
 			"combatRegenTurnCounter": 0, "lastRegenDay": game_state.state["world"]["day"],
-			"capacityMax": 4, "haftId": "guild_cane",
+			"capacityMax": 4,
 			"movement": { "archetype": "impact", "oreType": "time", "tier": 3 },
 			"loadedComplications": [
 				{ "recipeKey": "timePearl", "tier": 3, "detent": 0 },
@@ -43,7 +43,7 @@ func _run() -> void:
 		player["dial"] = {
 			"level": 1, "xp": 0, "currentCharge": 0, "maxCharge": 8, "rechargeRate": 1.0,
 			"combatRegenTurnCounter": 0, "lastRegenDay": game_state.state["world"]["day"],
-			"capacityMax": 4, "haftId": "guild_cane", "movement": null, "loadedComplications": [],
+			"capacityMax": 4, "movement": null, "loadedComplications": [],
 		}
 	)
 

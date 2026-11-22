@@ -288,7 +288,7 @@ func run() -> void:
 			GameState.reset()
 			GameState.state["player"]["cultivatingSkill"] = 1
 			GameState.state["player"]["veins"] = [_vein(20)]
-			GameState.state["player"]["dial"] = { "level": 1, "xp": 0, "currentCharge": 0, "maxCharge": 0, "rechargeRate": 0, "capacityMax": 0, "movement": null, "loadedComplications": [], "lenses": [{ "ore": "time", "tier": 5 }], "haftId": "collective_brolly" }
+			GameState.state["player"]["dial"] = { "level": 1, "xp": 0, "currentCharge": 0, "maxCharge": 0, "rechargeRate": 0, "capacityMax": 0, "movement": null, "loadedComplications": [], "lenses": [{ "ore": "time", "tier": 5 }] }
 			Rng.set_seed(seed)
 			var with_attunement := Cultivating.cultivate("test_vein")
 
@@ -306,7 +306,7 @@ func run() -> void:
 			GameState.reset()
 			GameState.state["player"]["cultivatingSkill"] = 1
 			GameState.state["player"]["veins"] = [_vein(20)]
-			GameState.state["player"]["dial"] = { "level": 1, "xp": 0, "currentCharge": 0, "maxCharge": 0, "rechargeRate": 0, "capacityMax": 0, "movement": null, "loadedComplications": [], "lenses": [{ "ore": "physics", "tier": 5 }], "haftId": "collective_brolly" }
+			GameState.state["player"]["dial"] = { "level": 1, "xp": 0, "currentCharge": 0, "maxCharge": 0, "rechargeRate": 0, "capacityMax": 0, "movement": null, "loadedComplications": [], "lenses": [{ "ore": "physics", "tier": 5 }] }
 			Rng.set_seed(seed)
 			var mismatched := Cultivating.cultivate("test_vein")
 

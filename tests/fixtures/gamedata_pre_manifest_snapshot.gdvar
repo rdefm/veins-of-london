@@ -744,7 +744,6 @@ With attention drawn away, anyone carrying valuables may be of interest to the c
 "recipe": "healingBurst",
 "tier": 3
 }],
-"haft": "firm_baton",
 "level": 2,
 "movement": {
 "archetype": "recharge",
@@ -866,26 +865,6 @@ With attention drawn away, anyone carrying valuables may be of interest to the c
 "DIAL_BASE_MAX_CHARGE": 20,
 "DIAL_BASE_RECHARGE_RATE": 2.0,
 "DIAL_CAPACITY_BY_LEVEL": [0, 1, 2, 3, 4, 4],
-"DIAL_HAFTS": {
-"collective_brolly": {
-"name": "Market Umbrella"
-},
-"conclave_crook": {
-"name": "Shepherd's Crook"
-},
-"firm_baton": {
-"name": "Service Baton"
-},
-"guild_cane": {
-"name": "Malacca Cane"
-},
-"network_monopod": {
-"name": "Monopod"
-},
-"street_pole": {
-"name": "Scaffold Pole"
-}
-},
 "DIAL_MAX_CHARGE_BONUS_BY_LEVEL": [0, 0, 5, 12, 22, 35],
 "DIAL_MOVEMENTS": {
 "capacitor": {

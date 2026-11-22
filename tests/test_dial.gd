@@ -8,7 +8,6 @@ const SeedSearch := preload("res://tests/support/seed_search.gd")
 # device_build_progress_ladder_10_to_100_in_18_successes pattern: loop
 # seeds until the desired success/failure outcome is observed.
 
-const HAFT_ID := "collective_brolly"
 const LENS_ORE := "fate"
 
 static func _fund_seed_cost(multiplier: int = 1) -> void:
@@ -20,7 +19,7 @@ static func _fund_seed_cost(multiplier: int = 1) -> void:
 # ticket 02 fixtures.
 
 static func _dial_no_movement() -> Dictionary:
-	return { "level": 1, "xp": 0, "currentCharge": 0, "maxCharge": 0, "rechargeRate": 0, "combatRegenTurnCounter": 0, "lastRegenDay": 1, "capacityMax": 0, "movement": null, "loadedComplications": [], "lenses": [], "haftId": HAFT_ID }
+	return { "level": 1, "xp": 0, "currentCharge": 0, "maxCharge": 0, "rechargeRate": 0, "combatRegenTurnCounter": 0, "lastRegenDay": 1, "capacityMax": 0, "movement": null, "loadedComplications": [], "lenses": [] }
 
 
 static func _fund_all_ores(qty: int) -> void:
@@ -143,30 +142,11 @@ func run() -> void:
 	run_case("attempt_seed_refuses_outright_once_a_dial_already_exists", func():
 		GameState.reset()
 		GameState.state["flags"]["dialGiftGranted"] = true
-		GameState.state["player"]["dial"] = { "level": 1, "xp": 0, "currentCharge": 0, "maxCharge": 0, "rechargeRate": 0, "capacityMax": 0, "movement": null, "loadedComplications": [], "haftId": HAFT_ID }
+		GameState.state["player"]["dial"] = { "level": 1, "xp": 0, "currentCharge": 0, "maxCharge": 0, "rechargeRate": 0, "capacityMax": 0, "movement": null, "loadedComplications": [] }
 		_fund_seed_cost(10)
 
 		var result := Dial.attempt_seed(LENS_ORE)
 		assert_true(not result["ok"], "seeding a second dial should be refused outright")
-	)
-
-	run_case("set_haft_swaps_freely_with_no_validation_beyond_haft_exists", func():
-		GameState.reset()
-		GameState.state["player"]["dial"] = { "level": 1, "xp": 0, "currentCharge": 0, "maxCharge": 0, "rechargeRate": 0, "capacityMax": 0, "movement": null, "loadedComplications": [], "haftId": HAFT_ID }
-
-		var ok_result := Dial.set_haft("guild_cane")
-		assert_true(ok_result["ok"], "swapping to any whitelisted haft should succeed")
-		assert_eq(GameState.state["player"]["dial"]["haftId"], "guild_cane", "haftId should update to the newly chosen haft")
-
-		var bad_result := Dial.set_haft("not_a_real_haft")
-		assert_true(not bad_result["ok"], "an unknown haft should be refused")
-		assert_eq(GameState.state["player"]["dial"]["haftId"], "guild_cane", "a refused swap must not change haftId")
-	)
-
-	run_case("set_haft_refuses_with_no_dial", func():
-		GameState.reset()
-		var result := Dial.set_haft(HAFT_ID)
-		assert_true(not result["ok"], "setting a haft with no dial should be refused")
 	)
 
 	# ── ticket 02: Movement crafting ────────────────────────────────────

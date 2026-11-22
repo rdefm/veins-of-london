@@ -2,7 +2,6 @@ extends "res://tests/test_base.gd"
 
 # Lens crafting, load/unload (Dial) and the Lenses read layer (R§1.4 Lenses).
 
-const HAFT_ID := "collective_brolly"
 const CONTACT_ID := "james"
 
 

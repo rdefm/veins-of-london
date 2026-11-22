@@ -5,14 +5,6 @@
   "baseRechargeRate": 2.0,
   "rechargeCombatRegenEveryTurns": 3,
   "rechargeCombatRegenAmount": 1,
-  "hafts": {
-    "collective_brolly": { "name": "Market Umbrella" },
-    "firm_baton": { "name": "Service Baton" },
-    "guild_cane": { "name": "Malacca Cane" },
-    "network_monopod": { "name": "Monopod" },
-    "conclave_crook": { "name": "Shepherd's Crook" },
-    "street_pole": { "name": "Scaffold Pole" }
-  },
   "movements": {
     "recharge": {
       "name": "Recharge Movement",

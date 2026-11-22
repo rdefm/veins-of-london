@@ -3,7 +3,6 @@ extends "res://tests/test_base.gd"
 # Market projection (Market.projected_quotes), the insight slot
 # (MarketInsight) and its Fate gut-feeling source (R§3.13 "Insight").
 
-const HAFT_ID := "collective_brolly"
 
 
 # A clean player: no ore or items anywhere; a Fate Lens at `tier` (0 = none)

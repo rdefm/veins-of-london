@@ -100,7 +100,6 @@ static func dial(loaded_recipe_keys: Array, current_charge: int = 3, max_charge:
 		"level": 1, "xp": 0, "currentCharge": current_charge, "maxCharge": max_charge,
 		"rechargeRate": 0, "combatRegenTurnCounter": 0, "lastRegenDay": 1,
 		"capacityMax": Dial.capacity_max(1), "movement": null, "loadedComplications": loaded,
-		"haftId": "stub",
 	}
 
 
@@ -110,7 +109,6 @@ static func dial_with_loaded(recipe_key: String, tier: int, charge: int) -> Dict
 		"combatRegenTurnCounter": 0, "lastRegenDay": GameState.state["world"]["day"],
 		"capacityMax": 4, "movement": { "archetype": "impact", "tier": 1 },
 		"loadedComplications": [{ "recipeKey": recipe_key, "tier": tier, "detent": 0 }],
-		"haftId": "collective_brolly",
 	}
 
 

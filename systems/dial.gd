@@ -57,24 +57,6 @@ static func attempt_seed(lens_ore: String) -> Dictionary:
 	return { "ok": true, "success": success }
 
 
-# No barrel-length check needed -- every whitelisted haft satisfies it by construction.
-static func set_haft(haft_id: String) -> Dictionary:
-	var player: Dictionary = GameState.state["player"]
-	if player["dial"] == null:
-		return { "ok": false, "reason": "No Dial." }
-	if not GameData.DIAL_HAFTS.has(haft_id):
-		return { "ok": false, "reason": "Unknown haft." }
-
-	player["dial"]["haftId"] = haft_id
-	EventBus.mark_changed()
-	return { "ok": true }
-
-
-static func haft_name(dial: Dictionary) -> String:
-	var haft_id: String = str(dial.get("haftId", ""))
-	return GameData.DIAL_HAFTS.get(haft_id, {}).get("name", haft_id)
-
-
 # Used by combat.gd's round_rewind() and events.gd's rewind() as a fallback when
 # no rewind consumable is available (R§3.9). Returns -1 if none loaded with charge.
 static func find_loaded_rewind_complication_index() -> int:
@@ -116,14 +98,12 @@ static func new_dial(day: int = -1) -> Dictionary:
 	}
 
 
-# A contact's granted Dial from constants.json's grantDial spec ({haft, level,
+# A contact's granted Dial from constants.json's grantDial spec ({level,
 # movement: {archetype, tier}, lenses: [{ore, tier}], complications: [{recipe, tier}]}):
 # level, seated Movement, loaded Lenses and Complications as specced, charge
 # full. Pure -- touches no state, so the save migration can call it too.
 static func build_granted_dial(spec: Dictionary, day: int) -> Dictionary:
 	var dial: Dictionary = new_dial(day)
-	if spec.has("haft"):
-		dial["haftId"] = str(spec["haft"])
 	dial["level"] = int(spec["level"])
 	dial["capacityMax"] = capacity_max(dial["level"])
 	var seated: Dictionary = spec["movement"]

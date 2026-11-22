@@ -65,8 +65,7 @@ func _build_dial_card(owner_id: String) -> Control:
 	var c := MapCardStyle.card()
 	var content: VBoxContainer = c["content"]
 	content.add_child(UI.heading("Dial" if owner_id == "" else "%s — Dial" % Contacts.display_name(owner_id), 14))
-	var haft: String = Dial.haft_name(dial)
-	content.add_child(UI.label("Level %d Dial" % dial["level"] if haft == "" else "Level %d Dial · %s" % [dial["level"], haft]))
+	content.add_child(UI.label("Level %d Dial" % dial["level"]))
 	content.add_child(UI.muted_label("Charge %s/%d (regen %s/day)" % [str(int(dial["currentCharge"])), dial["maxCharge"], str(dial["rechargeRate"])]))
 	var open := MapCardStyle.text_button(OPEN_DIAL_TEXT, func(): PhoneNav.open_dial(owner_id))
 	open.name = "OpenDial_%s" % ("player" if owner_id == "" else owner_id)

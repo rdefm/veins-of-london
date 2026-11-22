@@ -123,7 +123,7 @@ Reached only from the bag-and-umbrella zone. This is now the **sole** entry
 point to loadout adjustment; the bag drawer's management mode no longer
 carries it.
 
-Drawn as the device itself — no haft in frame, just the seated Movement and
+Drawn as the device itself — just the seated Movement and
 the Complication sockets as visible slots, **capped at 4 housings for now**
 (more housing art can be added later if a loadout needs more shown at
 once). Crafted Complications sit in a tray beside it and are moved into and

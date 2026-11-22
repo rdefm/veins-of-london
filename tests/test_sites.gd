@@ -661,7 +661,7 @@ func run() -> void:
 			GameState.state["world"]["sites"] = [_make_site("s1", "shoreditch", "fair", 1, false, false, "time")]
 			GameState.state["player"]["orichalchum"]["time"] = 1000
 			GameState.state["player"]["cultivatingSkill"] = 1
-			GameState.state["player"]["dial"] = { "level": 1, "xp": 0, "currentCharge": 0, "maxCharge": 0, "rechargeRate": 0, "capacityMax": 0, "movement": null, "loadedComplications": [], "lenses": [{ "ore": "time", "tier": 5 }], "haftId": "collective_brolly" }
+			GameState.state["player"]["dial"] = { "level": 1, "xp": 0, "currentCharge": 0, "maxCharge": 0, "rechargeRate": 0, "capacityMax": 0, "movement": null, "loadedComplications": [], "lenses": [{ "ore": "time", "tier": 5 }] }
 			Rng.set_seed(seed)
 			var with_attunement := Sites.attempt_seed("s1")
 
@@ -684,7 +684,7 @@ func run() -> void:
 			GameState.state["world"]["sites"] = [_make_site("s1", "shoreditch", "fair", 1, false, false, "time")]
 			GameState.state["player"]["orichalchum"]["time"] = 1000
 			GameState.state["player"]["cultivatingSkill"] = 1
-			GameState.state["player"]["dial"] = { "level": 1, "xp": 0, "currentCharge": 0, "maxCharge": 0, "rechargeRate": 0, "capacityMax": 0, "movement": null, "loadedComplications": [], "lenses": [{ "ore": "physics", "tier": 5 }], "haftId": "collective_brolly" }
+			GameState.state["player"]["dial"] = { "level": 1, "xp": 0, "currentCharge": 0, "maxCharge": 0, "rechargeRate": 0, "capacityMax": 0, "movement": null, "loadedComplications": [], "lenses": [{ "ore": "physics", "tier": 5 }] }
 			Rng.set_seed(seed)
 			var mismatched := Sites.attempt_seed("s1")
 

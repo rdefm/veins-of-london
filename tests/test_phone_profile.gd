@@ -13,7 +13,6 @@ static func _dial() -> Dictionary:
 		"level": 1, "xp": 0, "currentCharge": 0, "maxCharge": 0, "rechargeRate": 0,
 		"combatRegenTurnCounter": 0, "lastRegenDay": GameState.state["world"]["day"],
 		"capacityMax": Dial.capacity_max(1), "movement": null, "loadedComplications": [],
-		"haftId": "collective_brolly",
 	}
 
 
@@ -171,7 +170,7 @@ func run() -> void:
 	run_case("profile_shows_the_seated_dial_read_only", func():
 		GameState.reset()
 		var player: Dictionary = GameState.state["player"]
-		player["dial"] = { "level": 2, "xp": 60, "currentCharge": 5, "maxCharge": 20, "rechargeRate": 2.0, "combatRegenTurnCounter": 0, "lastRegenDay": 0, "capacityMax": 6, "movement": { "archetype": "recharge", "tier": 2 }, "loadedComplications": [], "haftId": "collective_brolly" }
+		player["dial"] = { "level": 2, "xp": 60, "currentCharge": 5, "maxCharge": 20, "rechargeRate": 2.0, "combatRegenTurnCounter": 0, "lastRegenDay": 0, "capacityMax": 6, "movement": { "archetype": "recharge", "tier": 2 }, "loadedComplications": [] }
 		GameState.state["phoneNav"]["app"] = "profile"
 
 		var phone := PhoneScreen.new()

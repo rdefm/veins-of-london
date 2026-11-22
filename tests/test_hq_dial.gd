@@ -26,7 +26,6 @@ static func _fresh_dial() -> Dictionary:
 		"level": 1, "xp": 0, "currentCharge": 0, "maxCharge": 0, "rechargeRate": 0,
 		"combatRegenTurnCounter": 0, "lastRegenDay": GameState.state["world"]["day"],
 		"capacityMax": Dial.capacity_max(1), "movement": null, "loadedComplications": [],
-		"haftId": "collective_brolly",
 	}
 
 
@@ -41,9 +40,6 @@ func run() -> void:
 		var seed_button := NodeQuery.find_button_by_effective_text(screen, "Seed")
 		assert_true(seed_button != null, "a single Seed button must render")
 		assert_true(seed_button.disabled, "Seed is disabled until a lens ore is picked")
-		for haft_id in GameData.DIAL_HAFTS.keys():
-			var haft_button := NodeQuery.find_button_by_effective_text(screen, "Seed as \"%s\"" % GameData.DIAL_HAFTS[haft_id]["name"])
-			assert_true(haft_button == null, "no per-haft seed button for %s" % haft_id)
 		for ore in GameData.ORE_TYPES.keys():
 			assert_true(screen.find_child("SeedOre_%s" % ore, true, false) is Button, "an ore choice must render for %s" % ore)
 

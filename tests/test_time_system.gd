@@ -830,7 +830,7 @@ func run() -> void:
 			"level": 1, "xp": 0, "currentCharge": 5, "maxCharge": 20, "rechargeRate": 2.0,
 			"combatRegenTurnCounter": 0, "lastRegenDay": GameState.state["world"]["day"] - 1,
 			"capacityMax": 4, "movement": { "archetype": "recharge", "tier": 1 },
-			"loadedComplications": [], "haftId": "collective_brolly",
+			"loadedComplications": [],
 		}
 		TimeSystem.daily_tick()
 		assert_almost_eq(GameState.state["player"]["dial"]["currentCharge"], 7.0, 0.0001, "daily_tick should reach step 7 (Dial.daily_regen adding rechargeRate)")

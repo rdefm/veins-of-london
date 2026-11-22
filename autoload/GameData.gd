@@ -26,11 +26,10 @@ var OFFER_VARIETY: Dictionary = {}
 # home.json since Sales is gated by the Operations Room defined there.
 var SALES_XP_LEVELS: Array = []
 
-# data/dial.json (R§1.4): Dial.attempt_seed()'s cost/chance inputs and
-# cosmetic haft whitelist. *_BY_LEVEL/*_BY_TIER below index level/tier 0..5.
+# data/dial.json (R§1.4): Dial.attempt_seed()'s cost/chance inputs.
+# *_BY_LEVEL/*_BY_TIER below index level/tier 0..5.
 var DIAL_SEED_COST: Dictionary = {}
 var DIAL_SEED_BASE_SUCCESS: float = 0.0
-var DIAL_HAFTS: Dictionary = {}
 
 # Charge-pool baseline Dial._charge_stats_for() starts from before applying
 # the seated Movement's per-archetype bonus/downside curve.
@@ -445,7 +444,6 @@ const MANIFEST: Array[Dictionary] = [
 		{"field": "DIAL_BASE_RECHARGE_RATE", "key": "baseRechargeRate", "type": TYPE_FLOAT},
 		{"field": "DIAL_RECHARGE_COMBAT_REGEN_TURNS", "key": "rechargeCombatRegenEveryTurns", "type": TYPE_INT},
 		{"field": "DIAL_RECHARGE_COMBAT_REGEN_AMOUNT", "key": "rechargeCombatRegenAmount", "type": TYPE_INT},
-		{"field": "DIAL_HAFTS", "key": "hafts", "type": TYPE_DICTIONARY},
 		{"field": "DIAL_MOVEMENTS", "key": "movements", "type": TYPE_DICTIONARY},
 		{"field": "DIAL_ATTUNEMENT_BONUS_BY_TIER", "key": "attunementBonusByTier", "type": TYPE_ARRAY},
 		{"field": "DIAL_CAPACITY_BY_LEVEL", "key": "capacityByLevel", "type": TYPE_ARRAY},
@@ -1265,8 +1263,6 @@ func _validate_recipes(recipes: Dictionary, ore_types: Dictionary, errors: Array
 
 # seedCost must cover every canonical ore type (R§1.4's mixed five-ore-type
 # cost) -- a partial cost here would silently let seeding skip an ore type.
-# Hafts are cosmetic-only (no stat fields), so each only needs a display
-# name, not the fuller schema recipes/movements use.
 func _validate_dial(t: Dictionary, errors: Array[String]) -> void:
 	var seed_cost: Dictionary = t.get("dial_seed_cost", {})
 	var seed_base_success: float = t.get("dial_seed_base_success", 0.0)
@@ -1274,7 +1270,6 @@ func _validate_dial(t: Dictionary, errors: Array[String]) -> void:
 	var base_recharge_rate: float = t.get("dial_base_recharge_rate", 0.0)
 	var recharge_combat_regen_turns: int = t.get("dial_recharge_combat_regen_turns", 0)
 	var recharge_combat_regen_amount: int = t.get("dial_recharge_combat_regen_amount", 0)
-	var hafts: Dictionary = t.get("dial_hafts", {})
 	var movements: Dictionary = t.get("dial_movements", {})
 	var attunement_bonus_by_tier: Array = t.get("dial_attunement_bonus_by_tier", [])
 	var capacity_by_level: Array = t.get("dial_capacity_by_level", [])
@@ -1299,10 +1294,6 @@ func _validate_dial(t: Dictionary, errors: Array[String]) -> void:
 		errors.append("dial: rechargeCombatRegenEveryTurns must be > 0")
 	if recharge_combat_regen_amount <= 0:
 		errors.append("dial: rechargeCombatRegenAmount must be > 0")
-	if hafts.is_empty():
-		errors.append("dial: hafts must not be empty")
-	for key in hafts.keys():
-		_require_keys(hafts[key], ["name"], "dial.hafts.%s" % key, errors)
 
 	# Each archetype needs a tier-indexed bonus/downside array (mirrors
 	# effectPower's array-of-arrays shape -- index 0 unused, tiers 1-5 real).

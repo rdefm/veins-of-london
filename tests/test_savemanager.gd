@@ -1363,6 +1363,22 @@ func run() -> void:
 		assert_eq(GameState.state["player"]["lensInventory"], [{ "ore": "fate", "tier": 4 }], "owned lens survives")
 	)
 
+	run_case("a_save_with_a_stale_haft_on_a_dial_still_loads", func():
+		GameState.reset()
+		var dial := Dial.new_dial()
+		dial["level"] = 2
+		dial["haftId"] = "collective_brolly"
+		GameState.state["player"]["dial"] = dial
+		var james_dial := Dial.new_dial()
+		james_dial["haftId"] = "firm_baton"
+		GameState.state["contacts"]["james"]["dial"] = james_dial
+		var result := SaveManager.import_string(SaveManager.export_string())
+		assert_true(result["ok"], "a save carrying haftId loads")
+		assert_eq(GameState.state["player"]["dial"]["level"], 2, "player Dial survives with its level")
+		assert_true(GameState.state["contacts"]["james"]["dial"] != null, "contact Dial survives")
+		assert_true(Dial.dial_of("") != null, "the loaded Dial is usable")
+	)
+
 	run_case("loading_a_save_with_no_meta_saveVersion_is_treated_as_current_and_succeeds", func():
 		GameState.reset()
 		var save: Dictionary = GameState.deep_copy(GameState.state)
