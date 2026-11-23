@@ -180,6 +180,7 @@ overlays; hides the top board on title/intro/combat and the nav dock per screen.
 | combat_stage.gd | Combat pixel stage: backdrop, slots, one-shots, icons, Rewind VHS, freeze/stun-bob/run-off, intro. Item fx (`effects`, `itemFx`): spark (multi split), ring, Shield, hit-stop, disarm, Leg it, Powder, Lady, Heal, Black Hole, Pan items, Prophet's Breath, Stutter blink; enemy steel palette. Save fx (`pacing.saveFx`, `wormholeFx`): silhouette, ⚑, glow, VHS, lens tear. |
 | texture_prefetch.gd | TexturePrefetch: shared threaded texture loads — `request` paths, `take` one (sync fallback), `release_all` the rest |
 | status_icon_row.gd | StatusIconRow: slot's row of 9×9 status chips from `CombatRounds.status_icons()` (buff rounded / debuff notched, ore colour, count digit, max 3 + `+N`, buffering spinner); pop/tick/expire animations, none when set outright. Look from combat_visuals `statusIcons` (image overrides glyph) |
+| shaders/lens_tint.gdshader | Re-colours the shared Lens sprite's glass to an ore: hue-keyed glass pixels gradient-mapped by luminance; bezel/specular untouched (`DialMenu.lens_material`) |
 | shaders/stun_bob.gdshader | Stunned head-bob: vertex shear of the sprite top, feet fixed |
 | shaders/black_hole_pinch.gdshader | Black Hole warp: re-samples the screen behind it, pulled toward a centre point |
 | shaders/vcr_pause.gdshader | Time Pearl freeze look on a sprite: shiver, prev-frame flicker, rolling tracking band, desaturation, scanlines, tape-stop smear, play-snap sweep+jolt; alpha-masked |

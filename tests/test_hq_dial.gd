@@ -487,8 +487,16 @@ func run() -> void:
 		var bob_px: int = int(GameData.DIAL_ART["hover"]["bob_px"])
 		for i in range(24):
 			assert_true(absi(DialMenu.bob_offset(i * 0.05, 0.0)) <= bob_px, "bob stays within bob_px")
-		assert_true(DialMenu.lens_texture("emotion") != null, "a Lens without its own sprite falls back")
+		assert_true(DialMenu.lens_texture("emotion") != null, "every ore shares the base Lens sprite")
 		assert_true(DialMenu.label_texture("nearMiss") != null, "a Complication without an icon falls back")
+	)
+
+	run_case("dial_menu_lens_material_tints_glass_with_ore_colour", func():
+		for ore in GameData.ORE_TYPES:
+			var mat := DialMenu.lens_material(ore)
+			assert_true(mat.shader != null, "%s: lens tint shader loads" % ore)
+			var c: Color = MapPalette.ore_colour(ore)
+			assert_eq(mat.get_shader_parameter("glass_colour"), Vector3(c.r, c.g, c.b), "%s: glass takes the ore colour" % ore)
 	)
 
 	run_case("dial_menu_needle_rotation_reflects_current_charge_fraction", func():

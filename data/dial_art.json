@@ -394,7 +394,18 @@
  },
  "components": {
   "lens_dir": "res://assets/hq/dial/components/",
-  "lens_fallback": "lens_time",
+  "lens_base": "lens_time",
+  "lens_tint": {
+   "shader": "res://shaders/lens_tint.gdshader",
+   "key_hue_min": 0.5,
+   "key_hue_max": 0.72,
+   "key_sat_min": 0.25,
+   "glass_centre": [0.453, 0.383],
+   "glass_radius": [0.383, 0.289],
+   "lum_full": 0.75,
+   "dark_floor": 0.25,
+   "light_lift": 0.55
+  },
   "movement_fallback": "movement_recharge",
   "movement_frames": 4,
   "complication_label_fallback": "comp_label_placeholder",

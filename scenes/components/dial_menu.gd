@@ -274,9 +274,21 @@ static func _component_path(file: String) -> String:
 	return "%s%s.png" % [art()["components"]["lens_dir"], file]
 
 
-static func lens_texture(ore: String) -> Texture2D:
-	var t := _tex(_component_path("lens_%s" % ore))
-	return t if t != null else _tex(_component_path(art()["components"]["lens_fallback"]))
+static func lens_texture(_ore: String) -> Texture2D:
+	return _tex(_component_path(art()["components"]["lens_base"]))
+
+
+## One Lens sprite serves every ore: this material re-colours its glass to `ore`.
+static func lens_material(ore: String) -> ShaderMaterial:
+	var cfg: Dictionary = art()["components"]["lens_tint"]
+	var mat := ShaderMaterial.new()
+	mat.shader = load(cfg["shader"]) as Shader
+	var c: Color = MapPalette.ore_colour(ore)
+	mat.set_shader_parameter("glass_colour", Vector3(c.r, c.g, c.b))
+	for k in cfg:
+		if k != "shader":
+			mat.set_shader_parameter(k, v2(cfg[k]) if cfg[k] is Array else float(cfg[k]))
+	return mat
 
 
 static func movement_texture(archetype: String) -> Texture2D:
@@ -633,7 +645,7 @@ func _refresh() -> void:
 		if has_lens:
 			var ore: String = loaded[p]["ore"]
 			_lens_glass[p].texture = lens_texture(ore)
-			_lens_glass[p].self_modulate = Color.WHITE if _tex(_component_path("lens_%s" % ore)) != null else MapPalette.ore_colour(ore).lightened(0.4)
+			_lens_glass[p].material = lens_material(ore)
 			_lens_tiers[p].texture = _tex(_component_path("lens_tier_%d" % clampi(int(loaded[p]["tier"]), 1, 5)))
 		_ghosts[p].visible = in_lenses and not unlocked
 		_ports[p].mouse_filter = Control.MOUSE_FILTER_STOP if (in_lenses and unlocked) else Control.MOUSE_FILTER_IGNORE
@@ -1036,6 +1048,10 @@ func _play_changes(old: Dictionary, now: Dictionary) -> void:
 				_beat_in(kind, slot, timing("swap_delay") if was != "" else 0.0)
 
 
+func _sig_material(kind: String, sig: String) -> Material:
+	return lens_material(sig.split(":")[0]) if kind == "lenses" else null
+
+
 func _sig_texture(kind: String, sig: String) -> Texture2D:
 	var key: String = sig.split(":")[0]
 	match kind:
@@ -1076,10 +1092,11 @@ func _to_self(node: Control, local: Vector2) -> Vector2:
 
 
 ## A part flying between the list and a socket, at the canvas scale, on a shallow arc.
-func _fly(tex: Texture2D, size: Vector2, from: Vector2, to: Vector2, secs: float, delay: float, pop: float, fade: bool) -> void:
+func _fly(tex: Texture2D, size: Vector2, from: Vector2, to: Vector2, secs: float, delay: float, pop: float, fade: bool, mat: Material = null) -> void:
 	if tex == null or _motion() != Motion.FULL:
 		return
 	var f := _sprite(self, "Flyer", tex, from - size * _canvas.scale / 2.0, size * _canvas.scale)
+	f.material = mat
 	f.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	var tw := create_tween()
 	if delay > 0.0:
@@ -1099,7 +1116,7 @@ func _beat_out(kind: String, slot: int, sig: String, swapped: bool) -> void:
 	var socket := _socket_node(kind, slot)
 	var from := _to_self(socket, socket.size / 2.0)
 	var secs: float = timing("swap") if swapped else timing("unload")
-	_fly(_sig_texture(kind, sig), _native_size(kind), from, _list_point(), secs, 0.0, float(timing("swap_pop_px")) if swapped else 0.0, true)
+	_fly(_sig_texture(kind, sig), _native_size(kind), from, _list_point(), secs, 0.0, float(timing("swap_pop_px")) if swapped else 0.0, true, _sig_material(kind, sig))
 
 
 ## The part arriving in `slot`: flies from the list, then Lens / Movement re-emerge from the lip
@@ -1111,7 +1128,7 @@ func _beat_in(kind: String, slot: int, delay: float) -> void:
 	var reduced: bool = _motion() == Motion.REDUCED
 	var fly: float = 0.0 if reduced else timing("load")
 	var socket := _socket_node(kind, slot)
-	_fly(_sig_texture(kind, _sigs[kind][slot]), _native_size(kind), _list_point(), _to_self(socket, socket.size / 2.0), fly, delay, 0.0, false)
+	_fly(_sig_texture(kind, _sigs[kind][slot]), _native_size(kind), _list_point(), _to_self(socket, socket.size / 2.0), fly, delay, 0.0, false, _sig_material(kind, _sigs[kind][slot]))
 	var tw := create_tween()
 	if kind == "complications":
 		var label := _labels[slot]
@@ -1493,10 +1510,11 @@ func _drop_unload(_at: Vector2, data: Variant) -> void:
 
 
 ## Drag preview: the part's sprite at x2, centred on the finger.
-func _drag_preview(tex: Texture2D, size: Vector2) -> void:
+func _drag_preview(tex: Texture2D, size: Vector2, mat: Material = null) -> void:
 	var holder := Control.new()
 	var t := TextureRect.new()
 	t.texture = tex
+	t.material = mat
 	t.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	t.stretch_mode = TextureRect.STRETCH_SCALE
@@ -1510,7 +1528,7 @@ func _held_drag(inv_index: int) -> Variant:
 	var inventory: Array = GameState.state["player"]["lensInventory"]
 	if inv_index >= inventory.size():
 		return null
-	_drag_preview(lens_texture(inventory[inv_index]["ore"]), _native_size("lenses"))
+	_drag_preview(lens_texture(inventory[inv_index]["ore"]), _native_size("lenses"), lens_material(inventory[inv_index]["ore"]))
 	return { "type": "held_lens", "inv": inv_index }
 
 
@@ -1518,7 +1536,7 @@ func _seated_drag(slot: int) -> Variant:
 	var loaded: Array = (_dial() as Dictionary).get("lenses", [])
 	if slot >= loaded.size():
 		return null
-	_drag_preview(lens_texture(loaded[slot]["ore"]), _native_size("lenses"))
+	_drag_preview(lens_texture(loaded[slot]["ore"]), _native_size("lenses"), lens_material(loaded[slot]["ore"]))
 	return { "type": "seated_lens", "slot": slot }
 
 
