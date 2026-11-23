@@ -220,6 +220,12 @@
    64,
    64
   ],
+  "movement_frame_by_archetype": {
+   "capacitor": [
+    64,
+    96
+   ]
+  },
   "complication_icon": [
    12,
    12
@@ -321,6 +327,9 @@
    "targets": [
     "head",
     "grip"
+   ],
+   "tall_movement_lift": [
+    "head"
    ]
   },
   "lenses": {

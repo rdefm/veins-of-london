@@ -316,7 +316,7 @@ overlays; hides the top board on title/intro/combat and the nav dock per screen.
 | constants.json (faction politics) | factions.gd (factionRivalry), faction_sim.gd (factionFloor), faction_ai.gd (factionStances/Pressure/Escalation/War/Conclave), intel.gd (intel), raiding.gd (stockpileRaid, raidSecurity), network_handler.gd (networkMenu), diplomacy.gd (factionFavours, factionGifts, callForAid), partners.gd (partners), barometer.gd (factionEscalation) |
 | daily_cycle.json | time_transition.gd (circle layout, sky clips, colours, timing) |
 | dial.json | dial.gd; `lens` (slots, craft, senseGates, peripheralShare, per-tier effect tables) → dial.gd/lenses.gd; `fateMarketReadsByTier`/`fateMarket` → market_insight.gd; `fateLuckyPrice` → lucky_price.gd; `jamesQuest` (gate, repair attempts/ore, summons texts) → james_dial.gd |
-| dial_art.json | Dial menu art (`GameData.DIAL_ART`, read by `DialMenu`): module anchors measured from `assets/hq/dial/` sprites (seat, top lips, face/studs, intake, chambers, needle pivot), hover offsets, component sizes, layout, overview bands, per-section frame/scale/offsets, beat timings |
+| dial_art.json | Dial menu art (`GameData.DIAL_ART`, read by `DialMenu`): module anchors measured from `assets/hq/dial/` sprites (seat, top lips, face/studs, intake, chambers, needle pivot), hover offsets, component sizes (per-archetype Movement frames), layout, overview bands, per-section frame/scale/offsets, beat timings |
 | districts.json | widely read (sites, economy, factions, raiding) |
 | enemies.json | combat.gd |
 | faction_trade.json | economy.gd |

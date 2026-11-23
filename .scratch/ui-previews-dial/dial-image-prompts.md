@@ -1,6 +1,6 @@
 # Dial menu — image prompts
 
-Source of truth: `dial-art-spec.md` §5. This file is the pasteable subset for the proof pass. Lenses are done (one sprite, shader-tinted). Remaining: Movements capacitor, impact, spread (P2b–d).
+Source of truth: `dial-art-spec.md` §5. This file is the pasteable subset for the proof pass. Lenses are done (one sprite, shader-tinted). Capacitor done. Remaining: Movements impact, spread (P2c–d).
 
 **For every prompt:** attach `assets/hq/dial/dial_exploded_source.png` where it says "Attach". Append the fixed tail unless the prompt says to ignore it. Pixelise every output (`tools/pixelizer.html`) before using it.
 
@@ -24,7 +24,7 @@ Attach to each: the exploded master **and** the finished `movement_recharge.png`
 
 Shared rules (already in each prompt): same metals and jewel bearings as the recharge strip; every frame stands on the **same small round base plate as the recharge movement**, centred and touching the bottom edge, so it rises out of the grip's lip like recharge does. Taller frames are trial sizes; re-evaluate on device.
 
-### P2b — Capacitor → `movement_capacitor` (trial 64×96 native)
+### P2b — Capacitor → `movement_capacitor` (DONE, 64×96 native; source `sources/movement_capacitor_gen.png`)
 
 > Attach: the exploded master and the recharge movement strip. A 4-frame horizontal sprite strip, 160x60 total, each frame 40x60. Each frame is a tall, narrow clockwork column in gunmetal and blued steel: four flat mainspring barrels (short toothed drums) stacked on one central arbor, separated by thin blued-steel spacer plates, standing on a small round base plate the same size as the recharge movement, capped by a top bridge with a single jewel bearing. A narrow vertical sight-glass slot down the front shows tightly coiled springs inside. It reads as a compact battery of springs. Same high angle as the recharge movement; the base sits at the bottom centre of every frame. Frame 1 is still; frames 2–4 show the barrels' toothed rims turning a little further each frame, alternate barrels turning in opposite directions, for a looping spin. Consistent identity across all frames.
 
@@ -36,7 +36,7 @@ Shared rules (already in each prompt): same metals and jewel bearings as the rec
 
 > Attach: the exploded master and the recharge movement strip. A 4-frame horizontal sprite strip, 160x60 total, each frame 40x60. Each frame is a miniature flyball governor in gunmetal and blued steel: a thin vertical spindle rising from a small star-toothed wheel on a round base plate the same size as the recharge movement, topped by a collar with a jewel bearing; two slim arms hinge from the collar, each ending in a polished steel ball, linked by short struts to a sleeve that slides on the spindle. Same high angle as the recharge movement; the base sits at the bottom centre of every frame. Frame 1: still, arms hanging down close against the spindle. Frame 2: spinning, arms swung out about 30 degrees, sleeve slightly raised. Frame 3: arms out about 60 degrees. Frame 4: arms nearly horizontal, fully spread, sleeve at its highest; the balls stay inside the frame. Consistent identity across all frames.
 
-**Code follow-up before these can ship:** `dial_art.json` has one `movement_frame` size and a centre anchor. Taller strips need a per-archetype frame size and a bottom-centre anchor (see ticket 13).
+**Wiring a new tall Movement:** save the generated strip as `sources/movement_<archetype>_gen.png`, add its frame size to `dial_art.json` `component_sizes.movement_frame_by_archetype`, run `python tools/dial_art_build.py movement <archetype>`. The Movement hovers bottom-aligned with the default frame; the head lifts by the extra height.
 
 ## P3 — Bench backdrop (DEFERRED, ticket 13) → `dial_bench.png`
 

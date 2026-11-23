@@ -73,6 +73,8 @@ var _seat: Control
 var _movement_holder: Control
 var _movement_atlas: AtlasTexture
 var _movement_tier: TextureRect
+var _movement_frame: TextureRect
+var _movement_size: Vector2
 var _intake: Control
 var _intake_glow: TextureRect
 var _studs: Array[TextureRect] = []
@@ -231,6 +233,19 @@ static func zoom_position(rect: Rect2, s: float) -> Vector2:
 ## Module-local top-left of a hovering component of `size` whose centre sits `offset` from the lip centre.
 static func hover_position(m: String, offset: Vector2, size: Vector2) -> Vector2:
 	return (v2(module(m)["top_lip"]["centre"]) + offset - size / 2.0).round()
+
+
+## Native frame size of `archetype`'s Movement strip: taller archetypes override the default.
+static func movement_frame_size(archetype: String) -> Vector2:
+	var sizes: Dictionary = art()["component_sizes"]
+	return v2(sizes["movement_frame_by_archetype"].get(archetype, sizes["movement_frame"]))
+
+
+## Hover offset for a Movement frame of `size`: frames share the default frame's bottom edge,
+## so a taller Movement grows upward from where the default one sits.
+static func movement_hover_offset(size: Vector2) -> Vector2:
+	var base := v2(art()["component_sizes"]["movement_frame"])
+	return v2(art()["hover"]["movement_offset"]) + Vector2(0.0, (base.y - size.y) / 2.0)
 
 
 ## Wind spin strip frame at `t` s into the spin: frames 1.. loop at wind_spin_fps, 0 (still) outside.
@@ -522,8 +537,9 @@ func _holder(parent: Control, node_name: String, size: Vector2) -> Control:
 func _build_movement(grip: Control) -> void:
 	var size := v2(art()["component_sizes"]["movement_frame"])
 	_movement_holder = _holder(_clips["grip"], "Movement", size)
+	_movement_size = size
 	_movement_atlas = AtlasTexture.new()
-	_sprite(_movement_holder.get_node("Bob"), "Frame", _movement_atlas, Vector2.ZERO, size)
+	_movement_frame = _sprite(_movement_holder.get_node("Bob"), "Frame", _movement_atlas, Vector2.ZERO, size)
 	_movement_tier = _sprite(_movement_holder.get_node("Bob"), "Tier", null, Vector2.ZERO, size)
 	_movement_holder.position = _hidden_position("grip", size)
 
@@ -583,7 +599,7 @@ func _build_chambers(canopy: Control) -> void:
 
 ## Holder position inside module `m`'s emerge clip: hovering, or just below the clip line.
 func _hover_in_clip(m: String, size: Vector2, slot: int = 0) -> Vector2:
-	var offset: Vector2 = v2(art()["hover"]["movement_offset"]) if m == "grip" else v2(art()["hover"]["lens_offsets"][slot])
+	var offset: Vector2 = movement_hover_offset(size) if m == "grip" else v2(art()["hover"]["lens_offsets"][slot])
 	return hover_position(m, offset, size) - (_clips[m] as Control).position
 
 
@@ -655,6 +671,7 @@ func _refresh() -> void:
 	_movement_holder.visible = movement != null
 	if movement != null:
 		_movement_atlas.atlas = movement_texture(movement["archetype"])
+		_size_movement(movement_frame_size(movement["archetype"]))
 		_set_movement_frame(0)
 		_movement_tier.texture = _tex(_component_path("movement_tier_%d" % clampi(int(movement["tier"]), 1, 5)))
 	_seat.mouse_filter = Control.MOUSE_FILTER_STOP if in_movement else Control.MOUSE_FILTER_IGNORE
@@ -699,8 +716,18 @@ func _set_needle(target: float, delay: float) -> void:
 
 
 func _set_movement_frame(frame: int) -> void:
-	var size := v2(art()["component_sizes"]["movement_frame"])
-	_movement_atlas.region = Rect2(Vector2(size.x * frame, 0.0), size)
+	_movement_atlas.region = Rect2(Vector2(_movement_size.x * frame, 0.0), _movement_size)
+
+
+## Resizes the Movement holder to the seated archetype's frame; the tier overlay stays on the base.
+func _size_movement(size: Vector2) -> void:
+	_movement_size = size
+	_movement_holder.size = size
+	(_movement_holder.get_node("Bob") as Control).size = size
+	_movement_frame.size = size
+	var base := v2(art()["component_sizes"]["movement_frame"])
+	_movement_tier.size = base
+	_movement_tier.position = Vector2((size.x - base.x) / 2.0, size.y - base.y)
 
 
 func _set_spin_time(t: float) -> void:
@@ -713,8 +740,7 @@ func _place_holders() -> void:
 	for p in range(_seated.size()):
 		_seated[p].position = _hover_in_clip("collar", size, p) if section == "lenses" else _hidden_position("collar", size, p)
 		_seated[p].modulate.a = 1.0
-	var msize := v2(art()["component_sizes"]["movement_frame"])
-	_movement_holder.position = _hover_in_clip("grip", msize) if section == "movement" else _hidden_position("grip", msize)
+	_movement_holder.position = _hover_in_clip("grip", _movement_size) if section == "movement" else _hidden_position("grip", _movement_size)
 	_movement_holder.modulate.a = 1.0
 
 
@@ -829,7 +855,13 @@ func _group_target(g: String, s: String, opened: bool) -> Vector2:
 	var spec: Dictionary = sections()[s]
 	if not opened and g in spec["targets"]:
 		return _base[g]
-	return _base[g] + v2(spec["offsets"][g])
+	var lift: float = _tall_movement_extra() if g in spec.get("tall_movement_lift", []) else 0.0
+	return _base[g] + v2(spec["offsets"][g]) - Vector2(0.0, lift)
+
+
+## Extra native height of the seated Movement's frame over the default frame (0 for default-size ones).
+func _tall_movement_extra() -> float:
+	return maxf(_movement_size.y - v2(art()["component_sizes"]["movement_frame"]).y, 0.0)
 
 
 func _group_alpha(g: String, s: String) -> float:
@@ -848,7 +880,10 @@ func _canvas_target(s: String) -> Array:
 	if s == "":
 		return [Vector2.ONE * overview_scale(), overview_position()]
 	var sc: float = float(sections()[s]["scale"])
-	return [Vector2(sc, sc), zoom_position(section_frame(s), sc)]
+	var frame := section_frame(s)
+	if not (sections()[s].get("tall_movement_lift", []) as Array).is_empty():
+		frame = frame.grow_side(SIDE_TOP, _tall_movement_extra())
+	return [Vector2(sc, sc), zoom_position(frame, sc)]
 
 
 func _list_shown_x() -> float:
@@ -967,9 +1002,8 @@ func _play_zoom_in() -> void:
 			_ghosts[p].modulate.a = 0.0
 			open.append(_t(_ghosts[p], "modulate:a", 1.0, timing("emerge")))
 	elif s == "movement":
-		var msize := v2(art()["component_sizes"]["movement_frame"])
-		_movement_holder.position = _hidden_position("grip", msize)
-		open.append(_t(_movement_holder, "position", _hover_in_clip("grip", msize), timing("emerge")))
+		_movement_holder.position = _hidden_position("grip", _movement_size)
+		open.append(_t(_movement_holder, "position", _hover_in_clip("grip", _movement_size), timing("emerge")))
 	_step(_tween, open)
 
 
@@ -980,7 +1014,7 @@ func _play_back() -> void:
 	var lsize := v2(art()["component_sizes"]["lens"])
 	for p in range(_seated.size()):
 		retract.append(_t(_seated[p], "position", _hidden_position("collar", lsize, p), timing("back_retract")))
-	retract.append(_t(_movement_holder, "position", _hidden_position("grip", v2(art()["component_sizes"]["movement_frame"])), timing("back_retract")))
+	retract.append(_t(_movement_holder, "position", _hidden_position("grip", _movement_size), timing("back_retract")))
 	for g in _groups.keys():
 		var settle := _settle_target(g)
 		if settle != (_groups[g] as Control).position:
@@ -1060,7 +1094,7 @@ func _sig_texture(kind: String, sig: String) -> Texture2D:
 		"movement":
 			var at := AtlasTexture.new()
 			at.atlas = movement_texture(key)
-			at.region = Rect2(Vector2.ZERO, v2(art()["component_sizes"]["movement_frame"]))
+			at.region = Rect2(Vector2.ZERO, movement_frame_size(key))
 			return at
 	return label_texture(key)
 
@@ -1074,12 +1108,13 @@ func _socket_node(kind: String, slot: int) -> Control:
 	return _chambers[slot]
 
 
-func _native_size(kind: String) -> Vector2:
+## Native sprite size for `kind`; for a Movement, the frame of `sig`'s archetype (default: the seated one).
+func _native_size(kind: String, sig: String = "") -> Vector2:
 	match kind:
 		"lenses":
 			return v2(art()["component_sizes"]["lens"])
 		"movement":
-			return v2(art()["component_sizes"]["movement_frame"])
+			return movement_frame_size(sig.split(":")[0]) if sig != "" else _movement_size
 	return v2(art()["component_sizes"]["complication_icon"])
 
 
@@ -1116,7 +1151,7 @@ func _beat_out(kind: String, slot: int, sig: String, swapped: bool) -> void:
 	var socket := _socket_node(kind, slot)
 	var from := _to_self(socket, socket.size / 2.0)
 	var secs: float = timing("swap") if swapped else timing("unload")
-	_fly(_sig_texture(kind, sig), _native_size(kind), from, _list_point(), secs, 0.0, float(timing("swap_pop_px")) if swapped else 0.0, true, _sig_material(kind, sig))
+	_fly(_sig_texture(kind, sig), _native_size(kind, sig), from, _list_point(), secs, 0.0, float(timing("swap_pop_px")) if swapped else 0.0, true, _sig_material(kind, sig))
 
 
 ## The part arriving in `slot`: flies from the list, then Lens / Movement re-emerge from the lip
@@ -1128,7 +1163,7 @@ func _beat_in(kind: String, slot: int, delay: float) -> void:
 	var reduced: bool = _motion() == Motion.REDUCED
 	var fly: float = 0.0 if reduced else timing("load")
 	var socket := _socket_node(kind, slot)
-	_fly(_sig_texture(kind, _sigs[kind][slot]), _native_size(kind), _list_point(), _to_self(socket, socket.size / 2.0), fly, delay, 0.0, false, _sig_material(kind, _sigs[kind][slot]))
+	_fly(_sig_texture(kind, _sigs[kind][slot]), _native_size(kind, _sigs[kind][slot]), _list_point(), _to_self(socket, socket.size / 2.0), fly, delay, 0.0, false, _sig_material(kind, _sigs[kind][slot]))
 	var tw := create_tween()
 	if kind == "complications":
 		var label := _labels[slot]
@@ -1544,7 +1579,7 @@ func _held_movement_drag(inv_index: int) -> Variant:
 	var inventory: Array = GameState.state["player"]["movementInventory"]
 	if inv_index >= inventory.size():
 		return null
-	_drag_preview(_sig_texture("movement", _movement_sig(inventory[inv_index])), _native_size("movement"))
+	_drag_preview(_sig_texture("movement", _movement_sig(inventory[inv_index])), _native_size("movement", _movement_sig(inventory[inv_index])))
 	return { "type": "held_movement", "inv": inv_index }
 
 
@@ -1552,7 +1587,7 @@ func _seated_movement_drag() -> Variant:
 	var movement: Variant = (_dial() as Dictionary)["movement"]
 	if movement == null:
 		return null
-	_drag_preview(_sig_texture("movement", _movement_sig(movement)), _native_size("movement"))
+	_drag_preview(_sig_texture("movement", _movement_sig(movement)), _native_size("movement", _movement_sig(movement)))
 	return { "type": "seated_movement" }
 
 

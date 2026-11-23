@@ -499,6 +499,33 @@ func run() -> void:
 			assert_eq(mat.get_shader_parameter("glass_colour"), Vector3(c.r, c.g, c.b), "%s: glass takes the ore colour" % ore)
 	)
 
+	run_case("dial_menu_tall_movement_frame_grows_up_from_the_default_bottom_edge", func():
+		var base := DialMenu.v2(GameData.DIAL_ART["component_sizes"]["movement_frame"])
+		var tall := DialMenu.movement_frame_size("capacitor")
+		assert_eq(DialMenu.movement_frame_size("recharge"), base, "recharge keeps the default frame")
+		assert_true(tall.y > base.y, "capacitor has a taller frame")
+		var tex := DialMenu.movement_texture("capacitor")
+		assert_eq(Vector2(tex.get_size()), Vector2(tall.x * int(GameData.DIAL_ART["components"]["movement_frames"]), tall.y), "capacitor strip matches its frame size")
+		var bottom := func(size: Vector2) -> float: return DialMenu.hover_position("grip", DialMenu.movement_hover_offset(size), size).y + size.y
+		assert_eq(bottom.call(tall), bottom.call(base), "tall and default frames share a bottom edge")
+
+		GameState.reset()
+		var dial := _fresh_dial()
+		dial["movement"] = { "archetype": "capacitor", "tier": 1 }
+		GameState.state["player"]["dial"] = dial
+		var menu := DialMenu.new()
+		menu._ready()
+		assert_eq(menu._movement_holder.size, tall, "the holder takes the seated archetype's frame")
+		assert_eq(menu._movement_atlas.region.size, tall, "the atlas shows one tall frame")
+		menu.open_section("movement")
+		assert_eq(menu._movement_holder.position, menu._hover_in_clip("grip", tall), "it hovers bottom-aligned above the grip lip")
+		assert_true(menu._movement_holder.position.y >= 0.0, "the tall frame fits inside the emerge clip")
+		var spec: Dictionary = DialMenu.sections()["movement"]
+		var extra: float = tall.y - base.y
+		assert_eq(menu._group_target("head", "movement", true), menu._base["head"] + DialMenu.v2(spec["offsets"]["head"]) - Vector2(0.0, extra), "the head lifts by the extra height")
+		menu.free()
+	)
+
 	run_case("dial_menu_needle_rotation_reflects_current_charge_fraction", func():
 		var dial := _fresh_dial()
 		dial["currentCharge"] = 0

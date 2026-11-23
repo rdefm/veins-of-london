@@ -5,6 +5,8 @@ Writes into assets/hq/dial/ and assets/hq/dial/components/ (art spec
   - lens_time.png and movement_recharge.png (4-frame horizontal strip), grid-locked from the
     generated sources in .scratch/ui-previews-dial/sources/ at the `component_sizes` in
     data/dial_art.json (each sized to fill its module's inner top lip);
+  - movement_<archetype>.png for archetypes in `movement_frame_by_archetype` (taller frames),
+    each frame fitted bottom-centre so the base rises from the grip lip;
   - dial_stud_lit, slot_ghost_lens, chamber_blank, chamber_ring, dial_glow,
     lens_tier_<n>, movement_tier_<n>: drawn from code in palette colours;
   - comp_label_<recipeKey> (12x12): box downscale of assets/combat/icons/<recipeKey>.png,
@@ -13,7 +15,8 @@ Writes into assets/hq/dial/ and assets/hq/dial/components/ (art spec
     `components.needle_size`.
 Every output has hard alpha (0 or 255), no soft edges.
 
-Usage (repo root): python tools/dial_art_build.py
+Usage (repo root): python tools/dial_art_build.py            # everything
+                   python tools/dial_art_build.py movement capacitor  # one tall Movement only
 """
 import json
 import math
@@ -79,6 +82,32 @@ def alpha_runs(img):
     if start is not None:
         runs.append((start, img.width))
     return runs
+
+
+def fit_bottom(img, box, w, h, k):
+    """Crop `box`, scale it by `k`, paste bottom-centre on a transparent w x h frame."""
+    part = img.crop(box)
+    pw, ph = max(1, round(part.width * k)), max(1, round(part.height * k))
+    out = Image.new("RGBA", (w, h), CLEAR)
+    out.paste(hard_alpha(part.resize((pw, ph), Image.BOX)), ((w - pw) // 2, h - ph))
+    return out
+
+
+def build_tall_movement(archetype):
+    with open(os.path.join(ROOT, "data", "dial_art.json"), encoding="utf-8") as f:
+        w, h = json.load(f)["component_sizes"]["movement_frame_by_archetype"][archetype]
+    strip = Image.open(os.path.join(SRC, "movement_%s_gen.png" % archetype)).convert("RGBA")
+    runs = alpha_runs(strip)
+    assert len(runs) == 4, "movement strip should hold 4 frames, found %d" % len(runs)
+    boxes = []
+    for x0, x1 in runs:
+        bbox = strip.crop((x0, 0, x1, strip.height)).getbbox()
+        boxes.append((x0, bbox[1], x1, bbox[3]))
+    k = min(min(w / (b[2] - b[0]), h / (b[3] - b[1])) for b in boxes)
+    out = Image.new("RGBA", (w * len(runs), h), CLEAR)
+    for i, b in enumerate(boxes):
+        out.paste(fit_bottom(strip, b, w, h, k), (i * w, 0))
+    out.save(os.path.join(COMP, "movement_%s.png" % archetype))
 
 
 def build_components():
@@ -201,6 +230,11 @@ def build_labels():
 
 
 if __name__ == "__main__":
+    import sys
+    if len(sys.argv) == 3 and sys.argv[1] == "movement":
+        build_tall_movement(sys.argv[2])
+        print("built movement_%s" % sys.argv[2])
+        sys.exit(0)
     build_components()
     build_overlays()
     build_labels()
