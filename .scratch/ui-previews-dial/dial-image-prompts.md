@@ -1,6 +1,6 @@
-# Dial menu — image prompts (proof pass: one of each)
+# Dial menu — image prompts
 
-Source of truth: `dial-art-spec.md` §5. This file is the pasteable subset for the proof pass. Once the pipeline is proven, the remaining Lenses (physics, life, fate, emotion) and Movements (capacitor, impact, spread) are repeats of P1 and P2.
+Source of truth: `dial-art-spec.md` §5. This file is the pasteable subset for the proof pass. Lenses are done (one sprite, shader-tinted). Remaining: Movements capacitor, impact, spread (P2b–d).
 
 **For every prompt:** attach `assets/hq/dial/dial_exploded_source.png` where it says "Attach". Append the fixed tail unless the prompt says to ignore it. Pixelise every output (`tools/pixelizer.html`) before using it.
 
@@ -8,17 +8,35 @@ Source of truth: `dial-art-spec.md` §5. This file is the pasteable subset for t
 
 > pixel art, genuine pixel grid with visible dithering, no vector or cel-shaded linework, no smooth anti-aliasing or gradients. Camera angle: high three-quarter view, about 35 degrees above; top surfaces read as slightly squashed ovals, front surfaces face the viewer flat-on; keep this exact angle. Palette: grounded, realistic London colour; black umbrella fabric, gunmetal and blued-steel fittings, a cream enamel face. No brass, no gold, no neon, no fantasy-saturated colour. Lighting: single soft key light from the upper left, hard-edged pixel shadows. Background: transparent. Style reference (technique only): Backbone, NORCO, The Last Night, Eastward.
 
-## P1 — Lens (time) → `lens_time`
+## P1 — Lens → `lens_time` (DONE, no more Lens prompts)
 
-> Attach: the exploded master. A single 20x20 round lens facing the viewer: a disc of slate blue (#4d78a8) tinted glass in a thin gunmetal bezel, with a small specular highlight upper left. Transparent background, nothing else in frame.
-
-Later: physics `#b8562f`, life `#5a8f4f`, fate `#7a5a9e`, emotion `#b85a82`. Same prompt, change only the glass colour.
+Every ore uses `lens_time.png`; `shaders/lens_tint.gdshader` re-colours the glass per ore from `data/ore_types.json`. No per-ore Lens art.
 
 ## P2 — Movement (recharge) → `movement_recharge`
 
 > Attach: the exploded master. A 4-frame horizontal sprite strip, 160x40 total, each frame a 40x40 circular clockwork watch movement in gunmetal and blued steel with tiny jewel bearings, seen from the same high angle as it would sit in the open top of the attached grip. Frame 1 is still; frames 2–4 show its wheels turning a little further each frame, for a looping spin. Consistent identity across all frames. Motif: a coiled mainspring spiral in the centre.
 
-Later: capacitor (stacked barrel plates like a capacitor), impact (a heavy hammer striking an escapement), spread (a many-pointed star wheel). Attach the finished recharge strip to each so the style carries over.
+Recharge is done and stays as is.
+
+## P2b–d — Capacitor, Impact, Spread
+
+Attach to each: the exploded master **and** the finished `movement_recharge.png` strip, so materials, pixel density and angle carry over. Run b first; if it lands, attach it to c and d as well.
+
+Shared rules (already in each prompt): same metals and jewel bearings as the recharge strip; every frame stands on the **same small round base plate as the recharge movement**, centred and touching the bottom edge, so it rises out of the grip's lip like recharge does. Taller frames are trial sizes; re-evaluate on device.
+
+### P2b — Capacitor → `movement_capacitor` (trial 64×96 native)
+
+> Attach: the exploded master and the recharge movement strip. A 4-frame horizontal sprite strip, 160x60 total, each frame 40x60. Each frame is a tall, narrow clockwork column in gunmetal and blued steel: four flat mainspring barrels (short toothed drums) stacked on one central arbor, separated by thin blued-steel spacer plates, standing on a small round base plate the same size as the recharge movement, capped by a top bridge with a single jewel bearing. A narrow vertical sight-glass slot down the front shows tightly coiled springs inside. It reads as a compact battery of springs. Same high angle as the recharge movement; the base sits at the bottom centre of every frame. Frame 1 is still; frames 2–4 show the barrels' toothed rims turning a little further each frame, alternate barrels turning in opposite directions, for a looping spin. Consistent identity across all frames.
+
+### P2c — Impact → `movement_impact` (trial 64×80 native)
+
+> Attach: the exploded master and the recharge movement strip. A 4-frame horizontal sprite strip, 160x50 total, each frame 40x50. Each frame is a squat, heavy clockwork drum in gunmetal and blued steel, wider than it is tall and thicker-walled than the recharge movement, standing on a small round base plate the same size as the recharge movement. On its top surface a short steel pivot post carries a striking arm ending in a solid square hammer head, like a clock's chime hammer, poised over a small round steel anvil boss on the drum's top. Same high angle as the recharge movement; the base sits at the bottom centre of every frame. Frame 1: hammer resting on the anvil. Frame 2: hammer lifted a little. Frame 3: hammer raised high. Frame 4: hammer down on the anvil, with two or three single-pixel steel-grey flecks at the strike point. No glow, no sparks of colour. Consistent identity across all frames.
+
+### P2d — Spread → `movement_spread` (trial 64×96 native)
+
+> Attach: the exploded master and the recharge movement strip. A 4-frame horizontal sprite strip, 160x60 total, each frame 40x60. Each frame is a miniature flyball governor in gunmetal and blued steel: a thin vertical spindle rising from a small star-toothed wheel on a round base plate the same size as the recharge movement, topped by a collar with a jewel bearing; two slim arms hinge from the collar, each ending in a polished steel ball, linked by short struts to a sleeve that slides on the spindle. Same high angle as the recharge movement; the base sits at the bottom centre of every frame. Frame 1: still, arms hanging down close against the spindle. Frame 2: spinning, arms swung out about 30 degrees, sleeve slightly raised. Frame 3: arms out about 60 degrees. Frame 4: arms nearly horizontal, fully spread, sleeve at its highest; the balls stay inside the frame. Consistent identity across all frames.
+
+**Code follow-up before these can ship:** `dial_art.json` has one `movement_frame` size and a centre anchor. Taller strips need a per-archetype frame size and a bottom-centre anchor (see ticket 13).
 
 ## P3 — Bench backdrop (DEFERRED, ticket 13) → `dial_bench.png`
 
