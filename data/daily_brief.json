@@ -28,7 +28,8 @@
     "thread": { "actionLabel": "Read message" },
     "map": { "actionLabel": "Open map" },
     "rest": { "actionLabel": "Go to HQ" },
-    "todo": { "actionLabel": "Open ToDo" }
+    "todo": { "actionLabel": "Open ToDo" },
+    "dial": { "actionLabel": "Open Dial bench" }
   },
   "rows": {
     "story": {

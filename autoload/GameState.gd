@@ -367,6 +367,7 @@ func new_game_state() -> Dictionary:
 			"jamesDialRepairQueued": false, "jamesDialRestored": false,
 			"jamesDialOfferQueued": false, "jamesDialOfferSeen": false,
 			"jamesPlayerDialQueued": false, "jamesPlayerDialSeen": false,
+			"playerDialSeeded": false,
 			"jamesJobActive": false, "jamesJobAccepted": false,
 			# Gates ArchieDeals.roll_daily_offer() true from offer-queued
 			# until declined or its accepted deal (incl. any mugging fight) resolves.

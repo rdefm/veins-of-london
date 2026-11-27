@@ -638,6 +638,8 @@ func _open_today_action(action: Dictionary) -> void:
 			Nav.go_to("map")
 		"rest":
 			Nav.go_to("hq")
+		"dial":
+			Nav.go_to("hq_dial")
 		"bank", "property", "todo":
 			PhoneNav.open_app(action["to"])
 

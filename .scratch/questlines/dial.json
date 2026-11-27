@@ -1,0 +1,161 @@
+{
+  "id": "dial",
+  "name": "Dial",
+  "page": "dial",
+  "order": 1,
+  "premise": "James's Dial chain: bench job to the player's own Dial.",
+  "notes": "Seeded from objectives.json.",
+  "categories": [
+    "Writing",
+    "Choices",
+    "Observations",
+    "Art"
+  ],
+  "quests": [
+    {
+      "id": "dial_quest_bench_job",
+      "title": "Do James's paid bench job",
+      "summary": "",
+      "notes": "",
+      "follows": [],
+      "events": [
+        {
+          "id": "james_dial_evaluation",
+          "title": "james dial evaluation",
+          "seen": "live"
+        }
+      ],
+      "statuses": {
+        "Writing": "todo",
+        "Choices": "todo",
+        "Observations": "todo",
+        "Art": "todo"
+      },
+      "mechanics": "hardcoded",
+      "objective": "dial_bench_job"
+    },
+    {
+      "id": "dial_quest_gather_calc",
+      "title": "Gather the time calc James quoted",
+      "summary": "",
+      "notes": "",
+      "follows": [
+        {
+          "id": "dial_quest_bench_job",
+          "kind": "parallel"
+        }
+      ],
+      "events": [],
+      "statuses": {
+        "Writing": "na",
+        "Choices": "na",
+        "Observations": "na",
+        "Art": "na"
+      },
+      "mechanics": "hardcoded",
+      "objective": "dial_gather_calc"
+    },
+    {
+      "id": "dial_quest_bring_calc",
+      "title": "Bring James the calc",
+      "summary": "",
+      "notes": "",
+      "follows": [
+        {
+          "id": "dial_quest_gather_calc",
+          "kind": "parallel"
+        }
+      ],
+      "events": [
+        {
+          "id": "james_dial_repair",
+          "title": "james dial repair",
+          "seen": "live"
+        }
+      ],
+      "statuses": {
+        "Writing": "todo",
+        "Choices": "todo",
+        "Observations": "todo",
+        "Art": "todo"
+      },
+      "mechanics": "hardcoded",
+      "objective": "dial_bring_calc"
+    },
+    {
+      "id": "dial_quest_offer",
+      "title": "Go to James's offer",
+      "summary": "",
+      "notes": "",
+      "follows": [
+        {
+          "id": "dial_quest_bring_calc",
+          "kind": "parallel"
+        }
+      ],
+      "events": [
+        {
+          "id": "james_dial_offer",
+          "title": "james dial offer",
+          "seen": "live"
+        }
+      ],
+      "statuses": {
+        "Writing": "todo",
+        "Choices": "todo",
+        "Observations": "todo",
+        "Art": "todo"
+      },
+      "mechanics": "hardcoded",
+      "objective": "dial_offer"
+    },
+    {
+      "id": "dial_quest_lesson",
+      "title": "Go to James's Dial lesson",
+      "summary": "",
+      "notes": "",
+      "follows": [
+        {
+          "id": "dial_quest_offer",
+          "kind": "parallel"
+        }
+      ],
+      "events": [
+        {
+          "id": "james_player_dial_creation",
+          "title": "james player dial creation",
+          "seen": "live"
+        }
+      ],
+      "statuses": {
+        "Writing": "todo",
+        "Choices": "todo",
+        "Observations": "todo",
+        "Art": "todo"
+      },
+      "mechanics": "hardcoded",
+      "objective": "dial_lesson"
+    },
+    {
+      "id": "dial_quest_seed",
+      "title": "Seed your Dial at the bench",
+      "summary": "",
+      "notes": "",
+      "follows": [
+        {
+          "id": "dial_quest_lesson",
+          "kind": "parallel"
+        }
+      ],
+      "events": [],
+      "statuses": {
+        "Writing": "na",
+        "Choices": "na",
+        "Observations": "na",
+        "Art": "na"
+      },
+      "mechanics": "hardcoded",
+      "objective": "dial_seed"
+    }
+  ]
+}

@@ -275,5 +275,74 @@
     "activateFlag": "bizA1ClosingQueued",
     "completeFlag": "bizA1Complete",
     "questline": "business_empire"
+  },
+  "dial_bench_job": {
+    "id": "dial_bench_job",
+    "briefAction": { "to": "thread", "contactId": "james" },
+    "title": "Do James's paid bench job",
+    "detail": "",
+    "type": "flag_true",
+    "params": {},
+    "activateFlag": "jamesDialEvaluationQueued",
+    "completeFlag": "jamesDialRepairRequested",
+    "questline": "dial"
+  },
+  "dial_gather_calc": {
+    "id": "dial_gather_calc",
+    "briefAction": { "to": "map" },
+    "briefNote": "James texts the morning you have enough.",
+    "title": "Gather the time calc James quoted",
+    "detail": "",
+    "type": "ore_held_for_quote",
+    "params": { "oreType": "time", "qtyFlag": "jamesDialCalcQty" },
+    "activateFlag": "jamesDialRepairRequested",
+    "completeFlag": "jamesDialRepairQueued",
+    "questline": "dial"
+  },
+  "dial_bring_calc": {
+    "id": "dial_bring_calc",
+    "briefAction": { "to": "thread", "contactId": "james" },
+    "title": "Bring James the calc",
+    "detail": "",
+    "type": "flag_true",
+    "params": {},
+    "activateFlag": "jamesDialRepairQueued",
+    "completeFlag": "jamesDialRestored",
+    "questline": "dial"
+  },
+  "dial_offer": {
+    "id": "dial_offer",
+    "briefAction": { "to": "thread", "contactId": "james" },
+    "briefNote": "James sends the time by text.",
+    "title": "Go to James's offer",
+    "detail": "",
+    "type": "flag_true",
+    "params": {},
+    "activateFlag": "jamesDialRestored",
+    "completeFlag": "jamesDialOfferSeen",
+    "questline": "dial"
+  },
+  "dial_lesson": {
+    "id": "dial_lesson",
+    "briefAction": { "to": "thread", "contactId": "james" },
+    "briefNote": "James sends the time by text.",
+    "title": "Go to James's Dial lesson",
+    "detail": "",
+    "type": "flag_true",
+    "params": {},
+    "activateFlag": "jamesDialOfferSeen",
+    "completeFlag": "jamesPlayerDialSeen",
+    "questline": "dial"
+  },
+  "dial_seed": {
+    "id": "dial_seed",
+    "briefAction": { "to": "dial" },
+    "title": "Seed your Dial at the bench",
+    "detail": "",
+    "type": "dial_seeded",
+    "params": {},
+    "activateFlag": "jamesPlayerDialSeen",
+    "completeFlag": "playerDialSeeded",
+    "questline": "dial"
   }
 }

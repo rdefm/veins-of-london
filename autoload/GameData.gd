@@ -2956,7 +2956,7 @@ const OBJECTIVE_TYPES: Array[String] = [
 	"sites_discovered_matching", "traded_with_faction", "supplied_to_contact", "vein_sold_to_faction", "vein_growth_above", "flag_true",
 	"alarm_defend_wins", "faction_vein_seeded_count", "items_crafted_set", "contracts_completed", "all_of",
 	"template_periods_completed", "recipe_known",
-	"auto_sold_units",
+	"auto_sold_units", "ore_held_for_quote", "dial_seeded",
 ]
 const OBJECTIVE_TYPE_PARAMS: Dictionary = {
 	"sites_discovered_matching": ["requireEachOreType", "minTier", "unclaimed"],
@@ -2973,6 +2973,8 @@ const OBJECTIVE_TYPE_PARAMS: Dictionary = {
 	"template_periods_completed": ["templateId", "minCount"],
 	"recipe_known": ["recipe"],
 	"auto_sold_units": ["minCount"],
+	"ore_held_for_quote": ["oreType", "qtyFlag"],
+	"dial_seeded": [],
 }
 # Live condition kinds (Objectives.condition_met()) for all_of and
 # activateIf, each with its required keys beside "kind"; all_of entries
@@ -3070,6 +3072,12 @@ func _validate_objectives(objectives: Dictionary, factions: Dictionary, ore_type
 				var ore_key = params.get("oreType")
 				if not ore_types.is_empty() and not ore_types.has(ore_key):
 					errors.append("objectives.%s: oreType '%s' is not a known ore type" % [key, ore_key])
+			"ore_held_for_quote":
+				var quote_ore = params.get("oreType")
+				if not ore_types.is_empty() and not ore_types.has(quote_ore):
+					errors.append("objectives.%s: oreType '%s' is not a known ore type" % [key, quote_ore])
+				if typeof(params.get("qtyFlag")) != TYPE_STRING:
+					errors.append("objectives.%s: qtyFlag must be a string" % key)
 			"vein_growth_above":
 				if typeof(params.get("veinIdStatePath")) != TYPE_STRING:
 					errors.append("objectives.%s: veinIdStatePath must be a string" % key)

@@ -52,6 +52,7 @@ static func attempt_seed(lens_ore: String) -> Dictionary:
 		var dial: Dictionary = new_dial()
 		dial["lenses"].append({ "ore": lens_ore, "tier": int(player["craftingSkill"]) })
 		player["dial"] = dial
+		Objectives.refresh_questline("dial")
 
 	EventBus.mark_changed()
 	return { "ok": true, "success": success }

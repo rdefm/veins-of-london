@@ -3,7 +3,8 @@
   "questlines": {
     "tutorial": { "label": "Tutorial", "subtitle": "Learning the trade", "accent": "#c9a227", "doneFlag": "prologueDone" },
     "collective": { "label": "Collective", "subtitle": "The people who count calc", "accent": "#7a8fa6", "doneFlag": "colA1Complete" },
-    "business_empire": { "label": "Business Empire", "subtitle": "Building something that lasts", "accent": "#5f9e78", "doneFlag": "bizA1Complete", "emptyText": "Nothing on the books yet." }
+    "business_empire": { "label": "Business Empire", "subtitle": "Building something that lasts", "accent": "#5f9e78", "doneFlag": "bizA1Complete", "emptyText": "Nothing on the books yet." },
+    "dial": { "label": "Dial", "subtitle": "James's brass, your calc", "accent": "#4f9ea6", "doneFlag": "playerDialSeeded" }
   },
   "copy": { "locked": "Locked", "doneStamp": "DONE", "doneHeader": "Done", "ledgerHeader": "Ledger" },
   "act2": { "subtitle": "What the Board expects", "accent": "#9b6bb0" },

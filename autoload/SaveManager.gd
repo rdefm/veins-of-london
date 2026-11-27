@@ -238,6 +238,9 @@ func _load_save_dict(raw: Dictionary) -> Dictionary:
 	_remap_retired_lab_screen(filled)
 	_remap_retired_notes_app(filled)
 	GameState.state = filled
+	# The Dial page follows flags and the Dial itself, so a save mid-chain shows
+	# its goals at once (R§3.9c).
+	Objectives.refresh_questline("dial")
 	EventBus.state_replaced.emit()
 	EventBus.mark_changed()
 	return { "ok": true }

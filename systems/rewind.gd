@@ -99,6 +99,8 @@ static func rewind_to_block_start(source: String = "") -> Dictionary:
 	GameState.state = restored
 	Preferences.carry_forward(live["meta"])
 	pay(payment)
+	# The kept Dial can outrun the restored Dial goals (R§3.9c).
+	Objectives.refresh_questline("dial")
 	Notify.push("⟲ Time unspools. The moment resets. Only you remember.")
 	# Rewinding Monday's first block replays its meeting with the same agenda.
 	BoardMeetings.maybe_start_meeting()

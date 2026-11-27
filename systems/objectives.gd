@@ -37,6 +37,8 @@ const TYPE_SALES_MULTIPLE_AT_LEAST := "sales_multiple_at_least"
 const TYPE_NEW_VEINS_ONLINE_AT_LEAST := "new_veins_online_at_least"
 const TYPE_VEIN_HEALTH_STREAK_AT_LEAST := "vein_health_streak_at_least"
 const TYPE_ORE_TYPES_ONLINE_AT_LEAST := "ore_types_online_at_least"
+const TYPE_ORE_HELD_FOR_QUOTE := "ore_held_for_quote"
+const TYPE_DIAL_SEEDED := "dial_seeded"
 
 # Days of harvest the yield baseline averages, and the goal week it is
 # compared against (spec §"Modules" → Objectives).
@@ -56,6 +58,15 @@ static func refresh() -> void:
 	for id in GameData.OBJECTIVES.keys():
 		_refresh_one(id, GameData.OBJECTIVES[id])
 	BoardMeetings.note_progress()
+	Todo.refresh_marks()
+
+
+# refresh() narrowed to one questline's objectives, for a caller that must not
+# move any other questline.
+static func refresh_questline(questline: String) -> void:
+	for id in GameData.OBJECTIVES.keys():
+		if GameData.OBJECTIVES[id]["questline"] == questline:
+			_refresh_one(id, GameData.OBJECTIVES[id])
 	Todo.refresh_marks()
 
 
@@ -135,8 +146,10 @@ static func _evaluate(def: Dictionary, progress: Dictionary) -> bool:
 			return _eval_vein_sold_to_faction(params, progress)
 		TYPE_VEIN_GROWTH_ABOVE:
 			return _eval_vein_growth_above(params)
-		TYPE_FLAG_TRUE:
+		TYPE_FLAG_TRUE, TYPE_ORE_HELD_FOR_QUOTE:
 			return _eval_flag_true(def)
+		TYPE_DIAL_SEEDED:
+			return GameState.state["player"]["dial"] != null
 		TYPE_ALARM_DEFEND_WINS:
 			return int(progress.get("defendWinCount", 0)) >= int(params["minCount"])
 		TYPE_FACTION_VEIN_SEEDED_COUNT:
@@ -407,8 +420,9 @@ static func _eval_vein_growth_above(params: Dictionary) -> bool:
 	return vein["growth"] >= params["threshold"]
 
 
-# No params: true once completeFlag is already true — the tutorial chain's
-# checkpoints, set directly by an event's set_flag op.
+# True once completeFlag is already true: a checkpoint set directly by an
+# event's set_flag op or by a system. ore_held_for_quote completes the same
+# way, so spending the ore never ticks it; its params only drive the count.
 static func _eval_flag_true(def: Dictionary) -> bool:
 	return GameState.state["flags"].get(def["completeFlag"], false)
 
@@ -512,6 +526,12 @@ static func auto_sold_since(progress: Dictionary) -> int:
 static func count_progress(def: Dictionary) -> Dictionary:
 	var params: Dictionary = def.get("params", {})
 	var target: int = int(params.get("minCount", 0))
+	if def["type"] == TYPE_ORE_HELD_FOR_QUOTE:
+		var quoted := int(GameState.state["flags"].get(params["qtyFlag"], 0))
+		if quoted <= 0:
+			return {}
+		var done: bool = GameState.state["objectives"].get(def["id"], {}).get("complete", false)
+		return { "current": quoted if done else mini(Stash.player_ore_qty(params["oreType"]), quoted), "target": quoted }
 	if def["type"] == TYPE_AUTO_SOLD_UNITS:
 		var runtime: Dictionary = GameState.state["objectives"].get(def["id"], {})
 		return { "current": clampi(auto_sold_since(runtime.get("progress", {})), 0, target), "target": target }

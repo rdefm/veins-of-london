@@ -34,6 +34,7 @@ static func maybe_queue_evaluation() -> bool:
 	flags["jamesDialAttemptCost"] = attempt_cost
 	flags["jamesDialCalcQty"] = calc_qty
 	Messages.queue_pending("james", EVALUATION, _text(EVALUATION), { "attemptCost": attempt_cost, "calcQty": calc_qty })
+	Objectives.refresh_questline("dial")
 	return true
 
 
@@ -46,6 +47,7 @@ static func maybe_queue_repair() -> bool:
 		return false
 	flags["jamesDialRepairQueued"] = true
 	Messages.queue_pending("james", REPAIR, _text(REPAIR), repair_payload())
+	Objectives.refresh_questline("dial")
 	return true
 
 
