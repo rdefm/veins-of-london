@@ -11,8 +11,7 @@
     "Time of day/weather? Board assumes overcast weekday afternoon, dry-ish wet tarmac. Change if the prologue timeline puts this at night.",
     "The buyer has no sprite or name. Board describes him as a forgettable man (30s, dark puffer, phone in hand). OK as a one-off extra, or is he someone we'll see again?",
     "c4 'strolls off' contradicts holding S3 (pearls held out), so the board spends a 4th shot (S4, Archie walking away, same plate). Cut S4 and accept the hold mismatch?",
-    "Background ArcelorMittal Orbit (red lattice tower) as the Stratford tell, shapes only, no branding. OK, or keep the skyline generic?",
-    "Text: c4 'What that' looks like a typo for 'With that'. Not touched (storyboard doesn't edit prose)."
+    "Background ArcelorMittal Orbit (red lattice tower) as the Stratford tell, shapes only, no branding. OK, or keep the skyline generic?"
   ],
   "cards": [
     {
@@ -60,7 +59,7 @@
       "key": "c4",
       "type": "narration",
       "speaker": null,
-      "text": "What that, Archie strolls off with a smile, humming to himself.",
+      "text": "With that, Archie strolls off with a smile, humming to himself.",
       "cut": "NEW",
       "shot": "S4",
       "why": "Decisive action (he leaves); holding S3 would show him still offering pearls. Cheap pose on the same plate."

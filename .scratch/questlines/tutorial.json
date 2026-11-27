@@ -32,8 +32,8 @@
       ],
       "statuses": {
         "Writing": "todo",
-        "Choices": "todo",
-        "Observations": "todo",
+        "Choices": "review",
+        "Observations": "done",
         "Art": "todo"
       },
       "mechanics": "hardcoded",
@@ -85,9 +85,9 @@
         }
       ],
       "statuses": {
-        "Writing": "todo",
-        "Choices": "todo",
-        "Observations": "todo",
+        "Writing": "review",
+        "Choices": "done",
+        "Observations": "review",
         "Art": "todo"
       },
       "mechanics": "hardcoded",
@@ -112,10 +112,10 @@
         }
       ],
       "statuses": {
-        "Writing": "todo",
+        "Writing": "done",
         "Choices": "todo",
-        "Observations": "todo",
-        "Art": "todo"
+        "Observations": "done",
+        "Art": "review"
       },
       "mechanics": "hardcoded",
       "objective": "pro_first_craft"
@@ -139,9 +139,9 @@
         }
       ],
       "statuses": {
-        "Writing": "todo",
+        "Writing": "review",
         "Choices": "todo",
-        "Observations": "todo",
+        "Observations": "done",
         "Art": "todo"
       },
       "mechanics": "hardcoded",
@@ -150,7 +150,7 @@
     {
       "id": "pro_pearls_sold",
       "title": "Let Archie sell your pearls.",
-      "summary": "",
+      "summary": "Swap this out for prologue-archie-sells-pearls-proposal2.md",
       "notes": "",
       "follows": [
         {
@@ -203,7 +203,7 @@
         }
       ],
       "statuses": {
-        "Writing": "todo",
+        "Writing": "review",
         "Choices": "todo",
         "Observations": "todo",
         "Art": "todo"

@@ -21,26 +21,30 @@
       "events": [
         {
           "id": "col_a1_prospecting",
-          "title": "col a1 prospecting"
+          "title": "col a1 prospecting",
+          "seen": "live"
         },
         {
           "id": "col_a1_des_report",
-          "title": "col a1 des report"
+          "title": "col a1 des report",
+          "seen": "live"
         },
         {
           "id": "col_a1_des_report_first_fate",
-          "title": "col a1 des report first fate"
+          "title": "col a1 des report first fate",
+          "seen": "live"
         },
         {
           "id": "col_a1_des_report_first_physics",
-          "title": "col a1 des report first physics"
+          "title": "col a1 des report first physics",
+          "seen": "live"
         }
       ],
       "statuses": {
-        "Writing": "todo",
+        "Writing": "review",
         "Choices": "todo",
         "Observations": "todo",
-        "Art": "todo"
+        "Art": "review"
       },
       "mechanics": "hardcoded",
       "objective": "col_a1_des_sites"
@@ -59,18 +63,20 @@
       "events": [
         {
           "id": "col_a1_hakim_meet",
-          "title": "col a1 hakim meet"
+          "title": "col a1 hakim meet",
+          "seen": "live"
         },
         {
           "id": "col_a1_hakim_done",
-          "title": "col a1 hakim done"
+          "title": "col a1 hakim done",
+          "seen": "live"
         }
       ],
       "statuses": {
-        "Writing": "todo",
+        "Writing": "done",
         "Choices": "todo",
         "Observations": "todo",
-        "Art": "todo"
+        "Art": "review"
       },
       "mechanics": "hardcoded",
       "objective": "col_a1_hakim_rescue"
@@ -89,18 +95,20 @@
       "events": [
         {
           "id": "col_a1_nadia_meet",
-          "title": "col a1 nadia meet"
+          "title": "col a1 nadia meet",
+          "seen": "live"
         },
         {
           "id": "col_a1_nadia_done",
-          "title": "col a1 nadia done"
+          "title": "col a1 nadia done",
+          "seen": "live"
         }
       ],
       "statuses": {
-        "Writing": "todo",
+        "Writing": "review",
         "Choices": "todo",
         "Observations": "todo",
-        "Art": "todo"
+        "Art": "review"
       },
       "mechanics": "hardcoded",
       "objective": "col_a1_nadia_supply"
@@ -118,10 +126,10 @@
       ],
       "events": [],
       "statuses": {
-        "Writing": "todo",
-        "Choices": "na",
-        "Observations": "na",
-        "Art": "todo"
+        "Writing": "review",
+        "Choices": "todo",
+        "Observations": "todo",
+        "Art": "review"
       },
       "mechanics": "hardcoded",
       "objective": "col_a1_nadia_vein"

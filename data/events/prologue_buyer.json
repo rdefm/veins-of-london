@@ -9,14 +9,15 @@
     { "op": "set_screen", "screen": "phone" }
   ],
   "cards": [
-    { "key": "c1", "type": "narration", "label": "{today} — Shoreditch", "speaker": null, "text": "Archie is outside a café full of people in a rush. Archie is looking at the place the way you'd look at a parking fine. One hand stays on his inside pocket." },
+    { "key": "c1", "type": "narration", "label": "{today} — Shoreditch", "speaker": null, "text": "Archie is outside a café full of people in a rush. Archie is looking at the place the way you'd look at a parking fine. One hand stays on his inside pocket.", "observe": "prologue_buyer_obs1" },
     { "key": "c2", "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Buyer's inside. Marcus. Finance. Wants some emotion-type, for his mood, apparently. Don't ask. Just be normal.\"" },
-    { "key": "c3", "type": "speaker", "label": null, "speaker": "You", "text": "\"That's the calc they pulled a knife over.\"" },
+    { "key": "c3", "type": "speaker", "label": null, "speaker": "You", "text": "\"That's the calc they started the fight over last night, right?\"" },
     { "key": "c4", "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Correct. Which is why there's two of us. You're a deterrent. Like a scarecrow.\" He considers you. \"No offence.\"" },
-    { "key": "c11", "label": null, "type": "speaker", "text": "\"Some offence>\"", "speaker": "You" },
+    { "key": "c11", "label": null, "type": "speaker", "text": "\"Some offence.\"", "speaker": "You" },
     { "key": "c12", "label": null, "type": "speaker", "text": "\"Fair enough,\" he says with a half smile.", "speaker": "Archie" },
+    { "key": "c13", "type": "narration", "label": null, "speaker": null, "text": "Fleece, Patagonia, very clean trainers. Marcus gives you both a handshake and a smile. Very different vibe to last night. ", "image": "res://assets/events/prologue_buyer/prologue_buyer_card7.jpg", "observe": "prologue_buyer_obs2" },
     {
-      "key": "c5", "type": "choice", "label": null, "speaker": "Marcus", "text": "Fleece, Patagonia, very clean trainers. Marcus examines the calc with the careful enthusiasm of someone who has recently read about it online. He puts it down. \"Eighty.\"", "image": "res://assets/events/prologue_buyer/prologue_buyer_card7.jpg",
+      "key": "c5", "type": "choice", "label": null, "speaker": "Marcus", "text": "Fleece, Patagonia, very clean trainers. Marcus gives you both a handshake and a smile. Very different vibe to last night. He examines the calc with the careful enthusiasm of someone who has recently read about it online. He puts it down. \"Eighty.\"", "image": "res://assets/events/prologue_buyer/prologue_buyer_card7.jpg",
       "choices": [
         {
           "id": "takeIt",
@@ -38,12 +39,12 @@
           "success": {
             "result_text": "\"It's emotion-type. Nobody's selling it this side of the river.\" Marcus looks at the chip, then at Archie, who says nothing at all. \"A hundred and twenty.\" He pays it.",
             "effects": [],
-            "goto": 8
+            "goto": 9
           },
           "fail": {
             "result_text": "Marcus's face closes. \"Sixty. Or I've got a guy in Hackney.\" Archie takes the sixty, and gives you a look that costs more.",
             "effects": [{ "op": "relation", "contact": "archie", "value": -3 }],
-            "goto": 9
+            "goto": 10
           }
         },
         {
@@ -63,7 +64,7 @@
           "requires": { "choice": { "event": "prologue_cold_open", "card": "c4", "option": "stand" } },
           "effects": [{ "op": "add", "path": "player.cash", "value": 40 }],
           "result_text": "Two twenties. Rent's still due Monday, but it's closer.",
-          "goto": 10
+          "goto": 11
         },
         {
           "id": "splitAsked",
@@ -71,7 +72,7 @@
           "requires": { "choice": { "event": "prologue_cold_open", "card": "c4", "option": "askBuyers" } },
           "effects": [{ "op": "add", "path": "player.cash", "value": 40 }],
           "result_text": "Two twenties. Rent's still due Monday, but it's closer.",
-          "goto": 10
+          "goto": 11
         },
         {
           "id": "splitHalf",
@@ -79,7 +80,7 @@
           "requires": { "choice": { "event": "prologue_cold_open", "card": "c4", "option": "wantHalf" } },
           "effects": [{ "op": "add", "path": "player.cash", "value": 48 }],
           "result_text": "He counts out forty-eight, slowly, so you can watch him do it. \"Sixty-forty. Your way. As agreed.\"",
-          "goto": 10
+          "goto": 11
         }
       ]
     },
@@ -92,7 +93,7 @@
           "requires": { "choice": { "event": "prologue_cold_open", "card": "c4", "option": "stand" } },
           "effects": [{ "op": "add", "path": "player.cash", "value": 60 }],
           "result_text": "Three twenties. Rent's still due Monday, but it's closer.",
-          "goto": 10
+          "goto": 11
         },
         {
           "id": "splitAsked",
@@ -100,7 +101,7 @@
           "requires": { "choice": { "event": "prologue_cold_open", "card": "c4", "option": "askBuyers" } },
           "effects": [{ "op": "add", "path": "player.cash", "value": 60 }],
           "result_text": "Three twenties. Rent's still due Monday, but it's closer.",
-          "goto": 10
+          "goto": 11
         },
         {
           "id": "splitHalf",
@@ -108,7 +109,7 @@
           "requires": { "choice": { "event": "prologue_cold_open", "card": "c4", "option": "wantHalf" } },
           "effects": [{ "op": "add", "path": "player.cash", "value": 72 }],
           "result_text": "He counts out seventy-two, slowly, so you can watch him do it. \"Sixty-forty. Your way. As agreed.\"",
-          "goto": 10
+          "goto": 11
         }
       ]
     },
@@ -138,7 +139,38 @@
         }
       ]
     },
-    { "key": "c9", "type": "speaker", "label": null, "speaker": "Archie", "text": "\"See? Professional, prompt, no Stanley knife. Most of them are like Marcus. That's the market we're after.\"" },
+    { "key": "c9", "type": "speaker", "label": null, "speaker": "Archie", "text": "\"See? Professional, prompt, no teeth knocked out. Most of them are like Marcus. That's the market we're after.\"" },
     { "key": "c10", "type": "speaker", "label": null, "speaker": "Archie", "text": "\"Next thing. Bloke called James, Bermondsey. Takes raw calc and makes it do things, like that thing I threw in the alley. I'll set it up.\" He's texting before you've answered." }
-  ]
+  ],
+  "observations": {
+    "prologue_buyer_obs1": {
+      "blocks": {
+        "physics": {
+          "tiers": [
+            { "base": 0.25, "text": "Archie's eyes keep scanning the crowds. His shoulders are tense, his breathing isn't relaxed. He's still on edge after last night." },
+            { "base": 0.55, "text": "Archie's usual care-free expression is gone; he looks a bit more harried and nervous than usual." }
+          ],
+          "miss": "Archie looks a bit tired. Maybe a cuppa would make him feel better."
+        },
+        "emotion": {
+          "tiers": [
+            { "base": 0.25, "text": "There's a manic sluggishness in the air as everyone rushes for caffeine before getting to work on time. There's nothing aggressive, except for those pushing to get to the barista first." },
+            { "base": 0.55, "text": "People seem on edge, rushing in and out of cafes, buses, tube stations. It makes you feel uncomfortable." }
+          ],
+          "miss": "There's an energy in the seething masses. Buggered if you know what type of energy, though."
+        }
+      }
+    },
+    "prologue_buyer_obs2": {
+      "blocks": {
+        "physics": {
+          "tiers": [
+            { "base": 0.25, "text": "Eye contact. Firm but polite handshake. Seems more interested in his flat white than you. Marcus isn't likely to cause any trouble." },
+            { "base": 0.55, "text": "His body language is friendly enough. You don't get the feeling Marcus has any aggressive intent beyond haggling for a better price." }
+          ],
+          "miss": "Nice haircut. You wonder how long he spends sculpting his hair in the mirror each morning."
+        }
+      }
+    }
+  }
 }

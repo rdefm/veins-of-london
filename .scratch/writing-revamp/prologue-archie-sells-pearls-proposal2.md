@@ -66,14 +66,25 @@
         {
           "key": "c5",
           "type": "narration",
-          "text": "The buyer arrives, turns the pearl over once, checks something on his phone, and pays. A woman walks past with a Lidl bag and doesn't look up."
+          "label": null,
+          "speaker": null,
+          "text": "The buyer arrives, and gives Archie a nod. ",
+          "observe": "archie_sells_pearls_obs2"
+        },
+        {
+          "key": "c6",
+          "type": "narration",
+          "label": null,
+          "speaker": null,
+          "text": "They turn the pearl over once, check something on their phone, and pay. A woman walks past with a plastic bag and doesn't look up."
         },
         {
           "key": "c2",
           "type": "speaker",
           "label": null,
           "speaker": "Archie",
-          "text": "\"That's it. Job done, no biggie.\" He counts £120 into your hand. \"Most of them are that boring, luckily.\""
+          "text": "\"That's it. Job done, no biggie.\" He counts £120 into your hand. \"Most of them are that boring, luckily.\"",
+          "observe": "archie_sells_pearls_obs3"
         },
         {
           "key": "c3",
@@ -85,7 +96,9 @@
         {
           "key": "c4",
           "type": "narration",
-          "text": "What that, Archie strolls off with a smile, humming to himself."
+          "label": null,
+          "speaker": null,
+          "text": "With that, Archie strolls off with a smile, humming to himself."
         }
       ]
     }
@@ -127,7 +140,7 @@
     "elseKeys": []
   },
   "_liveSource": "prologue_archie_sells_pearls.json",
-  "_liveHash": "1311956e",
+  "_liveHash": "a8444a84",
   "observations": {
     "archie_sells_pearls_obs_1": {
       "blocks": {
@@ -135,7 +148,7 @@
           "tiers": [
             {
               "base": 0.25,
-              "text": "Archie's smile was forced. His eyes are never resting; he's nervous without a Time Pearl or some ace up his sleeve."
+              "text": "Archie's eyes keep moving, and his smile was forced, like he's trying to convince himself as well as you that everything's ok. He's still a bit nervous after the chicken shop incident."
             },
             {
               "base": 0.55,
@@ -152,10 +165,57 @@
             },
             {
               "base": 0.55,
-              "text": "There's a sense of humdrum calm, but also some nervousness in th air."
+              "text": "There's a sense of humdrum calm, but also some nervousness in the air."
             }
           ],
           "miss": "Archie seems happy to see you."
+        }
+      }
+    },
+    "archie_sells_pearls_obs2": {
+      "blocks": {
+        "physics": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "One person, relaxed shoulders, casual nod to Archie. This isn't their first purchase from Archie, and won't be their last."
+            },
+            {
+              "base": 0.55,
+              "text": "He's alone, as far as you can tell."
+            }
+          ],
+          "miss": "He gave you a nod. Should you say hi, or just nod back?"
+        },
+        "emotion": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "This feels very much like a chore to them, like picking up milk on the way home. You don't feel like trouble's brewing."
+            },
+            {
+              "base": 0.55,
+              "text": "They seem relaxed, almost disinterested."
+            }
+          ],
+          "miss": "They seem almost disinterested. Are they planning something? Do they not like you? Maybe you should have tried to give more of a cool upwards-nod when they arrived."
+        }
+      }
+    },
+    "archie_sells_pearls_obs3": {
+      "blocks": {
+        "emotion": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "Archie is visibly more relaxed. Having a second sale go smoothly has done wonders for his nerves."
+            },
+            {
+              "base": 0.55,
+              "text": "You only now realise you had a feeling of tension, which is gone now after 2 smooth sales."
+            }
+          ],
+          "miss": "Archie seems happy after the sale. Can't blame him - a couple of quid in your pocket is never a bad thing."
         }
       }
     }

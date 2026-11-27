@@ -43,7 +43,8 @@
           "type": "narration",
           "label": "{today} — Shoreditch",
           "speaker": null,
-          "text": "Archie is outside a café full of people in a rush. Archie is looking at the place the way you'd look at a parking fine. One hand stays on his inside pocket."
+          "text": "Archie is outside a café full of people in a rush. Archie is looking at the place the way you'd look at a parking fine. One hand stays on his inside pocket.",
+          "observe": "prologue_buyer_obs1"
         },
         {
           "key": "c2",
@@ -57,7 +58,7 @@
           "type": "speaker",
           "label": null,
           "speaker": "You",
-          "text": "\"That's the calc they pulled a knife over.\""
+          "text": "\"That's the calc they started the fight over last night, right?\""
         },
         {
           "key": "c4",
@@ -81,11 +82,20 @@
           "speaker": "Archie"
         },
         {
+          "key": "c13",
+          "type": "narration",
+          "label": null,
+          "speaker": null,
+          "text": "Fleece, Patagonia, very clean trainers. Marcus gives you both a handshake and a smile. Very different vibe to last night. ",
+          "image": "res://assets/events/prologue_buyer/prologue_buyer_card7.jpg",
+          "observe": "prologue_buyer_obs2"
+        },
+        {
           "key": "c5",
           "type": "choice",
           "label": null,
           "speaker": "Marcus",
-          "text": "Fleece, Patagonia, very clean trainers. Marcus examines the calc with the careful enthusiasm of someone who has recently read about it online. He puts it down. \"Eighty.\"",
+          "text": "Fleece, Patagonia, very clean trainers. Marcus gives you both a handshake and a smile. Very different vibe to last night. He examines the calc with the careful enthusiasm of someone who has recently read about it online. He puts it down. \"Eighty.\"",
           "image": "res://assets/events/prologue_buyer/prologue_buyer_card7.jpg",
           "choices": [
             {
@@ -511,6 +521,55 @@
     }
   },
   "_liveSource": "prologue_buyer.json",
-  "_liveHash": "eb1e460b"
+  "_liveHash": "4ffd11c7",
+  "observations": {
+    "prologue_buyer_obs1": {
+      "blocks": {
+        "physics": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "Archie's eyes keep scanning the crowds. His shoulders are tense, his breathing isn't relaxed. He's still on edge after last night."
+            },
+            {
+              "base": 0.55,
+              "text": "Archie's usual care-free expression is gone; he looks a bit more harried and nervous than usual."
+            }
+          ],
+          "miss": "Archie looks a bit tired. Maybe a cuppa would make him feel better."
+        },
+        "emotion": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "There's a manic sluggishness in the air as everyone rushes for caffeine before getting to work on time. There's nothing aggressive, except for those pushing to get to the barista first."
+            },
+            {
+              "base": 0.55,
+              "text": "People seem on edge, rushing in and out of cafes, buses, tube stations. It makes you feel uncomfortable."
+            }
+          ],
+          "miss": "There's an energy in the seething masses. Buggered if you know what type of energy, though."
+        }
+      }
+    },
+    "prologue_buyer_obs2": {
+      "blocks": {
+        "physics": {
+          "tiers": [
+            {
+              "base": 0.25,
+              "text": "Eye contact. Firm but polite handshake. Seems more interested in his flat white than you. Marcus isn't likely to cause any trouble."
+            },
+            {
+              "base": 0.55,
+              "text": "His body language is friendly enough. You don't get the feeling Marcus has any aggressive intent beyond haggling for a better price."
+            }
+          ],
+          "miss": "Nice haircut. You wonder how long he spends sculpting his hair in the mirror each morning."
+        }
+      }
+    }
+  }
 }
 ```

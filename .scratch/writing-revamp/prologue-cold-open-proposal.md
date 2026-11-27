@@ -155,14 +155,7 @@
           "type": "speaker",
           "label": null,
           "speaker": "Archie",
-          "text": "He's whistling, a Tesco bag hooked on one finger. \"Awright, Sherlock?\" "
-        },
-        {
-          "key": "c13",
-          "type": "narration",
-          "label": null,
-          "speaker": null,
-          "text": "You pull a face; you stopped liking that nickname when your age hit double digits."
+          "text": "He's whistling, a Tesco bag hooked on one finger. He gives you a nod and a smile as you approach."
         },
         {
           "key": "c14",
@@ -183,14 +176,14 @@
           "type": "speaker",
           "label": null,
           "speaker": "Archie",
-          "text": "\"You just stand there and use your eagle eye to spot anything troublesome.\""
+          "text": "\"You just stand there and keep your eyes peeled.\""
         },
         {
           "key": "c18",
           "type": "narration",
           "label": null,
           "speaker": null,
-          "text": "During events, you can tap here to use items, or observe. Observing can give you insights into what's happening around you, which may give you advantages."
+          "text": "During events, you can tap here to use items or observe. Observing can give you insights into what's happening around you, which may give you advantages."
         },
         {
           "key": "c19",
@@ -205,7 +198,7 @@
           "type": "choice",
           "label": null,
           "speaker": "Archie",
-          "text": "\"So then, Holmes, anything we should worry about?\"",
+          "text": "\"Spot anything we should worry about?\"",
           "choices": [
             {
               "label": "\"Nah. Probably fine.\"",

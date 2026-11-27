@@ -638,7 +638,19 @@
 		},
 		"prologue_archie_sells_pearls": {
 			"choiceCards": {},
-			"observations": {}
+			"observations": {
+				"archie_sells_pearls_obs2": {
+					"emotion": 2,
+					"physics": 2
+				},
+				"archie_sells_pearls_obs3": {
+					"emotion": 2
+				},
+				"archie_sells_pearls_obs_1": {
+					"emotion": 2,
+					"life": 2
+				}
+			}
 		},
 		"prologue_buyer": {
 			"choiceCards": {
@@ -663,7 +675,15 @@
 					"splitHalf"
 				]
 			},
-			"observations": {}
+			"observations": {
+				"prologue_buyer_obs1": {
+					"emotion": 2,
+					"physics": 2
+				},
+				"prologue_buyer_obs2": {
+					"physics": 2
+				}
+			}
 		},
 		"prologue_cold_open": {
 			"choiceCards": {
@@ -1946,7 +1966,7 @@
 					"c4"
 				],
 				"kind": "code",
-				"sha": "d1b6e72a02d39809f183d809c1f29a95f85a0a465af03b680c6f8988d3ad49b2"
+				"sha": "9e5f099da99ab8f2ec86f3f8ec7b8852dd18cd1b1b4f6ee025756aa20bf8b84c"
 			}
 		],
 		"james_experiment": [
@@ -2011,7 +2031,10 @@
 				"file": "tests/test_events.gd",
 				"keys": [
 					"c1",
-					"c2"
+					"c2",
+					"c4",
+					"c5",
+					"c6"
 				],
 				"kind": "tests",
 				"sha": ""
@@ -2030,6 +2053,7 @@
 				"file": "tests/test_events.gd",
 				"keys": [
 					"c1",
+					"c13",
 					"c2",
 					"c4",
 					"c5",
@@ -2048,7 +2072,7 @@
 					"stand"
 				],
 				"kind": "code",
-				"sha": "d1b6e72a02d39809f183d809c1f29a95f85a0a465af03b680c6f8988d3ad49b2"
+				"sha": "9e5f099da99ab8f2ec86f3f8ec7b8852dd18cd1b1b4f6ee025756aa20bf8b84c"
 			},
 			{
 				"file": "tests/test_event_content_lint.gd",
@@ -2080,7 +2104,7 @@
 					"c4"
 				],
 				"kind": "code",
-				"sha": "d1b6e72a02d39809f183d809c1f29a95f85a0a465af03b680c6f8988d3ad49b2"
+				"sha": "9e5f099da99ab8f2ec86f3f8ec7b8852dd18cd1b1b4f6ee025756aa20bf8b84c"
 			},
 			{
 				"file": "tests/test_event_content_lint.gd",
